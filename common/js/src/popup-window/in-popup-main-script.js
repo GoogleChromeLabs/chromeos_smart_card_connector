@@ -48,20 +48,9 @@ const logger = GSC.Logging.getScopedLogger('PopupWindow.InPopupMainScript');
  * @return {!Object}
  */
 GSC.InPopupMainScript.getData = function() {
-  return goog.object.get(window, 'passedData', {});
-};
-
-/**
- * Returns data passed in the url parameters during the popup creation.
- * @return {!Object}
- */
-GSC.InPopupMainScript.getUrlParams = function(urlParams) {
-  return {
-    'popup_id': parseInt(urlParams.get('popup_id'), 10),
-    'is_client_known': (urlParams.get('is_client_known') === 'true'),
-    'client_info_link': urlParams.get('client_info_link'),
-    'client_name': urlParams.get('client_name')
-  };
+  const urlParams = new URLSearchParams(window.location.search);
+  const passedData = urlParams.get('passed_data').toString();
+  return (/** @type {!Object} */ (JSON.parse(passedData)));
 };
 
 /**

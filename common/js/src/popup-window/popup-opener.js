@@ -151,7 +151,7 @@ GSC.PopupOpener.runModalDialog = function(
 
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
     lastUsedPopupId++;
-    url.searchParams.append('popup_id', lastUsedPopupId.toString());
+    opt_data['popup_id'] = lastUsedPopupId.toString();
   }
 
   const promiseResolver = goog.Promise.withResolver();
@@ -171,10 +171,8 @@ GSC.PopupOpener.runModalDialog = function(
   if (opt_data !== undefined)
     Object.assign(dataWithDialogCallbacks, opt_data);
 
-  if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
-    for (const param in opt_data) {
-      url.searchParams.append(param, opt_data[param]);
-    }
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION && opt_data) {
+    url.searchParams.append('passed_data', JSON.stringify(opt_data));
   }
 
   GSC.PopupOpener.createWindow(

@@ -64,10 +64,7 @@ const logger = GSC.Logging.getScopedLogger(
     'PcscLiteServerClientsManagement.PermissionsChecking.UserPromptDialog.' +
     'Main');
 
-const data =
-    (GSC.Packaging.MODE === GSC.Packaging.Mode.APP ?
-         GSC.InPopupMainScript.getData() :
-         GSC.InPopupMainScript.getUrlParams(urlParams));
+const data = GSC.InPopupMainScript.getData();
 
 function prepareMessage() {
   const isClientKnown = data['is_client_known'];
