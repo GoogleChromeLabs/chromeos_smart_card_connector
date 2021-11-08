@@ -72,9 +72,6 @@ const logger = GSC.Logging.getScopedLogger('PopupWindow.PopupOpener');
  */
 let lastUsedPopupId = 0;
 
-/** @const */
-GSC.PopupOpener.lastUsedPopupId = lastUsedPopupId;
-
 /**
  * Creates a new window.
  * @param {!URL} url
@@ -181,8 +178,7 @@ GSC.PopupOpener.runModalDialog = function(
         'passed_data', JSON.stringify(modifiedData));
   }
 
-  GSC.PopupOpener.createWindow(
-      modifiedUrl, createWindowOptions, modifiedData);
+  GSC.PopupOpener.createWindow(modifiedUrl, createWindowOptions, modifiedData);
 
   return promiseResolver.promise;
 };

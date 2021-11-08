@@ -84,6 +84,8 @@ GSC.InPopupMainScript.resolveModalDialog = function(result) {
   } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
     goog.global['opener'][`googleSmartCard_resolveModalDialog${
         lastUsedPopupId}`](result);
+    delete goog.global['opener'][`googleSmartCard_resolveModalDialog${
+        lastUsedPopupId}`];
   }
 
   closeWindow();
@@ -107,6 +109,8 @@ GSC.InPopupMainScript.rejectModalDialog = function(error) {
   } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
     goog.global['opener'][`googleSmartCard_rejectModalDialog${
         lastUsedPopupId}`](error);
+    delete goog.global['opener'][`googleSmartCard_rejectModalDialog${
+        lastUsedPopupId}`];
   }
 
   closeWindow();
