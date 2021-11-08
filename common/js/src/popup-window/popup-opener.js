@@ -70,7 +70,7 @@ const logger = GSC.Logging.getScopedLogger('PopupWindow.PopupOpener');
 /**
  * ID used to differentiate between different popup instances.
  */
-let currentPopupId = 0;
+let lastUsedPopupId = 0;
 
 /**
  * Creates a new window.
@@ -147,7 +147,7 @@ GSC.PopupOpener.runModalDialog = function(
   }
 
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION)
-    currentPopupId++;
+    lastUsedPopupId++;
 
   const promiseResolver = goog.Promise.withResolver();
 
@@ -158,13 +158,13 @@ GSC.PopupOpener.runModalDialog = function(
              'resolveModalDialog': promiseResolver.resolve,
              'rejectModalDialog': promiseResolver.reject
            } :
-           {'popup_id': currentPopupId});
+           {'popup_id': lastUsedPopupId});
 
   // Set promiseResolver for SCC extension mode
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
-    goog.global[`googleSmartCard_resolveModalDialog${currentPopupId}`] =
+    goog.global[`googleSmartCard_resolveModalDialog${lastUsedPopupId}`] =
         promiseResolver.resolve;
-    goog.global[`googleSmartCard_rejectModalDialog${currentPopupId}`] =
+    goog.global[`googleSmartCard_rejectModalDialog${lastUsedPopupId}`] =
         promiseResolver.reject;
   }
 
