@@ -48,9 +48,12 @@ const logger = GSC.Logging.getScopedLogger('PopupWindow.InPopupMainScript');
  * @return {!Object}
  */
 GSC.InPopupMainScript.getData = function() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const passedData = urlParams.get('passed_data').toString();
-  return (/** @type {!Object} */ (JSON.parse(passedData)));
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const passedData = /** @type {string} */ (urlParams.get('passed_data'));
+    return /** @type {!Object} */ (JSON.parse(passedData));
+  }
+  return goog.object.get(window, 'passedData', {});
 };
 
 /**
