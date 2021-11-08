@@ -154,7 +154,7 @@ GSC.PopupOpener.runModalDialog = function(
 
   const promiseResolver = goog.Promise.withResolver();
 
-  // Set promiseResolver for SCC app mode
+  // Set data for corresponnding SCC mode
   const modifiedData =
       (GSC.Packaging.MODE === GSC.Packaging.Mode.APP ?
            {
@@ -164,10 +164,12 @@ GSC.PopupOpener.runModalDialog = function(
            {'popup_id': lastUsedPopupId.toString()});
 
   // Set promiseResolver for SCC extension mode
-  goog.global[`googleSmartCard_resolveModalDialog${lastUsedPopupId}`] =
-      promiseResolver.resolve;
-  goog.global[`googleSmartCard_rejectModalDialog${lastUsedPopupId}`] =
-      promiseResolver.reject;
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    goog.global[`googleSmartCard_resolveModalDialog${lastUsedPopupId}`] =
+        promiseResolver.resolve;
+    goog.global[`googleSmartCard_rejectModalDialog${lastUsedPopupId}`] =
+        promiseResolver.reject;
+  }
 
   if (opt_data !== undefined)
     Object.assign(modifiedData, opt_data);
