@@ -64,7 +64,7 @@ GSC.InPopupMainScript.showWindow = function() {
   chrome.app.window.current().show();
 };
 
-const lastUsedPopupId = GSC.InPopupMainScript.getData()['popup_id'];
+const currentPopupId = GSC.InPopupMainScript.getData()['popup_id'];
 
 /**
  * Resolves the modal dialog, passing the specified result to the caller in the
@@ -83,9 +83,11 @@ GSC.InPopupMainScript.resolveModalDialog = function(result) {
     callback(result);
   } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
     goog.global['opener'][`googleSmartCard_resolveModalDialog${
-        lastUsedPopupId}`](result);
+        currentPopupId}`](result);
     delete goog.global['opener'][`googleSmartCard_resolveModalDialog${
-        lastUsedPopupId}`];
+        currentPopupId}`];
+    delete goog
+        .global['opener'][`googleSmartCard_rejectModalDialog${currentPopupId}`];
   }
 
   closeWindow();
@@ -107,10 +109,12 @@ GSC.InPopupMainScript.rejectModalDialog = function(error) {
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
     callback(error);
   } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
-    goog.global['opener'][`googleSmartCard_rejectModalDialog${
-        lastUsedPopupId}`](error);
-    delete goog.global['opener'][`googleSmartCard_rejectModalDialog${
-        lastUsedPopupId}`];
+    goog.global['opener'][`googleSmartCard_rejectModalDialog${currentPopupId}`](
+        error);
+    delete goog.global['opener'][`googleSmartCard_resolveModalDialog${
+        currentPopupId}`];
+    delete goog
+        .global['opener'][`googleSmartCard_rejectModalDialog${currentPopupId}`];
   }
 
   closeWindow();
