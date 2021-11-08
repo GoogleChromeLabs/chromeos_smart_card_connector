@@ -100,7 +100,7 @@ function allowClickListener(event) {
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
     GSC.InPopupMainScript.resolveModalDialog(true);
   } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
-    GSC.InPopupMainScript.resolveModalDialog(true, data['popup_id']);
+    GSC.InPopupMainScript.resolveModalDialog(true);
   }
 }
 
@@ -109,7 +109,7 @@ function denyClickListener(event) {
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
     GSC.InPopupMainScript.resolveModalDialog(false);
   } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
-    GSC.InPopupMainScript.resolveModalDialog(false, data['popup_id']);
+    GSC.InPopupMainScript.resolveModalDialog(false);
   }
 }
 

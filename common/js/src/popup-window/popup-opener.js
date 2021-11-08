@@ -149,18 +149,19 @@ GSC.PopupOpener.runModalDialog = function(
     Object.assign(createWindowOptions, opt_createWindowOptionsOverrides);
   }
 
-  if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION)
     lastUsedPopupId++;
-    opt_data['popup_id'] = lastUsedPopupId.toString();
-  }
 
   const promiseResolver = goog.Promise.withResolver();
 
   // Set promiseResolver for SCC app mode
-  const dataWithDialogCallbacks = {
-    'googleSmartCard_resolveModalDialog': promiseResolver.resolve,
-    'googleSmartCard_rejectModalDialog': promiseResolver.reject
-  };
+  const modifiedData =
+      (GSC.Packaging.MODE === GSC.Packaging.Mode.APP ?
+           {
+             'resolveModalDialog': promiseResolver.resolve,
+             'rejectModalDialog': promiseResolver.reject
+           } :
+           {'popup_id': lastUsedPopupId.toString()});
 
   // Set promiseResolver for SCC extension mode
   goog.global[`googleSmartCard_resolveModalDialog${lastUsedPopupId}`] =
@@ -169,14 +170,17 @@ GSC.PopupOpener.runModalDialog = function(
       promiseResolver.reject;
 
   if (opt_data !== undefined)
-    Object.assign(dataWithDialogCallbacks, opt_data);
+    Object.assign(modifiedData, opt_data);
 
-  if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION && opt_data) {
-    url.searchParams.append('passed_data', JSON.stringify(opt_data));
+  const modifiedUrl = new URL(url.toString());
+
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    modifiedUrl.searchParams.append(
+        'passed_data', JSON.stringify(modifiedData));
   }
 
   GSC.PopupOpener.createWindow(
-      url, createWindowOptions, dataWithDialogCallbacks);
+      modifiedUrl, createWindowOptions, modifiedData);
 
   return promiseResolver.promise;
 };
