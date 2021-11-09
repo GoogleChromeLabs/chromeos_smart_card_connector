@@ -63,6 +63,8 @@ extern "C" {
 
 #include "server_sockets_manager.h"
 
+using google_smart_card::IpcEmulation;
+
 // Returns a socket name that should be used for communication between clients
 // and daemon.
 char* getSocketName() {
@@ -86,8 +88,8 @@ INTERNAL int ClientSetupSession(uint32_t* pdwClientID) {
 
   int client_socket_file_descriptor;
   int server_socket_file_descriptor;
-  google_smart_card::ipc_emulation::Create(&client_socket_file_descriptor,
-                                           &server_socket_file_descriptor);
+  IpcEmulation::GetInstance()->CreateInMemoryFilePair(
+      &client_socket_file_descriptor, &server_socket_file_descriptor);
   *pdwClientID = static_cast<uint32_t>(client_socket_file_descriptor);
 
   // Another end of the created socket pair is passed to the daemon main run
@@ -102,15 +104,14 @@ INTERNAL int ClientSetupSession(uint32_t* pdwClientID) {
 // This function is called by the client library in order to close the
 // communication channel to the daemon.
 INTERNAL void ClientCloseSession(uint32_t dwClientID) {
-  bool is_failure = false;
   // Close the client end of the emulated socket pair.
   //
   // Note that the other end of the socket pair, owned by the daemon, is also
   // switched into the "closed" internal state.
-  google_smart_card::ipc_emulation::Close(static_cast<int>(dwClientID),
-                                          &is_failure);
-  // Discard the possible error - there is no way to return it from this
-  // function, and the error is not a fatal.
+  // Note also that any errors occurring here are discarded - there's no way to
+  // return them to the caller, and they're not fatal anyway.
+  (void)IpcEmulation::GetInstance()->CloseInMemoryFile(
+      static_cast<int>(dwClientID));
 }
 
 // This is a replacement of the close() standard function, that has to be used
@@ -119,10 +120,8 @@ INTERNAL void ClientCloseSession(uint32_t dwClientID) {
 // This function is called by the daemon in order to close the communication
 // channel to a client.
 extern "C" int ServerCloseSession(int fd) {
-  bool is_failure = false;
   // Close the daemon end of the emulated socket pair.
-  google_smart_card::ipc_emulation::Close(fd, &is_failure);
-  if (is_failure) {
+  if (!IpcEmulation::GetInstance()->CloseInMemoryFile(fd)) {
     errno = EBADF;
     return -1;
   }
@@ -152,18 +151,33 @@ INTERNAL LONG MessageReceiveTimeout(uint32_t /*command*/,
     if (milliseconds_passed > timeOut)
       return SCARD_E_TIMEOUT;
 
-    bool is_failure = false;
-
-    if (!google_smart_card::ipc_emulation::SelectForReading(
-            filedes, timeOut - milliseconds_passed, &is_failure)) {
-      return is_failure ? SCARD_F_COMM_ERROR : SCARD_E_TIMEOUT;
+    IpcEmulation::WaitResult wait_result =
+        IpcEmulation::GetInstance()->WaitForInMemoryFileCanBeRead(
+            filedes, timeOut - milliseconds_passed);
+    switch (wait_result) {
+      case IpcEmulation::WaitResult::kSuccess:
+        // No error, so proceed further.
+        break;
+      case IpcEmulation::WaitResult::kNoSuchFile:
+        return SCARD_F_COMM_ERROR;
+      case IpcEmulation::WaitResult::kTimeout:
+        return SCARD_E_TIMEOUT;
     }
 
     int64_t read_size = left_size;
-    if (!google_smart_card::ipc_emulation::Read(filedes, current_buffer_begin,
-                                                &read_size, &is_failure)) {
-      return SCARD_F_COMM_ERROR;
+    IpcEmulation::ReadResult read_result =
+        IpcEmulation::GetInstance()->ReadFromInMemoryFile(
+            filedes, current_buffer_begin, &read_size);
+    switch (read_result) {
+      case IpcEmulation::ReadResult::kSuccess:
+        // No error, so proceed further.
+        break;
+      case IpcEmulation::ReadResult::kNoSuchFile:
+        return SCARD_F_COMM_ERROR;
+      case IpcEmulation::ReadResult::kNoData:
+        GOOGLE_SMART_CARD_NOTREACHED;
     }
+
     left_size -= read_size;
     current_buffer_begin += read_size;
   }
@@ -201,10 +215,9 @@ INTERNAL LONG MessageSendWithHeader(uint32_t command,
 INTERNAL LONG MessageSend(void* buffer_void,
                           uint64_t buffer_size,
                           int32_t filedes) {
-  bool is_failure = false;
-  google_smart_card::ipc_emulation::Write(
-      filedes, static_cast<uint8_t*>(buffer_void), buffer_size, &is_failure);
-  return is_failure ? SCARD_F_COMM_ERROR : SCARD_S_SUCCESS;
+  bool success = IpcEmulation::GetInstance()->WriteToInMemoryFile(
+      filedes, static_cast<uint8_t*>(buffer_void), buffer_size);
+  return success ? SCARD_S_SUCCESS : SCARD_F_COMM_ERROR;
 }
 
 // This function reads data of the specified length from the specified socket
@@ -219,17 +232,34 @@ INTERNAL LONG MessageReceive(void* buffer_void,
   uint8_t* current_buffer_begin = static_cast<uint8_t*>(buffer_void);
   int64_t left_size = static_cast<int64_t>(buffer_size);
   while (left_size > 0) {
-    bool is_failure = false;
-
-    google_smart_card::ipc_emulation::SelectForReading(filedes, &is_failure);
-    if (is_failure)
-      return SCARD_F_COMM_ERROR;
-
-    int64_t read_size = left_size;
-    if (!google_smart_card::ipc_emulation::Read(filedes, current_buffer_begin,
-                                                &read_size, &is_failure)) {
-      return SCARD_F_COMM_ERROR;
+    using WaitResult = IpcEmulation::WaitResult;
+    WaitResult wait_result =
+        IpcEmulation::GetInstance()->WaitForInMemoryFileCanBeRead(
+            filedes, /*timeout_milliseconds=*/{});
+    switch (wait_result) {
+      case WaitResult::kSuccess:
+        // No error, so proceed further.
+        break;
+      case WaitResult::kNoSuchFile:
+        return SCARD_F_COMM_ERROR;
+      case WaitResult::kTimeout:
+        GOOGLE_SMART_CARD_NOTREACHED;
     }
+
+    using ReadResult = IpcEmulation::ReadResult;
+    int64_t read_size = left_size;
+    ReadResult read_result = IpcEmulation::GetInstance()->ReadFromInMemoryFile(
+        filedes, current_buffer_begin, &read_size);
+    switch (read_result) {
+      case ReadResult::kSuccess:
+        // No error, so proceed further.
+        break;
+      case ReadResult::kNoSuchFile:
+        return SCARD_F_COMM_ERROR;
+      case ReadResult::kNoData:
+        GOOGLE_SMART_CARD_NOTREACHED;
+    }
+
     left_size -= read_size;
     current_buffer_begin += read_size;
   }

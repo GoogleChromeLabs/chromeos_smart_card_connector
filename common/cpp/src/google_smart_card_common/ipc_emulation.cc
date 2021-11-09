@@ -20,122 +20,102 @@
 #include <deque>
 #include <limits>
 
+#include <google_smart_card_common/cpp_attributes.h>
 #include <google_smart_card_common/logging/logging.h>
+#include <google_smart_card_common/optional.h>
 
 namespace google_smart_card {
 
 namespace {
 
-constexpr char kLoggingPrefix[] = "[emulated domain socket] ";
+constexpr char kLoggingPrefix[] = "[emulated IPC] ";
 
-IpcEmulationManager* g_ipc_emulation_manager = nullptr;
+IpcEmulation* g_ipc_emulation = nullptr;
 
 }  // namespace
 
-class IpcEmulationManager::Socket final {
+class IpcEmulation::InMemoryFile final {
  public:
-  explicit Socket(int file_descriptor) : file_descriptor_(file_descriptor) {
-    GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "A socket "
-                                << file_descriptor << " is created";
+  explicit InMemoryFile(int file_descriptor)
+      : file_descriptor_(file_descriptor) {
+    GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "An in-memory file "
+                                << file_descriptor << " was created";
   }
 
-  Socket(const Socket&) = delete;
-  Socket& operator=(const Socket&) = delete;
+  InMemoryFile(const InMemoryFile&) = delete;
+  InMemoryFile& operator=(const InMemoryFile&) = delete;
 
-  ~Socket() {
-    GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "The socket "
-                                << file_descriptor() << " is destroyed";
+  ~InMemoryFile() {
+    GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "The in-memory file "
+                                << file_descriptor() << " was destroyed";
     GOOGLE_SMART_CARD_CHECK(is_closed_);
   }
 
   int file_descriptor() const { return file_descriptor_; }
 
-  void SetOtherEnd(std::weak_ptr<Socket> other_end) {
+  void SetOtherEnd(std::weak_ptr<InMemoryFile> other_end) {
     GOOGLE_SMART_CARD_CHECK(!other_end.expired());
     GOOGLE_SMART_CARD_CHECK(other_end_.expired());
     other_end_ = other_end;
     GOOGLE_SMART_CARD_LOG_DEBUG
-        << kLoggingPrefix << "The socket " << file_descriptor()
-        << " is connected to the emulated domain socket "
+        << kLoggingPrefix << "The in-memory file " << file_descriptor()
+        << " connected to the in-memory file "
         << other_end_.lock()->file_descriptor();
   }
 
   void Close() {
     if (SetIsClosed()) {
-      const std::shared_ptr<Socket> locked_other_end = other_end_.lock();
+      const std::shared_ptr<InMemoryFile> locked_other_end = other_end_.lock();
       if (locked_other_end)
         locked_other_end->SetIsClosed();
     }
   }
 
-  void Write(const uint8_t* data, int64_t size, bool* is_failure) {
+  bool Write(const uint8_t* data, int64_t size) {
     GOOGLE_SMART_CARD_CHECK(size >= 0);
     if (!size)
-      return;
+      return true;
     GOOGLE_SMART_CARD_CHECK(data);
-    const std::shared_ptr<Socket> locked_other_end = other_end_.lock();
-    if (!locked_other_end) {
-      *is_failure = true;
-      GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Writing to the "
-                                  << "socket " << file_descriptor()
-                                  << " failed: the other end has "
-                                  << "already been closed and destroyed";
-      return;
-    }
-    locked_other_end->PushToReadBuffer(data, size, is_failure);
+    const std::shared_ptr<InMemoryFile> locked_other_end = other_end_.lock();
+    if (!locked_other_end)
+      return false;
+    return locked_other_end->PushToReadBuffer(data, size);
   }
 
-  void SelectForReading(bool* is_failure) {
-    std::unique_lock<std::mutex> lock(mutex_);
-    condition_.wait(lock,
-                    [this]() { return is_closed_ || !read_buffer_.empty(); });
-    if (is_closed_) {
-      *is_failure = true;
-      GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Selecting from the "
-                                  << "socket " << file_descriptor()
-                                  << " failed: the socket has "
-                                  << "already been closed";
-    }
-  }
-
-  bool SelectForReading(int64_t timeout_milliseconds, bool* is_failure) {
-    GOOGLE_SMART_CARD_CHECK(timeout_milliseconds >= 0);
+  IpcEmulation::WaitResult WaitUntilCanBeRead(
+      optional<int64_t> timeout_milliseconds)
+      GOOGLE_SMART_CARD_WARN_UNUSED_RESULT {
+    GOOGLE_SMART_CARD_CHECK(!timeout_milliseconds ||
+                            *timeout_milliseconds >= 0);
     std::unique_lock<std::mutex> lock(mutex_);
     condition_.wait_for(
-        lock, std::chrono::milliseconds(timeout_milliseconds),
+        lock,
+        timeout_milliseconds ? std::chrono::milliseconds(*timeout_milliseconds)
+                             : std::chrono::milliseconds::max(),
         [this]() { return is_closed_ || !read_buffer_.empty(); });
-    if (is_closed_) {
-      *is_failure = true;
-      GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Selecting from the "
-                                  << "socket " << file_descriptor()
-                                  << " failed: the socket has "
-                                  << "already been closed";
-      return false;
-    }
-    return !read_buffer_.empty();
+    if (is_closed_)
+      return IpcEmulation::WaitResult::kNoSuchFile;
+    if (read_buffer_.empty())
+      return IpcEmulation::WaitResult::kTimeout;
+    return IpcEmulation::WaitResult::kSuccess;
   }
 
-  bool Read(uint8_t* buffer, int64_t* in_out_size, bool* is_failure) {
+  IpcEmulation::ReadResult Read(uint8_t* buffer, int64_t* in_out_size)
+      GOOGLE_SMART_CARD_WARN_UNUSED_RESULT {
     GOOGLE_SMART_CARD_CHECK(buffer);
     GOOGLE_SMART_CARD_CHECK(*in_out_size > 0);
     std::unique_lock<std::mutex> lock(mutex_);
-    if (is_closed_) {
-      *is_failure = true;
-      GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Reading from the "
-                                  << "socket " << file_descriptor()
-                                  << " failed: the socket has "
-                                  << "already been closed";
-      return false;
-    }
+    if (is_closed_)
+      return IpcEmulation::ReadResult::kNoSuchFile;
     if (read_buffer_.empty())
-      return false;
+      return IpcEmulation::ReadResult::kNoData;
     *in_out_size =
         std::min(*in_out_size, static_cast<int64_t>(read_buffer_.size()));
     std::copy(read_buffer_.begin(), read_buffer_.begin() + *in_out_size,
               buffer);
     read_buffer_.erase(read_buffer_.begin(),
                        read_buffer_.begin() + *in_out_size);
-    return true;
+    return IpcEmulation::ReadResult::kSuccess;
   }
 
  private:
@@ -144,148 +124,108 @@ class IpcEmulationManager::Socket final {
     if (is_closed_)
       return false;
     is_closed_ = true;
-    GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "The socket "
-                                << file_descriptor() << " is closed";
+    GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "The in-memory file "
+                                << file_descriptor() << " was closed";
     condition_.notify_all();
     return true;
   }
 
-  void PushToReadBuffer(const uint8_t* data, int64_t size, bool* is_failure) {
+  bool PushToReadBuffer(const uint8_t* data,
+                        int64_t size) GOOGLE_SMART_CARD_WARN_UNUSED_RESULT {
     const std::unique_lock<std::mutex> lock(mutex_);
-    if (is_closed_) {
-      *is_failure = true;
-      GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Failed to push data "
-                                  << "into the socket " << file_descriptor()
-                                  << ": the socket is "
-                                  << "already closed";
-      return;
-    }
+    if (is_closed_)
+      return false;
     read_buffer_.insert(read_buffer_.end(), data, data + size);
     condition_.notify_all();
+    return true;
   }
 
   const int file_descriptor_;
   mutable std::mutex mutex_;
   std::condition_variable condition_;
   bool is_closed_ = false;
-  std::weak_ptr<Socket> other_end_;
+  std::weak_ptr<InMemoryFile> other_end_;
   std::deque<uint8_t> read_buffer_;
 };
 
 // static
-void IpcEmulationManager::CreateGlobalInstance() {
-  GOOGLE_SMART_CARD_CHECK(!g_ipc_emulation_manager);
-  g_ipc_emulation_manager = new IpcEmulationManager;
+void IpcEmulation::CreateGlobalInstance() {
+  GOOGLE_SMART_CARD_CHECK(!g_ipc_emulation);
+  g_ipc_emulation = new IpcEmulation;
 }
 
 // static
-IpcEmulationManager* IpcEmulationManager::GetInstance() {
-  GOOGLE_SMART_CARD_CHECK(g_ipc_emulation_manager);
-  return g_ipc_emulation_manager;
+IpcEmulation* IpcEmulation::GetInstance() {
+  GOOGLE_SMART_CARD_CHECK(g_ipc_emulation);
+  return g_ipc_emulation;
 }
 
-void IpcEmulationManager::Create(int* file_descriptor_1,
-                                 int* file_descriptor_2) {
+void IpcEmulation::CreateInMemoryFilePair(int* file_descriptor_1,
+                                          int* file_descriptor_2) {
   GOOGLE_SMART_CARD_CHECK(file_descriptor_1);
   GOOGLE_SMART_CARD_CHECK(file_descriptor_2);
   *file_descriptor_1 = GenerateNewFileDescriptor();
   *file_descriptor_2 = GenerateNewFileDescriptor();
-  std::shared_ptr<Socket> socket_1(new Socket(*file_descriptor_1));
-  std::shared_ptr<Socket> socket_2(new Socket(*file_descriptor_2));
-  socket_1->SetOtherEnd(socket_2);
-  socket_2->SetOtherEnd(socket_1);
-  AddSocket(std::move(socket_1));
-  AddSocket(std::move(socket_2));
+  std::shared_ptr<InMemoryFile> file_1(new InMemoryFile(*file_descriptor_1));
+  std::shared_ptr<InMemoryFile> file_2(new InMemoryFile(*file_descriptor_2));
+  file_1->SetOtherEnd(file_2);
+  file_2->SetOtherEnd(file_1);
+  AddFile(std::move(file_1));
+  AddFile(std::move(file_2));
 }
 
-void IpcEmulationManager::Close(int file_descriptor, bool* is_failure) {
+bool IpcEmulation::CloseInMemoryFile(int file_descriptor) {
   const std::unique_lock<std::mutex> lock(mutex_);
-  const auto socket_map_iter = socket_map_.find(file_descriptor);
-  if (socket_map_iter == socket_map_.end()) {
-    *is_failure = true;
-    GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Closing of the socket "
-                                << file_descriptor
-                                << " failed: the requested socket is "
-                                << "already "
-                                << "destroyed or never existed";
-  }
-  socket_map_iter->second->Close();
-  socket_map_.erase(socket_map_iter);
-}
-
-void IpcEmulationManager::Write(int file_descriptor,
-                                const uint8_t* data,
-                                int64_t size,
-                                bool* is_failure) {
-  const std::shared_ptr<Socket> socket =
-      FindSocketByFileDescriptor(file_descriptor);
-  if (!socket) {
-    *is_failure = true;
-    GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Writing to the socket "
-                                << file_descriptor
-                                << " failed: the requested socket is already "
-                                << "destroyed or never existed";
-    return;
-  }
-  socket->Write(data, size, is_failure);
-}
-
-void IpcEmulationManager::SelectForReading(int file_descriptor,
-                                           bool* is_failure) {
-  const std::shared_ptr<Socket> socket =
-      FindSocketByFileDescriptor(file_descriptor);
-  if (!socket) {
-    *is_failure = true;
-    GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Selecting from the "
-                                << "socket " << file_descriptor
-                                << " failed: the requested socket is "
-                                << "already destroyed or never existed";
-    return;
-  }
-  socket->SelectForReading(is_failure);
-}
-
-bool IpcEmulationManager::SelectForReading(int file_descriptor,
-                                           int64_t timeout_milliseconds,
-                                           bool* is_failure) {
-  const std::shared_ptr<Socket> socket =
-      FindSocketByFileDescriptor(file_descriptor);
-  if (!socket) {
-    *is_failure = true;
-    GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Selecting from the "
-                                << "socket " << file_descriptor
-                                << " failed: the requested socket is "
-                                << "already destroyed or never existed";
+  const auto iter = file_descriptor_to_file_map_.find(file_descriptor);
+  if (iter == file_descriptor_to_file_map_.end())
     return false;
-  }
-  return socket->SelectForReading(timeout_milliseconds, is_failure);
-}
-
-bool IpcEmulationManager::Read(int file_descriptor,
-                               uint8_t* buffer,
-                               int64_t* in_out_size,
-                               bool* is_failure) {
-  const std::shared_ptr<Socket> socket =
-      FindSocketByFileDescriptor(file_descriptor);
-  if (!socket) {
-    *is_failure = true;
-    GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Reading from the "
-                                << "socket " << file_descriptor
-                                << " failed: the requested socket is "
-                                << "already destroyed or never existed";
-    return false;
-  }
-  if (!socket->Read(buffer, in_out_size, is_failure))
-    return false;
-  GOOGLE_SMART_CARD_CHECK(*in_out_size > 0);
+  iter->second->Close();
+  file_descriptor_to_file_map_.erase(iter);
+  // Return true regardless of the `is_closed_` flag of the closed file: we're
+  // removing the file from the map after closing it, and thanks to the mutex
+  // here there's no other thread that could close it or its other endpoint
+  // concurrently.
   return true;
 }
 
-IpcEmulationManager::IpcEmulationManager() = default;
+bool IpcEmulation::WriteToInMemoryFile(int file_descriptor,
+                                       const uint8_t* data,
+                                       int64_t size) {
+  const std::shared_ptr<InMemoryFile> file =
+      FindFileByDescriptor(file_descriptor);
+  if (!file)
+    return false;
+  return file->Write(data, size);
+}
 
-IpcEmulationManager::~IpcEmulationManager() = default;
+IpcEmulation::WaitResult IpcEmulation::WaitForInMemoryFileCanBeRead(
+    int file_descriptor,
+    optional<int64_t> timeout_milliseconds) {
+  const std::shared_ptr<InMemoryFile> file =
+      FindFileByDescriptor(file_descriptor);
+  if (!file)
+    return WaitResult::kNoSuchFile;
+  return file->WaitUntilCanBeRead(timeout_milliseconds);
+}
 
-int IpcEmulationManager::GenerateNewFileDescriptor() {
+IpcEmulation::ReadResult IpcEmulation::ReadFromInMemoryFile(
+    int file_descriptor,
+    uint8_t* buffer,
+    int64_t* in_out_size) {
+  const std::shared_ptr<InMemoryFile> file =
+      FindFileByDescriptor(file_descriptor);
+  if (!file)
+    return ReadResult::kNoSuchFile;
+  ReadResult read_result = file->Read(buffer, in_out_size);
+  GOOGLE_SMART_CARD_CHECK(*in_out_size > 0);
+  return read_result;
+}
+
+IpcEmulation::IpcEmulation() = default;
+
+IpcEmulation::~IpcEmulation() = default;
+
+int IpcEmulation::GenerateNewFileDescriptor() {
   const std::unique_lock<std::mutex> lock(mutex_);
   const int file_descriptor = next_free_file_descriptor_;
   GOOGLE_SMART_CARD_CHECK(file_descriptor < std::numeric_limits<int>::max());
@@ -293,63 +233,23 @@ int IpcEmulationManager::GenerateNewFileDescriptor() {
   return file_descriptor;
 }
 
-void IpcEmulationManager::AddSocket(std::shared_ptr<Socket> socket) {
-  GOOGLE_SMART_CARD_CHECK(socket);
-  GOOGLE_SMART_CARD_CHECK(socket.unique());
+void IpcEmulation::AddFile(std::shared_ptr<InMemoryFile> file) {
+  GOOGLE_SMART_CARD_CHECK(file);
+  GOOGLE_SMART_CARD_CHECK(file.unique());
   const std::unique_lock<std::mutex> lock(mutex_);
-  const int file_descriptor = socket->file_descriptor();
+  const int file_descriptor = file->file_descriptor();
   GOOGLE_SMART_CARD_CHECK(
-      socket_map_.emplace(file_descriptor, std::move(socket)).second);
+      file_descriptor_to_file_map_.emplace(file_descriptor, std::move(file))
+          .second);
 }
 
-std::shared_ptr<IpcEmulationManager::Socket>
-IpcEmulationManager::FindSocketByFileDescriptor(int file_descriptor) const {
+std::shared_ptr<IpcEmulation::InMemoryFile> IpcEmulation::FindFileByDescriptor(
+    int file_descriptor) const {
   const std::unique_lock<std::mutex> lock(mutex_);
-  const auto socket_map_iter = socket_map_.find(file_descriptor);
-  if (socket_map_iter == socket_map_.end())
+  const auto iter = file_descriptor_to_file_map_.find(file_descriptor);
+  if (iter == file_descriptor_to_file_map_.end())
     return {};
-  return socket_map_iter->second;
+  return iter->second;
 }
-
-namespace ipc_emulation {
-
-void Create(int* file_descriptor_1, int* file_descriptor_2) {
-  IpcEmulationManager::GetInstance()->Create(file_descriptor_1,
-                                             file_descriptor_2);
-}
-
-void Close(int file_descriptor, bool* is_failure) {
-  IpcEmulationManager::GetInstance()->Close(file_descriptor, is_failure);
-}
-
-void Write(int file_descriptor,
-           const uint8_t* data,
-           int64_t size,
-           bool* is_failure) {
-  IpcEmulationManager::GetInstance()->Write(file_descriptor, data, size,
-                                            is_failure);
-}
-
-void SelectForReading(int file_descriptor, bool* is_failure) {
-  IpcEmulationManager::GetInstance()->SelectForReading(file_descriptor,
-                                                       is_failure);
-}
-
-bool SelectForReading(int file_descriptor,
-                      int64_t timeout_milliseconds,
-                      bool* is_failure) {
-  return IpcEmulationManager::GetInstance()->SelectForReading(
-      file_descriptor, timeout_milliseconds, is_failure);
-}
-
-bool Read(int file_descriptor,
-          uint8_t* buffer,
-          int64_t* in_out_size,
-          bool* is_failure) {
-  return IpcEmulationManager::GetInstance()->Read(file_descriptor, buffer,
-                                                  in_out_size, is_failure);
-}
-
-}  // namespace ipc_emulation
 
 }  // namespace google_smart_card
