@@ -30,7 +30,7 @@ namespace {
 
 constexpr char kLoggingPrefix[] = "[emulated IPC] ";
 
-IpcEmulation* g_ipc_emulation_manager = nullptr;
+IpcEmulation* g_ipc_emulation = nullptr;
 
 }  // namespace
 
@@ -39,7 +39,7 @@ class IpcEmulation::InMemoryFile final {
   explicit InMemoryFile(int file_descriptor)
       : file_descriptor_(file_descriptor) {
     GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "An in-memory file "
-                                << file_descriptor << " is created";
+                                << file_descriptor << " was created";
   }
 
   InMemoryFile(const InMemoryFile&) = delete;
@@ -47,7 +47,7 @@ class IpcEmulation::InMemoryFile final {
 
   ~InMemoryFile() {
     GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "The in-memory file "
-                                << file_descriptor() << " is destroyed";
+                                << file_descriptor() << " was destroyed";
     GOOGLE_SMART_CARD_CHECK(is_closed_);
   }
 
@@ -59,7 +59,7 @@ class IpcEmulation::InMemoryFile final {
     other_end_ = other_end;
     GOOGLE_SMART_CARD_LOG_DEBUG
         << kLoggingPrefix << "The in-memory file " << file_descriptor()
-        << " is connected to the emulated domain in-memory file "
+        << " connected to the in-memory file "
         << other_end_.lock()->file_descriptor();
   }
 
@@ -125,7 +125,7 @@ class IpcEmulation::InMemoryFile final {
       return false;
     is_closed_ = true;
     GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "The in-memory file "
-                                << file_descriptor() << " is closed";
+                                << file_descriptor() << " was closed";
     condition_.notify_all();
     return true;
   }
@@ -150,14 +150,14 @@ class IpcEmulation::InMemoryFile final {
 
 // static
 void IpcEmulation::CreateGlobalInstance() {
-  GOOGLE_SMART_CARD_CHECK(!g_ipc_emulation_manager);
-  g_ipc_emulation_manager = new IpcEmulation;
+  GOOGLE_SMART_CARD_CHECK(!g_ipc_emulation);
+  g_ipc_emulation = new IpcEmulation;
 }
 
 // static
 IpcEmulation* IpcEmulation::GetInstance() {
-  GOOGLE_SMART_CARD_CHECK(g_ipc_emulation_manager);
-  return g_ipc_emulation_manager;
+  GOOGLE_SMART_CARD_CHECK(g_ipc_emulation);
+  return g_ipc_emulation;
 }
 
 void IpcEmulation::CreateInMemoryFilePair(int* file_descriptor_1,
