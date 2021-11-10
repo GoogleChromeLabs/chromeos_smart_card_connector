@@ -22,6 +22,7 @@
 #define GOOGLE_SMART_CARD_COMMON_IPC_EMULATION_H_
 
 #include <stdint.h>
+#include <sys/types.h>
 
 #include <memory>
 #include <mutex>
@@ -60,6 +61,9 @@ class IpcEmulation final {
   //
   // Note: This function is not thread-safe!
   static void CreateGlobalInstance();
+  // Destroys the singleton instance created by `CreateGlobalInstance()`.
+  // Non-thread-safe.
+  static void DestroyGlobalInstanceForTesting();
   // Returns a previously created singleton instance of this class.
   //
   // Note: This function is not thread-safe!
@@ -67,7 +71,9 @@ class IpcEmulation final {
 
   // Creates a pair of in-memory files that are linked with each other (data
   // written into one can be read from another).
-  void CreateInMemoryFilePair(int* file_descriptor_1, int* file_descriptor_2);
+  void CreateInMemoryFilePair(int* file_descriptor_1,
+                              int* file_descriptor_2,
+                              bool reads_should_block);
 
   // Closes the file descriptor.
   //
@@ -125,5 +131,39 @@ class IpcEmulation final {
 };
 
 }  // namespace google_smart_card
+
+// Global functions that are wrappers around the `IpcEmulation` class. They are
+// needed when we want to be called from C code; C++ code should use the class
+// directly instead.
+extern "C" {
+
+// Fake implementation of pipe().
+//
+// It creates a pair of fake file descriptors using the `IpcEmulation` class.
+//
+// The background is that the standard library implementation of `pipe()` under
+// Emscripten has poor semantics: it always creates a nonblocking pipe, despite
+// that the `O_NONBLOCK` flag is not passed (and ).
+int GoogleSmartCardIpcEmulationPipe(int pipefd[2]);
+
+// Fake implementation of `write()`.
+//
+// It only supports the fake file descriptors that are created via helpers in
+// this file.
+ssize_t GoogleSmartCardIpcEmulationWrite(int fd, const void* buf, size_t count);
+
+// Fake implementation of `read()`.
+//
+// It only supports the fake file descriptors that are created via helpers in
+// this file.
+ssize_t GoogleSmartCardIpcEmulationRead(int fd, void* buf, size_t count);
+
+// Fake implementation of `close()`.
+//
+// It only supports the fake file descriptors that are created via helpers in
+// this file.
+int GoogleSmartCardIpcEmulationClose(int fd);
+
+}  // extern "C"
 
 #endif  // GOOGLE_SMART_CARD_COMMON_IPC_EMULATION_H_
