@@ -87,12 +87,17 @@ class IpcEmulation::InMemoryFile final {
       GOOGLE_SMART_CARD_WARN_UNUSED_RESULT {
     GOOGLE_SMART_CARD_CHECK(!timeout_milliseconds ||
                             *timeout_milliseconds >= 0);
+    auto wait_criteria = [this]() {
+      return is_closed_ || !read_buffer_.empty();
+    };
     std::unique_lock<std::mutex> lock(mutex_);
-    condition_.wait_for(
-        lock,
-        timeout_milliseconds ? std::chrono::milliseconds(*timeout_milliseconds)
-                             : std::chrono::milliseconds::max(),
-        [this]() { return is_closed_ || !read_buffer_.empty(); });
+    if (timeout_milliseconds) {
+      condition_.wait_for(lock,
+                          std::chrono::milliseconds(*timeout_milliseconds),
+                          wait_criteria);
+    } else {
+      condition_.wait(lock, wait_criteria);
+    }
     if (is_closed_)
       return IpcEmulation::WaitResult::kNoSuchFile;
     if (read_buffer_.empty())
