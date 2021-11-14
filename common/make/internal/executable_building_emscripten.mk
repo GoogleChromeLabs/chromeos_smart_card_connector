@@ -68,12 +68,9 @@ endef
 # Flags passed to the Emscripten compiler and linker tools.
 #
 # Explanation:
-# bind: Enables "Embind" (the technology used by our C++ wrappers for talking
-#   with JavaScript).
 # pthread: Enables Pthreads support (for C/C++ multi-threading, etc.).
 # DISABLE_EXCEPTION_CATCHING: Enable support for C++ exceptions.
 EMSCRIPTEN_COMMON_FLAGS := \
-  --bind \
   -pthread \
   -s DISABLE_EXCEPTION_CATCHING=0 \
 
@@ -85,6 +82,8 @@ EMSCRIPTEN_COMPILER_FLAGS := \
 # `EMSCRIPTEN_COMMON_FLAGS`.
 #
 # Explanation:
+# bind: Enables "Embind" (the technology used by our C++ wrappers for talking
+#   with JavaScript).
 # ABORTING_MALLOC: Immediately abort on memory allocation failures (instead of
 #   letting malloc and similar return null, which is the default behavior with
 #   ALLOW_MEMORY_GROWTH=1).
@@ -100,6 +99,7 @@ EMSCRIPTEN_COMPILER_FLAGS := \
 # no-pthreads-mem-growth: Suppress the linker warning about the performance of
 #   the "Pthreads + ALLOW_MEMORY_GROWTH" combination.
 EMSCRIPTEN_LINKER_FLAGS := \
+  --bind \
   -s ABORTING_MALLOC=1 \
   -s ALLOW_MEMORY_GROWTH=1 \
   -s DYNAMIC_EXECUTION=0 \

@@ -27,21 +27,35 @@
 #include <mutex>
 #include <unordered_map>
 
+#include <google_smart_card_common/cpp_attributes.h>
+#include <google_smart_card_common/optional.h>
+
 namespace google_smart_card {
 
-// This class provides an interface for creating and operating emulated socket
-// pairs.
+// This class provides an emulated replacement for some IPC (inter-process
+// communication) primitives.
 //
 // Please note that file descriptors which are provided by this class are not
 // real ones: they can only be used with methods of this class.
 //
 // Also note that the generated file descriptors are not re-used by this class,
-// so the emulated sockets may be created only about 2^^31 times (which should
+// so the in-memory files may be created only about 2^^31 times (which should
 // be enough for most purposes, given that the generation of a new emulated
 // socket pair is requested only when a client opens a new connection to the
 // server).
-class IpcEmulationManager final {
+class IpcEmulation final {
  public:
+  enum class WaitResult {
+    kSuccess,
+    kNoSuchFile,
+    kTimeout,
+  };
+  enum class ReadResult {
+    kSuccess,
+    kNoSuchFile,
+    kNoData,
+  };
+
   // Creates a singleton instance of this class.
   //
   // Note: This function is not thread-safe!
@@ -49,110 +63,66 @@ class IpcEmulationManager final {
   // Returns a previously created singleton instance of this class.
   //
   // Note: This function is not thread-safe!
-  static IpcEmulationManager* GetInstance();
+  static IpcEmulation* GetInstance();
 
-  // Creates a new socket pair, and returns file descriptors corresponding to
-  // the both ends.
-  void Create(int* file_descriptor_1, int* file_descriptor_2);
+  // Creates a pair of in-memory files that are linked with each other (data
+  // written into one can be read from another).
+  void CreateInMemoryFilePair(int* file_descriptor_1, int* file_descriptor_2);
 
   // Closes the file descriptor.
   //
-  // If the specified file descriptor is unknown (or already closed), the error
-  // is reported through the is_failure argument.
-  void Close(int file_descriptor, bool* is_failure);
+  // Returns false if the specified file descriptor is unknown or already
+  // closed.
+  bool CloseInMemoryFile(int file_descriptor)
+      GOOGLE_SMART_CARD_WARN_UNUSED_RESULT;
 
-  // Write the data into the specified end of a previously created socket pair.
+  // Write the data into the specified file descriptor. This makes the data
+  // available on the other end of the file descriptor pair.
   //
-  // If the specified file descriptor is unknown (or already closed), the error
-  // is reported through the is_failure argument.
-  void Write(int file_descriptor,
-             const uint8_t* data,
-             int64_t size,
-             bool* is_failure);
+  // Returns false if the specified file descriptor is unknown or already
+  // closed.
+  bool WriteToInMemoryFile(int file_descriptor,
+                           const uint8_t* data,
+                           int64_t size) GOOGLE_SMART_CARD_WARN_UNUSED_RESULT;
 
-  // Blocks until any data becomes available at the specified end of the socket
-  // pair.
-  //
-  // If the specified file descriptor is unknown (or already closed), the error
-  // is reported through the is_failure argument.
-  void SelectForReading(int file_descriptor, bool* is_failure);
-  // Blocks until any data becomes available at the specified end of the socket
-  // pair, or the specified timeout passes.
-  //
-  // The returned value is true when function returns because the data became
-  // available.
-  //
-  // If the specified file descriptor is unknown (or already closed), the error
-  // is reported through the is_failure argument.
-  bool SelectForReading(int file_descriptor,
-                        int64_t timeout_milliseconds,
-                        bool* is_failure);
+  // Blocks until any data becomes available for reading from the given file, or
+  // the specified timeout passes, or an error occurs.
+  WaitResult WaitForInMemoryFileCanBeRead(
+      int file_descriptor,
+      optional<int64_t> timeout_milliseconds)
+      GOOGLE_SMART_CARD_WARN_UNUSED_RESULT;
 
   // Reads specified number of bytes from the specified end of the socket pair.
+  // Does *not* block until the data becomes available.
   //
-  // The returned value is true if at least one byte of data was successfully
-  // read.
+  // The returned result is successful if at least one byte of data was read.
   //
   // The actual number of read bytes is returned through the input-output
-  // in_out_size argument.
-  //
-  // If the specified file descriptor is unknown (or already closed), the error
-  // is reported through the is_failure argument.
-  bool Read(int file_descriptor,
-            uint8_t* buffer,
-            int64_t* in_out_size,
-            bool* is_failure);
+  // `in_out_size` argument.
+  ReadResult ReadFromInMemoryFile(int file_descriptor,
+                                  uint8_t* buffer,
+                                  int64_t* in_out_size)
+      GOOGLE_SMART_CARD_WARN_UNUSED_RESULT;
 
  private:
-  class Socket;
+  class InMemoryFile;
 
-  IpcEmulationManager();
-  IpcEmulationManager(const IpcEmulationManager&) = delete;
-  IpcEmulationManager& operator=(const IpcEmulationManager&) = delete;
-  ~IpcEmulationManager();
+  IpcEmulation();
+  IpcEmulation(const IpcEmulation&) = delete;
+  IpcEmulation& operator=(const IpcEmulation&) = delete;
+  ~IpcEmulation();
 
   int GenerateNewFileDescriptor();
 
-  void AddSocket(std::shared_ptr<Socket> socket);
+  void AddFile(std::shared_ptr<InMemoryFile> file);
 
-  std::shared_ptr<Socket> FindSocketByFileDescriptor(int file_descriptor) const;
+  std::shared_ptr<InMemoryFile> FindFileByDescriptor(int file_descriptor) const;
 
   mutable std::mutex mutex_;
   int next_free_file_descriptor_ = 1;
-  std::unordered_map<int, const std::shared_ptr<Socket>> socket_map_;
+  std::unordered_map<int, const std::shared_ptr<InMemoryFile>>
+      file_descriptor_to_file_map_;
 };
-
-namespace ipc_emulation {
-
-//
-// The following group of functions correspond to the methods of the
-// IpcEmulationManager class.
-//
-// It is assumed that a global instance of the IpcEmulationManager class was
-// previously created (see the `IpcEmulationManager::CreateGlobalInstance()`
-// method).
-//
-
-void Create(int* file_descriptor_1, int* file_descriptor_2);
-
-void Close(int file_descriptor, bool* is_failure);
-
-void Write(int file_descriptor,
-           const uint8_t* data,
-           int64_t size,
-           bool* is_failure);
-
-void SelectForReading(int file_descriptor, bool* is_failure);
-bool SelectForReading(int file_descriptor,
-                      int64_t timeout_milliseconds,
-                      bool* is_failure);
-
-bool Read(int file_descriptor,
-          uint8_t* buffer,
-          int64_t* in_out_size,
-          bool* is_failure);
-
-}  // namespace ipc_emulation
 
 }  // namespace google_smart_card
 

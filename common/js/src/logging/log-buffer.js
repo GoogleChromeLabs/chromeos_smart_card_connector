@@ -99,8 +99,12 @@ LogBuffer.attachBufferToLogger = function(logBuffer, logger, documentLocation) {
   // instances of Closure Library: one in our page and another in the buffer's
   // page. We want the current page's instance to register the buffer, since
   // it's where the `logger`s messages are handled.
-  goog.log.addHandler(
-      logger, logBuffer.onLogRecordObserved_.bind(logBuffer, documentLocation));
+  // We also have to access the method by indexing the properties, since due to
+  // method renaming the shortened method name in our page might differ from the
+  // one in the `logBuffer`s page.
+  const handler =
+      logBuffer['onLogRecordObserved_'].bind(logBuffer, documentLocation);
+  goog.log.addHandler(logger, handler);
 };
 
 goog.exportProperty(
@@ -209,15 +213,22 @@ LogBuffer.prototype.removeObserver = function(observer) {
 LogBuffer.prototype.copyToOtherBuffer = function(otherLogBuffer) {
   if (this.isDisposed())
     return;
-
   // Take a snapshot before copying, to protect against new items being appended
   // while we're iterating over old ones.
   const state = this.getState();
 
+  // Note: accessing the member function by indexing the properties, in order to
+  // avoid issues due to the code minification. When `this` and `otherLogBuffer`
+  // are coming from two different pages, we want to run the function from the
+  // `otherLogBuffer`s page; failing to do so may cause subtle errors, as
+  // property names in two pages might be shortened in two different ways by the
+  // compiler.
+  const logCopier =
+      otherLogBuffer['addFormattedLogRecord_'].bind(otherLogBuffer);
   for (const formattedLogRecord of state['formattedLogsPrefix'])
-    otherLogBuffer.addFormattedLogRecord_(formattedLogRecord);
+    logCopier(formattedLogRecord);
   for (const formattedLogRecord of state['formattedLogsSuffix'])
-    otherLogBuffer.addFormattedLogRecord_(formattedLogRecord);
+    logCopier(formattedLogRecord);
 };
 
 /**
@@ -238,6 +249,10 @@ LogBuffer.prototype.onLogRecordObserved_ = function(
   this.addFormattedLogRecord_(formattedLogRecord);
 };
 
+goog.exportProperty(
+    LogBuffer.prototype, 'onLogRecordObserved_',
+    LogBuffer.prototype.onLogRecordObserved_);
+
 /**
  * @param {string} formattedLogRecord
  * @private
@@ -252,4 +267,8 @@ LogBuffer.prototype.addFormattedLogRecord_ = function(formattedLogRecord) {
     this.formattedLogsSuffix_.add(formattedLogRecord);
   ++this.size_;
 };
+
+goog.exportProperty(
+    LogBuffer.prototype, 'addFormattedLogRecord_',
+    LogBuffer.prototype.addFormattedLogRecord_);
 });  // goog.scope
