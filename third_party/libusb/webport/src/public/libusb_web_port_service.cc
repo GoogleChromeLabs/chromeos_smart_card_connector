@@ -14,7 +14,7 @@
 // License along with this library; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#include <google_smart_card_libusb/global.h>
+#include "libusb_web_port_service.h"
 
 #include <utility>
 
@@ -34,7 +34,7 @@ namespace {
 // that is used by the implementation of libusb_* functions in this library.
 google_smart_card::LibusbInterface* g_libusb = nullptr;
 
-google_smart_card::LibusbInterface* GetGlobalLibusb() {
+google_smart_card::LibusbInterface* GetLibusbImpl() {
   GOOGLE_SMART_CARD_CHECK(g_libusb);
   return g_libusb;
 }
@@ -43,7 +43,7 @@ google_smart_card::LibusbInterface* GetGlobalLibusb() {
 
 namespace google_smart_card {
 
-class LibusbOverChromeUsbGlobal::Impl final {
+class LibusbWebPortService::Impl final {
  public:
   Impl(GlobalContext* global_context, TypedMessageRouter* typed_message_router)
       : chrome_usb_api_bridge_(
@@ -75,7 +75,7 @@ class LibusbOverChromeUsbGlobal::Impl final {
   std::unique_ptr<LibusbTracingWrapper> libusb_tracing_wrapper_;
 };
 
-LibusbOverChromeUsbGlobal::LibusbOverChromeUsbGlobal(
+LibusbWebPortService::LibusbWebPortService(
     GlobalContext* global_context,
     TypedMessageRouter* typed_message_router)
     : impl_(MakeUnique<Impl>(global_context, typed_message_router)) {
@@ -83,103 +83,103 @@ LibusbOverChromeUsbGlobal::LibusbOverChromeUsbGlobal(
   g_libusb = impl_->libusb();
 }
 
-LibusbOverChromeUsbGlobal::~LibusbOverChromeUsbGlobal() {
+LibusbWebPortService::~LibusbWebPortService() {
   GOOGLE_SMART_CARD_CHECK(g_libusb == impl_->libusb());
   g_libusb = nullptr;
 }
 
-void LibusbOverChromeUsbGlobal::Detach() {
+void LibusbWebPortService::Detach() {
   impl_->Detach();
 }
 
 }  // namespace google_smart_card
 
 int LIBUSB_CALL libusb_init(libusb_context** ctx) {
-  return GetGlobalLibusb()->LibusbInit(ctx);
+  return GetLibusbImpl()->LibusbInit(ctx);
 }
 
 void LIBUSB_CALL libusb_exit(libusb_context* ctx) {
-  GetGlobalLibusb()->LibusbExit(ctx);
+  GetLibusbImpl()->LibusbExit(ctx);
 }
 
 ssize_t LIBUSB_CALL libusb_get_device_list(libusb_context* ctx,
                                            libusb_device*** list) {
-  return GetGlobalLibusb()->LibusbGetDeviceList(ctx, list);
+  return GetLibusbImpl()->LibusbGetDeviceList(ctx, list);
 }
 
 void LIBUSB_CALL libusb_free_device_list(libusb_device** list,
                                          int unref_devices) {
-  GetGlobalLibusb()->LibusbFreeDeviceList(list, unref_devices);
+  GetLibusbImpl()->LibusbFreeDeviceList(list, unref_devices);
 }
 
 libusb_device* LIBUSB_CALL libusb_ref_device(libusb_device* dev) {
-  return GetGlobalLibusb()->LibusbRefDevice(dev);
+  return GetLibusbImpl()->LibusbRefDevice(dev);
 }
 
 void LIBUSB_CALL libusb_unref_device(libusb_device* dev) {
-  GetGlobalLibusb()->LibusbUnrefDevice(dev);
+  GetLibusbImpl()->LibusbUnrefDevice(dev);
 }
 
 int LIBUSB_CALL
 libusb_get_active_config_descriptor(libusb_device* dev,
                                     libusb_config_descriptor** config) {
-  return GetGlobalLibusb()->LibusbGetActiveConfigDescriptor(dev, config);
+  return GetLibusbImpl()->LibusbGetActiveConfigDescriptor(dev, config);
 }
 
 void LIBUSB_CALL
 libusb_free_config_descriptor(libusb_config_descriptor* config) {
-  return GetGlobalLibusb()->LibusbFreeConfigDescriptor(config);
+  return GetLibusbImpl()->LibusbFreeConfigDescriptor(config);
 }
 
 int LIBUSB_CALL libusb_get_device_descriptor(libusb_device* dev,
                                              libusb_device_descriptor* desc) {
-  return GetGlobalLibusb()->LibusbGetDeviceDescriptor(dev, desc);
+  return GetLibusbImpl()->LibusbGetDeviceDescriptor(dev, desc);
 }
 
 uint8_t LIBUSB_CALL libusb_get_bus_number(libusb_device* dev) {
-  return GetGlobalLibusb()->LibusbGetBusNumber(dev);
+  return GetLibusbImpl()->LibusbGetBusNumber(dev);
 }
 
 uint8_t LIBUSB_CALL libusb_get_device_address(libusb_device* dev) {
-  return GetGlobalLibusb()->LibusbGetDeviceAddress(dev);
+  return GetLibusbImpl()->LibusbGetDeviceAddress(dev);
 }
 
 int LIBUSB_CALL libusb_open(libusb_device* dev, libusb_device_handle** handle) {
-  return GetGlobalLibusb()->LibusbOpen(dev, handle);
+  return GetLibusbImpl()->LibusbOpen(dev, handle);
 }
 
 void LIBUSB_CALL libusb_close(libusb_device_handle* dev_handle) {
-  return GetGlobalLibusb()->LibusbClose(dev_handle);
+  return GetLibusbImpl()->LibusbClose(dev_handle);
 }
 
 int LIBUSB_CALL libusb_claim_interface(libusb_device_handle* dev,
                                        int interface_number) {
-  return GetGlobalLibusb()->LibusbClaimInterface(dev, interface_number);
+  return GetLibusbImpl()->LibusbClaimInterface(dev, interface_number);
 }
 
 int LIBUSB_CALL libusb_release_interface(libusb_device_handle* dev,
                                          int interface_number) {
-  return GetGlobalLibusb()->LibusbReleaseInterface(dev, interface_number);
+  return GetLibusbImpl()->LibusbReleaseInterface(dev, interface_number);
 }
 
 libusb_transfer* LIBUSB_CALL libusb_alloc_transfer(int iso_packets) {
-  return GetGlobalLibusb()->LibusbAllocTransfer(iso_packets);
+  return GetLibusbImpl()->LibusbAllocTransfer(iso_packets);
 }
 
 int LIBUSB_CALL libusb_submit_transfer(libusb_transfer* transfer) {
-  return GetGlobalLibusb()->LibusbSubmitTransfer(transfer);
+  return GetLibusbImpl()->LibusbSubmitTransfer(transfer);
 }
 
 int LIBUSB_CALL libusb_cancel_transfer(libusb_transfer* transfer) {
-  return GetGlobalLibusb()->LibusbCancelTransfer(transfer);
+  return GetLibusbImpl()->LibusbCancelTransfer(transfer);
 }
 
 void LIBUSB_CALL libusb_free_transfer(libusb_transfer* transfer) {
-  GetGlobalLibusb()->LibusbFreeTransfer(transfer);
+  GetLibusbImpl()->LibusbFreeTransfer(transfer);
 }
 
 int LIBUSB_CALL libusb_reset_device(libusb_device_handle* dev) {
-  return GetGlobalLibusb()->LibusbResetDevice(dev);
+  return GetLibusbImpl()->LibusbResetDevice(dev);
 }
 
 int LIBUSB_CALL libusb_control_transfer(libusb_device_handle* dev_handle,
@@ -190,9 +190,9 @@ int LIBUSB_CALL libusb_control_transfer(libusb_device_handle* dev_handle,
                                         unsigned char* data,
                                         uint16_t wLength,
                                         unsigned int timeout) {
-  return GetGlobalLibusb()->LibusbControlTransfer(dev_handle, request_type,
-                                                  bRequest, wValue, wIndex,
-                                                  data, wLength, timeout);
+  return GetLibusbImpl()->LibusbControlTransfer(dev_handle, request_type,
+                                                bRequest, wValue, wIndex, data,
+                                                wLength, timeout);
 }
 
 int LIBUSB_CALL libusb_bulk_transfer(libusb_device_handle* dev_handle,
@@ -201,8 +201,8 @@ int LIBUSB_CALL libusb_bulk_transfer(libusb_device_handle* dev_handle,
                                      int length,
                                      int* actual_length,
                                      unsigned int timeout) {
-  return GetGlobalLibusb()->LibusbBulkTransfer(dev_handle, endpoint, data,
-                                               length, actual_length, timeout);
+  return GetLibusbImpl()->LibusbBulkTransfer(dev_handle, endpoint, data, length,
+                                             actual_length, timeout);
 }
 
 int LIBUSB_CALL libusb_interrupt_transfer(libusb_device_handle* dev_handle,
@@ -211,15 +211,15 @@ int LIBUSB_CALL libusb_interrupt_transfer(libusb_device_handle* dev_handle,
                                           int length,
                                           int* actual_length,
                                           unsigned int timeout) {
-  return GetGlobalLibusb()->LibusbInterruptTransfer(
+  return GetLibusbImpl()->LibusbInterruptTransfer(
       dev_handle, endpoint, data, length, actual_length, timeout);
 }
 
 int LIBUSB_CALL libusb_handle_events(libusb_context* ctx) {
-  return GetGlobalLibusb()->LibusbHandleEvents(ctx);
+  return GetLibusbImpl()->LibusbHandleEvents(ctx);
 }
 
 int LIBUSB_CALL libusb_handle_events_completed(libusb_context* ctx,
                                                int* completed) {
-  return GetGlobalLibusb()->LibusbHandleEventsCompleted(ctx, completed);
+  return GetLibusbImpl()->LibusbHandleEventsCompleted(ctx, completed);
 }

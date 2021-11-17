@@ -20,9 +20,10 @@
 
 #include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
-#include <google_smart_card_libusb/global.h>
 #include <google_smart_card_pcsc_lite_server/global.h>
 #include <google_smart_card_pcsc_lite_server_clients_management/backend.h>
+
+#include "third_party/libusb/webport/src/public/libusb_web_port_service.h"
 
 namespace google_smart_card {
 
@@ -59,7 +60,7 @@ class Application final {
   GlobalContext* const global_context_;
   TypedMessageRouter* const typed_message_router_;
   std::function<void()> background_initialization_callback_;
-  std::unique_ptr<LibusbOverChromeUsbGlobal> libusb_over_chrome_usb_global_;
+  std::unique_ptr<LibusbWebPortService> libusb_web_port_service_;
   std::unique_ptr<PcscLiteServerClientsManagementBackend>
       pcsc_lite_server_clients_management_backend_;
   std::unique_ptr<PcscLiteServerGlobal> pcsc_lite_server_global_;

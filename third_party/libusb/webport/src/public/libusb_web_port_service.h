@@ -28,28 +28,27 @@ namespace google_smart_card {
 // the implementation of the global libusb_* functions.
 //
 // All global libusb_* functions are allowed to be called only while the
-// LibusbOverChromeUsbGlobal object exists.
+// LibusbWebPortService object exists.
 //
-// It is allowed to have at most one LibusbOverChromeUsbGlobal constructed at
-// any given moment of time.
+// It is allowed to have at most one LibusbWebPortService constructed at any
+// given moment of time.
 //
 // Note: The class constructor and destructor are not thread-safe against any
 // concurrent libusb_* function calls.
-class LibusbOverChromeUsbGlobal final {
+class LibusbWebPortService final {
  public:
-  LibusbOverChromeUsbGlobal(GlobalContext* global_context,
-                            TypedMessageRouter* typed_message_router);
+  LibusbWebPortService(GlobalContext* global_context,
+                       TypedMessageRouter* typed_message_router);
 
-  LibusbOverChromeUsbGlobal(const LibusbOverChromeUsbGlobal&) = delete;
-  LibusbOverChromeUsbGlobal& operator=(const LibusbOverChromeUsbGlobal&) =
-      delete;
+  LibusbWebPortService(const LibusbWebPortService&) = delete;
+  LibusbWebPortService& operator=(const LibusbWebPortService&) = delete;
 
   // Destroys the self instance and the owned LibusbOverChromeUsb instance.
   //
   // After the destructor is called, any global libusb_* function calls are not
   // allowed (and the still running calls, if any, will introduce undefined
   // behavior).
-  ~LibusbOverChromeUsbGlobal();
+  ~LibusbWebPortService();
 
   // Detaches from the typed message router and the JavaScript side, which
   // prevents making any further requests and prevents waiting for the responses
@@ -68,6 +67,9 @@ class LibusbOverChromeUsbGlobal final {
   void Detach();
 
  private:
+  // Use the "pimpl" pattern, so that other code can include our .h file without
+  // transitively including all of our internal implementation headers (which
+  // would break code isolation and also require special compilation flags).
   class Impl;
 
   std::unique_ptr<Impl> impl_;
