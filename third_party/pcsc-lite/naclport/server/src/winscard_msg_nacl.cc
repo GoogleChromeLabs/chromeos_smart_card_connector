@@ -89,7 +89,8 @@ INTERNAL int ClientSetupSession(uint32_t* pdwClientID) {
   int client_socket_file_descriptor;
   int server_socket_file_descriptor;
   IpcEmulation::GetInstance()->CreateInMemoryFilePair(
-      &client_socket_file_descriptor, &server_socket_file_descriptor);
+      &client_socket_file_descriptor, &server_socket_file_descriptor,
+      /*reads_should_block=*/false);
   *pdwClientID = static_cast<uint32_t>(client_socket_file_descriptor);
 
   // Another end of the created socket pair is passed to the daemon main run

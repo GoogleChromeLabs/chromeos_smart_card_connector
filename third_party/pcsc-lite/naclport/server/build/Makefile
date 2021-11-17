@@ -98,7 +98,6 @@ PCSC_LITE_SERVER_SOURCES := \
 	$(PCSC_LITE_SOURCES_PATH)/atrhandler.c \
 	$(PCSC_LITE_SOURCES_PATH)/error.c \
 	$(PCSC_LITE_SOURCES_PATH)/eventhandler.c \
-	$(PCSC_LITE_SOURCES_PATH)/hotplug_libusb.c \
 	$(PCSC_LITE_SOURCES_PATH)/ifdwrapper.c \
 	$(PCSC_LITE_SOURCES_PATH)/prothandler.c \
 	$(PCSC_LITE_SOURCES_PATH)/utils.c \
@@ -171,6 +170,25 @@ PCSC_LITE_SERVER_READERFACTORY_CPPFLAGS := \
 
 $(foreach src,$(PCSC_LITE_SERVER_READERFACTORY_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_READERFACTORY_CPPFLAGS))))
 
+# Special group just for hotplug_libusb.c.
+PCSC_LITE_SERVER_HOTPLUG_LIBUSB_SOURCES := \
+	$(PCSC_LITE_SOURCES_PATH)/hotplug_libusb.c \
+
+# * mock out the pipe(), read(), write() and close() standard library functions
+#   with our fake implementations, since the standard pipe() has poor semantics
+#   under Emscripten (it always creates a nonblocking pipe, even when there's no
+#   O_NONBLOCK flag specified); read() and close() need to be mocked out, since
+#   our fake pipe() implementation returns fake file descriptors (based on
+#   simple counters).
+PCSC_LITE_SERVER_HOTPLUG_LIBUSB_CPPFLAGS := \
+	$(PCSC_LITE_SERVER_CPPFLAGS) \
+	-Dclose=GoogleSmartCardIpcEmulationClose \
+	-Dpipe=GoogleSmartCardIpcEmulationPipe \
+	-Dread=GoogleSmartCardIpcEmulationRead \
+	-Dwrite=GoogleSmartCardIpcEmulationWrite \
+
+$(foreach src,$(PCSC_LITE_SERVER_HOTPLUG_LIBUSB_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_HOTPLUG_LIBUSB_CPPFLAGS))))
+
 # List of the original PC/SC-Lite client library source files to be compiled
 PCSC_LITE_CLIENT_SOURCES := \
 	$(PCSC_LITE_SOURCES_PATH)/winscard_clnt.c \
@@ -211,6 +229,7 @@ SOURCES := \
 	$(PCSC_LITE_SERVER_SOURCES) \
 	$(PCSC_LITE_SERVER_SVC_SOURCES) \
 	$(PCSC_LITE_SERVER_DEBUGLOG_SOURCES) \
+	$(PCSC_LITE_SERVER_HOTPLUG_LIBUSB_SOURCES) \
 	$(PCSC_LITE_CLIENT_SOURCES) \
 	$(PCSC_LITE_SERVER_NACL_SOURCES) \
 	$(PCSC_LITE_SERVER_READERFACTORY_SOURCES) \
