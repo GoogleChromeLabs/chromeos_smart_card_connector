@@ -143,7 +143,7 @@ extern "C" {
 //
 // The background is that the standard library implementation of `pipe()` under
 // Emscripten has poor semantics: it always creates a nonblocking pipe, despite
-// that the `O_NONBLOCK` flag is not passed (and ).
+// that the `O_NONBLOCK` flag is not passed.
 int GoogleSmartCardIpcEmulationPipe(int pipefd[2]);
 
 // Fake implementation of `write()`.

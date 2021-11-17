@@ -102,7 +102,7 @@ class IpcEmulation::InMemoryFile final {
   IpcEmulation::ReadResult Read(uint8_t* buffer, int64_t* in_out_size)
       GOOGLE_SMART_CARD_WARN_UNUSED_RESULT {
     GOOGLE_SMART_CARD_CHECK(buffer);
-    GOOGLE_SMART_CARD_CHECK(*in_out_size > 0);
+    GOOGLE_SMART_CARD_CHECK(*in_out_size >= 0);
     std::unique_lock<std::mutex> lock(mutex_);
     if (is_closed_)
       return IpcEmulation::ReadResult::kNoSuchFile;
