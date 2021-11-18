@@ -55,8 +55,8 @@ LIBS := \
 DEPS :=
 
 CXXFLAGS := \
+	-I$(ROOT_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src \
-	-I$(ROOT_PATH)/third_party/libusb/webport/src \
 	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src \
 	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/server_clients_management/src \
 	-Wall \

@@ -25,10 +25,11 @@
 #include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_conversion.h>
-#include <google_smart_card_libusb/global.h>
 #include <google_smart_card_pcsc_lite_server/global.h>
 #include <google_smart_card_pcsc_lite_server_clients_management/backend.h>
 #include <google_smart_card_pcsc_lite_server_clients_management/ready_message.h>
+
+#include "third_party/libusb/webport/src/public/libusb_web_port_service.h"
 
 namespace google_smart_card {
 
@@ -39,9 +40,9 @@ Application::Application(
     : global_context_(global_context),
       typed_message_router_(typed_message_router),
       background_initialization_callback_(background_initialization_callback),
-      libusb_over_chrome_usb_global_(
-          MakeUnique<LibusbOverChromeUsbGlobal>(global_context_,
-                                                typed_message_router_)),
+      libusb_web_port_service_(
+          MakeUnique<LibusbWebPortService>(global_context_,
+                                           typed_message_router_)),
       pcsc_lite_server_global_(
           MakeUnique<PcscLiteServerGlobal>(global_context_)) {
   ScheduleServicesInitialization();
@@ -50,8 +51,8 @@ Application::Application(
 Application::~Application() {
   // Intentionally leak objects that might still be used by background threads.
   // Only detach them from `this` and the JavaScript side.
-  libusb_over_chrome_usb_global_->Detach();
-  (void)libusb_over_chrome_usb_global_.release();
+  libusb_web_port_service_->Detach();
+  (void)libusb_web_port_service_.release();
   (void)pcsc_lite_server_global_.release();
 }
 
