@@ -77,8 +77,9 @@ GSC.InPopupMainScript.resolveModalDialog = function(result) {
       logger,
       'The modal dialog is resolved with the following result: ' +
           GSC.DebugDump.debugDump(result));
+
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
-    const callback = GSC.InPopupMainScript.getData()['resolveModalDialog'];
+    const callback = popUpData['resolveModalDialog'];
     GSC.Logging.checkWithLogger(logger, callback);
     callback(result);
   } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
@@ -86,8 +87,8 @@ GSC.InPopupMainScript.resolveModalDialog = function(result) {
         popUpData['popup_id']}`](result);
     delete goog.global['opener'][`googleSmartCard_resolveModalDialog${
         popUpData['popup_id']}`];
-    delete goog
-        .global['opener'][`googleSmartCard_rejectModalDialog${popUpData['popup_id']}`];
+    delete goog.global['opener'][`googleSmartCard_rejectModalDialog${
+        popUpData['popup_id']}`];
   }
 
   closeWindow();
@@ -100,21 +101,21 @@ GSC.InPopupMainScript.resolveModalDialog = function(result) {
  * @param {*} error
  */
 GSC.InPopupMainScript.rejectModalDialog = function(error) {
-  const callback = GSC.InPopupMainScript.getData()['rejectModalDialog'];
-  GSC.Logging.checkWithLogger(logger, callback);
   goog.log.fine(
       logger,
       'The modal dialog is rejected with the following error: ' + error);
 
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
+    const callback = popUpData['rejectModalDialog'];
+    GSC.Logging.checkWithLogger(logger, callback);
     callback(error);
   } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
-    goog.global['opener'][`googleSmartCard_rejectModalDialog${popUpData['popup_id']}`](
-        error);
+    goog.global['opener'][`googleSmartCard_rejectModalDialog${
+        popUpData['popup_id']}`](error);
     delete goog.global['opener'][`googleSmartCard_resolveModalDialog${
         popUpData['popup_id']}`];
-    delete goog
-        .global['opener'][`googleSmartCard_rejectModalDialog${popUpData['popup_id']}`];
+    delete goog.global['opener'][`googleSmartCard_rejectModalDialog${
+        popUpData['popup_id']}`];
   }
 
   closeWindow();
