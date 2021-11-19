@@ -36,14 +36,16 @@ const debugDump = GSC.DebugDump.debugDump;
 
 const logger = GSC.Logging.getScopedLogger('LibusbProxyReceiver');
 
+/**
+ * This class implements handling of libusb requests received from the
+ * executable module (the `LibusbJsProxy` class). The requests are handled by
+ * transforming them into the chrome.usb API requests.
+ *
+ * TODO(#429): Stop receiving the ChromeUsbBackend, and generalize to support
+ * WebUSB as well.
+ */
 GSC.LibusbProxyReceiver = class {
   /**
-   * This class implements handling of libusb requests received from the
-   * executable module (the `LibusbJsProxy` class). The requests are handled by
-   * transforming them into the chrome.usb API requests.
-   *
-   * TODO(#429): Stop receiving the ChromeUsbBackend, and generalize to support
-   * WebUSB as well.
    * @param {!goog.messaging.AbstractChannel} executableModuleMessageChannel
    * @param {!GSC.Libusb.ChromeUsbBackend} libusbChromeUsbBackend
    */
@@ -58,7 +60,8 @@ GSC.LibusbProxyReceiver = class {
   }
 
   /**
-   * Handles a Libusb request sent from the
+   * Handles a Libusb request sent from the C++ code in the executable module.
+   * The result is returned asynchronously via the returned promise.
    * @param {!Object} payload
    * @return {!goog.Promise}
    * @private
