@@ -25,7 +25,7 @@
 
 #include "chrome_usb/api_bridge.h"
 #include "libusb_interface.h"
-#include "libusb_over_chrome_usb.h"
+#include "libusb_js_proxy.h"
 #include "libusb_tracing_wrapper.h"
 
 namespace {
@@ -50,10 +50,10 @@ class LibusbWebPortService::Impl final {
             MakeUnique<JsRequester>(chrome_usb::kApiBridgeRequesterName,
                                     global_context,
                                     typed_message_router)),
-        libusb_over_chrome_usb_(&chrome_usb_api_bridge_) {
+        libusb_js_proxy_(&chrome_usb_api_bridge_) {
 #ifndef NDEBUG
     libusb_tracing_wrapper_.reset(
-        new LibusbTracingWrapper(&libusb_over_chrome_usb_));
+        new LibusbTracingWrapper(&libusb_js_proxy_));
 #endif  // NDEBUG
   }
 
@@ -66,12 +66,12 @@ class LibusbWebPortService::Impl final {
   LibusbInterface* libusb() {
     if (libusb_tracing_wrapper_)
       return libusb_tracing_wrapper_.get();
-    return &libusb_over_chrome_usb_;
+    return &libusb_js_proxy_;
   }
 
  private:
   chrome_usb::ApiBridge chrome_usb_api_bridge_;
-  LibusbOverChromeUsb libusb_over_chrome_usb_;
+  LibusbJsProxy libusb_js_proxy_;
   std::unique_ptr<LibusbTracingWrapper> libusb_tracing_wrapper_;
 };
 

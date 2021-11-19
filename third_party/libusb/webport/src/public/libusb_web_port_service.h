@@ -14,8 +14,8 @@
 // License along with this library; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#ifndef GOOGLE_SMART_CARD_LIBUSB_GLOBAL_H_
-#define GOOGLE_SMART_CARD_LIBUSB_GLOBAL_H_
+#ifndef GOOGLE_SMART_CARD_LIBUSB_WEB_PORT_SERVICE_H_
+#define GOOGLE_SMART_CARD_LIBUSB_WEB_PORT_SERVICE_H_
 
 #include <memory>
 
@@ -24,7 +24,7 @@
 
 namespace google_smart_card {
 
-// This class owns a LibusbOverChromeUsb instance and enables it to be used by
+// This class owns a LibusbJsProxy instance and enables it to be used by
 // the implementation of the global libusb_* functions.
 //
 // All global libusb_* functions are allowed to be called only while the
@@ -77,4 +77,4 @@ class LibusbWebPortService final {
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_LIBUSB_GLOBAL_H_
+#endif  // GOOGLE_SMART_CARD_LIBUSB_WEB_PORT_SERVICE_H_

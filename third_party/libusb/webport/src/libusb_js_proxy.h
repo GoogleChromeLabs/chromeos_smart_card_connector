@@ -14,8 +14,8 @@
 // License along with this library; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#ifndef GOOGLE_SMART_CARD_THIRD_PARTY_LIBUSB_LIBUSB_OVER_CHROME_USB_H_
-#define GOOGLE_SMART_CARD_THIRD_PARTY_LIBUSB_LIBUSB_OVER_CHROME_USB_H_
+#ifndef GOOGLE_SMART_CARD_THIRD_PARTY_LIBUSB_LIBUSB_JS_PROXY_H_
+#define GOOGLE_SMART_CARD_THIRD_PARTY_LIBUSB_LIBUSB_JS_PROXY_H_
 
 #include <stdint.h>
 
@@ -40,7 +40,7 @@ namespace google_smart_card {
 //
 // For the details of the integration with the chrome.usb JavaScript API, see
 // the chrome_usb/api_bridge.h file.
-class LibusbOverChromeUsb final : public LibusbInterface {
+class LibusbJsProxy final : public LibusbInterface {
  public:
   using TransferRequestResult = RequestResult<chrome_usb::TransferResult>;
   using TransferAsyncRequestState =
@@ -50,11 +50,10 @@ class LibusbOverChromeUsb final : public LibusbInterface {
   using TransferAsyncRequestCallback =
       AsyncRequestCallback<chrome_usb::TransferResult>;
 
-  explicit LibusbOverChromeUsb(
-      chrome_usb::ApiBridgeInterface* chrome_usb_api_bridge);
-  LibusbOverChromeUsb(const LibusbOverChromeUsb&) = delete;
-  LibusbOverChromeUsb& operator=(const LibusbOverChromeUsb&) = delete;
-  ~LibusbOverChromeUsb() override;
+  explicit LibusbJsProxy(chrome_usb::ApiBridgeInterface* chrome_usb_api_bridge);
+  LibusbJsProxy(const LibusbJsProxy&) = delete;
+  LibusbJsProxy& operator=(const LibusbJsProxy&) = delete;
+  ~LibusbJsProxy() override;
 
   // LibusbInterface:
   int LibusbInit(libusb_context** ctx) override;
@@ -148,4 +147,4 @@ class LibusbOverChromeUsb final : public LibusbInterface {
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_THIRD_PARTY_LIBUSB_LIBUSB_OVER_CHROME_USB_H_
+#endif  // GOOGLE_SMART_CARD_THIRD_PARTY_LIBUSB_LIBUSB_JS_PROXY_H_
