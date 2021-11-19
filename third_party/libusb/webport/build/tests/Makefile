@@ -24,7 +24,7 @@ include ../../../../../common/cpp_unit_test_runner/include.mk
 SOURCES_PATH := ../../src
 
 SOURCES := \
-	$(SOURCES_PATH)/libusb_over_chrome_usb_unittest.cc \
+	$(SOURCES_PATH)/libusb_js_proxy_unittest.cc \
 
 CXXFLAGS := \
 	-I$(SOURCES_PATH) \
