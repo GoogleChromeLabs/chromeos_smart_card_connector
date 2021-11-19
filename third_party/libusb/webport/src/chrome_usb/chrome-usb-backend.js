@@ -64,7 +64,7 @@ GSC.Libusb.ChromeUsbBackend = function(naclModuleMessageChannel) {
   // Note: the request receiver instance is not stored anywhere, as it makes
   // itself being owned by the message channel.
   new GSC.RequestReceiver(
-      REQUESTER_NAME, naclModuleMessageChannel, this.handleRequest_.bind(this));
+      REQUESTER_NAME, naclModuleMessageChannel, this.handleRequest.bind(this));
   this.startObservingDevices_();
 
   /**
@@ -182,9 +182,8 @@ ChromeUsbBackend.prototype.logDevices_ = function(devices) {
 /**
  * @param {!Object} payload
  * @return {!goog.Promise}
- * @private
  */
-ChromeUsbBackend.prototype.handleRequest_ = function(payload) {
+ChromeUsbBackend.prototype.handleRequest = function(payload) {
   return this.deferredProcessor_.addJob(
       this.processRequest_.bind(this, payload));
 };

@@ -32,7 +32,7 @@ namespace google_smart_card {
 
 namespace chrome_usb {
 
-constexpr char kApiBridgeRequesterName[] = "libusb_chrome_usb";
+constexpr char kApiBridgeRequesterName[] = "libusb";
 
 // This class implements the C++ bridge to the chrome.usb JavaScript API (see
 // <https://developer.chrome.com/apps/usb>).
