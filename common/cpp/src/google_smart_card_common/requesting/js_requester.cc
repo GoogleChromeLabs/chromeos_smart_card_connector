@@ -38,16 +38,16 @@ JsRequester::JsRequester(const std::string& name,
 }
 
 JsRequester::~JsRequester() {
-  Detach();
+  ShutDown();
 }
 
-void JsRequester::Detach() {
+void JsRequester::ShutDown() {
   TypedMessageRouter* const typed_message_router =
       typed_message_router_.exchange(nullptr);
   if (typed_message_router)
     typed_message_router->RemoveRoute(this);
 
-  Requester::Detach();
+  Requester::ShutDown();
 }
 
 void JsRequester::StartAsyncRequest(Value payload,

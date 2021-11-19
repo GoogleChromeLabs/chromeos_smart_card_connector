@@ -56,7 +56,7 @@ class GoogleSmartCardModule final {
   ~GoogleSmartCardModule() {
     // Intentionally leak `global_context_` without destroying it, because there
     // might still be background threads that access it.
-    global_context_->DisableJsCommunication();
+    global_context_->ShutDown();
     new std::shared_ptr<GlobalContextImplEmscripten>(global_context_);
   }
 

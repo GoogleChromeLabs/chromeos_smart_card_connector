@@ -51,12 +51,13 @@ class Requester {
 
   std::string name() const { return name_; }
 
-  // Detaches the requester, which may prevent it from sending new requests (new
-  // requests may immediately finish with the RequestResultStatus::kFailed
-  // state) and/or from receiving results of already sent ones.
+  // Prevent the requester from sending new requests to the JavaScript side (new
+  // requests triggered through this class will immediately finish with the
+  // RequestResultStatus::kFailed state) and/or from receiving results of
+  // already sent ones.
   //
   // This function is safe to be called from any thread.
-  virtual void Detach() {}
+  virtual void ShutDown() {}
 
   // Starts an asynchronous request with the given payload and the given
   // callback, which will be executed once the request finishes (either

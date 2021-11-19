@@ -56,7 +56,7 @@ class UiBridge final : public google_smart_card::TypedMessageListener {
 
   ~UiBridge() override;
 
-  void Detach();
+  void ShutDown();
 
   void SetHandler(std::weak_ptr<MessageFromUiHandler> handler);
   void RemoveHandler();

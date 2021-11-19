@@ -38,7 +38,7 @@ class PcscLiteServerClientsManagementBackend::Impl final {
 
   Impl(const Impl&) = delete;
 
-  ~Impl() { clients_manager_.Detach(); }
+  ~Impl() { clients_manager_.ShutDown(); }
 
  private:
   PcscLiteServerClientsManager clients_manager_;

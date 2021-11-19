@@ -41,7 +41,7 @@ class GlobalContextImplNacl final : public GlobalContext {
   // GlobalContext:
   void PostMessageToJs(Value message) override;
   bool IsMainEventLoopThread() const override;
-  void DisableJsCommunication() override;
+  void ShutDown() override;
 
  private:
   pp::Core* const pp_core_;

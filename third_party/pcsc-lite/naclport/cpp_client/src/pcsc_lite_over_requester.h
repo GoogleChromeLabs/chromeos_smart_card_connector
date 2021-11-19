@@ -81,7 +81,7 @@ class PcscLiteOverRequester final : public PcscLite {
   // object or some other associated objects.
   //
   // This function is safe to be called from any thread.
-  void Detach();
+  void ShutDown();
 
   // PcscLite:
   LONG SCardEstablishContext(DWORD scope,

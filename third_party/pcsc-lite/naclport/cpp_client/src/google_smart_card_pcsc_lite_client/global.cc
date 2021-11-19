@@ -77,7 +77,7 @@ class PcscLiteOverRequesterGlobal::Impl final {
   Impl& operator=(const Impl&) = delete;
   ~Impl() = default;
 
-  void Detach() { pcsc_lite_over_requester_.Detach(); }
+  void ShutDown() { pcsc_lite_over_requester_.ShutDown(); }
 
   PcscLite* pcsc_lite() {
     if (pcsc_lite_tracing_wrapper_)
@@ -103,8 +103,8 @@ PcscLiteOverRequesterGlobal::~PcscLiteOverRequesterGlobal() {
   g_pcsc_lite = nullptr;
 }
 
-void PcscLiteOverRequesterGlobal::Detach() {
-  impl_->Detach();
+void PcscLiteOverRequesterGlobal::ShutDown() {
+  impl_->ShutDown();
 }
 
 }  // namespace google_smart_card

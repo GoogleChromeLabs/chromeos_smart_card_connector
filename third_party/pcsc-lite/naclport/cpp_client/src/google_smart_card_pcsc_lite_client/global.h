@@ -74,7 +74,7 @@ class PcscLiteOverRequesterGlobal final {
   // accesses to already destroyed objects.
   //
   // This function is safe to be called from any thread.
-  void Detach();
+  void ShutDown();
 
  private:
   class Impl;

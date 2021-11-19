@@ -51,7 +51,7 @@ class GlobalContextImplEmscripten final
   // GlobalContext:
   void PostMessageToJs(Value message) override;
   bool IsMainEventLoopThread() const override;
-  void DisableJsCommunication() override;
+  void ShutDown() override;
 
  private:
   static void PostMessageOnMainThreadTrampoline(int raw_this_weak_ptr,

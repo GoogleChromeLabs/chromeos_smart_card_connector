@@ -38,10 +38,10 @@ JsRequestReceiver::JsRequestReceiver(const std::string& name,
 }
 
 JsRequestReceiver::~JsRequestReceiver() {
-  Detach();
+  ShutDown();
 }
 
-void JsRequestReceiver::Detach() {
+void JsRequestReceiver::ShutDown() {
   TypedMessageRouter* const typed_message_router =
       typed_message_router_.exchange(nullptr);
   if (typed_message_router)

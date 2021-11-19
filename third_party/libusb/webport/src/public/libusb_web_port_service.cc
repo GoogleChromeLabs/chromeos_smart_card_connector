@@ -60,7 +60,7 @@ class LibusbWebPortService::Impl final {
   Impl& operator=(const Impl&) = delete;
   ~Impl() = default;
 
-  void Detach() { chrome_usb_api_bridge_.Detach(); }
+  void ShutDown() { chrome_usb_api_bridge_.ShutDown(); }
 
   LibusbInterface* libusb() {
     if (libusb_tracing_wrapper_)
@@ -87,8 +87,8 @@ LibusbWebPortService::~LibusbWebPortService() {
   g_libusb = nullptr;
 }
 
-void LibusbWebPortService::Detach() {
-  impl_->Detach();
+void LibusbWebPortService::ShutDown() {
+  impl_->ShutDown();
 }
 
 }  // namespace google_smart_card

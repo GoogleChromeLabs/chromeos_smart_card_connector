@@ -168,8 +168,8 @@ PcscLiteOverRequester::PcscLiteOverRequester(
 
 PcscLiteOverRequester::~PcscLiteOverRequester() = default;
 
-void PcscLiteOverRequester::Detach() {
-  requester_->Detach();
+void PcscLiteOverRequester::ShutDown() {
+  requester_->ShutDown();
 }
 
 LONG PcscLiteOverRequester::SCardEstablishContext(
