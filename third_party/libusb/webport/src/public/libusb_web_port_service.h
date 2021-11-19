@@ -43,7 +43,7 @@ class LibusbWebPortService final {
   LibusbWebPortService(const LibusbWebPortService&) = delete;
   LibusbWebPortService& operator=(const LibusbWebPortService&) = delete;
 
-  // Destroys the self instance and the owned LibusbOverChromeUsb instance.
+  // Destroys the self instance and the owned LibusbJsProxy instance.
   //
   // After the destructor is called, any global libusb_* function calls are not
   // allowed (and the still running calls, if any, will introduce undefined

@@ -136,8 +136,7 @@ class LibusbJsProxyTest : public ::testing::Test {
     ::testing::Test::SetUp();
 
     chrome_usb_api_bridge.reset(new MockChromeUsbApiBridge);
-    libusb_js_proxy.reset(
-        new LibusbJsProxy(chrome_usb_api_bridge.get()));
+    libusb_js_proxy.reset(new LibusbJsProxy(chrome_usb_api_bridge.get()));
   }
 
   void TearDown() override {
@@ -193,8 +192,7 @@ TEST_F(LibusbJsProxyTest, DevicesListingWithNoItems) {
       }));
 
   libusb_device** device_list = nullptr;
-  ASSERT_EQ(0,
-            libusb_js_proxy->LibusbGetDeviceList(nullptr, &device_list));
+  ASSERT_EQ(0, libusb_js_proxy->LibusbGetDeviceList(nullptr, &device_list));
   ASSERT_TRUE(device_list);
   ASSERT_FALSE(device_list[0]);
 
@@ -220,8 +218,7 @@ TEST_F(LibusbJsProxyTest, DevicesListingWithTwoItems) {
       }));
 
   libusb_device** device_list = nullptr;
-  ASSERT_EQ(2,
-            libusb_js_proxy->LibusbGetDeviceList(nullptr, &device_list));
+  ASSERT_EQ(2, libusb_js_proxy->LibusbGetDeviceList(nullptr, &device_list));
   ASSERT_TRUE(device_list);
   ASSERT_TRUE(device_list[0]);
   ASSERT_TRUE(device_list[1]);
@@ -238,10 +235,9 @@ TEST_F(LibusbJsProxyTest, DevicesListingWithTwoItems) {
 
 namespace {
 
-class LibusbOverChromeUsbWithFakeDeviceTest : public LibusbJsProxyTest {
+class LibusbJsProxyWithFakeDeviceTest : public LibusbJsProxyTest {
  public:
-  LibusbOverChromeUsbWithFakeDeviceTest()
-      : device(nullptr), device_handle(nullptr) {
+  LibusbJsProxyWithFakeDeviceTest() : device(nullptr), device_handle(nullptr) {
     chrome_usb_device.device = 1;
     chrome_usb_device.vendor_id = 2;
     chrome_usb_device.product_id = 3;
@@ -312,8 +308,7 @@ class LibusbOverChromeUsbWithFakeDeviceTest : public LibusbJsProxyTest {
 
   void ObtainLibusbDevice() {
     libusb_device** device_list = nullptr;
-    EXPECT_EQ(
-        1, libusb_js_proxy->LibusbGetDeviceList(nullptr, &device_list));
+    EXPECT_EQ(1, libusb_js_proxy->LibusbGetDeviceList(nullptr, &device_list));
     EXPECT_TRUE(device_list);
     EXPECT_TRUE(device_list[0]);
     device = device_list[0];
@@ -327,8 +322,7 @@ class LibusbOverChromeUsbWithFakeDeviceTest : public LibusbJsProxyTest {
   }
 };
 
-class LibusbOverChromeUsbTransfersTest
-    : public LibusbOverChromeUsbWithFakeDeviceTest {
+class LibusbJsProxyTransfersTest : public LibusbJsProxyWithFakeDeviceTest {
  protected:
   void SetUpMockForSyncControlTransfer(size_t transfer_index, bool is_output) {
     EXPECT_CALL(*chrome_usb_api_bridge,
@@ -408,8 +402,7 @@ class LibusbOverChromeUsbTransfersTest
         kTransferRequestField, kTransferValueField, transfer_index,
         actual_data.size());
 
-    libusb_transfer* const transfer =
-        libusb_js_proxy->LibusbAllocTransfer(0);
+    libusb_transfer* const transfer = libusb_js_proxy->LibusbAllocTransfer(0);
     libusb_fill_control_transfer(
         transfer, device_handle, buffer,
         &AsyncTransferCallbackWrapper::Callback,
@@ -419,8 +412,7 @@ class LibusbOverChromeUsbTransfersTest
     transfer->flags =
         LIBUSB_TRANSFER_FREE_TRANSFER | LIBUSB_TRANSFER_FREE_BUFFER;
 
-    EXPECT_EQ(LIBUSB_SUCCESS,
-              libusb_js_proxy->LibusbSubmitTransfer(transfer));
+    EXPECT_EQ(LIBUSB_SUCCESS, libusb_js_proxy->LibusbSubmitTransfer(transfer));
 
     return transfer;
   }
@@ -459,7 +451,7 @@ class LibusbOverChromeUsbTransfersTest
   class AsyncTransferCallbackWrapper {
    public:
     AsyncTransferCallbackWrapper(
-        LibusbOverChromeUsbTransfersTest* test_instance,
+        LibusbJsProxyTransfersTest* test_instance,
         size_t transfer_index,
         bool is_output,
         MockFunction<void(libusb_transfer_status)>* transfer_callback)
@@ -473,7 +465,7 @@ class LibusbOverChromeUsbTransfersTest
       AsyncTransferCallbackWrapper* const instance =
           static_cast<AsyncTransferCallbackWrapper*>(transfer->user_data);
 
-      LibusbOverChromeUsbTransfersTest* const test_instance =
+      LibusbJsProxyTransfersTest* const test_instance =
           instance->test_instance_;
       const size_t transfer_index = instance->transfer_index_;
       const bool is_output = instance->is_output_;
@@ -487,7 +479,7 @@ class LibusbOverChromeUsbTransfersTest
     }
 
    private:
-    LibusbOverChromeUsbTransfersTest* test_instance_;
+    LibusbJsProxyTransfersTest* test_instance_;
     size_t transfer_index_;
     bool is_output_;
     MockFunction<void(libusb_transfer_status)>* transfer_callback_;
@@ -583,9 +575,9 @@ class LibusbOverChromeUsbTransfersTest
   }
 };
 
-struct LibusbOverChromeUsbSingleTransferTestParam {
-  LibusbOverChromeUsbSingleTransferTestParam(size_t transfer_index,
-                                             bool is_transfer_output)
+struct LibusbJsProxySingleTransferTestParam {
+  LibusbJsProxySingleTransferTestParam(size_t transfer_index,
+                                       bool is_transfer_output)
       : transfer_index(transfer_index),
         is_transfer_output(is_transfer_output) {}
 
@@ -593,10 +585,10 @@ struct LibusbOverChromeUsbSingleTransferTestParam {
   bool is_transfer_output;
 };
 
-class LibusbOverChromeUsbSingleTransferTest
-    : public LibusbOverChromeUsbTransfersTest,
+class LibusbJsProxySingleTransferTest
+    : public LibusbJsProxyTransfersTest,
       public ::testing::WithParamInterface<
-          LibusbOverChromeUsbSingleTransferTestParam> {
+          LibusbJsProxySingleTransferTestParam> {
  public:
   static size_t GetTransferIndexToSucceed() {
     const size_t kTransferIndex = 1234;
@@ -626,7 +618,7 @@ class LibusbOverChromeUsbSingleTransferTest
 //
 // The transfer request is resolved immediately on the same thread that
 // initiated the transfer.
-TEST_P(LibusbOverChromeUsbSingleTransferTest, SyncControlTransfer) {
+TEST_P(LibusbJsProxySingleTransferTest, SyncControlTransfer) {
   SetUpMockForSyncControlTransfer(GetParam().transfer_index,
                                   GetParam().is_transfer_output);
   TestSyncControlTransfer(GetParam().transfer_index,
@@ -637,7 +629,7 @@ TEST_P(LibusbOverChromeUsbSingleTransferTest, SyncControlTransfer) {
 //
 // The transfer request is resolved on the same thread that initiated the
 // transfer, before the libusb events handling starts.
-TEST_P(LibusbOverChromeUsbSingleTransferTest, AsyncControlTransfer) {
+TEST_P(LibusbJsProxySingleTransferTest, AsyncControlTransfer) {
   const std::function<void()> chrome_usb_transfer_resolver =
       SetUpMockForAsyncControlTransfer(GetParam().transfer_index,
                                        GetParam().is_transfer_output);
@@ -657,7 +649,7 @@ TEST_P(LibusbOverChromeUsbSingleTransferTest, AsyncControlTransfer) {
 // Test cancellation of an asynchronous control transfers.
 //
 // Note that output control transfers cancellation never succeeds.
-TEST_P(LibusbOverChromeUsbSingleTransferTest, AsyncTransferCancellation) {
+TEST_P(LibusbJsProxySingleTransferTest, AsyncTransferCancellation) {
   const std::function<void()> chrome_usb_transfer_resolver =
       SetUpMockForAsyncControlTransfer(GetParam().transfer_index,
                                        GetParam().is_transfer_output);
@@ -671,16 +663,13 @@ TEST_P(LibusbOverChromeUsbSingleTransferTest, AsyncTransferCancellation) {
   const bool is_cancellation_successful = !GetParam().is_transfer_output;
 
   if (is_cancellation_successful) {
-    EXPECT_EQ(LIBUSB_SUCCESS,
-              libusb_js_proxy->LibusbCancelTransfer(transfer));
+    EXPECT_EQ(LIBUSB_SUCCESS, libusb_js_proxy->LibusbCancelTransfer(transfer));
   } else {
-    EXPECT_NE(LIBUSB_SUCCESS,
-              libusb_js_proxy->LibusbCancelTransfer(transfer));
+    EXPECT_NE(LIBUSB_SUCCESS, libusb_js_proxy->LibusbCancelTransfer(transfer));
   }
 
   // Second attempt to cancel a transfer is never successful
-  EXPECT_NE(LIBUSB_SUCCESS,
-            libusb_js_proxy->LibusbCancelTransfer(transfer));
+  EXPECT_NE(LIBUSB_SUCCESS, libusb_js_proxy->LibusbCancelTransfer(transfer));
 
   if (!is_cancellation_successful) {
     // Resolve the chrome.usb transfer if the transfer was an output transfer,
@@ -697,7 +686,7 @@ TEST_P(LibusbOverChromeUsbSingleTransferTest, AsyncTransferCancellation) {
 
 // Test that received result of a canceled asynchronous transfer is delivered to
 // the next transfer with the same parameters.
-TEST_P(LibusbOverChromeUsbSingleTransferTest,
+TEST_P(LibusbJsProxySingleTransferTest,
        AsyncTransferCompletionAfterCancellation) {
   if (GetParam().is_transfer_output) {
     // Cancellation of an output transfer is not supported, so the whole test
@@ -739,31 +728,31 @@ TEST_P(LibusbOverChromeUsbSingleTransferTest,
 
 INSTANTIATE_TEST_SUITE_P(
     InputTransferTest,
-    LibusbOverChromeUsbSingleTransferTest,
+    LibusbJsProxySingleTransferTest,
     ::testing::Values(
-        LibusbOverChromeUsbSingleTransferTestParam(
-            LibusbOverChromeUsbSingleTransferTest::GetTransferIndexToSucceed(),
+        LibusbJsProxySingleTransferTestParam(
+            LibusbJsProxySingleTransferTest::GetTransferIndexToSucceed(),
             false),
-        LibusbOverChromeUsbSingleTransferTestParam(
-            LibusbOverChromeUsbSingleTransferTest::GetTransferIndexToFail(),
+        LibusbJsProxySingleTransferTestParam(
+            LibusbJsProxySingleTransferTest::GetTransferIndexToFail(),
             false),
-        LibusbOverChromeUsbSingleTransferTestParam(
-            LibusbOverChromeUsbSingleTransferTest::
+        LibusbJsProxySingleTransferTestParam(
+            LibusbJsProxySingleTransferTest::
                 GetTransferIndexToFinishUnsuccessful(),
             false)));
 
 INSTANTIATE_TEST_SUITE_P(
     OutputTransferTest,
-    LibusbOverChromeUsbSingleTransferTest,
+    LibusbJsProxySingleTransferTest,
     ::testing::Values(
-        LibusbOverChromeUsbSingleTransferTestParam(
-            LibusbOverChromeUsbSingleTransferTest::GetTransferIndexToSucceed(),
+        LibusbJsProxySingleTransferTestParam(
+            LibusbJsProxySingleTransferTest::GetTransferIndexToSucceed(),
             true),
-        LibusbOverChromeUsbSingleTransferTestParam(
-            LibusbOverChromeUsbSingleTransferTest::GetTransferIndexToFail(),
+        LibusbJsProxySingleTransferTestParam(
+            LibusbJsProxySingleTransferTest::GetTransferIndexToFail(),
             true),
-        LibusbOverChromeUsbSingleTransferTestParam(
-            LibusbOverChromeUsbSingleTransferTest::
+        LibusbJsProxySingleTransferTestParam(
+            LibusbJsProxySingleTransferTest::
                 GetTransferIndexToFinishUnsuccessful(),
             true)));
 
@@ -780,7 +769,7 @@ INSTANTIATE_TEST_SUITE_P(
 //
 // Each transfer request is resolved immediately on the same thread that
 // initiated the transfer.
-TEST_F(LibusbOverChromeUsbTransfersTest,
+TEST_F(LibusbJsProxyTransfersTest,
        MAYBE_SyncControlTransfersWithMultiThreading) {
   const size_t kMaxTransferIndex = 1000;
   const size_t kThreadCount = 10;
@@ -807,11 +796,11 @@ TEST_F(LibusbOverChromeUsbTransfersTest,
 
 namespace {
 
-class LibusbOverChromeUsbAsyncTransfersMultiThreadingTest
-    : public LibusbOverChromeUsbTransfersTest {
+class LibusbJsProxyAsyncTransfersMultiThreadingTest
+    : public LibusbJsProxyTransfersTest {
  public:
   void SetUp() override {
-    LibusbOverChromeUsbTransfersTest::SetUp();
+    LibusbJsProxyTransfersTest::SetUp();
 
     for (size_t index = 0; index <= kMaxTransferIndex; ++index) {
       for (bool is_transfer_output : kBoolValues) {
@@ -825,7 +814,7 @@ class LibusbOverChromeUsbAsyncTransfersMultiThreadingTest
     chrome_usb_transfer_resolvers_.clear();
     transfers_in_flight_.clear();
 
-    LibusbOverChromeUsbTransfersTest::TearDown();
+    LibusbJsProxyTransfersTest::TearDown();
   }
 
  protected:
@@ -884,8 +873,7 @@ class LibusbOverChromeUsbAsyncTransfersMultiThreadingTest
 // asynchronous transfer requests and running libusb event loops.
 //
 // The requests are resolved asynchronously from the main thread.
-TEST_F(LibusbOverChromeUsbAsyncTransfersMultiThreadingTest,
-       MAYBE_ControlTransfers) {
+TEST_F(LibusbJsProxyAsyncTransfersMultiThreadingTest, MAYBE_ControlTransfers) {
   const size_t kThreadCount = 10;
 
   std::vector<std::thread> threads;

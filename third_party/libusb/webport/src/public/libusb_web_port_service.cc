@@ -52,8 +52,7 @@ class LibusbWebPortService::Impl final {
                                     typed_message_router)),
         libusb_js_proxy_(&chrome_usb_api_bridge_) {
 #ifndef NDEBUG
-    libusb_tracing_wrapper_.reset(
-        new LibusbTracingWrapper(&libusb_js_proxy_));
+    libusb_tracing_wrapper_.reset(new LibusbTracingWrapper(&libusb_js_proxy_));
 #endif  // NDEBUG
   }
 

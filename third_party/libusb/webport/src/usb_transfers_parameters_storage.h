@@ -36,7 +36,7 @@ namespace google_smart_card {
 //
 // One index has the TransferAsyncRequestStatePtr type, which corresponds to the
 // transfer result storage of each synchronous and asynchronous transfer that is
-// executed by the LibusbOverChromeUsb class methods.
+// executed by the LibusbJsProxy class methods.
 //
 // Another index has the UsbTransferDestination type, which uniquely represents
 // the target USB device and a set of transfer parameters.
