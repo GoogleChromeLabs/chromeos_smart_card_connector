@@ -32,6 +32,7 @@ namespace google_smart_card {
 
 namespace chrome_usb {
 
+// This constant must match the string in libusb-proxy-receiver.js.
 constexpr char kApiBridgeRequesterName[] = "libusb";
 
 // This class implements the C++ bridge to the chrome.usb JavaScript API (see
