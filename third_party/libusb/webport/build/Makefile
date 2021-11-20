@@ -71,7 +71,7 @@ $(foreach src,$(CXX_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CPPFLAGS) $(CXX
 $(eval $(call LIB_RULE,$(TARGET),$(SOURCES)))
 
 
-test::
+test:: all
 	+$(MAKE) --directory tests run_test
 	+$(MAKE) --directory js_unittests run_test
 
