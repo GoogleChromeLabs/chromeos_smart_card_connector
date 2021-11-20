@@ -86,8 +86,9 @@ endif
 # LDFLAGS: Enables Emscripten Pthreads support.
 # B: Build directory.
 # CMAKE_BUILD_TYPE: Specify debug/release build.
-# gtest_disable_pthreads: Disables pthreads-based functionality in GoogleTest
-#   that doesn't behave well under Emscripten (it deadlocks on startup).
+# GTEST_HAS_PTHREAD: Make GoogleTest/GoogleMock thread-safe via pthreads. Note
+#   that the same definition must be passed when compiling test files - see
+#   //common/cpp_unit_test_runner/src/build_emscripten.mk.
 $(ARTIFACTS_LIBS) &:
 	rm -rf out-artifacts
 	mkdir out-artifacts
@@ -100,7 +101,7 @@ $(ARTIFACTS_LIBS) &:
 		../../src \
 		-B out-artifacts \
 		-DCMAKE_BUILD_TYPE=$(CONFIG) \
-		-Dgtest_disable_pthreads=on
+		-DGTEST_HAS_PTHREAD=1
 	+$(MAKE) -C out-artifacts
 
 # Rule for creating target library files, as copies of the temporary libraries.
