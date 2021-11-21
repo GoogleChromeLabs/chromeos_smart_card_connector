@@ -178,7 +178,8 @@ GSC.PopupOpener.runModalDialog = function(
         'passed_data', JSON.stringify(modifiedData));
   }
 
-  GSC.PopupOpener.createWindow(modifiedUrl.toString(), createWindowOptions, modifiedData);
+  GSC.PopupOpener.createWindow(
+      modifiedUrl.toString(), createWindowOptions, modifiedData);
 
   return promiseResolver.promise;
 };
