@@ -43,6 +43,7 @@ goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsCheckin
 
 goog.require('GoogleSmartCard.InPopupMainScript');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.Packaging');
 goog.require('goog.asserts');
 goog.require('goog.dom');
 goog.require('goog.dom.classlist');
@@ -56,14 +57,16 @@ const UNTRUSTED_CLASS = 'untrusted';
 
 const GSC = GoogleSmartCard;
 
+const urlParams = new URLSearchParams(window.location.search);
+
 /** @type {!goog.log.Logger} */
 const logger = GSC.Logging.getScopedLogger(
     'PcscLiteServerClientsManagement.PermissionsChecking.UserPromptDialog.' +
     'Main');
 
-function prepareMessage() {
-  const data = GSC.InPopupMainScript.getData();
+const data = GSC.InPopupMainScript.getData();
 
+function prepareMessage() {
   const isClientKnown = data['is_client_known'];
   GSC.Logging.checkWithLogger(logger, typeof isClientKnown === 'boolean');
   goog.asserts.assertBoolean(isClientKnown);
@@ -92,12 +95,22 @@ function prepareMessage() {
   }
 }
 
-function allowClickListener() {
-  GSC.InPopupMainScript.resolveModalDialog(true);
+function allowClickListener(event) {
+  event.preventDefault();
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
+    GSC.InPopupMainScript.resolveModalDialog(true);
+  } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    GSC.InPopupMainScript.resolveModalDialog(true);
+  }
 }
 
-function denyClickListener() {
-  GSC.InPopupMainScript.resolveModalDialog(false);
+function denyClickListener(event) {
+  event.preventDefault();
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
+    GSC.InPopupMainScript.resolveModalDialog(false);
+  } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    GSC.InPopupMainScript.resolveModalDialog(false);
+  }
 }
 
 function closeWindowClickListener() {

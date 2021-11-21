@@ -68,6 +68,11 @@ const DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS = {
 const logger = GSC.Logging.getScopedLogger('PopupWindow.PopupOpener');
 
 /**
+ * ID used to differentiate between different popup instances.
+ */
+let lastUsedPopupId = 0;
+
+/**
  * Creates a new window.
  * @param {string} url
  * @param {!WindowOptions} windowOptions
@@ -105,6 +110,7 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
         'url': url,
         'type': 'popup',
         'width': windowOptions['width'],
+        'setSelfAsOpener': true
       });
     } else {
       GSC.Logging.failWithLogger(
@@ -140,17 +146,39 @@ GSC.PopupOpener.runModalDialog = function(
     Object.assign(createWindowOptions, opt_createWindowOptionsOverrides);
   }
 
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION)
+    lastUsedPopupId++;
+
   const promiseResolver = goog.Promise.withResolver();
 
-  const dataWithDialogCallbacks = {
-    'resolveModalDialog': promiseResolver.resolve,
-    'rejectModalDialog': promiseResolver.reject
-  };
-  if (opt_data !== undefined)
-    Object.assign(dataWithDialogCallbacks, opt_data);
+  // Set data for corresponnding SCC mode
+  const modifiedData =
+      (GSC.Packaging.MODE === GSC.Packaging.Mode.APP ?
+           {
+             'resolveModalDialog': promiseResolver.resolve,
+             'rejectModalDialog': promiseResolver.reject
+           } :
+           {'popup_id': lastUsedPopupId});
 
-  GSC.PopupOpener.createWindow(
-      url, createWindowOptions, dataWithDialogCallbacks);
+  // Set promiseResolver for SCC extension mode
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    goog.global[`googleSmartCard_resolveModalDialog${lastUsedPopupId}`] =
+        promiseResolver.resolve;
+    goog.global[`googleSmartCard_rejectModalDialog${lastUsedPopupId}`] =
+        promiseResolver.reject;
+  }
+
+  if (opt_data !== undefined)
+    Object.assign(modifiedData, opt_data);
+
+  const modifiedUrl = new URL(url, window.location.href);
+
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    modifiedUrl.searchParams.append(
+        'passed_data', JSON.stringify(modifiedData));
+  }
+
+  GSC.PopupOpener.createWindow(modifiedUrl.toString(), createWindowOptions, modifiedData);
 
   return promiseResolver.promise;
 };

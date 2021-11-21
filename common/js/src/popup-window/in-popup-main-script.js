@@ -48,6 +48,11 @@ const logger = GSC.Logging.getScopedLogger('PopupWindow.InPopupMainScript');
  * @return {!Object}
  */
 GSC.InPopupMainScript.getData = function() {
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const passedData = /** @type {string} */ (urlParams.get('passed_data'));
+    return /** @type {!Object} */ (JSON.parse(passedData));
+  }
   return goog.object.get(window, 'passedData', {});
 };
 
@@ -59,6 +64,8 @@ GSC.InPopupMainScript.showWindow = function() {
   chrome.app.window.current().show();
 };
 
+const popUpData = GSC.InPopupMainScript.getData();
+
 /**
  * Resolves the modal dialog, passing the specified result to the caller in the
  * parent window (i.e. in the App's background page) and closing the current
@@ -66,13 +73,24 @@ GSC.InPopupMainScript.showWindow = function() {
  * @param {*} result
  */
 GSC.InPopupMainScript.resolveModalDialog = function(result) {
-  const callback = GSC.InPopupMainScript.getData()['resolveModalDialog'];
-  GSC.Logging.checkWithLogger(logger, callback);
   goog.log.fine(
       logger,
       'The modal dialog is resolved with the following result: ' +
           GSC.DebugDump.debugDump(result));
-  callback(result);
+
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
+    const callback = popUpData['resolveModalDialog'];
+    GSC.Logging.checkWithLogger(logger, callback);
+    callback(result);
+  } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    goog.global['opener'][`googleSmartCard_resolveModalDialog${
+        popUpData['popup_id']}`](result);
+    delete goog.global['opener'][`googleSmartCard_resolveModalDialog${
+        popUpData['popup_id']}`];
+    delete goog.global['opener'][`googleSmartCard_rejectModalDialog${
+        popUpData['popup_id']}`];
+  }
+
   closeWindow();
 };
 
@@ -83,12 +101,23 @@ GSC.InPopupMainScript.resolveModalDialog = function(result) {
  * @param {*} error
  */
 GSC.InPopupMainScript.rejectModalDialog = function(error) {
-  const callback = GSC.InPopupMainScript.getData()['rejectModalDialog'];
-  GSC.Logging.checkWithLogger(logger, callback);
   goog.log.fine(
       logger,
       'The modal dialog is rejected with the following error: ' + error);
-  callback(error);
+
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
+    const callback = popUpData['rejectModalDialog'];
+    GSC.Logging.checkWithLogger(logger, callback);
+    callback(error);
+  } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    goog.global['opener'][`googleSmartCard_rejectModalDialog${
+        popUpData['popup_id']}`](error);
+    delete goog.global['opener'][`googleSmartCard_resolveModalDialog${
+        popUpData['popup_id']}`];
+    delete goog.global['opener'][`googleSmartCard_rejectModalDialog${
+        popUpData['popup_id']}`];
+  }
+
   closeWindow();
 };
 

@@ -33,6 +33,7 @@ goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.ExtensionId');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.MessagingOrigin');
+goog.require('GoogleSmartCard.Packaging');
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientInfo');
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistry');
 goog.require('GoogleSmartCard.PopupOpener');
@@ -47,8 +48,7 @@ goog.scope(function() {
 
 const LOCAL_STORAGE_KEY = 'pcsc_lite_clients_user_selections';
 
-const USER_PROMPT_DIALOG_URL =
-    'pcsc_lite_server_clients_management/user-prompt-dialog.html';
+const USER_PROMPT_DIALOG_URL = 'pcsc_lite_server_clients_management/user-prompt-dialog.html';
 
 const USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES = {
   'innerBounds': {'width': 300}
