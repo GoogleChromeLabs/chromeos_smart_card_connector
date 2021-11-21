@@ -22,7 +22,6 @@ goog.require('GoogleSmartCard.EmscriptenModule');
 goog.require('GoogleSmartCard.ExecutableModule');
 goog.require('GoogleSmartCard.Libusb.ChromeLoginStateHook');
 goog.require('GoogleSmartCard.Libusb.ChromeUsbBackend');
-goog.require('GoogleSmartCard.LibusbProxyReceiver');
 goog.require('GoogleSmartCard.LogBufferForwarder');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.MessageChannelPair');
@@ -124,8 +123,6 @@ chromeLoginStateHook.getHookReadyPromise()
     .then(function() {
       libusbChromeUsbBackend.startProcessingEvents();
     });
-const libusbProxyReceiver = new GSC.LibusbProxyReceiver(
-    executableModule.getMessageChannel(), libusbChromeUsbBackend);
 
 const pcscLiteReadinessTracker =
     new GSC.PcscLiteServerClientsManagement.ReadinessTracker(
