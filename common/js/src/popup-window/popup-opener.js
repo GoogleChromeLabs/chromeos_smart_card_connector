@@ -92,8 +92,9 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
   /** @preserveTry */
   try {
     if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
+      const loaclUrl = url.replace("chrome-extension://khpfeaanjngmcnplbdlpegiifgpfgdco", "");
       chrome.app.window.create(
-          url, {
+        loaclUrl, {
             'alwaysOnTop': windowOptions['alwaysOnTop'],
             'frame': windowOptions['frame'],
             'hidden': windowOptions['hidden'],
