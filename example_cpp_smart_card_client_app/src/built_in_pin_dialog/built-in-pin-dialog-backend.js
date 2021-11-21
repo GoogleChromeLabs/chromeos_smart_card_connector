@@ -42,8 +42,7 @@ goog.scope(function() {
 const REQUESTER_NAME = 'built_in_pin_dialog';
 const PIN_MESSAGE_KEY = 'pin';
 
-const PIN_DIALOG_URL =
-    new URL('built-in-pin-dialog.html', window.location.href);
+const PIN_DIALOG_URL = 'built-in-pin-dialog.html';
 
 const PIN_DIALOG_WINDOW_OPTIONS_OVERRIDES = {
   'alwaysOnTop': false,

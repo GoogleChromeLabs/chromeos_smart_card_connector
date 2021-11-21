@@ -48,9 +48,7 @@ goog.scope(function() {
 
 const LOCAL_STORAGE_KEY = 'pcsc_lite_clients_user_selections';
 
-let USER_PROMPT_DIALOG_URL = new URL(
-    'pcsc_lite_server_clients_management/user-prompt-dialog.html',
-    window.location.href);
+const USER_PROMPT_DIALOG_URL = 'pcsc_lite_server_clients_management/user-prompt-dialog.html';
 
 const USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES = {
   'innerBounds': {'width': 300}

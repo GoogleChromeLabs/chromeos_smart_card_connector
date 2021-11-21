@@ -74,7 +74,7 @@ let lastUsedPopupId = 0;
 
 /**
  * Creates a new window.
- * @param {!URL} url
+ * @param {string} url
  * @param {!WindowOptions} windowOptions
  * @param {!Object=} opt_data Optional data to be passed to the created window.
  */
@@ -93,7 +93,7 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
   try {
     if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
       chrome.app.window.create(
-          url.toString(), {
+          url, {
             'alwaysOnTop': windowOptions['alwaysOnTop'],
             'frame': windowOptions['frame'],
             'hidden': windowOptions['hidden'],
@@ -107,7 +107,7 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
           createWindowCallback.bind(null, createdWindowExtends));
     } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
       chrome.windows.create({
-        'url': url.toString(),
+        'url': url,
         'type': 'popup',
         'width': windowOptions['width'],
         'setSelfAsOpener': true
@@ -126,7 +126,7 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
 
 /**
  * Creates a new modal dialog and returns a promise of the data it returns.
- * @param {!URL} url
+ * @param {string} url
  * @param {!chrome.app.window.CreateWindowOptions=}
  * opt_createWindowOptionsOverrides Overrides to the default window options.
  * Note that the 'id' option is disallowed.
@@ -171,14 +171,14 @@ GSC.PopupOpener.runModalDialog = function(
   if (opt_data !== undefined)
     Object.assign(modifiedData, opt_data);
 
-  const modifiedUrl = new URL(url.toString());
+  const modifiedUrl = new URL(url, window.location.href);
 
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
     modifiedUrl.searchParams.append(
         'passed_data', JSON.stringify(modifiedData));
   }
 
-  GSC.PopupOpener.createWindow(modifiedUrl, createWindowOptions, modifiedData);
+  GSC.PopupOpener.createWindow(modifiedUrl.toString(), createWindowOptions, modifiedData);
 
   return promiseResolver.promise;
 };

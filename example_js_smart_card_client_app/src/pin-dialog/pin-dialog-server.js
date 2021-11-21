@@ -22,7 +22,7 @@ goog.require('goog.Promise');
 
 goog.scope(function() {
 
-const PIN_DIALOG_URL = new URL('pin-dialog.html', window.location.href);
+const PIN_DIALOG_URL = 'pin-dialog.html';
 
 const PIN_DIALOG_WINDOW_OPTIONS_OVERRIDES = {
   'innerBounds': {'width': 230}

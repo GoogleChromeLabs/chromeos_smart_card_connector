@@ -27,7 +27,7 @@ goog.require('GoogleSmartCard.PopupOpener');
 
 goog.scope(function() {
 
-const WINDOW_URL = new URL('window.html', window.location.href);
+const WINDOW_URL = 'window.html';
 const WINDOW_ID = 'main-window';
 
 /**
