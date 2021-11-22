@@ -79,7 +79,7 @@ JS_COMPILER_FLAGS := \
 $(eval $(call BUILD_JS_SCRIPT,pcsc_lite_server_clients_management/user-prompt-dialog.js,$(JS_COMPILER_INPUT_PATHS),GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.UserPromptDialog.Main,$(JS_COMPILER_FLAGS)))
 
 
-test::
+test:: all
 	+$(MAKE) --directory js_unittests run_test
 
 tests_clean::
