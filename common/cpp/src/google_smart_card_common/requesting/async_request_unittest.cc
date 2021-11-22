@@ -71,14 +71,7 @@ TEST(RequestingAsyncRequestTest, AsyncRequestStateBasic) {
   EXPECT_EQ(callback.request_result().payload().GetInteger(), kValue);
 }
 
-#ifdef __EMSCRIPTEN__
-// TODO(#185): Crashes in Emscripten due to out-of-memory.
-#define MAYBE_AsyncRequestStateMultiThreading \
-  DISABLED_AsyncRequestStateMultiThreading
-#else
-#define MAYBE_AsyncRequestStateMultiThreading AsyncRequestStateMultiThreading
-#endif
-TEST(RequestingAsyncRequestTest, MAYBE_AsyncRequestStateMultiThreading) {
+TEST(RequestingAsyncRequestTest, AsyncRequestStateMultiThreading) {
   const int kIterationCount = 300;
   const int kStateCount = 100;
   const int kThreadCount = 10;

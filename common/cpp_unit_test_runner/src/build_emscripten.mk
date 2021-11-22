@@ -16,18 +16,37 @@
 # builds the C++ unit test runner using the Emscripten toolchain.
 
 # Documented in ../include.mk.
+#
+# Explanation:
+# GTEST_HAS_PTHREAD: Make GoogleTest/GoogleMock thread-safe via pthreads. Note
+#   that this must match the flag passed when building GoogleTest/GoogleMock -
+#   see //third_party/googletest/webport/build/Makefile.
 TEST_ADDITIONAL_CXXFLAGS := \
+	-DGTEST_HAS_PTHREAD=1 \
 	-I$(ROOT_PATH)/third_party/googletest/src/googlemock/include \
 	-I$(ROOT_PATH)/third_party/googletest/src/googletest/include \
 
 # Documented in ../include.mk.
 #
 # Explanation:
+# EXIT_RUNTIME: Quit the program when the main() exits - otherwise the execution
+#   will hang.
+# EXPORT_NAME: Restore the standard value "Module" for this flag, overriding the
+#   setting specified in
+#   //common/make/internal/executable_building_emscripten.mk. Otherwise loading
+#   the test under Node.js will fail.
 # MODULARIZE: Disable putting the Emscripten module JavaScript loading code into
-#   a factory function, so that the test runner module is loaded automatically
-#   on startup.
+#   a factory function, overriding the setting specified in
+#   //common/make/internal/executable_building_emscripten.mk. Otherwise the test
+#   runner won't be loaded automatically when running the file in Node.js.
+# PROXY_TO_PTHREAD: Run the main() function, and hence all test bodies, in a
+#   separate thread. Otherwise, multi-threaded tests will hang as background
+#   tests aren't created until the main thread yields.
 TEST_ADDITIONAL_LDFLAGS := \
+	-s EXIT_RUNTIME \
+	-s EXPORT_NAME=Module \
 	-s MODULARIZE=0 \
+	-s PROXY_TO_PTHREAD \
 
 # Documented in ../include.mk.
 TEST_RUNNER_SOURCES :=

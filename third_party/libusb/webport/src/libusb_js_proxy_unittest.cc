@@ -756,22 +756,21 @@ INSTANTIATE_TEST_SUITE_P(
                 GetTransferIndexToFinishUnsuccessful(),
             true)));
 
-#ifdef __EMSCRIPTEN__
-// TODO(#185): Crashes in Emscripten due to out-of-memory.
-#define MAYBE_SyncControlTransfersWithMultiThreading \
-  DISABLED_SyncControlTransfersWithMultiThreading
-#else
-#define MAYBE_SyncControlTransfersWithMultiThreading \
-  SyncControlTransfersWithMultiThreading
-#endif
 // Test the correctness of work of multiple threads issuing a sequence of
 // synchronous transfer requests.
 //
 // Each transfer request is resolved immediately on the same thread that
 // initiated the transfer.
-TEST_F(LibusbJsProxyTransfersTest,
-       MAYBE_SyncControlTransfersWithMultiThreading) {
-  const size_t kMaxTransferIndex = 1000;
+TEST_F(LibusbJsProxyTransfersTest, SyncControlTransfersWithMultiThreading) {
+  // A high number of transfers increases the chances of catching a bug, but the
+  // constant is lower in the Debug mode to avoid running too long.
+  const size_t kMaxTransferIndex =
+#ifdef NDEBUG
+      1000
+#else
+      100
+#endif
+      ;
   const size_t kThreadCount = 10;
 
   for (size_t index = 0; index <= kMaxTransferIndex; ++index) {
@@ -818,7 +817,15 @@ class LibusbJsProxyAsyncTransfersMultiThreadingTest
   }
 
  protected:
-  const size_t kMaxTransferIndex = 1000;
+  // A high number of transfers increases the chances of catching a bug, but the
+  // constant is lower in the Debug mode to avoid running too long.
+  const size_t kMaxTransferIndex =
+#ifdef NDEBUG
+      1000
+#else
+      100
+#endif
+      ;
 
   void AddTransferInFlight(size_t transfer_index, bool is_transfer_output) {
     const std::unique_lock<std::mutex> lock(mutex_);
@@ -863,17 +870,11 @@ class LibusbJsProxyAsyncTransfersMultiThreadingTest
 
 }  // namespace
 
-#ifdef __EMSCRIPTEN__
-// TODO(#185): Crashes in Emscripten due to out-of-memory.
-#define MAYBE_ControlTransfers DISABLED_ControlTransfers
-#else
-#define MAYBE_ControlTransfers ControlTransfers
-#endif
 // Test the correctness of work of multiple threads issuing a sequence of
 // asynchronous transfer requests and running libusb event loops.
 //
 // The requests are resolved asynchronously from the main thread.
-TEST_F(LibusbJsProxyAsyncTransfersMultiThreadingTest, MAYBE_ControlTransfers) {
+TEST_F(LibusbJsProxyAsyncTransfersMultiThreadingTest, ControlTransfers) {
   const size_t kThreadCount = 10;
 
   std::vector<std::thread> threads;
