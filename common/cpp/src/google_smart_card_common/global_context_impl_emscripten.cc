@@ -74,7 +74,7 @@ bool GlobalContextImplEmscripten::IsMainEventLoopThread() const {
   return std::this_thread::get_id() == main_thread_id_;
 }
 
-void GlobalContextImplEmscripten::DisableJsCommunication() {
+void GlobalContextImplEmscripten::ShutDown() {
   GOOGLE_SMART_CARD_CHECK(IsMainEventLoopThread());
   post_message_callback_ = emscripten::val::undefined();
 }

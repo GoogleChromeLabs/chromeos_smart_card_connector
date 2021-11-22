@@ -64,7 +64,7 @@ namespace google_smart_card {
 //    them to the PcscLiteClientRequestProcessor instance).
 // 2. The manager receives a special "remove client" message with the client id.
 //    As a result, the manager removes the corresponding instance of the
-//    PcscLiteServerClientsManager::Client class, which, in turn, detaches the
+//    PcscLiteServerClientsManager::Client class, which, in turn, shuts down the
 //    JsRequestReceiver owned by it - so this ensures that new requests for
 //    this client won't be received, and the responses for the currently
 //    processed requests from this client will be discarded.
@@ -92,7 +92,7 @@ class PcscLiteServerClientsManager final {
 
   ~PcscLiteServerClientsManager();
 
-  void Detach();
+  void ShutDown();
 
  private:
   // Message listener for the client handler creation messages received from the

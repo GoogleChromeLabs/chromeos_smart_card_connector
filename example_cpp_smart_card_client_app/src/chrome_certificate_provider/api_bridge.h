@@ -99,7 +99,7 @@ class ApiBridge final : public google_smart_card::RequestHandler {
 
   ~ApiBridge() override;
 
-  void Detach();
+  void ShutDown();
 
   void SetCertificatesRequestHandler(
       std::weak_ptr<CertificatesRequestHandler> handler);

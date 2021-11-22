@@ -78,7 +78,7 @@ class PpInstance final : public pp::Instance {
   ~PpInstance() override {
     // Intentionally leak `global_context_` without destroying it, because there
     // might still be background threads that access it.
-    global_context_->DisableJsCommunication();
+    global_context_->ShutDown();
     (void)global_context_.release();
   }
 

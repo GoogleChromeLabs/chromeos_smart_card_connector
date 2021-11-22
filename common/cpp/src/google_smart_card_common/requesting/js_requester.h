@@ -47,8 +47,8 @@ class JsRequester final : public Requester, public TypedMessageListener {
   //
   // `global_context` - must outlive `this`.
   // Note that the passed TypedMessageRouter is allowed to be destroyed earlier
-  // than the JsRequester object - but the Detach() method must be called before
-  // destroying it.
+  // than the JsRequester object - but the `ShutDown()` method must be called
+  // before destroying it.
   JsRequester(const std::string& name,
               GlobalContext* global_context,
               TypedMessageRouter* typed_message_router);
@@ -59,7 +59,7 @@ class JsRequester final : public Requester, public TypedMessageListener {
   ~JsRequester() override;
 
   // Requester implementation
-  void Detach() override;
+  void ShutDown() override;
   void StartAsyncRequest(Value payload,
                          GenericAsyncRequestCallback callback,
                          GenericAsyncRequest* async_request) override;

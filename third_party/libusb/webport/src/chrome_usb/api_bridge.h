@@ -49,7 +49,7 @@ class ApiBridge final : public ApiBridgeInterface {
   ApiBridge& operator=(const ApiBridge&) = delete;
   ~ApiBridge() override;
 
-  void Detach();
+  void ShutDown();
 
   // ApiBridgeInterface:
   RequestResult<GetDevicesResult> GetDevices(

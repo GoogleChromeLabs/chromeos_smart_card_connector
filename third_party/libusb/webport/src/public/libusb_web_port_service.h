@@ -64,7 +64,7 @@ class LibusbWebPortService final {
   // already destroyed objects.
   //
   // This function is safe to be called from any thread.
-  void Detach();
+  void ShutDown();
 
  private:
   // Use the "pimpl" pattern, so that other code can include our .h file without

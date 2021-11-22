@@ -51,9 +51,8 @@ class BuiltInPinDialogServer final {
 
   ~BuiltInPinDialogServer();
 
-  // Detaches from the typed message router and the JavaScript side, which
-  // prevents making any further requests and prevents waiting for the responses
-  // of the already started requests.
+  // Stops sending any further requests to the JavaScript side and prevents
+  // receiving responses from it.
   //
   // This function is primarily intended to be used during the executable
   // shutdown process, for preventing the situations when some other threads
@@ -61,7 +60,7 @@ class BuiltInPinDialogServer final {
   // destroyed objects.
   //
   // This function is safe to be called from any thread.
-  void Detach();
+  void ShutDown();
 
   // Sends a PIN request and waits for the response being received.
   //

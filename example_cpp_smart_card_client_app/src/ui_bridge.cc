@@ -70,10 +70,10 @@ UiBridge::UiBridge(gsc::GlobalContext* global_context,
 }
 
 UiBridge::~UiBridge() {
-  Detach();
+  ShutDown();
 }
 
-void UiBridge::Detach() {
+void UiBridge::ShutDown() {
   gsc::TypedMessageRouter* const typed_message_router =
       typed_message_router_.exchange(nullptr);
   if (typed_message_router)

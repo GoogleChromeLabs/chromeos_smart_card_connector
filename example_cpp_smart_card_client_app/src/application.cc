@@ -309,12 +309,12 @@ Application::Application(gsc::GlobalContext* global_context,
 Application::~Application() {
   // Intentionally leak `pcsc_lite_over_requester_global_` without destroying
   // it, because there might still be background threads that access it.
-  pcsc_lite_over_requester_global_->Detach();
+  pcsc_lite_over_requester_global_->ShutDown();
   (void)pcsc_lite_over_requester_global_.release();
 
-  built_in_pin_dialog_server_->Detach();
-  chrome_certificate_provider_api_bridge_->Detach();
-  ui_bridge_->Detach();
+  built_in_pin_dialog_server_->ShutDown();
+  chrome_certificate_provider_api_bridge_->ShutDown();
+  ui_bridge_->ShutDown();
 }
 
 }  // namespace smart_card_client
