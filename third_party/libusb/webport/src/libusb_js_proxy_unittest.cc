@@ -762,8 +762,8 @@ INSTANTIATE_TEST_SUITE_P(
 // Each transfer request is resolved immediately on the same thread that
 // initiated the transfer.
 TEST_F(LibusbJsProxyTransfersTest, SyncControlTransfersWithMultiThreading) {
-  // The bigger number of transfers increases the chances of catching a bug, but
-  // the constant is lower in the Debug mode to avoid running too long.
+  // A high number of transfers increases the chances of catching a bug, but the
+  // constant is lower in the Debug mode to avoid running too long.
   const size_t kMaxTransferIndex =
 #ifdef NDEBUG
       1000
@@ -817,8 +817,8 @@ class LibusbJsProxyAsyncTransfersMultiThreadingTest
   }
 
  protected:
-  // The bigger number of transfers increases the chances of catching a bug, but
-  // the constant is lower in the Debug mode to avoid running too long.
+  // A high number of transfers increases the chances of catching a bug, but the
+  // constant is lower in the Debug mode to avoid running too long.
   const size_t kMaxTransferIndex =
 #ifdef NDEBUG
       1000

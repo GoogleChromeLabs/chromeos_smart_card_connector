@@ -131,8 +131,8 @@ TEST(MessagingTypedMessageRouterTest, Basic) {
 }
 
 TEST(MessagingTypedMessageRouterTest, MultiThreading) {
-  // The bigger number of iterations increases the chances of catching a bug,
-  // but the constant is lower in the Debug mode to avoid running too long.
+  // A high number of iterations increases the chances of catching a bug, but
+  // the constant is lower in the Debug mode to avoid running too long.
   const int kIterationCount =
 #ifdef NDEBUG
       100 * 1000
