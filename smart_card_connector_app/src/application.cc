@@ -50,8 +50,8 @@ Application::Application(
 
 Application::~Application() {
   // Intentionally leak objects that might still be used by background threads.
-  // Only shut them down (which makes them stop referring to `this` and sending
-  // requests to the JavaScript side).
+  // Only shut them down (which makes them stop referring to `this` and stop
+  // sending requests to the JavaScript side).
   libusb_web_port_service_->ShutDown();
   (void)libusb_web_port_service_.release();
   (void)pcsc_lite_server_global_.release();
