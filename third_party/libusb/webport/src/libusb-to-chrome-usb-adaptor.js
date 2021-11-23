@@ -34,10 +34,18 @@ const LibusbJsDevice = GSC.LibusbProxyDataModel.LibusbJsDevice;
 GSC.LibusbToChromeUsbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
   /** @override */
   async listDevices() {
-    const devices = /** @type {!Array<!chrome.usb.Device>} */ (
+    const chromeUsbDevices = /** @type {!Array<!chrome.usb.Device>} */ (
         await promisify(chrome.usb.getDevices, /*options=*/ {}));
-    return devices.map(convertChromeUsbDeviceToLibusb);
+    return chromeUsbDevices.map(convertChromeUsbDeviceToLibusb);
   }
+};
+
+/**
+ * Returns whether the API needed for this adaptor to work is available.
+ * @static
+ */
+GSC.LibusbToChromeUsbAdaptor.isApiAvailable = function() {
+  return chrome && chrome.usb;
 };
 
 /**

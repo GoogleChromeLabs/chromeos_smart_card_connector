@@ -130,9 +130,9 @@ const libusbProxyReceiver = new GSC.LibusbProxyReceiver(
 const pcscLiteReadinessTracker =
     new GSC.PcscLiteServerClientsManagement.ReadinessTracker(
         executableModule.getMessageChannel());
-const messageChannelPool = new GSC.MessageChannelPool;
+const messageChannelPool = new GSC.MessageChannelPool();
 
-const readerTrackerMessageChannelPair = new GSC.MessageChannelPair;
+const readerTrackerMessageChannelPair = new GSC.MessageChannelPair();
 createClientHandler(readerTrackerMessageChannelPair.getFirst(), undefined);
 const readerTracker = new GSC.PcscLiteServer.ReaderTracker(
     executableModule.getMessageChannel(),
