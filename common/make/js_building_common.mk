@@ -92,6 +92,8 @@ endif
 # Add common Closure Compiler flags.
 #
 # Explanation:
+# browser_featureset_year: Specify the year that's appropriate for the oldest
+#   Chrome release still supported by us, which is 2012.
 # dependency_mode=PRUNE: Skip unused JS code.
 # jscomp_error *: Enable all warning classes and treat them as errors by
 #   default. Note: To be on the safe side, we're specifying all possible warning
@@ -114,7 +116,10 @@ endif
 #   inheritance and promote this to jscomp_error.
 # jscomp_off unknownDefines: Suppressed in order to avoid compiler complaints
 #   when an unused constant is passed via --define.
+# language_out: Specify the JS language revision that corresponds to the oldest
+#   Chrome release still supported by us: ECMASCRIPT5 (released in year 2009).
 JS_BUILD_COMPILATION_FLAGS += \
+	--browser_featureset_year=2012 \
 	--define='GoogleSmartCard.ExecutableModule.TOOLCHAIN=$(TOOLCHAIN)' \
 	--define='GoogleSmartCard.Logging.USE_SCOPED_LOGGERS=false' \
 	--define='GoogleSmartCard.Packaging.MODE=$(PACKAGING)' \
@@ -126,6 +131,7 @@ JS_BUILD_COMPILATION_FLAGS += \
 	--jscomp_off reportUnknownTypes \
 	--jscomp_off strictMissingProperties \
 	--jscomp_off unknownDefines \
+	--language_out=ECMASCRIPT5 \
 	--use_types_for_optimization=false \
 	--warning_level=VERBOSE \
 
