@@ -43,9 +43,10 @@ GSC.LibusbToChromeUsbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
 /**
  * Returns whether the API needed for this adaptor to work is available.
  * @static
+ * @return {boolean}
  */
 GSC.LibusbToChromeUsbAdaptor.isApiAvailable = function() {
-  return chrome && chrome.usb;
+  return chrome !== undefined && chrome.usb !== undefined;
 };
 
 /**
@@ -53,6 +54,7 @@ GSC.LibusbToChromeUsbAdaptor.isApiAvailable = function() {
  * promise.
  * @param {!Function} apiMethod The chrome.usb API method to call.
  * @param {...*} apiArguments The parameters to pass to the called method.
+ * @return {!Promise<*>}
  */
 function promisify(apiMethod, ...apiArguments) {
   return new Promise((resolve, reject) => {

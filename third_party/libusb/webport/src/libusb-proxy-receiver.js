@@ -31,7 +31,7 @@ goog.require('goog.messaging.AbstractChannel');
 
 goog.scope(function() {
 
-// This constant must match the string in api_bridge.h.
+// This constant must match the string in libusb_js_proxy.cc.
 const EXECUTABLE_MODULE_REQUESTER_NAME = 'libusb';
 
 const GSC = GoogleSmartCard;

@@ -37,6 +37,7 @@ goog.require('goog.promise.Resolver');
 
 goog.scope(function() {
 
+// This string must match the constant in chrome_usb/api_bridge.h.
 const REQUESTER_NAME = 'libusb_chrome_usb';
 
 const GSC = GoogleSmartCard;
