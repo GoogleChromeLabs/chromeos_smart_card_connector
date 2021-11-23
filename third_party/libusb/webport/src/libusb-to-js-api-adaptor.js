@@ -20,7 +20,6 @@
 goog.provide('GoogleSmartCard.LibusbToJsApiAdaptor');
 
 goog.require('GoogleSmartCard.LibusbProxyDataModel');
-goog.require('goog.Promise');
 
 goog.scope(function() {
 
