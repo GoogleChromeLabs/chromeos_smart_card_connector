@@ -42,6 +42,7 @@
 #include <google_smart_card_common/requesting/request_result.h>
 
 #include "chrome_usb/types.h"
+#include "libusb_js_proxy_data_model.h"
 #include "usb_transfer_destination.h"
 #include "usb_transfers_parameters_storage.h"
 
@@ -216,12 +217,12 @@ struct libusb_context final
 struct libusb_device final {
   // Creates a new structure with the reference counter equal to 1.
   libusb_device(libusb_context* context,
-                const google_smart_card::chrome_usb::Device& chrome_usb_device);
+                const google_smart_card::LibusbJsDevice& js_device);
 
   ~libusb_device();
 
   libusb_context* context() const;
-  const google_smart_card::chrome_usb::Device& chrome_usb_device() const;
+  const google_smart_card::LibusbJsDevice& js_device() const;
 
   // Increments the reference counter.
   void AddReference();
@@ -230,8 +231,8 @@ struct libusb_device final {
   void RemoveReference();
 
  private:
-  libusb_context* context_;
-  google_smart_card::chrome_usb::Device chrome_usb_device_;
+  libusb_context* const context_;
+  const google_smart_card::LibusbJsDevice js_device_;
   std::atomic_int reference_count_{1};
 };
 

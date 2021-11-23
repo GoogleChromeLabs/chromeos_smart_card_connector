@@ -27,10 +27,17 @@
 #include <vector>
 
 #include <google_smart_card_common/logging/logging.h>
+#include <google_smart_card_common/requesting/request_result.h>
+
+#include "libusb_js_proxy_data_model.h"
 
 namespace google_smart_card {
 
 namespace {
+
+// These constants must match the strings in libusb-proxy-receiver.js.
+constexpr char kJsRequesterName[] = "libusb";
+constexpr char kJsRequestListDevices[] = "list_devices";
 
 //
 // We use stubs for the device bus number (as the chrome.usb API does not
@@ -118,16 +125,41 @@ libusb_context* GetLibusbTransferContextChecked(
   return result;
 }
 
+// TODO(#429): Delete this converter once all code is switched to libusb_js.
+chrome_usb::Device ConvertLibusbJsDeviceToChromeUsb(
+    const LibusbJsDevice& js_device) {
+  chrome_usb::Device chrome_usb_device;
+  chrome_usb_device.device = js_device.device_id;
+  chrome_usb_device.vendor_id = js_device.vendor_id;
+  chrome_usb_device.product_id = js_device.product_id;
+  chrome_usb_device.version = js_device.version;
+  chrome_usb_device.product_name =
+      js_device.product_name ? *js_device.product_name : "";
+  chrome_usb_device.manufacturer_name =
+      js_device.manufacturer_name ? *js_device.manufacturer_name : "";
+  chrome_usb_device.serial_number =
+      js_device.serial_number ? *js_device.serial_number : "";
+  return chrome_usb_device;
+}
+
 }  // namespace
 
 LibusbJsProxy::LibusbJsProxy(
+    GlobalContext* global_context,
+    TypedMessageRouter* typed_message_router,
     chrome_usb::ApiBridgeInterface* chrome_usb_api_bridge)
-    : chrome_usb_api_bridge_(chrome_usb_api_bridge),
+    : js_requester_(kJsRequesterName, global_context, typed_message_router),
+      js_call_adaptor_(&js_requester_),
+      chrome_usb_api_bridge_(chrome_usb_api_bridge),
       default_context_(contexts_storage_.CreateContext()) {
   GOOGLE_SMART_CARD_CHECK(chrome_usb_api_bridge_);
 }
 
 LibusbJsProxy::~LibusbJsProxy() = default;
+
+void LibusbJsProxy::ShutDown() {
+  js_requester_.ShutDown();
+}
 
 int LibusbJsProxy::LibusbInit(libusb_context** ctx) {
   // If the default context was requested, nothing is done (it's always existing
@@ -150,26 +182,27 @@ ssize_t LibusbJsProxy::LibusbGetDeviceList(libusb_context* ctx,
 
   ctx = SubstituteDefaultContextIfNull(ctx);
 
-  const RequestResult<chrome_usb::GetDevicesResult> result =
-      chrome_usb_api_bridge_->GetDevices(chrome_usb::GetDevicesOptions());
-  if (!result.is_successful()) {
+  GenericRequestResult request_result =
+      js_call_adaptor_.SyncCall(kJsRequestListDevices);
+  std::string error_message;
+  std::vector<LibusbJsDevice> js_devices;
+  if (!RemoteCallAdaptor::ExtractResultPayload(std::move(request_result),
+                                               &error_message, &js_devices)) {
     GOOGLE_SMART_CARD_LOG_WARNING
         << "LibusbJsProxy::LibusbGetDeviceList request failed: "
-        << result.error_message();
+        << error_message;
     return LIBUSB_ERROR_OTHER;
   }
-  const std::vector<chrome_usb::Device>& chrome_usb_devices =
-      result.payload().devices;
 
-  *list = new libusb_device*[chrome_usb_devices.size() + 1];
-  for (size_t index = 0; index < chrome_usb_devices.size(); ++index)
-    (*list)[index] = new libusb_device(ctx, chrome_usb_devices[index]);
+  *list = new libusb_device*[js_devices.size() + 1];
+  for (size_t index = 0; index < js_devices.size(); ++index)
+    (*list)[index] = new libusb_device(ctx, js_devices[index]);
 
   // The resulting list must be NULL-terminated according to the libusb
   // documentation.
-  (*list)[chrome_usb_devices.size()] = nullptr;
+  (*list)[js_devices.size()] = nullptr;
 
-  return chrome_usb_devices.size();
+  return js_devices.size();
 }
 
 void LibusbJsProxy::LibusbFreeDeviceList(libusb_device** list,
@@ -374,7 +407,8 @@ int LibusbJsProxy::LibusbGetActiveConfigDescriptor(
   GOOGLE_SMART_CARD_CHECK(config);
 
   const RequestResult<chrome_usb::GetConfigurationsResult> result =
-      chrome_usb_api_bridge_->GetConfigurations(dev->chrome_usb_device());
+      chrome_usb_api_bridge_->GetConfigurations(
+          ConvertLibusbJsDeviceToChromeUsb(dev->js_device()));
   if (!result.is_successful()) {
     GOOGLE_SMART_CARD_LOG_WARNING
         << "LibusbJsProxy::LibusbGetActiveConfigDescriptor request "
@@ -459,7 +493,7 @@ void LibusbJsProxy::LibusbFreeConfigDescriptor(
 
 namespace {
 
-void FillLibusbDeviceDescriptor(const chrome_usb::Device& chrome_usb_device,
+void FillLibusbDeviceDescriptor(const LibusbJsDevice& js_device,
                                 libusb_device_descriptor* result) {
   GOOGLE_SMART_CARD_CHECK(result);
 
@@ -469,19 +503,18 @@ void FillLibusbDeviceDescriptor(const chrome_usb::Device& chrome_usb_device,
 
   result->bDescriptorType = LIBUSB_DT_DEVICE;
 
-  result->idVendor = chrome_usb_device.vendor_id;
+  result->idVendor = js_device.vendor_id;
 
-  result->idProduct = chrome_usb_device.product_id;
+  result->idProduct = js_device.product_id;
 
-  if (chrome_usb_device.version) {
-    // The "bcdDevice" field is filled only when the chrome.usb API returns the
-    // corresponding information (which happens only in Chrome >= 51; refer to
-    // <http://crbug.com/598825>).
-    result->bcdDevice = *chrome_usb_device.version;
+  if (js_device.version) {
+    // When using the chrome.usb API, the version field is filled only in
+    // Chrome >= 51 (see <http://crbug.com/598825>).
+    result->bcdDevice = *js_device.version;
   }
 
   //
-  // chrome.usb API also provides information about the product name,
+  // The JS APIs also provide information about the product name,
   // manufacturer name and serial number. However, it's difficult to pass this
   // information to consumers here, because the corresponding
   // libusb_device_descriptor structure fields (iProduct, iManufacturer,
@@ -514,13 +547,12 @@ int LibusbJsProxy::LibusbGetDeviceDescriptor(libusb_device* dev,
   GOOGLE_SMART_CARD_CHECK(dev);
   GOOGLE_SMART_CARD_CHECK(desc);
 
-  FillLibusbDeviceDescriptor(dev->chrome_usb_device(), desc);
+  FillLibusbDeviceDescriptor(dev->js_device(), desc);
   return LIBUSB_SUCCESS;
 }
 
 uint8_t LibusbJsProxy::LibusbGetBusNumber(libusb_device* dev) {
-  auto bus_numbers_iterator =
-      bus_numbers_.find(dev->chrome_usb_device().device);
+  auto bus_numbers_iterator = bus_numbers_.find(dev->js_device().device_id);
   if (bus_numbers_iterator != bus_numbers_.end()) {
     return bus_numbers_iterator->second;
   }
@@ -530,7 +562,7 @@ uint8_t LibusbJsProxy::LibusbGetBusNumber(libusb_device* dev) {
 uint8_t LibusbJsProxy::LibusbGetDeviceAddress(libusb_device* dev) {
   GOOGLE_SMART_CARD_CHECK(dev);
 
-  const int64_t device_id = dev->chrome_usb_device().device;
+  const int64_t device_id = dev->js_device().device_id;
   // FIXME(emaxx): Fix the implementation to re-use the free device identifiers.
   // The current implementation will break, for instance, after a device is
   // unplugged and plugged back 256 times.
@@ -544,7 +576,8 @@ int LibusbJsProxy::LibusbOpen(libusb_device* dev,
   GOOGLE_SMART_CARD_CHECK(handle);
 
   const RequestResult<chrome_usb::OpenDeviceResult> result =
-      chrome_usb_api_bridge_->OpenDevice(dev->chrome_usb_device());
+      chrome_usb_api_bridge_->OpenDevice(
+          ConvertLibusbJsDeviceToChromeUsb(dev->js_device()));
   if (!result.is_successful()) {
     GOOGLE_SMART_CARD_LOG_WARNING
         << "LibusbJsProxy::LibusbOpen "
@@ -554,7 +587,7 @@ int LibusbJsProxy::LibusbOpen(libusb_device* dev,
     uint32_t new_bus_number =
         static_cast<uint32_t>(LibusbGetBusNumber(dev)) + 1;
     if (new_bus_number <= kMaximumBusNumber) {
-      bus_numbers_[dev->chrome_usb_device().device] = new_bus_number;
+      bus_numbers_[dev->js_device().device_id] = new_bus_number;
     }
     return LIBUSB_ERROR_OTHER;
   }

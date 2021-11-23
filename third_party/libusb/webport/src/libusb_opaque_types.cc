@@ -342,10 +342,9 @@ void libusb_context::SetTransferResult(
   condition_.notify_all();
 }
 
-libusb_device::libusb_device(
-    libusb_context* context,
-    const google_smart_card::chrome_usb::Device& chrome_usb_device)
-    : context_(context), chrome_usb_device_(chrome_usb_device) {
+libusb_device::libusb_device(libusb_context* context,
+                             const google_smart_card::LibusbJsDevice& js_device)
+    : context_(context), js_device_(js_device) {
   GOOGLE_SMART_CARD_CHECK(context);
 }
 
@@ -357,9 +356,8 @@ libusb_context* libusb_device::context() const {
   return context_;
 }
 
-const google_smart_card::chrome_usb::Device& libusb_device::chrome_usb_device()
-    const {
-  return chrome_usb_device_;
+const google_smart_card::LibusbJsDevice& libusb_device::js_device() const {
+  return js_device_;
 }
 
 void libusb_device::AddReference() {

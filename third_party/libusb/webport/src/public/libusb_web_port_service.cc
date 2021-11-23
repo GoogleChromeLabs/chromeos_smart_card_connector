@@ -50,7 +50,9 @@ class LibusbWebPortService::Impl final {
             MakeUnique<JsRequester>(chrome_usb::kApiBridgeRequesterName,
                                     global_context,
                                     typed_message_router)),
-        libusb_js_proxy_(&chrome_usb_api_bridge_) {
+        libusb_js_proxy_(global_context,
+                         typed_message_router,
+                         &chrome_usb_api_bridge_) {
 #ifndef NDEBUG
     libusb_tracing_wrapper_.reset(new LibusbTracingWrapper(&libusb_js_proxy_));
 #endif  // NDEBUG
@@ -60,7 +62,10 @@ class LibusbWebPortService::Impl final {
   Impl& operator=(const Impl&) = delete;
   ~Impl() = default;
 
-  void ShutDown() { chrome_usb_api_bridge_.ShutDown(); }
+  void ShutDown() {
+    chrome_usb_api_bridge_.ShutDown();
+    libusb_js_proxy_.ShutDown();
+  }
 
   LibusbInterface* libusb() {
     if (libusb_tracing_wrapper_)

@@ -51,7 +51,7 @@ const ResponseMessageData = RequesterMessage.ResponseMessageData;
  * @param {string} name Name of the requester whose requests will be handled by
  * this instance.
  * @param {!goog.messaging.AbstractChannel} messageChannel
- * @param {function(!Object):!goog.Promise} requestHandler
+ * @param {function(!Object):(!goog.Promise|!Promise)} requestHandler
  * @constructor
  */
 GSC.RequestReceiver = function(name, messageChannel, requestHandler) {
