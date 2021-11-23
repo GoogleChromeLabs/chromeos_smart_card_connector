@@ -116,13 +116,15 @@ GSC.LibusbProxyReceiver = class {
 
 /** @return {!GSC.LibusbToJsApiAdaptor|null} */
 function chooseLibusbToJsApiAdaptor() {
-  if (GSC.LibusbToWebusbAdaptor.isApiAvailable()) {
-    goog.log.fine(logger, 'Using WebUSB API');
-    return new GSC.LibusbToWebusbAdaptor();
-  }
+  // chrome.usb takes precedence: WebUSB might be available but have
+  // insufficient permissions.
   if (GSC.LibusbToChromeUsbAdaptor.isApiAvailable()) {
     goog.log.fine(logger, 'Using chrome.usb API');
     return new GSC.LibusbToChromeUsbAdaptor();
+  }
+  if (GSC.LibusbToWebusbAdaptor.isApiAvailable()) {
+    goog.log.fine(logger, 'Using WebUSB API');
+    return new GSC.LibusbToWebusbAdaptor();
   }
   goog.log.warning(
       logger,
