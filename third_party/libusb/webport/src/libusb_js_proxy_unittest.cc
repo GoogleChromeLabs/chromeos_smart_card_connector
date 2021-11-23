@@ -33,7 +33,9 @@
 #include <gtest/gtest.h>
 #include <libusb.h>
 
+#include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/logging/logging.h>
+#include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/requesting/request_result.h>
 
 #include "chrome_usb/api_bridge_interface.h"
@@ -130,13 +132,23 @@ class MockChromeUsbApiBridge final : public chrome_usb::ApiBridgeInterface {
                    const chrome_usb::ConnectionHandle& connection_handle));
 };
 
+class FakeGlobalContext final : public GlobalContext {
+ public:
+  void PostMessageToJs(Value /*message*/) override {}
+  bool IsMainEventLoopThread() const override { return true; }
+  void ShutDown() override {}
+};
+
+}  // namespace
+
 class LibusbJsProxyTest : public ::testing::Test {
  protected:
   void SetUp() override {
     ::testing::Test::SetUp();
 
     chrome_usb_api_bridge.reset(new MockChromeUsbApiBridge);
-    libusb_js_proxy.reset(new LibusbJsProxy(chrome_usb_api_bridge.get()));
+    libusb_js_proxy.reset(new LibusbJsProxy(
+        &global_context_, &typed_message_router_, chrome_usb_api_bridge.get()));
   }
 
   void TearDown() override {
@@ -146,11 +158,11 @@ class LibusbJsProxyTest : public ::testing::Test {
     ::testing::Test::TearDown();
   }
 
+  FakeGlobalContext global_context_;
+  TypedMessageRouter typed_message_router_;
   std::unique_ptr<MockChromeUsbApiBridge> chrome_usb_api_bridge;
   std::unique_ptr<LibusbJsProxy> libusb_js_proxy;
 };
-
-}  // namespace
 
 TEST_F(LibusbJsProxyTest, ContextsCreation) {
   ASSERT_EQ(LIBUSB_SUCCESS, libusb_js_proxy->LibusbInit(nullptr));

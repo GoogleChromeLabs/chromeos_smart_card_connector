@@ -41,6 +41,7 @@ CXX_SOURCES := \
 	$(LIBUSB_NACL_SOURCES_PATH)/chrome_usb/types.cc \
 	$(LIBUSB_NACL_SOURCES_PATH)/libusb_contexts_storage.cc \
 	$(LIBUSB_NACL_SOURCES_PATH)/libusb_js_proxy.cc \
+	$(LIBUSB_NACL_SOURCES_PATH)/libusb_js_proxy_data_model.cc \
 	$(LIBUSB_NACL_SOURCES_PATH)/libusb_opaque_types.cc \
 	$(LIBUSB_NACL_SOURCES_PATH)/libusb_tracing_wrapper.cc \
 	$(LIBUSB_NACL_SOURCES_PATH)/public/libusb_web_port_service.cc \

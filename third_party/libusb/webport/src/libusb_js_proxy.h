@@ -24,6 +24,10 @@
 
 #include <libusb.h>
 
+#include <google_smart_card_common/global_context.h>
+#include <google_smart_card_common/messaging/typed_message_router.h>
+#include <google_smart_card_common/requesting/js_requester.h>
+#include <google_smart_card_common/requesting/remote_call_adaptor.h>
 #include <google_smart_card_common/requesting/request_result.h>
 
 #include "chrome_usb/api_bridge_interface.h"
@@ -50,10 +54,27 @@ class LibusbJsProxy final : public LibusbInterface {
   using TransferAsyncRequestCallback =
       AsyncRequestCallback<chrome_usb::TransferResult>;
 
-  explicit LibusbJsProxy(chrome_usb::ApiBridgeInterface* chrome_usb_api_bridge);
+  LibusbJsProxy(GlobalContext* global_context,
+                TypedMessageRouter* typed_message_router,
+                chrome_usb::ApiBridgeInterface* chrome_usb_api_bridge);
   LibusbJsProxy(const LibusbJsProxy&) = delete;
   LibusbJsProxy& operator=(const LibusbJsProxy&) = delete;
   ~LibusbJsProxy() override;
+
+  // Detaches from the typed message router and the JavaScript side, which
+  // prevents making any further requests and prevents waiting for the responses
+  // of the already started requests.
+  //
+  // After this function call, all methods are still allowed to be called, but
+  // they will return errors instead of performing the real requests.
+  //
+  // This function is primarily intended to be used during the executable
+  // shutdown process, for preventing the situations when some other threads
+  // currently executing global libusb operations would trigger accesses to
+  // already destroyed objects.
+  //
+  // This function is safe to be called from any thread.
+  void ShutDown();
 
   // LibusbInterface:
   int LibusbInit(libusb_context** ctx) override;
@@ -134,6 +155,10 @@ class LibusbJsProxy final : public LibusbInterface {
       libusb_transfer* transfer);
   int LibusbHandleEventsWithTimeout(libusb_context* context,
                                     int timeout_seconds);
+
+  // Helpers for making requests to the JavaScript side.
+  JsRequester js_requester_;
+  RemoteCallAdaptor js_call_adaptor_;
 
   // map that holds the (fake) bus number for each device
   // keys are libusb_device->chrome_usb_device().device

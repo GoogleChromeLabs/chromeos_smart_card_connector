@@ -21,6 +21,8 @@ goog.provide('GoogleSmartCard.LibusbProxyReceiver');
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Libusb.ChromeUsbBackend');
+goog.require('GoogleSmartCard.LibusbToChromeUsbAdaptor');
+goog.require('GoogleSmartCard.LibusbToJsApiAdaptor');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.RemoteCallMessage');
 goog.require('goog.Promise');
@@ -58,16 +60,18 @@ GSC.LibusbProxyReceiver = class {
         this.onRequestReceivedFromExecutableModule_.bind(this));
     /** @private @const */
     this.libusbChromeUsbBackend_ = libusbChromeUsbBackend;
+    /** @private @const */
+    this.libusbToJsApiAdaptor_ = chooseLibusbToJsApiAdaptor();
   }
 
   /**
    * Handles a Libusb request sent from the C++ code in the executable module.
    * The result is returned asynchronously via the returned promise.
    * @param {!Object} payload
-   * @return {!goog.Promise}
+   * @return {!Promise<!Array>}
    * @private
    */
-  onRequestReceivedFromExecutableModule_(payload) {
+  async onRequestReceivedFromExecutableModule_(payload) {
     const remoteCallMessage =
         GSC.RemoteCallMessage.parseRequestPayload(payload);
     if (!remoteCallMessage) {
@@ -80,9 +84,45 @@ GSC.LibusbProxyReceiver = class {
         `Received a remote call request: ${
             remoteCallMessage.getDebugRepresentation()}`);
 
-    // TODO(#429): Handle the requests in our class instead of forwarding them
-    // to ChromeUsbBackend.
-    return this.libusbChromeUsbBackend_.handleRequest(payload);
+    if (!this.libusbToJsApiAdaptor_) {
+      // No need to log errors here, since this was already done in the
+      // constructor.
+      throw new Error('USB API unavailable');
+    }
+    const result = await this.dispatchLibusbJsFunction_(remoteCallMessage);
+    return [result];
+  }
+
+  /**
+   * @param {!GSC.RemoteCallMessage} remoteCallMessage
+   * @return {!Promise<*>}
+   * @private
+   */
+  async dispatchLibusbJsFunction_(remoteCallMessage) {
+    // Note: The function name strings must match the ones in
+    // libusb_js_proxy.cc.
+    switch (remoteCallMessage.functionName) {
+      case 'list_devices':
+        return await this.libusbToJsApiAdaptor_.listDevices(
+            ...remoteCallMessage.functionArguments);
+    }
+    // TODO(#429): Delete this fallback to ChromeUsbBackend once all functions
+    // are implemented in LibusbToJsApiAdaptor.
+    return await this.libusbChromeUsbBackend_.handleRequest(
+        remoteCallMessage.makeRequestPayload());
   }
 };
+
+/** @return {!GSC.LibusbToJsApiAdaptor|null} */
+function chooseLibusbToJsApiAdaptor() {
+  // TODO(#429): Implement another adaptor - based on WebUSB.
+  if (chrome && chrome.usb) {
+    goog.log.fine(logger, 'Using chrome.usb API');
+    return new GSC.LibusbToChromeUsbAdaptor;
+  }
+  goog.log.warning(
+      logger,
+      'The USB API is not available. All USB requests will silently fail.');
+  return null;
+}
 });  // goog.scope
