@@ -46,12 +46,12 @@ struct LibusbJsDevice {
   // The version number (according to the bcdDevice field of the USB specs), or
   // an empty optional if unavailable.
   optional<int64_t> version;
-  // The USB iProduct string, or an empty string if unavailable.
-  std::string product_name;
-  // The USB iManufacturer string, or an empty string if unavailable.
-  std::string manufacturer_name;
-  // The USB iSerialNumber string, or an empty string if unavailable.
-  std::string serial_number;
+  // The USB iProduct string, or an empty optional if unavailable.
+  optional<std::string> product_name;
+  // The USB iManufacturer string, or an empty optional if unavailable.
+  optional<std::string> manufacturer_name;
+  // The USB iSerialNumber string, or an empty optional if unavailable.
+  optional<std::string> serial_number;
 };
 
 }  // namespace google_smart_card

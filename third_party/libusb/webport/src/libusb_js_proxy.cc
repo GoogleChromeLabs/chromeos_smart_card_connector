@@ -133,9 +133,12 @@ chrome_usb::Device ConvertLibusbJsDeviceToChromeUsb(
   chrome_usb_device.vendor_id = js_device.vendor_id;
   chrome_usb_device.product_id = js_device.product_id;
   chrome_usb_device.version = js_device.version;
-  chrome_usb_device.product_name = js_device.product_name;
-  chrome_usb_device.manufacturer_name = js_device.manufacturer_name;
-  chrome_usb_device.serial_number = js_device.serial_number;
+  chrome_usb_device.product_name =
+      js_device.product_name ? *js_device.product_name : "";
+  chrome_usb_device.manufacturer_name =
+      js_device.manufacturer_name ? *js_device.manufacturer_name : "";
+  chrome_usb_device.serial_number =
+      js_device.serial_number ? *js_device.serial_number : "";
   return chrome_usb_device;
 }
 
