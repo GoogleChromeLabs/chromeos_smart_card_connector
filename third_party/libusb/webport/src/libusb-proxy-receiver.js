@@ -115,6 +115,10 @@ GSC.LibusbProxyReceiver = class {
         await this.libusbToJsApiAdaptor_.closeDeviceHandle(
             ...remoteCallMessage.functionArguments);
         return [];
+      case 'claimInterface':
+        await this.libusbToJsApiAdaptor_.claimInterface(
+            ...remoteCallMessage.functionArguments);
+        return [];
     }
     // TODO(#429): Delete this fallback to ChromeUsbBackend once all functions
     // are implemented in LibusbToJsApiAdaptor.
