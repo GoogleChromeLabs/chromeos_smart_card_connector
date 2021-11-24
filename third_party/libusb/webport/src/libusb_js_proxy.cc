@@ -608,7 +608,6 @@ void LibusbJsProxy::LibusbClose(libusb_device_handle* handle) {
     // It's essential to not crash in this case, because this may happen during
     // shutdown process.
     GOOGLE_SMART_CARD_LOG_ERROR << "Failed to close USB device";
-    return;
   }
 
   delete handle;
