@@ -103,8 +103,11 @@ GSC.LibusbProxyReceiver = class {
     // Note: The function name strings must match the ones in
     // libusb_js_proxy.cc.
     switch (remoteCallMessage.functionName) {
-      case 'list_devices':
+      case 'listDevices':
         return await this.libusbToJsApiAdaptor_.listDevices(
+            ...remoteCallMessage.functionArguments);
+      case 'getConfigurations':
+        return await this.libusbToJsApiAdaptor_.getConfigurations(
             ...remoteCallMessage.functionArguments);
     }
     // TODO(#429): Delete this fallback to ChromeUsbBackend once all functions

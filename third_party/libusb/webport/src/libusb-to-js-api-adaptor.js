@@ -24,10 +24,18 @@ goog.require('GoogleSmartCard.LibusbProxyDataModel');
 goog.scope(function() {
 
 const GSC = GoogleSmartCard;
+const LibusbJsConfigurationDescriptor =
+    GSC.LibusbProxyDataModel.LibusbJsConfigurationDescriptor;
 const LibusbJsDevice = GSC.LibusbProxyDataModel.LibusbJsDevice;
 
 GSC.LibusbToJsApiAdaptor = class {
   /** @return {!Promise<!Array<!LibusbJsDevice>>} */
   async listDevices() {}
+
+  /**
+   * @param {number} deviceId
+   * @return {!Promise<!Array<!LibusbJsConfigurationDescriptor>>}
+   */
+  async getConfigurations(deviceId) {}
 };
 });  // goog.scope

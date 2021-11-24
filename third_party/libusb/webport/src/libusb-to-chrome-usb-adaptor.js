@@ -21,12 +21,24 @@ goog.provide('GoogleSmartCard.LibusbToChromeUsbAdaptor');
 
 goog.require('GoogleSmartCard.LibusbProxyDataModel');
 goog.require('GoogleSmartCard.LibusbToJsApiAdaptor');
+goog.require('GoogleSmartCard.Logging');
+goog.require('goog.asserts');
 goog.require('goog.object');
 
 goog.scope(function() {
 
 const GSC = GoogleSmartCard;
+const LibusbJsConfigurationDescriptor =
+    GSC.LibusbProxyDataModel.LibusbJsConfigurationDescriptor;
 const LibusbJsDevice = GSC.LibusbProxyDataModel.LibusbJsDevice;
+const LibusbJsDirection = GSC.LibusbProxyDataModel.LibusbJsDirection;
+const LibusbJsEndpointDescriptor =
+    GSC.LibusbProxyDataModel.LibusbJsEndpointDescriptor;
+const LibusbJsEndpointType = GSC.LibusbProxyDataModel.LibusbJsEndpointType;
+const LibusbJsInterfaceDescriptor =
+    GSC.LibusbProxyDataModel.LibusbJsInterfaceDescriptor;
+
+const logger = GSC.Logging.getScopedLogger('LibusbToChromeUsbAdaptor');
 
 /**
  * Implements the Libusb requests via the chrome.usb Apps API.
@@ -58,6 +70,16 @@ GSC.LibusbToChromeUsbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
     return chromeUsbDevices.map(convertChromeUsbDeviceToLibusb);
   }
 
+  /** @override */
+  async getConfigurations(deviceId) {
+    const chromeUsbDevice = this.getDeviceByIdOrThrow_(deviceId);
+    const chromeUsbConfigDescriptors =
+        /** @type {!Array<!chrome.usb.ConfigDescriptor>} */ (
+            await promisify(chrome.usb.getConfigurations, chromeUsbDevice));
+    return chromeUsbConfigDescriptors.map(
+        convertChromeUsbDeviceDescriptorToLibusb);
+  }
+
   /**
    * @private
    * @param {!Array<!chrome.usb.Device>} chromeUsbDevices
@@ -66,6 +88,18 @@ GSC.LibusbToChromeUsbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
     this.idToChromeUsbDeviceMap_ = new Map();
     for (const chromeUsbDevice of chromeUsbDevices)
       this.idToChromeUsbDeviceMap_.set(chromeUsbDevice.device, chromeUsbDevice);
+  }
+
+  /**
+   * @private
+   * @param {number} deviceId
+   * @return {!chrome.usb.Device}
+   */
+  getDeviceByIdOrThrow_(deviceId) {
+    const chromeUsbDevice = this.idToChromeUsbDeviceMap_.get(deviceId);
+    if (!chromeUsbDevice)
+      throw new Error(`No device with ID ${deviceId}`);
+    return chromeUsbDevice;
   }
 };
 
@@ -119,5 +153,88 @@ function convertChromeUsbDeviceToLibusb(chromeUsbDevice) {
     libusbJsDevice['version'] = chromeUsbDevice.version;
   }
   return libusbJsDevice;
+}
+
+/**
+ * @param {!chrome.usb.ConfigDescriptor} chromeUsbConfigDescriptor
+ * @return {!LibusbJsConfigurationDescriptor}
+ */
+function convertChromeUsbDeviceDescriptorToLibusb(chromeUsbConfigDescriptor) {
+  return {
+    'active': chromeUsbConfigDescriptor.active,
+    'configurationValue': chromeUsbConfigDescriptor.configurationValue,
+    'extraData': chromeUsbConfigDescriptor.extra_data,
+    'interfaces': chromeUsbConfigDescriptor.interfaces.map(
+        convertChromeUsbInterfaceDescriptorToLibusb),
+  };
+}
+
+/**
+ * @param {!chrome.usb.InterfaceDescriptor} chromeUsbInterfaceDescriptor
+ * @return {!LibusbJsInterfaceDescriptor}
+ */
+function convertChromeUsbInterfaceDescriptorToLibusb(
+    chromeUsbInterfaceDescriptor) {
+  return {
+    'interfaceNumber': chromeUsbInterfaceDescriptor.interfaceNumber,
+    'interfaceClass': chromeUsbInterfaceDescriptor.interfaceClass,
+    'interfaceSubclass': chromeUsbInterfaceDescriptor.interfaceSubclass,
+    'interfaceProtocol': chromeUsbInterfaceDescriptor.interfaceProtocol,
+    'extraData': chromeUsbInterfaceDescriptor.extra_data,
+    'endpoints': chromeUsbInterfaceDescriptor.endpoints.map(
+        convertChromeUsbEndpointToLibusb),
+  };
+}
+
+/**
+ * @param {!chrome.usb.EndpointDescriptor} chromeUsbEndpointDescriptor
+ * @return {!LibusbJsEndpointDescriptor}
+ */
+function convertChromeUsbEndpointToLibusb(chromeUsbEndpointDescriptor) {
+  return {
+    'endpointAddress': chromeUsbEndpointDescriptor.address,
+    'direction': convertChromeUsbDirectionToLibusb(
+        chromeUsbEndpointDescriptor.direction),
+    'type':
+        convertChromeUsbEndpointTypeToLibusb(chromeUsbEndpointDescriptor.type),
+    'extraData': chromeUsbEndpointDescriptor.extra_data,
+    'maxPacketSize': chromeUsbEndpointDescriptor.maximumPacketSize,
+  };
+}
+
+/**
+ * @param {string} chromeUsbDirection The chrome.usb.Direction enum.
+ * @return {!LibusbJsDirection}
+ */
+function convertChromeUsbDirectionToLibusb(chromeUsbDirection) {
+  switch (chromeUsbDirection) {
+    case 'in':
+      return LibusbJsDirection.IN;
+    case 'out':
+      return LibusbJsDirection.OUT;
+  }
+  GSC.Logging.failWithLogger(
+      logger, `Unexpected chrome.usb direction: ${chromeUsbDirection}`);
+  goog.asserts.fail();
+}
+
+/**
+ * @param {string} chromeUsbEndpointType The chrome.usb.TransferType enum.
+ * @return {!LibusbJsEndpointType}
+ */
+function convertChromeUsbEndpointTypeToLibusb(chromeUsbEndpointType) {
+  switch (chromeUsbEndpointType) {
+    case 'bulk':
+      return LibusbJsEndpointType.BULK;
+    case 'control':
+      return LibusbJsEndpointType.CONTROL;
+    case 'interrupt':
+      return LibusbJsEndpointType.INTERRUPT;
+    case 'isochronous':
+      return LibusbJsEndpointType.ISOCHRONOUS;
+  }
+  GSC.Logging.failWithLogger(
+      logger, `Unexpected chrome.usb endpoint type: ${chromeUsbEndpointType}`);
+  goog.asserts.fail();
 }
 });  // goog.scope

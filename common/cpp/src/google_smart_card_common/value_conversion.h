@@ -615,6 +615,12 @@ bool ConvertFromValue(Value value,
                       uint8_t* number,
                       std::string* error_message = nullptr);
 bool ConvertFromValue(Value value,
+                      int16_t* number,
+                      std::string* error_message = nullptr);
+bool ConvertFromValue(Value value,
+                      uint16_t* number,
+                      std::string* error_message = nullptr);
+bool ConvertFromValue(Value value,
                       int64_t* number,
                       std::string* error_message = nullptr);
 bool ConvertFromValue(Value value,
