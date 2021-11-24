@@ -91,26 +91,23 @@ GSC.LibusbToChromeUsbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
 
   /** @override */
   async closeDeviceHandle(deviceId, deviceHandle) {
-    const chromeUsbDevice = this.getDeviceByIdOrThrow_(deviceId);
     const chromeUsbConnectionHandle =
-        getChromeUsbConnectionHandle(chromeUsbDevice, deviceHandle);
+        this.getConnectionHandleWithDeviceIdOrThrow_(deviceId, deviceHandle);
     await promisify(chrome.usb.closeDevice, chromeUsbConnectionHandle);
   }
 
   /** @override */
   async claimInterface(deviceId, deviceHandle, interfaceNumber) {
-    const chromeUsbDevice = this.getDeviceByIdOrThrow_(deviceId);
     const chromeUsbConnectionHandle =
-        getChromeUsbConnectionHandle(chromeUsbDevice, deviceHandle);
+        this.getConnectionHandleWithDeviceIdOrThrow_(deviceId, deviceHandle);
     await promisify(
         chrome.usb.claimInterface, chromeUsbConnectionHandle, interfaceNumber);
   }
 
   /** @override */
   async releaseInterface(deviceId, deviceHandle, interfaceNumber) {
-    const chromeUsbDevice = this.getDeviceByIdOrThrow_(deviceId);
     const chromeUsbConnectionHandle =
-        getChromeUsbConnectionHandle(chromeUsbDevice, deviceHandle);
+        this.getConnectionHandleWithDeviceIdOrThrow_(deviceId, deviceHandle);
     await promisify(
         chrome.usb.releaseInterface, chromeUsbConnectionHandle,
         interfaceNumber);
@@ -136,6 +133,17 @@ GSC.LibusbToChromeUsbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
     if (!chromeUsbDevice)
       throw new Error(`No device with ID ${deviceId}`);
     return chromeUsbDevice;
+  }
+
+  /**
+   * @private
+   * @param {number} deviceId
+   * @param {number} deviceHandle
+   * @return {!chrome.usb.ConnectionHandle}
+   */
+  getConnectionHandleWithDeviceIdOrThrow_(deviceId, deviceHandle) {
+    const chromeUsbDevice = this.getDeviceByIdOrThrow_(deviceId);
+    return getChromeUsbConnectionHandle(chromeUsbDevice, deviceHandle);
   }
 };
 
