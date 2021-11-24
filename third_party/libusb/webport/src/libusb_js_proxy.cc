@@ -595,7 +595,6 @@ int LibusbJsProxy::LibusbResetDevice(libusb_device_handle* dev) {
   GenericRequestResult request_result = js_call_adaptor_.SyncCall(
       kJsRequestResetDevice, dev->device()->js_device().device_id,
       dev->js_device_handle());
-  std::string error_message;
   if (!request_result.is_successful()) {
     GOOGLE_SMART_CARD_LOG_WARNING << "LibusbResetDevice request failed: "
                                   << request_result.error_message();
