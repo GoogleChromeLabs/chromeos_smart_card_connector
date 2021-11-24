@@ -37,5 +37,18 @@ GSC.LibusbToJsApiAdaptor = class {
    * @return {!Promise<!Array<!LibusbJsConfigurationDescriptor>>}
    */
   async getConfigurations(deviceId) {}
+
+  /**
+   * @param {number} deviceId
+   * @return {!Promise<number>} Device handle.
+   */
+  async openDeviceHandle(deviceId) {}
+
+  /**
+   * @param {number} deviceId
+   * @param {number} deviceHandle
+   * @return {!Promise<void>}
+   */
+  async closeDeviceHandle(deviceId, deviceHandle) {}
 };
 });  // goog.scope

@@ -372,12 +372,9 @@ void libusb_device::RemoveReference() {
     delete this;
 }
 
-libusb_device_handle::libusb_device_handle(
-    libusb_device* device,
-    const google_smart_card::chrome_usb::ConnectionHandle&
-        chrome_usb_connection_handle)
-    : device_(device),
-      chrome_usb_connection_handle_(chrome_usb_connection_handle) {
+libusb_device_handle::libusb_device_handle(libusb_device* device,
+                                           int64_t js_device_handle)
+    : device_(device), js_device_handle_(js_device_handle) {
   GOOGLE_SMART_CARD_CHECK(device_);
   device_->AddReference();
 }
@@ -394,7 +391,6 @@ libusb_context* libusb_device_handle::context() const {
   return device_->context();
 }
 
-const google_smart_card::chrome_usb::ConnectionHandle&
-libusb_device_handle::chrome_usb_connection_handle() const {
-  return chrome_usb_connection_handle_;
+int64_t libusb_device_handle::js_device_handle() const {
+  return js_device_handle_;
 }

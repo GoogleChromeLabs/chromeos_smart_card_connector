@@ -212,8 +212,6 @@ struct libusb_context final
 };
 
 // Definition of the libusb_device type declared in the libusb headers.
-//
-// The structure corresponds to the Device structure in chrome.usb interface.
 struct libusb_device final {
   // Creates a new structure with the reference counter equal to 1.
   libusb_device(libusb_context* context,
@@ -237,15 +235,10 @@ struct libusb_device final {
 };
 
 // Definition of the libusb_device_handle type declared in the libusb headers.
-//
-// The structure corresponds to the ConnectionHandle structure in chrome.usb
-// interface.
 struct libusb_device_handle final {
   // Constructs the structure and increments the reference counter of the
   // specified libusb_device instance.
-  libusb_device_handle(libusb_device* device,
-                       const google_smart_card::chrome_usb::ConnectionHandle&
-                           chrome_usb_connection_handle);
+  libusb_device_handle(libusb_device* device, int64_t js_device_handle);
 
   // Destructs the structure and decrements the reference counter of the
   // specified libusb_device instance.
@@ -253,12 +246,11 @@ struct libusb_device_handle final {
 
   libusb_device* device() const;
   libusb_context* context() const;
-  const google_smart_card::chrome_usb::ConnectionHandle&
-  chrome_usb_connection_handle() const;
+  int64_t js_device_handle() const;
 
  private:
-  libusb_device* device_;
-  google_smart_card::chrome_usb::ConnectionHandle chrome_usb_connection_handle_;
+  libusb_device* const device_;
+  const int64_t js_device_handle_;
 };
 
 #endif  // GOOGLE_SMART_CARD_THIRD_PARTY_LIBUSB_LIBUSB_OPAQUE_TYPES_H_

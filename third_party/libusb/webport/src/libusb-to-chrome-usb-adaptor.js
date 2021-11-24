@@ -80,6 +80,23 @@ GSC.LibusbToChromeUsbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
         convertChromeUsbDeviceDescriptorToLibusb);
   }
 
+  /** @override */
+  async openDeviceHandle(deviceId) {
+    const chromeUsbDevice = this.getDeviceByIdOrThrow_(deviceId);
+    const chromeUsbConnectionHandle =
+        /** @type {!chrome.usb.ConnectionHandle} */ (
+            await promisify(chrome.usb.openDevice, chromeUsbDevice));
+    return chromeUsbConnectionHandle.handle;
+  }
+
+  /** @override */
+  async closeDeviceHandle(deviceId, deviceHandle) {
+    const chromeUsbDevice = this.getDeviceByIdOrThrow_(deviceId);
+    const chromeUsbConnectionHandle =
+        getChromeUsbConnectionHandle(chromeUsbDevice, deviceHandle);
+    await promisify(chrome.usb.closeDevice, chromeUsbConnectionHandle);
+  }
+
   /**
    * @private
    * @param {!Array<!chrome.usb.Device>} chromeUsbDevices
@@ -236,5 +253,18 @@ function convertChromeUsbEndpointTypeToLibusb(chromeUsbEndpointType) {
   GSC.Logging.failWithLogger(
       logger, `Unexpected chrome.usb endpoint type: ${chromeUsbEndpointType}`);
   goog.asserts.fail();
+}
+
+/**
+ * @param {!chrome.usb.Device} chromeUsbDevice
+ * @param {number} deviceHandle
+ * @return {!chrome.usb.ConnectionHandle}
+ */
+function getChromeUsbConnectionHandle(chromeUsbDevice, deviceHandle) {
+  return /** @type {!chrome.usb.ConnectionHandle} */ ({
+    'handle': deviceHandle,
+    'productId': chromeUsbDevice.productId,
+    'vendorId': chromeUsbDevice.vendorId,
+  });
 }
 });  // goog.scope
