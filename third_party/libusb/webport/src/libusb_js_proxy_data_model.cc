@@ -41,7 +41,7 @@ StructValueDescriptor<LibusbJsDevice>::GetDescription() {
 template <>
 EnumValueDescriptor<LibusbJsDirection>::Description
 EnumValueDescriptor<LibusbJsDirection>::GetDescription() {
-  // Note: Strings passed to WithField() below must match the ones in
+  // Note: Strings passed to WithItem() below must match the ones in
   // libusb-proxy-data-model.js.
   return Describe("LibusbJsDirection")
       .WithItem(LibusbJsDirection::kIn, "in")
@@ -51,7 +51,7 @@ EnumValueDescriptor<LibusbJsDirection>::GetDescription() {
 template <>
 EnumValueDescriptor<LibusbJsEndpointType>::Description
 EnumValueDescriptor<LibusbJsEndpointType>::GetDescription() {
-  // Note: Strings passed to WithField() below must match the ones in
+  // Note: Strings passed to WithItem() below must match the ones in
   // libusb-proxy-data-model.js.
   return Describe("LibusbJsEndpointType")
       .WithItem(LibusbJsEndpointType::kBulk, "bulk")
