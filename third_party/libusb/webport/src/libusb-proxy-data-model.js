@@ -27,6 +27,7 @@ const GSC = GoogleSmartCard;
 // libusb_js_proxy_data_model.h.
 
 /**
+ * The key strings must match the ones in libusb_js_proxy_data_model.cc.
  * @typedef {{
  *            deviceId:number,
  *            vendorId:number,
@@ -42,6 +43,7 @@ GSC.LibusbProxyDataModel.LibusbJsDevice;
 const LibusbJsDevice = GSC.LibusbProxyDataModel.LibusbJsDevice;
 
 /**
+ * The string values must match the ones in libusb_js_proxy_data_model.cc.
  * @enum {string}
  */
 GSC.LibusbProxyDataModel.LibusbJsDirection = {
@@ -52,6 +54,7 @@ GSC.LibusbProxyDataModel.LibusbJsDirection = {
 const LibusbJsDirection = GSC.LibusbProxyDataModel.LibusbJsDirection;
 
 /**
+ * The string values must match the ones in libusb_js_proxy_data_model.cc.
  * @enum {string}
  */
 GSC.LibusbProxyDataModel.LibusbJsEndpointType = {
@@ -64,6 +67,7 @@ GSC.LibusbProxyDataModel.LibusbJsEndpointType = {
 const LibusbJsEndpointType = GSC.LibusbProxyDataModel.LibusbJsEndpointType;
 
 /**
+ * The key strings must match the ones in libusb_js_proxy_data_model.cc.
  * @typedef {{
  *            endpointAddress:number,
  *            direction:!LibusbJsDirection,
@@ -78,6 +82,7 @@ const LibusbJsEndpointDescriptor =
     GSC.LibusbProxyDataModel.LibusbJsEndpointDescriptor;
 
 /**
+ * The key strings must match the ones in libusb_js_proxy_data_model.cc.
  * @typedef {{
  *            interfaceNumber:number,
  *            interfaceClass:number,
@@ -93,6 +98,7 @@ const LibusbJsInterfaceDescriptor =
     GSC.LibusbProxyDataModel.LibusbJsInterfaceDescriptor;
 
 /**
+ * The key strings must match the ones in libusb_js_proxy_data_model.cc.
  * TODO(#429): Investigate remote_wakeup, self_powered, max_power flags.
  * @typedef {{
  *            active:boolean,
