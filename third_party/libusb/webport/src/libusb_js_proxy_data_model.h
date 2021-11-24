@@ -24,6 +24,7 @@
 #include <stdint.h>
 
 #include <string>
+#include <vector>
 
 #include <google_smart_card_common/optional.h>
 
@@ -52,6 +53,50 @@ struct LibusbJsDevice {
   optional<std::string> manufacturer_name;
   // The USB iSerialNumber string, or an empty optional if unavailable.
   optional<std::string> serial_number;
+};
+
+enum LibusbJsDirection {
+  kIn,
+  kOut,
+};
+
+enum LibusbJsEndpointType {
+  kBulk,
+  kControl,
+  kInterrupt,
+  kIsochronous,
+};
+
+struct LibusbJsEndpointDescriptor {
+  // The USB bEndpointAddress field.
+  uint8_t endpoint_address;
+  LibusbJsDirection direction;
+  LibusbJsEndpointType type;
+  optional<std::vector<uint8_t>> extra_data;
+  // The USB wMaxPacketSize field.
+  uint16_t max_packet_size;
+};
+
+struct LibusbJsInterfaceDescriptor {
+  // The USB bInterfaceNumber field.
+  uint8_t interface_number;
+  // The USB interfaceClass field.
+  uint8_t interface_class;
+  // The USB interfaceSubclass field.
+  uint8_t interface_subclass;
+  // The USB interfaceProtocol field.
+  uint8_t interface_protocol;
+  optional<std::vector<uint8_t>> extra_data;
+  std::vector<LibusbJsEndpointDescriptor> endpoints;
+};
+
+struct LibusbJsConfigurationDescriptor {
+  // Whether the configuration is active.
+  bool active;
+  // The USB bConfigurationValue field.
+  uint8_t configuration_value;
+  optional<std::vector<uint8_t>> extra_data;
+  std::vector<LibusbJsInterfaceDescriptor> interfaces;
 };
 
 }  // namespace google_smart_card

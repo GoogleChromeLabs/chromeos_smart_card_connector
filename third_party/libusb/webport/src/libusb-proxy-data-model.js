@@ -19,10 +19,15 @@
 
 goog.provide('GoogleSmartCard.LibusbProxyDataModel');
 
+goog.scope(function() {
+
+const GSC = GoogleSmartCard;
+
 // The following definitions must match the ones in
 // libusb_js_proxy_data_model.h.
 
 /**
+ * The key strings must match the ones in libusb_js_proxy_data_model.cc.
  * @typedef {{
  *            deviceId:number,
  *            vendorId:number,
@@ -33,4 +38,77 @@ goog.provide('GoogleSmartCard.LibusbProxyDataModel');
  *            serialNumber:(string|undefined),
  *          }}
  */
-GoogleSmartCard.LibusbProxyDataModel.LibusbJsDevice;
+GSC.LibusbProxyDataModel.LibusbJsDevice;
+
+const LibusbJsDevice = GSC.LibusbProxyDataModel.LibusbJsDevice;
+
+/**
+ * The string values must match the ones in libusb_js_proxy_data_model.cc.
+ * @enum {string}
+ */
+GSC.LibusbProxyDataModel.LibusbJsDirection = {
+  IN: 'in',
+  OUT: 'out',
+};
+
+const LibusbJsDirection = GSC.LibusbProxyDataModel.LibusbJsDirection;
+
+/**
+ * The string values must match the ones in libusb_js_proxy_data_model.cc.
+ * @enum {string}
+ */
+GSC.LibusbProxyDataModel.LibusbJsEndpointType = {
+  BULK: 'bulk',
+  CONTROL: 'control',
+  INTERRUPT: 'interrupt',
+  ISOCHRONOUS: 'isochronous',
+};
+
+const LibusbJsEndpointType = GSC.LibusbProxyDataModel.LibusbJsEndpointType;
+
+/**
+ * The key strings must match the ones in libusb_js_proxy_data_model.cc.
+ * @typedef {{
+ *            endpointAddress:number,
+ *            direction:!LibusbJsDirection,
+ *            type:!LibusbJsEndpointType,
+ *            extraData:(!ArrayBuffer|undefined),
+ *            maxPacketSize:number
+ *          }}
+ */
+GSC.LibusbProxyDataModel.LibusbJsEndpointDescriptor;
+
+const LibusbJsEndpointDescriptor =
+    GSC.LibusbProxyDataModel.LibusbJsEndpointDescriptor;
+
+/**
+ * The key strings must match the ones in libusb_js_proxy_data_model.cc.
+ * @typedef {{
+ *            interfaceNumber:number,
+ *            interfaceClass:number,
+ *            interfaceSubclass:number,
+ *            interfaceProtocol:number,
+ *            extraData:(!ArrayBuffer|undefined),
+ *            endpoints:!Array<!LibusbJsEndpointDescriptor>
+ *          }}
+ */
+GSC.LibusbProxyDataModel.LibusbJsInterfaceDescriptor;
+
+const LibusbJsInterfaceDescriptor =
+    GSC.LibusbProxyDataModel.LibusbJsInterfaceDescriptor;
+
+/**
+ * The key strings must match the ones in libusb_js_proxy_data_model.cc.
+ * TODO(#429): Investigate remote_wakeup, self_powered, max_power flags.
+ * @typedef {{
+ *            active:boolean,
+ *            configurationValue:number,
+ *            extraData:(!ArrayBuffer|undefined),
+ *            interfaces:!Array<!LibusbJsInterfaceDescriptor>
+ *          }}
+ */
+GSC.LibusbProxyDataModel.LibusbJsConfigurationDescriptor;
+
+const LibusbJsConfigurationDescriptor =
+    GSC.LibusbProxyDataModel.LibusbJsConfigurationDescriptor;
+});  // goog.scope

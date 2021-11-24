@@ -290,6 +290,20 @@ bool ConvertFromValue(Value value,
 }
 
 bool ConvertFromValue(Value value,
+                      int16_t* number,
+                      std::string* error_message) {
+  return ConvertIntegerFromValue(std::move(value), "int16_t", number,
+                                 error_message);
+}
+
+bool ConvertFromValue(Value value,
+                      uint16_t* number,
+                      std::string* error_message) {
+  return ConvertIntegerFromValue(std::move(value), "uint16_t", number,
+                                 error_message);
+}
+
+bool ConvertFromValue(Value value,
                       int64_t* number,
                       std::string* error_message) {
   return ConvertIntegerFromValue(std::move(value), "int64_t", number,

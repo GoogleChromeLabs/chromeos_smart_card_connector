@@ -38,4 +38,71 @@ StructValueDescriptor<LibusbJsDevice>::GetDescription() {
       .WithField(&LibusbJsDevice::serial_number, "serialNumber");
 }
 
+template <>
+EnumValueDescriptor<LibusbJsDirection>::Description
+EnumValueDescriptor<LibusbJsDirection>::GetDescription() {
+  // Note: Strings passed to WithItem() below must match the ones in
+  // libusb-proxy-data-model.js.
+  return Describe("LibusbJsDirection")
+      .WithItem(LibusbJsDirection::kIn, "in")
+      .WithItem(LibusbJsDirection::kOut, "out");
+}
+
+template <>
+EnumValueDescriptor<LibusbJsEndpointType>::Description
+EnumValueDescriptor<LibusbJsEndpointType>::GetDescription() {
+  // Note: Strings passed to WithItem() below must match the ones in
+  // libusb-proxy-data-model.js.
+  return Describe("LibusbJsEndpointType")
+      .WithItem(LibusbJsEndpointType::kBulk, "bulk")
+      .WithItem(LibusbJsEndpointType::kControl, "control")
+      .WithItem(LibusbJsEndpointType::kInterrupt, "interrupt")
+      .WithItem(LibusbJsEndpointType::kIsochronous, "isochronous");
+}
+
+template <>
+StructValueDescriptor<LibusbJsEndpointDescriptor>::Description
+StructValueDescriptor<LibusbJsEndpointDescriptor>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the ones in
+  // libusb-proxy-data-model.js.
+  return Describe("LibusbJsEndpointDescriptor")
+      .WithField(&LibusbJsEndpointDescriptor::endpoint_address,
+                 "endpointAddress")
+      .WithField(&LibusbJsEndpointDescriptor::direction, "direction")
+      .WithField(&LibusbJsEndpointDescriptor::type, "type")
+      .WithField(&LibusbJsEndpointDescriptor::extra_data, "extraData")
+      .WithField(&LibusbJsEndpointDescriptor::max_packet_size, "maxPacketSize");
+}
+
+template <>
+StructValueDescriptor<LibusbJsInterfaceDescriptor>::Description
+StructValueDescriptor<LibusbJsInterfaceDescriptor>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the ones in
+  // libusb-proxy-data-model.js.
+  return Describe("LibusbJsInterfaceDescriptor")
+      .WithField(&LibusbJsInterfaceDescriptor::interface_number,
+                 "interfaceNumber")
+      .WithField(&LibusbJsInterfaceDescriptor::interface_class,
+                 "interfaceClass")
+      .WithField(&LibusbJsInterfaceDescriptor::interface_subclass,
+                 "interfaceSubclass")
+      .WithField(&LibusbJsInterfaceDescriptor::interface_protocol,
+                 "interfaceProtocol")
+      .WithField(&LibusbJsInterfaceDescriptor::extra_data, "extraData")
+      .WithField(&LibusbJsInterfaceDescriptor::endpoints, "endpoints");
+}
+
+template <>
+StructValueDescriptor<LibusbJsConfigurationDescriptor>::Description
+StructValueDescriptor<LibusbJsConfigurationDescriptor>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the ones in
+  // libusb-proxy-data-model.js.
+  return Describe("LibusbJsConfigurationDescriptor")
+      .WithField(&LibusbJsConfigurationDescriptor::active, "active")
+      .WithField(&LibusbJsConfigurationDescriptor::configuration_value,
+                 "configurationValue")
+      .WithField(&LibusbJsConfigurationDescriptor::extra_data, "extraData")
+      .WithField(&LibusbJsConfigurationDescriptor::interfaces, "interfaces");
+}
+
 }  // namespace google_smart_card
