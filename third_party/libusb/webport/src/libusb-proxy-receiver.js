@@ -90,13 +90,12 @@ GSC.LibusbProxyReceiver = class {
       // constructor.
       throw new Error('USB API unavailable');
     }
-    const result = await this.dispatchLibusbJsFunction_(remoteCallMessage);
-    return [result];
+    return await this.dispatchLibusbJsFunction_(remoteCallMessage);
   }
 
   /**
    * @param {!GSC.RemoteCallMessage} remoteCallMessage
-   * @return {!Promise<*>}
+   * @return {!Promise<!Array>}
    * @private
    */
   async dispatchLibusbJsFunction_(remoteCallMessage) {
@@ -104,11 +103,18 @@ GSC.LibusbProxyReceiver = class {
     // libusb_js_proxy.cc.
     switch (remoteCallMessage.functionName) {
       case 'listDevices':
-        return await this.libusbToJsApiAdaptor_.listDevices(
-            ...remoteCallMessage.functionArguments);
+        return [await this.libusbToJsApiAdaptor_.listDevices(
+            ...remoteCallMessage.functionArguments)];
       case 'getConfigurations':
-        return await this.libusbToJsApiAdaptor_.getConfigurations(
+        return [await this.libusbToJsApiAdaptor_.getConfigurations(
+            ...remoteCallMessage.functionArguments)];
+      case 'openDeviceHandle':
+        return [await this.libusbToJsApiAdaptor_.openDeviceHandle(
+            ...remoteCallMessage.functionArguments)];
+      case 'closeDeviceHandle':
+        await this.libusbToJsApiAdaptor_.closeDeviceHandle(
             ...remoteCallMessage.functionArguments);
+        return [];
     }
     // TODO(#429): Delete this fallback to ChromeUsbBackend once all functions
     // are implemented in LibusbToJsApiAdaptor.
