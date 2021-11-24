@@ -564,7 +564,6 @@ int LibusbJsProxy::LibusbClaimInterface(libusb_device_handle* dev,
   GenericRequestResult request_result = js_call_adaptor_.SyncCall(
       kJsRequestClaimInterface, dev->device()->js_device().device_id,
       dev->js_device_handle(), interface_number);
-  std::string error_message;
   if (!request_result.is_successful()) {
     GOOGLE_SMART_CARD_LOG_WARNING << "LibusbClaimInterface request failed: "
                                   << request_result.error_message();
