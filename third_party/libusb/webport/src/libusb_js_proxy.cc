@@ -43,6 +43,7 @@ constexpr char kJsRequestOpenDeviceHandle[] = "openDeviceHandle";
 constexpr char kJsRequestCloseDeviceHandle[] = "closeDeviceHandle";
 constexpr char kJsRequestClaimInterface[] = "claimInterface";
 constexpr char kJsRequestReleaseInterface[] = "releaseInterface";
+constexpr char kJsRequestResetDevice[] = "resetDevice";
 
 //
 // We use stubs for the device bus number (as the chrome.usb API does not
@@ -591,12 +592,12 @@ int LibusbJsProxy::LibusbReleaseInterface(libusb_device_handle* dev,
 int LibusbJsProxy::LibusbResetDevice(libusb_device_handle* dev) {
   GOOGLE_SMART_CARD_CHECK(dev);
 
-  const RequestResult<chrome_usb::ResetDeviceResult> result =
-      chrome_usb_api_bridge_->ResetDevice(GetChromeUsbConnectionHandle(*dev));
-  if (!result.is_successful()) {
-    GOOGLE_SMART_CARD_LOG_WARNING
-        << "LibusbJsProxy::LibusbResetDevice request failed: "
-        << result.error_message();
+  GenericRequestResult request_result = js_call_adaptor_.SyncCall(
+      kJsRequestResetDevice, dev->device()->js_device().device_id,
+      dev->js_device_handle());
+  if (!request_result.is_successful()) {
+    GOOGLE_SMART_CARD_LOG_WARNING << "LibusbResetDevice request failed: "
+                                  << request_result.error_message();
     return LIBUSB_ERROR_OTHER;
   }
   return LIBUSB_SUCCESS;

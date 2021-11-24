@@ -113,6 +113,13 @@ GSC.LibusbToChromeUsbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
         interfaceNumber);
   }
 
+  /** @override */
+  async resetDevice(deviceId, deviceHandle) {
+    const chromeUsbConnectionHandle =
+        this.getConnectionHandleWithDeviceIdOrThrow_(deviceId, deviceHandle);
+    await promisify(chrome.usb.resetDevice, chromeUsbConnectionHandle);
+  }
+
   /**
    * @private
    * @param {!Array<!chrome.usb.Device>} chromeUsbDevices

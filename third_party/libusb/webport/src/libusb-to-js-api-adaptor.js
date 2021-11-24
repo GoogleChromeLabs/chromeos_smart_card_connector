@@ -66,5 +66,12 @@ GSC.LibusbToJsApiAdaptor = class {
    * @return {!Promise<void>}
    */
   async releaseInterface(deviceId, deviceHandle, interfaceNumber) {}
+
+  /**
+   * @param {number} deviceId
+   * @param {number} deviceHandle
+   * @return {!Promise<void>}
+   */
+  async resetDevice(deviceId, deviceHandle) {}
 };
 });  // goog.scope
