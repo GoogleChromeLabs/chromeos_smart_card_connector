@@ -1115,14 +1115,12 @@ int LibusbJsProxy::DoGenericSyncTranfer(libusb_transfer_type transfer_type,
   if (transfer_type == LIBUSB_TRANSFER_TYPE_BULK) {
     libusb_fill_bulk_transfer(&transfer, device_handle, endpoint_address, data,
                               length,
-                              /*callback=*/
-                              &OnSyncTransferCompleted,
+                              /*callback=*/&OnSyncTransferCompleted,
                               /*user_data=*/&transfer_completed, timeout);
   } else if (transfer_type == LIBUSB_TRANSFER_TYPE_INTERRUPT) {
     libusb_fill_interrupt_transfer(&transfer, device_handle, endpoint_address,
                                    data, length,
-                                   /*callback=*/
-                                   &OnSyncTransferCompleted,
+                                   /*callback=*/&OnSyncTransferCompleted,
                                    /*user_data=*/&transfer_completed, timeout);
   } else {
     GOOGLE_SMART_CARD_NOTREACHED;
