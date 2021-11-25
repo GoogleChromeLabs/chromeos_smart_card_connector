@@ -940,6 +940,14 @@ int LibusbTransferStatusToLibusbErrorCode(
   }
 }
 
+// The callback to be passed in the libusb_transfer structures used for
+// performing synchronous transfers. The callback assumes that the `user_data`
+// field points to the int that's used by the event loop as a signal to stop.
+void OnSyncTransferCompleted(libusb_transfer* transfer) {
+  int* completed = static_cast<int*>(transfer->user_data);
+  *completed = 1;
+}
+
 }  // namespace
 
 int LibusbJsProxy::LibusbControlTransfer(libusb_device_handle* dev,
@@ -952,37 +960,40 @@ int LibusbJsProxy::LibusbControlTransfer(libusb_device_handle* dev,
                                          unsigned timeout) {
   GOOGLE_SMART_CARD_CHECK(dev);
 
-  chrome_usb::ControlTransferInfo transfer_info;
-  if (!CreateChromeUsbControlTransferInfo(bmRequestType, bRequest, wValue,
-                                          index, data, wLength, timeout,
-                                          &transfer_info)) {
-    return LIBUSB_ERROR_INVALID_PARAM;
-  }
-  const UsbTransferDestination transfer_destination =
-      UsbTransferDestination::CreateFromChromeUsbControlTransfer(
-          GetChromeUsbConnectionHandle(*dev), transfer_info);
-  SyncTransferHelper sync_transfer_helper(
-      contexts_storage_.FindContextByAddress(dev->context()),
-      transfer_destination);
+  // Implement the synchronous transfer in terms of asynchronous one.
+  libusb_transfer transfer;
+  memset(&transfer, 0, sizeof(transfer));
 
-  chrome_usb_api_bridge_->AsyncControlTransfer(
-      GetChromeUsbConnectionHandle(*dev), transfer_info,
-      sync_transfer_helper.chrome_usb_transfer_callback());
-  const TransferRequestResult result = sync_transfer_helper.WaitForCompletion();
-
-  if (!result.is_successful()) {
-    GOOGLE_SMART_CARD_LOG_WARNING
-        << "LibusbJsProxy::LibusbControlTransfer request failed: "
-        << result.error_message();
-    return LIBUSB_ERROR_OTHER;
+  // Libusb requires the control transfer's setup packet (of size
+  // `LIBUSB_CONTROL_SETUP_SIZE`) to precede the data buffer.
+  std::vector<uint8_t> buffer(LIBUSB_CONTROL_SETUP_SIZE + wLength);
+  libusb_fill_control_setup(buffer.data(), bmRequestType, bRequest, wValue,
+                            index, wLength);
+  if (!(bmRequestType & LIBUSB_ENDPOINT_IN)) {
+    // It's output transfer, so copy the passed data into the new buffer.
+    std::copy_n(data, wLength, buffer.data() + LIBUSB_CONTROL_SETUP_SIZE);
   }
-  int actual_length;
-  const int error_code =
-      LibusbTransferStatusToLibusbErrorCode(FillLibusbTransferResult(
-          result.payload().result_info, false, wLength, data, &actual_length));
-  if (error_code == LIBUSB_SUCCESS)
-    return actual_length;
-  return error_code;
+
+  int transfer_completed = 0;
+  libusb_fill_control_transfer(&transfer, dev, buffer.data(),
+                               /*callback=*/
+                               &OnSyncTransferCompleted,
+                               /*user_data=*/&transfer_completed, timeout);
+
+  int transfer_result = LibusbSubmitTransfer(&transfer);
+  if (transfer_result < 0)
+    return transfer_result;
+  transfer_result =
+      LibusbHandleEventsCompleted(dev->context(), &transfer_completed);
+  if (transfer_result < 0)
+    return transfer_result;
+
+  if (bmRequestType & LIBUSB_ENDPOINT_IN) {
+    // It's input transfer, so copy the received data into the passed buffer.
+    std::copy_n(buffer.data() + LIBUSB_CONTROL_SETUP_SIZE,
+                transfer.actual_length, data);
+  }
+  return LIBUSB_SUCCESS;
 }
 
 int LibusbJsProxy::LibusbBulkTransfer(libusb_device_handle* dev,
