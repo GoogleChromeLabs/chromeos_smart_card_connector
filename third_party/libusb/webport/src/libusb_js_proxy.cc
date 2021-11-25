@@ -766,27 +766,59 @@ void CreateChromeUsbGenericTransferInfo(
                                      result);
 }
 
+RequestResult<LibusbJsTransferResult> ConvertChromeUsbTransferResultToLibusb(
+    RequestResult<chrome_usb::TransferResult> chrome_usb_request_result) {
+  switch (chrome_usb_request_result.status()) {
+    case RequestResultStatus::kSucceeded: {
+      LibusbJsTransferResult js_result;
+      if (chrome_usb_request_result.payload().result_info.result_code &&
+          *chrome_usb_request_result.payload().result_info.result_code) {
+        return RequestResult<LibusbJsTransferResult>::CreateFailed(
+            "USB API returned error");
+      }
+      if (chrome_usb_request_result.payload().result_info.data) {
+        js_result.received_data =
+            chrome_usb_request_result.payload().result_info.data;
+      }
+      return RequestResult<LibusbJsTransferResult>::CreateSuccessful(
+          std::move(js_result));
+    }
+    case RequestResultStatus::kFailed: {
+      return RequestResult<LibusbJsTransferResult>::CreateFailed(
+          chrome_usb_request_result.error_message());
+    }
+    case RequestResultStatus::kCanceled: {
+      return RequestResult<LibusbJsTransferResult>::CreateCanceled();
+    }
+  }
+}
+
 chrome_usb::AsyncTransferCallback MakeChromeUsbTransferCallback(
     std::weak_ptr<libusb_context> context,
     const UsbTransferDestination& transfer_destination,
     LibusbJsProxy::TransferAsyncRequestStatePtr async_request_state) {
-  return [context, transfer_destination, async_request_state](
-             RequestResult<chrome_usb::TransferResult> request_result) {
-    const std::shared_ptr<libusb_context> locked_context = context.lock();
-    if (!locked_context) {
-      // The context that was used for the original transfer submission has been
-      // destroyed already.
-      return;
-    }
+  return
+      [context, transfer_destination, async_request_state](
+          RequestResult<chrome_usb::TransferResult> chrome_usb_request_result) {
+        const std::shared_ptr<libusb_context> locked_context = context.lock();
+        if (!locked_context) {
+          // The context that was used for the original transfer submission has
+          // been destroyed already.
+          return;
+        }
 
-    if (transfer_destination.IsInputDirection()) {
-      locked_context->OnInputTransferResultReceived(transfer_destination,
-                                                    std::move(request_result));
-    } else {
-      locked_context->OnOutputTransferResultReceived(async_request_state,
-                                                     std::move(request_result));
-    }
-  };
+        RequestResult<LibusbJsTransferResult> request_result =
+            ConvertChromeUsbTransferResultToLibusb(
+                std::move(chrome_usb_request_result));
+
+        if (transfer_destination.IsInputDirection()) {
+          locked_context->OnInputTransferResultReceived(
+              transfer_destination, std::move(request_result));
+        } else {
+          locked_context->OnOutputTransferResultReceived(
+              async_request_state, std::move(request_result));
+        }
+      };
 }
 
 }  // namespace
@@ -890,18 +922,11 @@ void LibusbJsProxy::LibusbFreeTransfer(libusb_transfer* transfer) {
 namespace {
 
 libusb_transfer_status FillLibusbTransferResult(
-    const chrome_usb::TransferResultInfo& transfer_result_info,
+    const LibusbJsTransferResult& js_result,
     bool is_short_not_ok,
     int data_length,
     unsigned char* data_buffer,
     int* actual_length) {
-  if (!transfer_result_info.result_code)
-    return LIBUSB_TRANSFER_ERROR;
-  if (*transfer_result_info.result_code !=
-      chrome_usb::kTransferResultInfoSuccessResultCode) {
-    return LIBUSB_TRANSFER_ERROR;
-  }
-
   // FIXME(emaxx): Looks like chrome.usb API returns timeout results as if they
   // were errors. So, in case of timeout, LIBUSB_TRANSFER_ERROR will be
   // returned to the consumers instead of returning LIBUSB_TRANSFER_TIMED_OUT.
@@ -909,11 +934,11 @@ libusb_transfer_status FillLibusbTransferResult(
   // prospective, this probably requires fixing.
 
   int actual_length_value;
-  if (transfer_result_info.data) {
+  if (js_result.received_data) {
     actual_length_value = std::min(
-        static_cast<int>(transfer_result_info.data->size()), data_length);
+        static_cast<int>(js_result.received_data->size()), data_length);
     if (actual_length_value) {
-      std::copy_n(transfer_result_info.data->begin(), actual_length_value,
+      std::copy_n(js_result.received_data->begin(), actual_length_value,
                   data_buffer);
     }
   } else {
@@ -1046,8 +1071,7 @@ LibusbJsProxy::TransferAsyncRequestCallback
 LibusbJsProxy::WrapLibusbTransferCallback(libusb_transfer* transfer) {
   GOOGLE_SMART_CARD_CHECK(transfer);
 
-  return [this,
-          transfer](RequestResult<chrome_usb::TransferResult> request_result) {
+  return [this, transfer](TransferRequestResult request_result) {
     if (request_result.is_successful()) {
       //
       // Note that the control transfers have a special libusb_control_setup
@@ -1069,7 +1093,7 @@ LibusbJsProxy::WrapLibusbTransferCallback(libusb_transfer* transfer) {
               : libusb_control_transfer_get_setup(transfer)->wLength;
 
       transfer->status = FillLibusbTransferResult(
-          request_result.payload().result_info,
+          request_result.payload(),
           (transfer->flags & LIBUSB_TRANSFER_SHORT_NOT_OK) != 0, data_length,
           data_buffer, &transfer->actual_length);
     } else if (request_result.status() == RequestResultStatus::kCanceled) {
