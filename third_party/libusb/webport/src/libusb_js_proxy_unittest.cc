@@ -33,7 +33,9 @@
 #include <gtest/gtest.h>
 #include <libusb.h>
 
+#include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/logging/logging.h>
+#include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/requesting/request_result.h>
 
 #include "chrome_usb/api_bridge_interface.h"
@@ -130,13 +132,23 @@ class MockChromeUsbApiBridge final : public chrome_usb::ApiBridgeInterface {
                    const chrome_usb::ConnectionHandle& connection_handle));
 };
 
+class FakeGlobalContext final : public GlobalContext {
+ public:
+  void PostMessageToJs(Value /*message*/) override {}
+  bool IsMainEventLoopThread() const override { return true; }
+  void ShutDown() override {}
+};
+
+}  // namespace
+
 class LibusbJsProxyTest : public ::testing::Test {
  protected:
   void SetUp() override {
     ::testing::Test::SetUp();
 
     chrome_usb_api_bridge.reset(new MockChromeUsbApiBridge);
-    libusb_js_proxy.reset(new LibusbJsProxy(chrome_usb_api_bridge.get()));
+    libusb_js_proxy.reset(new LibusbJsProxy(
+        &global_context_, &typed_message_router_, chrome_usb_api_bridge.get()));
   }
 
   void TearDown() override {
@@ -146,11 +158,11 @@ class LibusbJsProxyTest : public ::testing::Test {
     ::testing::Test::TearDown();
   }
 
+  FakeGlobalContext global_context_;
+  TypedMessageRouter typed_message_router_;
   std::unique_ptr<MockChromeUsbApiBridge> chrome_usb_api_bridge;
   std::unique_ptr<LibusbJsProxy> libusb_js_proxy;
 };
-
-}  // namespace
 
 TEST_F(LibusbJsProxyTest, ContextsCreation) {
   ASSERT_EQ(LIBUSB_SUCCESS, libusb_js_proxy->LibusbInit(nullptr));
@@ -756,22 +768,21 @@ INSTANTIATE_TEST_SUITE_P(
                 GetTransferIndexToFinishUnsuccessful(),
             true)));
 
-#ifdef __EMSCRIPTEN__
-// TODO(#185): Crashes in Emscripten due to out-of-memory.
-#define MAYBE_SyncControlTransfersWithMultiThreading \
-  DISABLED_SyncControlTransfersWithMultiThreading
-#else
-#define MAYBE_SyncControlTransfersWithMultiThreading \
-  SyncControlTransfersWithMultiThreading
-#endif
 // Test the correctness of work of multiple threads issuing a sequence of
 // synchronous transfer requests.
 //
 // Each transfer request is resolved immediately on the same thread that
 // initiated the transfer.
-TEST_F(LibusbJsProxyTransfersTest,
-       MAYBE_SyncControlTransfersWithMultiThreading) {
-  const size_t kMaxTransferIndex = 1000;
+TEST_F(LibusbJsProxyTransfersTest, SyncControlTransfersWithMultiThreading) {
+  // A high number of transfers increases the chances of catching a bug, but the
+  // constant is lower in the Debug mode to avoid running too long.
+  const size_t kMaxTransferIndex =
+#ifdef NDEBUG
+      1000
+#else
+      100
+#endif
+      ;
   const size_t kThreadCount = 10;
 
   for (size_t index = 0; index <= kMaxTransferIndex; ++index) {
@@ -818,7 +829,15 @@ class LibusbJsProxyAsyncTransfersMultiThreadingTest
   }
 
  protected:
-  const size_t kMaxTransferIndex = 1000;
+  // A high number of transfers increases the chances of catching a bug, but the
+  // constant is lower in the Debug mode to avoid running too long.
+  const size_t kMaxTransferIndex =
+#ifdef NDEBUG
+      1000
+#else
+      100
+#endif
+      ;
 
   void AddTransferInFlight(size_t transfer_index, bool is_transfer_output) {
     const std::unique_lock<std::mutex> lock(mutex_);
@@ -863,17 +882,11 @@ class LibusbJsProxyAsyncTransfersMultiThreadingTest
 
 }  // namespace
 
-#ifdef __EMSCRIPTEN__
-// TODO(#185): Crashes in Emscripten due to out-of-memory.
-#define MAYBE_ControlTransfers DISABLED_ControlTransfers
-#else
-#define MAYBE_ControlTransfers ControlTransfers
-#endif
 // Test the correctness of work of multiple threads issuing a sequence of
 // asynchronous transfer requests and running libusb event loops.
 //
 // The requests are resolved asynchronously from the main thread.
-TEST_F(LibusbJsProxyAsyncTransfersMultiThreadingTest, MAYBE_ControlTransfers) {
+TEST_F(LibusbJsProxyAsyncTransfersMultiThreadingTest, ControlTransfers) {
   const size_t kThreadCount = 10;
 
   std::vector<std::thread> threads;

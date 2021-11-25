@@ -65,8 +65,9 @@ class PpInstance final : public pp::Instance {
     typed_message_router_.RemoveRoute(&external_logs_printer_);
 
     // Intentionally leak the global context as it might still be used by
-    // background threads. Only detach it from the JavaScript side.
-    global_context_->DisableJsCommunication();
+    // background threads. Only shut it down (which prevents it from referring
+    // to us and from talking to the JavaScript side).
+    global_context_->ShutDown();
     (void)global_context_.release();
   }
 

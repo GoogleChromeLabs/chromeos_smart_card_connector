@@ -112,9 +112,9 @@ ApiBridge::ApiBridge(gsc::GlobalContext* global_context,
 
 ApiBridge::~ApiBridge() = default;
 
-void ApiBridge::Detach() {
-  requester_.Detach();
-  request_receiver_->Detach();
+void ApiBridge::ShutDown() {
+  requester_.ShutDown();
+  request_receiver_->ShutDown();
 }
 
 void ApiBridge::SetCertificatesRequestHandler(

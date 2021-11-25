@@ -24,6 +24,10 @@
 
 #include <libusb.h>
 
+#include <google_smart_card_common/global_context.h>
+#include <google_smart_card_common/messaging/typed_message_router.h>
+#include <google_smart_card_common/requesting/js_requester.h>
+#include <google_smart_card_common/requesting/remote_call_adaptor.h>
 #include <google_smart_card_common/requesting/request_result.h>
 
 #include "chrome_usb/api_bridge_interface.h"
@@ -42,18 +46,34 @@ namespace google_smart_card {
 // the chrome_usb/api_bridge.h file.
 class LibusbJsProxy final : public LibusbInterface {
  public:
-  using TransferRequestResult = RequestResult<chrome_usb::TransferResult>;
-  using TransferAsyncRequestState =
-      AsyncRequestState<chrome_usb::TransferResult>;
+  using TransferRequestResult = RequestResult<LibusbJsTransferResult>;
+  using TransferAsyncRequestState = AsyncRequestState<LibusbJsTransferResult>;
   using TransferAsyncRequestStatePtr =
       std::shared_ptr<TransferAsyncRequestState>;
   using TransferAsyncRequestCallback =
-      AsyncRequestCallback<chrome_usb::TransferResult>;
+      AsyncRequestCallback<LibusbJsTransferResult>;
 
-  explicit LibusbJsProxy(chrome_usb::ApiBridgeInterface* chrome_usb_api_bridge);
+  LibusbJsProxy(GlobalContext* global_context,
+                TypedMessageRouter* typed_message_router,
+                chrome_usb::ApiBridgeInterface* chrome_usb_api_bridge);
   LibusbJsProxy(const LibusbJsProxy&) = delete;
   LibusbJsProxy& operator=(const LibusbJsProxy&) = delete;
   ~LibusbJsProxy() override;
+
+  // Detaches from the typed message router and the JavaScript side, which
+  // prevents making any further requests and prevents waiting for the responses
+  // of the already started requests.
+  //
+  // After this function call, all methods are still allowed to be called, but
+  // they will return errors instead of performing the real requests.
+  //
+  // This function is primarily intended to be used during the executable
+  // shutdown process, for preventing the situations when some other threads
+  // currently executing global libusb operations would trigger accesses to
+  // already destroyed objects.
+  //
+  // This function is safe to be called from any thread.
+  void ShutDown();
 
   // LibusbInterface:
   int LibusbInit(libusb_context** ctx) override;
@@ -108,32 +128,23 @@ class LibusbJsProxy final : public LibusbInterface {
  private:
   const int kHandleEventsTimeoutSeconds = 60;
 
-  class SyncTransferHelper final {
-   public:
-    SyncTransferHelper(std::shared_ptr<libusb_context> context,
-                       const UsbTransferDestination& transfer_destination);
-    SyncTransferHelper(const SyncTransferHelper&) = delete;
-    SyncTransferHelper& operator=(const SyncTransferHelper&) = delete;
-    ~SyncTransferHelper();
-
-    chrome_usb::AsyncTransferCallback chrome_usb_transfer_callback() const;
-
-    TransferRequestResult WaitForCompletion();
-
-   private:
-    std::shared_ptr<libusb_context> context_;
-    UsbTransferDestination transfer_destination_;
-    TransferRequestResult result_;
-    TransferAsyncRequestStatePtr async_request_state_;
-    chrome_usb::AsyncTransferCallback chrome_usb_transfer_callback_;
-  };
-
   libusb_context* SubstituteDefaultContextIfNull(
       libusb_context* context_or_nullptr) const;
   TransferAsyncRequestCallback WrapLibusbTransferCallback(
       libusb_transfer* transfer);
   int LibusbHandleEventsWithTimeout(libusb_context* context,
                                     int timeout_seconds);
+  int DoGenericSyncTranfer(libusb_transfer_type transfer_type,
+                           libusb_device_handle* device_handle,
+                           unsigned char endpoint_address,
+                           unsigned char* data,
+                           int length,
+                           int* actual_length,
+                           unsigned timeout);
+
+  // Helpers for making requests to the JavaScript side.
+  JsRequester js_requester_;
+  RemoteCallAdaptor js_call_adaptor_;
 
   // map that holds the (fake) bus number for each device
   // keys are libusb_device->chrome_usb_device().device

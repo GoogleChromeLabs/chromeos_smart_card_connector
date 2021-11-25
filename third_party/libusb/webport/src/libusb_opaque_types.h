@@ -41,7 +41,7 @@
 #include <google_smart_card_common/requesting/async_request.h>
 #include <google_smart_card_common/requesting/request_result.h>
 
-#include "chrome_usb/types.h"
+#include "libusb_js_proxy_data_model.h"
 #include "usb_transfer_destination.h"
 #include "usb_transfers_parameters_storage.h"
 
@@ -68,25 +68,14 @@
 struct libusb_context final
     : public std::enable_shared_from_this<libusb_context> {
   using TransferRequestResult = google_smart_card::RequestResult<
-      google_smart_card::chrome_usb::TransferResult>;
+      google_smart_card::LibusbJsTransferResult>;
   using TransferAsyncRequestState = google_smart_card::AsyncRequestState<
-      google_smart_card::chrome_usb::TransferResult>;
+      google_smart_card::LibusbJsTransferResult>;
   using TransferAsyncRequestStatePtr =
       std::shared_ptr<TransferAsyncRequestState>;
   using UsbTransferDestination = google_smart_card::UsbTransferDestination;
   using UsbTransfersParametersStorage =
       google_smart_card::UsbTransfersParametersStorage;
-
-  // Adds information about a new synchronous transfer into internal structures.
-  //
-  // The async_request_state argument points to the instance that should be
-  // used to store the transfer result. The transfer_destination argument
-  // contains the set of parameters that represent the transfer destination,
-  // which for input transfers allows to receive the suitable results from the
-  // previous canceled transfers.
-  void AddSyncTransferInFlight(
-      TransferAsyncRequestStatePtr async_request_state,
-      const UsbTransferDestination& transfer_destination);
 
   // Adds information about a new asynchronous transfer into internal
   // structures.
@@ -100,26 +89,6 @@ struct libusb_context final
       TransferAsyncRequestStatePtr async_request_state,
       const UsbTransferDestination& transfer_destination,
       libusb_transfer* transfer);
-
-  // Blocks until the specified input synchronous transfer finishes.
-  //
-  // The transfer_destination argument contains the set of parameters that
-  // uniquely represent the transfer destination, which for input transfers
-  // allows to receive the suitable results from the previous canceled
-  // transfers.
-  //
-  // It is guaranteed that the instance pointed by the async_request_state
-  // argument will contain the transfer result once the method finishes.
-  void WaitAndProcessInputSyncTransferReceivedResult(
-      TransferAsyncRequestStatePtr async_request_state,
-      const UsbTransferDestination& transfer_destination);
-
-  // Blocks until the specified output synchronous transfer finishes.
-  //
-  // It is guaranteed that the instance pointed by the async_request_state
-  // argument will contain the transfer result once the method finishes.
-  void WaitAndProcessOutputSyncTransferReceivedResult(
-      TransferAsyncRequestStatePtr async_request_state);
 
   // Blocks until either a new asynchronous transfer result is received (in
   // which case the transfer callback is executed), or the specified completed
@@ -178,10 +147,6 @@ struct libusb_context final
       TransferAsyncRequestStatePtr* async_request_state,
       TransferRequestResult* result);
 
-  bool ExtractMatchingInputTransferResult(
-      const UsbTransferDestination& transfer_destination,
-      TransferRequestResult* result);
-
   void SetTransferResult(TransferAsyncRequestState* async_request_state,
                          TransferRequestResult result);
 
@@ -211,17 +176,15 @@ struct libusb_context final
 };
 
 // Definition of the libusb_device type declared in the libusb headers.
-//
-// The structure corresponds to the Device structure in chrome.usb interface.
 struct libusb_device final {
   // Creates a new structure with the reference counter equal to 1.
   libusb_device(libusb_context* context,
-                const google_smart_card::chrome_usb::Device& chrome_usb_device);
+                const google_smart_card::LibusbJsDevice& js_device);
 
   ~libusb_device();
 
   libusb_context* context() const;
-  const google_smart_card::chrome_usb::Device& chrome_usb_device() const;
+  const google_smart_card::LibusbJsDevice& js_device() const;
 
   // Increments the reference counter.
   void AddReference();
@@ -230,21 +193,16 @@ struct libusb_device final {
   void RemoveReference();
 
  private:
-  libusb_context* context_;
-  google_smart_card::chrome_usb::Device chrome_usb_device_;
+  libusb_context* const context_;
+  const google_smart_card::LibusbJsDevice js_device_;
   std::atomic_int reference_count_{1};
 };
 
 // Definition of the libusb_device_handle type declared in the libusb headers.
-//
-// The structure corresponds to the ConnectionHandle structure in chrome.usb
-// interface.
 struct libusb_device_handle final {
   // Constructs the structure and increments the reference counter of the
   // specified libusb_device instance.
-  libusb_device_handle(libusb_device* device,
-                       const google_smart_card::chrome_usb::ConnectionHandle&
-                           chrome_usb_connection_handle);
+  libusb_device_handle(libusb_device* device, int64_t js_device_handle);
 
   // Destructs the structure and decrements the reference counter of the
   // specified libusb_device instance.
@@ -252,12 +210,11 @@ struct libusb_device_handle final {
 
   libusb_device* device() const;
   libusb_context* context() const;
-  const google_smart_card::chrome_usb::ConnectionHandle&
-  chrome_usb_connection_handle() const;
+  int64_t js_device_handle() const;
 
  private:
-  libusb_device* device_;
-  google_smart_card::chrome_usb::ConnectionHandle chrome_usb_connection_handle_;
+  libusb_device* const device_;
+  const int64_t js_device_handle_;
 };
 
 #endif  // GOOGLE_SMART_CARD_THIRD_PARTY_LIBUSB_LIBUSB_OPAQUE_TYPES_H_

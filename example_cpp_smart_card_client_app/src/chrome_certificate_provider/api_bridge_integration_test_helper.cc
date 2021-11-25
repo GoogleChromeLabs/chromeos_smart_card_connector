@@ -114,7 +114,7 @@ void ApiBridgeIntegrationTestHelper::SetUp(
 }
 
 void ApiBridgeIntegrationTestHelper::TearDown() {
-  api_bridge_->Detach();
+  api_bridge_->ShutDown();
   api_bridge_.reset();
 }
 

@@ -31,8 +31,8 @@ ApiBridge::ApiBridge(std::unique_ptr<Requester> requester)
 
 ApiBridge::~ApiBridge() = default;
 
-void ApiBridge::Detach() {
-  requester_->Detach();
+void ApiBridge::ShutDown() {
+  requester_->ShutDown();
 }
 
 RequestResult<GetDevicesResult> ApiBridge::GetDevices(

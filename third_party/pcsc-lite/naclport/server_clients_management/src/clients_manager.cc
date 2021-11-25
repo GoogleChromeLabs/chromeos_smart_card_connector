@@ -99,10 +99,10 @@ PcscLiteServerClientsManager::PcscLiteServerClientsManager(
 }
 
 PcscLiteServerClientsManager::~PcscLiteServerClientsManager() {
-  Detach();
+  ShutDown();
 }
 
-void PcscLiteServerClientsManager::Detach() {
+void PcscLiteServerClientsManager::ShutDown() {
   if (!typed_message_router_)
     return;
   typed_message_router_->RemoveRoute(&create_handler_message_listener_);
@@ -174,7 +174,7 @@ PcscLiteServerClientsManager::Handler::~Handler() {
   request_processor_->ScheduleRunningRequestsCancellation();
   // Stop receiving the new PC/SC-Lite requests from the JavaScript side, and
   // also disable sending of the request responses back to the JavaScript side.
-  request_receiver_->Detach();
+  request_receiver_->ShutDown();
 }
 
 void PcscLiteServerClientsManager::Handler::HandleRequest(

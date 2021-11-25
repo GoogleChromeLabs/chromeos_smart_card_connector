@@ -45,7 +45,7 @@ bool GlobalContextImplNacl::IsMainEventLoopThread() const {
   return pp_core_->IsMainThread();
 }
 
-void GlobalContextImplNacl::DisableJsCommunication() {
+void GlobalContextImplNacl::ShutDown() {
   const std::unique_lock<std::mutex> lock(mutex_);
   pp_instance_ = nullptr;
 }

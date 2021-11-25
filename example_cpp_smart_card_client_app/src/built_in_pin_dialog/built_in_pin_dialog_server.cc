@@ -47,8 +47,8 @@ BuiltInPinDialogServer::BuiltInPinDialogServer(
 
 BuiltInPinDialogServer::~BuiltInPinDialogServer() = default;
 
-void BuiltInPinDialogServer::Detach() {
-  js_requester_.Detach();
+void BuiltInPinDialogServer::ShutDown() {
+  js_requester_.ShutDown();
 }
 
 bool BuiltInPinDialogServer::RequestPin(std::string* pin) {

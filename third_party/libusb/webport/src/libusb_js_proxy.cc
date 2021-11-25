@@ -27,10 +27,23 @@
 #include <vector>
 
 #include <google_smart_card_common/logging/logging.h>
+#include <google_smart_card_common/requesting/request_result.h>
+
+#include "libusb_js_proxy_data_model.h"
 
 namespace google_smart_card {
 
 namespace {
+
+// These constants must match the strings in libusb-proxy-receiver.js.
+constexpr char kJsRequesterName[] = "libusb";
+constexpr char kJsRequestListDevices[] = "listDevices";
+constexpr char kJsRequestGetConfigurations[] = "getConfigurations";
+constexpr char kJsRequestOpenDeviceHandle[] = "openDeviceHandle";
+constexpr char kJsRequestCloseDeviceHandle[] = "closeDeviceHandle";
+constexpr char kJsRequestClaimInterface[] = "claimInterface";
+constexpr char kJsRequestReleaseInterface[] = "releaseInterface";
+constexpr char kJsRequestResetDevice[] = "resetDevice";
 
 //
 // We use stubs for the device bus number (as the chrome.usb API does not
@@ -42,14 +55,6 @@ namespace {
 
 constexpr uint8_t kDefaultBusNumber = 1;
 constexpr uint8_t kMaximumBusNumber = 64;
-
-//
-// Bit mask values for the bmAttributes field of the libusb_config_descriptor
-// structure.
-//
-
-constexpr uint8_t kLibusbConfigDescriptorBmAttributesRemoteWakeup = 1 << 5;
-constexpr uint8_t kLibusbConfigDescriptorBmAttributesSelfPowered = 1 << 6;
 
 //
 // Positions of the first non-zero bits in the libusb mask constants.
@@ -118,16 +123,36 @@ libusb_context* GetLibusbTransferContextChecked(
   return result;
 }
 
+// TODO(#429): Delete this converter once all code is switched to libusb_js.
+chrome_usb::ConnectionHandle GetChromeUsbConnectionHandle(
+    const libusb_device_handle& device_handle) {
+  chrome_usb::ConnectionHandle chrome_usb_connection_handle;
+  chrome_usb_connection_handle.handle = device_handle.js_device_handle();
+  chrome_usb_connection_handle.product_id =
+      device_handle.device()->js_device().product_id;
+  chrome_usb_connection_handle.vendor_id =
+      device_handle.device()->js_device().vendor_id;
+  return chrome_usb_connection_handle;
+}
+
 }  // namespace
 
 LibusbJsProxy::LibusbJsProxy(
+    GlobalContext* global_context,
+    TypedMessageRouter* typed_message_router,
     chrome_usb::ApiBridgeInterface* chrome_usb_api_bridge)
-    : chrome_usb_api_bridge_(chrome_usb_api_bridge),
+    : js_requester_(kJsRequesterName, global_context, typed_message_router),
+      js_call_adaptor_(&js_requester_),
+      chrome_usb_api_bridge_(chrome_usb_api_bridge),
       default_context_(contexts_storage_.CreateContext()) {
   GOOGLE_SMART_CARD_CHECK(chrome_usb_api_bridge_);
 }
 
 LibusbJsProxy::~LibusbJsProxy() = default;
+
+void LibusbJsProxy::ShutDown() {
+  js_requester_.ShutDown();
+}
 
 int LibusbJsProxy::LibusbInit(libusb_context** ctx) {
   // If the default context was requested, nothing is done (it's always existing
@@ -150,26 +175,26 @@ ssize_t LibusbJsProxy::LibusbGetDeviceList(libusb_context* ctx,
 
   ctx = SubstituteDefaultContextIfNull(ctx);
 
-  const RequestResult<chrome_usb::GetDevicesResult> result =
-      chrome_usb_api_bridge_->GetDevices(chrome_usb::GetDevicesOptions());
-  if (!result.is_successful()) {
-    GOOGLE_SMART_CARD_LOG_WARNING
-        << "LibusbJsProxy::LibusbGetDeviceList request failed: "
-        << result.error_message();
+  GenericRequestResult request_result =
+      js_call_adaptor_.SyncCall(kJsRequestListDevices);
+  std::string error_message;
+  std::vector<LibusbJsDevice> js_devices;
+  if (!RemoteCallAdaptor::ExtractResultPayload(std::move(request_result),
+                                               &error_message, &js_devices)) {
+    GOOGLE_SMART_CARD_LOG_WARNING << "LibusbGetDeviceList request failed: "
+                                  << error_message;
     return LIBUSB_ERROR_OTHER;
   }
-  const std::vector<chrome_usb::Device>& chrome_usb_devices =
-      result.payload().devices;
 
-  *list = new libusb_device*[chrome_usb_devices.size() + 1];
-  for (size_t index = 0; index < chrome_usb_devices.size(); ++index)
-    (*list)[index] = new libusb_device(ctx, chrome_usb_devices[index]);
+  *list = new libusb_device*[js_devices.size() + 1];
+  for (size_t index = 0; index < js_devices.size(); ++index)
+    (*list)[index] = new libusb_device(ctx, js_devices[index]);
 
   // The resulting list must be NULL-terminated according to the libusb
   // documentation.
-  (*list)[chrome_usb_devices.size()] = nullptr;
+  (*list)[js_devices.size()] = nullptr;
 
-  return chrome_usb_devices.size();
+  return js_devices.size();
 }
 
 void LibusbJsProxy::LibusbFreeDeviceList(libusb_device** list,
@@ -199,53 +224,23 @@ void LibusbJsProxy::LibusbUnrefDevice(libusb_device* dev) {
 
 namespace {
 
-uint8_t ChromeUsbEndpointDescriptorTypeToLibusbMask(
-    chrome_usb::EndpointDescriptorType value) {
+uint8_t JsEndpointTypeToLibusbMask(LibusbJsEndpointType value) {
   switch (value) {
-    case chrome_usb::EndpointDescriptorType::kControl:
-      return LIBUSB_TRANSFER_TYPE_CONTROL << kLibusbTransferTypeMaskShift;
-    case chrome_usb::EndpointDescriptorType::kInterrupt:
-      return LIBUSB_TRANSFER_TYPE_INTERRUPT << kLibusbTransferTypeMaskShift;
-    case chrome_usb::EndpointDescriptorType::kIsochronous:
-      return LIBUSB_TRANSFER_TYPE_ISOCHRONOUS << kLibusbTransferTypeMaskShift;
-    case chrome_usb::EndpointDescriptorType::kBulk:
+    case LibusbJsEndpointType::kBulk:
       return LIBUSB_TRANSFER_TYPE_BULK << kLibusbTransferTypeMaskShift;
+    case LibusbJsEndpointType::kControl:
+      return LIBUSB_TRANSFER_TYPE_CONTROL << kLibusbTransferTypeMaskShift;
+    case LibusbJsEndpointType::kInterrupt:
+      return LIBUSB_TRANSFER_TYPE_INTERRUPT << kLibusbTransferTypeMaskShift;
+    case LibusbJsEndpointType::kIsochronous:
+      return LIBUSB_TRANSFER_TYPE_ISOCHRONOUS << kLibusbTransferTypeMaskShift;
     default:
       GOOGLE_SMART_CARD_NOTREACHED;
   }
 }
 
-uint8_t ChromeUsbEndpointDescriptorSynchronizationToLibusbMask(
-    chrome_usb::EndpointDescriptorSynchronization value) {
-  switch (value) {
-    case chrome_usb::EndpointDescriptorSynchronization::kAsynchronous:
-      return LIBUSB_ISO_SYNC_TYPE_ASYNC << kLibusbIsoSyncTypeMaskShift;
-    case chrome_usb::EndpointDescriptorSynchronization::kAdaptive:
-      return LIBUSB_ISO_SYNC_TYPE_ADAPTIVE << kLibusbIsoSyncTypeMaskShift;
-    case chrome_usb::EndpointDescriptorSynchronization::kSynchronous:
-      return LIBUSB_ISO_SYNC_TYPE_SYNC << kLibusbIsoSyncTypeMaskShift;
-    default:
-      GOOGLE_SMART_CARD_NOTREACHED;
-  }
-}
-
-uint8_t ChromeUsbEndpointDescriptorUsageToLibusbMask(
-    chrome_usb::EndpointDescriptorUsage value) {
-  switch (value) {
-    case chrome_usb::EndpointDescriptorUsage::kData:
-      return LIBUSB_ISO_USAGE_TYPE_DATA << kLibusbIsoUsageTypeMaskShift;
-    case chrome_usb::EndpointDescriptorUsage::kFeedback:
-      return LIBUSB_ISO_USAGE_TYPE_FEEDBACK << kLibusbIsoUsageTypeMaskShift;
-    case chrome_usb::EndpointDescriptorUsage::kExplicitFeedback:
-      return LIBUSB_ISO_USAGE_TYPE_IMPLICIT << kLibusbIsoUsageTypeMaskShift;
-    default:
-      GOOGLE_SMART_CARD_NOTREACHED;
-  }
-}
-
-void FillLibusbEndpointDescriptor(
-    const chrome_usb::EndpointDescriptor& chrome_usb_descriptor,
-    libusb_endpoint_descriptor* result) {
+void FillLibusbEndpointDescriptor(const LibusbJsEndpointDescriptor& js_endpoint,
+                                  libusb_endpoint_descriptor* result) {
   GOOGLE_SMART_CARD_CHECK(result);
 
   std::memset(result, 0, sizeof(libusb_endpoint_descriptor));
@@ -254,33 +249,24 @@ void FillLibusbEndpointDescriptor(
 
   result->bDescriptorType = LIBUSB_DT_ENDPOINT;
 
-  result->bEndpointAddress = chrome_usb_descriptor.address;
+  result->bEndpointAddress = js_endpoint.endpoint_address;
 
-  result->bmAttributes |=
-      ChromeUsbEndpointDescriptorTypeToLibusbMask(chrome_usb_descriptor.type);
-  if (chrome_usb_descriptor.type ==
-      chrome_usb::EndpointDescriptorType::kIsochronous) {
-    GOOGLE_SMART_CARD_CHECK(chrome_usb_descriptor.synchronization);
-    result->bmAttributes |=
-        ChromeUsbEndpointDescriptorSynchronizationToLibusbMask(
-            *chrome_usb_descriptor.synchronization);
-    GOOGLE_SMART_CARD_CHECK(chrome_usb_descriptor.usage);
-    result->bmAttributes |= ChromeUsbEndpointDescriptorUsageToLibusbMask(
-        *chrome_usb_descriptor.usage);
-  }
+  result->bmAttributes |= JsEndpointTypeToLibusbMask(js_endpoint.type);
+  // TODO(#429): Investigate synchronization and usage fields.
 
-  result->wMaxPacketSize = chrome_usb_descriptor.maximum_packet_size;
+  result->wMaxPacketSize = js_endpoint.max_packet_size;
 
-  if (chrome_usb_descriptor.polling_interval)
-    result->bInterval = *chrome_usb_descriptor.polling_interval;
+  // TODO(#429): Investigate the polling_interval field.
 
-  result->extra = CopyRawData(chrome_usb_descriptor.extra_data).release();
+  if (js_endpoint.extra_data)
+    result->extra = CopyRawData(*js_endpoint.extra_data).release();
 
-  result->extra_length = chrome_usb_descriptor.extra_data.size();
+  result->extra_length =
+      js_endpoint.extra_data ? js_endpoint.extra_data->size() : 0;
 }
 
 void FillLibusbInterfaceDescriptor(
-    const chrome_usb::InterfaceDescriptor& chrome_usb_descriptor,
+    const LibusbJsInterfaceDescriptor& js_interface,
     libusb_interface_descriptor* result) {
   GOOGLE_SMART_CARD_CHECK(result);
 
@@ -290,45 +276,45 @@ void FillLibusbInterfaceDescriptor(
 
   result->bDescriptorType = LIBUSB_DT_INTERFACE;
 
-  result->bInterfaceNumber = chrome_usb_descriptor.interface_number;
+  result->bInterfaceNumber = js_interface.interface_number;
 
-  result->bNumEndpoints = chrome_usb_descriptor.endpoints.size();
+  result->bNumEndpoints = js_interface.endpoints.size();
 
-  result->bInterfaceClass = chrome_usb_descriptor.interface_class;
+  result->bInterfaceClass = js_interface.interface_class;
 
-  result->bInterfaceSubClass = chrome_usb_descriptor.interface_subclass;
+  result->bInterfaceSubClass = js_interface.interface_subclass;
 
-  result->bInterfaceProtocol = chrome_usb_descriptor.interface_protocol;
+  result->bInterfaceProtocol = js_interface.interface_protocol;
 
   result->endpoint =
-      new libusb_endpoint_descriptor[chrome_usb_descriptor.endpoints.size()];
-  for (size_t index = 0; index < chrome_usb_descriptor.endpoints.size();
-       ++index) {
+      new libusb_endpoint_descriptor[js_interface.endpoints.size()];
+  for (size_t index = 0; index < js_interface.endpoints.size(); ++index) {
     FillLibusbEndpointDescriptor(
-        chrome_usb_descriptor.endpoints[index],
+        js_interface.endpoints[index],
         const_cast<libusb_endpoint_descriptor*>(&result->endpoint[index]));
   }
 
-  result->extra = CopyRawData(chrome_usb_descriptor.extra_data).release();
+  if (js_interface.extra_data)
+    result->extra = CopyRawData(*js_interface.extra_data).release();
 
-  result->extra_length = chrome_usb_descriptor.extra_data.size();
+  result->extra_length =
+      js_interface.extra_data ? js_interface.extra_data->size() : 0;
 }
 
-void FillLibusbInterface(
-    const chrome_usb::InterfaceDescriptor& chrome_usb_descriptor,
-    libusb_interface* result) {
+void FillLibusbInterface(const LibusbJsInterfaceDescriptor& js_interface,
+                         libusb_interface* result) {
   GOOGLE_SMART_CARD_CHECK(result);
 
   result->altsetting = new libusb_interface_descriptor[1];
   FillLibusbInterfaceDescriptor(
-      chrome_usb_descriptor,
+      js_interface,
       const_cast<libusb_interface_descriptor*>(result->altsetting));
 
   result->num_altsetting = 1;
 }
 
 void FillLibusbConfigDescriptor(
-    const chrome_usb::ConfigDescriptor& chrome_usb_descriptor,
+    const LibusbJsConfigurationDescriptor& js_config,
     libusb_config_descriptor* result) {
   GOOGLE_SMART_CARD_CHECK(result);
 
@@ -340,29 +326,24 @@ void FillLibusbConfigDescriptor(
 
   result->wTotalLength = sizeof(libusb_config_descriptor);
 
-  result->bNumInterfaces = chrome_usb_descriptor.interfaces.size();
+  result->bNumInterfaces = js_config.interfaces.size();
 
-  result->bConfigurationValue = chrome_usb_descriptor.configuration_value;
+  result->bConfigurationValue = js_config.configuration_value;
 
-  if (chrome_usb_descriptor.remote_wakeup)
-    result->bmAttributes |= kLibusbConfigDescriptorBmAttributesRemoteWakeup;
-  if (chrome_usb_descriptor.self_powered)
-    result->bmAttributes |= kLibusbConfigDescriptorBmAttributesSelfPowered;
+  // TODO(#429): Investigate remote_wakeup, self_powered, max_power flags.
 
-  result->MaxPower = chrome_usb_descriptor.max_power;
-
-  result->interface =
-      new libusb_interface[chrome_usb_descriptor.interfaces.size()];
-  for (size_t index = 0; index < chrome_usb_descriptor.interfaces.size();
-       ++index) {
+  result->interface = new libusb_interface[js_config.interfaces.size()];
+  for (size_t index = 0; index < js_config.interfaces.size(); ++index) {
     FillLibusbInterface(
-        chrome_usb_descriptor.interfaces[index],
+        js_config.interfaces[index],
         const_cast<libusb_interface*>(&result->interface[index]));
   }
 
-  result->extra = CopyRawData(chrome_usb_descriptor.extra_data).release();
+  if (js_config.extra_data)
+    result->extra = CopyRawData(*js_config.extra_data).release();
 
-  result->extra_length = chrome_usb_descriptor.extra_data.size();
+  result->extra_length =
+      js_config.extra_data ? js_config.extra_data->size() : 0;
 }
 
 }  // namespace
@@ -373,40 +354,39 @@ int LibusbJsProxy::LibusbGetActiveConfigDescriptor(
   GOOGLE_SMART_CARD_CHECK(dev);
   GOOGLE_SMART_CARD_CHECK(config);
 
-  const RequestResult<chrome_usb::GetConfigurationsResult> result =
-      chrome_usb_api_bridge_->GetConfigurations(dev->chrome_usb_device());
-  if (!result.is_successful()) {
+  GenericRequestResult request_result = js_call_adaptor_.SyncCall(
+      kJsRequestGetConfigurations, dev->js_device().device_id);
+  std::string error_message;
+  std::vector<LibusbJsConfigurationDescriptor> js_configs;
+  if (!RemoteCallAdaptor::ExtractResultPayload(std::move(request_result),
+                                               &error_message, &js_configs)) {
     GOOGLE_SMART_CARD_LOG_WARNING
-        << "LibusbJsProxy::LibusbGetActiveConfigDescriptor request "
-        << "failed: " << result.error_message();
+        << "LibusbGetActiveConfigDescriptor request failed: " << error_message;
     return LIBUSB_ERROR_OTHER;
   }
-  const std::vector<chrome_usb::ConfigDescriptor>& chrome_usb_configs =
-      result.payload().configurations;
 
   *config = nullptr;
-  for (const auto& chrome_usb_config : chrome_usb_configs) {
-    if (chrome_usb_config.active) {
+  for (const auto& js_config : js_configs) {
+    if (js_config.active) {
       if (*config) {
         // Normally there should be only one active configuration, but the
         // chrome.usb API implementation misbehaves on some devices: see
         // <https://crbug.com/1218141>. As a workaround, proceed with the first
         // received configuration that's marked as active.
         GOOGLE_SMART_CARD_LOG_WARNING
-            << "Unexpected result from the chrome.usb.getConfigurations() API: "
-               "received multiple active configurations";
+            << "Unexpected state in LibusbGetActiveConfigDescriptor: JS API "
+               "returned multiple active configurations";
         break;
       }
 
       *config = new libusb_config_descriptor;
-      FillLibusbConfigDescriptor(chrome_usb_config, *config);
+      FillLibusbConfigDescriptor(js_config, *config);
     }
   }
   if (!*config) {
     GOOGLE_SMART_CARD_LOG_WARNING
-        << "LibusbJsProxy::LibusbGetActiveConfigDescriptor request "
-        << "failed: No active config descriptors were returned by chrome.usb "
-           "API";
+        << "LibusbGetActiveConfigDescriptor request failed: No active config "
+           "descriptors were returned by JS API";
     return LIBUSB_ERROR_OTHER;
   }
   return LIBUSB_SUCCESS;
@@ -459,7 +439,7 @@ void LibusbJsProxy::LibusbFreeConfigDescriptor(
 
 namespace {
 
-void FillLibusbDeviceDescriptor(const chrome_usb::Device& chrome_usb_device,
+void FillLibusbDeviceDescriptor(const LibusbJsDevice& js_device,
                                 libusb_device_descriptor* result) {
   GOOGLE_SMART_CARD_CHECK(result);
 
@@ -469,19 +449,18 @@ void FillLibusbDeviceDescriptor(const chrome_usb::Device& chrome_usb_device,
 
   result->bDescriptorType = LIBUSB_DT_DEVICE;
 
-  result->idVendor = chrome_usb_device.vendor_id;
+  result->idVendor = js_device.vendor_id;
 
-  result->idProduct = chrome_usb_device.product_id;
+  result->idProduct = js_device.product_id;
 
-  if (chrome_usb_device.version) {
-    // The "bcdDevice" field is filled only when the chrome.usb API returns the
-    // corresponding information (which happens only in Chrome >= 51; refer to
-    // <http://crbug.com/598825>).
-    result->bcdDevice = *chrome_usb_device.version;
+  if (js_device.version) {
+    // When using the chrome.usb API, the version field is filled only in
+    // Chrome >= 51 (see <http://crbug.com/598825>).
+    result->bcdDevice = *js_device.version;
   }
 
   //
-  // chrome.usb API also provides information about the product name,
+  // The JS APIs also provide information about the product name,
   // manufacturer name and serial number. However, it's difficult to pass this
   // information to consumers here, because the corresponding
   // libusb_device_descriptor structure fields (iProduct, iManufacturer,
@@ -514,13 +493,12 @@ int LibusbJsProxy::LibusbGetDeviceDescriptor(libusb_device* dev,
   GOOGLE_SMART_CARD_CHECK(dev);
   GOOGLE_SMART_CARD_CHECK(desc);
 
-  FillLibusbDeviceDescriptor(dev->chrome_usb_device(), desc);
+  FillLibusbDeviceDescriptor(dev->js_device(), desc);
   return LIBUSB_SUCCESS;
 }
 
 uint8_t LibusbJsProxy::LibusbGetBusNumber(libusb_device* dev) {
-  auto bus_numbers_iterator =
-      bus_numbers_.find(dev->chrome_usb_device().device);
+  auto bus_numbers_iterator = bus_numbers_.find(dev->js_device().device_id);
   if (bus_numbers_iterator != bus_numbers_.end()) {
     return bus_numbers_iterator->second;
   }
@@ -530,7 +508,7 @@ uint8_t LibusbJsProxy::LibusbGetBusNumber(libusb_device* dev) {
 uint8_t LibusbJsProxy::LibusbGetDeviceAddress(libusb_device* dev) {
   GOOGLE_SMART_CARD_CHECK(dev);
 
-  const int64_t device_id = dev->chrome_usb_device().device;
+  const int64_t device_id = dev->js_device().device_id;
   // FIXME(emaxx): Fix the implementation to re-use the free device identifiers.
   // The current implementation will break, for instance, after a device is
   // unplugged and plugged back 256 times.
@@ -543,39 +521,39 @@ int LibusbJsProxy::LibusbOpen(libusb_device* dev,
   GOOGLE_SMART_CARD_CHECK(dev);
   GOOGLE_SMART_CARD_CHECK(handle);
 
-  const RequestResult<chrome_usb::OpenDeviceResult> result =
-      chrome_usb_api_bridge_->OpenDevice(dev->chrome_usb_device());
-  if (!result.is_successful()) {
-    GOOGLE_SMART_CARD_LOG_WARNING
-        << "LibusbJsProxy::LibusbOpen "
-        << "request failed: " << result.error_message();
+  GenericRequestResult request_result = js_call_adaptor_.SyncCall(
+      kJsRequestOpenDeviceHandle, dev->js_device().device_id);
+  std::string error_message;
+  int64_t js_device_handle = 0;
+  if (!RemoteCallAdaptor::ExtractResultPayload(
+          std::move(request_result), &error_message, &js_device_handle)) {
+    GOOGLE_SMART_CARD_LOG_WARNING << "LibusbOpen request failed: "
+                                  << error_message;
     // Modify the devices (fake) bus number that we report so that PCSC will
     // retry to connect to the device once it updates the device list.
     uint32_t new_bus_number =
         static_cast<uint32_t>(LibusbGetBusNumber(dev)) + 1;
     if (new_bus_number <= kMaximumBusNumber) {
-      bus_numbers_[dev->chrome_usb_device().device] = new_bus_number;
+      bus_numbers_[dev->js_device().device_id] = new_bus_number;
     }
     return LIBUSB_ERROR_OTHER;
   }
-  const chrome_usb::ConnectionHandle chrome_usb_connection_handle =
-      result.payload().connection_handle;
 
-  *handle = new libusb_device_handle(dev, chrome_usb_connection_handle);
+  *handle = new libusb_device_handle(dev, js_device_handle);
   return LIBUSB_SUCCESS;
 }
 
 void LibusbJsProxy::LibusbClose(libusb_device_handle* handle) {
   GOOGLE_SMART_CARD_CHECK(handle);
 
-  const RequestResult<chrome_usb::CloseDeviceResult> result =
-      chrome_usb_api_bridge_->CloseDevice(
-          handle->chrome_usb_connection_handle());
-  if (!result.is_successful()) {
+  GenericRequestResult request_result = js_call_adaptor_.SyncCall(
+      kJsRequestCloseDeviceHandle, handle->device()->js_device().device_id,
+      handle->js_device_handle());
+  std::string error_message;
+  if (!request_result.is_successful()) {
     // It's essential to not crash in this case, because this may happen during
     // shutdown process.
     GOOGLE_SMART_CARD_LOG_ERROR << "Failed to close USB device";
-    return;
   }
 
   delete handle;
@@ -585,13 +563,12 @@ int LibusbJsProxy::LibusbClaimInterface(libusb_device_handle* dev,
                                         int interface_number) {
   GOOGLE_SMART_CARD_CHECK(dev);
 
-  const RequestResult<chrome_usb::ClaimInterfaceResult> result =
-      chrome_usb_api_bridge_->ClaimInterface(
-          dev->chrome_usb_connection_handle(), interface_number);
-  if (!result.is_successful()) {
-    GOOGLE_SMART_CARD_LOG_WARNING
-        << "LibusbJsProxy::LibusbClaimInterface request failed: "
-        << result.error_message();
+  GenericRequestResult request_result = js_call_adaptor_.SyncCall(
+      kJsRequestClaimInterface, dev->device()->js_device().device_id,
+      dev->js_device_handle(), interface_number);
+  if (!request_result.is_successful()) {
+    GOOGLE_SMART_CARD_LOG_WARNING << "LibusbClaimInterface request failed: "
+                                  << request_result.error_message();
     return LIBUSB_ERROR_OTHER;
   }
   return LIBUSB_SUCCESS;
@@ -601,13 +578,12 @@ int LibusbJsProxy::LibusbReleaseInterface(libusb_device_handle* dev,
                                           int interface_number) {
   GOOGLE_SMART_CARD_CHECK(dev);
 
-  const RequestResult<chrome_usb::ReleaseInterfaceResult> result =
-      chrome_usb_api_bridge_->ReleaseInterface(
-          dev->chrome_usb_connection_handle(), interface_number);
-  if (!result.is_successful()) {
-    GOOGLE_SMART_CARD_LOG_WARNING
-        << "LibusbJsProxy::LibusbReleaseInterface request failed: "
-        << result.error_message();
+  GenericRequestResult request_result = js_call_adaptor_.SyncCall(
+      kJsRequestReleaseInterface, dev->device()->js_device().device_id,
+      dev->js_device_handle(), interface_number);
+  if (!request_result.is_successful()) {
+    GOOGLE_SMART_CARD_LOG_WARNING << "LibusbReleaseInterface request failed: "
+                                  << request_result.error_message();
     return LIBUSB_ERROR_OTHER;
   }
   return LIBUSB_SUCCESS;
@@ -616,12 +592,12 @@ int LibusbJsProxy::LibusbReleaseInterface(libusb_device_handle* dev,
 int LibusbJsProxy::LibusbResetDevice(libusb_device_handle* dev) {
   GOOGLE_SMART_CARD_CHECK(dev);
 
-  const RequestResult<chrome_usb::ResetDeviceResult> result =
-      chrome_usb_api_bridge_->ResetDevice(dev->chrome_usb_connection_handle());
-  if (!result.is_successful()) {
-    GOOGLE_SMART_CARD_LOG_WARNING
-        << "LibusbJsProxy::LibusbResetDevice request failed: "
-        << result.error_message();
+  GenericRequestResult request_result = js_call_adaptor_.SyncCall(
+      kJsRequestResetDevice, dev->device()->js_device().device_id,
+      dev->js_device_handle());
+  if (!request_result.is_successful()) {
+    GOOGLE_SMART_CARD_LOG_WARNING << "LibusbResetDevice request failed: "
+                                  << request_result.error_message();
     return LIBUSB_ERROR_OTHER;
   }
   return LIBUSB_SUCCESS;
@@ -790,27 +766,61 @@ void CreateChromeUsbGenericTransferInfo(
                                      result);
 }
 
+// TODO(#429): Delete this converter once all C++ code is switched away from
+// chrome.usb.
+RequestResult<LibusbJsTransferResult> ConvertChromeUsbTransferResultToLibusb(
+    RequestResult<chrome_usb::TransferResult> chrome_usb_request_result) {
+  switch (chrome_usb_request_result.status()) {
+    case RequestResultStatus::kSucceeded: {
+      LibusbJsTransferResult js_result;
+      if (chrome_usb_request_result.payload().result_info.result_code &&
+          *chrome_usb_request_result.payload().result_info.result_code) {
+        return RequestResult<LibusbJsTransferResult>::CreateFailed(
+            "USB API returned error");
+      }
+      if (chrome_usb_request_result.payload().result_info.data) {
+        js_result.received_data =
+            chrome_usb_request_result.payload().result_info.data;
+      }
+      return RequestResult<LibusbJsTransferResult>::CreateSuccessful(
+          std::move(js_result));
+    }
+    case RequestResultStatus::kFailed: {
+      return RequestResult<LibusbJsTransferResult>::CreateFailed(
+          chrome_usb_request_result.error_message());
+    }
+    case RequestResultStatus::kCanceled: {
+      return RequestResult<LibusbJsTransferResult>::CreateCanceled();
+    }
+  }
+}
+
 chrome_usb::AsyncTransferCallback MakeChromeUsbTransferCallback(
     std::weak_ptr<libusb_context> context,
     const UsbTransferDestination& transfer_destination,
     LibusbJsProxy::TransferAsyncRequestStatePtr async_request_state) {
-  return [context, transfer_destination, async_request_state](
-             RequestResult<chrome_usb::TransferResult> request_result) {
-    const std::shared_ptr<libusb_context> locked_context = context.lock();
-    if (!locked_context) {
-      // The context that was used for the original transfer submission has been
-      // destroyed already.
-      return;
-    }
+  return
+      [context, transfer_destination, async_request_state](
+          RequestResult<chrome_usb::TransferResult> chrome_usb_request_result) {
+        const std::shared_ptr<libusb_context> locked_context = context.lock();
+        if (!locked_context) {
+          // The context that was used for the original transfer submission has
+          // been destroyed already.
+          return;
+        }
 
-    if (transfer_destination.IsInputDirection()) {
-      locked_context->OnInputTransferResultReceived(transfer_destination,
-                                                    std::move(request_result));
-    } else {
-      locked_context->OnOutputTransferResultReceived(async_request_state,
-                                                     std::move(request_result));
-    }
-  };
+        RequestResult<LibusbJsTransferResult> request_result =
+            ConvertChromeUsbTransferResultToLibusb(
+                std::move(chrome_usb_request_result));
+
+        if (transfer_destination.IsInputDirection()) {
+          locked_context->OnInputTransferResultReceived(
+              transfer_destination, std::move(request_result));
+        } else {
+          locked_context->OnOutputTransferResultReceived(
+              async_request_state, std::move(request_result));
+        }
+      };
 }
 
 }  // namespace
@@ -856,12 +866,12 @@ int LibusbJsProxy::LibusbSubmitTransfer(libusb_transfer* transfer) {
   if (transfer->type == LIBUSB_TRANSFER_TYPE_CONTROL) {
     transfer_destination =
         UsbTransferDestination::CreateFromChromeUsbControlTransfer(
-            transfer->dev_handle->chrome_usb_connection_handle(),
+            GetChromeUsbConnectionHandle(*transfer->dev_handle),
             control_transfer_info);
   } else {
     transfer_destination =
         UsbTransferDestination::CreateFromChromeUsbGenericTransfer(
-            transfer->dev_handle->chrome_usb_connection_handle(),
+            GetChromeUsbConnectionHandle(*transfer->dev_handle),
             generic_transfer_info);
   }
 
@@ -875,17 +885,17 @@ int LibusbJsProxy::LibusbSubmitTransfer(libusb_transfer* transfer) {
   switch (transfer->type) {
     case LIBUSB_TRANSFER_TYPE_CONTROL:
       chrome_usb_api_bridge_->AsyncControlTransfer(
-          transfer->dev_handle->chrome_usb_connection_handle(),
+          GetChromeUsbConnectionHandle(*transfer->dev_handle),
           control_transfer_info, chrome_usb_callback);
       break;
     case LIBUSB_TRANSFER_TYPE_BULK:
       chrome_usb_api_bridge_->AsyncBulkTransfer(
-          transfer->dev_handle->chrome_usb_connection_handle(),
+          GetChromeUsbConnectionHandle(*transfer->dev_handle),
           generic_transfer_info, chrome_usb_callback);
       break;
     case LIBUSB_TRANSFER_TYPE_INTERRUPT:
       chrome_usb_api_bridge_->AsyncInterruptTransfer(
-          transfer->dev_handle->chrome_usb_connection_handle(),
+          GetChromeUsbConnectionHandle(*transfer->dev_handle),
           generic_transfer_info, chrome_usb_callback);
       break;
     default:
@@ -914,18 +924,11 @@ void LibusbJsProxy::LibusbFreeTransfer(libusb_transfer* transfer) {
 namespace {
 
 libusb_transfer_status FillLibusbTransferResult(
-    const chrome_usb::TransferResultInfo& transfer_result_info,
+    const LibusbJsTransferResult& js_result,
     bool is_short_not_ok,
     int data_length,
     unsigned char* data_buffer,
     int* actual_length) {
-  if (!transfer_result_info.result_code)
-    return LIBUSB_TRANSFER_ERROR;
-  if (*transfer_result_info.result_code !=
-      chrome_usb::kTransferResultInfoSuccessResultCode) {
-    return LIBUSB_TRANSFER_ERROR;
-  }
-
   // FIXME(emaxx): Looks like chrome.usb API returns timeout results as if they
   // were errors. So, in case of timeout, LIBUSB_TRANSFER_ERROR will be
   // returned to the consumers instead of returning LIBUSB_TRANSFER_TIMED_OUT.
@@ -933,11 +936,11 @@ libusb_transfer_status FillLibusbTransferResult(
   // prospective, this probably requires fixing.
 
   int actual_length_value;
-  if (transfer_result_info.data) {
+  if (js_result.received_data) {
     actual_length_value = std::min(
-        static_cast<int>(transfer_result_info.data->size()), data_length);
+        static_cast<int>(js_result.received_data->size()), data_length);
     if (actual_length_value) {
-      std::copy_n(transfer_result_info.data->begin(), actual_length_value,
+      std::copy_n(js_result.received_data->begin(), actual_length_value,
                   data_buffer);
     }
   } else {
@@ -964,6 +967,14 @@ int LibusbTransferStatusToLibusbErrorCode(
   }
 }
 
+// The callback to be passed in the libusb_transfer structures used for
+// performing synchronous transfers. The callback assumes that the `user_data`
+// field points to the int that's used by the event loop as a signal to stop.
+void OnSyncTransferCompleted(libusb_transfer* transfer) {
+  int* completed = static_cast<int*>(transfer->user_data);
+  *completed = 1;
+}
+
 }  // namespace
 
 int LibusbJsProxy::LibusbControlTransfer(libusb_device_handle* dev,
@@ -976,37 +987,42 @@ int LibusbJsProxy::LibusbControlTransfer(libusb_device_handle* dev,
                                          unsigned timeout) {
   GOOGLE_SMART_CARD_CHECK(dev);
 
-  chrome_usb::ControlTransferInfo transfer_info;
-  if (!CreateChromeUsbControlTransferInfo(bmRequestType, bRequest, wValue,
-                                          index, data, wLength, timeout,
-                                          &transfer_info)) {
-    return LIBUSB_ERROR_INVALID_PARAM;
-  }
-  const UsbTransferDestination transfer_destination =
-      UsbTransferDestination::CreateFromChromeUsbControlTransfer(
-          dev->chrome_usb_connection_handle(), transfer_info);
-  SyncTransferHelper sync_transfer_helper(
-      contexts_storage_.FindContextByAddress(dev->context()),
-      transfer_destination);
+  // Implement the synchronous transfer in terms of asynchronous one.
+  libusb_transfer transfer;
+  std::memset(&transfer, 0, sizeof(transfer));
 
-  chrome_usb_api_bridge_->AsyncControlTransfer(
-      dev->chrome_usb_connection_handle(), transfer_info,
-      sync_transfer_helper.chrome_usb_transfer_callback());
-  const TransferRequestResult result = sync_transfer_helper.WaitForCompletion();
-
-  if (!result.is_successful()) {
-    GOOGLE_SMART_CARD_LOG_WARNING
-        << "LibusbJsProxy::LibusbControlTransfer request failed: "
-        << result.error_message();
-    return LIBUSB_ERROR_OTHER;
+  // Libusb requires the control transfer's setup packet (of size
+  // `LIBUSB_CONTROL_SETUP_SIZE`) to precede the data buffer.
+  std::vector<uint8_t> buffer(LIBUSB_CONTROL_SETUP_SIZE + wLength);
+  libusb_fill_control_setup(buffer.data(), bmRequestType, bRequest, wValue,
+                            index, wLength);
+  if ((bmRequestType & LIBUSB_ENDPOINT_DIR_MASK) == LIBUSB_ENDPOINT_OUT) {
+    // It's output transfer, so copy the passed data into the new buffer.
+    std::copy_n(data, wLength, buffer.data() + LIBUSB_CONTROL_SETUP_SIZE);
   }
-  int actual_length;
-  const int error_code =
-      LibusbTransferStatusToLibusbErrorCode(FillLibusbTransferResult(
-          result.payload().result_info, false, wLength, data, &actual_length));
-  if (error_code == LIBUSB_SUCCESS)
-    return actual_length;
-  return error_code;
+
+  int transfer_completed = 0;
+  libusb_fill_control_transfer(&transfer, dev, buffer.data(),
+                               /*callback=*/
+                               &OnSyncTransferCompleted,
+                               /*user_data=*/&transfer_completed, timeout);
+
+  int transfer_result = LibusbSubmitTransfer(&transfer);
+  if (transfer_result != LIBUSB_SUCCESS)
+    return transfer_result;
+  // No need to check the return code (and cancel the transfer when it fails),
+  // as our implementation of libusb_handle_events_* always succeeds.
+  LibusbHandleEventsCompleted(dev->context(), &transfer_completed);
+
+  if ((bmRequestType & LIBUSB_ENDPOINT_DIR_MASK) == LIBUSB_ENDPOINT_IN) {
+    // It's input transfer, so copy the received data into the passed buffer.
+    std::copy_n(buffer.data() + LIBUSB_CONTROL_SETUP_SIZE,
+                transfer.actual_length, data);
+  }
+  transfer_result = LibusbTransferStatusToLibusbErrorCode(transfer.status);
+  if (transfer_result != LIBUSB_SUCCESS)
+    return transfer_result;
+  return transfer.actual_length;
 }
 
 int LibusbJsProxy::LibusbBulkTransfer(libusb_device_handle* dev,
@@ -1016,30 +1032,8 @@ int LibusbJsProxy::LibusbBulkTransfer(libusb_device_handle* dev,
                                       int* actual_length,
                                       unsigned timeout) {
   GOOGLE_SMART_CARD_CHECK(dev);
-
-  chrome_usb::GenericTransferInfo transfer_info;
-  CreateChromeUsbGenericTransferInfo(endpoint_address, data, length, timeout,
-                                     &transfer_info);
-  const UsbTransferDestination transfer_destination =
-      UsbTransferDestination::CreateFromChromeUsbGenericTransfer(
-          dev->chrome_usb_connection_handle(), transfer_info);
-  SyncTransferHelper sync_transfer_helper(
-      contexts_storage_.FindContextByAddress(dev->context()),
-      transfer_destination);
-
-  chrome_usb_api_bridge_->AsyncBulkTransfer(
-      dev->chrome_usb_connection_handle(), transfer_info,
-      sync_transfer_helper.chrome_usb_transfer_callback());
-  const TransferRequestResult result = sync_transfer_helper.WaitForCompletion();
-
-  if (!result.is_successful()) {
-    GOOGLE_SMART_CARD_LOG_WARNING
-        << "LibusbJsProxy::LibusbBulkTransfer request failed: "
-        << result.error_message();
-    return LIBUSB_ERROR_OTHER;
-  }
-  return LibusbTransferStatusToLibusbErrorCode(FillLibusbTransferResult(
-      result.payload().result_info, false, length, data, actual_length));
+  return DoGenericSyncTranfer(LIBUSB_TRANSFER_TYPE_BULK, dev, endpoint_address,
+                              data, length, actual_length, timeout);
 }
 
 int LibusbJsProxy::LibusbInterruptTransfer(libusb_device_handle* dev,
@@ -1049,30 +1043,9 @@ int LibusbJsProxy::LibusbInterruptTransfer(libusb_device_handle* dev,
                                            int* actual_length,
                                            unsigned timeout) {
   GOOGLE_SMART_CARD_CHECK(dev);
-
-  chrome_usb::GenericTransferInfo transfer_info;
-  CreateChromeUsbGenericTransferInfo(endpoint_address, data, length, timeout,
-                                     &transfer_info);
-  const UsbTransferDestination transfer_destination =
-      UsbTransferDestination::CreateFromChromeUsbGenericTransfer(
-          dev->chrome_usb_connection_handle(), transfer_info);
-  SyncTransferHelper sync_transfer_helper(
-      contexts_storage_.FindContextByAddress(dev->context()),
-      transfer_destination);
-
-  chrome_usb_api_bridge_->AsyncInterruptTransfer(
-      dev->chrome_usb_connection_handle(), transfer_info,
-      sync_transfer_helper.chrome_usb_transfer_callback());
-  const TransferRequestResult result = sync_transfer_helper.WaitForCompletion();
-
-  if (!result.is_successful()) {
-    GOOGLE_SMART_CARD_LOG_WARNING
-        << "LibusbJsProxy::LibusbInterruptTransfer request failed: "
-        << result.error_message();
-    return LIBUSB_ERROR_OTHER;
-  }
-  return LibusbTransferStatusToLibusbErrorCode(FillLibusbTransferResult(
-      result.payload().result_info, false, length, data, actual_length));
+  return DoGenericSyncTranfer(LIBUSB_TRANSFER_TYPE_INTERRUPT, dev,
+                              endpoint_address, data, length, actual_length,
+                              timeout);
 }
 
 int LibusbJsProxy::LibusbHandleEvents(libusb_context* ctx) {
@@ -1089,41 +1062,6 @@ int LibusbJsProxy::LibusbHandleEventsCompleted(libusb_context* ctx,
   return LIBUSB_SUCCESS;
 }
 
-LibusbJsProxy::SyncTransferHelper::SyncTransferHelper(
-    std::shared_ptr<libusb_context> context,
-    const UsbTransferDestination& transfer_destination)
-    : context_(context), transfer_destination_(transfer_destination) {
-  const auto async_request_state_callback =
-      [this](LibusbJsProxy::TransferRequestResult request_result) {
-        result_ = std::move(request_result);
-      };
-
-  async_request_state_ =
-      std::make_shared<TransferAsyncRequestState>(async_request_state_callback);
-
-  context->AddSyncTransferInFlight(async_request_state_, transfer_destination_);
-}
-
-LibusbJsProxy::SyncTransferHelper::~SyncTransferHelper() = default;
-
-chrome_usb::AsyncTransferCallback
-LibusbJsProxy::SyncTransferHelper::chrome_usb_transfer_callback() const {
-  return MakeChromeUsbTransferCallback(context_, transfer_destination_,
-                                       async_request_state_);
-}
-
-RequestResult<chrome_usb::TransferResult>
-LibusbJsProxy::SyncTransferHelper::WaitForCompletion() {
-  if (transfer_destination_.IsInputDirection()) {
-    context_->WaitAndProcessInputSyncTransferReceivedResult(
-        async_request_state_, transfer_destination_);
-  } else {
-    context_->WaitAndProcessOutputSyncTransferReceivedResult(
-        async_request_state_);
-  }
-  return std::move(result_);
-}
-
 libusb_context* LibusbJsProxy::SubstituteDefaultContextIfNull(
     libusb_context* context_or_nullptr) const {
   if (context_or_nullptr)
@@ -1135,8 +1073,7 @@ LibusbJsProxy::TransferAsyncRequestCallback
 LibusbJsProxy::WrapLibusbTransferCallback(libusb_transfer* transfer) {
   GOOGLE_SMART_CARD_CHECK(transfer);
 
-  return [this,
-          transfer](RequestResult<chrome_usb::TransferResult> request_result) {
+  return [this, transfer](TransferRequestResult request_result) {
     if (request_result.is_successful()) {
       //
       // Note that the control transfers have a special libusb_control_setup
@@ -1158,7 +1095,7 @@ LibusbJsProxy::WrapLibusbTransferCallback(libusb_transfer* transfer) {
               : libusb_control_transfer_get_setup(transfer)->wLength;
 
       transfer->status = FillLibusbTransferResult(
-          request_result.payload().result_info,
+          request_result.payload(),
           (transfer->flags & LIBUSB_TRANSFER_SHORT_NOT_OK) != 0, data_length,
           data_buffer, &transfer->actual_length);
     } else if (request_result.status() == RequestResultStatus::kCanceled) {
@@ -1186,6 +1123,47 @@ int LibusbJsProxy::LibusbHandleEventsWithTimeout(libusb_context* context,
           std::chrono::seconds(timeout_seconds),
       nullptr);
   return LIBUSB_SUCCESS;
+}
+
+int LibusbJsProxy::DoGenericSyncTranfer(libusb_transfer_type transfer_type,
+                                        libusb_device_handle* device_handle,
+                                        unsigned char endpoint_address,
+                                        unsigned char* data,
+                                        int length,
+                                        int* actual_length,
+                                        unsigned timeout) {
+  GOOGLE_SMART_CARD_CHECK(transfer_type == LIBUSB_TRANSFER_TYPE_BULK ||
+                          transfer_type == LIBUSB_TRANSFER_TYPE_INTERRUPT);
+
+  // Implement the synchronous transfer in terms of asynchronous one.
+  libusb_transfer transfer;
+  std::memset(&transfer, 0, sizeof(transfer));
+
+  int transfer_completed = 0;
+  if (transfer_type == LIBUSB_TRANSFER_TYPE_BULK) {
+    libusb_fill_bulk_transfer(&transfer, device_handle, endpoint_address, data,
+                              length,
+                              /*callback=*/&OnSyncTransferCompleted,
+                              /*user_data=*/&transfer_completed, timeout);
+  } else if (transfer_type == LIBUSB_TRANSFER_TYPE_INTERRUPT) {
+    libusb_fill_interrupt_transfer(&transfer, device_handle, endpoint_address,
+                                   data, length,
+                                   /*callback=*/&OnSyncTransferCompleted,
+                                   /*user_data=*/&transfer_completed, timeout);
+  } else {
+    GOOGLE_SMART_CARD_NOTREACHED;
+  }
+
+  int transfer_result = LibusbSubmitTransfer(&transfer);
+  if (transfer_result != LIBUSB_SUCCESS)
+    return transfer_result;
+  // No need to check the return code (and cancel the transfer when it fails),
+  // as our implementation of libusb_handle_events_* always succeeds.
+  LibusbHandleEventsCompleted(device_handle->context(), &transfer_completed);
+
+  if (actual_length)
+    *actual_length = transfer.actual_length;
+  return LibusbTransferStatusToLibusbErrorCode(transfer.status);
 }
 
 }  // namespace google_smart_card

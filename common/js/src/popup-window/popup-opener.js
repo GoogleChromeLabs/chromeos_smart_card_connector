@@ -181,7 +181,6 @@ GSC.PopupOpener.runModalDialog = function(
   GSC.PopupOpener.createWindow(
       modifiedUrl.pathname + modifiedUrl.search + modifiedUrl.hash,
       createWindowOptions, modifiedData);
-
   return promiseResolver.promise;
 };
 

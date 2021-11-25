@@ -26,7 +26,7 @@
 
 #include <google_smart_card_common/requesting/async_request.h>
 
-#include "chrome_usb/types.h"
+#include "libusb_js_proxy_data_model.h"
 #include "usb_transfer_destination.h"
 
 namespace google_smart_card {
@@ -45,8 +45,7 @@ namespace google_smart_card {
 // available only for asynchronous transfers.
 class UsbTransfersParametersStorage final {
  public:
-  using TransferAsyncRequestState =
-      AsyncRequestState<chrome_usb::TransferResult>;
+  using TransferAsyncRequestState = AsyncRequestState<LibusbJsTransferResult>;
   using TransferAsyncRequestStatePtr =
       std::shared_ptr<TransferAsyncRequestState>;
 

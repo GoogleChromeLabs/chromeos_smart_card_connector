@@ -97,20 +97,12 @@ function prepareMessage() {
 
 function allowClickListener(event) {
   event.preventDefault();
-  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
-    GSC.InPopupMainScript.resolveModalDialog(true);
-  } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
-    GSC.InPopupMainScript.resolveModalDialog(true);
-  }
+  GSC.InPopupMainScript.resolveModalDialog(true);
 }
 
 function denyClickListener(event) {
   event.preventDefault();
-  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
-    GSC.InPopupMainScript.resolveModalDialog(false);
-  } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
-    GSC.InPopupMainScript.resolveModalDialog(false);
-  }
+  GSC.InPopupMainScript.resolveModalDialog(false);
 }
 
 function closeWindowClickListener() {

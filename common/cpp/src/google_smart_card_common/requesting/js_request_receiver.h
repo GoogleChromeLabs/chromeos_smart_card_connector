@@ -57,12 +57,12 @@ class JsRequestReceiver final : public RequestReceiver,
 
   ~JsRequestReceiver() override;
 
-  // Detaches the request receiver, which prevents it from sending request
-  // responses and from receiving of new requests (as the corresponding route
-  // gets removed from the associated TypedMessageRouter object).
+  // Stop sending request responses and prevent receiving of new requests (as
+  // the corresponding route gets removed from the associated TypedMessageRouter
+  // object).
   //
   // This function is safe to be called from any thread.
-  void Detach();
+  void ShutDown();
 
  private:
   // RequestReceiver:
