@@ -969,7 +969,7 @@ int LibusbJsProxy::LibusbControlTransfer(libusb_device_handle* dev,
   std::vector<uint8_t> buffer(LIBUSB_CONTROL_SETUP_SIZE + wLength);
   libusb_fill_control_setup(buffer.data(), bmRequestType, bRequest, wValue,
                             index, wLength);
-  if (!(bmRequestType & LIBUSB_ENDPOINT_IN)) {
+  if ((bmRequestType & LIBUSB_ENDPOINT_DIR_MASK) == LIBUSB_ENDPOINT_OUT) {
     // It's output transfer, so copy the passed data into the new buffer.
     std::copy_n(data, wLength, buffer.data() + LIBUSB_CONTROL_SETUP_SIZE);
   }
@@ -988,12 +988,12 @@ int LibusbJsProxy::LibusbControlTransfer(libusb_device_handle* dev,
   if (transfer_result < 0)
     return transfer_result;
 
-  if (bmRequestType & LIBUSB_ENDPOINT_IN) {
+  if ((bmRequestType & LIBUSB_ENDPOINT_DIR_MASK) == LIBUSB_ENDPOINT_IN) {
     // It's input transfer, so copy the received data into the passed buffer.
     std::copy_n(buffer.data() + LIBUSB_CONTROL_SETUP_SIZE,
                 transfer.actual_length, data);
   }
-  return LIBUSB_SUCCESS;
+  return transfer_result;
 }
 
 int LibusbJsProxy::LibusbBulkTransfer(libusb_device_handle* dev,
