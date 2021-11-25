@@ -104,7 +104,7 @@ TrustedClientsRegistry.prototype.getByOrigin = function(origin) {
   const promiseResolver = goog.Promise.withResolver();
 
   this.tryGetByOrigins([origin]).then(
-      function(infos) {
+      infos => {
         GSC.Logging.checkWithLogger(this.logger, infos.length === 1);
         const info = infos[0];
         if (info) {
