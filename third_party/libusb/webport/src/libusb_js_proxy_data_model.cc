@@ -105,4 +105,53 @@ StructValueDescriptor<LibusbJsConfigurationDescriptor>::GetDescription() {
       .WithField(&LibusbJsConfigurationDescriptor::interfaces, "interfaces");
 }
 
+template <>
+EnumValueDescriptor<LibusbJsTransferRequestType>::Description
+EnumValueDescriptor<LibusbJsTransferRequestType>::GetDescription() {
+  // Note: Strings passed to WithItem() below must match the ones in
+  // libusb-proxy-data-model.js.
+  return Describe("LibusbJsTransferRequestType")
+      .WithItem(LibusbJsTransferRequestType::kStandard, "standard")
+      .WithItem(LibusbJsTransferRequestType::kClass, "class")
+      .WithItem(LibusbJsTransferRequestType::kVendor, "vendor");
+}
+
+template <>
+EnumValueDescriptor<LibusbJsTransferRecipient>::Description
+EnumValueDescriptor<LibusbJsTransferRecipient>::GetDescription() {
+  // Note: Strings passed to WithItem() below must match the ones in
+  // libusb-proxy-data-model.js.
+  return Describe("LibusbJsTransferRecipient")
+      .WithItem(LibusbJsTransferRecipient::kDevice, "device")
+      .WithItem(LibusbJsTransferRecipient::kInterface, "interface")
+      .WithItem(LibusbJsTransferRecipient::kEndpoint, "endpoint")
+      .WithItem(LibusbJsTransferRecipient::kOther, "other");
+}
+
+template <>
+StructValueDescriptor<LibusbJsControlTransferParameters>::Description
+StructValueDescriptor<LibusbJsControlTransferParameters>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the ones in
+  // libusb-proxy-data-model.js.
+  return Describe("LibusbJsControlTransferParameters")
+      .WithField(&LibusbJsControlTransferParameters::request_type,
+                 "requestType")
+      .WithField(&LibusbJsControlTransferParameters::recipient, "recipient")
+      .WithField(&LibusbJsControlTransferParameters::request, "request")
+      .WithField(&LibusbJsControlTransferParameters::value, "value")
+      .WithField(&LibusbJsControlTransferParameters::index, "index")
+      .WithField(&LibusbJsControlTransferParameters::data_to_send, "dataToSend")
+      .WithField(&LibusbJsControlTransferParameters::length_to_receive,
+                 "lengthToReceive");
+}
+
+template <>
+StructValueDescriptor<LibusbJsTransferResult>::Description
+StructValueDescriptor<LibusbJsTransferResult>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the ones in
+  // libusb-proxy-data-model.js.
+  return Describe("LibusbJsTransferResult")
+      .WithField(&LibusbJsTransferResult::received_data, "receivedData");
+}
+
 }  // namespace google_smart_card

@@ -30,6 +30,8 @@ goog.scope(function() {
 const GSC = GoogleSmartCard;
 const LibusbJsConfigurationDescriptor =
     GSC.LibusbProxyDataModel.LibusbJsConfigurationDescriptor;
+const LibusbJsControlTransferParameters =
+    GSC.LibusbProxyDataModel.LibusbJsControlTransferParameters;
 const LibusbJsDevice = GSC.LibusbProxyDataModel.LibusbJsDevice;
 const LibusbJsDirection = GSC.LibusbProxyDataModel.LibusbJsDirection;
 const LibusbJsEndpointDescriptor =
@@ -37,6 +39,11 @@ const LibusbJsEndpointDescriptor =
 const LibusbJsEndpointType = GSC.LibusbProxyDataModel.LibusbJsEndpointType;
 const LibusbJsInterfaceDescriptor =
     GSC.LibusbProxyDataModel.LibusbJsInterfaceDescriptor;
+const LibusbJsTransferRecipient =
+    GSC.LibusbProxyDataModel.LibusbJsTransferRecipient;
+const LibusbJsTransferRequestType =
+    GSC.LibusbProxyDataModel.LibusbJsTransferRequestType;
+const LibusbJsTransferResult = GSC.LibusbProxyDataModel.LibusbJsTransferResult;
 
 const logger = GSC.Logging.getScopedLogger('LibusbToChromeUsbAdaptor');
 
@@ -118,6 +125,27 @@ GSC.LibusbToChromeUsbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
     const chromeUsbConnectionHandle =
         this.getConnectionHandleWithDeviceIdOrThrow_(deviceId, deviceHandle);
     await promisify(chrome.usb.resetDevice, chromeUsbConnectionHandle);
+  }
+
+  /** @override */
+  async controlTransfer(deviceId, deviceHandle, parameters) {
+    const chromeUsbConnectionHandle =
+        this.getConnectionHandleWithDeviceIdOrThrow_(deviceId, deviceHandle);
+    const chromeUsbControlTransferInfo =
+        getChromeUsbControlTranferInfo(parameters);
+    const chromeUsbTransferResultInfo =
+        /** @type {!chrome.usb.TransferResultInfo} */ (await promisify(
+            chrome.usb.controlTransfer, chromeUsbConnectionHandle,
+            chromeUsbControlTransferInfo));
+    if (chromeUsbTransferResultInfo.resultCode) {
+      throw new Error(`USB API failed with resultCode=${
+          chromeUsbTransferResultInfo.resultCode}`);
+    }
+    /** @type {!LibusbJsTransferResult} */
+    const libusbJsTransferResult = {};
+    if (chromeUsbTransferResultInfo.data)
+      libusbJsTransferResult['receivedData'] = chromeUsbTransferResultInfo.data;
+    return libusbJsTransferResult;
   }
 
   /**
@@ -300,5 +328,62 @@ function getChromeUsbConnectionHandle(chromeUsbDevice, deviceHandle) {
     'productId': chromeUsbDevice.productId,
     'vendorId': chromeUsbDevice.vendorId,
   });
+}
+
+/**
+ * @param {!LibusbJsControlTransferParameters} libusbJsParameters
+ * @return {!chrome.usb.ControlTransferInfo}
+ */
+function getChromeUsbControlTranferInfo(libusbJsParameters) {
+  const controlTransferInfo = /** @type {!chrome.usb.ControlTransferInfo} */ ({
+    'direction': libusbJsParameters['dataToSend'] ? 'out' : 'in',
+    'index': libusbJsParameters['index'],
+    'recipient': getChromeUsbRecipient(libusbJsParameters['recipient']),
+    'request': libusbJsParameters['request'],
+    'requestType': getChromeUsbRequestType(libusbJsParameters['requestType']),
+  });
+  if (libusbJsParameters['dataToSend'])
+    controlTransferInfo['data'] = libusbJsParameters['dataToSend'];
+  if (libusbJsParameters['lengthToReceive'] !== undefined)
+    controlTransferInfo['length'] = libusbJsParameters['lengthToReceive'];
+  return controlTransferInfo;
+}
+
+/**
+ * @param {!LibusbJsTransferRecipient} libusbJsTransferRecipient
+ * @return {string} The chrome.usb.Recipient value.
+ */
+function getChromeUsbRecipient(libusbJsTransferRecipient) {
+  switch (libusbJsTransferRecipient) {
+    case LibusbJsTransferRecipient.DEVICE:
+      return 'device';
+    case LibusbJsTransferRecipient.INTERFACE:
+      return 'interface';
+    case LibusbJsTransferRecipient.ENDPOINT:
+      return 'endpoint';
+    case LibusbJsTransferRecipient.OTHER:
+      return 'other';
+  }
+  GSC.Logging.failWithLogger(
+      logger, `Unexpected libusb recipient: ${libusbJsTransferRecipient}`);
+  goog.asserts.fail();
+}
+
+/**
+ * @param {!LibusbJsTransferRequestType} libusbJsTransferRequestType
+ * @return {string} The chrome.usb.RequestType value.
+ */
+function getChromeUsbRequestType(libusbJsTransferRequestType) {
+  switch (libusbJsTransferRequestType) {
+    case LibusbJsTransferRequestType.STANDARD:
+      return 'standard';
+    case LibusbJsTransferRequestType.CLASS:
+      return 'class';
+    case LibusbJsTransferRequestType.VENDOR:
+      return 'vendor';
+  }
+  GSC.Logging.failWithLogger(
+      logger, `Unexpected libusb request type: ${libusbJsTransferRequestType}`);
+  goog.asserts.fail();
 }
 });  // goog.scope
