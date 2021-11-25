@@ -127,19 +127,16 @@ UsbTransferDestination::CreateFromChromeUsbGenericTransfer(
 }
 
 bool UsbTransferDestination::IsInputDirection() const {
-  // It's only correct to check the flag presence by doing bitwise and against a
-  // non-zero constant.
-  static_assert(LIBUSB_ENDPOINT_IN != 0,
-                "Bad mask: LIBUSB_ENDPOINT_IN is zero");
-
   if (control_transfer_request_type_) {
     // For control transfers, the direction is encoded in the request type.
-    return (*control_transfer_request_type_ & LIBUSB_ENDPOINT_IN) != 0;
+    return (*control_transfer_request_type_ & LIBUSB_ENDPOINT_DIR_MASK) ==
+           LIBUSB_ENDPOINT_IN;
   }
   if (endpoint_address_) {
     // For all other transfer types, the direction is encoded in the endpoint
     // address.
-    return (*endpoint_address_ & LIBUSB_ENDPOINT_IN) != 0;
+    return (*endpoint_address_ & LIBUSB_ENDPOINT_DIR_MASK) ==
+           LIBUSB_ENDPOINT_IN;
   }
   // It's invalid to call this function on a default-initialized instance.
   GOOGLE_SMART_CARD_NOTREACHED;
