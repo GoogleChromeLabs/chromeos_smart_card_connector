@@ -179,8 +179,8 @@ GSC.PopupOpener.runModalDialog = function(
   }
 
   GSC.PopupOpener.createWindow(
-      modifiedUrl.toString(), createWindowOptions, modifiedData);
-
+      modifiedUrl.pathname + modifiedUrl.search + modifiedUrl.hash,
+      createWindowOptions, modifiedData);
   return promiseResolver.promise;
 };
 
