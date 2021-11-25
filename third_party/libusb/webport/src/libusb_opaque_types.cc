@@ -20,16 +20,6 @@
 
 #include <google_smart_card_common/logging/logging.h>
 
-void libusb_context::AddSyncTransferInFlight(
-    TransferAsyncRequestStatePtr async_request_state,
-    const UsbTransferDestination& transfer_destination) {
-  GOOGLE_SMART_CARD_CHECK(async_request_state);
-
-  const std::unique_lock<std::mutex> lock(mutex_);
-
-  AddTransferInFlight(async_request_state, transfer_destination, nullptr);
-}
-
 void libusb_context::AddAsyncTransferInFlight(
     TransferAsyncRequestStatePtr async_request_state,
     const UsbTransferDestination& transfer_destination,
@@ -40,58 +30,6 @@ void libusb_context::AddAsyncTransferInFlight(
   const std::unique_lock<std::mutex> lock(mutex_);
 
   AddTransferInFlight(async_request_state, transfer_destination, transfer);
-}
-
-void libusb_context::WaitAndProcessInputSyncTransferReceivedResult(
-    TransferAsyncRequestStatePtr async_request_state,
-    const UsbTransferDestination& transfer_destination) {
-  TransferRequestResult result;
-
-  {
-    std::unique_lock<std::mutex> lock(mutex_);
-
-    for (;;) {
-      GOOGLE_SMART_CARD_CHECK(
-          transfers_in_flight_.ContainsWithAsyncRequestState(
-              async_request_state.get()));
-
-      if (ExtractMatchingInputTransferResult(transfer_destination, &result)) {
-        RemoveTransferInFlight(async_request_state.get());
-        break;
-      }
-
-      condition_.wait(lock);
-    }
-  }
-
-  SetTransferResult(async_request_state.get(), std::move(result));
-}
-
-void libusb_context::WaitAndProcessOutputSyncTransferReceivedResult(
-    TransferAsyncRequestStatePtr async_request_state) {
-  TransferRequestResult result;
-
-  {
-    std::unique_lock<std::mutex> lock(mutex_);
-
-    for (;;) {
-      GOOGLE_SMART_CARD_CHECK(
-          transfers_in_flight_.ContainsWithAsyncRequestState(
-              async_request_state.get()));
-
-      if (received_output_transfer_result_map_.count(async_request_state)) {
-        result = std::move(
-            received_output_transfer_result_map_[async_request_state]);
-        received_output_transfer_result_map_.erase(async_request_state);
-        RemoveTransferInFlight(async_request_state.get());
-        break;
-      }
-
-      condition_.wait(lock);
-    }
-  }
-
-  SetTransferResult(async_request_state.get(), std::move(result));
 }
 
 void libusb_context::WaitAndProcessAsyncTransferReceivedResults(
@@ -303,25 +241,6 @@ bool libusb_context::ExtractInputAsyncTransferStateUpdate(
   }
 
   return false;
-}
-
-bool libusb_context::ExtractMatchingInputTransferResult(
-    const UsbTransferDestination& transfer_destination,
-    TransferRequestResult* result) {
-  const auto iter =
-      received_input_transfer_result_map_.find(transfer_destination);
-  if (iter == received_input_transfer_result_map_.end())
-    return false;
-  std::queue<TransferRequestResult>* results_queue = &iter->second;
-
-  GOOGLE_SMART_CARD_CHECK(!results_queue->empty());
-  *result = std::move(results_queue->front());
-  results_queue->pop();
-
-  if (results_queue->empty())
-    received_input_transfer_result_map_.erase(iter);
-
-  return true;
 }
 
 void libusb_context::SetTransferResult(

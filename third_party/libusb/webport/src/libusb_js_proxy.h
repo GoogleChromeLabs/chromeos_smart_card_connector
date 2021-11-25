@@ -129,32 +129,19 @@ class LibusbJsProxy final : public LibusbInterface {
  private:
   const int kHandleEventsTimeoutSeconds = 60;
 
-  class SyncTransferHelper final {
-   public:
-    SyncTransferHelper(std::shared_ptr<libusb_context> context,
-                       const UsbTransferDestination& transfer_destination);
-    SyncTransferHelper(const SyncTransferHelper&) = delete;
-    SyncTransferHelper& operator=(const SyncTransferHelper&) = delete;
-    ~SyncTransferHelper();
-
-    chrome_usb::AsyncTransferCallback chrome_usb_transfer_callback() const;
-
-    TransferRequestResult WaitForCompletion();
-
-   private:
-    std::shared_ptr<libusb_context> context_;
-    UsbTransferDestination transfer_destination_;
-    TransferRequestResult result_;
-    TransferAsyncRequestStatePtr async_request_state_;
-    chrome_usb::AsyncTransferCallback chrome_usb_transfer_callback_;
-  };
-
   libusb_context* SubstituteDefaultContextIfNull(
       libusb_context* context_or_nullptr) const;
   TransferAsyncRequestCallback WrapLibusbTransferCallback(
       libusb_transfer* transfer);
   int LibusbHandleEventsWithTimeout(libusb_context* context,
                                     int timeout_seconds);
+  int DoGenericSyncTranfer(libusb_transfer_type transfer_type,
+                           libusb_device_handle* device_handle,
+                           unsigned char endpoint_address,
+                           unsigned char* data,
+                           int length,
+                           int* actual_length,
+                           unsigned timeout);
 
   // Helpers for making requests to the JavaScript side.
   JsRequester js_requester_;

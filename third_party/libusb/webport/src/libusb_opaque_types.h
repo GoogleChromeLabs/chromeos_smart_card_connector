@@ -78,17 +78,6 @@ struct libusb_context final
   using UsbTransfersParametersStorage =
       google_smart_card::UsbTransfersParametersStorage;
 
-  // Adds information about a new synchronous transfer into internal structures.
-  //
-  // The async_request_state argument points to the instance that should be
-  // used to store the transfer result. The transfer_destination argument
-  // contains the set of parameters that represent the transfer destination,
-  // which for input transfers allows to receive the suitable results from the
-  // previous canceled transfers.
-  void AddSyncTransferInFlight(
-      TransferAsyncRequestStatePtr async_request_state,
-      const UsbTransferDestination& transfer_destination);
-
   // Adds information about a new asynchronous transfer into internal
   // structures.
   //
@@ -101,26 +90,6 @@ struct libusb_context final
       TransferAsyncRequestStatePtr async_request_state,
       const UsbTransferDestination& transfer_destination,
       libusb_transfer* transfer);
-
-  // Blocks until the specified input synchronous transfer finishes.
-  //
-  // The transfer_destination argument contains the set of parameters that
-  // uniquely represent the transfer destination, which for input transfers
-  // allows to receive the suitable results from the previous canceled
-  // transfers.
-  //
-  // It is guaranteed that the instance pointed by the async_request_state
-  // argument will contain the transfer result once the method finishes.
-  void WaitAndProcessInputSyncTransferReceivedResult(
-      TransferAsyncRequestStatePtr async_request_state,
-      const UsbTransferDestination& transfer_destination);
-
-  // Blocks until the specified output synchronous transfer finishes.
-  //
-  // It is guaranteed that the instance pointed by the async_request_state
-  // argument will contain the transfer result once the method finishes.
-  void WaitAndProcessOutputSyncTransferReceivedResult(
-      TransferAsyncRequestStatePtr async_request_state);
 
   // Blocks until either a new asynchronous transfer result is received (in
   // which case the transfer callback is executed), or the specified completed
@@ -177,10 +146,6 @@ struct libusb_context final
       TransferRequestResult* result);
   bool ExtractInputAsyncTransferStateUpdate(
       TransferAsyncRequestStatePtr* async_request_state,
-      TransferRequestResult* result);
-
-  bool ExtractMatchingInputTransferResult(
-      const UsbTransferDestination& transfer_destination,
       TransferRequestResult* result);
 
   void SetTransferResult(TransferAsyncRequestState* async_request_state,
