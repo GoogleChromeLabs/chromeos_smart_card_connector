@@ -159,6 +159,19 @@ const LibusbJsControlTransferParameters =
 /**
  * The key strings must match the ones in libusb_js_proxy_data_model.cc.
  * @typedef {{
+ *            endpointAddress:number,
+ *            dataToSend:(!ArrayBuffer|undefined),
+ *            lengthToReceive:(number|undefined)
+ *          }}
+ */
+GSC.LibusbProxyDataModel.LibusbJsGenericTransferParameters;
+
+const LibusbJsGenericTransferParameters =
+    GSC.LibusbProxyDataModel.LibusbJsGenericTransferParameters;
+
+/**
+ * The key strings must match the ones in libusb_js_proxy_data_model.cc.
+ * @typedef {{
  *            receivedData:(!ArrayBuffer|undefined),
  *          }}
  */

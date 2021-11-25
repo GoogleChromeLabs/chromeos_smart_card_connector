@@ -37,6 +37,8 @@ const LibusbJsDirection = GSC.LibusbProxyDataModel.LibusbJsDirection;
 const LibusbJsEndpointDescriptor =
     GSC.LibusbProxyDataModel.LibusbJsEndpointDescriptor;
 const LibusbJsEndpointType = GSC.LibusbProxyDataModel.LibusbJsEndpointType;
+const LibusbJsGenericTransferParameters =
+    GSC.LibusbProxyDataModel.LibusbJsGenericTransferParameters;
 const LibusbJsInterfaceDescriptor =
     GSC.LibusbProxyDataModel.LibusbJsInterfaceDescriptor;
 const LibusbJsTransferRecipient =
@@ -132,20 +134,24 @@ GSC.LibusbToChromeUsbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
     const chromeUsbConnectionHandle =
         this.getConnectionHandleWithDeviceIdOrThrow_(deviceId, deviceHandle);
     const chromeUsbControlTransferInfo =
-        getChromeUsbControlTranferInfo(parameters);
+        getChromeUsbControlTransferInfo(parameters);
     const chromeUsbTransferResultInfo =
         /** @type {!chrome.usb.TransferResultInfo} */ (await promisify(
             chrome.usb.controlTransfer, chromeUsbConnectionHandle,
             chromeUsbControlTransferInfo));
-    if (chromeUsbTransferResultInfo.resultCode) {
-      throw new Error(`USB API failed with resultCode=${
-          chromeUsbTransferResultInfo.resultCode}`);
-    }
-    /** @type {!LibusbJsTransferResult} */
-    const libusbJsTransferResult = {};
-    if (chromeUsbTransferResultInfo.data)
-      libusbJsTransferResult['receivedData'] = chromeUsbTransferResultInfo.data;
-    return libusbJsTransferResult;
+    return getLibusbJsTransferResultOrThrow(chromeUsbTransferResultInfo);
+  }
+
+  /** @override */
+  async bulkTransfer(deviceId, deviceHandle, parameters) {
+    return this.genericTransfer_(
+        chrome.usb.bulkTransfer, deviceId, deviceHandle, parameters);
+  }
+
+  /** @override */
+  async interruptTransfer(deviceId, deviceHandle, parameters) {
+    return this.genericTransfer_(
+        chrome.usb.interruptTransfer, deviceId, deviceHandle, parameters);
   }
 
   /**
@@ -179,6 +185,29 @@ GSC.LibusbToChromeUsbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
   getConnectionHandleWithDeviceIdOrThrow_(deviceId, deviceHandle) {
     const chromeUsbDevice = this.getDeviceByIdOrThrow_(deviceId);
     return getChromeUsbConnectionHandle(chromeUsbDevice, deviceHandle);
+  }
+
+  /**
+   * Performs a bulk or an interrupt transfer (depending on the passed API
+   * method).
+   * @private
+   * @param {!Function} chromeUsbApiMethod
+   * @param {number} deviceId
+   * @param {number} deviceHandle
+   * @param {!LibusbJsGenericTransferParameters} parameters
+   * @return {!Promise<!LibusbJsTransferResult>}
+   */
+  async genericTransfer_(
+      chromeUsbApiMethod, deviceId, deviceHandle, parameters) {
+    const chromeUsbConnectionHandle =
+        this.getConnectionHandleWithDeviceIdOrThrow_(deviceId, deviceHandle);
+    const chromeUsbGenericTransferInfo =
+        getChromeUsbGenericTransferInfo(parameters);
+    const chromeUsbTransferResultInfo =
+        /** @type {!chrome.usb.TransferResultInfo} */ (await promisify(
+            chromeUsbApiMethod, chromeUsbConnectionHandle,
+            chromeUsbGenericTransferInfo));
+    return getLibusbJsTransferResultOrThrow(chromeUsbTransferResultInfo);
   }
 };
 
@@ -334,7 +363,7 @@ function getChromeUsbConnectionHandle(chromeUsbDevice, deviceHandle) {
  * @param {!LibusbJsControlTransferParameters} libusbJsParameters
  * @return {!chrome.usb.ControlTransferInfo}
  */
-function getChromeUsbControlTranferInfo(libusbJsParameters) {
+function getChromeUsbControlTransferInfo(libusbJsParameters) {
   const controlTransferInfo = /** @type {!chrome.usb.ControlTransferInfo} */ ({
     'direction': libusbJsParameters['dataToSend'] ? 'out' : 'in',
     'index': libusbJsParameters['index'],
@@ -385,5 +414,37 @@ function getChromeUsbRequestType(libusbJsTransferRequestType) {
   GSC.Logging.failWithLogger(
       logger, `Unexpected libusb request type: ${libusbJsTransferRequestType}`);
   goog.asserts.fail();
+}
+
+/**
+ * @param {!LibusbJsGenericTransferParameters} libusbJsParameters
+ * @return {!chrome.usb.GenericTransferInfo}
+ */
+function getChromeUsbGenericTransferInfo(libusbJsParameters) {
+  const genericTransferInfo = /** @type {!chrome.usb.GenericTransferInfo} */ ({
+    'direction': libusbJsParameters['dataToSend'] ? 'out' : 'in',
+    'endpoint': libusbJsParameters['endpoint'],
+  });
+  if (libusbJsParameters['dataToSend'])
+    genericTransferInfo['data'] = libusbJsParameters['dataToSend'];
+  if (libusbJsParameters['lengthToReceive'] !== undefined)
+    genericTransferInfo['length'] = libusbJsParameters['lengthToReceive'];
+  return genericTransferInfo;
+}
+
+/**
+ * @param {!chrome.usb.TransferResultInfo} chromeUsbTransferResultInfo
+ * @return {!LibusbJsTransferResult}
+ */
+function getLibusbJsTransferResultOrThrow(chromeUsbTransferResultInfo) {
+  if (chromeUsbTransferResultInfo.resultCode) {
+    throw new Error(`USB API failed with resultCode=${
+        chromeUsbTransferResultInfo.resultCode}`);
+  }
+  /** @type {!LibusbJsTransferResult} */
+  const libusbJsTransferResult = {};
+  if (chromeUsbTransferResultInfo.data)
+    libusbJsTransferResult['receivedData'] = chromeUsbTransferResultInfo.data;
+  return libusbJsTransferResult;
 }
 });  // goog.scope

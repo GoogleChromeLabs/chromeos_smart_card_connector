@@ -29,6 +29,8 @@ const LibusbJsConfigurationDescriptor =
 const LibusbJsControlTransferParameters =
     GSC.LibusbProxyDataModel.LibusbJsControlTransferParameters;
 const LibusbJsDevice = GSC.LibusbProxyDataModel.LibusbJsDevice;
+const LibusbJsGenericTransferParameters =
+    GSC.LibusbProxyDataModel.LibusbJsGenericTransferParameters;
 const LibusbJsTransferResult = GSC.LibusbProxyDataModel.LibusbJsTransferResult;
 
 GSC.LibusbToJsApiAdaptor = class {
@@ -84,5 +86,21 @@ GSC.LibusbToJsApiAdaptor = class {
    * @return {!Promise<!LibusbJsTransferResult>}
    */
   async controlTransfer(deviceId, deviceHandle, parameters) {}
+
+  /**
+   * @param {number} deviceId
+   * @param {number} deviceHandle
+   * @param {!LibusbJsGenericTransferParameters} parameters
+   * @return {!Promise<!LibusbJsTransferResult>}
+   */
+  async bulkTransfer(deviceId, deviceHandle, parameters) {}
+
+  /**
+   * @param {number} deviceId
+   * @param {number} deviceHandle
+   * @param {!LibusbJsGenericTransferParameters} parameters
+   * @return {!Promise<!LibusbJsTransferResult>}
+   */
+  async interruptTransfer(deviceId, deviceHandle, parameters) {}
 };
 });  // goog.scope
