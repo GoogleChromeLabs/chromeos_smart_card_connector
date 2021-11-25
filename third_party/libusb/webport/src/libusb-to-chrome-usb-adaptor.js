@@ -141,7 +141,7 @@ GSC.LibusbToChromeUsbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
       throw new Error(`USB API failed with resultCode=${
           chromeUsbTransferResultInfo.resultCode}`);
     }
-    /** @type {LibusbJsTransferResult} */
+    /** @type {!LibusbJsTransferResult} */
     const libusbJsTransferResult = {};
     if (chromeUsbTransferResultInfo.data)
       libusbJsTransferResult['receivedData'] = chromeUsbTransferResultInfo.data;
