@@ -766,6 +766,8 @@ void CreateChromeUsbGenericTransferInfo(
                                      result);
 }
 
+// TODO(#429): Delete this converter once all C++ code is switched away from
+// chrome.usb.
 RequestResult<LibusbJsTransferResult> ConvertChromeUsbTransferResultToLibusb(
     RequestResult<chrome_usb::TransferResult> chrome_usb_request_result) {
   switch (chrome_usb_request_result.status()) {
