@@ -41,7 +41,6 @@
 #include <google_smart_card_common/requesting/async_request.h>
 #include <google_smart_card_common/requesting/request_result.h>
 
-#include "chrome_usb/types.h"
 #include "libusb_js_proxy_data_model.h"
 #include "usb_transfer_destination.h"
 #include "usb_transfers_parameters_storage.h"
@@ -69,9 +68,9 @@
 struct libusb_context final
     : public std::enable_shared_from_this<libusb_context> {
   using TransferRequestResult = google_smart_card::RequestResult<
-      google_smart_card::chrome_usb::TransferResult>;
+      google_smart_card::LibusbJsTransferResult>;
   using TransferAsyncRequestState = google_smart_card::AsyncRequestState<
-      google_smart_card::chrome_usb::TransferResult>;
+      google_smart_card::LibusbJsTransferResult>;
   using TransferAsyncRequestStatePtr =
       std::shared_ptr<TransferAsyncRequestState>;
   using UsbTransferDestination = google_smart_card::UsbTransferDestination;

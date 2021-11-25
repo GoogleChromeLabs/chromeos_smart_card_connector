@@ -46,13 +46,12 @@ namespace google_smart_card {
 // the chrome_usb/api_bridge.h file.
 class LibusbJsProxy final : public LibusbInterface {
  public:
-  using TransferRequestResult = RequestResult<chrome_usb::TransferResult>;
-  using TransferAsyncRequestState =
-      AsyncRequestState<chrome_usb::TransferResult>;
+  using TransferRequestResult = RequestResult<LibusbJsTransferResult>;
+  using TransferAsyncRequestState = AsyncRequestState<LibusbJsTransferResult>;
   using TransferAsyncRequestStatePtr =
       std::shared_ptr<TransferAsyncRequestState>;
   using TransferAsyncRequestCallback =
-      AsyncRequestCallback<chrome_usb::TransferResult>;
+      AsyncRequestCallback<LibusbJsTransferResult>;
 
   LibusbJsProxy(GlobalContext* global_context,
                 TypedMessageRouter* typed_message_router,
