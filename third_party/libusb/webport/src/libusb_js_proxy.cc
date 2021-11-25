@@ -962,7 +962,7 @@ int LibusbJsProxy::LibusbControlTransfer(libusb_device_handle* dev,
 
   // Implement the synchronous transfer in terms of asynchronous one.
   libusb_transfer transfer;
-  memset(&transfer, 0, sizeof(transfer));
+  std::memset(&transfer, 0, sizeof(transfer));
 
   // Libusb requires the control transfer's setup packet (of size
   // `LIBUSB_CONTROL_SETUP_SIZE`) to precede the data buffer.
@@ -981,19 +981,21 @@ int LibusbJsProxy::LibusbControlTransfer(libusb_device_handle* dev,
                                /*user_data=*/&transfer_completed, timeout);
 
   int transfer_result = LibusbSubmitTransfer(&transfer);
-  if (transfer_result < 0)
+  if (transfer_result != LIBUSB_SUCCESS)
     return transfer_result;
-  transfer_result =
-      LibusbHandleEventsCompleted(dev->context(), &transfer_completed);
-  if (transfer_result < 0)
-    return transfer_result;
+  // No need to check the return code (and cancel the transfer when it fails),
+  // as our implementation of libusb_handle_events_* always succeeds.
+  LibusbHandleEventsCompleted(dev->context(), &transfer_completed);
 
   if ((bmRequestType & LIBUSB_ENDPOINT_DIR_MASK) == LIBUSB_ENDPOINT_IN) {
     // It's input transfer, so copy the received data into the passed buffer.
     std::copy_n(buffer.data() + LIBUSB_CONTROL_SETUP_SIZE,
                 transfer.actual_length, data);
   }
-  return transfer_result;
+  transfer_result = LibusbTransferStatusToLibusbErrorCode(transfer.status);
+  if (transfer_result != LIBUSB_SUCCESS)
+    return transfer_result;
+  return transfer.actual_length;
 }
 
 int LibusbJsProxy::LibusbBulkTransfer(libusb_device_handle* dev,
