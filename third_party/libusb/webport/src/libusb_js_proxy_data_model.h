@@ -99,6 +99,41 @@ struct LibusbJsConfigurationDescriptor {
   std::vector<LibusbJsInterfaceDescriptor> interfaces;
 };
 
+// Corresponds to the "type" bits of the USB bmRequestType field.
+enum class LibusbJsTransferRequestType {
+  kStandard,
+  kClass,
+  kVendor,
+};
+
+// Corresponds to the "recipient" bits of the USB bmRequestType field.
+enum class LibusbJsTransferRecipient {
+  kDevice,
+  kInterface,
+  kEndpoint,
+  kOther,
+};
+
+struct LibusbJsControlTransferParameters {
+  LibusbJsTransferRequestType request_type;
+  LibusbJsTransferRecipient recipient;
+  // The USB bRequest field.
+  uint8_t request;
+  // The USB wValue field.
+  uint16_t value;
+  // The USB wIndex field.
+  uint16_t index;
+  // Only set for output transfers.
+  optional<std::vector<uint8_t>> data_to_send;
+  // Only set for input transfers.
+  optional<uint16_t> length_to_receive;
+};
+
+struct LibusbJsTransferResult {
+  // This field is only populated for input transfers.
+  optional<std::vector<uint8_t>> received_data;
+};
+
 }  // namespace google_smart_card
 
 #endif  // GOOGLE_SMART_CARD_THIRD_PARTY_LIBUSB_LIBUSB_JS_PROXY_DATA_MODEL_H_

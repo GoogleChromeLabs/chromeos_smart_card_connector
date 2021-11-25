@@ -111,4 +111,58 @@ GSC.LibusbProxyDataModel.LibusbJsConfigurationDescriptor;
 
 const LibusbJsConfigurationDescriptor =
     GSC.LibusbProxyDataModel.LibusbJsConfigurationDescriptor;
+
+/**
+ * The string values must match the ones in libusb_js_proxy_data_model.cc.
+ * @enum {string}
+ */
+GSC.LibusbProxyDataModel.LibusbJsTransferRequestType = {
+  STANDARD: 'standard',
+  CLASS: 'class',
+  VENDOR: 'vendor',
+};
+
+const LibusbJsTransferRequestType =
+    GSC.LibusbProxyDataModel.LibusbJsTransferRequestType;
+
+/**
+ * The string values must match the ones in libusb_js_proxy_data_model.cc.
+ * @enum {string}
+ */
+GSC.LibusbProxyDataModel.LibusbJsTransferRecipient = {
+  DEVICE: 'device',
+  INTERFACE: 'interface',
+  ENDPOINT: 'endpoint',
+  OTHER: 'other',
+};
+
+const LibusbJsTransferRecipient =
+    GSC.LibusbProxyDataModel.LibusbJsTransferRecipient;
+
+/**
+ * The key strings must match the ones in libusb_js_proxy_data_model.cc.
+ * @typedef {{
+ *            requestType:!LibusbJsTransferRequestType,
+ *            recipient:!LibusbJsTransferRecipient,
+ *            request:number,
+ *            value:number,
+ *            index:number,
+ *            dataToSend:(!ArrayBuffer|undefined),
+ *            lengthToReceive:(number|undefined)
+ *          }}
+ */
+GSC.LibusbProxyDataModel.LibusbJsControlTransferParameters;
+
+const LibusbJsControlTransferParameters =
+    GSC.LibusbProxyDataModel.LibusbJsControlTransferParameters;
+
+/**
+ * The key strings must match the ones in libusb_js_proxy_data_model.cc.
+ * @typedef {{
+ *            receivedData:(!ArrayBuffer|undefined),
+ *          }}
+ */
+GSC.LibusbProxyDataModel.LibusbJsTransferResult;
+
+const LibusbJsTransferResult = GSC.LibusbProxyDataModel.LibusbJsTransferResult;
 });  // goog.scope

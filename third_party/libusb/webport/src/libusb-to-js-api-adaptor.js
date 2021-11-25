@@ -26,7 +26,10 @@ goog.scope(function() {
 const GSC = GoogleSmartCard;
 const LibusbJsConfigurationDescriptor =
     GSC.LibusbProxyDataModel.LibusbJsConfigurationDescriptor;
+const LibusbJsControlTransferParameters =
+    GSC.LibusbProxyDataModel.LibusbJsControlTransferParameters;
 const LibusbJsDevice = GSC.LibusbProxyDataModel.LibusbJsDevice;
+const LibusbJsTransferResult = GSC.LibusbProxyDataModel.LibusbJsTransferResult;
 
 GSC.LibusbToJsApiAdaptor = class {
   /** @return {!Promise<!Array<!LibusbJsDevice>>} */
@@ -73,5 +76,13 @@ GSC.LibusbToJsApiAdaptor = class {
    * @return {!Promise<void>}
    */
   async resetDevice(deviceId, deviceHandle) {}
+
+  /**
+   * @param {number} deviceId
+   * @param {number} deviceHandle
+   * @param {!LibusbJsControlTransferParameters} parameters
+   * @return {!Promise<!LibusbJsTransferResult>}
+   */
+  async controlTransfer(deviceId, deviceHandle, parameters) {}
 };
 });  // goog.scope
