@@ -423,7 +423,7 @@ function getChromeUsbRequestType(libusbJsTransferRequestType) {
 function getChromeUsbGenericTransferInfo(libusbJsParameters) {
   const genericTransferInfo = /** @type {!chrome.usb.GenericTransferInfo} */ ({
     'direction': libusbJsParameters['dataToSend'] ? 'out' : 'in',
-    'endpoint': libusbJsParameters['endpoint'],
+    'endpoint': libusbJsParameters['endpointAddress'],
   });
   if (libusbJsParameters['dataToSend'])
     genericTransferInfo['data'] = libusbJsParameters['dataToSend'];
