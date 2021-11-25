@@ -92,9 +92,8 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
   /** @preserveTry */
   try {
     if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
-      const loaclUrl = url.replace("chrome-extension://khpfeaanjngmcnplbdlpegiifgpfgdco", "");
       chrome.app.window.create(
-        loaclUrl, {
+          url, {
             'alwaysOnTop': windowOptions['alwaysOnTop'],
             'frame': windowOptions['frame'],
             'hidden': windowOptions['hidden'],
@@ -179,7 +178,9 @@ GSC.PopupOpener.runModalDialog = function(
         'passed_data', JSON.stringify(modifiedData));
   }
 
-  GSC.PopupOpener.createWindow(modifiedUrl.toString(), createWindowOptions, modifiedData);
+  GSC.PopupOpener.createWindow(
+      modifiedUrl.pathname + modifiedUrl.search + modifiedUrl.hash,
+      createWindowOptions, modifiedData);
 
   return promiseResolver.promise;
 };
