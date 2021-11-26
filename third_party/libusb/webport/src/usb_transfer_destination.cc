@@ -30,54 +30,6 @@
 
 namespace google_smart_card {
 
-namespace {
-
-// TODO(#429): Delete this converter once the C++ code gets fully abstracted
-// away from chrome.usb.
-uint8_t GetLibusbRequestType(
-    const chrome_usb::ControlTransferInfo& chrome_usb_control_transfer_info) {
-  uint8_t request_type = 0;
-  switch (chrome_usb_control_transfer_info.request_type) {
-    case chrome_usb::ControlTransferInfoRequestType::kStandard:
-      request_type |= LIBUSB_REQUEST_TYPE_STANDARD;
-      break;
-    case chrome_usb::ControlTransferInfoRequestType::kClass:
-      request_type |= LIBUSB_REQUEST_TYPE_CLASS;
-      break;
-    case chrome_usb::ControlTransferInfoRequestType::kVendor:
-      request_type |= LIBUSB_REQUEST_TYPE_VENDOR;
-      break;
-    case chrome_usb::ControlTransferInfoRequestType::kReserved:
-      request_type |= LIBUSB_REQUEST_TYPE_RESERVED;
-      break;
-  }
-  switch (chrome_usb_control_transfer_info.direction) {
-    case chrome_usb::Direction::kIn:
-      request_type |= LIBUSB_ENDPOINT_IN;
-      break;
-    case chrome_usb::Direction::kOut:
-      request_type |= LIBUSB_ENDPOINT_OUT;
-      break;
-  }
-  switch (chrome_usb_control_transfer_info.recipient) {
-    case chrome_usb::ControlTransferInfoRecipient::kDevice:
-      request_type |= LIBUSB_RECIPIENT_DEVICE;
-      break;
-    case chrome_usb::ControlTransferInfoRecipient::kInterface:
-      request_type |= LIBUSB_RECIPIENT_INTERFACE;
-      break;
-    case chrome_usb::ControlTransferInfoRecipient::kEndpoint:
-      request_type |= LIBUSB_RECIPIENT_ENDPOINT;
-      break;
-    case chrome_usb::ControlTransferInfoRecipient::kOther:
-      request_type |= LIBUSB_RECIPIENT_OTHER;
-      break;
-  }
-  return request_type;
-}
-
-}  // namespace
-
 UsbTransferDestination::UsbTransferDestination() = default;
 
 UsbTransferDestination::~UsbTransferDestination() = default;
@@ -100,28 +52,6 @@ UsbTransferDestination UsbTransferDestination::CreateForGenericTransfer(
     uint8_t endpoint_address) {
   return UsbTransferDestination(
       js_device_handle, endpoint_address,
-      /*control_transfer_request_type=*/{}, /*control_transfer_request=*/{},
-      /*control_transfer_value=*/{}, /*control_transfer_index=*/{});
-}
-
-// static
-UsbTransferDestination
-UsbTransferDestination::CreateFromChromeUsbControlTransfer(
-    const chrome_usb::ConnectionHandle& connection_handle,
-    const chrome_usb::ControlTransferInfo& transfer_info) {
-  return UsbTransferDestination(
-      connection_handle.handle,
-      /*endpoint_address=*/{}, GetLibusbRequestType(transfer_info),
-      transfer_info.request, transfer_info.value, transfer_info.index);
-}
-
-// static
-UsbTransferDestination
-UsbTransferDestination::CreateFromChromeUsbGenericTransfer(
-    const chrome_usb::ConnectionHandle& connection_handle,
-    const chrome_usb::GenericTransferInfo& transfer_info) {
-  return UsbTransferDestination(
-      connection_handle.handle, transfer_info.endpoint,
       /*control_transfer_request_type=*/{}, /*control_transfer_request=*/{},
       /*control_transfer_value=*/{}, /*control_transfer_index=*/{});
 }

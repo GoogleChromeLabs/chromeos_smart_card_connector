@@ -23,8 +23,6 @@
 
 #include <google_smart_card_common/optional.h>
 
-#include "chrome_usb/types.h"
-
 namespace google_smart_card {
 
 // This structure uniquely represents a libusb/chrome.usb transfer destination.
@@ -47,13 +45,6 @@ class UsbTransferDestination final {
   static UsbTransferDestination CreateForGenericTransfer(
       int64_t js_device_handle,
       uint8_t endpoint_address);
-
-  static UsbTransferDestination CreateFromChromeUsbControlTransfer(
-      const chrome_usb::ConnectionHandle& connection_handle,
-      const chrome_usb::ControlTransferInfo& transfer_info);
-  static UsbTransferDestination CreateFromChromeUsbGenericTransfer(
-      const chrome_usb::ConnectionHandle& connection_handle,
-      const chrome_usb::GenericTransferInfo& transfer_info);
 
   bool IsInputDirection() const;
 

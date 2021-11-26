@@ -19,7 +19,6 @@
 
 goog.provide('GoogleSmartCard.Libusb.ChromeLoginStateHook');
 
-goog.require('GoogleSmartCard.Libusb.ChromeUsbBackend');
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.RemoteCallMessage');
