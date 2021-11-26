@@ -59,6 +59,60 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
         webusbDevice => this.convertWebusbDeviceToLibusb_(webusbDevice));
   }
 
+  /** @override */
+  async getConfigurations(deviceId) {
+    // TODO(#429): Implement this method.
+    throw new Error('Not implemented');
+  }
+
+  /** @override */
+  async openDeviceHandle(deviceId) {
+    // TODO(#429): Implement this method.
+    throw new Error('Not implemented');
+  }
+
+  /** @override */
+  async closeDeviceHandle(deviceId, deviceHandle) {
+    // TODO(#429): Implement this method.
+    throw new Error('Not implemented');
+  }
+
+  /** @override */
+  async claimInterface(deviceId, deviceHandle, interfaceNumber) {
+    // TODO(#429): Implement this method.
+    throw new Error('Not implemented');
+  }
+
+  /** @override */
+  async releaseInterface(deviceId, deviceHandle, interfaceNumber) {
+    // TODO(#429): Implement this method.
+    throw new Error('Not implemented');
+  }
+
+  /** @override */
+  async resetDevice(deviceId, deviceHandle) {
+    // TODO(#429): Implement this method.
+    throw new Error('Not implemented');
+  }
+
+  /** @override */
+  async controlTransfer(deviceId, deviceHandle, parameters) {
+    // TODO(#429): Implement this method.
+    throw new Error('Not implemented');
+  }
+
+  /** @override */
+  async bulkTransfer(deviceId, deviceHandle, parameters) {
+    // TODO(#429): Implement this method.
+    throw new Error('Not implemented');
+  }
+
+  /** @override */
+  async interruptTransfer(deviceId, deviceHandle, parameters) {
+    // TODO(#429): Implement this method.
+    throw new Error('Not implemented');
+  }
+
   /**
    * @private
    * @param {!Object} webusbDevice The USBDevice object.

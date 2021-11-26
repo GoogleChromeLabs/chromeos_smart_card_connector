@@ -33,23 +33,30 @@ const LibusbJsGenericTransferParameters =
     GSC.LibusbProxyDataModel.LibusbJsGenericTransferParameters;
 const LibusbJsTransferResult = GSC.LibusbProxyDataModel.LibusbJsTransferResult;
 
+/** @abstract */
 GSC.LibusbToJsApiAdaptor = class {
-  /** @return {!Promise<!Array<!LibusbJsDevice>>} */
+  /**
+   * @abstract
+   * @return {!Promise<!Array<!LibusbJsDevice>>}
+   */
   async listDevices() {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @return {!Promise<!Array<!LibusbJsConfigurationDescriptor>>}
    */
   async getConfigurations(deviceId) {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @return {!Promise<number>} Device handle.
    */
   async openDeviceHandle(deviceId) {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @param {number} deviceHandle
    * @return {!Promise<void>}
@@ -57,6 +64,7 @@ GSC.LibusbToJsApiAdaptor = class {
   async closeDeviceHandle(deviceId, deviceHandle) {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @param {number} deviceHandle
    * @param {number} interfaceNumber
@@ -65,6 +73,7 @@ GSC.LibusbToJsApiAdaptor = class {
   async claimInterface(deviceId, deviceHandle, interfaceNumber) {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @param {number} deviceHandle
    * @param {number} interfaceNumber
@@ -73,6 +82,7 @@ GSC.LibusbToJsApiAdaptor = class {
   async releaseInterface(deviceId, deviceHandle, interfaceNumber) {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @param {number} deviceHandle
    * @return {!Promise<void>}
@@ -80,6 +90,7 @@ GSC.LibusbToJsApiAdaptor = class {
   async resetDevice(deviceId, deviceHandle) {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @param {number} deviceHandle
    * @param {!LibusbJsControlTransferParameters} parameters
@@ -88,6 +99,7 @@ GSC.LibusbToJsApiAdaptor = class {
   async controlTransfer(deviceId, deviceHandle, parameters) {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @param {number} deviceHandle
    * @param {!LibusbJsGenericTransferParameters} parameters
@@ -96,6 +108,7 @@ GSC.LibusbToJsApiAdaptor = class {
   async bulkTransfer(deviceId, deviceHandle, parameters) {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @param {number} deviceHandle
    * @param {!LibusbJsGenericTransferParameters} parameters
