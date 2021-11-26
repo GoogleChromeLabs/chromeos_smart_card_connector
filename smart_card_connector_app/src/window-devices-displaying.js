@@ -100,12 +100,13 @@ function removeSpuriousFailures(readers) {
   const filteredReaders = readers.filter(reader => {
     if (reader['status'] !== GSC.PcscLiteServer.ReaderStatus.FAILURE)
       return true;
-    if (!nonFailedDisplayNames.has(
+    if (nonFailedDisplayNames.has(
             makeReaderNameForDisplaying(reader['name']))) {
-      return true;
+      goog.log.info(
+          logger, `Hiding spuriously failed reader ${reader['name']}`);
+      return false;
     }
-    goog.log.info(logger, `Hiding spuriously failed reader ${reader['name']}`);
-    return false;
+    return true;
   });
   return filteredReaders;
 }
