@@ -1010,9 +1010,12 @@ int LibusbJsProxy::LibusbControlTransfer(libusb_device_handle* dev,
   int transfer_result = LibusbSubmitTransfer(&transfer);
   if (transfer_result != LIBUSB_SUCCESS)
     return transfer_result;
-  // No need to check the return code (and cancel the transfer when it fails),
-  // as our implementation of libusb_handle_events_* always succeeds.
-  LibusbHandleEventsCompleted(dev->context(), &transfer_completed);
+  while (!transfer_completed) {
+    // No need to check the return code (and cancel the transfer when it fails),
+    // as our implementation of libusb_handle_events_* always succeeds.
+    LibusbHandleEventsCompleted(dev->context(), &transfer_completed);
+  }
+  GOOGLE_SMART_CARD_CHECK(transfer_completed);
 
   if ((bmRequestType & LIBUSB_ENDPOINT_DIR_MASK) == LIBUSB_ENDPOINT_IN) {
     // It's input transfer, so copy the received data into the passed buffer.
@@ -1157,9 +1160,12 @@ int LibusbJsProxy::DoGenericSyncTranfer(libusb_transfer_type transfer_type,
   int transfer_result = LibusbSubmitTransfer(&transfer);
   if (transfer_result != LIBUSB_SUCCESS)
     return transfer_result;
-  // No need to check the return code (and cancel the transfer when it fails),
-  // as our implementation of libusb_handle_events_* always succeeds.
-  LibusbHandleEventsCompleted(device_handle->context(), &transfer_completed);
+  while (!transfer_completed) {
+    // No need to check the return code (and cancel the transfer when it fails),
+    // as our implementation of libusb_handle_events_* always succeeds.
+    LibusbHandleEventsCompleted(device_handle->context(), &transfer_completed);
+  }
+  GOOGLE_SMART_CARD_CHECK(transfer_completed);
 
   if (actual_length)
     *actual_length = transfer.actual_length;
