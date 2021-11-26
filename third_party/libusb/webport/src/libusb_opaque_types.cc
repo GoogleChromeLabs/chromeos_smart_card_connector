@@ -62,9 +62,9 @@ void libusb_context::WaitAndProcessAsyncTransferReceivedResults(
       const std::chrono::time_point<std::chrono::high_resolution_clock>
           min_transfer_timeout = GetMinTransferTimeout();
 
-      // Wait until an event happens, or some transfer times out, or we time out
-      // according to `timeout_time_point`, or the conditonal variable wakes up
-      // spuriously.
+      // Wait until a transfer result arrives, or some transfer times out, or we
+      // time out according to `timeout_time_point`, or the conditonal variable
+      // wakes up spuriously.
       const auto wait_until_time_point =
           std::min(timeout_time_point, min_transfer_timeout);
       condition_.wait_until(lock, wait_until_time_point);
