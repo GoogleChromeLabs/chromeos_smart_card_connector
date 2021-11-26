@@ -42,6 +42,7 @@ void libusb_context::WaitAndProcessAsyncTransferReceivedResults(
   {
     std::unique_lock<std::mutex> lock(mutex_);
 
+    // Start the event loop.
     for (;;) {
       if (completed && *completed) {
         // The transfer has already been completed (either previously or in some
@@ -50,18 +51,35 @@ void libusb_context::WaitAndProcessAsyncTransferReceivedResults(
       }
 
       if (ExtractAsyncTransferStateUpdate(&async_request_state, &result)) {
+        // Picked up a transfer that can be populated with a result. Stop
+        // tracking the transfer and exit the event loop (to populate the
+        // transfer with the result outside the mutex - see the comment below).
         RemoveTransferInFlight(async_request_state.get());
         break;
       }
 
+      // Wait until a transfer result arrives, or we time out according to
+      // `timeout_time_point`, or the conditonal variable wakes up spuriously.
       if (condition_.wait_until(lock, timeout_time_point) ==
           std::cv_status::timeout) {
+        // Immediately exit if we timed out according to `timeout_time_point`.
         return;
       }
     }
   }
 
+  GOOGLE_SMART_CARD_CHECK(async_request_state);
+  // TODO(#429): Assert the result is non-empty.
   SetTransferResult(async_request_state.get(), std::move(result));
+
+  {
+    // In case some other thread is waiting for this particular transfer's
+    // result via the transfer's completed flag, let it awake. Note that it's
+    // crucial to do this under mutex again, since otherwise the other thread
+    // might miss the notification.
+    std::unique_lock<std::mutex> lock(mutex_);
+    condition_.notify_all();
+  }
 }
 
 bool libusb_context::CancelTransfer(libusb_transfer* transfer) {
