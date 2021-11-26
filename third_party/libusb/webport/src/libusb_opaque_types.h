@@ -134,10 +134,16 @@ struct libusb_context final
   void RemoveTransferInFlight(
       const TransferAsyncRequestState* async_request_state);
 
+  std::chrono::time_point<std::chrono::high_resolution_clock>
+  GetMinTransferTimeout() const;
+
   bool ExtractAsyncTransferStateUpdate(
       TransferAsyncRequestStatePtr* async_request_state,
       TransferRequestResult* result);
   bool ExtractAsyncTransferStateCancellationUpdate(
+      TransferAsyncRequestStatePtr* async_request_state,
+      TransferRequestResult* result);
+  bool ExtractTimedOutTransfer(
       TransferAsyncRequestStatePtr* async_request_state,
       TransferRequestResult* result);
   bool ExtractOutputAsyncTransferStateUpdate(
