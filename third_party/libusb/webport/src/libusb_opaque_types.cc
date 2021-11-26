@@ -187,17 +187,14 @@ void libusb_context::RemoveTransferInFlight(
 
   transfers_in_flight_.RemoveByAsyncRequestState(async_request_state);
 
-  // Note that the check is correct because cancellation of output transfers
-  // never happens (this is guaranteed by the implementation of the
-  // CancelTransfer method).
-  GOOGLE_SMART_CARD_CHECK(
-      !received_output_transfer_result_map_.count(async_request_state_ptr));
+  // Note that the entry can be present in that map, for example, when the
+  // result arrived shortly before the transfer timed out.
+  received_output_transfer_result_map_.erase(async_request_state_ptr);
 
   if (transfer) {
     // Note that this assertion relies on the fact that transfer cancellation
-    // has precedence over receiving of results for the transfer (this is
-    // guaranteed by the implementation of the GetAsyncTransferStateUpdate
-    // method).
+    // has precedence over all other events (i.e., the results processing and
+    // the timeout processing - see `GetAsyncTransferStateUpdate()`).
     GOOGLE_SMART_CARD_CHECK(!transfers_to_cancel_.count(transfer));
   }
 }
