@@ -778,7 +778,8 @@ RequestResult<LibusbJsTransferResult> ConvertChromeUsbTransferResultToLibusb(
         return RequestResult<LibusbJsTransferResult>::CreateFailed(
             "USB API returned error");
       }
-      if (chrome_usb_request_result.payload().result_info.data) {
+      if (chrome_usb_request_result.payload().result_info.data &&
+          !chrome_usb_request_result.payload().result_info.data->empty()) {
         js_result.received_data =
             chrome_usb_request_result.payload().result_info.data;
       }
