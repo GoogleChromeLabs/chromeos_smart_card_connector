@@ -143,8 +143,13 @@ GSC.LibusbToChromeUsbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
     }
     /** @type {!LibusbJsTransferResult} */
     const libusbJsTransferResult = {};
-    if (chromeUsbTransferResultInfo.data)
+    // Note that both checks - that `data` is present and that it's non-empty -
+    // are necessary, since contrary to the docs even output transfers have the
+    // field provided (as an empty array buffer).
+    if (chromeUsbTransferResultInfo.data &&
+        chromeUsbTransferResultInfo.data.byteLength) {
       libusbJsTransferResult['receivedData'] = chromeUsbTransferResultInfo.data;
+    }
     return libusbJsTransferResult;
   }
 
