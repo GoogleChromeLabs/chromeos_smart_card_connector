@@ -60,18 +60,25 @@ class UsbTransfersParametersStorage final {
 
     Item(TransferAsyncRequestStatePtr async_request_state,
          const UsbTransferDestination& transfer_destination,
-         libusb_transfer* transfer);
+         libusb_transfer* transfer,
+         const std::chrono::time_point<std::chrono::high_resolution_clock>&
+             timeout);
 
     TransferAsyncRequestStatePtr async_request_state;
     UsbTransferDestination transfer_destination;
     libusb_transfer* transfer;
+    std::chrono::time_point<std::chrono::high_resolution_clock> timeout;
   };
+
+  bool empty() const;
 
   void Add(const Item& item);
 
   void Add(TransferAsyncRequestStatePtr async_request_state,
            const UsbTransferDestination& transfer_destination,
-           libusb_transfer* transfer);
+           libusb_transfer* transfer,
+           const std::chrono::time_point<std::chrono::high_resolution_clock>&
+               timeout);
 
   bool ContainsWithAsyncRequestState(
       const TransferAsyncRequestState* async_request_state) const;
@@ -88,6 +95,8 @@ class UsbTransfersParametersStorage final {
       const UsbTransferDestination& transfer_destination) const;
 
   Item GetAsyncByLibusbTransfer(const libusb_transfer* transfer) const;
+
+  Item GetWithMinTimeout() const;
 
   void Remove(const Item& item);
 
@@ -111,6 +120,9 @@ class UsbTransfersParametersStorage final {
   std::map<UsbTransferDestination, std::set<const TransferAsyncRequestState*>>
       async_destination_mapping_;
   std::map<const libusb_transfer*, Item> async_libusb_transfer_mapping_;
+  std::map<std::chrono::time_point<std::chrono::high_resolution_clock>,
+           std::set<const TransferAsyncRequestState*>>
+      timeout_mapping_;
 };
 
 }  // namespace google_smart_card
