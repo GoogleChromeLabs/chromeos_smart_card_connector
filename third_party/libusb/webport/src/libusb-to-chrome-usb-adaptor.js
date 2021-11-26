@@ -370,6 +370,7 @@ function getChromeUsbControlTransferInfo(libusbJsParameters) {
     'recipient': getChromeUsbRecipient(libusbJsParameters['recipient']),
     'request': libusbJsParameters['request'],
     'requestType': getChromeUsbRequestType(libusbJsParameters['requestType']),
+    'value': libusbJsParameters['value'],
   });
   if (libusbJsParameters['dataToSend'])
     controlTransferInfo['data'] = libusbJsParameters['dataToSend'];
