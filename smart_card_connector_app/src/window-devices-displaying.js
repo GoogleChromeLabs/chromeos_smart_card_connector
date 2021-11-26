@@ -72,8 +72,43 @@ const addDeviceElement =
  * @param {!Array.<!GSC.PcscLiteServer.ReaderInfo>} readers
  */
 function onReadersChanged(readers) {
-  displayReaderList(readers);
-  updateAddDeviceButtonText(readers.length);
+  const filteredReaders = removeSpuriousFailures(readers);
+  displayReaderList(filteredReaders);
+  updateAddDeviceButtonText(filteredReaders.length);
+}
+
+/**
+ * Filters out entries that correspond to spurious failures, based on heuristic.
+ *
+ * This is needed because for composite devices (e.g., a smart card reader and a
+ * keyboard) the CCID driver attempts to initialize all interfaces, and all
+ * non-smart-card-related interfaces fail. This function heuristically hides
+ * some of the errors, in order to minimize the user confusion.
+ * @param {!Array<!GSC.PcscLiteServer.ReaderInfo>} readers
+ * @return {!Array<!GSC.PcscLiteServer.ReaderInfo>}
+ */
+function removeSpuriousFailures(readers) {
+  // The heuristic is to hide such failure entries that evaluate to the same
+  // display name as a reader that got initialized successfully.
+  /** @type {!Array<!GSC.PcscLiteServer.ReaderInfo>} */
+  const nonFailedReaders = readers.filter(
+      reader => reader['status'] != GSC.PcscLiteServer.ReaderStatus.FAILURE);
+  /** @type {!Set<string>} */
+  const nonFailedDisplayNames = new Set(nonFailedReaders.map(
+      reader => makeReaderNameForDisplaying(reader['name'])));
+  /** @type {!Array<!GSC.PcscLiteServer.ReaderInfo>} */
+  const filteredReaders = readers.filter(reader => {
+    if (reader['status'] !== GSC.PcscLiteServer.ReaderStatus.FAILURE)
+      return true;
+    if (nonFailedDisplayNames.has(
+            makeReaderNameForDisplaying(reader['name']))) {
+      goog.log.info(
+          logger, `Hiding spuriously failed reader ${reader['name']}`);
+      return false;
+    }
+    return true;
+  });
+  return filteredReaders;
 }
 
 /**
