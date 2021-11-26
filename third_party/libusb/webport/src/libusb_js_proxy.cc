@@ -610,6 +610,7 @@ bool CreateLibusbJsControlTransferParameters(
     libusb_transfer* transfer,
     LibusbJsControlTransferParameters* result) {
   GOOGLE_SMART_CARD_CHECK(transfer);
+  GOOGLE_SMART_CARD_CHECK(transfer->type == LIBUSB_TRANSFER_TYPE_CONTROL);
   GOOGLE_SMART_CARD_CHECK(result);
 
   //
@@ -692,9 +693,9 @@ void CreateLibusbJsGenericTransferParameters(
     libusb_transfer* transfer,
     LibusbJsGenericTransferParameters* result) {
   GOOGLE_SMART_CARD_CHECK(transfer);
-  GOOGLE_SMART_CARD_CHECK(result);
   GOOGLE_SMART_CARD_CHECK(transfer->type == LIBUSB_TRANSFER_TYPE_BULK ||
                           transfer->type == LIBUSB_TRANSFER_TYPE_INTERRUPT);
+  GOOGLE_SMART_CARD_CHECK(result);
 
   result->endpoint_address = transfer->endpoint;
   if ((transfer->endpoint & LIBUSB_ENDPOINT_DIR_MASK) == LIBUSB_ENDPOINT_OUT) {
@@ -714,8 +715,8 @@ std::function<void(GenericRequestResult)> MakeLibusbJsTransferCallback(
           async_request_state](GenericRequestResult js_result) {
     const std::shared_ptr<libusb_context> locked_context = context.lock();
     if (!locked_context) {
-      // The context that was used for the original transfer submission has
-      // been destroyed already.
+      // The context that was used for the original transfer submission has been
+      // destroyed already.
       return;
     }
     LibusbJsTransferResult js_transfer_result;
