@@ -129,6 +129,15 @@ struct LibusbJsControlTransferParameters {
   optional<uint16_t> length_to_receive;
 };
 
+struct LibusbJsGenericTransferParameters {
+  // The USB bEndpointAddress field.
+  uint8_t endpoint_address;
+  // Only set for output transfers.
+  optional<std::vector<uint8_t>> data_to_send;
+  // Only set for input transfers.
+  optional<uint16_t> length_to_receive;
+};
+
 struct LibusbJsTransferResult {
   // This field is only populated for input transfers.
   optional<std::vector<uint8_t>> received_data;
