@@ -96,6 +96,7 @@ class UsbTransfersParametersStorage final {
 
   Item GetAsyncByLibusbTransfer(const libusb_transfer* transfer) const;
 
+  // Returns the transfer with the minimum `timeout` value.
   Item GetWithMinTimeout() const;
 
   void Remove(const Item& item);
