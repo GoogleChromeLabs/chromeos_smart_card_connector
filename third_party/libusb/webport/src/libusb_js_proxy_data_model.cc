@@ -146,6 +146,19 @@ StructValueDescriptor<LibusbJsControlTransferParameters>::GetDescription() {
 }
 
 template <>
+StructValueDescriptor<LibusbJsGenericTransferParameters>::Description
+StructValueDescriptor<LibusbJsGenericTransferParameters>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the ones in
+  // libusb-proxy-data-model.js.
+  return Describe("LibusbJsGenericTransferParameters")
+      .WithField(&LibusbJsGenericTransferParameters::endpoint_address,
+                 "endpointAddress")
+      .WithField(&LibusbJsGenericTransferParameters::data_to_send, "dataToSend")
+      .WithField(&LibusbJsGenericTransferParameters::length_to_receive,
+                 "lengthToReceive");
+}
+
+template <>
 StructValueDescriptor<LibusbJsTransferResult>::Description
 StructValueDescriptor<LibusbJsTransferResult>::GetDescription() {
   // Note: Strings passed to WithField() below must match the ones in
