@@ -18,6 +18,7 @@
  */
 
 goog.provide('GoogleSmartCard.LibusbToJsApiAdaptor');
+goog.provide('GoogleSmartCard.StubLibusbToJsApiAdaptor');
 
 goog.require('GoogleSmartCard.LibusbProxyDataModel');
 
@@ -102,5 +103,62 @@ GSC.LibusbToJsApiAdaptor = class {
    * @return {!Promise<!LibusbJsTransferResult>}
    */
   async interruptTransfer(deviceId, deviceHandle, parameters) {}
+};
+
+GSC.StubLibusbToJsApiAdaptor = class extends GSC.LibusbToJsApiAdaptor {
+  /** @override */
+  async listDevices() {
+    return this.callStub_();
+  }
+
+  /** @override */
+  async getConfigurations(deviceId) {
+    return this.callStub_();
+  }
+
+  /** @override */
+  async openDeviceHandle(deviceId) {
+    return this.callStub_();
+  }
+
+  /** @override */
+  async closeDeviceHandle(deviceId, deviceHandle) {
+    return this.callStub_();
+  }
+
+  /** @override */
+  async claimInterface(deviceId, deviceHandle, interfaceNumber) {
+    return this.callStub_();
+  }
+
+  /** @override */
+  async releaseInterface(deviceId, deviceHandle, interfaceNumber) {
+    return this.callStub_();
+  }
+
+  /** @override */
+  async resetDevice(deviceId, deviceHandle) {
+    return this.callStub_();
+  }
+
+  /** @override */
+  async controlTransfer(deviceId, deviceHandle, parameters) {
+    return this.callStub_();
+  }
+
+  /** @override */
+  async bulkTransfer(deviceId, deviceHandle, parameters) {
+    return this.callStub_();
+  }
+
+  /** @override */
+  async interruptTransfer(deviceId, deviceHandle, parameters) {
+    return this.callStub_();
+  }
+
+  /** @private */
+  callStub_() {
+    throw new Error('API unavailable');
+  }
 };
 });  // goog.scope
