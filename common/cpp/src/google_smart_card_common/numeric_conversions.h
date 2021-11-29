@@ -14,8 +14,6 @@
 
 // This file contains low-level operations for conversions between numeric data
 // types.
-//
-// FIXME(emaxx): Use boost::numeric?
 
 #ifndef GOOGLE_SMART_CARD_COMMON_NUMERIC_CONVERSIONS_H_
 #define GOOGLE_SMART_CARD_COMMON_NUMERIC_CONVERSIONS_H_
@@ -28,6 +26,7 @@
 #include <type_traits>
 
 #include <google_smart_card_common/formatting.h>
+#include <google_smart_card_common/logging/logging.h>
 
 namespace google_smart_card {
 
@@ -133,6 +132,32 @@ inline bool CastIntegerToDouble(T value,
       std::to_string(value).c_str(), internal::kDoubleExactRangeMin,
       internal::kDoubleExactRangeMax);
   return false;
+}
+
+// Assigns `*lhs` to `rhs`, after doing a compile-time assertion that the
+// destination type fits all possible values of the source.
+template <typename FirstType, typename SecondType>
+inline void AssignWithTypeSizeCheck(FirstType* lhs, const SecondType& rhs) {
+  GOOGLE_SMART_CARD_CHECK(lhs);
+  static_assert(std::is_integral<FirstType>::value,
+                "This assertion is only applicable to integral types");
+  static_assert(std::is_integral<SecondType>::value,
+                "This assertion is only applicable to integral types");
+  static_assert(sizeof(FirstType) > sizeof(SecondType) ||
+                    (sizeof(FirstType) == sizeof(SecondType) &&
+                     std::is_signed<FirstType>::value ==
+                         std::is_signed<SecondType>::value),
+                "Left-hand-side type is smaller than the right-hand-side type");
+  *lhs = rhs;
+}
+
+template <typename FirstType, typename SecondType>
+inline void AssignWithTypeSizeCheck(optional<FirstType>* lhs,
+                                    const SecondType& rhs) {
+  GOOGLE_SMART_CARD_CHECK(lhs);
+  // Assign a dummy value in order to be able to derefence the optional.
+  *lhs = FirstType();
+  AssignWithTypeSizeCheck(&lhs->value(), rhs);
 }
 
 }  // namespace google_smart_card
