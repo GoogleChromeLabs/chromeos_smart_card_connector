@@ -21,6 +21,7 @@ goog.provide('GoogleSmartCard.LibusbToJsApiAdaptor');
 goog.provide('GoogleSmartCard.StubLibusbToJsApiAdaptor');
 
 goog.require('GoogleSmartCard.LibusbProxyDataModel');
+goog.require('goog.Disposable');
 
 goog.scope(function() {
 
@@ -34,7 +35,7 @@ const LibusbJsGenericTransferParameters =
     GSC.LibusbProxyDataModel.LibusbJsGenericTransferParameters;
 const LibusbJsTransferResult = GSC.LibusbProxyDataModel.LibusbJsTransferResult;
 
-GSC.LibusbToJsApiAdaptor = class {
+GSC.LibusbToJsApiAdaptor = class extends goog.Disposable {
   /** @return {!Promise<!Array<!LibusbJsDevice>>} */
   async listDevices() {}
 

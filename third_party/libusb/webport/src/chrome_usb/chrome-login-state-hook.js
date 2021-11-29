@@ -30,7 +30,6 @@ const GSC = GoogleSmartCard;
 
 const logger = GSC.Logging.getScopedLogger('LibusbLoginStateHook');
 
-// TODO(#429): Add event unsubscription.
 GSC.LibusbLoginStateHook = class extends GSC.LibusbProxyHook {
   constructor() {
     super();
@@ -38,12 +37,16 @@ GSC.LibusbLoginStateHook = class extends GSC.LibusbProxyHook {
     this.simulateDevicesAbsent_ = false;
     /** @type {!Function} @private @const */
     this.boundOnGotSessionState_ = this.onGotSessionState_.bind(this);
+
+    // Note that both fields are initialized to non-nulls synchronously, since
+    // the Promise constructor executes the callback before returning.
     /** @type {!Function|null} @private */
     this.resolveInitializationPromise_ = null;
     /** @type {!Promise<void>} @private @const */
     this.initializationPromise_ = new Promise((resolve, reject) => {
       this.resolveInitializationPromise_ = resolve;
     });
+
     if (chrome && chrome.loginState) {
       chrome.loginState.getProfileType(this.onGotProfileType_.bind(this));
     } else {
@@ -69,6 +72,16 @@ GSC.LibusbLoginStateHook = class extends GSC.LibusbProxyHook {
     if (this.simulateDevicesAbsent_)
       return [];
     return this.getDelegate().getConfigurations(deviceId);
+  }
+
+  /** @override */
+  disposeInternal() {
+    if (chrome.loginState) {
+      chrome.loginState.onSessionStateChanged.removeListener(
+          this.boundOnGotSessionState_);
+    }
+    goog.log.fine(logger, 'Disposed');
+    super.disposeInternal();
   }
 
   /**
