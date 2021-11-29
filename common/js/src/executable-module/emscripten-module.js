@@ -108,12 +108,14 @@ EmscriptenModule.prototype.getMessageChannel = function() {
 /** @override */
 EmscriptenModule.prototype.disposeInternal = function() {
   goog.log.fine(this.logger_, 'Disposed');
-  // Call `delete()` on the C++ object before dropping the reference on it, in
-  // order to make the C++ destructor called.
-  // Note: The method is accessed using the square bracket notation, to make
-  // sure that Closure Compiler doesn't rename this method call.
-  this.googleSmartCardModule_['delete']();
-  delete this.googleSmartCardModule_;
+  if (this.googleSmartCardModule_) {
+    // Call `delete()` on the C++ object before dropping the reference on it, in
+    // order to make the C++ destructor called.
+    // Note: The method is accessed using the square bracket notation, to make
+    // sure that Closure Compiler doesn't rename this method call.
+    this.googleSmartCardModule_['delete']();
+    delete this.googleSmartCardModule_;
+  }
   this.messageChannel_.dispose();
   EmscriptenModule.base(this, 'disposeInternal');
 };
