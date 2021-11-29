@@ -113,7 +113,7 @@ if (logBufferForwarderToNaclModule) {
 }
 
 const libusbProxyReceiver = new GSC.LibusbProxyReceiver(
-    executableModule.getMessageChannel(), libusbChromeUsbBackend);
+    executableModule.getMessageChannel());
 libusbProxyReceiver.addHook(new GSC.LibusbLoginStateHook());
 
 const pcscLiteReadinessTracker =
