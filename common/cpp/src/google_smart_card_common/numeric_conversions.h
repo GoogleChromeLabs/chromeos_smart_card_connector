@@ -155,7 +155,7 @@ template <typename FirstType, typename SecondType>
 inline void AssignWithTypeSizeCheck(optional<FirstType>* lhs,
                                     const SecondType& rhs) {
   GOOGLE_SMART_CARD_CHECK(lhs);
-  // Assign a dummy value in order to be able to derefence the optional.
+  // Assign a dummy value in order to be able to dereference the optional.
   *lhs = FirstType();
   AssignWithTypeSizeCheck(&lhs->value(), rhs);
 }
