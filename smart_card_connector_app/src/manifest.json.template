@@ -25,6 +25,7 @@ ${if PACKAGING=extension}
     "default_title": "__MSG_appShortName__",
     "default_popup": "window.html"
   },
+  "content_security_policy": "script-src 'self' 'wasm-eval'; object-src 'self'",
 ${endif}
   "minimum_chrome_version": "48",
   "default_locale": "en",
