@@ -15,13 +15,14 @@
  * limitations under the License.
  */
 
-goog.require('GoogleSmartCard.Libusb.ChromeLoginStateHook');
+goog.require('GoogleSmartCard.LibusbLoginStateHook');
 goog.require('GoogleSmartCard.RemoteCallMessage');
 goog.require('GoogleSmartCard.Requester');
 goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('GoogleSmartCard.SingleMessageBasedChannel');
 goog.require('goog.Promise');
 goog.require('goog.array');
+goog.require('goog.asserts');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.testing');
 goog.require('goog.testing.MockControl');
@@ -39,6 +40,17 @@ const USER_PROFILE_TYPE = 'USER_PROFILE';
 const SIGNIN_PROFILE_TYPE = 'SIGNIN_PROFILE';
 const IN_SESSION_STATE = 'IN_SESSION';
 const IN_LOCK_SCREEN_STATE = 'IN_LOCK_SCREEN';
+const FAKE_DEVICE_ID = 123;
+const FAKE_DEVICE = {
+  'deviceId': FAKE_DEVICE_ID,
+  'vendorId': 1,
+  'productId': 2
+};
+const FAKE_DEVICE_CONFIG = {
+  'active': true,
+  'configurationValue': 4
+};
+const FAKE_DEVICE_HANDLE = 456;
 
 let sessionStateListeners = [];
 
@@ -107,6 +119,57 @@ function makeTest(fakeProfileType, fakeSessionState, testCallback) {
   };
 }
 
+class FakeLibusbProxyHookDelegate extends GSC.LibusbToJsApiAdaptor {
+  /** @override */
+  async listDevices() {
+    return [FAKE_DEVICE];
+  }
+  /** @override */
+  async getConfigurations(deviceId) {
+    assertEquals(deviceId, FAKE_DEVICE_ID);
+    return [FAKE_DEVICE_CONFIG];
+  }
+  /** @override */
+  async openDeviceHandle(deviceId) {
+    return FAKE_DEVICE_HANDLE;
+  }
+  /** @override */
+  async closeDeviceHandle(deviceId, deviceHandle) {
+    fail('Unexpected call');
+    goog.asserts.fail();
+  }
+  /** @override */
+  async claimInterface(deviceId, deviceHandle, interfaceNumber) {
+    fail('Unexpected call');
+    goog.asserts.fail();
+  }
+  /** @override */
+  async releaseInterface(deviceId, deviceHandle, interfaceNumber) {
+    fail('Unexpected call');
+    goog.asserts.fail();
+  }
+  /** @override */
+  async resetDevice(deviceId, deviceHandle) {
+    fail('Unexpected call');
+    goog.asserts.fail();
+  }
+  /** @override */
+  async controlTransfer(deviceId, deviceHandle, parameters) {
+    fail('Unexpected call');
+    goog.asserts.fail();
+  }
+  /** @override */
+  async bulkTransfer(deviceId, deviceHandle, parameters) {
+    fail('Unexpected call');
+    goog.asserts.fail();
+  }
+  /** @override */
+  async interruptTransfer(deviceId, deviceHandle, parameters) {
+    fail('Unexpected call');
+    goog.asserts.fail();
+  }
+};
+
 /**
  * Simulates Chrome changing the session state.
  * @param {string} fakeNewSessionState
@@ -122,85 +185,69 @@ function changeSessionState(fakeNewSessionState, propertyReplacer) {
   });
 }
 
-goog.exportSymbol('test_ChromeLoginStateHook_NoApi', function() {
-  const loginStateHook = new GSC.Libusb.ChromeLoginStateHook();
-  // Expect that getHookReadyPromise() gets rejected, because the
-  // chrome.loginState mock is not set up.
-  return loginStateHook.getHookReadyPromise().then(() => {
-    fail('Unexpected successful response');
-  }, () => {});
+goog.exportSymbol('test_ChromeLoginStateHook_NoApi', async function() {
+  const loginStateHook = new GSC.LibusbLoginStateHook();
+  loginStateHook.setDelegate(new FakeLibusbProxyHookDelegate());
+  const devices = await loginStateHook.listDevices();
+  assertObjectEquals(devices, [FAKE_DEVICE]);
+  const configs = await loginStateHook.getConfigurations(FAKE_DEVICE_ID);
+  assertObjectEquals(configs, [FAKE_DEVICE_CONFIG]);
 });
 
 goog.exportSymbol(
     'test_ChromeLoginStateHook_DoesNotFilterInSession',
-    makeTest(USER_PROFILE_TYPE, IN_SESSION_STATE, function() {
-      const loginStateHook = new GSC.Libusb.ChromeLoginStateHook();
-      return loginStateHook.getHookReadyPromise().then(() => {
-        const hook = loginStateHook.getRequestSuccessHook();
-        let apiCallResult = [['fakeResult']];
-        const hookResult = hook('getDevices', apiCallResult);
-        assertObjectEquals([['fakeResult']], hookResult);
-      });
+    makeTest(USER_PROFILE_TYPE, IN_SESSION_STATE, async function() {
+      const loginStateHook = new GSC.LibusbLoginStateHook();
+      loginStateHook.setDelegate(new FakeLibusbProxyHookDelegate());
+      const devices = await loginStateHook.listDevices();
+      assertObjectEquals(devices, [FAKE_DEVICE]);
+      const configs = await loginStateHook.getConfigurations(FAKE_DEVICE_ID);
+      assertObjectEquals(configs, [FAKE_DEVICE_CONFIG]);
     }));
 
 goog.exportSymbol(
     'test_ChromeLoginStateHook_FiltersInLockScreen',
-    makeTest(USER_PROFILE_TYPE, IN_LOCK_SCREEN_STATE, function() {
-      const loginStateHook = new GSC.Libusb.ChromeLoginStateHook();
-      return loginStateHook.getHookReadyPromise().then(() => {
-        const hook = loginStateHook.getRequestSuccessHook();
-
-        let apiCallResult = [['fakeResult']];
-        let hookResult = hook('getDevices', apiCallResult);
-        assertObjectEquals([[]], hookResult);
-
-        apiCallResult = [['fakeResult']];
-        hookResult = hook('getConfigurations', apiCallResult);
-        assertObjectEquals([[]], hookResult);
-
-        // only getDevices and getConfigurations should get filtered
-        apiCallResult = ['otherCallResult'];
-        hookResult = hook('listInterfaces', apiCallResult);
-        assertObjectEquals(['otherCallResult'], hookResult);
-      });
+    makeTest(USER_PROFILE_TYPE, IN_LOCK_SCREEN_STATE, async function() {
+      const loginStateHook = new GSC.LibusbLoginStateHook();
+      loginStateHook.setDelegate(new FakeLibusbProxyHookDelegate());
+      const devices = await loginStateHook.listDevices();
+      assertEquals(devices.length, 0);
+      const configs = await loginStateHook.getConfigurations(FAKE_DEVICE_ID);
+      assertEquals(configs.length, 0);
+      // only listDevices and getConfigurations should get filtered
+      const handle = await loginStateHook.openDeviceHandle(FAKE_DEVICE_ID);
+      assertEquals(handle, FAKE_DEVICE_HANDLE);
     }));
 
 goog.exportSymbol(
     'test_ChromeLoginStateHook_DoesNotFilterForSignInProfile',
-    makeTest(SIGNIN_PROFILE_TYPE, IN_SESSION_STATE, function() {
-      const loginStateHook = new GSC.Libusb.ChromeLoginStateHook();
-      return loginStateHook.getHookReadyPromise().then(() => {
-        const hook = loginStateHook.getRequestSuccessHook();
-        const apiCallResult = [['fakeResult']];
-        const hookResult = hook('getDevices', apiCallResult);
-        assertObjectEquals([['fakeResult']], hookResult);
-      });
+    makeTest(SIGNIN_PROFILE_TYPE, IN_SESSION_STATE, async function() {
+      const loginStateHook = new GSC.LibusbLoginStateHook();
+      loginStateHook.setDelegate(new FakeLibusbProxyHookDelegate());
+      const devices = await loginStateHook.listDevices();
+      assertObjectEquals(devices, [FAKE_DEVICE]);
     }));
 
 goog.exportSymbol(
     'test_ChromeLoginStateHook_ChangeToLockScreen',
-    makeTest(USER_PROFILE_TYPE, IN_SESSION_STATE, function(propertyReplacer) {
-      const loginStateHook = new GSC.Libusb.ChromeLoginStateHook();
-      return loginStateHook.getHookReadyPromise().then(() => {
-        changeSessionState(IN_LOCK_SCREEN_STATE, propertyReplacer);
-        const hook = loginStateHook.getRequestSuccessHook();
-        const apiCallResult = [['fakeResult']];
-        const hookResult = hook('getDevices', apiCallResult);
-        assertObjectEquals([[]], hookResult);
-      });
-    }));
+    makeTest(
+        USER_PROFILE_TYPE, IN_SESSION_STATE, async function(propertyReplacer) {
+          const loginStateHook = new GSC.LibusbLoginStateHook();
+          loginStateHook.setDelegate(new FakeLibusbProxyHookDelegate());
+          changeSessionState(IN_LOCK_SCREEN_STATE, propertyReplacer);
+          const devices = await loginStateHook.listDevices();
+          assertEquals(devices.length, 0);
+        }));
 
 goog.exportSymbol(
     'test_ChromeLoginStateHook_ChangeToSession',
     makeTest(
-        USER_PROFILE_TYPE, IN_LOCK_SCREEN_STATE, function(propertyReplacer) {
-          const loginStateHook = new GSC.Libusb.ChromeLoginStateHook();
-          return loginStateHook.getHookReadyPromise().then(() => {
-            changeSessionState(IN_SESSION_STATE, propertyReplacer);
-            const hook = loginStateHook.getRequestSuccessHook();
-            const apiCallResult = [['fakeResult']];
-            const hookResult = hook('getDevices', apiCallResult);
-            assertObjectEquals([['fakeResult']], hookResult);
-          });
+        USER_PROFILE_TYPE, IN_LOCK_SCREEN_STATE,
+        async function(propertyReplacer) {
+          const loginStateHook = new GSC.LibusbLoginStateHook();
+          loginStateHook.setDelegate(new FakeLibusbProxyHookDelegate());
+          changeSessionState(IN_SESSION_STATE, propertyReplacer);
+          const devices = await loginStateHook.listDevices();
+          assertObjectEquals(devices, [FAKE_DEVICE]);
         }));
 });  // goog.scope

@@ -20,7 +20,7 @@ goog.provide('GoogleSmartCard.ConnectorApp.BackgroundMain');
 goog.require('GoogleSmartCard.ConnectorApp.Background.MainWindowManaging');
 goog.require('GoogleSmartCard.EmscriptenModule');
 goog.require('GoogleSmartCard.ExecutableModule');
-goog.require('GoogleSmartCard.Libusb.ChromeLoginStateHook');
+goog.require('GoogleSmartCard.LibusbLoginStateHook');
 goog.require('GoogleSmartCard.LibusbProxyReceiver');
 goog.require('GoogleSmartCard.LogBufferForwarder');
 goog.require('GoogleSmartCard.Logging');
@@ -112,15 +112,9 @@ if (logBufferForwarderToNaclModule) {
   }, () => {});
 }
 
-const libusbProxyReceiver =
-    new GSC.LibusbProxyReceiver(executableModule.getMessageChannel());
-const chromeLoginStateHook = new GSC.Libusb.ChromeLoginStateHook();
-// Start the backend regardless of whether the hook initialization succeeded.
-chromeLoginStateHook.getHookReadyPromise()
-    .then(() => {}, () => {})
-    .then(function() {
-      // libusbChromeUsbBackend.startProcessingEvents();
-    });
+const libusbProxyReceiver = new GSC.LibusbProxyReceiver(
+    executableModule.getMessageChannel(), libusbChromeUsbBackend);
+libusbProxyReceiver.addHook(new GSC.LibusbLoginStateHook());
 
 const pcscLiteReadinessTracker =
     new GSC.PcscLiteServerClientsManagement.ReadinessTracker(

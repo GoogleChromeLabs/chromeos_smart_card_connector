@@ -20,11 +20,13 @@
 goog.provide('GoogleSmartCard.LibusbProxyReceiver');
 
 goog.require('GoogleSmartCard.DebugDump');
+goog.require('GoogleSmartCard.LibusbProxyHook');
 goog.require('GoogleSmartCard.LibusbToChromeUsbAdaptor');
 goog.require('GoogleSmartCard.LibusbToJsApiAdaptor');
 goog.require('GoogleSmartCard.LibusbToWebusbAdaptor');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.RemoteCallMessage');
+goog.require('GoogleSmartCard.StubLibusbToJsApiAdaptor');
 goog.require('goog.Promise');
 goog.require('goog.log');
 goog.require('goog.messaging.AbstractChannel');
@@ -55,7 +57,30 @@ GSC.LibusbProxyReceiver = class {
         EXECUTABLE_MODULE_REQUESTER_NAME, executableModuleMessageChannel,
         this.onRequestReceivedFromExecutableModule_.bind(this));
     /** @private @const */
-    this.libusbToJsApiAdaptor_ = chooseLibusbToJsApiAdaptor();
+    this.realLibusbToJsApiAdaptor_ = chooseLibusbToJsApiAdaptor();
+    /** @type {!Array<!GSC.LibusbProxyHook>} @private @const */
+    this.hooks_ = [];
+  }
+
+  /**
+   * Adds a new hook. Multiple hooks are chained in the FILO order.
+   * @param {!GSC.LibusbProxyHook} hook
+   */
+  addHook(hook) {
+    // If it's the first hook, then chain it with the real implementation,
+    // otherwise - with the previously added hook.
+    hook.setDelegate(this.getLibusbToJsApiAdaptor_());
+    this.hooks_.push(hook);
+  }
+
+  /**
+   * @return {!GSC.LibusbToJsApiAdaptor}
+   * @private
+   */
+  getLibusbToJsApiAdaptor_() {
+    if (this.hooks_.length)
+      return this.hooks_[this.hooks_.length - 1];
+    return this.realLibusbToJsApiAdaptor_;
   }
 
   /**
@@ -77,12 +102,6 @@ GSC.LibusbProxyReceiver = class {
         logger,
         `Received a remote call request: ${
             remoteCallMessage.getDebugRepresentation()}`);
-
-    if (!this.libusbToJsApiAdaptor_) {
-      // No need to log errors here, since this was already done in the
-      // constructor.
-      throw new Error('USB API unavailable');
-    }
     return await this.dispatchLibusbJsFunction_(remoteCallMessage);
   }
 
@@ -96,38 +115,38 @@ GSC.LibusbProxyReceiver = class {
     // libusb_js_proxy.cc.
     switch (remoteCallMessage.functionName) {
       case 'listDevices':
-        return [await this.libusbToJsApiAdaptor_.listDevices(
+        return [await this.getLibusbToJsApiAdaptor_().listDevices(
             ...remoteCallMessage.functionArguments)];
       case 'getConfigurations':
-        return [await this.libusbToJsApiAdaptor_.getConfigurations(
+        return [await this.getLibusbToJsApiAdaptor_().getConfigurations(
             ...remoteCallMessage.functionArguments)];
       case 'openDeviceHandle':
-        return [await this.libusbToJsApiAdaptor_.openDeviceHandle(
+        return [await this.getLibusbToJsApiAdaptor_().openDeviceHandle(
             ...remoteCallMessage.functionArguments)];
       case 'closeDeviceHandle':
-        await this.libusbToJsApiAdaptor_.closeDeviceHandle(
+        await this.getLibusbToJsApiAdaptor_().closeDeviceHandle(
             ...remoteCallMessage.functionArguments);
         return [];
       case 'claimInterface':
-        await this.libusbToJsApiAdaptor_.claimInterface(
+        await this.getLibusbToJsApiAdaptor_().claimInterface(
             ...remoteCallMessage.functionArguments);
         return [];
       case 'releaseInterface':
-        await this.libusbToJsApiAdaptor_.releaseInterface(
+        await this.getLibusbToJsApiAdaptor_().releaseInterface(
             ...remoteCallMessage.functionArguments);
         return [];
       case 'resetDevice':
-        await this.libusbToJsApiAdaptor_.resetDevice(
+        await this.getLibusbToJsApiAdaptor_().resetDevice(
             ...remoteCallMessage.functionArguments);
         return [];
       case 'controlTransfer':
-        return [await this.libusbToJsApiAdaptor_.controlTransfer(
+        return [await this.getLibusbToJsApiAdaptor_().controlTransfer(
             ...remoteCallMessage.functionArguments)];
       case 'bulkTransfer':
-        return [await this.libusbToJsApiAdaptor_.bulkTransfer(
+        return [await this.getLibusbToJsApiAdaptor_().bulkTransfer(
             ...remoteCallMessage.functionArguments)];
       case 'interruptTransfer':
-        return [await this.libusbToJsApiAdaptor_.interruptTransfer(
+        return [await this.getLibusbToJsApiAdaptor_().interruptTransfer(
             ...remoteCallMessage.functionArguments)];
     }
     throw new Error(
@@ -135,7 +154,7 @@ GSC.LibusbProxyReceiver = class {
   }
 };
 
-/** @return {!GSC.LibusbToJsApiAdaptor|null} */
+/** @return {!GSC.LibusbToJsApiAdaptor} */
 function chooseLibusbToJsApiAdaptor() {
   // chrome.usb takes precedence: WebUSB might be available but have
   // insufficient permissions.
@@ -150,6 +169,6 @@ function chooseLibusbToJsApiAdaptor() {
   goog.log.warning(
       logger,
       'The USB API is not available. All USB requests will silently fail.');
-  return null;
+  return new GSC.StubLibusbToJsApiAdaptor();
 }
 });  // goog.scope

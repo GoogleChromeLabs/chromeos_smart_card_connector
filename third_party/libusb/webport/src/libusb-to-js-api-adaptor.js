@@ -18,8 +18,10 @@
  */
 
 goog.provide('GoogleSmartCard.LibusbToJsApiAdaptor');
+goog.provide('GoogleSmartCard.StubLibusbToJsApiAdaptor');
 
 goog.require('GoogleSmartCard.LibusbProxyDataModel');
+goog.require('goog.Disposable');
 
 goog.scope(function() {
 
@@ -33,23 +35,30 @@ const LibusbJsGenericTransferParameters =
     GSC.LibusbProxyDataModel.LibusbJsGenericTransferParameters;
 const LibusbJsTransferResult = GSC.LibusbProxyDataModel.LibusbJsTransferResult;
 
-GSC.LibusbToJsApiAdaptor = class {
-  /** @return {!Promise<!Array<!LibusbJsDevice>>} */
+/** @abstract */
+GSC.LibusbToJsApiAdaptor = class extends goog.Disposable {
+  /**
+   * @abstract
+   * @return {!Promise<!Array<!LibusbJsDevice>>}
+   */
   async listDevices() {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @return {!Promise<!Array<!LibusbJsConfigurationDescriptor>>}
    */
   async getConfigurations(deviceId) {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @return {!Promise<number>} Device handle.
    */
   async openDeviceHandle(deviceId) {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @param {number} deviceHandle
    * @return {!Promise<void>}
@@ -57,6 +66,7 @@ GSC.LibusbToJsApiAdaptor = class {
   async closeDeviceHandle(deviceId, deviceHandle) {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @param {number} deviceHandle
    * @param {number} interfaceNumber
@@ -65,6 +75,7 @@ GSC.LibusbToJsApiAdaptor = class {
   async claimInterface(deviceId, deviceHandle, interfaceNumber) {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @param {number} deviceHandle
    * @param {number} interfaceNumber
@@ -73,6 +84,7 @@ GSC.LibusbToJsApiAdaptor = class {
   async releaseInterface(deviceId, deviceHandle, interfaceNumber) {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @param {number} deviceHandle
    * @return {!Promise<void>}
@@ -80,6 +92,7 @@ GSC.LibusbToJsApiAdaptor = class {
   async resetDevice(deviceId, deviceHandle) {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @param {number} deviceHandle
    * @param {!LibusbJsControlTransferParameters} parameters
@@ -88,6 +101,7 @@ GSC.LibusbToJsApiAdaptor = class {
   async controlTransfer(deviceId, deviceHandle, parameters) {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @param {number} deviceHandle
    * @param {!LibusbJsGenericTransferParameters} parameters
@@ -96,11 +110,69 @@ GSC.LibusbToJsApiAdaptor = class {
   async bulkTransfer(deviceId, deviceHandle, parameters) {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @param {number} deviceHandle
    * @param {!LibusbJsGenericTransferParameters} parameters
    * @return {!Promise<!LibusbJsTransferResult>}
    */
   async interruptTransfer(deviceId, deviceHandle, parameters) {}
+};
+
+GSC.StubLibusbToJsApiAdaptor = class extends GSC.LibusbToJsApiAdaptor {
+  /** @override */
+  async listDevices() {
+    return this.callStub_();
+  }
+
+  /** @override */
+  async getConfigurations(deviceId) {
+    return this.callStub_();
+  }
+
+  /** @override */
+  async openDeviceHandle(deviceId) {
+    return this.callStub_();
+  }
+
+  /** @override */
+  async closeDeviceHandle(deviceId, deviceHandle) {
+    return this.callStub_();
+  }
+
+  /** @override */
+  async claimInterface(deviceId, deviceHandle, interfaceNumber) {
+    return this.callStub_();
+  }
+
+  /** @override */
+  async releaseInterface(deviceId, deviceHandle, interfaceNumber) {
+    return this.callStub_();
+  }
+
+  /** @override */
+  async resetDevice(deviceId, deviceHandle) {
+    return this.callStub_();
+  }
+
+  /** @override */
+  async controlTransfer(deviceId, deviceHandle, parameters) {
+    return this.callStub_();
+  }
+
+  /** @override */
+  async bulkTransfer(deviceId, deviceHandle, parameters) {
+    return this.callStub_();
+  }
+
+  /** @override */
+  async interruptTransfer(deviceId, deviceHandle, parameters) {
+    return this.callStub_();
+  }
+
+  /** @private */
+  callStub_() {
+    throw new Error('API unavailable');
+  }
 };
 });  // goog.scope
