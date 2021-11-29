@@ -20,7 +20,6 @@
 goog.provide('GoogleSmartCard.LibusbProxyReceiver');
 
 goog.require('GoogleSmartCard.DebugDump');
-goog.require('GoogleSmartCard.Libusb.ChromeUsbBackend');
 goog.require('GoogleSmartCard.LibusbProxyHook');
 goog.require('GoogleSmartCard.LibusbToChromeUsbAdaptor');
 goog.require('GoogleSmartCard.LibusbToJsApiAdaptor');
@@ -46,23 +45,17 @@ const logger = GSC.Logging.getScopedLogger('LibusbProxyReceiver');
  * This class implements handling of libusb requests received from the
  * executable module (the `LibusbJsProxy` class). The requests are handled by
  * transforming them into the chrome.usb API requests.
- *
- * TODO(#429): Stop receiving the ChromeUsbBackend, and generalize to support
- * WebUSB as well.
  */
 GSC.LibusbProxyReceiver = class {
   /**
    * @param {!goog.messaging.AbstractChannel} executableModuleMessageChannel
-   * @param {!GSC.Libusb.ChromeUsbBackend} libusbChromeUsbBackend
    */
-  constructor(executableModuleMessageChannel, libusbChromeUsbBackend) {
+  constructor(executableModuleMessageChannel) {
     // Note: the request receiver instance is not stored anywhere, as it makes
     // itself being owned by the message channel.
     new GSC.RequestReceiver(
         EXECUTABLE_MODULE_REQUESTER_NAME, executableModuleMessageChannel,
         this.onRequestReceivedFromExecutableModule_.bind(this));
-    /** @private @const */
-    this.libusbChromeUsbBackend_ = libusbChromeUsbBackend;
     /** @private @const */
     this.realLibusbToJsApiAdaptor_ = chooseLibusbToJsApiAdaptor();
     /** @type {!Array<!GSC.LibusbProxyHook>} @private @const */
@@ -156,10 +149,8 @@ GSC.LibusbProxyReceiver = class {
         return [await this.getLibusbToJsApiAdaptor_().interruptTransfer(
             ...remoteCallMessage.functionArguments)];
     }
-    // TODO(#429): Delete this fallback to ChromeUsbBackend once all functions
-    // are implemented in LibusbToJsApiAdaptor.
-    return await this.libusbChromeUsbBackend_.handleRequest(
-        remoteCallMessage.makeRequestPayload());
+    throw new Error(
+        `Unknown libusb-JS function ${remoteCallMessage.functionName}`);
   }
 };
 

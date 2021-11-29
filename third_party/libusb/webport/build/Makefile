@@ -37,8 +37,6 @@ C_SOURCES := \
 	$(LIBUSB_NACL_SOURCES_PATH)/libusb_get_string_descriptor_ascii.c \
 
 CXX_SOURCES := \
-	$(LIBUSB_NACL_SOURCES_PATH)/chrome_usb/api_bridge.cc \
-	$(LIBUSB_NACL_SOURCES_PATH)/chrome_usb/types.cc \
 	$(LIBUSB_NACL_SOURCES_PATH)/libusb_contexts_storage.cc \
 	$(LIBUSB_NACL_SOURCES_PATH)/libusb_js_proxy.cc \
 	$(LIBUSB_NACL_SOURCES_PATH)/libusb_js_proxy_data_model.cc \

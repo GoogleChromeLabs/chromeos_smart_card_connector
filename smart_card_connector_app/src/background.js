@@ -20,7 +20,6 @@ goog.provide('GoogleSmartCard.ConnectorApp.BackgroundMain');
 goog.require('GoogleSmartCard.ConnectorApp.Background.MainWindowManaging');
 goog.require('GoogleSmartCard.EmscriptenModule');
 goog.require('GoogleSmartCard.ExecutableModule');
-goog.require('GoogleSmartCard.Libusb.ChromeUsbBackend');
 goog.require('GoogleSmartCard.LibusbLoginStateHook');
 goog.require('GoogleSmartCard.LibusbProxyReceiver');
 goog.require('GoogleSmartCard.LogBufferForwarder');
@@ -113,9 +112,6 @@ if (logBufferForwarderToNaclModule) {
   }, () => {});
 }
 
-const libusbChromeUsbBackend =
-    new GSC.Libusb.ChromeUsbBackend(executableModule.getMessageChannel());
-libusbChromeUsbBackend.startProcessingEvents();
 const libusbProxyReceiver = new GSC.LibusbProxyReceiver(
     executableModule.getMessageChannel(), libusbChromeUsbBackend);
 libusbProxyReceiver.addHook(new GSC.LibusbLoginStateHook());

@@ -19,6 +19,7 @@
 
 goog.provide('GoogleSmartCard.LibusbLoginStateHook');
 
+goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.LibusbProxyHook');
 goog.require('GoogleSmartCard.Logging');
 goog.require('goog.asserts');

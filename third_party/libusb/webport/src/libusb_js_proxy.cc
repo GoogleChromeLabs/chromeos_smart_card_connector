@@ -49,11 +49,11 @@ constexpr char kJsRequestBulkTransfer[] = "bulkTransfer";
 constexpr char kJsRequestInterruptTransfer[] = "interruptTransfer";
 
 //
-// We use stubs for the device bus number (as the chrome.usb API does not
-// provide means of retrieving it). We modify this for a device when opening
-// the device fails. This makes PCSC recognize it as a new device which causes
-// PCSC to retry opening it. The number of reconnection attempts is limited
-// by kMaximumBusNumber - kDefaultBusNumber.
+// We use stubs for the device bus number (as the JS API does not provide means
+// of retrieving it). We modify this for a device when opening the device fails.
+// This makes PCSC recognize it as a new device which causes PCSC to retry
+// opening it. The number of reconnection attempts is limited
+// by `kMaximumBusNumber` - `kDefaultBusNumber`.
 //
 
 constexpr uint8_t kDefaultBusNumber = 1;
@@ -128,16 +128,11 @@ libusb_context* GetLibusbTransferContextChecked(
 
 }  // namespace
 
-LibusbJsProxy::LibusbJsProxy(
-    GlobalContext* global_context,
-    TypedMessageRouter* typed_message_router,
-    chrome_usb::ApiBridgeInterface* chrome_usb_api_bridge)
+LibusbJsProxy::LibusbJsProxy(GlobalContext* global_context,
+                             TypedMessageRouter* typed_message_router)
     : js_requester_(kJsRequesterName, global_context, typed_message_router),
       js_call_adaptor_(&js_requester_),
-      chrome_usb_api_bridge_(chrome_usb_api_bridge),
-      default_context_(contexts_storage_.CreateContext()) {
-  GOOGLE_SMART_CARD_CHECK(chrome_usb_api_bridge_);
-}
+      default_context_(contexts_storage_.CreateContext()) {}
 
 LibusbJsProxy::~LibusbJsProxy() = default;
 
@@ -456,7 +451,7 @@ void FillLibusbDeviceDescriptor(const LibusbJsDevice& js_device,
   // information to consumers here, because the corresponding
   // libusb_device_descriptor structure fields (iProduct, iManufacturer,
   // iSerialNumber) should contain not the strings themselves, but their indexes
-  // instead. The string indexes, however, are not provided by chrome.usb API.
+  // instead. The string indexes, however, are not provided by JS API.
   //
   // One solution would be to use a generated string indexes here and patch the
   // inline libusb_get_string_descriptor function. But avoiding the collisions
@@ -467,10 +462,9 @@ void FillLibusbDeviceDescriptor(const LibusbJsDevice& js_device,
   // using libusb_get_string_descriptor function - which will obviously fail.
   //
   // Another, more correct, solution would be to iterate here over all possible
-  // string indexes and therefore match the strings returned by chrome.usb API
-  // with their original string indexes. But this solution has an obvious
-  // drawback of performance penalty; also some devices bugs may be hit in this
-  // solution.
+  // string indexes and therefore match the strings returned by JS API with
+  // their original string indexes. But this solution has an obvious drawback of
+  // performance penalty; also some devices bugs may be hit in this solution.
   //
   // That's why it's currently decided to not populate these
   // libusb_device_descriptor structure fields at all.
@@ -616,8 +610,8 @@ bool CreateLibusbJsControlTransferParameters(
   //
   // Control-specific setup fields are kept in a special libusb_control_setup
   // structure placed in the beginning of the buffer; the real payload, that
-  // will be sent to the Chrome USB API, is located further in the buffer (see
-  // the convenience functions libusb_control_transfer_get_setup() and
+  // will be sent to the JS API, is located further in the buffer (see the
+  // convenience functions libusb_control_transfer_get_setup() and
   // libusb_control_transfer_get_data()).
   //
   // Note that the structure fields, according to the documentation, are
@@ -853,11 +847,8 @@ libusb_transfer_status FillLibusbTransferResult(
     int data_length,
     unsigned char* data_buffer,
     int* actual_length) {
-  // FIXME(emaxx): Looks like chrome.usb API returns timeout results as if they
-  // were errors. So, in case of timeout, LIBUSB_TRANSFER_ERROR will be
-  // returned to the consumers instead of returning LIBUSB_TRANSFER_TIMED_OUT.
-  // This doesn't look like a huge problem, but still, from the sanity
-  // prospective, this probably requires fixing.
+  // TODO(#47): Return `LIBUSB_TRANSFER_TIMED_OUT` instead of
+  // `LIBUSB_TRANSFER_ERROR` if the transfer timed out.
 
   int actual_length_value;
   if (js_result.received_data) {
@@ -1002,15 +993,13 @@ LibusbJsProxy::WrapLibusbTransferCallback(libusb_transfer* transfer) {
 
   return [this, transfer](TransferRequestResult request_result) {
     if (request_result.is_successful()) {
-      //
       // Note that the control transfers have a special libusb_control_setup
       // structure placed in the beginning of the buffer (it contains some
-      // control-specific setup; see also |CreateChromeUsbControlTransferInfo|
-      // function implementation for more details). So, as chrome.usb API
-      // doesn't operate with these setup structures, the received response data
-      // must be placed under some offset (using the helper function
-      // libusb_control_transfer_get_data).
-      //
+      // control-specific setup; see also the implementation of
+      // `CreateLibusbJsControlTransferParameters()`). So, as the JS API doesn't
+      // operate with these setup structures, the received response data must be
+      // placed under some offset (using the helper function
+      // `libusb_control_transfer_get_data()`).
       unsigned char* const data_buffer =
           transfer->type != LIBUSB_TRANSFER_TYPE_CONTROL
               ? transfer->buffer

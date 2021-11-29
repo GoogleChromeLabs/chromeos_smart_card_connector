@@ -30,8 +30,6 @@
 #include <google_smart_card_common/requesting/remote_call_adaptor.h>
 #include <google_smart_card_common/requesting/request_result.h>
 
-#include "chrome_usb/api_bridge_interface.h"
-#include "chrome_usb/types.h"
 #include "libusb_contexts_storage.h"
 #include "libusb_interface.h"
 #include "libusb_opaque_types.h"
@@ -54,8 +52,7 @@ class LibusbJsProxy final : public LibusbInterface {
       AsyncRequestCallback<LibusbJsTransferResult>;
 
   LibusbJsProxy(GlobalContext* global_context,
-                TypedMessageRouter* typed_message_router,
-                chrome_usb::ApiBridgeInterface* chrome_usb_api_bridge);
+                TypedMessageRouter* typed_message_router);
   LibusbJsProxy(const LibusbJsProxy&) = delete;
   LibusbJsProxy& operator=(const LibusbJsProxy&) = delete;
   ~LibusbJsProxy() override;
@@ -146,12 +143,11 @@ class LibusbJsProxy final : public LibusbInterface {
   JsRequester js_requester_;
   RemoteCallAdaptor js_call_adaptor_;
 
-  // map that holds the (fake) bus number for each device
-  // keys are libusb_device->chrome_usb_device().device
-  // if a device is not found, we return kDefaultBusNumber
+  // Map that holds the (fake) bus number for each device. Keys are
+  // `libusb_device->js_device().device_id`. For newly added devices the
+  // `kDefaultBusNumber` value is used.
   std::unordered_map<int64_t, uint8_t> bus_numbers_;
 
-  chrome_usb::ApiBridgeInterface* const chrome_usb_api_bridge_;
   LibusbContextsStorage contexts_storage_;
   const std::shared_ptr<libusb_context> default_context_;
 };

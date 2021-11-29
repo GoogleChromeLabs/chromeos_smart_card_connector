@@ -23,7 +23,6 @@
 #include <google_smart_card_common/requesting/requester.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
 
-#include "chrome_usb/api_bridge.h"
 #include "libusb_interface.h"
 #include "libusb_js_proxy.h"
 #include "libusb_tracing_wrapper.h"
@@ -46,13 +45,7 @@ namespace google_smart_card {
 class LibusbWebPortService::Impl final {
  public:
   Impl(GlobalContext* global_context, TypedMessageRouter* typed_message_router)
-      : chrome_usb_api_bridge_(
-            MakeUnique<JsRequester>(chrome_usb::kApiBridgeRequesterName,
-                                    global_context,
-                                    typed_message_router)),
-        libusb_js_proxy_(global_context,
-                         typed_message_router,
-                         &chrome_usb_api_bridge_) {
+      : libusb_js_proxy_(global_context, typed_message_router) {
 #ifndef NDEBUG
     libusb_tracing_wrapper_.reset(new LibusbTracingWrapper(&libusb_js_proxy_));
 #endif  // NDEBUG
@@ -62,10 +55,7 @@ class LibusbWebPortService::Impl final {
   Impl& operator=(const Impl&) = delete;
   ~Impl() = default;
 
-  void ShutDown() {
-    chrome_usb_api_bridge_.ShutDown();
-    libusb_js_proxy_.ShutDown();
-  }
+  void ShutDown() { libusb_js_proxy_.ShutDown(); }
 
   LibusbInterface* libusb() {
     if (libusb_tracing_wrapper_)
@@ -74,7 +64,6 @@ class LibusbWebPortService::Impl final {
   }
 
  private:
-  chrome_usb::ApiBridge chrome_usb_api_bridge_;
   LibusbJsProxy libusb_js_proxy_;
   std::unique_ptr<LibusbTracingWrapper> libusb_tracing_wrapper_;
 };
