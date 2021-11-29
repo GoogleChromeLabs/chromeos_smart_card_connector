@@ -30,6 +30,7 @@ TEST_DIRS="
   common/cpp/build
   common/js/build
   example_cpp_smart_card_client_app/build
+  smart_card_connector/build
   third_party/libusb/webport/build
   third_party/pcsc-lite/naclport/server_clients_management/build"
 

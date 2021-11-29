@@ -140,3 +140,12 @@ $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/window.css))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/card-present.png))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/about-window.html))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/about-window.css))
+
+
+# Rules for running unit tests.
+
+test:: all
+	+$(MAKE) --directory js_unittests run_test
+
+tests_clean::
+	+$(MAKE) --directory js_unittests clean
