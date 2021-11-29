@@ -35,23 +35,30 @@ const LibusbJsGenericTransferParameters =
     GSC.LibusbProxyDataModel.LibusbJsGenericTransferParameters;
 const LibusbJsTransferResult = GSC.LibusbProxyDataModel.LibusbJsTransferResult;
 
+/** @abstract */
 GSC.LibusbToJsApiAdaptor = class extends goog.Disposable {
-  /** @return {!Promise<!Array<!LibusbJsDevice>>} */
+  /**
+   * @abstract
+   * @return {!Promise<!Array<!LibusbJsDevice>>}
+   */
   async listDevices() {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @return {!Promise<!Array<!LibusbJsConfigurationDescriptor>>}
    */
   async getConfigurations(deviceId) {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @return {!Promise<number>} Device handle.
    */
   async openDeviceHandle(deviceId) {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @param {number} deviceHandle
    * @return {!Promise<void>}
@@ -59,6 +66,7 @@ GSC.LibusbToJsApiAdaptor = class extends goog.Disposable {
   async closeDeviceHandle(deviceId, deviceHandle) {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @param {number} deviceHandle
    * @param {number} interfaceNumber
@@ -67,6 +75,7 @@ GSC.LibusbToJsApiAdaptor = class extends goog.Disposable {
   async claimInterface(deviceId, deviceHandle, interfaceNumber) {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @param {number} deviceHandle
    * @param {number} interfaceNumber
@@ -75,6 +84,7 @@ GSC.LibusbToJsApiAdaptor = class extends goog.Disposable {
   async releaseInterface(deviceId, deviceHandle, interfaceNumber) {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @param {number} deviceHandle
    * @return {!Promise<void>}
@@ -82,6 +92,7 @@ GSC.LibusbToJsApiAdaptor = class extends goog.Disposable {
   async resetDevice(deviceId, deviceHandle) {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @param {number} deviceHandle
    * @param {!LibusbJsControlTransferParameters} parameters
@@ -90,6 +101,7 @@ GSC.LibusbToJsApiAdaptor = class extends goog.Disposable {
   async controlTransfer(deviceId, deviceHandle, parameters) {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @param {number} deviceHandle
    * @param {!LibusbJsGenericTransferParameters} parameters
@@ -98,6 +110,7 @@ GSC.LibusbToJsApiAdaptor = class extends goog.Disposable {
   async bulkTransfer(deviceId, deviceHandle, parameters) {}
 
   /**
+   * @abstract
    * @param {number} deviceId
    * @param {number} deviceHandle
    * @param {!LibusbJsGenericTransferParameters} parameters

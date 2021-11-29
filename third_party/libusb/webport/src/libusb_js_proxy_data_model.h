@@ -135,7 +135,7 @@ struct LibusbJsGenericTransferParameters {
   // Only set for output transfers.
   optional<std::vector<uint8_t>> data_to_send;
   // Only set for input transfers.
-  optional<uint16_t> length_to_receive;
+  optional<int64_t> length_to_receive;
 };
 
 struct LibusbJsTransferResult {
