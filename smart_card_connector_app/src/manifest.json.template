@@ -26,6 +26,14 @@ ${if PACKAGING=extension}
     "default_popup": "window.html"
   },
 ${endif}
+${if TOOLCHAIN=emscripten}
+  "cross_origin_embedder_policy": {
+    "value": "require-corp"
+  },
+  "cross_origin_opener_policy": {
+    "value": "same-origin"
+  },
+${endif}
   "minimum_chrome_version": "48",
   "default_locale": "en",
   "icons": {
