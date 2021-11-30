@@ -233,7 +233,7 @@ function getLibusbJsConfigurationDescriptor(
  * @return {!LibusbJsInterfaceDescriptor|null}
  */
 function getLibusbJsInterfaceDescriptor(webusbInterface) {
-  if (!webusbInterface['alternates'])
+  if (webusbInterface['alternates'].length === 0)
     return null;
   // Note: We're not using the "alternate" field here, since, contrary to the
   // WebUSB specification, Chrome's implementation typically sets this field to
