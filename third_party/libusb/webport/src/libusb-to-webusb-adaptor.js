@@ -19,12 +19,23 @@
 
 goog.provide('GoogleSmartCard.LibusbToWebusbAdaptor');
 
+goog.require('GoogleSmartCard.Logging');
 goog.require('goog.asserts');
 
 goog.scope(function() {
 
 const GSC = GoogleSmartCard;
 const LibusbJsDevice = GSC.LibusbProxyDataModel.LibusbJsDevice;
+const LibusbJsConfigurationDescriptor =
+    GSC.LibusbProxyDataModel.LibusbJsConfigurationDescriptor;
+const LibusbJsEndpointType = GSC.LibusbProxyDataModel.LibusbJsEndpointType;
+const LibusbJsEndpointDescriptor =
+    GSC.LibusbProxyDataModel.LibusbJsEndpointDescriptor;
+const LibusbJsDirection = GSC.LibusbProxyDataModel.LibusbJsDirection;
+const LibusbJsInterfaceDescriptor =
+    GSC.LibusbProxyDataModel.LibusbJsInterfaceDescriptor;
+
+const logger = GSC.Logging.getScopedLogger('LibusbToWebusbAdaptor');
 
 /**
  * Implements the Libusb requests via the WebUSB API.
@@ -61,8 +72,13 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
 
   /** @override */
   async getConfigurations(deviceId) {
-    // TODO(#429): Implement this method.
-    throw new Error('Not implemented');
+    const webusbDevice = this.getDeviceByIdOrThrow_(deviceId);
+    const activeConfigurationValue = webusbDevice['configuration'] ?
+        webusbDevice['configuration']['configurationValue'] :
+        null;
+    return webusbDevice['configurations'].map(
+        config => getLibusbJsConfigurationDescriptor(
+            config, activeConfigurationValue));
   }
 
   /** @override */
@@ -128,6 +144,18 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
 
   /**
    * @private
+   * @param {number} deviceId
+   * @return {!Object} The WebUSB USBDevice object.
+   */
+  getDeviceByIdOrThrow_(deviceId) {
+    const webusbDevice = this.idToWebusbDeviceMap_.get(deviceId);
+    if (!webusbDevice)
+      throw new Error(`No device with ID ${deviceId}`);
+    return webusbDevice;
+  }
+
+  /**
+   * @private
    * @param {!Array<!Object>} webusbDevices The list of USBDevice objects.
    */
   updateDeviceMap_(webusbDevices) {
@@ -174,6 +202,87 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
     return libusbJsDevice;
   }
 };
+
+/**
+ * @param {!Object} webusbConfiguration The WebUSB USBConfiguration value.
+ * @param {number|null} activeConfigurationValue The active configuration's
+ *     value.
+ * @return {!LibusbJsConfigurationDescriptor}
+ */
+function getLibusbJsConfigurationDescriptor(
+    webusbConfiguration, activeConfigurationValue) {
+  // Note: extraData is skipped, as it's not provided by WebUSB.
+  return {
+    'active':
+        webusbConfiguration['configurationValue'] === activeConfigurationValue,
+    'configurationValue': webusbConfiguration['configurationValue'],
+    'interfaces': webusbConfiguration['interfaces']
+                      .map(
+                          webusbInterface =>
+                              getLibusbJsInterfaceDescriptor(webusbInterface))
+                      .filter(item => item !== null),
+  };
+}
+/**
+ * @param {!Object} webusbInterface The WebUSB USBInterface value.
+ * @return {!LibusbJsInterfaceDescriptor|null}
+ */
+function getLibusbJsInterfaceDescriptor(webusbInterface) {
+  if (!webusbInterface['alternates'])
+    return null;
+  // Note: We're not using the "alternate" field here, since, contrary to the
+  // WebUSB specification, Chrome's implementation typically sets this field to
+  // null. See crbug.com/1093502.
+  const webusbAlternateInterface = webusbInterface['alternates'][0];
+  // Note: extraData is skipped, as it's not provided by WebUSB.
+  return {
+    'interfaceNumber': webusbInterface['interfaceNumber'],
+    'interfaceClass': webusbAlternateInterface['interfaceClass'],
+    'interfaceSubclass': webusbAlternateInterface['interfaceSubclass'],
+    'interfaceProtocol': webusbAlternateInterface['interfaceProtocol'],
+    'endpoints': webusbAlternateInterface['endpoints']
+                     .map(endpoint => getLibusbJsEndpointDescriptor(endpoint))
+                     .filter(item => item !== null),
+  };
+}
+/**
+ * @param {!Object} webusbEndpoint The WebUSB USBEndpoint value.
+ * @return {!LibusbJsEndpointDescriptor|null}
+ */
+function getLibusbJsEndpointDescriptor(webusbEndpoint) {
+  // According to the USB specification, the endpoint address contains the
+  // endpoint number in bits 0..3 and the direction in the bit 7.
+  const endpointAddress = webusbEndpoint['endpointNumber'] +
+      (webusbEndpoint['direction'] === 'in' ? 1 << 7 : 0);
+  const endpointType = getLibusbJsEndpointType(webusbEndpoint['type']);
+  if (!endpointType)
+    return null;
+  // Note: extraData is skipped, as it's not provided by WebUSB.
+  return {
+    'endpointAddress': endpointAddress,
+    'direction': webusbEndpoint['direction'] === 'in' ? LibusbJsDirection.IN :
+                                                        LibusbJsDirection.OUT,
+    'type': endpointType,
+    'maxPacketSize': webusbEndpoint['packetSize'],
+  };
+}
+/**
+ * @param {string} webusbEndpointType The WebUSB USBEndpointType value.
+ * @return {!LibusbJsEndpointType|null}
+ */
+function getLibusbJsEndpointType(webusbEndpointType) {
+  switch (webusbEndpointType) {
+    case 'bulk':
+      return LibusbJsEndpointType.BULK;
+    case 'interrupt':
+      return LibusbJsEndpointType.INTERRUPT;
+    case 'isochronous':
+      return LibusbJsEndpointType.ISOCHRONOUS;
+  }
+  // Not emitting a warning or an exception here, since doing that might quickly
+  // flood the application's logs.
+  return null;
+}
 
 /**
  * Returns whether the API needed for this adaptor to work is available.
