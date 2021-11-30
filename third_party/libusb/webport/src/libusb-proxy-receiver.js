@@ -102,7 +102,17 @@ GSC.LibusbProxyReceiver = class {
         logger,
         `Received a remote call request: ${
             remoteCallMessage.getDebugRepresentation()}`);
-    return await this.dispatchLibusbJsFunction_(remoteCallMessage);
+    try {
+      const result = await this.dispatchLibusbJsFunction_(remoteCallMessage);
+      goog.log.fine(
+          logger,
+          `Responding to the remote call request: ${
+              GSC.DebugDump.dump(result)}`);
+      return result;
+    } catch (exc) {
+      goog.log.fine(logger, `The remote call request failed: ${exc}`);
+      throw exc;
+    }
   }
 
   /**
