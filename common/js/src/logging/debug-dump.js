@@ -112,6 +112,19 @@ function dumpNumber(value) {
 }
 
 /**
+ * An optimized version of `dumpNumber()` for the case of an unsigned
+ * single-byte integer.
+ * @param {number} value
+ * @return {string}
+ */
+function dumpByte(value) {
+  const HEX_LENGTH_OF_BYTE = 2;
+  const hexValue = value.toString(16).toUpperCase();
+  const zeroPadding = goog.string.repeat('0', HEX_LENGTH_OF_BYTE - hexValue.length);
+  return `0x${zeroPadding}${hexValue}`;
+}
+
+/**
  * @param {string} value
  * @return {string}
  */
@@ -140,7 +153,11 @@ function dumpFunction(value) {
  * @return {string}
  */
 function dumpArrayBuffer(value) {
-  return 'ArrayBuffer[' + dumpSequenceItems(new Uint8Array(value)) + ']';
+  const bytes = new Uint8Array(value);
+  // Not using `dumpSequenceItems()` or `dumpNumber()` here, since we can avoid
+  // a lot of their overhead due to knowing the item type and boundaries.
+  const dumpedBytes = goog.iter.map(bytes, byte => dumpByte(byte));
+  return 'ArrayBuffer[' + goog.iter.join(dumpedBytes, ', ') + ']';
 }
 
 /**
