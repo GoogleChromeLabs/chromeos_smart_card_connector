@@ -149,8 +149,8 @@ inline void AssignWithTypeSizeCheck(FirstType* lhs, const SecondType& rhs) {
   static_assert(
       sizeof(FirstType) != sizeof(SecondType) ||
           std::is_signed<FirstType>::value == std::is_signed<SecondType>::value,
-      "Left-hand-side type has different signedness as the right-hand-size of "
-      "the same size");
+      "Left-hand-side type has different signedness as the right-hand-side "
+      "type of the same size");
   *lhs = rhs;
 }
 
