@@ -228,6 +228,7 @@ function getLibusbJsConfigurationDescriptor(
                       .filter(item => item !== null),
   };
 }
+
 /**
  * @param {!Object} webusbInterface The WebUSB USBInterface value.
  * @return {!LibusbJsInterfaceDescriptor|null}
@@ -250,6 +251,7 @@ function getLibusbJsInterfaceDescriptor(webusbInterface) {
                      .filter(item => item !== null),
   };
 }
+
 /**
  * @param {!Object} webusbEndpoint The WebUSB USBEndpoint value.
  * @return {!LibusbJsEndpointDescriptor|null}
@@ -271,6 +273,7 @@ function getLibusbJsEndpointDescriptor(webusbEndpoint) {
     'maxPacketSize': webusbEndpoint['packetSize'],
   };
 }
+
 /**
  * @param {string} webusbEndpointType The WebUSB USBEndpointType value.
  * @return {!LibusbJsEndpointType|null}
