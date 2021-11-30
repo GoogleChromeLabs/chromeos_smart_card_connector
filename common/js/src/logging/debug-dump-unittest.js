@@ -66,4 +66,28 @@ goog.exportSymbol('testDebugDump', function() {
   assertEquals('<NodeList>', dump(document.body.childNodes));
   assertEquals('<HTMLCollection>', dump(document.body.children));
 });
+
+goog.exportSymbol('testDebugDumpWithCircularRefs', function() {
+  const circularInsideArray = [];
+  circularInsideArray.push(circularInsideArray);
+  assertEquals('[<duplicate>]', dump(circularInsideArray));
+
+  const circularInObject = {'a': 'b'};
+  circularInObject['c'] = circularInObject;
+  assertEquals('{"a": "b", "c": <duplicate>}', dump(circularInObject));
+
+  const circularInMap = new Map();
+  circularInMap.set('a', 'b');
+  circularInMap.set('c', circularInMap);
+  assertEquals('Map{"a": "b", "c": <duplicate>}', dump(circularInMap));
+
+  const circularInSet = new Set();
+  circularInSet.add('foo');
+  circularInSet.add(circularInSet);
+  assertEquals('Set{"foo", <duplicate>}', dump(circularInSet));
+
+  const nestedCircular = {};
+  nestedCircular['foo'] = {'bar': nestedCircular};
+  assertEquals('{"foo": {"bar": <duplicate>}}', dump(nestedCircular));
+});
 });  // goog.scope
