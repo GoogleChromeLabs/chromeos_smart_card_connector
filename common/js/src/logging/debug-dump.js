@@ -61,24 +61,26 @@ function guessIntegerBitLength(value) {
 
 /**
  * @param {!Array|!Uint8Array} value
- * @param {!WeakSet} visitedObjects The set of already visited objects, to avoid
- * infinite recursion in case of circular references.
+ * @param {!WeakSet} recursionParentObjects The set of objects that are
+ *     currently being visited by upper frames of the recursion.
  * @return {string}
  */
-function dumpSequenceItems(value, visitedObjects) {
-  const dumpedItems = goog.iter.map(value, item => dump(item, visitedObjects));
+function dumpSequenceItems(value, recursionParentObjects) {
+  const dumpedItems =
+      goog.iter.map(value, item => dump(item, recursionParentObjects));
   return goog.iter.join(dumpedItems, ', ');
 }
 
 /**
  * @param {!Array} items Array of two-element arrays - pairs of key and value.
- * @param {!WeakSet} visitedObjects The set of already visited objects, to avoid
- * infinite recursion in case of circular references.
+ * @param {!WeakSet} recursionParentObjects The set of objects that are
+ *     currently being visited by upper frames of the recursion.
  * @return {string}
  */
-function dumpMappingItems(items, visitedObjects) {
+function dumpMappingItems(items, recursionParentObjects) {
   const dumpedItems = goog.array.map(items, function(item) {
-    return dump(item[0], visitedObjects) + ': ' + dump(item[1], visitedObjects);
+    return dump(item[0], recursionParentObjects) + ': ' +
+        dump(item[1], recursionParentObjects);
   });
   return goog.iter.join(dumpedItems, ', ');
 }
@@ -127,8 +129,8 @@ function dumpString(value) {
  * @param {!Array|!Uint8Array} value
  * @return {string}
  */
-function dumpArray(value, visitedObjects) {
-  return '[' + dumpSequenceItems(value, visitedObjects) + ']';
+function dumpArray(value, recursionParentObjects) {
+  return '[' + dumpSequenceItems(value, recursionParentObjects) + ']';
 }
 
 /**
@@ -151,46 +153,70 @@ function dumpArrayBuffer(value) {
 
 /**
  * @param {!Map} value
- * @param {!WeakSet} visitedObjects The set of already visited objects, to avoid
- * infinite recursion in case of circular references.
+ * @param {!WeakSet} recursionParentObjects The set of objects that are
+ *     currently being visited by upper frames of the recursion.
  * @return {string}
  */
-function dumpMap(value, visitedObjects) {
+function dumpMap(value, recursionParentObjects) {
   return 'Map{' +
-      dumpMappingItems(Array.from(value.entries()), visitedObjects) + '}';
+      dumpMappingItems(Array.from(value.entries()), recursionParentObjects) +
+      '}';
 }
 
 /**
  * @param {!Set} value
- * @param {!WeakSet} visitedObjects The set of already visited objects, to avoid
- * infinite recursion in case of circular references.
+ * @param {!WeakSet} recursionParentObjects The set of objects that are
+ *     currently being visited by upper frames of the recursion.
  * @return {string}
  */
-function dumpSet(value, visitedObjects) {
-  return 'Set{' + dumpSequenceItems(Array.from(value), visitedObjects) + '}';
+function dumpSet(value, recursionParentObjects) {
+  return 'Set{' + dumpSequenceItems(Array.from(value), recursionParentObjects) +
+      '}';
 }
 
 /**
  * @param {!Object} value
- * @param {!WeakSet} visitedObjects The set of already visited objects, to avoid
- * infinite recursion in case of circular references.
+ * @param {!WeakSet} recursionParentObjects The set of objects that are
+ *     currently being visited by upper frames of the recursion.
  * @return {string}
  */
-function dumpObject(value, visitedObjects) {
+function dumpObject(value, recursionParentObjects) {
   const items = [];
   goog.object.forEach(value, function(itemValue, itemKey) {
     items.push([itemKey, itemValue]);
   });
-  return '{' + dumpMappingItems(items, visitedObjects) + '}';
+  return '{' + dumpMappingItems(items, recursionParentObjects) + '}';
 }
 
 /**
  * @param {?} value
- * @param {!WeakSet} visitedObjects The set of already visited objects, to avoid
- * infinite recursion in case of circular references.
+ * @param {!WeakSet} recursionParentObjects The set of objects that are
+ *     currently being visited by upper frames of the recursion.
  * @return {string}
  */
-function dump(value, visitedObjects) {
+function dumpContainerRecursively(value, recursionParentObjects) {
+  // Handle container types. Note that this must be placed after the check for
+  // circular references.
+  if (Array.isArray(value))
+    return dumpArray(value, recursionParentObjects);
+  if (value instanceof Map)
+    return dumpMap(value, recursionParentObjects);
+  if (value instanceof Set)
+    return dumpSet(value, recursionParentObjects);
+  if (goog.isObject(value))
+    return dumpObject(value, recursionParentObjects);
+  // Fallback: this is an unknown type; let the built-in JSON stringification
+  // routine to produce something meaningful for it.
+  return encodeJson(value);
+}
+
+/**
+ * @param {?} value
+ * @param {!WeakSet} recursionParentObjects The set of objects that are
+ *     currently being visited by upper frames of the recursion.
+ * @return {string}
+ */
+function dump(value, recursionParentObjects) {
   // First, exit fast for DOM-related types or other classes, as they often
   // contain cyclic references, and as dumping all their properties isn't
   // meaningful for logs anyway.
@@ -227,31 +253,17 @@ function dump(value, visitedObjects) {
   if (value instanceof ArrayBuffer)
     return dumpArrayBuffer(value);
 
-  // Check for circular references before handling types that lead to recursive
-  // calls. Do this after handling simple non-recursive cases in order to avoid
-  // performance penalty, but also to avoid replacing primitive objects with
-  // <duplicate> in case they're linked from multiple places.
-  if (visitedObjects.has(value)) {
-    // Printing the word "duplicate", since we don't know if it's a circular
-    // reference or just the same object linked from two different places.
-    return '<duplicate>';
-  }
-  visitedObjects.add(value);
-
-  // Handle container types. Note that this must be placed after the check for
-  // circular references.
-  if (Array.isArray(value))
-    return dumpArray(value, visitedObjects);
-  if (value instanceof Map)
-    return dumpMap(value, visitedObjects);
-  if (value instanceof Set)
-    return dumpSet(value, visitedObjects);
-  if (goog.isObject(value))
-    return dumpObject(value, visitedObjects);
-
-  // Fallback: this is an unknown type; let the built-in JSON stringification
-  // routine to produce something meaningful for it.
-  return encodeJson(value);
+  // Detect circular references and prevent infinite recursion by checking
+  // against the values in the upper stack frames. Only do this after handling
+  // all non-recursive cases, in order to reduce the performance penalty.
+  if (recursionParentObjects.has(value))
+    return '<circular>';
+  recursionParentObjects.add(value);
+  const dumpedValue = dumpContainerRecursively(value, recursionParentObjects);
+  // Note that the removal is important in order to correctly handle the case
+  // when an object is linked from multiple places, like [foo, foo].
+  recursionParentObjects.delete(value);
+  return dumpedValue;
 }
 
 /**
@@ -263,15 +275,15 @@ function dump(value, visitedObjects) {
  * @return {string}
  */
 GSC.DebugDump.dump = function(value) {
-  const visitedObjects = new WeakSet();
+  const recursionParentObjects = new WeakSet();
   if (goog.DEBUG) {
-    return dump(value, visitedObjects);
+    return dump(value, recursionParentObjects);
   } else {
     // In Release mode, ensure that the debug dump generation cannot result in a
     // thrown exception.
     /** @preserveTry */
     try {
-      return dump(value, visitedObjects);
+      return dump(value, recursionParentObjects);
     } catch (exc) {
       return '<failed to dump the value>';
     }
