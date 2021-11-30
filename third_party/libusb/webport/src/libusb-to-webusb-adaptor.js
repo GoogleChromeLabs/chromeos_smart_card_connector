@@ -73,6 +73,11 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
   /** @override */
   async getConfigurations(deviceId) {
     const webusbDevice = this.getDeviceByIdOrThrow_(deviceId);
+    // Note: It's incorrect to check whether the configuration is active by
+    // comparing it via "===" against `webusbDevice['configuration']`, because
+    // Chrome produces different objects for USBDevice::configuration and for
+    // USBDevice::configurations: see crbug.com/1274922. Hence the need to
+    // compare by the configurationValue fields.
     const activeConfigurationValue = webusbDevice['configuration'] ?
         webusbDevice['configuration']['configurationValue'] :
         null;
