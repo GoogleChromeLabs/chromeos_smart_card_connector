@@ -27,6 +27,7 @@
 #include <vector>
 
 #include <google_smart_card_common/logging/logging.h>
+#include <google_smart_card_common/numeric_conversions.h>
 #include <google_smart_card_common/requesting/request_result.h>
 
 #include "libusb_js_proxy_data_model.h"
@@ -435,14 +436,14 @@ void FillLibusbDeviceDescriptor(const LibusbJsDevice& js_device,
 
   result->bDescriptorType = LIBUSB_DT_DEVICE;
 
-  result->idVendor = js_device.vendor_id;
+  AssignWithTypeSizeCheck(&result->idVendor, js_device.vendor_id);
 
-  result->idProduct = js_device.product_id;
+  AssignWithTypeSizeCheck(&result->idProduct, js_device.product_id);
 
+  // When using the chrome.usb API, the version field is filled only in
+  // Chrome >= 51 (see <http://crbug.com/598825>).
   if (js_device.version) {
-    // When using the chrome.usb API, the version field is filled only in
-    // Chrome >= 51 (see <http://crbug.com/598825>).
-    result->bcdDevice = *js_device.version;
+    AssignWithTypeSizeCheck(&result->bcdDevice, *js_device.version);
   }
 
   //
@@ -667,9 +668,9 @@ bool CreateLibusbJsControlTransferParameters(
       GOOGLE_SMART_CARD_NOTREACHED;
   }
 
-  result->request = control_setup->bRequest;
-  result->value = libusb_le16_to_cpu(control_setup->wValue);
-  result->index = libusb_le16_to_cpu(control_setup->wIndex);
+  AssignWithTypeSizeCheck(&result->request, control_setup->bRequest);
+  AssignWithTypeSizeCheck(&result->value, libusb_le16_to_cpu(control_setup->wValue));
+  AssignWithTypeSizeCheck(&result->index, libusb_le16_to_cpu(control_setup->wIndex));
 
   if ((control_setup->bmRequestType & LIBUSB_ENDPOINT_DIR_MASK) ==
       LIBUSB_ENDPOINT_OUT) {
@@ -677,7 +678,7 @@ bool CreateLibusbJsControlTransferParameters(
         libusb_control_transfer_get_data(transfer),
         libusb_control_transfer_get_data(transfer) + data_length);
   } else {
-    result->length_to_receive = data_length;
+    AssignWithTypeSizeCheck(&result->length_to_receive, data_length);
   }
 
   return true;
@@ -691,13 +692,13 @@ void CreateLibusbJsGenericTransferParameters(
                           transfer->type == LIBUSB_TRANSFER_TYPE_INTERRUPT);
   GOOGLE_SMART_CARD_CHECK(result);
 
-  result->endpoint_address = transfer->endpoint;
+  AssignWithTypeSizeCheck(&result->endpoint_address, transfer->endpoint);
   if ((transfer->endpoint & LIBUSB_ENDPOINT_DIR_MASK) == LIBUSB_ENDPOINT_OUT) {
     GOOGLE_SMART_CARD_CHECK(transfer->buffer);
     result->data_to_send = std::vector<uint8_t>(
         transfer->buffer, transfer->buffer + transfer->length);
   } else {
-    result->length_to_receive = transfer->length;
+    AssignWithTypeSizeCheck(&result->length_to_receive,transfer->length);
   }
 }
 

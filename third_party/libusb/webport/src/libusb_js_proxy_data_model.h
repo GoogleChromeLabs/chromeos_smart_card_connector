@@ -41,12 +41,12 @@ struct LibusbJsDevice {
   // plugged back).
   int64_t device_id;
   // The USB vendor ID.
-  uint32_t vendor_id;
+  uint16_t vendor_id;
   // The USB product ID.
-  uint32_t product_id;
+  uint16_t product_id;
   // The version number (according to the bcdDevice field of the USB specs), or
   // an empty optional if unavailable.
-  optional<int64_t> version;
+  optional<uint16_t> version;
   // The USB iProduct string, or an empty optional if unavailable.
   optional<std::string> product_name;
   // The USB iManufacturer string, or an empty optional if unavailable.
