@@ -118,16 +118,14 @@ function dumpNumber(value) {
 }
 
 /**
- * An optimized version of `dumpNumber()` for the case of an unsigned
- * single-byte integer.
  * @param {number} value
  * @return {string}
  */
-function dumpByte(value) {
+function dumpArrayBufferByte(value) {
   const HEX_LENGTH_OF_BYTE = 2;
   const hexValue = value.toString(16).toUpperCase();
   const zeroPadding = goog.string.repeat('0', HEX_LENGTH_OF_BYTE - hexValue.length);
-  return `0x${zeroPadding}${hexValue}`;
+  return zeroPadding + hexValue;
 }
 
 /**
@@ -159,11 +157,15 @@ function dumpFunction(value) {
  * @return {string}
  */
 function dumpArrayBuffer(value) {
+  if (!value.byteLength)
+    return 'ArrayBuffer[]';
   const bytes = new Uint8Array(value);
-  // Not using `dumpSequenceItems()` or `dumpNumber()` here, since we can avoid
-  // a lot of their overhead due to knowing the item type and boundaries.
-  const dumpedBytes = goog.iter.map(bytes, byte => dumpByte(byte));
-  return 'ArrayBuffer[' + goog.iter.join(dumpedBytes, ', ') + ']';
+  // The format is different than the one `dump()` produces for arrays, and also
+  // directly calling `dumpArrayBufferByte()` is much faster than calling
+  // generic dump functions.
+  const dumpedBytes = goog.iter.map(bytes, byte => dumpArrayBufferByte(byte));
+  const concatenated = goog.iter.join(dumpedBytes, '');
+  return `ArrayBuffer[0x${concatenated}]`;
 }
 
 /**
