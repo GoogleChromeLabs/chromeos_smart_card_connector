@@ -118,6 +118,18 @@ function dumpNumber(value) {
 }
 
 /**
+ * @param {number} value
+ * @return {string}
+ */
+function dumpArrayBufferByte(value) {
+  const HEX_LENGTH_OF_BYTE = 2;
+  const hexValue = value.toString(16).toUpperCase();
+  const zeroPadding =
+      goog.string.repeat('0', HEX_LENGTH_OF_BYTE - hexValue.length);
+  return zeroPadding + hexValue;
+}
+
+/**
  * @param {string} value
  * @return {string}
  */
@@ -146,9 +158,15 @@ function dumpFunction(value) {
  * @return {string}
  */
 function dumpArrayBuffer(value) {
+  if (!value.byteLength)
+    return 'ArrayBuffer[]';
   const bytes = new Uint8Array(value);
-  const dumpedBytes = goog.iter.map(bytes, byte => dumpNumber(byte));
-  return 'ArrayBuffer[' + goog.iter.join(dumpedBytes, ', ') + ']';
+  // The format is different than the one `dump()` produces for arrays, and also
+  // directly calling `dumpArrayBufferByte()` is much faster than calling
+  // generic dump functions.
+  const dumpedBytes = goog.iter.map(bytes, byte => dumpArrayBufferByte(byte));
+  const concatenated = goog.iter.join(dumpedBytes, '');
+  return `ArrayBuffer[0x${concatenated}]`;
 }
 
 /**
