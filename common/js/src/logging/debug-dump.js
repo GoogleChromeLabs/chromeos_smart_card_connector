@@ -124,7 +124,8 @@ function dumpNumber(value) {
 function dumpArrayBufferByte(value) {
   const HEX_LENGTH_OF_BYTE = 2;
   const hexValue = value.toString(16).toUpperCase();
-  const zeroPadding = goog.string.repeat('0', HEX_LENGTH_OF_BYTE - hexValue.length);
+  const zeroPadding =
+      goog.string.repeat('0', HEX_LENGTH_OF_BYTE - hexValue.length);
   return zeroPadding + hexValue;
 }
 

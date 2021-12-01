@@ -47,8 +47,7 @@ goog.exportSymbol('testDebugDump', function() {
   assertEquals('[0x01, "foo", [0x02, 0x03], []]', dump([1, 'foo', [2, 3], []]));
 
   assertEquals('ArrayBuffer[]', dump(new ArrayBuffer(0)));
-  assertEquals(
-      'ArrayBuffer[0x01FF]', dump(new Uint8Array([1, 255]).buffer));
+  assertEquals('ArrayBuffer[0x01FF]', dump(new Uint8Array([1, 255]).buffer));
 
   assertEquals(
       'Map{0x01: 0x02, 0x03: "foo", "bar": {}, {}: 0x04}',
