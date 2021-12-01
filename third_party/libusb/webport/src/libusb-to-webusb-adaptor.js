@@ -124,8 +124,13 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
         // synchronously and therefore let all subsequent requests wait on it.
         deviceState.openOperationPromise = openWebusbDevice(deviceState);
       }
-      await deviceState.openOperationPromise;
-      deviceState.openOperationPromise = null;
+      try {
+        await deviceState.openOperationPromise;
+      } finally {
+        // Do this regardless of whether open succeeded, so we'll retry the
+        // WebUSB open() for new `openDeviceHandle()` calls made later.
+        deviceState.openOperationPromise = null;
+      }
     }
     // WebUSB successfully opened the device. Generate a new handle and return.
     // Note: It's important to update `handles` only after all asynchronous
@@ -228,7 +233,7 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
     for (const webusbDevice of webusbDevices) {
       let chosenDeviceId = this.getDeviceId_(webusbDevice);
       if (chosenDeviceId === null) {
-        // This is a newly appeared device, so generate new ID and state for it.
+        // This is a new device, so generate new ID and state for it.
         chosenDeviceId = this.nextFreeDeviceId_;
         this.nextFreeDeviceId_++;
         newIdToDeviceMap.set(chosenDeviceId, new DeviceState(webusbDevice));
