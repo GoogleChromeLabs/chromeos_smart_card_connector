@@ -206,7 +206,7 @@ function dumpContainerRecursively(value, recursionParentObjects) {
   if (goog.isObject(value))
     return dumpObject(value, recursionParentObjects);
   // Fallback: this is an unknown type; let the built-in JSON stringification
-  // routine to produce something meaningful for it.
+  // routine produce something meaningful for it.
   return encodeJson(value);
 }
 
