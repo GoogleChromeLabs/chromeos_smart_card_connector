@@ -32,6 +32,9 @@ goog.exportSymbol('testDebugDump', function() {
 
   assertEquals('null', dump(null));
 
+  assertEquals('false', dump(false));
+  assertEquals('true', dump(true));
+
   assertEquals('0x00', dump(0));
   assertEquals('0xFE', dump(254));
   assertEquals('0x00000100', dump(256));
