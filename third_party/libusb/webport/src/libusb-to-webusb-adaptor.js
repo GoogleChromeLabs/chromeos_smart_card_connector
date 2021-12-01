@@ -50,7 +50,7 @@ class DeviceState {
      */
     this.openOperationPromise = null;
     /**
-     * @type {!Promise<void>|null} Promise for the ongoing device open request.
+     * @type {!Promise<void>|null} Promise for the ongoing device close request.
      */
     this.closeOperationPromise = null;
   }
