@@ -67,6 +67,32 @@ goog.exportSymbol('testDebugDump', function() {
   assertEquals('<HTMLCollection>', dump(document.body.children));
 });
 
+goog.exportSymbol('testDebugDumpTypedArray', function() {
+  assertEquals('Uint8Array[]', dump(new Uint8Array(0)));
+  assertEquals('Uint8Array[0x01FF]', dump(new Uint8Array([1, 255])));
+  assertEquals('Uint16Array[]', dump(new Uint16Array(0)));
+  assertEquals(
+      'Uint16Array[0x01, 0x0000FFFF]', dump(new Uint16Array([1, 65535])));
+  assertEquals('Float32Array[]', dump(new Float32Array([])));
+  assertEquals('Float32Array[0.5, 2.5]', dump(new Float32Array([0.5, 2.5])));
+});
+
+goog.exportSymbol('testDebugDumpDataView', function() {
+  const emptyBuffer = new ArrayBuffer(0);
+  assertEquals('DataView[]', dump(new DataView(emptyBuffer)));
+
+  const buffer = (new Uint8Array([1, 16, 255])).buffer;
+  assertEquals('DataView[0x0110FF]', dump(new DataView(buffer)));
+  assertEquals(
+      'DataView[0x10FF]', dump(new DataView(buffer, /*byteOffset=*/ 1)));
+  assertEquals(
+      'DataView[0x10]',
+      dump(new DataView(buffer, /*byteOffset=*/ 1, /*byteLength=*/ 1)));
+  assertEquals(
+      'DataView[]',
+      dump(new DataView(buffer, /*byteOffset=*/ 1, /*byteLength=*/ 0)));
+});
+
 // Test the `dump()` method against container types with circular references: it
 // should detect the loops and avoid infinite recursion.
 goog.exportSymbol('testDebugDumpWithCircularRefs', function() {
