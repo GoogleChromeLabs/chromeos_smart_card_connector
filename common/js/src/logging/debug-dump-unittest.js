@@ -66,4 +66,46 @@ goog.exportSymbol('testDebugDump', function() {
   assertEquals('<NodeList>', dump(document.body.childNodes));
   assertEquals('<HTMLCollection>', dump(document.body.children));
 });
+
+// Test the `dump()` method against container types with circular references: it
+// should detect the loops and avoid infinite recursion.
+goog.exportSymbol('testDebugDumpWithCircularRefs', function() {
+  const circularInsideArray = [];
+  circularInsideArray.push(circularInsideArray);
+  assertEquals('[<circular>]', dump(circularInsideArray));
+
+  const circularInObject = {'a': 'b'};
+  circularInObject['c'] = circularInObject;
+  assertEquals('{"a": "b", "c": <circular>}', dump(circularInObject));
+
+  const circularInMap = new Map();
+  circularInMap.set('a', 'b');
+  circularInMap.set('c', circularInMap);
+  assertEquals('Map{"a": "b", "c": <circular>}', dump(circularInMap));
+
+  const circularInSet = new Set();
+  circularInSet.add('foo');
+  circularInSet.add(circularInSet);
+  assertEquals('Set{"foo", <circular>}', dump(circularInSet));
+
+  const nestedCircular = {};
+  nestedCircular['foo'] = {'bar': nestedCircular};
+  assertEquals('{"foo": {"bar": <circular>}}', dump(nestedCircular));
+});
+
+// Test that the `dump()` method correctly handles the case when an object is
+// linked from two different places: it shouldn't be confused with a circular
+// reference.
+goog.exportSymbol('testDebugDumpWithDuplicateRefs', function() {
+  const object = {'a': 'b'};
+  const arrayWithDuplicates = [object, object];
+  assertEquals('[{"a": "b"}, {"a": "b"}]', dump(arrayWithDuplicates));
+
+  const array = [];
+  const objectWithDuplicates = {'foo': array, 'foobar': array};
+  assertEquals('{"foo": [], "foobar": []}', dump(objectWithDuplicates));
+
+  const diamond = {'x': {'a': array}, 'y': {'b': array}};
+  assertEquals('{"x": {"a": []}, "y": {"b": []}}', dump(diamond));
+});
 });  // goog.scope
