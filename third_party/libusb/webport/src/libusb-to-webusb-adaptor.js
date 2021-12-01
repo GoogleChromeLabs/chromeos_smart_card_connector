@@ -377,7 +377,7 @@ async function fetchAndFillConfigurationExtraDataForOpenedDevice(
     const descriptorLength = descriptors.getUint8(offset);
     if (descriptorLength < 2) {
       // Ignore the invalid (too short) descriptor.
-      break;
+      continue;
     }
     if (offset + descriptorLength > totalLength) {
       // Ignore the truncated descriptor.
@@ -386,14 +386,20 @@ async function fetchAndFillConfigurationExtraDataForOpenedDevice(
     const descriptorType = descriptors.getUint8(offset + 1);
     switch (descriptorType) {
       case CONFIGURATION_DESCRIPTOR_TYPE: {
+        if (descriptorLength < CONFIGURATION_DESCRIPTOR_LENGTH) {
+          // Ignore the invalid (too short) descriptor.
+          break;
+        }
         // The current item is the configuration descriptor. There should be
         // only one such item returned and it should refer to
         // `libusbJsConfiguration`, so nothing needs to be done here.
         break;
       }
       case INTERFACE_DESCRIPTOR_TYPE: {
-        if (descriptorLength < INTERFACE_DESCRIPTOR_LENGTH)
+        if (descriptorLength < INTERFACE_DESCRIPTOR_LENGTH) {
+          // Ignore the invalid (too short) descriptor.
           break;
+        }
         // The current item is the interface descriptor. Parse the interface
         // number and switch the pointer to the corresponding
         // `LibusbJsInterfaceDescriptor`.
@@ -405,8 +411,10 @@ async function fetchAndFillConfigurationExtraDataForOpenedDevice(
         break;
       }
       case ENDPOINT_DESCRIPTOR_TYPE: {
-        if (descriptorLength < ENDPOINT_DESCRIPTOR_LENGTH)
+        if (descriptorLength < ENDPOINT_DESCRIPTOR_LENGTH) {
+          // Ignore the invalid (too short) descriptor.
           break;
+        }
         // The current item is the endpoint descriptor. Parse the endpoint
         // address and switch the pointer to the corresponding
         // `LibusbJsEndpointDescriptor`.
@@ -436,6 +444,7 @@ async function fetchAndFillConfigurationExtraDataForOpenedDevice(
         break;
       }
     }
+    // Jump to the next descriptor in the blob.
     offset += descriptorLength;
   }
 }
