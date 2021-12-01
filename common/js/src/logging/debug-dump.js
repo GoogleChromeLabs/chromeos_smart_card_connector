@@ -44,6 +44,14 @@ function encodeJson(value) {
 }
 
 /**
+ * @param {boolean} value
+ * @return {string}
+ */
+function dumpBoolean(value) {
+  return value ? 'true' : 'false';
+}
+
+/**
  * @param {number} value
  * @return {number}
  */
@@ -262,18 +270,26 @@ function dump(value, recursionParentObjects) {
     return 'undefined';
   if (value === null)
     return 'null';
-  if (typeof value === 'number')
-    return dumpNumber(value);
-  if (typeof value === 'string')
-    return dumpString(value);
+  switch (typeof value) {
+    case 'boolean':
+      return dumpBoolean(value);
+    case 'number':
+      return dumpNumber(value);
+    case 'string':
+      return dumpString(value);
+  }
   if (goog.functions.isFunction(value))
     return dumpFunction(value);
   if (value instanceof ArrayBuffer)
     return dumpArrayBuffer(value);
 
   // Detect circular references and prevent infinite recursion by checking
-  // against the values in the upper stack frames. Only do this after handling
-  // all non-recursive cases, in order to reduce the performance penalty.
+  // against the values in the upper stack frames.
+  if (!goog.isObject(value)) {
+    // `WeakSet` only supports objects, and normally all non-objects should be
+    // handled above. As a safety measure, exit here too.
+    return encodeJson(value);
+  }
   if (recursionParentObjects.has(value))
     return '<circular>';
   recursionParentObjects.add(value);
