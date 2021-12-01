@@ -93,7 +93,7 @@ goog.exportSymbol('testDebugDumpWithCircularRefs', function() {
   assertEquals('{"foo": {"bar": <circular>}}', dump(nestedCircular));
 });
 
-// Test that the `dump()` method correct handles the case when an object is
+// Test that the `dump()` method correctly handles the case when an object is
 // linked from two different places: it shouldn't be confused with a circular
 // reference.
 goog.exportSymbol('testDebugDumpWithDuplicateRefs', function() {
