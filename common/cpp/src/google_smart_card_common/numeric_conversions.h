@@ -27,6 +27,7 @@
 
 #include <google_smart_card_common/formatting.h>
 #include <google_smart_card_common/logging/logging.h>
+#include <google_smart_card_common/optional.h>
 
 namespace google_smart_card {
 
@@ -143,11 +144,13 @@ inline void AssignWithTypeSizeCheck(FirstType* lhs, const SecondType& rhs) {
                 "This assertion is only applicable to integral types");
   static_assert(std::is_integral<SecondType>::value,
                 "This assertion is only applicable to integral types");
-  static_assert(sizeof(FirstType) > sizeof(SecondType) ||
-                    (sizeof(FirstType) == sizeof(SecondType) &&
-                     std::is_signed<FirstType>::value ==
-                         std::is_signed<SecondType>::value),
+  static_assert(sizeof(FirstType) >= sizeof(SecondType),
                 "Left-hand-side type is smaller than the right-hand-side type");
+  static_assert(
+      sizeof(FirstType) != sizeof(SecondType) ||
+          std::is_signed<FirstType>::value == std::is_signed<SecondType>::value,
+      "Left-hand-side type has different signedness as the right-hand-side "
+      "type of the same size");
   *lhs = rhs;
 }
 
