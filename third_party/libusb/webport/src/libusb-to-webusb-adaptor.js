@@ -380,6 +380,7 @@ async function fetchAndFillConfigurationExtraDataForOpenedDevice(
     const descriptorLength = descriptors.getUint8(offset);
     if (descriptorLength < 2) {
       // Ignore the invalid (too short) descriptor.
+      offset += descriptorLength;
       continue;
     }
     if (offset + descriptorLength > totalLength) {
