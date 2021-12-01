@@ -21,6 +21,7 @@ goog.provide('GoogleSmartCard.LibusbToWebusbAdaptor');
 
 goog.require('GoogleSmartCard.Logging');
 goog.require('goog.asserts');
+goog.require('goog.log');
 goog.require('goog.object');
 
 goog.scope(function() {
@@ -94,6 +95,8 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
             webusbDevice, libusbJsConfiguration);
       } catch (exc) {
         // Suppress errors of fetching extraData: they should be non-fatal.
+        // Log only at the "fine" level, as this can quickly flood the logs.
+        goog.log.fine(logger, `Failure fetching extra data: ${exc}`);
       }
       libusbJsConfigurations.push(libusbJsConfiguration);
     }
