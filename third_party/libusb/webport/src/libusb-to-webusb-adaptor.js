@@ -21,6 +21,7 @@ goog.provide('GoogleSmartCard.LibusbToWebusbAdaptor');
 
 goog.require('GoogleSmartCard.Logging');
 goog.require('goog.asserts');
+goog.require('goog.log');
 
 goog.scope(function() {
 
@@ -234,8 +235,12 @@ function getLibusbJsConfigurationDescriptor(
  * @return {!LibusbJsInterfaceDescriptor|null}
  */
 function getLibusbJsInterfaceDescriptor(webusbInterface) {
-  if (webusbInterface['alternates'].length === 0)
+  if (webusbInterface['alternates'].length === 0) {
+    // Only log in the Debug mode by default, since these errors might quickly
+    // flood the application's logs.
+    goog.log.fine(logger, `Ignoring WebUSB interface without alternates`);
     return null;
+  }
   // Note: We're not using the "alternate" field here, since, contrary to the
   // WebUSB specification, Chrome's implementation typically sets this field to
   // null. See crbug.com/1093502.
@@ -287,8 +292,9 @@ function getLibusbJsEndpointType(webusbEndpointType) {
     case 'isochronous':
       return LibusbJsEndpointType.ISOCHRONOUS;
   }
-  // Not emitting a warning or an exception here, since doing that might quickly
+  // Only log in the Debug mode by default, since these errors might quickly
   // flood the application's logs.
+  goog.log.fine(logger, `Unknown WebUSB endpoint type: ${webusbEndpointType}`);
   return null;
 }
 
