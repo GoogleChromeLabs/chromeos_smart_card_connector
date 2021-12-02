@@ -22,6 +22,7 @@ goog.provide('GoogleSmartCard.LibusbToWebusbAdaptor');
 goog.require('GoogleSmartCard.Logging');
 goog.require('goog.asserts');
 goog.require('goog.log');
+goog.require('goog.object');
 
 goog.scope(function() {
 
@@ -82,9 +83,24 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
     const activeConfigurationValue = webusbDevice['configuration'] ?
         webusbDevice['configuration']['configurationValue'] :
         null;
-    return webusbDevice['configurations'].map(
-        config => getLibusbJsConfigurationDescriptor(
-            config, activeConfigurationValue));
+    const libusbJsConfigurations = [];
+    for (const webusbConfiguration of webusbDevice['configurations']) {
+      const libusbJsConfiguration = getLibusbJsConfigurationDescriptor(
+          webusbConfiguration, activeConfigurationValue);
+      // WebUSB doesn't return extraData in USBConfiguration, so we need to
+      // fetch it.
+      /** @preserveTry */
+      try {
+        await fetchAndFillConfigurationExtraData(
+            webusbDevice, libusbJsConfiguration);
+      } catch (exc) {
+        // Suppress errors of fetching extraData: they should be non-fatal.
+        // Log only at the "fine" level, as this can quickly flood the logs.
+        goog.log.fine(logger, `Failure fetching extra data: ${exc}`);
+      }
+      libusbJsConfigurations.push(libusbJsConfiguration);
+    }
+    return libusbJsConfigurations;
   }
 
   /** @override */
@@ -217,7 +233,6 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
  */
 function getLibusbJsConfigurationDescriptor(
     webusbConfiguration, activeConfigurationValue) {
-  // Note: extraData is skipped, as it's not provided by WebUSB.
   return {
     'active':
         webusbConfiguration['configurationValue'] === activeConfigurationValue,
@@ -245,7 +260,6 @@ function getLibusbJsInterfaceDescriptor(webusbInterface) {
   // WebUSB specification, Chrome's implementation typically sets this field to
   // null. See crbug.com/1093502.
   const webusbAlternateInterface = webusbInterface['alternates'][0];
-  // Note: extraData is skipped, as it's not provided by WebUSB.
   return {
     'interfaceNumber': webusbInterface['interfaceNumber'],
     'interfaceClass': webusbAlternateInterface['interfaceClass'],
@@ -269,7 +283,6 @@ function getLibusbJsEndpointDescriptor(webusbEndpoint) {
   const endpointType = getLibusbJsEndpointType(webusbEndpoint['type']);
   if (!endpointType)
     return null;
-  // Note: extraData is skipped, as it's not provided by WebUSB.
   return {
     'endpointAddress': endpointAddress,
     'direction': webusbEndpoint['direction'] === 'in' ? LibusbJsDirection.IN :
@@ -296,6 +309,170 @@ function getLibusbJsEndpointType(webusbEndpointType) {
   // flood the application's logs.
   goog.log.fine(logger, `Unknown WebUSB endpoint type: ${webusbEndpointType}`);
   return null;
+}
+
+/**
+ * Fetches class-/vendor-specific configuration/interface/endpoint descriptors
+ * using special control transfers. The result is assigned into the
+ * corresponding 'extraData' fields inside `libusbJsConfiguration`.
+ * @param {!Object} webusbDevice The WebUSB USBDevice value.
+ * @param {!LibusbJsConfigurationDescriptor} libusbJsConfiguration
+ */
+async function fetchAndFillConfigurationExtraData(
+    webusbDevice, libusbJsConfiguration) {
+  await webusbDevice['open']();
+  /** @preserveTry */
+  try {
+    await fetchAndFillConfigurationExtraDataForOpenedDevice(
+        webusbDevice, libusbJsConfiguration);
+  } finally {
+    // TODO(#429): Don't close if there are opened device handles.
+    await webusbDevice['close']();
+  }
+}
+
+/**
+ * Same as `fetchAndFillConfigurationExtraData()`, but assumes the device to be
+ * opened.
+ * @param {!Object} webusbDevice The WebUSB USBDevice value.
+ * @param {!LibusbJsConfigurationDescriptor} libusbJsConfiguration
+ */
+async function fetchAndFillConfigurationExtraDataForOpenedDevice(
+    webusbDevice, libusbJsConfiguration) {
+  const GET_DESCRIPTOR_REQUEST = 0x06;
+  const CONFIGURATION_DESCRIPTOR_TYPE = 0x02;
+  const INTERFACE_DESCRIPTOR_TYPE = 0x04;
+  const ENDPOINT_DESCRIPTOR_TYPE = 0x05;
+  const CONFIGURATION_DESCRIPTOR_LENGTH = 9;
+  const INTERFACE_DESCRIPTOR_LENGTH = 9;
+  const ENDPOINT_DESCRIPTOR_LENGTH = 7;
+
+  const controlRequestValue = (CONFIGURATION_DESCRIPTOR_TYPE << 8) |
+      (libusbJsConfiguration['configurationValue'] - 1);
+  const controlTransferParameters = {
+    'requestType': 'standard',
+    'recipient': 'device',
+    'request': GET_DESCRIPTOR_REQUEST,
+    'value': controlRequestValue,
+    'index': 0
+  };
+
+  // Determine the size of the whole descriptor hierarchy ("wTotalLength").
+  let transferResult = await webusbDevice['controlTransferIn'](
+      controlTransferParameters, CONFIGURATION_DESCRIPTOR_LENGTH);
+  if (transferResult['status'] !== 'ok' || !transferResult['data'])
+    return;
+  const initialData = /** @type {!DataView} */ (transferResult['data']);
+  const totalLength = initialData.getUint16(2, /*littleEndian=*/ true);
+
+  // Read the whole descriptor hierarchy.
+  transferResult = await webusbDevice['controlTransferIn'](
+      controlTransferParameters, totalLength);
+  if (transferResult['status'] !== 'ok' || !transferResult['data'])
+    return;
+  const descriptors = /** @type {!DataView} */ (transferResult['data']);
+  if (descriptors.byteLength !== totalLength)
+    return;
+
+  // Parse descriptors one-by-one from the fetched concatenated blob. Maintain
+  // pointers to the LibusbJs objects that correspond to the currently parsed
+  // interface/endpoint descriptor.
+  /** @type {!LibusbJsInterfaceDescriptor|undefined} */
+  let currentInterface = undefined;
+  /** @type {!LibusbJsEndpointDescriptor|undefined} */
+  let currentEndpoint = undefined;
+  for (let offset = 0; offset < totalLength;) {
+    const descriptorLength = descriptors.getUint8(offset);
+    if (descriptorLength < 2) {
+      // This is a malformed descriptor - bail out immediately (so that, for
+      // example, we don't hang because of a zero in the descriptor length
+      // field).
+      return;
+    }
+    if (offset + descriptorLength > totalLength) {
+      // Ignore the truncated descriptor.
+      break;
+    }
+    const descriptorType = descriptors.getUint8(offset + 1);
+    switch (descriptorType) {
+      case CONFIGURATION_DESCRIPTOR_TYPE: {
+        if (descriptorLength < CONFIGURATION_DESCRIPTOR_LENGTH) {
+          // Ignore the invalid (too short) descriptor.
+          break;
+        }
+        // The current item is the configuration descriptor. There should be
+        // only one such item returned and it should refer to
+        // `libusbJsConfiguration`, so nothing needs to be done here.
+        break;
+      }
+      case INTERFACE_DESCRIPTOR_TYPE: {
+        if (descriptorLength < INTERFACE_DESCRIPTOR_LENGTH) {
+          // Ignore the invalid (too short) descriptor.
+          break;
+        }
+        // The current item is the interface descriptor. Parse the interface
+        // number and switch the pointer to the corresponding
+        // `LibusbJsInterfaceDescriptor`.
+        const interfaceNumber = descriptors.getUint8(offset + 2);
+        currentInterface = libusbJsConfiguration['interfaces'].find(
+            libusbJsInterface =>
+                libusbJsInterface['interfaceNumber'] === interfaceNumber);
+        currentEndpoint = undefined;
+        break;
+      }
+      case ENDPOINT_DESCRIPTOR_TYPE: {
+        if (descriptorLength < ENDPOINT_DESCRIPTOR_LENGTH) {
+          // Ignore the invalid (too short) descriptor.
+          break;
+        }
+        // The current item is the endpoint descriptor. Parse the endpoint
+        // address and switch the pointer to the corresponding
+        // `LibusbJsEndpointDescriptor`.
+        const endpointAddress = descriptors.getUint8(offset + 2);
+        if (currentInterface) {
+          currentEndpoint = currentInterface['endpoints'].find(
+              libusbJsEndpoint =>
+                  libusbJsEndpoint['endpointAddress'] === endpointAddress);
+        } else {
+          currentEndpoint = undefined;
+        }
+        break;
+      }
+      default: {
+        // The current item is an unknown descriptor, so add it as extraData to
+        // the current (the most nested one) LibusbJs object.
+        const targetObject =
+            currentEndpoint || currentInterface || libusbJsConfiguration;
+        if (targetObject) {
+          appendExtraData(
+              new Uint8Array(
+                  descriptors.buffer, descriptors.byteOffset + offset,
+                  descriptorLength),
+              targetObject);
+        }
+        break;
+      }
+    }
+    // Jump to the next descriptor in the blob.
+    offset += descriptorLength;
+  }
+}
+
+/**
+ * Appends the specified data to the 'extraData' property of the given LibusbJs
+ * object.
+ * @param {!Uint8Array} extraDataToAppend
+ * @param {!LibusbJsConfigurationDescriptor|!LibusbJsInterfaceDescriptor|!LibusbJsEndpointDescriptor}
+ *     libusbJsObject
+ */
+function appendExtraData(extraDataToAppend, libusbJsObject) {
+  const oldExtraData =
+      goog.object.get(libusbJsObject, 'extraData', new ArrayBuffer(0));
+  const newData =
+      new Uint8Array(oldExtraData.byteLength + extraDataToAppend.byteLength);
+  newData.set(new Uint8Array(oldExtraData), 0);
+  newData.set(extraDataToAppend, oldExtraData.byteLength);
+  libusbJsObject['extraData'] = newData.buffer;
 }
 
 /**
