@@ -441,7 +441,8 @@ async function fetchAndFillConfigurationExtraDataForOpenedDevice(
       default: {
         // The current item is an unknown descriptor, so add it as extraData to
         // the current (the most nested one) LibusbJs object.
-        const targetObject = currentEndpoint || currentInterface || libusbJsConfiguration;
+        const targetObject =
+            currentEndpoint || currentInterface || libusbJsConfiguration;
         if (targetObject) {
           appendExtraData(
               new Uint8Array(
