@@ -32,6 +32,9 @@ goog.exportSymbol('testDebugDump', function() {
 
   assertEquals('null', dump(null));
 
+  assertEquals('false', dump(false));
+  assertEquals('true', dump(true));
+
   assertEquals('0x00', dump(0));
   assertEquals('0xFE', dump(254));
   assertEquals('0x00000100', dump(256));
@@ -46,8 +49,8 @@ goog.exportSymbol('testDebugDump', function() {
 
   assertEquals('[0x01, "foo", [0x02, 0x03], []]', dump([1, 'foo', [2, 3], []]));
 
-  assertEquals(
-      'ArrayBuffer[0x01, 0xFF]', dump(new Uint8Array([1, 255]).buffer));
+  assertEquals('ArrayBuffer[]', dump(new ArrayBuffer(0)));
+  assertEquals('ArrayBuffer[0x01FF]', dump(new Uint8Array([1, 255]).buffer));
 
   assertEquals(
       'Map{0x01: 0x02, 0x03: "foo", "bar": {}, {}: 0x04}',
@@ -65,5 +68,73 @@ goog.exportSymbol('testDebugDump', function() {
   assertEquals('<Node>', dump(document.body));
   assertEquals('<NodeList>', dump(document.body.childNodes));
   assertEquals('<HTMLCollection>', dump(document.body.children));
+});
+
+goog.exportSymbol('testDebugDumpTypedArray', function() {
+  assertEquals('Uint8Array[]', dump(new Uint8Array(0)));
+  assertEquals('Uint8Array[0x01FF]', dump(new Uint8Array([1, 255])));
+  assertEquals('Uint16Array[]', dump(new Uint16Array(0)));
+  assertEquals(
+      'Uint16Array[0x01, 0x0000FFFF]', dump(new Uint16Array([1, 65535])));
+  assertEquals('Float32Array[]', dump(new Float32Array([])));
+  assertEquals('Float32Array[0.5, 2.5]', dump(new Float32Array([0.5, 2.5])));
+});
+
+goog.exportSymbol('testDebugDumpDataView', function() {
+  const emptyBuffer = new ArrayBuffer(0);
+  assertEquals('DataView[]', dump(new DataView(emptyBuffer)));
+
+  const buffer = (new Uint8Array([1, 16, 255])).buffer;
+  assertEquals('DataView[0x0110FF]', dump(new DataView(buffer)));
+  assertEquals(
+      'DataView[0x10FF]', dump(new DataView(buffer, /*byteOffset=*/ 1)));
+  assertEquals(
+      'DataView[0x10]',
+      dump(new DataView(buffer, /*byteOffset=*/ 1, /*byteLength=*/ 1)));
+  assertEquals(
+      'DataView[]',
+      dump(new DataView(buffer, /*byteOffset=*/ 1, /*byteLength=*/ 0)));
+});
+
+// Test the `dump()` method against container types with circular references: it
+// should detect the loops and avoid infinite recursion.
+goog.exportSymbol('testDebugDumpWithCircularRefs', function() {
+  const circularInsideArray = [];
+  circularInsideArray.push(circularInsideArray);
+  assertEquals('[<circular>]', dump(circularInsideArray));
+
+  const circularInObject = {'a': 'b'};
+  circularInObject['c'] = circularInObject;
+  assertEquals('{"a": "b", "c": <circular>}', dump(circularInObject));
+
+  const circularInMap = new Map();
+  circularInMap.set('a', 'b');
+  circularInMap.set('c', circularInMap);
+  assertEquals('Map{"a": "b", "c": <circular>}', dump(circularInMap));
+
+  const circularInSet = new Set();
+  circularInSet.add('foo');
+  circularInSet.add(circularInSet);
+  assertEquals('Set{"foo", <circular>}', dump(circularInSet));
+
+  const nestedCircular = {};
+  nestedCircular['foo'] = {'bar': nestedCircular};
+  assertEquals('{"foo": {"bar": <circular>}}', dump(nestedCircular));
+});
+
+// Test that the `dump()` method correctly handles the case when an object is
+// linked from two different places: it shouldn't be confused with a circular
+// reference.
+goog.exportSymbol('testDebugDumpWithDuplicateRefs', function() {
+  const object = {'a': 'b'};
+  const arrayWithDuplicates = [object, object];
+  assertEquals('[{"a": "b"}, {"a": "b"}]', dump(arrayWithDuplicates));
+
+  const array = [];
+  const objectWithDuplicates = {'foo': array, 'foobar': array};
+  assertEquals('{"foo": [], "foobar": []}', dump(objectWithDuplicates));
+
+  const diamond = {'x': {'a': array}, 'y': {'b': array}};
+  assertEquals('{"x": {"a": []}, "y": {"b": []}}', dump(diamond));
 });
 });  // goog.scope
