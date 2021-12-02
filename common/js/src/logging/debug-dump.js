@@ -133,7 +133,7 @@ function dumpByte(value) {
  * @param {!Uint8Array} value
  * @return {string}
  */
-function dumpBytes(value) {
+function dumpByteArray(value) {
   if (!value.length)
     return '';
   // The format is different than the one `dump()` produces for arrays, and also
@@ -173,7 +173,7 @@ function dumpFunction(value) {
  * @return {string}
  */
 function dumpArrayBuffer(value) {
-  const dumpedBytes = dumpBytes(new Uint8Array(value));
+  const dumpedBytes = dumpByteArray(new Uint8Array(value));
   return `ArrayBuffer[${dumpedBytes}]`;
 }
 
@@ -182,7 +182,7 @@ function dumpArrayBuffer(value) {
  * @return {string}
  */
 function dumpDataView(value) {
-  const dumpedBytes = dumpBytes(
+  const dumpedBytes = dumpByteArray(
       new Uint8Array(value.buffer, value.byteOffset, value.byteLength));
   return `DataView[${dumpedBytes}]`;
 }
@@ -197,7 +197,7 @@ function dumpTypedArray(value) {
   if (value instanceof Uint8Array) {
     // This is a fast branch, also the format for dumping bytes is more compact
     // than for generic sequences.
-    dumpedItems = dumpBytes(value);
+    dumpedItems = dumpByteArray(value);
   } else {
     const itemsAsString = goog.iter.map(value, item => dumpNumber(item));
     dumpedItems = goog.iter.join(itemsAsString, ', ');
