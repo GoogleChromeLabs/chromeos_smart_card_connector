@@ -125,10 +125,8 @@ Value CreateValueFromNumberVal(const emscripten::val& val) {
   return Value(val.as<double>());
 }
 
-Value CreateValueFromArrayBufferVal(const emscripten::val& val) {
-  const emscripten::val source_uint8_array =
-      emscripten::val::global("Uint8Array").new_(val);
-  std::vector<uint8_t> bytes(source_uint8_array["length"].as<int>());
+Value CreateValueFromUint8Array(const emscripten::val& uint8_array_val) {
+  std::vector<uint8_t> bytes(uint8_array_val["length"].as<int>());
   if (!bytes.empty()) {
     // Copy the array buffer in an effective way: create a typed array that
     // points to the `std::vector` allocated above, and fill it with contents of
@@ -136,9 +134,22 @@ Value CreateValueFromArrayBufferVal(const emscripten::val& val) {
     // accessing each byte one-by-one via operator[].
     const emscripten::val target_uint8_array = emscripten::val(
         emscripten::typed_memory_view(bytes.size(), bytes.data()));
-    target_uint8_array.call<void>("set", source_uint8_array);
+    target_uint8_array.call<void>("set", uint8_array_val);
   }
   return Value(std::move(bytes));
+}
+
+Value CreateValueFromArrayBufferVal(const emscripten::val& val) {
+  const emscripten::val source_uint8_array =
+      emscripten::val::global("Uint8Array").new_(val);
+  return CreateValueFromUint8Array(source_uint8_array);
+}
+
+Value CreateValueFromDataViewVal(const emscripten::val& val) {
+  const emscripten::val source_uint8_array =
+      emscripten::val::global("Uint8Array")
+          .new_(val["buffer"], val["byteOffset"], val["byteLength"]);
+  return CreateValueFromUint8Array(source_uint8_array);
 }
 
 optional<Value> CreateValueFromArrayLikeVal(const emscripten::val& val,
@@ -234,10 +245,8 @@ optional<Value> ConvertEmscriptenValToValue(const emscripten::val& val,
     return Value(val.as<std::string>());
   if (val.isArray())
     return CreateValueFromArrayLikeVal(val, error_message);
-  if (IsEmcriptenValInstanceof(val, "DataView")) {
-    FormatPrintfTemplateAndSet(error_message, kErrorWrongType, "DataView");
-    return {};
-  }
+  if (IsEmcriptenValInstanceof(val, "DataView"))
+    return CreateValueFromDataViewVal(val);
   if (IsEmcriptenValInstanceof(val, "ArrayBuffer"))
     return CreateValueFromArrayBufferVal(val);
   if (emscripten::val::global("ArrayBuffer").call<bool>("isView", val)) {
