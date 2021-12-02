@@ -300,6 +300,8 @@ function dump(value, recursionParentObjects) {
   }
   if (value instanceof goog.Disposable)
     return '<Class>';
+  if (goog.global['chrome'] && value === goog.global['chrome'])
+    return '<chrome>';
 
   // Handle leaf types - the ones for which we don't make recursive calls.
   if (value === undefined)
