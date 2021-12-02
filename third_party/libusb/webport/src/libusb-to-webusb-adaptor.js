@@ -379,9 +379,10 @@ async function fetchAndFillConfigurationExtraDataForOpenedDevice(
   for (let offset = 0; offset < totalLength;) {
     const descriptorLength = descriptors.getUint8(offset);
     if (descriptorLength < 2) {
-      // Ignore the invalid (too short) descriptor.
-      offset += descriptorLength;
-      continue;
+      // This is a malformed descriptor - bail out immediately (so that, for
+      // example, we don't hang because of a zero in the descriptor length
+      // field).
+      return;
     }
     if (offset + descriptorLength > totalLength) {
       // Ignore the truncated descriptor.
