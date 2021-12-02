@@ -129,12 +129,27 @@ function dumpNumber(value) {
  * @param {number} value
  * @return {string}
  */
-function dumpArrayBufferByte(value) {
+function dumpByte(value) {
   const HEX_LENGTH_OF_BYTE = 2;
   const hexValue = value.toString(16).toUpperCase();
   const zeroPadding =
       goog.string.repeat('0', HEX_LENGTH_OF_BYTE - hexValue.length);
   return zeroPadding + hexValue;
+}
+
+/**
+ * @param {!Uint8Array} value
+ * @return {string}
+ */
+function dumpByteArray(value) {
+  if (!value.length)
+    return '';
+  // The format is different than the one `dump()` produces for arrays, and also
+  // directly calling `dumpByte()` is much faster than calling generic dump
+  // functions.
+  const dumpedBytes = goog.iter.map(value, byte => dumpByte(byte));
+  const concatenated = goog.iter.join(dumpedBytes, '');
+  return `0x${concatenated}`;
 }
 
 /**
@@ -166,15 +181,36 @@ function dumpFunction(value) {
  * @return {string}
  */
 function dumpArrayBuffer(value) {
-  if (!value.byteLength)
-    return 'ArrayBuffer[]';
-  const bytes = new Uint8Array(value);
-  // The format is different than the one `dump()` produces for arrays, and also
-  // directly calling `dumpArrayBufferByte()` is much faster than calling
-  // generic dump functions.
-  const dumpedBytes = goog.iter.map(bytes, byte => dumpArrayBufferByte(byte));
-  const concatenated = goog.iter.join(dumpedBytes, '');
-  return `ArrayBuffer[0x${concatenated}]`;
+  const dumpedBytes = dumpByteArray(new Uint8Array(value));
+  return `ArrayBuffer[${dumpedBytes}]`;
+}
+
+/**
+ * @param {!DataView} value
+ * @return {string}
+ */
+function dumpDataView(value) {
+  const dumpedBytes = dumpByteArray(
+      new Uint8Array(value.buffer, value.byteOffset, value.byteLength));
+  return `DataView[${dumpedBytes}]`;
+}
+
+/**
+ * @param {?} value
+ * @return {string}
+ */
+function dumpTypedArray(value) {
+  const typeName = value['constructor']['name'];
+  let dumpedItems;
+  if (value instanceof Uint8Array) {
+    // This is a fast branch, also the format for dumping bytes is more compact
+    // than for generic sequences.
+    dumpedItems = dumpByteArray(value);
+  } else {
+    const itemsAsString = goog.iter.map(value, item => dumpNumber(item));
+    dumpedItems = goog.iter.join(itemsAsString, ', ');
+  }
+  return `${typeName}[${dumpedItems}]`;
 }
 
 /**
@@ -282,6 +318,11 @@ function dump(value, recursionParentObjects) {
     return dumpFunction(value);
   if (value instanceof ArrayBuffer)
     return dumpArrayBuffer(value);
+  if (ArrayBuffer.isView(value)) {
+    if (value instanceof DataView)
+      return dumpDataView(value);
+    return dumpTypedArray(value);
+  }
 
   // Detect circular references and prevent infinite recursion by checking
   // against the values in the upper stack frames.
