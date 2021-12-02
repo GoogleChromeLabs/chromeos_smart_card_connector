@@ -124,11 +124,7 @@ EMSCRIPTEN_COMPILER_FLAGS += \
   -DNDEBUG \
 
 # Add linker flags specific to release builds.
-#
-# Explanation:
-# closure=1: Minify the auxilliary .js file produced by Emscripten.
 EMSCRIPTEN_LINKER_FLAGS += \
-  --closure=1 \
 
 else ifeq ($(CONFIG),Debug)
 

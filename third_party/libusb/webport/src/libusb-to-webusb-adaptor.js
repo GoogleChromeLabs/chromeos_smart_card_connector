@@ -163,7 +163,6 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
     // `openDeviceHandle()` calls will wait for it.
     deviceState.closeOperationPromise = deviceState.webusbDevice['close']();
     await deviceState.closeOperationPromise;
-    goog.log.fine(logger, 'Successfully closed WebUSB device');
     // On successful completion, clean up the promise. Intentionally leave it
     // set on failures, so that all subsequent `openDeviceHandle()` calls abort.
     deviceState.closeOperationPromise = null;
@@ -203,21 +202,9 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
     };
     let transferResult;
     if (parameters['dataToSend']) {
-      goog.log.fine(
-          logger,
-          `Calling controlTransferOut with parameters=${
-              GSC.DebugDump.dump(
-                  webusbControlTransferParameters)}, dataToSend=${
-              GSC.DebugDump.dump(parameters['dataToSend'])}`);
       transferResult = await deviceState.webusbDevice['controlTransferOut'](
           webusbControlTransferParameters, parameters['dataToSend']);
     } else {
-      goog.log.fine(
-          logger,
-          `Calling controlTransferIn with parameters=${
-              GSC.DebugDump.dump(
-                  webusbControlTransferParameters)}, lengthToReceive=${
-              GSC.DebugDump.dump(parameters['lengthToReceive'])}`);
       transferResult = await deviceState.webusbDevice['controlTransferIn'](
           webusbControlTransferParameters, parameters['lengthToReceive']);
     }
@@ -376,19 +363,9 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
     const endpointNumber = parameters['endpointAddress'] & 0xF;
     let transferResult;
     if (parameters['dataToSend']) {
-      goog.log.fine(
-          logger,
-          `Calling transferOut with endpointNumber=${
-              GSC.DebugDump.dump(endpointNumber)}, dataToSend=${
-              GSC.DebugDump.dump(parameters['dataToSend'])}`);
       transferResult = await deviceState.webusbDevice['transferOut'](
           endpointNumber, parameters['dataToSend']);
     } else {
-      goog.log.fine(
-          logger,
-          `Calling transferIn with parameters=${
-              GSC.DebugDump.dump(endpointNumber)}, lengthToReceive=${
-              GSC.DebugDump.dump(parameters['lengthToReceive'])}`);
       transferResult = await deviceState.webusbDevice['transferIn'](
           endpointNumber, parameters['lengthToReceive']);
     }
@@ -637,7 +614,6 @@ async function openWebusbDevice(deviceState) {
     await deviceState.closeOperationPromise;
   // Second, execute the WebUSB open() method.
   await deviceState.webusbDevice['open']();
-  goog.log.fine(logger, 'Successfully opened WebUSB device');
 }
 
 /**
@@ -682,20 +658,11 @@ function getWebusbRecipient(libusbJsTransferRecipient) {
  */
 function getLibusbJsTransferResultOrThrow(webusbTransferResult) {
   if (webusbTransferResult['status'] !== 'ok') {
-    goog.log.fine(
-        logger,
-        `Transfer failed with status ${webusbTransferResult['status']}`);
     throw new Error(
         `Transfer failed with status ${webusbTransferResult['status']}`);
   }
-  if (!webusbTransferResult['data']) {
-    goog.log.fine(logger, `Output ransfer succeeded`);
+  if (!webusbTransferResult['data'])
     return {};
-  }
-  goog.log.fine(
-      logger,
-      `Input transfer succeeded with result: ${
-          GSC.DebugDump.dump(webusbTransferResult['data'])}}`);
   return {'receivedData': webusbTransferResult['data']};
 }
 
