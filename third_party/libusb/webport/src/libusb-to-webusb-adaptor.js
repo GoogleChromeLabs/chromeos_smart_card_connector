@@ -35,6 +35,11 @@ const LibusbJsEndpointDescriptor =
 const LibusbJsDirection = GSC.LibusbProxyDataModel.LibusbJsDirection;
 const LibusbJsInterfaceDescriptor =
     GSC.LibusbProxyDataModel.LibusbJsInterfaceDescriptor;
+const LibusbJsTransferRecipient =
+    GSC.LibusbProxyDataModel.LibusbJsTransferRecipient;
+const LibusbJsTransferRequestType =
+    GSC.LibusbProxyDataModel.LibusbJsTransferRequestType;
+const LibusbJsTransferResult = GSC.LibusbProxyDataModel.LibusbJsTransferResult;
 
 const logger = GSC.Logging.getScopedLogger('LibusbToWebusbAdaptor');
 
@@ -119,8 +124,24 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
 
   /** @override */
   async controlTransfer(deviceId, deviceHandle, parameters) {
-    // TODO(#429): Implement this method.
-    throw new Error('Not implemented');
+    const deviceState =
+        this.getDeviceByIdAndHandleOrThrow_(deviceId, deviceHandle);
+    const webusbControlTransferParameters = {
+      'requestType': getWebusbRequestType(parameters['requestType']),
+      'recipient': getWebusbRecipient(parameters['recipient']),
+      'request': parameters['request'],
+      'value': parameters['value'],
+      'index': parameters['index'],
+    };
+    let transferResult;
+    if (parameters['dataToSend']) {
+      transferResult = await deviceState.webusbDevice['controlTransferOut'](
+          webusbControlTransferParameters, parameters['dataToSend']);
+    } else {
+      transferResult = await deviceState.webusbDevice['controlTransferIn'](
+          webusbControlTransferParameters, parameters['lengthToReceive']);
+    }
+    return getLibusbJsTransferResultOrThrow(transferResult);
   }
 
   /** @override */
@@ -296,6 +317,56 @@ function getLibusbJsEndpointType(webusbEndpointType) {
   // flood the application's logs.
   goog.log.fine(logger, `Unknown WebUSB endpoint type: ${webusbEndpointType}`);
   return null;
+}
+
+/**
+ * @param {!LibusbJsTransferRequestType} libusbJsTransferRequestType
+ * @return {string} The WebUSB USBRequestType value
+ */
+function getWebusbRequestType(libusbJsTransferRequestType) {
+  switch (libusbJsTransferRequestType) {
+    case LibusbJsTransferRequestType.STANDARD:
+      return 'standard';
+    case LibusbJsTransferRequestType.CLASS:
+      return 'class';
+    case LibusbJsTransferRequestType.VENDOR:
+      return 'vendor';
+  }
+  throw new Error(
+      `Unknown LibusbJs transfer request type ${libusbJsTransferRequestType}`);
+}
+
+/**
+ * @param {!LibusbJsTransferRecipient} libusbJsTransferRecipient
+ * @return {string} The WebUSB USBRecipient value
+ */
+function getWebusbRecipient(libusbJsTransferRecipient) {
+  switch (libusbJsTransferRecipient) {
+    case LibusbJsTransferRecipient.DEVICE:
+      return 'device';
+    case LibusbJsTransferRecipient.INTERFACE:
+      return 'interface';
+    case LibusbJsTransferRecipient.ENDPOINT:
+      return 'endpoint';
+    case LibusbJsTransferRecipient.OTHER:
+      return 'other';
+  }
+  throw new Error(
+      `Unknown LibusbJs transfer recipient ${libusbJsTransferRecipient}`);
+}
+
+/**
+ * @param {!Object} webusbTransferResult The WebUSB USBInTransferResult or
+ *     USBOutTransferResult value.
+ */
+function getLibusbJsTransferResultOrThrow(webusbTransferResult) {
+  if (webusbTransferResult['status'] !== 'ok') {
+    throw new Error(
+        `Transfer failed with status ${webusbTransferResult['status']}`);
+  }
+  if (!webusbTransferResult['data'])
+    return {};
+  return {'receivedData': webusbTransferResult['data']};
 }
 
 /**
