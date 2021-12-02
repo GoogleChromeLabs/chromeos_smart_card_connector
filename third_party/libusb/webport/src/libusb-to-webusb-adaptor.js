@@ -33,6 +33,8 @@ const LibusbJsEndpointType = GSC.LibusbProxyDataModel.LibusbJsEndpointType;
 const LibusbJsEndpointDescriptor =
     GSC.LibusbProxyDataModel.LibusbJsEndpointDescriptor;
 const LibusbJsDirection = GSC.LibusbProxyDataModel.LibusbJsDirection;
+const LibusbJsGenericTransferParameters =
+    GSC.LibusbProxyDataModel.LibusbJsGenericTransferParameters;
 const LibusbJsInterfaceDescriptor =
     GSC.LibusbProxyDataModel.LibusbJsInterfaceDescriptor;
 
@@ -125,14 +127,12 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
 
   /** @override */
   async bulkTransfer(deviceId, deviceHandle, parameters) {
-    // TODO(#429): Implement this method.
-    throw new Error('Not implemented');
+    return this.genericTransfer_(deviceId, deviceHandle, parameters);
   }
 
   /** @override */
   async interruptTransfer(deviceId, deviceHandle, parameters) {
-    // TODO(#429): Implement this method.
-    throw new Error('Not implemented');
+    return this.genericTransfer_(deviceId, deviceHandle, parameters);
   }
 
   /**
@@ -206,6 +206,32 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
     if (webusbDevice['serialNumber'])
       libusbJsDevice['serialNumber'] = webusbDevice['serialNumber'];
     return libusbJsDevice;
+  }
+
+  /**
+   * Performs a bulk or an interrupt transfer (this is determined by the type of
+   * the endpoint specified via `parameters.endpointAddress`).
+   * @private
+   * @param {number} deviceId
+   * @param {number} deviceHandle
+   * @param {!LibusbJsGenericTransferParameters} parameters
+   * @return {!Promise<!LibusbJsTransferResult>}
+   */
+  async genericTransfer_(deviceId, deviceHandle, parameters) {
+    const deviceState =
+        this.getDeviceByIdAndHandleOrThrow_(deviceId, deviceHandle);
+    // According to the USB specification, the endpoint address contains the
+    // endpoint number in bits 0..3.
+    const endpointNumber = parameters['endpointAddress'] & 0xF;
+    let transferResult;
+    if (parameters['dataToSend']) {
+      transferResult = await deviceState.webusbDevice['transferOut'](
+          endpointNumber, parameters['dataToSend']);
+    } else {
+      transferResult = await deviceState.webusbDevice['transferIn'](
+          endpointNumber, parameters['lengthToReceive']);
+    }
+    return getLibusbJsTransferResultOrThrow(transferResult);
   }
 };
 
