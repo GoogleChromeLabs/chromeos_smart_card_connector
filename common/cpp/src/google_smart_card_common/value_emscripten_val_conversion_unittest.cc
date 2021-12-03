@@ -550,16 +550,50 @@ TEST(ValueEmscriptenValConversion, Uint8ArrayEmscriptenVal) {
 }
 
 TEST(ValueEmscriptenValConversion, DataViewEmscriptenVal) {
-  const emscripten::val val =
-      emscripten::val::global("DataView")
-          .new_(emscripten::val::global("ArrayBuffer").new_());
+  {
+    const emscripten::val array_buffer_val =
+        emscripten::val::global("ArrayBuffer").new_();
+    const emscripten::val data_view_val =
+        emscripten::val::global("DataView").new_(array_buffer_val);
 
-  EXPECT_FALSE(ConvertEmscriptenValToValue(val));
+    std::string error_message;
+    const optional<Value> value =
+        ConvertEmscriptenValToValue(data_view_val, &error_message);
+    EXPECT_TRUE(error_message.empty());
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_binary());
+    EXPECT_TRUE(value->GetBinary().empty());
+  }
 
   {
-    std::string error_message;
-    EXPECT_FALSE(ConvertEmscriptenValToValue(val, &error_message));
-    EXPECT_EQ(error_message, "Conversion error: unsupported type \"DataView\"");
+    const std::vector<uint8_t> kBytes = {1, 2, 3};
+    const emscripten::val uint8_array_val =
+        emscripten::val::global("Uint8Array")
+            .call<emscripten::val>("from", emscripten::val::array(kBytes));
+    emscripten::val array_buffer_val = uint8_array_val["buffer"];
+    emscripten::val data_view_val =
+        emscripten::val::global("DataView").new_(array_buffer_val);
+
+    const optional<Value> value = ConvertEmscriptenValToValue(data_view_val);
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_binary());
+    EXPECT_EQ(value->GetBinary(), kBytes);
+  }
+
+  {
+    const std::vector<uint8_t> kBytes = {1, 2, 3};
+    const emscripten::val uint8_array_val =
+        emscripten::val::global("Uint8Array")
+            .call<emscripten::val>("from", emscripten::val::array(kBytes));
+    emscripten::val array_buffer_val = uint8_array_val["buffer"];
+    emscripten::val data_view_val =
+        emscripten::val::global("DataView")
+            .new_(array_buffer_val, /*byteLength=*/1, /*byteOffset=*/1);
+
+    const optional<Value> value = ConvertEmscriptenValToValue(data_view_val);
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_binary());
+    EXPECT_EQ(value->GetBinary(), std::vector<uint8_t>({2}));
   }
 }
 
