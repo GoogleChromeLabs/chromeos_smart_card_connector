@@ -120,23 +120,11 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
     const activeConfigurationValue = webusbDevice['configuration'] ?
         webusbDevice['configuration']['configurationValue'] :
         null;
-    const libusbJsConfigurations = [];
-    for (const webusbConfiguration of webusbDevice['configurations']) {
-      const libusbJsConfiguration = getLibusbJsConfigurationDescriptor(
-          webusbConfiguration, activeConfigurationValue);
-      // WebUSB doesn't return extraData in USBConfiguration, so we need to
-      // fetch it.
-      /** @preserveTry */
-      try {
-        await fetchAndFillConfigurationExtraData(
-            webusbDevice, libusbJsConfiguration);
-      } catch (exc) {
-        // Suppress errors of fetching extraData: they should be non-fatal.
-        // Log only at the "fine" level, as this can quickly flood the logs.
-        goog.log.fine(logger, `Failure fetching extra data: ${exc}`);
-      }
-      libusbJsConfigurations.push(libusbJsConfiguration);
-    }
+    const libusbJsConfigurations = webusbDevice['configurations'].map(
+        config => getLibusbJsConfigurationDescriptor(
+            config, activeConfigurationValue));
+    await this.fetchAndFillConfigurationsExtraData_(
+        deviceId, webusbDevice, libusbJsConfigurations);
     return libusbJsConfigurations;
   }
 
@@ -340,6 +328,40 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
     if (webusbDevice['serialNumber'])
       libusbJsDevice['serialNumber'] = webusbDevice['serialNumber'];
     return libusbJsDevice;
+  }
+
+  /**
+   * Fills the extraData fields of the passed configurations, by fetching and
+   * parsing USB descriptors from the device.
+   * @param {number} deviceId
+   * @param {!Object} webusbDevice The WebUSB USBDevice object.
+   * @param {!Array<!LibusbJsConfigurationDescriptor>} libusbJsConfigurations
+   * @return {!Promise<void>}
+   */
+  async fetchAndFillConfigurationsExtraData_(
+      deviceId, webusbDevice, libusbJsConfigurations) {
+    let deviceHandle = null;
+    /** @preserveTry */
+    try {
+      // The device needs to be opened throughout the fetching process, and
+      // there might be concurrent open()/close() requests, so obtain and keep a
+      // device handle in order to easily account for all that.
+      deviceHandle = await this.openDeviceHandle(deviceId);
+      for (const libusbJsConfiguration of libusbJsConfigurations) {
+        await fetchAndFillConfigurationExtraDataForOpenedDevice(
+            webusbDevice, libusbJsConfiguration);
+      }
+    } catch (exc) {
+      // Suppress errors of fetching extraData: they should be non-fatal.
+      // Log only at the "fine" level, as this can quickly flood the logs.
+      goog.log.fine(logger, `Failure fetching extra data: ${exc}`);
+    } finally {
+      // Release the handle, so that the device doesn't stay opened unless
+      // there's another concurrent usage of it. We don't need to wait for this
+      // operation to finish.
+      if (deviceHandle)
+        this.closeDeviceHandle(deviceId, deviceHandle);
+    }
   }
 
   /**
@@ -780,33 +802,12 @@ async function openWebusbDevice(deviceState) {
   if (deviceState.closeOperationPromise)
     await deviceState.closeOperationPromise;
   // Second, execute the WebUSB open() method.
-  await deviceState.webusbDevice['open']();
-  goog.log.fine(logger, 'Successfully opened WebUSB device');
+  await callWebusbDeviceOpen(deviceState.webusbDevice);
 }
 
 /**
- * Fetches class-/vendor-specific configuration/interface/endpoint descriptors
- * using special control transfers. The result is assigned into the
- * corresponding 'extraData' fields inside `libusbJsConfiguration`.
- * @param {!Object} webusbDevice The WebUSB USBDevice value.
- * @param {!LibusbJsConfigurationDescriptor} libusbJsConfiguration
- */
-async function fetchAndFillConfigurationExtraData(
-    webusbDevice, libusbJsConfiguration) {
-  await webusbDevice['open']();
-  /** @preserveTry */
-  try {
-    await fetchAndFillConfigurationExtraDataForOpenedDevice(
-        webusbDevice, libusbJsConfiguration);
-  } finally {
-    // TODO(#429): Don't close if there are opened device handles.
-    await webusbDevice['close']();
-  }
-}
-
-/**
- * Same as `fetchAndFillConfigurationExtraData()`, but assumes the device to be
- * opened.
+ * Fills the extraData fields of the passed configuration, by fetching and
+ * parsing USB descriptors from the device.
  * @param {!Object} webusbDevice The WebUSB USBDevice value.
  * @param {!LibusbJsConfigurationDescriptor} libusbJsConfiguration
  */
