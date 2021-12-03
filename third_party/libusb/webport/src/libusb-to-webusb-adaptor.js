@@ -525,6 +525,8 @@ function dumpWebusbInTransferResultForLog(inTransferResult) {
  * @return {string}
  */
 function dumpWebusbOutTransferResultForLog(outTransferResult) {
+  // Both the "status" enum and the "bytesWritten" number are safe to be logged
+  // regardless of the logging level.
   return `status=${outTransferResult['status']} bytesWritten=${
       outTransferResult['bytesWritten']}`;
 }
