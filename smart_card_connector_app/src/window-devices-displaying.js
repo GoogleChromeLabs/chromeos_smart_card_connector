@@ -40,10 +40,10 @@ goog.require('goog.string');
 goog.scope(function() {
 
 /**
- * USB device filter that is used when displaying the USB selection dialog to
- * the used.
+ * The USB class code used for smart card readers. The value is standardized by
+ * the USB Org.
  */
-const USB_DEVICE_FILTERS = [{'interfaceClass': 0x0B}];
+const SMART_CARD_USB_CLASS_CODE = 0x0B;
 
 /**
  * PC/SC usually appends some numbers to the reader names. This constant
@@ -195,26 +195,88 @@ function updateAddDeviceButtonText(readersCount) {
   GSC.I18n.adjustElementTranslation(addDeviceElement);
 }
 
+/** @return {boolean} */
+function shouldUseChromeUsb() {
+  return chrome !== undefined && chrome.usb !== undefined;
+}
+
+/** @return {boolean} */
+function shouldUseWebusb() {
+  return !shouldUseChromeUsb() && navigator !== undefined &&
+      navigator['usb'] !== undefined;
+}
+
 /**
  * @param {!Event} e
  */
 function addDeviceClickListener(e) {
   e.preventDefault();
 
+  if (shouldUseWebusb() &&
+      GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (!urlParams.has('webusbCanSelect')) {
+      // We're in the extension packaging mode, and we're running inside a
+      // browser action. Due to WebUSB internal limitations, it's not allowed to
+      // call `requestDevice()` from browser actions (as, technically, this
+      // would be a popup within a popup), so we need to open a new tab and let
+      // the user click the button again (unfortunately, it's a requirement,
+      // since `requestDevice()` requires a user gesture).
+      // TODO(#429): Delete this branch after Chrome is changed to allowlist the
+      // Smart Card Connector for accessing all smart card readers.
+      goog.log.fine(
+          logger, 'Opening a tab for hosting the USB devices selection dialog');
+      chrome.windows.create({'url': 'window.html?webusbCanSelect'});
+      return;
+    }
+  }
+
+  openUsbDeviceSelectionDialog();
+}
+
+function openUsbDeviceSelectionDialog() {
   goog.log.fine(logger, 'Running USB devices selection dialog...');
-  chrome.usb.getUserSelectedDevices(
-      {'multiple': true, 'filters': USB_DEVICE_FILTERS},
-      getUserSelectedDevicesCallback);
+  if (shouldUseChromeUsb()) {
+    chrome.usb.getUserSelectedDevices(
+        {
+          'multiple': true,
+          'filters': [{'interfaceClass': SMART_CARD_USB_CLASS_CODE}]
+        },
+        onChromeUsbDeviceSelectionDone);
+  } else if (shouldUseWebusb()) {
+    goog.global['navigator']['usb']['requestDevice'](
+            {'filters': [{'classCode': SMART_CARD_USB_CLASS_CODE}]})
+        .then(onWebusbDeviceSelected, onWebusbDeviceSelectionFailed);
+  } else {
+    goog.log.warning(
+        logger,
+        'Cannot run USB devices selection dialog: USB APIs unavailable');
+  }
 }
 
 /**
  * @param {!Array.<!chrome.usb.Device>} devices
  */
-function getUserSelectedDevicesCallback(devices) {
-  goog.log.fine(
+function onChromeUsbDeviceSelectionDone(devices) {
+  goog.log.info(
       logger,
-      'USB selection dialog finished, ' + devices.length + ' devices ' +
-          'were chosen');
+      `chrome.usb selection dialog finished, ${
+          devices.length} devices were chosen`);
+}
+
+/**
+ * @param {!Object} device The USBDevice object.
+ */
+function onWebusbDeviceSelected(device) {
+  goog.log.info(
+      logger, 'WebUSB selection dialog finished, one device was chosen');
+}
+
+/**
+ * @param {?} exc The error returned by WebUSB.
+ */
+function onWebusbDeviceSelectionFailed(exc) {
+  goog.log.info(logger, `WebUSB selection dialog failed: ${exc}`);
 }
 
 /**
