@@ -115,7 +115,15 @@ MessageChannelPool.prototype.addOnUpdateListener = function(
 MessageChannelPool.prototype.fireOnUpdateListeners_ = function() {
   goog.log.fine(this.logger, 'Firing channel update listeners');
   for (let listener of this.onUpdateListeners_) {
-    listener(this.getMessagingOrigins());
+    try {
+      listener(this.getMessagingOrigins());
+    } catch (exc) {
+      // Rethrow the listener's exception asynchronously, in order to not break
+      // our caller and also to still notify the remaining listeners.
+      setTimeout(() => {
+        throw exc;
+      })
+    }
   }
 };
 
