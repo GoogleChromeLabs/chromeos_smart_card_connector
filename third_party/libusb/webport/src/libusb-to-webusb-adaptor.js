@@ -180,20 +180,23 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
 
   /** @override */
   async claimInterface(deviceId, deviceHandle, interfaceNumber) {
-    // TODO(#429): Implement this method.
-    throw new Error('Not implemented');
+    const deviceState =
+        this.getDeviceByIdAndHandleOrThrow_(deviceId, deviceHandle);
+    await deviceState.webusbDevice['claimInterface'](interfaceNumber);
   }
 
   /** @override */
   async releaseInterface(deviceId, deviceHandle, interfaceNumber) {
-    // TODO(#429): Implement this method.
-    throw new Error('Not implemented');
+    const deviceState =
+        this.getDeviceByIdAndHandleOrThrow_(deviceId, deviceHandle);
+    await deviceState.webusbDevice['releaseInterface'](interfaceNumber);
   }
 
   /** @override */
   async resetDevice(deviceId, deviceHandle) {
-    // TODO(#429): Implement this method.
-    throw new Error('Not implemented');
+    const deviceState =
+        this.getDeviceByIdAndHandleOrThrow_(deviceId, deviceHandle);
+    await deviceState.webusbDevice['reset']();
   }
 
   /** @override */
@@ -236,6 +239,21 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
     const deviceState = this.idToDeviceMap_.get(deviceId);
     if (!deviceState)
       throw new Error(`No device with ID ${deviceId}`);
+    return deviceState;
+  }
+
+  /**
+   * @private
+   * @param {number} deviceId
+   * @param {number} deviceHandle
+   * @return {!DeviceState}
+   */
+  getDeviceByIdAndHandleOrThrow_(deviceId, deviceHandle) {
+    const deviceState = this.idToDeviceMap_.get(deviceId);
+    if (!deviceState)
+      throw new Error(`No device with ID ${deviceId}`);
+    if (!deviceState.handles.has(deviceHandle))
+      throw new Error(`No device handle ${deviceHandle}`);
     return deviceState;
   }
 
