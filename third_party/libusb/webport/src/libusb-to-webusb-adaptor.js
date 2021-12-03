@@ -19,6 +19,7 @@
 
 goog.provide('GoogleSmartCard.LibusbToWebusbAdaptor');
 
+goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('goog.asserts');
 goog.require('goog.log');
@@ -43,8 +44,15 @@ const LibusbJsTransferRecipient =
 const LibusbJsTransferRequestType =
     GSC.LibusbProxyDataModel.LibusbJsTransferRequestType;
 const LibusbJsTransferResult = GSC.LibusbProxyDataModel.LibusbJsTransferResult;
+const debugDump = GSC.DebugDump.debugDump;
+const dump = GSC.DebugDump.dump;
 
 const logger = GSC.Logging.getScopedLogger('LibusbToWebusbAdaptor');
+/**
+ * The counter used for numbering transfer requests in logs.
+ * @type {number}
+ */
+let transferLogCounter = 1;
 
 class DeviceState {
   /** @param {!Object} webusbDevice The WebUSB USBDevice object. */
@@ -90,7 +98,7 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
   /** @override */
   async listDevices() {
     const webusbDevices =
-        /** @type {!Array<!Object>} */ (await navigator['usb']['getDevices']());
+        /** @type {!Array<!Object>} */ (await callWebusbGetDevices());
 
     // Keep references to all current USBDevice objects, since other WebUSB
     // functions take USBDevice as parameter. It's not possible to
@@ -177,7 +185,8 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
     // Ask WebUSB to close the device for the last closed handle. Note: the
     // `closeOperationPromise` field is set synchronously, so that subsequent
     // `openDeviceHandle()` calls will wait for it.
-    deviceState.closeOperationPromise = deviceState.webusbDevice['close']();
+    deviceState.closeOperationPromise =
+        callWebusbDeviceClose(deviceState.webusbDevice);
     await deviceState.closeOperationPromise;
     goog.log.fine(logger, 'Successfully closed WebUSB device');
     // On successful completion, clean up the promise. Intentionally leave it
@@ -189,21 +198,23 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
   async claimInterface(deviceId, deviceHandle, interfaceNumber) {
     const deviceState =
         this.getDeviceByIdAndHandleOrThrow_(deviceId, deviceHandle);
-    await deviceState.webusbDevice['claimInterface'](interfaceNumber);
+    await callWebusbDeviceClaimInterface(
+        deviceState.webusbDevice, interfaceNumber);
   }
 
   /** @override */
   async releaseInterface(deviceId, deviceHandle, interfaceNumber) {
     const deviceState =
         this.getDeviceByIdAndHandleOrThrow_(deviceId, deviceHandle);
-    await deviceState.webusbDevice['releaseInterface'](interfaceNumber);
+    await callWebusbDeviceReleaseInterface(
+        deviceState.webusbDevice, interfaceNumber);
   }
 
   /** @override */
   async resetDevice(deviceId, deviceHandle) {
     const deviceState =
         this.getDeviceByIdAndHandleOrThrow_(deviceId, deviceHandle);
-    await deviceState.webusbDevice['reset']();
+    await callWebusbDeviceReset(deviceState.webusbDevice);
   }
 
   /** @override */
@@ -219,11 +230,13 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
     };
     let transferResult;
     if (parameters['dataToSend']) {
-      transferResult = await deviceState.webusbDevice['controlTransferOut'](
-          webusbControlTransferParameters, parameters['dataToSend']);
+      transferResult = await callWebusbDeviceControlTransferOut(
+          deviceState.webusbDevice, webusbControlTransferParameters,
+          parameters['dataToSend']);
     } else {
-      transferResult = await deviceState.webusbDevice['controlTransferIn'](
-          webusbControlTransferParameters, parameters['lengthToReceive']);
+      transferResult = await callWebusbDeviceControlTransferIn(
+          deviceState.webusbDevice, webusbControlTransferParameters,
+          parameters['lengthToReceive']);
     }
     return getLibusbJsTransferResultOrThrow(transferResult);
   }
@@ -346,15 +359,280 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
     const endpointNumber = parameters['endpointAddress'] & 0xF;
     let transferResult;
     if (parameters['dataToSend']) {
-      transferResult = await deviceState.webusbDevice['transferOut'](
-          endpointNumber, parameters['dataToSend']);
+      transferResult = await callWebusbDeviceTransferOut(
+          deviceState.webusbDevice, endpointNumber, parameters['dataToSend']);
     } else {
-      transferResult = await deviceState.webusbDevice['transferIn'](
-          endpointNumber, parameters['lengthToReceive']);
+      transferResult = await callWebusbDeviceTransferIn(
+          deviceState.webusbDevice, endpointNumber,
+          parameters['lengthToReceive']);
     }
     return getLibusbJsTransferResultOrThrow(transferResult);
   }
 };
+
+/**
+ * @return {!Promise<!Array<!Object>>} Array of WebUSB USBDevice objects.
+ */
+async function callWebusbGetDevices() {
+  // Log only at the debug-enabled level normally, since applications call this
+  // function frequently and we don't want to flood logs.
+  goog.log.fine(logger, 'getDevices(): called');
+  try {
+    const devices = await navigator['usb']['getDevices']();
+    goog.log.fine(logger, `getDevices(): returned ${dump(devices)}`);
+    return devices;
+  } catch (exc) {
+    // This is the only WebUSB function whose failure we're logging at warning
+    // level, since all other functions are USBDevice's methods - they fail
+    // legitimately when the device is unplugged.
+    goog.log.warning(logger, `getDevices(): failed: ${exc}`);
+    throw exc;
+  }
+}
+
+/**
+ * @param {!Object} webusbDevice The WebUSB USBDevice object.
+ * @return {string}
+ */
+function dumpWebusbDeviceForLog(webusbDevice) {
+  const vendorString = dump(webusbDevice['vendorId']);
+  const productString = dump(webusbDevice['productId']);
+  return `<vendor=${vendorString} product=${productString}>`;
+}
+
+/**
+ * @param {!Object} webusbDevice The WebUSB USBDevice object.
+ * @return {!Promise<void>}
+ */
+async function callWebusbDeviceOpen(webusbDevice) {
+  const functionLogTitle = `${dumpWebusbDeviceForLog(webusbDevice)}.open`;
+  // Log only at the debug-enabled level normally, since applications call this
+  // function frequently (at least via `getConfigurations()`, which opens the
+  // device for fetching extraData) and we don't want to flood logs.
+  goog.log.fine(logger, `${functionLogTitle}(): called`);
+  try {
+    await webusbDevice['open']();
+    goog.log.fine(logger, `${functionLogTitle}(): succeeded`);
+  } catch (exc) {
+    goog.log.info(logger, `${functionLogTitle}(): failed: ${exc}`);
+    throw exc;
+  }
+}
+
+/**
+ * @param {!Object} webusbDevice The WebUSB USBDevice object.
+ * @return {!Promise<void>}
+ */
+async function callWebusbDeviceClose(webusbDevice) {
+  const functionLogTitle = `${dumpWebusbDeviceForLog(webusbDevice)}.close`;
+  // Log only at the debug-enabled level normally, since applications call this
+  // function frequently (at least via `getConfigurations()`, which opens the
+  // device for fetching extraData and then closes it) and we don't want to
+  // flood logs.
+  goog.log.fine(logger, `${functionLogTitle}(): called`);
+  try {
+    await webusbDevice['close']();
+    goog.log.fine(logger, `${functionLogTitle}(): succeeded`);
+  } catch (exc) {
+    goog.log.info(logger, `${functionLogTitle}(): failed: ${exc}`);
+    throw exc;
+  }
+}
+
+/**
+ * @param {!Object} webusbDevice The WebUSB USBDevice object.
+ * @param {number} interfaceNumber
+ * @return {!Promise<void>}
+ */
+async function callWebusbDeviceClaimInterface(webusbDevice, interfaceNumber) {
+  const functionLogTitle =
+      `${dumpWebusbDeviceForLog(webusbDevice)}.claimInterface`;
+  goog.log.info(
+      logger, `${functionLogTitle}(${dump(interfaceNumber)}): called`);
+  try {
+    await webusbDevice['claimInterface'](interfaceNumber);
+    goog.log.info(logger, `${functionLogTitle}(): succeeded`);
+  } catch (exc) {
+    goog.log.info(logger, `${functionLogTitle}(): failed: ${exc}`);
+    throw exc;
+  }
+}
+
+/**
+ * @param {!Object} webusbDevice The WebUSB USBDevice object.
+ * @param {number} interfaceNumber
+ * @return {!Promise<void>}
+ */
+async function callWebusbDeviceReleaseInterface(webusbDevice, interfaceNumber) {
+  const functionLogTitle =
+      `${dumpWebusbDeviceForLog(webusbDevice)}.releaseInterface`;
+  goog.log.info(
+      logger, `${functionLogTitle}(${dump(interfaceNumber)}): called`);
+  try {
+    await webusbDevice['releaseInterface'](interfaceNumber);
+    goog.log.info(logger, `${functionLogTitle}(): succeeded`);
+  } catch (exc) {
+    goog.log.info(logger, `${functionLogTitle}(): failed: ${exc}`);
+    throw exc;
+  }
+}
+
+/**
+ * @param {!Object} webusbDevice The WebUSB USBDevice object.
+ * @return {!Promise<void>}
+ */
+async function callWebusbDeviceReset(webusbDevice) {
+  const functionLogTitle = `${dumpWebusbDeviceForLog(webusbDevice)}.reset`;
+  goog.log.info(logger, `${functionLogTitle}(): called`);
+  try {
+    await webusbDevice['reset']();
+    goog.log.info(logger, `${functionLogTitle}(): succeeded`);
+  } catch (exc) {
+    goog.log.info(logger, `${functionLogTitle}(): failed: ${exc}`);
+    throw exc;
+  }
+}
+
+/**
+ * @param {!Object} inTransferResult The WebUSB USBInTransferResult value.
+ * @return {string}
+ */
+function dumpWebusbInTransferResultForLog(inTransferResult) {
+  // The data is passed through `debugDump()`, since we shouldn't log
+  // (potentially) security/privacy sensitive data in Release mode.
+  return `status=${inTransferResult['status']} data=${
+      debugDump(inTransferResult['data'])}`;
+}
+
+/**
+ * @param {!Object} outTransferResult The WebUSB USBOutTransferResult value.
+ * @return {string}
+ */
+function dumpWebusbOutTransferResultForLog(outTransferResult) {
+  // Both the "status" enum and the "bytesWritten" number are safe to be logged
+  // regardless of the logging level.
+  return `status=${outTransferResult['status']} bytesWritten=${
+      outTransferResult['bytesWritten']}`;
+}
+
+/**
+ * @param {!Object} webusbDevice The WebUSB USBDevice object.
+ * @param {!Object} setup The WebUSB USBControlTransferParameters value.
+ * @param {number} length
+ * @return {!Promise<!Object>} The WebUSB USBInTransferResult value.
+ */
+async function callWebusbDeviceControlTransferIn(webusbDevice, setup, length) {
+  const transferLogNumber = transferLogCounter;
+  ++transferLogCounter;
+  const functionLogTitle =
+      `${dumpWebusbDeviceForLog(webusbDevice)}.controlTransferIn#${
+          transferLogNumber}`;
+  goog.log.info(
+      logger, `${functionLogTitle}(${dump(setup)}, ${length}): called`);
+  try {
+    const transferResult =
+        await webusbDevice['controlTransferIn'](setup, length);
+    goog.log.info(
+        logger,
+        `${functionLogTitle}(): returned ${
+            dumpWebusbInTransferResultForLog(transferResult)}`);
+    return transferResult;
+  } catch (exc) {
+    goog.log.info(logger, `${functionLogTitle}(): failed: ${exc}`);
+    throw exc;
+  }
+}
+
+/**
+ * @param {!Object} webusbDevice The WebUSB USBDevice object.
+ * @param {!Object} setup The WebUSB USBControlTransferParameters value.
+ * @param {!ArrayBuffer} data
+ * @return {!Promise<!Object>} The WebUSB USBOutTransferResult value.
+ */
+async function callWebusbDeviceControlTransferOut(webusbDevice, setup, data) {
+  const transferLogNumber = transferLogCounter;
+  ++transferLogCounter;
+  const functionLogTitle =
+      `${dumpWebusbDeviceForLog(webusbDevice)}.controlTransferOut#${
+          transferLogNumber}`;
+  // Pass the data through `debugDump()`, so that this potentially
+  // security/privacy sensitive information isn't logged in Release mode.
+  goog.log.info(
+      logger,
+      `${functionLogTitle}(${dump(setup)}, ${debugDump(data)}): called`);
+  try {
+    const transferResult =
+        await webusbDevice['controlTransferOut'](setup, data);
+    goog.log.info(
+        logger,
+        `${functionLogTitle}(): returned ${
+            dumpWebusbOutTransferResultForLog(transferResult)}`);
+    return transferResult;
+  } catch (exc) {
+    goog.log.info(logger, `${functionLogTitle}(): failed: ${exc}`);
+    throw exc;
+  }
+}
+
+/**
+ * @param {!Object} webusbDevice The WebUSB USBDevice object.
+ * @param {number} endpointNumber
+ * @param {number} length
+ * @return {!Promise<!Object>} The WebUSB USBInTransferResult value.
+ */
+async function callWebusbDeviceTransferIn(
+    webusbDevice, endpointNumber, length) {
+  const transferLogNumber = transferLogCounter;
+  ++transferLogCounter;
+  const functionLogTitle =
+      `${dumpWebusbDeviceForLog(webusbDevice)}.transferIn#${transferLogNumber}`;
+  goog.log.info(
+      logger,
+      `${functionLogTitle}(${dump(endpointNumber)}, ${length}): called`);
+  try {
+    const transferResult =
+        await webusbDevice['transferIn'](endpointNumber, length);
+    goog.log.info(
+        logger,
+        `${functionLogTitle}(): returned ${
+            dumpWebusbInTransferResultForLog(transferResult)}`);
+    return transferResult;
+  } catch (exc) {
+    goog.log.info(logger, `${functionLogTitle}(): failed: ${exc}`);
+    throw exc;
+  }
+}
+
+/**
+ * @param {!Object} webusbDevice The WebUSB USBDevice object.
+ * @param {number} endpointNumber
+ * @param {!ArrayBuffer} data
+ * @return {!Promise<!Object>} The WebUSB USBOutTransferResult value.
+ */
+async function callWebusbDeviceTransferOut(webusbDevice, endpointNumber, data) {
+  const transferLogNumber = transferLogCounter;
+  ++transferLogCounter;
+  const functionLogTitle = `${
+      dumpWebusbDeviceForLog(webusbDevice)}.transferOut#${transferLogNumber}`;
+  // Pass the data through `debugDump()`, so that this potentially
+  // security/privacy sensitive information isn't logged in Release mode.
+  goog.log.info(
+      logger,
+      `${functionLogTitle}(${dump(endpointNumber)}, ${
+          debugDump(data)}): called`);
+  try {
+    const transferResult =
+        await webusbDevice['transferOut'](endpointNumber, data);
+    goog.log.info(
+        logger,
+        `${functionLogTitle}(): returned ${
+            dumpWebusbOutTransferResultForLog(transferResult)}`);
+    return transferResult;
+  } catch (exc) {
+    goog.log.info(logger, `${functionLogTitle}(): failed: ${exc}`);
+    throw exc;
+  }
+}
 
 /**
  * @param {!Object} webusbConfiguration The WebUSB USBConfiguration value.
