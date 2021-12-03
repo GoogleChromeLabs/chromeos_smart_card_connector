@@ -137,4 +137,17 @@ goog.exportSymbol('testDebugDumpWithDuplicateRefs', function() {
   const diamond = {'x': {'a': array}, 'y': {'b': array}};
   assertEquals('{"x": {"a": []}, "y": {"b": []}}', dump(diamond));
 });
+
+// Test that calling `dump()` with the `chrome` object (the object that holds
+// all Apps/Extensions APIs) returns a short string instead of recursively
+// dumping all its properties.
+// Skip this test when not running inside Chrome (otherwise we'd need to mock
+// global objects, which isn't reliable due to Closure Compiler optimizations).
+if (goog.global['chrome']) {
+  goog.exportSymbol('testDebugDumpChrome', function() {
+    const chrome = goog.global['chrome'];
+    assertEquals('<chrome>', dump(chrome));
+    assertEquals('[0x01, <chrome>]', dump([1, chrome]));
+  });
+}
 });  // goog.scope
