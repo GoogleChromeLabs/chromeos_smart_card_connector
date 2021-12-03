@@ -186,7 +186,15 @@ ReaderTracker.prototype.fireOnUpdateListeners_ = function() {
       'Firing readers updated listeners with data ' +
           GSC.DebugDump.dump(readers));
   for (let listener of this.updateListeners_) {
-    listener(readers);
+    try {
+      listener(readers);
+    } catch (exc) {
+      // Rethrow the listener's exception asynchronously, in order to not break
+      // our caller and also to still notify the remaining listeners.
+      setTimeout(() => {
+        throw exc;
+      })
+    }
   }
 };
 
