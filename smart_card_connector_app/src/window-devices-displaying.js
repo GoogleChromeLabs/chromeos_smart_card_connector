@@ -242,7 +242,7 @@ function openUsbDeviceSelectionDialog() {
           'multiple': true,
           'filters': [{'interfaceClass': SMART_CARD_USB_CLASS_CODE}]
         },
-        onChromeDeviceSelectionDone);
+        onChromeUsbDeviceSelectionDone);
   } else if (shouldUseWebusb()) {
     goog.global['navigator']['usb']['requestDevice'](
             {'filters': [{'classCode': SMART_CARD_USB_CLASS_CODE}]})
@@ -257,7 +257,7 @@ function openUsbDeviceSelectionDialog() {
 /**
  * @param {!Array.<!chrome.usb.Device>} devices
  */
-function onChromeDeviceSelectionDone(devices) {
+function onChromeUsbDeviceSelectionDone(devices) {
   goog.log.info(
       logger,
       `chrome.usb selection dialog finished, ${
