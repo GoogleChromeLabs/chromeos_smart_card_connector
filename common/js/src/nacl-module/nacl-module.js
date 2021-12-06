@@ -254,6 +254,8 @@ NaclModule.prototype.forceElementLoading_ = function() {
   // Request the offsetTop property to force a relayout. As of June 29, 2014,
   // this is needed if the module is being loaded in a background page (see
   // crbug.com/350445).
-  this.element_.offsetTop = this.element_.offsetTop;
+  // Assign the result to a random property, so that Closure Compiler doesn't
+  // optimize the "useless" expression away.
+  this.element_.style.top = this.element_.offsetTop;
 };
 });  // goog.scope
