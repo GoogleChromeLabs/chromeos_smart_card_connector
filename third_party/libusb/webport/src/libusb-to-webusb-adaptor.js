@@ -331,7 +331,7 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
   }
 
   /**
-   * Fills the extraData fields of the passed configurations, by fetching and
+   * Fills the extraData fields of all passed configurations by fetching and
    * parsing USB descriptors from the device.
    * @param {number} deviceId
    * @param {!Object} webusbDevice The WebUSB USBDevice object.
@@ -806,7 +806,7 @@ async function openWebusbDevice(deviceState) {
 }
 
 /**
- * Fills the extraData fields of the passed configuration, by fetching and
+ * Fills the extraData fields of the passed configuration by fetching and
  * parsing USB descriptors from the device.
  * @param {!Object} webusbDevice The WebUSB USBDevice value.
  * @param {!LibusbJsConfigurationDescriptor} libusbJsConfiguration
