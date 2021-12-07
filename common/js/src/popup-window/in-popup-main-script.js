@@ -43,6 +43,8 @@ const GSC = GoogleSmartCard;
 /** @type {!goog.log.Logger} */
 const logger = GSC.Logging.getScopedLogger('PopupWindow.InPopupMainScript');
 
+const titleBarHeight = 35;
+
 /**
  * Returns the additional data that was specified during the popup creation.
  * @return {!Object}
@@ -155,7 +157,7 @@ GSC.InPopupMainScript.setWindowHeightToFitContent = function() {
     chrome.app.window.current().innerBounds.height = wholeContentHeight;
   } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
     chrome.windows.update(
-        chrome.windows.WINDOW_ID_CURRENT, {'height': wholeContentHeight});
+        chrome.windows.WINDOW_ID_CURRENT, {'height': wholeContentHeight + titleBarHeight});
   }
 };
 

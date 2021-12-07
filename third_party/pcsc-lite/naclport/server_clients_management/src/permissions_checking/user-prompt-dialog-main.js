@@ -105,17 +105,10 @@ function denyClickListener(event) {
   GSC.InPopupMainScript.resolveModalDialog(false);
 }
 
-function closeWindowClickListener() {
-  window.close();
-}
-
 prepareMessage();
 
 goog.events.listen(goog.dom.getElement('allow'), 'click', allowClickListener);
 goog.events.listen(goog.dom.getElement('deny'), 'click', denyClickListener);
-
-goog.events.listen(
-    goog.dom.getElement('close-window'), 'click', closeWindowClickListener);
 
 GSC.InPopupMainScript.prepareAndShowAsModalDialog();
 });  // goog.scope

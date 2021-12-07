@@ -62,6 +62,8 @@ const DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS = {
   'visibleOnAllWorkspaces': true
 };
 
+const dialogWindowWidth = 500;
+
 /**
  * @type {!goog.log.Logger}
  */
@@ -98,9 +100,7 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
             'frame': windowOptions['frame'],
             'hidden': windowOptions['hidden'],
             'id': windowOptions['id'],
-            'innerBounds': {
-              'width': windowOptions['width'],
-            },
+            'width': windowOptions['width'],
             'resizable': windowOptions['resizeable'],
             'visibleOnAllWorkspaces': windowOptions['visibleOnAllWorkspaces']
           },
@@ -137,6 +137,10 @@ GSC.PopupOpener.runModalDialog = function(
     url, opt_createWindowOptionsOverrides, opt_data) {
   const createWindowOptions =
       goog.object.clone(DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS);
+
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION)
+    createWindowOptions['width'] = dialogWindowWidth;
+
   if (opt_createWindowOptionsOverrides) {
     GSC.Logging.checkWithLogger(
         logger,
