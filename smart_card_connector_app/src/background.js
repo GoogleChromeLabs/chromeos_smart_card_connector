@@ -17,6 +17,7 @@
 
 goog.provide('GoogleSmartCard.ConnectorApp.BackgroundMain');
 
+goog.require('GoogleSmartCard.BackgroundPageUnloadPreventing');
 goog.require('GoogleSmartCard.ConnectorApp.Background.MainWindowManaging');
 goog.require('GoogleSmartCard.EmscriptenModule');
 goog.require('GoogleSmartCard.ExecutableModule');
@@ -138,6 +139,15 @@ if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP)
 chrome.runtime.onConnect.addListener(connectionListener);
 chrome.runtime.onConnectExternal.addListener(externalConnectionListener);
 chrome.runtime.onMessageExternal.addListener(externalMessageListener);
+
+if (GSC.ExecutableModule.TOOLCHAIN ===
+    GSC.ExecutableModule.Toolchain.EMSCRIPTEN) {
+  // Open a message channel to an invisible iframe, in order to keep our
+  // background page always alive, and hence be responsive to incoming smart
+  // card requests. The user who doesn't like extra resource usage can uninstall
+  // our application if they don't actually use smart cards.
+  GSC.BackgroundPageUnloadPreventing.enable();
+}
 
 /**
  * Called when the executable module is disposed of.
