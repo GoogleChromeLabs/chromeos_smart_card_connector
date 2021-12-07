@@ -92,8 +92,6 @@ endif
 # Add common Closure Compiler flags.
 #
 # Explanation:
-# browser_featureset_year: Specify the year that's appropriate for the oldest
-#   Chrome release still supported by us, which is 2012.
 # dependency_mode=PRUNE: Skip unused JS code.
 # jscomp_error *: Enable all warning classes and treat them as errors by
 #   default. Note: To be on the safe side, we're specifying all possible warning
@@ -116,10 +114,7 @@ endif
 #   inheritance and promote this to jscomp_error.
 # jscomp_off unknownDefines: Suppressed in order to avoid compiler complaints
 #   when an unused constant is passed via --define.
-# language_out: Specify the JS language revision that corresponds to the oldest
-#   Chrome release still supported by us: ECMASCRIPT5 (released in year 2009).
 JS_BUILD_COMPILATION_FLAGS += \
-	--browser_featureset_year=2012 \
 	--define='GoogleSmartCard.ExecutableModule.TOOLCHAIN=$(TOOLCHAIN)' \
 	--define='GoogleSmartCard.Logging.USE_SCOPED_LOGGERS=false' \
 	--define='GoogleSmartCard.Packaging.MODE=$(PACKAGING)' \
@@ -131,9 +126,47 @@ JS_BUILD_COMPILATION_FLAGS += \
 	--jscomp_off reportUnknownTypes \
 	--jscomp_off strictMissingProperties \
 	--jscomp_off unknownDefines \
-	--language_out=ECMASCRIPT5 \
 	--use_types_for_optimization=false \
 	--warning_level=VERBOSE \
+
+ifeq ($(PACKAGING),app)
+
+# Add Closure Compiler flags specific to App builds.
+#
+# Note that PACKAGING=app TOOLCHAIN=pnacl builds keep backwards compatibility
+# with all versions of Chrome since the start of this project, which is 2015.
+# For simplicity of the conditions here, we're only checking PACKAGING=app here,
+# since practically we don't want to deploy this packaging mode with other
+# toolchains.
+#
+# browser_featureset_year: Specify the year that's appropriate for the oldest
+#   Chrome release still supported by the NaCl builds, which is 2012.
+# language_out: Specify the JS language revision that corresponds to the oldest
+#   Chrome release still supported by the NaCl builds: ECMASCRIPT5 (released in
+#   year 2009).
+JS_BUILD_COMPILATION_FLAGS += \
+	--browser_featureset_year=2012 \
+	--language_out=ECMASCRIPT5 \
+
+else ifeq ($(PACKAGING),extension)
+
+# Add Closure Compiler flags specific to Extension builds.
+#
+# Note that we're only guaranteeing backwards compatibility with Chrome >=96,
+# since it's the first version that made the PACKAGING=extension version of the
+# Smart Card Connector workable:
+# <https://bugs.chromium.org/p/chromium/issues/detail?id=1233881>.
+#
+# browser_featureset_year: Specify the year that's appropriate for the oldest
+#   Chrome release still supported by Emscripten builds, which is 2020.
+# language_out: Specify the JS language revision that corresponds to the oldest
+#   Chrome release still supported by Emscripten builds: ECMASCRIPT_2020.
+JS_BUILD_COMPILATION_FLAGS += \
+	--browser_featureset_year=2020 \
+	--language_out=ECMASCRIPT_2020 \
+
+
+endif
 
 
 # Closure Compiler compilation flags that should be additionally specified when
