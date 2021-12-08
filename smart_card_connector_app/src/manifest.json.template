@@ -29,10 +29,10 @@ ${if PACKAGING=extension}
 ${endif}
 ${if PACKAGING=app}
   "minimum_chrome_version": "48",
-{endif}
+${endif}
 ${if PACKAGING=extension}
   "minimum_chrome_version": "96",
-{endif}
+${endif}
   "default_locale": "en",
   "icons": {
     "128": "icon.png"
