@@ -114,9 +114,6 @@ function removeCloseButton() {
   closeButton.remove();
 }
 
-if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION)
-  removeCloseButton();
-
 prepareMessage();
 
 goog.events.listen(goog.dom.getElement('allow'), 'click', allowClickListener);
@@ -124,6 +121,9 @@ goog.events.listen(goog.dom.getElement('deny'), 'click', denyClickListener);
 
 goog.events.listen(
     goog.dom.getElement('close-window'), 'click', closeWindowClickListener);
+
+if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION)
+  removeCloseButton();
 
 GSC.InPopupMainScript.prepareAndShowAsModalDialog();
 });  // goog.scope
