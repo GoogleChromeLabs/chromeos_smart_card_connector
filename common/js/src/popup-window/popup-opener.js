@@ -100,7 +100,7 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
             'frame': windowOptions['frame'],
             'hidden': windowOptions['hidden'],
             'id': windowOptions['id'],
-            'width': windowOptions['width'],
+            'innerBounds': {'width': windowOptions['width']},
             'resizable': windowOptions['resizeable'],
             'visibleOnAllWorkspaces': windowOptions['visibleOnAllWorkspaces']
           },

@@ -43,7 +43,7 @@ const GSC = GoogleSmartCard;
 /** @type {!goog.log.Logger} */
 const logger = GSC.Logging.getScopedLogger('PopupWindow.InPopupMainScript');
 
-const titleBarHeight = 35;
+const TITLE_BAR_HEIGHT = 35;
 
 /**
  * Returns the additional data that was specified during the popup creation.
@@ -147,6 +147,7 @@ GSC.InPopupMainScript.prepareAndShowAsModalDialog = function() {
  */
 GSC.InPopupMainScript.setWindowHeightToFitContent = function() {
   const wholeContentHeight = document.documentElement['offsetHeight'];
+  console.log('ayag ' + wholeContentHeight);
   GSC.Logging.checkWithLogger(
       logger,
       wholeContentHeight !== undefined &&
@@ -156,8 +157,12 @@ GSC.InPopupMainScript.setWindowHeightToFitContent = function() {
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
     chrome.app.window.current().innerBounds.height = wholeContentHeight;
   } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    // Adding TITLE_BAR_HEIGHT as it's not included in the calculation of the
+    // offsetHeight..this is not needed in APP mode as it doesn't have a
+    // titlebar
     chrome.windows.update(
-        chrome.windows.WINDOW_ID_CURRENT, {'height': wholeContentHeight + titleBarHeight});
+        chrome.windows.WINDOW_ID_CURRENT,
+        {'height': wholeContentHeight + TITLE_BAR_HEIGHT});
   }
 };
 
