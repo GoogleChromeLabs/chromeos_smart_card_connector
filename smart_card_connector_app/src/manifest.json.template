@@ -27,7 +27,12 @@ ${if PACKAGING=extension}
   },
   "content_security_policy": "script-src 'self' 'wasm-eval'; object-src 'self'",
 ${endif}
+${if PACKAGING=app}
   "minimum_chrome_version": "48",
+${endif}
+${if PACKAGING=extension}
+  "minimum_chrome_version": "96",
+${endif}
   "default_locale": "en",
   "icons": {
     "128": "icon.png"
