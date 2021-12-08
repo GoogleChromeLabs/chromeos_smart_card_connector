@@ -147,7 +147,6 @@ GSC.InPopupMainScript.prepareAndShowAsModalDialog = function() {
  */
 GSC.InPopupMainScript.setWindowHeightToFitContent = function() {
   const wholeContentHeight = document.documentElement['offsetHeight'];
-  console.log('ayag ' + wholeContentHeight);
   GSC.Logging.checkWithLogger(
       logger,
       wholeContentHeight !== undefined &&
