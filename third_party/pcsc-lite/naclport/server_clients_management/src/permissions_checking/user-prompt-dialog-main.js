@@ -109,6 +109,14 @@ function closeWindowClickListener() {
   window.close();
 }
 
+function removeCloseButton() {
+  var closeButton = document.getElementById('close-window');
+  closeButton.remove();
+}
+
+if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION)
+  removeCloseButton();
+
 prepareMessage();
 
 goog.events.listen(goog.dom.getElement('allow'), 'click', allowClickListener);
