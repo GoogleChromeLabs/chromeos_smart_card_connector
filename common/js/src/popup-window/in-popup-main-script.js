@@ -157,7 +157,7 @@ GSC.InPopupMainScript.setWindowHeightToFitContent = function() {
     chrome.app.window.current().innerBounds.height = wholeContentHeight;
   } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
     // Adding TITLE_BAR_HEIGHT as it's not included in the calculation of the
-    // offsetHeight..this is not needed in APP mode as it doesn't have a
+    // offsetHeight. This is not needed in APP mode as it doesn't have a
     // titlebar
     chrome.windows.update(
         chrome.windows.WINDOW_ID_CURRENT,
