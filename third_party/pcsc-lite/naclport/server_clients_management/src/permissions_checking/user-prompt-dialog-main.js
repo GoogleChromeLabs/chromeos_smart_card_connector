@@ -110,7 +110,7 @@ function closeWindowClickListener() {
 }
 
 function removeCloseButton() {
-  var closeButton = document.getElementById('close-window');
+  const closeButton = document.getElementById('close-window');
   closeButton.remove();
 }
 
