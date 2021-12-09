@@ -98,9 +98,7 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
             'frame': windowOptions['frame'],
             'hidden': windowOptions['hidden'],
             'id': windowOptions['id'],
-            'innerBounds': {
-              'width': windowOptions['width'],
-            },
+            'innerBounds': {'width': windowOptions['width']},
             'resizable': windowOptions['resizeable'],
             'visibleOnAllWorkspaces': windowOptions['visibleOnAllWorkspaces']
           },
@@ -137,6 +135,7 @@ GSC.PopupOpener.runModalDialog = function(
     url, opt_createWindowOptionsOverrides, opt_data) {
   const createWindowOptions =
       goog.object.clone(DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS);
+
   if (opt_createWindowOptionsOverrides) {
     GSC.Logging.checkWithLogger(
         logger,
