@@ -29,18 +29,26 @@ const GSC = GoogleSmartCard;
 /** @type {!goog.log.Logger} */
 const logger = GSC.Logging.getScopedLogger('BackgroundPageUnloadPreventing');
 
+/**
+ * @const
+ * The name to be used for the messaging port between the iframe and the
+ * background page.
+ */
+GSC.BackgroundPageUnloadPreventing.MESSAGING_PORT_NAME =
+    'background-page-unload-preventing';
+
 /** @type {boolean} */
 let enabled = false;
 
 /**
  * Enables preventing of the background page from being unloaded.
  *
- * By default, App's background page gets automatically unloaded by Chrome after
- * some period of inactivity (see
+ * By default, extension's background page gets automatically unloaded by Chrome
+ * after some period of inactivity (see
  * <https://developer.chrome.com/apps/event_pages>).
  *
  * This function allows to suppress this behavior by creating an iframe with the
- * script that opens a Port connecting to the same App (the other end
+ * script that opens a Port connecting to the same extension (the other end
  * is handled here, in the background page). Keeping the Port opened prevents
  * the background page from being unloaded.
  */
@@ -71,24 +79,28 @@ function createIFrameElement() {
  * @param {!Port} port
  */
 function connectListener(port) {
-  if (port.name == 'background-page-unload-preventing') {
-    goog.log.fine(logger, 'Success: received a port opened by the iframe');
-
-    port.onDisconnect.addListener(function() {
-      GSC.Logging.failWithLogger(
-          logger, 'The message port to the iframe was disconnected');
-    });
-
-    port.onMessage.addListener(function() {
-      GSC.Logging.failWithLogger(
-          logger,
-          'Unexpectedly received a message from the message port from the ' +
-              'iframe');
-    });
+  if (port.name !== GSC.BackgroundPageUnloadPreventing.MESSAGING_PORT_NAME) {
+    // Ignore all ports except the one we're waiting for.
+    return;
   }
+
+  goog.log.fine(logger, 'Success: received a port opened by the iframe');
+
+  port.onDisconnect.addListener(function() {
+    GSC.Logging.failWithLogger(
+        logger, 'The message port to the iframe was disconnected');
+  });
+
+  port.onMessage.addListener(function() {
+    GSC.Logging.failWithLogger(
+        logger,
+        'Unexpectedly received a message from the message port from the ' +
+            'iframe');
+  });
 }
 
 function suspendListener() {
-  GSC.Logging.failWithLogger(logger, 'Suspend event was received');
+  goog.log.warning(
+      logger, 'Suspend event was received despite active prevention');
 }
 });  // goog.scope
