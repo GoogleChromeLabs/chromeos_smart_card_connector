@@ -67,27 +67,25 @@ goog.exportSymbol('test_MessageChannelPair_sendViaSecond', function() {
 
 // That that the disposal of the channel pair causes disposing of both items of
 // the pair.
-goog.exportSymbol(
-    'test_MessageChannelPair_dispose', function() {
-      const messageChannelPair = new GSC.MessageChannelPair();
-      const first = messageChannelPair.getFirst();
-      const second = messageChannelPair.getSecond();
-      messageChannelPair.dispose();
-      assertTrue(first.isDisposed());
-      assertTrue(second.isDisposed());
-    });
+goog.exportSymbol('test_MessageChannelPair_dispose', function() {
+  const messageChannelPair = new GSC.MessageChannelPair();
+  const first = messageChannelPair.getFirst();
+  const second = messageChannelPair.getSecond();
+  messageChannelPair.dispose();
+  assertTrue(first.isDisposed());
+  assertTrue(second.isDisposed());
+});
 
 // That that the disposal of one item of the channel pair causes disposing of
 // the channel pair itself and the other item too.
-goog.exportSymbol(
-    'test_MessageChannelPair_disposeItem', function() {
-      const messageChannelPair = new GSC.MessageChannelPair();
-      const first = messageChannelPair.getFirst();
-      const second = messageChannelPair.getSecond();
-      first.dispose();
-      assertTrue(messageChannelPair.isDisposed());
-      assertTrue(second.isDisposed());
-    });
+goog.exportSymbol('test_MessageChannelPair_disposeItem', function() {
+  const messageChannelPair = new GSC.MessageChannelPair();
+  const first = messageChannelPair.getFirst();
+  const second = messageChannelPair.getSecond();
+  first.dispose();
+  assertTrue(messageChannelPair.isDisposed());
+  assertTrue(second.isDisposed());
+});
 
 // Test that the message to be sent is discarded if the channel pair is disposed
 // of before the sending task starts.
