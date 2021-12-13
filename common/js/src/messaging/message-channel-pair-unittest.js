@@ -95,7 +95,7 @@ goog.exportSymbol('test_MessageChannelPair_sendViaSecond', async function() {
   assertEquals(await promiseForReceivedMessage, 'data');
 });
 
-// That that the disposal of the channel pair causes disposing of both items of
+// Test that the disposal of the channel pair causes disposing of both items of
 // the pair.
 goog.exportSymbol('test_MessageChannelPair_dispose', function() {
   const messageChannelPair = new GSC.MessageChannelPair();
@@ -106,7 +106,7 @@ goog.exportSymbol('test_MessageChannelPair_dispose', function() {
   assertTrue(second.isDisposed());
 });
 
-// That that the disposal of one item of the channel pair causes disposing of
+// Test that the disposal of one item of the channel pair causes disposing of
 // the channel pair itself and the other item too.
 goog.exportSymbol('test_MessageChannelPair_disposeItem', function() {
   const messageChannelPair = new GSC.MessageChannelPair();
