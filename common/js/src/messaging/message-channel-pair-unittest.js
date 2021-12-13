@@ -17,52 +17,81 @@
 
 goog.require('GoogleSmartCard.MessageChannelPair');
 
+goog.require('goog.messaging.AbstractChannel');
+
 goog.setTestOnly();
 
 goog.scope(function() {
 
 const GSC = GoogleSmartCard;
 
+/**
+ * Wraps the given message channel into a promise, for simplifying writing unit
+ * tests.
+ * @param {!goog.messaging.AbstractChannel} messageChannel
+ * @return {!Promise<!Object|string>} serviceName
+ */
+function getPromiseForReceivedMessage(messageChannel, serviceName) {
+  return new Promise((resolve, reject) => {
+    messageChannel.registerService(serviceName, (receivedMessagePayload) => {
+      resolve(receivedMessagePayload);
+    });
+  });
+}
+
+/**
+ * Adds a listener that aborts the test when an unexpected message is received
+ * (i.e., technically, when the message channel's default service is triggered).
+ * @param {!goog.messaging.AbstractChannel} messageChannel
+ */
+function failWhenReceivedUnexpectedMessage(messageChannel) {
+  messageChannel.registerDefaultService((payload) => {
+    fail(`Unexpected message received: ${payload}`);
+  });
+}
+
+/**
+ * @param {number} delayMilliseconds
+ */
+async function sleep(delayMilliseconds) {
+  return new Promise((resolve, reject) => {
+    setTimeout(resolve, delayMilliseconds);
+  });
+}
+
 // Send a message via the first item of the pair and check that it's received at
 // the second item of the pair.
-goog.exportSymbol('test_MessageChannelPair_sendViaFirst', function() {
-  return new Promise((resolve, reject) => {
-    const messageChannelPair = new GSC.MessageChannelPair();
+goog.exportSymbol('test_MessageChannelPair_sendViaFirst', async function() {
+  const messageChannelPair = new GSC.MessageChannelPair();
 
-    // Set up the expectation - once the right message is received on the
-    // second item, make the test complete by resolving the promise.
-    messageChannelPair.getSecond().registerService(
-        /*serviceName=*/ 'some-service', (payload) => {
-          assertEquals(payload, 'data');
-          resolve();
-        });
-    // Any unexpected messages on the second item should abort the test.
-    messageChannelPair.getSecond().registerDefaultService((payload) => {
-      reject();
-    })
+  // Prepare: add listeners.
+  const promiseForReceivedMessage = getPromiseForReceivedMessage(
+      messageChannelPair.getSecond(), /*serviceName=*/ 'some-service');
+  failWhenReceivedUnexpectedMessage(messageChannelPair.getSecond());
 
-    messageChannelPair.getFirst().send(
-        /*serviceName=*/ 'some-service', /*payload=*/ 'data');
-  });
+  // Act: send the message.
+  messageChannelPair.getFirst().send(
+      /*serviceName=*/ 'some-service', /*payload=*/ 'data');
+
+  // Assert: wait for delivery and check the result.
+  assertEquals(await promiseForReceivedMessage, 'data');
 });
 
 // Inversion of the test above.
-goog.exportSymbol('test_MessageChannelPair_sendViaSecond', function() {
-  return new Promise((resolve, reject) => {
-    const messageChannelPair = new GSC.MessageChannelPair();
+goog.exportSymbol('test_MessageChannelPair_sendViaSecond', async function() {
+  const messageChannelPair = new GSC.MessageChannelPair();
 
-    messageChannelPair.getFirst().registerService(
-        /*serviceName=*/ 'some-service', (payload) => {
-          assertEquals(payload, 'data');
-          resolve();
-        });
-    messageChannelPair.getFirst().registerDefaultService((payload) => {
-      reject();
-    })
+  // Prepare: add listeners.
+  const promiseForReceivedMessage = getPromiseForReceivedMessage(
+      messageChannelPair.getFirst(), /*serviceName=*/ 'some-service');
+  failWhenReceivedUnexpectedMessage(messageChannelPair.getFirst());
 
-    messageChannelPair.getSecond().send(
-        /*serviceName=*/ 'some-service', /*payload=*/ 'data');
-  });
+  // Act: send the message.
+  messageChannelPair.getSecond().send(
+      /*serviceName=*/ 'some-service', /*payload=*/ 'data');
+
+  // Assert: wait for delivery and check the result.
+  assertEquals(await promiseForReceivedMessage, 'data');
 });
 
 // That that the disposal of the channel pair causes disposing of both items of
@@ -90,27 +119,23 @@ goog.exportSymbol('test_MessageChannelPair_disposeItem', function() {
 // Test that the message to be sent is discarded if the channel pair is disposed
 // of before the sending task starts.
 goog.exportSymbol(
-    'test_MessageChannelPair_disposePairQuicklyAfterSend', function() {
-      return new Promise((resolve, reject) => {
-        const messageChannelPair = new GSC.MessageChannelPair();
+    'test_MessageChannelPair_disposePairQuicklyAfterSend', async function() {
+      const messageChannelPair = new GSC.MessageChannelPair();
 
-        // Abort the test if the message got delivered despite the disposal.
-        messageChannelPair.getSecond().registerDefaultService((payload) => {
-          reject();
-        })
+      // Prepare: add listeners.
+      failWhenReceivedUnexpectedMessage(messageChannelPair.getSecond());
 
-        // Send a message and dispose the channel pair immediately after that.
-        // The message delivery should be canceled, because the channel pair's
-        // API guarantees it to happen asynchronously.
-        messageChannelPair.getFirst().send(
-            /*serviceName=*/ 'some-service', /*payload=*/ 'data');
-        messageChannelPair.dispose();
+      // Act: Send a message and dispose the channel pair immediately after
+      // that. The message delivery should be canceled, because the channel
+      // pair's API guarantees it to happen asynchronously.
+      messageChannelPair.getFirst().send(
+          /*serviceName=*/ 'some-service', /*payload=*/ 'data');
+      messageChannelPair.dispose();
 
-        // Wait for some time before resolving the test, to let the bug, if it's
-        // present, manifest itself. There's no reliable way to wait for this,
-        // since normally the message sent after disposal should be silently
-        // discarded.
-        setTimeout(resolve, 1000);
-      });
+      // Assert: Wait for some time before resolving the test, to let the bug,
+      // if it's present, manifest itself. There's no reliable way to wait for
+      // this, since normally the message sent after disposal should be
+      // silently discarded.
+      await sleep(/*delayMilliseconds=*/ 1000);
     });
 });  // goog.scope
