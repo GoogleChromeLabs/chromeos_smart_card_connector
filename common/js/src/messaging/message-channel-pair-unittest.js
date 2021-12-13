@@ -135,8 +135,8 @@ goog.exportSymbol(
 
       // Assert: Wait for some time before resolving the test, to let the bug,
       // if it's present, manifest itself. There's no reliable way to wait for
-      // this, since normally the message sent after disposal should be
-      // silently discarded.
+      // this, since normally the message sent after disposal should be silently
+      // discarded.
       await sleep(/*delayMilliseconds=*/ 1000);
     });
 });  // goog.scope
