@@ -177,6 +177,14 @@ function launchedListener() {
  */
 function connectionListener(port) {
   goog.log.fine(logger, 'Received onConnect event');
+  if (port.name === GSC.BackgroundPageUnloadPreventing.MESSAGING_PORT_NAME) {
+    // The opener is the iframe that's loaded by
+    // `GSC.BackgroundPageUnloadPreventing.enable()`. That component sets up its
+    // own onConnect event listener and manages the port itself, so just ignore
+    // it here.
+    return;
+  }
+  // The opener will send PC/SC commands - create a handler for processing them.
   const portMessageChannel = new GSC.PortMessageChannel(port);
   createClientHandler(portMessageChannel, undefined);
 }
@@ -194,6 +202,9 @@ function externalConnectionListener(port) {
         'Ignoring the external connection as there is no sender specified');
     return;
   }
+  // The opener will send PC/SC commands (or garbage if it's broken) - create a
+  // handler for processing these commands. Also add it to the pool of opened
+  // ports, so that subscribers (like UI) will learn about this new caller.
   messageChannelPool.addChannel(
       portMessageChannel.messagingOrigin, portMessageChannel);
   GSC.MessagingCommon.setNonFatalDefaultServiceCallback(portMessageChannel);
