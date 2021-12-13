@@ -99,6 +99,9 @@ goog.exportSymbol(
           reject();
         })
 
+        // Send a message and dispose the channel pair immediately after that.
+        // The message delivery should be canceled, because the channel pair's
+        // API guarantees it to happen asynchronously.
         messageChannelPair.getFirst().send(
             /*serviceName=*/ 'some-service', /*payload=*/ 'data');
         messageChannelPair.dispose();

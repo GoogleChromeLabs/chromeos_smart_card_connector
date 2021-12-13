@@ -44,6 +44,9 @@ const logger = GSC.Logging.getScopedLogger('MessageChannelPair');
  *
  * When a message is sent through one message channel from the pair, it gets
  * received by the other message channel from the pair, and vice versa.
+ *
+ * Note that messages that are sent through the channel pair are always
+ * delivered asynchronously.
  * @constructor
  * @extends goog.Disposable
  */
