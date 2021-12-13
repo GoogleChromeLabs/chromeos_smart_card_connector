@@ -52,8 +52,9 @@ function failWhenReceivedUnexpectedMessage(messageChannel) {
 
 /**
  * @param {number} delayMilliseconds
+ * @return {!Promise<void>}
  */
-async function sleep(delayMilliseconds) {
+function sleep(delayMilliseconds) {
   return new Promise((resolve, reject) => {
     setTimeout(resolve, delayMilliseconds);
   });
