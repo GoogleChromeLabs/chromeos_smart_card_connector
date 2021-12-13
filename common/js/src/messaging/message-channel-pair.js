@@ -44,6 +44,9 @@ const logger = GSC.Logging.getScopedLogger('MessageChannelPair');
  *
  * When a message is sent through one message channel from the pair, it gets
  * received by the other message channel from the pair, and vice versa.
+ *
+ * Note that messages that are sent through the channel pair are always
+ * delivered asynchronously.
  * @constructor
  * @extends goog.Disposable
  */
@@ -103,11 +106,16 @@ MessageChannelPair.prototype.disposeInternal = function() {
  */
 MessageChannelPair.prototype.sendFrom_ = function(
     fromItemIndex, serviceName, payload) {
-  const targetItem = this.items_[1 - fromItemIndex];
   // Deliver the message to the target message channel asynchronously, because
   // that's how the real message channels usually work.
-  goog.async.nextTick(
-      targetItem.deliver_.bind(targetItem, serviceName, payload));
+  goog.async.nextTick(() => {
+    if (this.isDisposed()) {
+      // Bail out if we got disposed of in the meantime.
+      return;
+    }
+    const targetItem = this.items_[1 - fromItemIndex];
+    targetItem.deliver_(serviceName, payload);
+  });
 };
 
 /**
@@ -136,6 +144,9 @@ MessageChannelPairItem.prototype.send = function(serviceName, payload) {
 
 /** @override */
 MessageChannelPairItem.prototype.disposeInternal = function() {
+  // Our disposal triggers the disposal of the whole pair and, hence, disposal
+  // of the second item of the pair.
+  this.messageChannelPair_.dispose();
   this.messageChannelPair_ = undefined;
   MessageChannelPairItem.base(this, 'disposeInternal');
 };
@@ -146,6 +157,7 @@ MessageChannelPairItem.prototype.disposeInternal = function() {
  * @private
  */
 MessageChannelPairItem.prototype.deliver_ = function(serviceName, payload) {
+  GSC.Logging.checkWithLogger(logger, !this.isDisposed());
   this.deliver(serviceName, payload);
 };
 });  // goog.scope
