@@ -52,7 +52,7 @@ const USER_PROMPT_DIALOG_URL =
     'pcsc_lite_server_clients_management/user-prompt-dialog.html';
 
 const USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES = {
-  'width': 500
+  'width': 300
 };
 
 const GSC = GoogleSmartCard;
