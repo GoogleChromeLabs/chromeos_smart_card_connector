@@ -20,6 +20,7 @@
 goog.provide('GoogleSmartCard.LibusbToWebusbAdaptor');
 
 goog.require('GoogleSmartCard.DebugDump');
+goog.require('GoogleSmartCard.LibusbToJsApiAdaptor');
 goog.require('GoogleSmartCard.Logging');
 goog.require('goog.asserts');
 goog.require('goog.log');
