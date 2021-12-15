@@ -273,7 +273,6 @@ goog.exportSymbol('testLibusbToWebusbAdaptor', {
         await libusbToWebusbAdaptor.getConfigurations(/*deviceId=*/ 1);
 
     // Assert:
-    console.log(JSON.stringify(configurations));
     assertObjectEquals(
         [{
           'active': true,
