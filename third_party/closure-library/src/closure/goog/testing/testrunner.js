@@ -470,7 +470,7 @@ goog.testing.TestRunner.prototype.writeLog = function(log) {
       a.textContent = '(run individually)';
       a.style.fontSize = '0.8em';
       a.style.color = '#888';
-      goog.dom.safe.setAnchorHref(a, href);
+      a.href = href;
       div.appendChild(document.createTextNode(' '));
       div.appendChild(a);
     }
