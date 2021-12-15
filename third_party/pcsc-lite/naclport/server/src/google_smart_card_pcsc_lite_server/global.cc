@@ -50,7 +50,7 @@ extern "C" {
 
 #include "server_sockets_manager.h"
 
-// Old version of Emscripten have buggy multi-threading - so bail out if the
+// Old versions of Emscripten have buggy multi-threading - so bail out if the
 // developer still hasn't updated their local Emscripten version.
 #ifdef __EMSCRIPTEN__
 #if __EMSCRIPTEN_major__ < 2 ||                                \
