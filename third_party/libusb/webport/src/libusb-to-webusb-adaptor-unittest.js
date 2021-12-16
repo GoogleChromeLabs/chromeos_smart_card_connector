@@ -16,6 +16,7 @@
  */
 
 goog.require('GoogleSmartCard.LibusbToWebusbAdaptor');
+goog.require('goog.object');
 goog.require('goog.testing.PropertyReplacer');
 
 goog.setTestOnly();
@@ -23,9 +24,76 @@ goog.setTestOnly();
 goog.scope(function() {
 
 const GSC = GoogleSmartCard;
+const deepClone = goog.object.unsafeClone;
 
 const propertyReplacer = new goog.testing.PropertyReplacer();
 let libusbToWebusbAdaptor;
+
+const FAKE_WEBUSB_INTERFACE = {
+  'interfaceNumber': 12,
+  'alternates': [{
+    'interfaceClass': 0x56,
+    'interfaceSubclass': 0x78,
+    'interfaceProtocol': 0xAB,
+    'endpoints': [
+      {
+        'endpointNumber': 1,
+        'direction': 'in',
+        'type': 'bulk',
+        'packetSize': 100,
+      },
+      {
+        'endpointNumber': 0x2,
+        'direction': 'out',
+        'type': 'interrupt',
+        'packetSize': 100,
+      },
+    ]
+  }]
+};
+const FAKE_WEBUSB_OTHER_INTERFACE = {
+  'interfaceNumber': 21,
+  'alternates': [{
+    'interfaceClass': 0x65,
+    'interfaceSubclass': 0x87,
+    'interfaceProtocol': 0xBA,
+    'endpoints': [
+      {
+        'endpointNumber': 0x3,
+        'direction': 'out',
+        'type': 'isochronous',
+        'packetSize': 1000,
+      },
+    ]
+  }]
+};
+const FAKE_WEBUSB_CONFIGURATION = {
+  'configurationValue': 0x12,
+  'interfaces': [FAKE_WEBUSB_INTERFACE, FAKE_WEBUSB_OTHER_INTERFACE]
+};
+const FAKE_WEBUSB_DEVICE = {
+  'vendorId': 0x1234,
+  'productId': 0xfedc,
+  'deviceVersionMajor': 1,
+  'deviceVersionMinor': 2,
+  'deviceVersionSubminor': 3,
+  'productName': 'some name',
+  'manufacturerName': 'some company',
+  'serialNumber': '98765',
+  'configuration': deepClone(
+      FAKE_WEBUSB_CONFIGURATION),  // this follows Chrome's WebUSB behavior,
+                                   // which gives different objects in
+                                   // configuration and configurations
+  'configurations': [FAKE_WEBUSB_CONFIGURATION],
+};
+const FAKE_WEBUSB_OTHER_DEVICE = {
+  'vendorId': 0x4321,
+  'productId': 0xcdef,
+  'deviceVersionMajor': 1,
+  'deviceVersionMinor': 0,
+  'deviceVersionSubminor': 0,
+  'configurations': [],
+};
 
 goog.exportSymbol('testLibusbToWebusbAdaptor', {
   'setUp': function() {
@@ -38,52 +106,118 @@ goog.exportSymbol('testLibusbToWebusbAdaptor', {
     propertyReplacer.reset();
   },
 
+  // Test the `listDevices()` method when there's no device.
   'testListDevices_empty': async function() {
+    // Arrange:
     propertyReplacer.set(navigator['usb'], 'getDevices', async () => {
       return [];
     });
-    assertObjectEquals(await libusbToWebusbAdaptor.listDevices(), []);
+
+    // Act:
+    const devices = await libusbToWebusbAdaptor.listDevices();
+
+    // Assert:
+    assertObjectEquals([], devices);
   },
 
+  // Test the `listDevices()` method when there are devices available.
   'testListDevices_two': async function() {
+    // Arrange:
     propertyReplacer.set(navigator['usb'], 'getDevices', async () => {
       return [
-        {
-          'vendorId': 0x1234,
-          'productId': 0xfedc,
-          'deviceVersionMajor': 1,
-          'deviceVersionMinor': 2,
-          'deviceVersionSubminor': 3,
-        },
-        {
-          'vendorId': 0x4321,
-          'productId': 0xcdef,
-          'deviceVersionMajor': 1,
-          'deviceVersionMinor': 0,
-          'deviceVersionSubminor': 0,
-          'productName': 'some name',
-          'manufacturerName': 'some company',
-          'serialNumber': '98765',
-        }
+        FAKE_WEBUSB_DEVICE,
+        FAKE_WEBUSB_OTHER_DEVICE,
       ];
     });
-    assertObjectEquals(await libusbToWebusbAdaptor.listDevices(), [
-      {
-        'deviceId': 1,
-        'vendorId': 0x1234,
-        'productId': 0xfedc,
-        'version': 1 * 256 + 2 * 16 + 3,
-      },
-      {
-        'deviceId': 2,
-        'vendorId': 0x4321,
-        'productId': 0xcdef,
-        'version': 256,
-        'productName': 'some name',
-        'manufacturerName': 'some company',
-        'serialNumber': '98765',
-      }
-    ]);
+
+    // Act:
+    const devices = await libusbToWebusbAdaptor.listDevices();
+
+    // Assert:
+    assertObjectEquals(
+        [
+          {
+            'deviceId': 1,
+            'vendorId': 0x1234,
+            'productId': 0xfedc,
+            'version': 1 * 256 + 2 * 16 + 3,
+            'productName': 'some name',
+            'manufacturerName': 'some company',
+            'serialNumber': '98765',
+          },
+          {
+            'deviceId': 2,
+            'vendorId': 0x4321,
+            'productId': 0xcdef,
+            'version': 256,
+          }
+        ],
+        devices);
+  },
+
+  // Test the `listDevices()` method when a device gets added dynamically.
+  'testListDevices_appears': async function() {
+    // Arrange:
+    propertyReplacer.set(navigator['usb'], 'getDevices', async () => {
+      return [];
+    });
+
+    // Act:
+    await libusbToWebusbAdaptor.listDevices();
+    propertyReplacer.set(navigator['usb'], 'getDevices', async () => {
+      return [FAKE_WEBUSB_DEVICE];
+    });
+    const devices = await libusbToWebusbAdaptor.listDevices();
+
+    // Assert:
+    assertEquals(1, devices.length);
+    assertEquals(1, devices[0]['deviceId']);
+  },
+
+  // Test the `listDevices()` method when the device gets removed.
+  'testListDevices_disappears': async function() {
+    // Arrange:
+    propertyReplacer.set(navigator['usb'], 'getDevices', async () => {
+      return [FAKE_WEBUSB_DEVICE];
+    });
+
+    // Act:
+    await libusbToWebusbAdaptor.listDevices();
+    propertyReplacer.set(navigator['usb'], 'getDevices', async () => {
+      return [];
+    });
+    const devices = await libusbToWebusbAdaptor.listDevices();
+
+    // Assert:
+    assertEquals(0, devices.length);
+  },
+
+  // Test the `listDevices()` method that the deviceId's aren't reused between
+  // different devices.
+  'testListDevices_deviceIds': async function() {
+    // Arrange:
+    // Add two devices.
+    propertyReplacer.set(navigator['usb'], 'getDevices', async () => {
+      return [FAKE_WEBUSB_DEVICE, FAKE_WEBUSB_OTHER_DEVICE];
+    });
+
+    // Act:
+    await libusbToWebusbAdaptor.listDevices();
+    // Remove both devices.
+    propertyReplacer.set(navigator['usb'], 'getDevices', async () => {
+      return [];
+    });
+    await libusbToWebusbAdaptor.listDevices();
+    // Add two devices again (they're treated by the tested code as new ones).
+    propertyReplacer.set(navigator['usb'], 'getDevices', async () => {
+      return [FAKE_WEBUSB_DEVICE, FAKE_WEBUSB_OTHER_DEVICE];
+    });
+    const devices = await libusbToWebusbAdaptor.listDevices();
+
+    // Assert:
+    assertEquals(2, devices.length);
+    assertEquals(3, devices[0]['deviceId']);
+    assertEquals(4, devices[1]['deviceId']);
   },
 
 });
