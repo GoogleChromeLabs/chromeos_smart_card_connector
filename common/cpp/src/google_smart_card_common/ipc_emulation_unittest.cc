@@ -134,4 +134,18 @@ TEST_F(IpcEmulationTest, WriteAndBlockingRead) {
       IpcEmulation::ReadResult::kNoSuchFile);
 }
 
+TEST_F(IpcEmulationTest, WriteAndZeroBytes) {
+  int fd1 = -1, fd2 = -1;
+  ipc_emulation()->CreateInMemoryFilePair(&fd1, &fd2,
+                                          /*reads_should_block=*/false);
+
+  EXPECT_TRUE(ipc_emulation()->WriteToInMemoryFile(fd1, nullptr, 0));
+  int64_t read_count = 0;
+  EXPECT_EQ(ipc_emulation()->ReadFromInMemoryFile(fd2, nullptr, &read_count),
+            IpcEmulation::ReadResult::kSuccess);
+
+  EXPECT_TRUE(ipc_emulation()->CloseInMemoryFile(fd1));
+  EXPECT_TRUE(ipc_emulation()->CloseInMemoryFile(fd2));
+}
+
 }  // namespace google_smart_card
