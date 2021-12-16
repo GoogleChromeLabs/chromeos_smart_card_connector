@@ -134,7 +134,7 @@ TEST_F(IpcEmulationTest, WriteAndBlockingRead) {
       IpcEmulation::ReadResult::kNoSuchFile);
 }
 
-TEST_F(IpcEmulationTest, WriteAndZeroBytes) {
+TEST_F(IpcEmulationTest, WriteAndReadZeroBytes) {
   int fd1 = -1, fd2 = -1;
   ipc_emulation()->CreateInMemoryFilePair(&fd1, &fd2,
                                           /*reads_should_block=*/false);
