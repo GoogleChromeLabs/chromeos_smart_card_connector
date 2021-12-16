@@ -29,6 +29,9 @@ const deepClone = goog.object.unsafeClone;
 const propertyReplacer = new goog.testing.PropertyReplacer();
 let libusbToWebusbAdaptor;
 
+const FAILING_ASYNC_METHOD = async () => {
+  fail('Unexpected method call');
+};
 const FAKE_WEBUSB_INTERFACE = {
   'interfaceNumber': 12,
   'alternates': [{
@@ -85,6 +88,8 @@ const FAKE_WEBUSB_DEVICE = {
                                    // which gives different objects in
                                    // configuration and configurations
   'configurations': [FAKE_WEBUSB_CONFIGURATION],
+  'open': FAILING_ASYNC_METHOD,
+  'close': FAILING_ASYNC_METHOD,
 };
 const FAKE_WEBUSB_OTHER_DEVICE = {
   'vendorId': 0x4321,
@@ -93,6 +98,8 @@ const FAKE_WEBUSB_OTHER_DEVICE = {
   'deviceVersionMinor': 0,
   'deviceVersionSubminor': 0,
   'configurations': [],
+  'open': FAILING_ASYNC_METHOD,
+  'close': FAILING_ASYNC_METHOD,
 };
 
 goog.exportSymbol('testLibusbToWebusbAdaptor', {
@@ -218,6 +225,94 @@ goog.exportSymbol('testLibusbToWebusbAdaptor', {
     assertEquals(2, devices.length);
     assertEquals(3, devices[0]['deviceId']);
     assertEquals(4, devices[1]['deviceId']);
+  },
+
+  // Test the `getConfigurations()` method when the device has no
+  // configurations.
+  'testGetConfigurations_successEmpty': async function() {
+    // Arrange:
+    const device = deepClone(FAKE_WEBUSB_DEVICE);
+    // Clear the fake device's configuration list.
+    device['configurations'] = [];
+    delete device['configuration'];
+    device['open'] = async () => {
+      // In this test we don't want to check the extraData parsing
+      // functionality, so suppress it by aborting open() calls.
+      throw new Error('Intentional error');
+    };
+    propertyReplacer.set(navigator['usb'], 'getDevices', async () => {
+      return [device];
+    });
+
+    // Act:
+    await libusbToWebusbAdaptor.listDevices();
+    const configurations =
+        await libusbToWebusbAdaptor.getConfigurations(/*deviceId=*/ 1);
+
+    // Assert:
+    assertObjectEquals([], configurations);
+  },
+
+  // Test the `getConfigurations()` method when the device has one
+  // configuration, with a few interfaces and endpoints in it.
+  'testGetConfigurations_successOne': async function() {
+    // Arrange:
+    const device = deepClone(FAKE_WEBUSB_DEVICE);
+    device['open'] = async () => {
+      // In this test we don't want to check the extraData parsing
+      // functionality, so suppress it by aborting open() calls.
+      throw new Error('Intentional error');
+    };
+    propertyReplacer.set(navigator['usb'], 'getDevices', async () => {
+      return [device];
+    });
+
+    // Act:
+    await libusbToWebusbAdaptor.listDevices();
+    const configurations =
+        await libusbToWebusbAdaptor.getConfigurations(/*deviceId=*/ 1);
+
+    // Assert:
+    assertObjectEquals(
+        [{
+          'active': true,
+          'configurationValue': 0x12,
+          'interfaces': [
+            {
+              'interfaceNumber': 12,
+              'interfaceClass': 0x56,
+              'interfaceSubclass': 0x78,
+              'interfaceProtocol': 0xAB,
+              'endpoints': [
+                {
+                  'endpointAddress': 1 + 128,
+                  'direction': 'in',
+                  'type': 'bulk',
+                  'maxPacketSize': 100
+                },
+                {
+                  'endpointAddress': 2,
+                  'direction': 'out',
+                  'type': 'interrupt',
+                  'maxPacketSize': 100
+                }
+              ]
+            },
+            {
+              'interfaceNumber': 21,
+              'interfaceClass': 0x65,
+              'interfaceSubclass': 0x87,
+              'interfaceProtocol': 0xBA,
+              'endpoints': [{
+                'endpointAddress': 3,
+                'direction': 'out',
+                'type': 'isochronous',
+                'maxPacketSize': 1000
+              }]
+            }
+          ]
+        }],
+        configurations);
   },
 
 });
