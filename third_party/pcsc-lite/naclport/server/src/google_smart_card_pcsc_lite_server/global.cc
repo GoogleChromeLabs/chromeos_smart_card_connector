@@ -50,6 +50,16 @@ extern "C" {
 
 #include "server_sockets_manager.h"
 
+// Old versions of Emscripten have buggy multi-threading - so bail out if the
+// developer still hasn't updated their local Emscripten version.
+#ifdef __EMSCRIPTEN__
+#if __EMSCRIPTEN_major__ < 2 ||                                \
+    (__EMSCRIPTEN_major__ == 2 && __EMSCRIPTEN_minor__ == 0 && \
+     __EMSCRIPTEN_tiny__ < 31)
+#error "Emscripten >=2.0.31 must be used"
+#endif
+#endif  // __EMSCRIPTEN__
+
 namespace google_smart_card {
 
 namespace {
