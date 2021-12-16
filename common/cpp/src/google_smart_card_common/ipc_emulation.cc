@@ -80,7 +80,9 @@ class IpcEmulation::InMemoryFile final {
     GOOGLE_SMART_CARD_CHECK(size >= 0);
     if (!size)
       return true;
+    // Check it here, since `data==nullptr && size==0` is OK.
     GOOGLE_SMART_CARD_CHECK(data);
+
     const std::shared_ptr<InMemoryFile> locked_other_end = other_end_.lock();
     if (!locked_other_end)
       return false;
@@ -98,8 +100,13 @@ class IpcEmulation::InMemoryFile final {
 
   IpcEmulation::ReadResult Read(uint8_t* buffer, int64_t* in_out_size)
       GOOGLE_SMART_CARD_WARN_UNUSED_RESULT {
-    GOOGLE_SMART_CARD_CHECK(buffer);
+    GOOGLE_SMART_CARD_CHECK(in_out_size);
     GOOGLE_SMART_CARD_CHECK(*in_out_size >= 0);
+    if (!*in_out_size)
+      return IpcEmulation::ReadResult::kSuccess;
+    // Check it here, since `buffer==nullptr && *in_out_size==0` is OK.
+    GOOGLE_SMART_CARD_CHECK(buffer);
+
     std::unique_lock<std::mutex> lock(mutex_);
     if (is_closed_)
       return IpcEmulation::ReadResult::kNoSuchFile;
@@ -232,8 +239,12 @@ bool IpcEmulation::CloseInMemoryFile(int file_descriptor) {
 bool IpcEmulation::WriteToInMemoryFile(int file_descriptor,
                                        const uint8_t* data,
                                        int64_t size) {
-  GOOGLE_SMART_CARD_CHECK(data);
   GOOGLE_SMART_CARD_CHECK(size >= 0);
+  if (!size)
+    return true;
+  // Check it here, since `data==nullptr && size==0` is OK.
+  GOOGLE_SMART_CARD_CHECK(data);
+
   const std::shared_ptr<InMemoryFile> file =
       FindFileByDescriptor(file_descriptor);
   if (!file)
@@ -255,9 +266,13 @@ IpcEmulation::ReadResult IpcEmulation::ReadFromInMemoryFile(
     int file_descriptor,
     uint8_t* buffer,
     int64_t* in_out_size) {
-  GOOGLE_SMART_CARD_CHECK(buffer);
   GOOGLE_SMART_CARD_CHECK(in_out_size);
   GOOGLE_SMART_CARD_CHECK(*in_out_size >= 0);
+  if (!*in_out_size)
+    return IpcEmulation::ReadResult::kSuccess;
+  // Check it here, since `buffer==nullptr && *in_out_size==0` is OK.
+  GOOGLE_SMART_CARD_CHECK(buffer);
+
   const std::shared_ptr<InMemoryFile> file =
       FindFileByDescriptor(file_descriptor);
   if (!file)
