@@ -232,7 +232,7 @@ goog.exportSymbol('testLibusbToWebusbAdaptor', {
   'testGetConfigurations_successEmpty': async function() {
     // Arrange:
     const device = deepClone(FAKE_WEBUSB_DEVICE);
-    // Clear the fake device's
+    // Clear the fake device's configuration list.
     device['configurations'] = [];
     delete device['configuration'];
     device['open'] = async () => {
