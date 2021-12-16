@@ -312,7 +312,7 @@ function initializeWithBackgroundPage(backgroundPage) {
       readerTrackerUnsubscriber(onReadersChanged);
     });
   } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
-    chrome.windows.onRemoved.addListener(function() {
+    window.addEventListener('unload', function() {
       readerTrackerUnsubscriber(onReadersChanged);
     });
   }
