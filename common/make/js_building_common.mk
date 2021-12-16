@@ -114,6 +114,8 @@ endif
 #   inheritance and promote this to jscomp_error.
 # jscomp_off unknownDefines: Suppressed in order to avoid compiler complaints
 #   when an unused constant is passed via --define.
+# use_types_for_optimization: Allow compiler to do code optimizations based on
+#   type annotations.
 JS_BUILD_COMPILATION_FLAGS += \
 	--define='GoogleSmartCard.ExecutableModule.TOOLCHAIN=$(TOOLCHAIN)' \
 	--define='GoogleSmartCard.Logging.USE_SCOPED_LOGGERS=false' \
@@ -126,7 +128,7 @@ JS_BUILD_COMPILATION_FLAGS += \
 	--jscomp_off reportUnknownTypes \
 	--jscomp_off strictMissingProperties \
 	--jscomp_off unknownDefines \
-	--use_types_for_optimization=false \
+	--use_types_for_optimization=true \
 	--warning_level=VERBOSE \
 
 ifeq ($(PACKAGING),app)
