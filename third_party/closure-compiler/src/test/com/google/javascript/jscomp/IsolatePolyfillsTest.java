@@ -67,7 +67,7 @@ public final class IsolatePolyfillsTest extends CompilerTestCase {
     return (externs, root) -> {
       // Synthetic definition of $jscomp$lookupPolyfilledValue
       compiler
-          .getSynthesizedExternsInputAtEnd()
+          .getSynthesizedExternsInput()
           .getAstRoot(compiler)
           .addChildToBack(IR.var(IR.name("$jscomp$lookupPolyfilledValue")));
       addPolyfillInjection(compiler.getNodeForCodeInsertion(/* module= */ null), compiler);
@@ -102,7 +102,7 @@ public final class IsolatePolyfillsTest extends CompilerTestCase {
       syntheticCode.append("');\n");
     }
 
-    Node codeRoot = compiler.parseSyntheticCode(syntheticCode.toString());
+    Node codeRoot = compiler.parseSyntheticCode("injected_polyfills", syntheticCode.toString());
     parent.addChildrenToFront(codeRoot.removeChildren());
     compiler.reportChangeToEnclosingScope(parent);
   }
@@ -413,10 +413,8 @@ public final class IsolatePolyfillsTest extends CompilerTestCase {
   @Test
   public void testExternForJSCompLookupPolyfillDeleted() {
     disableCompareAsTree();
-    testExternChanges(
-        // The getProcessor() method injects $jscomp$lookupPolyfilledValue so just add an empty
-        // extern here.
-        /* extern= */ "", /* input= */ "x.includes(y);", /* expectedExtern= */ "");
+    // The getProcessor() method injects $jscomp$lookupPolyfilledValue into the input externs.
+    testExternChanges(externs(""), srcs("x.includes(y);"), expected(""));
   }
 
   @Test

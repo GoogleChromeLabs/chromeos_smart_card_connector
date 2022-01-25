@@ -58,6 +58,18 @@ public class InjectTranspilationRuntimeLibrariesTest {
   }
 
   @Test
+  public void testMakeIteratorAndObjectAssignInjectedForObjectPatternRest() {
+    Set<String> injected = parseAndRunInjectionPass("const {a, ...rest} = something();");
+    assertThat(injected).containsExactly("es6/util/makeiterator", "es6/object/assign");
+  }
+
+  @Test
+  public void testObjectAssignInjectedForObjectSpread() {
+    Set<String> injected = parseAndRunInjectionPass("const obj = {a, ...rest};");
+    assertThat(injected).containsExactly("es6/object/assign");
+  }
+
+  @Test
   public void testForOf_injectsMakeIterator() {
     Set<String> injected = parseAndRunInjectionPass("for (x of []) {}");
 
@@ -95,6 +107,7 @@ public class InjectTranspilationRuntimeLibrariesTest {
   @Test
   public void testTaggedTemplateFirstArgCreaterInjected() {
     Set<String> injected = parseAndRunInjectionPass("function tag(...a) {}; tag`hello`;");
-    assertThat(injected).containsExactly("es6/util/createtemplatetagfirstarg");
+    assertThat(injected)
+        .containsExactly("es6/util/createtemplatetagfirstarg", "es6/util/restarguments");
   }
 }

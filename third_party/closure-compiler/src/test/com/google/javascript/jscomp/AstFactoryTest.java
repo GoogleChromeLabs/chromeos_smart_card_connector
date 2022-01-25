@@ -17,6 +17,7 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.javascript.jscomp.AstFactory.type;
 import static com.google.javascript.jscomp.base.JSCompStrings.lines;
 import static com.google.javascript.rhino.testing.Asserts.assertThrows;
 import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
@@ -24,11 +25,16 @@ import static com.google.javascript.rhino.testing.TypeSubject.assertType;
 
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.SyntacticScopeCreator.RedeclarationHandler;
+import com.google.javascript.jscomp.colors.Color;
+import com.google.javascript.jscomp.colors.ColorId;
+import com.google.javascript.jscomp.colors.ColorRegistry;
+import com.google.javascript.jscomp.colors.StandardColors;
+import com.google.javascript.jscomp.serialization.ConvertTypesToColors;
+import com.google.javascript.jscomp.serialization.SerializationOptions;
 import com.google.javascript.jscomp.testing.TestExternsBuilder;
 import com.google.javascript.rhino.IR;
-import com.google.javascript.rhino.JSDocInfo;
-import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.StaticScope;
 import com.google.javascript.rhino.Token;
 import com.google.javascript.rhino.jstype.FunctionType;
 import com.google.javascript.rhino.jstype.JSType;
@@ -54,6 +60,7 @@ public class AstFactoryTest {
   private JSTypeRegistry getRegistry() {
     return compiler.getTypeRegistry();
   }
+
 
   private JSType getNativeType(JSTypeNative nativeType) {
     return getRegistry().getNativeType(nativeType);
@@ -89,11 +96,31 @@ public class AstFactoryTest {
         new TypeCheck(
             compiler, compiler.getReverseAbstractInterpreter(), compiler.getTypeRegistry());
     typeCheck.processForTesting(compiler.getExternsRoot(), compiler.getJsRoot());
+    compiler.setTypeCheckingHasRun(true);
+    return compiler.getJsRoot();
+  }
+
+  private Node parseAndAddColors(String source) {
+    return parseAndAddColors("", source);
+  }
+
+  private Node parseAndAddColors(String externs, String source) {
+    parseAndAddTypes(externs, source);
+    new ConvertTypesToColors(compiler, SerializationOptions.INCLUDE_DEBUG_INFO)
+        .process(compiler.getExternsRoot(), compiler.getJsRoot());
     return compiler.getJsRoot();
   }
 
   private AstFactory createTestAstFactory() {
     return AstFactory.createFactoryWithTypes(getRegistry());
+  }
+
+  private AstFactory createTestAstFactoryWithColors() {
+    return AstFactory.createFactoryWithColors(
+        // the built-in color registry is available only if we've run parseAndAddColors()
+        compiler.hasOptimizationColors()
+            ? compiler.getColorRegistry()
+            : ColorRegistry.builder().setDefaultNativeColorsForTesting().build());
   }
 
   private AstFactory createTestAstFactoryWithoutTypes() {
@@ -109,7 +136,7 @@ public class AstFactoryTest {
   }
 
   @Test
-  public void testStringLiteral() {
+  public void testStringLiteral_jstypes() {
     AstFactory astFactory = createTestAstFactory();
 
     Node stringLiteral = astFactory.createString("hello");
@@ -119,7 +146,17 @@ public class AstFactoryTest {
   }
 
   @Test
-  public void testNumberLiteral() {
+  public void testStringLiteral_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node stringLiteral = astFactory.createString("hello");
+    assertNode(stringLiteral).hasType(Token.STRINGLIT);
+    assertThat(stringLiteral.getString()).isEqualTo("hello");
+    assertNode(stringLiteral).hasColorThat().isEqualTo(StandardColors.STRING);
+  }
+
+  @Test
+  public void testNumberLiteral_jstypes() {
     AstFactory astFactory = createTestAstFactory();
 
     Node numberLiteral = astFactory.createNumber(2112D);
@@ -129,7 +166,17 @@ public class AstFactoryTest {
   }
 
   @Test
-  public void testBooleanLiteral() {
+  public void testNumberLiteral_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node numberLiteral = astFactory.createNumber(2112D);
+    assertNode(numberLiteral).hasType(Token.NUMBER);
+    assertThat(numberLiteral.getDouble()).isEqualTo(2112D);
+    assertNode(numberLiteral).hasColorThat().isEqualTo(StandardColors.NUMBER);
+  }
+
+  @Test
+  public void testBooleanLiteral_jstypes() {
     AstFactory astFactory = createTestAstFactory();
 
     Node trueNode = astFactory.createBoolean(true);
@@ -142,7 +189,16 @@ public class AstFactoryTest {
   }
 
   @Test
-  public void testVoidExpression() {
+  public void testBooleanLiteral_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node trueNode = astFactory.createBoolean(true);
+    assertNode(trueNode).hasType(Token.TRUE);
+    assertNode(trueNode).hasColorThat().isEqualTo(StandardColors.BOOLEAN);
+  }
+
+  @Test
+  public void testVoidExpression_jstypes() {
     AstFactory astFactory = createTestAstFactory();
 
     Node voidNode = astFactory.createVoid(astFactory.createNumber(0));
@@ -151,22 +207,16 @@ public class AstFactoryTest {
   }
 
   @Test
-  public void testCreateCastToUnknown() {
-    AstFactory astFactory = createTestAstFactory();
+  public void testVoidExpression_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
 
-    Node numberNode = astFactory.createNumber(0);
-    JSDocInfo.Builder infoBuilder = JSDocInfo.builder();
-    infoBuilder.recordType(new JSTypeExpression(new Node(Token.QMARK), "test.js"));
-    JSDocInfo info = infoBuilder.build();
-    Node castNode = astFactory.createCastToUnknown(numberNode, info);
-
-    assertNode(castNode).hasType(Token.CAST);
-    assertNode(castNode).hasJSTypeThat().isUnknown();
-    assertThat(castNode.getJSDocInfo()).isEqualTo(info);
+    Node voidNode = astFactory.createVoid(astFactory.createNumber(0));
+    assertNode(voidNode).hasType(Token.VOID);
+    assertNode(voidNode).hasColorThat().isEqualTo(StandardColors.NULL_OR_VOID);
   }
 
   @Test
-  public void testNotExpression() {
+  public void testNotExpression_jstypes() {
     AstFactory astFactory = createTestAstFactory();
 
     Node notNode = astFactory.createNot(astFactory.createNumber(0));
@@ -175,7 +225,16 @@ public class AstFactoryTest {
   }
 
   @Test
-  public void testCreateArgumentsReference() {
+  public void testNotExpression_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node notNode = astFactory.createNot(astFactory.createNumber(0));
+    assertNode(notNode).hasType(Token.NOT);
+    assertNode(notNode).hasColorThat().isEqualTo(StandardColors.BOOLEAN);
+  }
+
+  @Test
+  public void testCreateArgumentsReference_jstypes() {
     // Make sure the compiler's type registry includes the standard externs definition for
     // Arguments.
     parseAndAddTypes(new TestExternsBuilder().addArguments().build(), "");
@@ -188,7 +247,24 @@ public class AstFactoryTest {
   }
 
   @Test
-  public void testCreateSingleVarNameDeclaration() {
+  public void testCreateArgumentsReference_colors() {
+    Node root =
+        parseAndAddColors(
+            new TestExternsBuilder().addArguments().build(), "function f() { arguments; }");
+
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node block = NodeUtil.getFunctionBody(root.getFirstFirstChild());
+    Node argumentsReferenceNode = block.getFirstFirstChild();
+    Color argumentsReferenceColor = argumentsReferenceNode.getColor();
+
+    Node argumentsNode = astFactory.createArgumentsReference();
+    assertNode(argumentsNode).matchesName("arguments");
+    assertNode(argumentsNode).hasColorThat().isEqualTo(argumentsReferenceColor);
+  }
+
+  @Test
+  public void testCreateSingleVarNameDeclaration_jstypes() {
     AstFactory astFactory = createTestAstFactory();
 
     final Node valueNode = astFactory.createBoolean(true);
@@ -200,7 +276,19 @@ public class AstFactoryTest {
   }
 
   @Test
-  public void testCreateSingleConstNameDeclaration() {
+  public void testCreateSingleVarNameDeclaration_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    final Node valueNode = astFactory.createBoolean(true);
+    Node constNode = astFactory.createSingleVarNameDeclaration("myTrue", valueNode);
+    assertNode(constNode).isVar().hasOneChildThat().isName("myTrue");
+    Node nameNode = constNode.getOnlyChild();
+    assertNode(nameNode).hasOneChildThat().isEqualTo(valueNode);
+    assertNode(nameNode).hasColorThat().isEqualTo(valueNode.getColor());
+  }
+
+  @Test
+  public void testCreateSingleConstNameDeclaration_jstypes() {
     AstFactory astFactory = createTestAstFactory();
 
     final Node valueNode = astFactory.createBoolean(true);
@@ -212,10 +300,22 @@ public class AstFactoryTest {
   }
 
   @Test
+  public void testCreateSingleConstNameDeclaration_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    final Node valueNode = astFactory.createBoolean(true);
+    Node constNode = astFactory.createSingleConstNameDeclaration("myTrue", valueNode);
+    assertNode(constNode).isConst().hasOneChildThat().isName("myTrue");
+    Node nameNode = constNode.getOnlyChild();
+    assertNode(nameNode).hasOneChildThat().isEqualTo(valueNode);
+    assertNode(nameNode).hasColorThat().isEqualTo(valueNode.getColor());
+  }
+
+  @Test
   public void testCreateNameWithJSType() {
     AstFactory astFactory = createTestAstFactory();
 
-    Node x = astFactory.createName("x", getNativeType(JSTypeNative.STRING_TYPE));
+    Node x = astFactory.createName("x", type(JSTypeNative.STRING_TYPE));
     assertNode(x).hasType(Token.NAME);
     assertThat(x.getString()).isEqualTo("x");
     assertType(x.getJSType()).isString();
@@ -225,14 +325,24 @@ public class AstFactoryTest {
   public void testCreateNameWithNativeType() {
     AstFactory astFactory = createTestAstFactory();
 
-    Node x = astFactory.createName("x", JSTypeNative.STRING_TYPE);
+    Node x = astFactory.createName("x", type(JSTypeNative.STRING_TYPE));
     assertNode(x).hasType(Token.NAME);
     assertThat(x.getString()).isEqualTo("x");
     assertType(x.getJSType()).isString();
   }
 
   @Test
-  public void testCreateNameFromScope() {
+  public void testCreateNameWithColor() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node x = astFactory.createName("x", type(JSTypeNative.STRING_TYPE, StandardColors.STRING));
+    assertNode(x).hasType(Token.NAME);
+    assertThat(x.getString()).isEqualTo("x");
+    assertNode(x).hasColorThat().isEqualTo(StandardColors.STRING);
+  }
+
+  @Test
+  public void testCreateNameFromScope_jstypes() {
     AstFactory astFactory = createTestAstFactory();
 
     Node root = parseAndAddTypes("/** @type {string} */ const X = 'hi';");
@@ -245,10 +355,33 @@ public class AstFactoryTest {
   }
 
   @Test
+  public void testCreateNameFromScope_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node root = parseAndAddColors("/** @type {string} */ const X = 'hi';");
+    Scope scope = getScope(root);
+
+    Node x = astFactory.createName(scope, "X");
+    assertNode(x).hasType(Token.NAME);
+    assertThat(x.getString()).isEqualTo("X");
+    assertNode(x).hasColorThat().isEqualTo(StandardColors.STRING);
+  }
+
+  @Test
+  public void testCreateNameFromScope_crashesIfMissingVariable() {
+    AstFactory astFactory = createTestAstFactory();
+
+    Node root = parseAndAddTypes("/** @type {string} */ const X = 'hi';");
+    Scope scope = getScope(root);
+
+    assertThrows(Exception.class, () -> astFactory.createName(scope, "missing"));
+  }
+
+  @Test
   public void testCreateThisReference() {
     AstFactory astFactory = createTestAstFactory();
 
-    Node x = astFactory.createThis(getNativeType(JSTypeNative.STRING_TYPE));
+    Node x = astFactory.createThis(type(getNativeType(JSTypeNative.STRING_TYPE)));
     assertNode(x).hasType(Token.THIS);
     assertType(x.getJSType()).isString();
   }
@@ -257,107 +390,113 @@ public class AstFactoryTest {
   public void testCreateSuperReference() {
     AstFactory astFactory = createTestAstFactory();
 
-    Node x = astFactory.createSuper(getNativeType(JSTypeNative.STRING_TYPE));
+    Node x = astFactory.createSuper(type(getNativeType(JSTypeNative.STRING_TYPE)));
     assertNode(x).hasType(Token.SUPER);
     assertType(x.getJSType()).isString();
   }
 
   @Test
-  public void createThisForFunction() {
+  public void createThisForEs6ClassMember_jstypes() {
     AstFactory astFactory = createTestAstFactory();
 
     Node root =
         parseAndAddTypes(
             lines(
                 "class C {", //
-                "  method() {",
-                "    this;", // created `this` should match this one
-                "  }",
+                "  method() {}",
                 "}",
                 ""));
 
-    Node methodFunction =
+    Node classNode =
         root.getFirstChild() // script
-            .getFirstChild() // class
+            .getFirstChild(); // class node
+    Node memberDef =
+        classNode
             .getLastChild() // class members
-            .getFirstChild() // class method member function def
-            .getOnlyChild(); // method function
+            .getFirstChild(); // member function def
 
-    Node existingThis =
-        methodFunction
-            .getLastChild() // method function body
-            .getFirstChild() // expr_result
-            .getOnlyChild(); // this
+    ObjectType instanceType = classNode.getJSTypeRequired().assertFunctionType().getInstanceType();
 
-    Node newThis = astFactory.createThisForFunction(methodFunction);
-    assertNode(newThis).isEqualTo(existingThis);
-    assertNode(newThis).hasJSTypeThat().isEqualTo(existingThis.getJSTypeRequired());
+    Node thisAlias = astFactory.createThisForEs6ClassMember(memberDef);
+    assertNode(thisAlias).hasType(Token.THIS);
+    assertNode(thisAlias).hasJSTypeThat().isEqualTo(instanceType);
   }
 
   @Test
-  public void createSuperForFunction() {
+  public void createThisForEs6ClassMember_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node root =
+        parseAndAddColors(
+            lines(
+                "class C {", //
+                "  method() {}",
+                "}",
+                ""));
+
+    Node classNode =
+        root.getFirstChild() // script
+            .getFirstChild(); // class node
+    Node memberDef =
+        classNode
+            .getLastChild() // class members
+            .getFirstChild(); // member function def
+
+    Color instanceType = Color.createUnion(classNode.getColor().getInstanceColors());
+
+    Node thisAlias = astFactory.createThisForEs6ClassMember(memberDef);
+    assertNode(thisAlias).hasType(Token.THIS);
+    assertNode(thisAlias).hasColorThat().isEqualTo(instanceType);
+  }
+
+  @Test
+  public void createThisForEs6ClassStaticMember_jstypes() {
     AstFactory astFactory = createTestAstFactory();
 
     Node root =
         parseAndAddTypes(
             lines(
-                "class A {}",
-                "class B extends A {", //
-                "  method() {",
-                "    super.method();", // created `super` should match this one
-                "  }",
+                "class C {", //
+                "  static method() {}",
                 "}",
                 ""));
 
-    Node a =
+    Node classNode =
         root.getFirstChild() // script
-            .getFirstChild(); // class A
-
-    Node methodFunction =
-        root.getFirstChild() // script
-            .getSecondChild() // class B
+            .getFirstChild(); // class node
+    Node memberDef =
+        classNode
             .getLastChild() // class members
-            .getFirstChild() // class method member function def
-            .getOnlyChild(); // method function
+            .getFirstChild(); // member function def
 
-    Node existingSuper =
-        methodFunction
-            .getLastChild() // method function body
-            .getFirstChild() // expr_result
-            .getOnlyChild() // call "method"
-            .getFirstFirstChild(); // super
-
-    Node newSuper = astFactory.createSuperForFunction(methodFunction);
-    assertNode(newSuper).isEqualTo(existingSuper);
-    assertNode(newSuper)
-        .hasJSTypeThat()
-        .isEqualTo(a.getJSType().assertFunctionType().getInstanceType());
+    Node thisAlias = astFactory.createThisForEs6ClassMember(memberDef);
+    assertNode(thisAlias).hasType(Token.THIS);
+    assertNode(thisAlias).hasJSTypeThat().isEqualTo(classNode.getJSType());
   }
 
   @Test
-  public void createThisForFunctionWithCast() {
-    AstFactory astFactory = createTestAstFactory();
+  public void createThisForEs6ClassStaticMember_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
 
-    // When the function literal is inside of a cast, it can end up with a non-Function type.
-    // Confirm that AstFactory correctly retrieves the type from before the cast
-    Node root = parseAndAddTypes("const funcAsUnknown = /** @type ? */ (function() { this; });");
+    Node root =
+        parseAndAddColors(
+            lines(
+                "class C {", //
+                "  static method() {}",
+                "}",
+                ""));
 
-    Node functionNode =
+    Node classNode =
         root.getFirstChild() // script
-            .getFirstChild() // const declaration
-            .getOnlyChild() // funcAsUnknown name
-            .getOnlyChild() // cast node
-            .getOnlyChild(); // function node
+            .getFirstChild(); // class node
+    Node memberDef =
+        classNode
+            .getLastChild() // class members
+            .getFirstChild(); // member function def
 
-    Node existingThis =
-        functionNode
-            .getLastChild() // method function body
-            .getFirstChild() // expr_result
-            .getOnlyChild(); // this
-
-    Node newThis = astFactory.createThisForFunction(functionNode);
-    assertNode(newThis).isEqualTo(existingThis);
-    assertNode(newThis).hasJSTypeThat().isEqualTo(existingThis.getJSTypeRequired());
+    Node thisAlias = astFactory.createThisForEs6ClassMember(memberDef);
+    assertNode(thisAlias).hasType(Token.THIS);
+    assertNode(thisAlias).hasColorThat().isEqualTo(classNode.getColor());
   }
 
   @Test
@@ -377,13 +516,7 @@ public class AstFactoryTest {
             .getFirstChild(); // class node
     ObjectType instanceType = classNode.getJSTypeRequired().assertFunctionType().getInstanceType();
 
-    Node methodFunction =
-        classNode
-            .getLastChild() // class members
-            .getFirstChild() // member method definition
-            .getOnlyChild(); // method function
-
-    Node thisAlias = astFactory.createThisAliasReferenceForFunction("thisAlias", methodFunction);
+    Node thisAlias = astFactory.createThisAliasReferenceForEs6Class("thisAlias", classNode);
     assertNode(thisAlias).hasType(Token.NAME);
     assertThat(thisAlias.getString()).isEqualTo("thisAlias");
     assertNode(thisAlias).hasJSTypeThat().isEqualTo(instanceType);
@@ -401,79 +534,33 @@ public class AstFactoryTest {
                 "}",
                 ""));
 
-    Node methodFunction =
+    Node classNode =
         root.getFirstChild() // script
-            .getFirstChild() // class
-            .getLastChild() // class members
-            .getFirstChild() // member method def
-            .getOnlyChild(); // member function
+            .getFirstChild(); // class
 
-    Node thisAlias = astFactory.createThisAliasReferenceForFunction("thisAlias", methodFunction);
+    Node thisAlias = astFactory.createThisAliasReferenceForEs6Class("thisAlias", classNode);
     assertNode(thisAlias).hasType(Token.NAME);
     assertThat(thisAlias.getString()).isEqualTo("thisAlias");
     assertThat(thisAlias.getJSType()).isNull();
   }
 
   @Test
-  public void testCreateGetpropJscompGlobal() {
-    AstFactory astFactory = createTestAstFactory();
+  public void testCreateGetpropWithColorFromNode() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
 
-    // TODO(bradfordcsmith): We shouldn't need this special case.
-    Node jscompNode = astFactory.createName("$jscomp", JSTypeNative.UNKNOWN_TYPE);
-    Node jscompDotGlobal = astFactory.createGetProp(jscompNode, "global");
+    Node receiver = astFactory.createNameWithUnknownType("x");
+    Node typeTemplate = astFactory.createNumber(0);
 
-    assertNode(jscompDotGlobal).hasType(Token.GETPROP);
-    assertThat(jscompDotGlobal.getString()).isEqualTo("global");
-    Node firstChild = jscompDotGlobal.getFirstChild();
-    assertThat(firstChild).isEqualTo(jscompNode);
+    Node getProp = astFactory.createGetProp(receiver, "y", type(typeTemplate));
 
-    assertType(jscompDotGlobal.getJSType()).isEqualTo(getNativeType(JSTypeNative.GLOBAL_THIS));
+    assertNode(getProp).hasToken(Token.GETPROP);
+    assertNode(getProp).hasStringThat().isEqualTo("y");
+    assertNode(getProp).hasFirstChildThat().isEqualTo(receiver);
+    assertNode(getProp).hasColorThat().isEqualTo(StandardColors.NUMBER);
   }
 
   @Test
-  public void testCreateGetpropForObjectToString() {
-    // It's convenient to use Object.toString for testing, since it's a native type we can just
-    // look up without having to parse code.
-    AstFactory astFactory = createTestAstFactory();
-
-    ObjectType nativeObjectType = getNativeType(JSTypeNative.OBJECT_TYPE).toObjectType();
-    Node obj = astFactory.createName("obj", nativeObjectType);
-    Node objDotToString = astFactory.createGetProp(obj, "toString");
-
-    assertNode(objDotToString).hasType(Token.GETPROP);
-    Node firstChild = objDotToString.getFirstChild();
-    assertThat(objDotToString.getString()).isEqualTo("toString");
-    assertThat(firstChild).isEqualTo(obj);
-
-    assertType(objDotToString.getJSType()).isEqualTo(nativeObjectType.getPropertyType("toString"));
-  }
-
-  @Test
-  public void testCreateGetpropForTemplatizedType() {
-    AstFactory astFactory = createTestAstFactory();
-
-    // get the Bar<number> type
-    Node root =
-        parseAndAddTypes(
-            lines(
-                "/** @interface @template T */ function Bar() {} ",
-                "/** @type {T} */ Bar.prototype.property;",
-                "var /** !Bar<number> */ b;"));
-    Node bName = root.getFirstChild().getLastChild().getOnlyChild();
-    assertNode(bName).matchesName("b");
-    JSType barOfNumber = bName.getJSType();
-
-    Node barName = astFactory.createName("bar", barOfNumber);
-    assertType(barName.getJSType()).toStringIsEqualTo("Bar<number>");
-
-    Node propertyAccess = astFactory.createGetProp(barName, "property");
-    assertNode(propertyAccess).hasToken(Token.GETPROP);
-    // Verify that the property is typed as `number` instead of `?` or `T`
-    assertType(propertyAccess.getJSType()).isEqualTo(getNativeType(JSTypeNative.NUMBER_TYPE));
-  }
-
-  @Test
-  public void testCreateStringKey() {
+  public void testCreateStringKey_jstypes() {
     AstFactory astFactory = createTestAstFactory();
 
     Node numberNode = astFactory.createNumber(2112D);
@@ -486,7 +573,20 @@ public class AstFactoryTest {
   }
 
   @Test
-  public void testCreateComputedProperty() {
+  public void testCreateStringKey_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node numberNode = astFactory.createNumber(2112D);
+    Node stringKeyNode = astFactory.createStringKey("key", numberNode);
+
+    assertNode(stringKeyNode).hasType(Token.STRING_KEY);
+    assertThat(stringKeyNode.getString()).isEqualTo("key");
+    assertThat(childList(stringKeyNode)).containsExactly(numberNode);
+    assertNode(stringKeyNode).hasColorThat().isEqualTo(StandardColors.NUMBER);
+  }
+
+  @Test
+  public void testCreateComputedProperty_jstypes() {
     AstFactory astFactory = createTestAstFactory();
 
     Node numberNode = astFactory.createNumber(2112D);
@@ -498,6 +598,21 @@ public class AstFactoryTest {
         .containsExactly(stringLiteral, numberNode)
         .inOrder();
     assertType(computedPropertyNode.getJSType()).isNumber();
+  }
+
+  @Test
+  public void testCreateComputedProperty_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node numberNode = astFactory.createNumber(2112D);
+    Node stringLiteral = astFactory.createString("string literal key");
+    Node computedPropertyNode = astFactory.createComputedProperty(stringLiteral, numberNode);
+
+    assertNode(computedPropertyNode).hasType(Token.COMPUTED_PROP);
+    assertThat(childList(computedPropertyNode))
+        .containsExactly(stringLiteral, numberNode)
+        .inOrder();
+    assertNode(computedPropertyNode).hasColorThat().isEqualTo(StandardColors.NUMBER);
   }
 
   @Test
@@ -532,10 +647,10 @@ public class AstFactoryTest {
   }
 
   @Test
-  public void testCreateGetElem() {
+  public void testCreateGetElem_jstypes() {
     AstFactory astFactory = createTestAstFactory();
 
-    Node objectName = astFactory.createName("obj", getNativeType(JSTypeNative.OBJECT_TYPE));
+    Node objectName = astFactory.createName("obj", type(JSTypeNative.OBJECT_TYPE));
     Node stringLiteral = astFactory.createString("string literal key");
     Node getElemNode = astFactory.createGetElem(objectName, stringLiteral);
 
@@ -547,7 +662,21 @@ public class AstFactoryTest {
   }
 
   @Test
-  public void testCreateComma() {
+  public void testCreateGetElem_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node objectName =
+        astFactory.createName("obj", type(JSTypeNative.STRING_TYPE, StandardColors.STRING));
+    Node stringLiteral = astFactory.createString("string literal key");
+    Node getElemNode = astFactory.createGetElem(objectName, stringLiteral);
+
+    assertNode(getElemNode).hasType(Token.GETELEM);
+    assertThat(childList(getElemNode)).containsExactly(objectName, stringLiteral).inOrder();
+    assertNode(getElemNode).hasColorThat().isEqualTo(StandardColors.UNKNOWN);
+  }
+
+  @Test
+  public void testCreateComma_jstypes() {
     AstFactory astFactory = createTestAstFactory();
 
     Node stringNode = astFactory.createString("hi");
@@ -560,7 +689,20 @@ public class AstFactoryTest {
   }
 
   @Test
-  public void testCreateCommas() {
+  public void testCreateComma_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node stringNode = astFactory.createString("hi");
+    Node numberNode = astFactory.createNumber(2112D);
+    Node commaNode = astFactory.createComma(stringNode, numberNode);
+
+    assertNode(commaNode).hasType(Token.COMMA);
+    assertThat(childList(commaNode)).containsExactly(stringNode, numberNode).inOrder();
+    assertNode(commaNode).hasColorThat().isEqualTo(StandardColors.NUMBER);
+  }
+
+  @Test
+  public void testCreateCommas_jstypes() {
     AstFactory astFactory = createTestAstFactory();
 
     Node stringNode = astFactory.createString("hi");
@@ -590,7 +732,7 @@ public class AstFactoryTest {
   }
 
   @Test
-  public void testCreateIn() {
+  public void testCreateIn_jstypes() {
     AstFactory astFactory = createTestAstFactory();
 
     Node prop = astFactory.createString("prop");
@@ -602,7 +744,19 @@ public class AstFactoryTest {
   }
 
   @Test
-  public void testCreateAnd() {
+  public void testCreateIn_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node prop = astFactory.createString("prop");
+    Node obj = IR.name("obj"); // TODO(bradfordcsmith): This should have a type on it.
+    Node n = astFactory.createIn(prop, obj);
+    assertNode(n).hasType(Token.IN);
+    assertNode(n).hasColorThat().isEqualTo(StandardColors.BOOLEAN);
+    assertThat(childList(n)).containsExactly(prop, obj).inOrder();
+  }
+
+  @Test
+  public void testCreateAnd_jstypes() {
     AstFactory astFactory = createTestAstFactory();
 
     Node numberLiteral = astFactory.createNumber(2112D);
@@ -612,6 +766,19 @@ public class AstFactoryTest {
     assertNode(andNode).hasType(Token.AND);
     assertThat(childList(andNode)).containsExactly(numberLiteral, stringLiteral).inOrder();
     assertType(andNode.getJSType()).toStringIsEqualTo("(number|string)");
+  }
+
+  @Test
+  public void testCreateAnd_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node numberLiteral = astFactory.createNumber(2112D);
+    Node stringLiteral = astFactory.createString("hello");
+    Node andNode = astFactory.createAnd(numberLiteral, stringLiteral);
+
+    assertNode(andNode).hasType(Token.AND);
+    assertThat(childList(andNode)).containsExactly(numberLiteral, stringLiteral).inOrder();
+    assertNode(andNode).hasColorThat().hasAlternates(StandardColors.STRING, StandardColors.NUMBER);
   }
 
   @Test
@@ -625,21 +792,23 @@ public class AstFactoryTest {
     assertNode(andNode).hasType(Token.AND);
     assertThat(childList(andNode)).containsExactly(nullNode, stringLiteral).inOrder();
     // NULL_TYPE doesn't contain any truthy values, so its type is the only possibility
-    assertType(andNode.getJSType()).toStringIsEqualTo("null");
+    // but AstFactory is simpler than the type inferencer and does not realize this.
+    assertType(andNode.getJSType()).toStringIsEqualTo("(null|string)");
   }
 
   @Test
   public void testCreateAndWithAlwaysTruthyLhs() {
     AstFactory astFactory = createTestAstFactory();
 
-    Node nonNullObject = astFactory.createName("nonNullObject", JSTypeNative.OBJECT_TYPE);
+    Node nonNullObject = astFactory.createName("nonNullObject", type(JSTypeNative.OBJECT_TYPE));
     Node stringLiteral = astFactory.createString("hello");
     Node andNode = astFactory.createAnd(nonNullObject, stringLiteral);
 
     assertNode(andNode).hasType(Token.AND);
     assertThat(childList(andNode)).containsExactly(nonNullObject, stringLiteral).inOrder();
     // OBJECT_TYPE doesn't contain any falsy values, so the RHS type is the only possibility
-    assertType(andNode.getJSType()).toStringIsEqualTo("string");
+    // but AstFactory is simpler than the type inferencer and does not realize this.
+    assertType(andNode.getJSType()).toStringIsEqualTo("(Object|string)");
   }
 
   @Test
@@ -666,21 +835,205 @@ public class AstFactoryTest {
     assertNode(andNode).hasType(Token.OR);
     assertThat(childList(andNode)).containsExactly(nullLiteral, stringLiteral).inOrder();
     // NULL_TYPE doesn't contain any truthy values, so the RHS type is the only possibility
-    assertType(andNode.getJSType()).toStringIsEqualTo("string");
+    // but AstFactory is simpler than the type inferencer and does not realize this.
+    assertType(andNode.getJSType()).toStringIsEqualTo("(null|string)");
   }
 
   @Test
   public void testCreateOrWithAlwaysTruthyLhs() {
     AstFactory astFactory = createTestAstFactory();
 
-    Node nonNullObject = astFactory.createName("nonNullObject", JSTypeNative.OBJECT_TYPE);
+    Node nonNullObject = astFactory.createName("nonNullObject", type(JSTypeNative.OBJECT_TYPE));
     Node stringLiteral = astFactory.createString("hello");
     Node andNode = astFactory.createOr(nonNullObject, stringLiteral);
 
     assertNode(andNode).hasType(Token.OR);
     assertThat(childList(andNode)).containsExactly(nonNullObject, stringLiteral).inOrder();
     // OBJECT_TYPE doesn't contain any falsy values, so the RHS won't be evaluated
-    assertType(andNode.getJSType()).toStringIsEqualTo("Object");
+    // but AstFactory is simpler than the type inferencer and does not realize this.
+    assertType(andNode.getJSType()).toStringIsEqualTo("(Object|string)");
+  }
+
+  @Test
+  public void testCreateAdd_stringAndNumber_jstypes() {
+    AstFactory astFactory = createTestAstFactory();
+
+    Node zero = astFactory.createNumber(0);
+    Node str = astFactory.createString("x");
+
+    Node add = astFactory.createAdd(zero, str);
+    assertNode(add).hasToken(Token.ADD);
+    assertThat(childList(add)).containsExactly(zero, str);
+    assertNode(add).hasJSTypeThat().isEqualTo(getNativeType(JSTypeNative.BIGINT_NUMBER_STRING));
+  }
+
+  @Test
+  public void testCreateAdd_stringAndNumber_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node zero = astFactory.createNumber(0);
+    Node str = astFactory.createString("x");
+
+    Node add = astFactory.createAdd(zero, str);
+    assertNode(add).hasToken(Token.ADD);
+    assertThat(childList(add)).containsExactly(zero, str);
+    assertNode(add)
+        .hasColorThat()
+        .hasAlternates(StandardColors.BIGINT, StandardColors.NUMBER, StandardColors.STRING);
+  }
+
+  @Test
+  public void testCreateSub_jstypes() {
+    AstFactory astFactory = createTestAstFactory();
+
+    Node zero = astFactory.createNumber(0);
+    Node one = astFactory.createNumber(1);
+
+    Node sub = astFactory.createSub(zero, one);
+
+    assertNode(sub).hasToken(Token.SUB);
+    assertThat(childList(sub)).containsExactly(zero, one);
+    assertNode(sub).hasJSTypeThat().isEqualTo(getNativeType(JSTypeNative.NUMBER_TYPE));
+  }
+
+  @Test
+  public void testCreateSub_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node zero = astFactory.createNumber(0);
+    Node one = astFactory.createNumber(1);
+
+    Node sub = astFactory.createSub(zero, one);
+
+    assertNode(sub).hasToken(Token.SUB);
+    assertThat(childList(sub)).containsExactly(zero, one);
+    assertNode(sub).hasColorThat().isEqualTo(StandardColors.NUMBER);
+  }
+
+  @Test
+  public void testCreateLessThan_jstypes() {
+    AstFactory astFactory = createTestAstFactory();
+
+    Node zero = astFactory.createNumber(0);
+    Node one = astFactory.createNumber(1);
+
+    Node lt = astFactory.createLessThan(zero, one);
+
+    assertNode(lt).hasToken(Token.LT);
+    assertThat(childList(lt)).containsExactly(zero, one);
+    assertNode(lt).hasJSTypeThat().isEqualTo(getNativeType(JSTypeNative.BOOLEAN_TYPE));
+  }
+
+  @Test
+  public void testCreateLessThan_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node zero = astFactory.createNumber(0);
+    Node one = astFactory.createNumber(1);
+
+    Node lt = astFactory.createLessThan(zero, one);
+
+    assertNode(lt).hasToken(Token.LT);
+    assertThat(childList(lt)).containsExactly(zero, one);
+    assertNode(lt).hasColorThat().isEqualTo(StandardColors.BOOLEAN);
+  }
+
+  @Test
+  public void testCreateInc_prefix_jstypes() {
+    AstFactory astFactory = createTestAstFactory();
+
+    Node x = astFactory.createNameWithUnknownType("x");
+
+    Node inc = astFactory.createInc(x, /* isPost= */ false);
+
+    assertNode(inc).hasToken(Token.INC);
+    assertThat(inc.getBooleanProp(Node.INCRDECR_PROP)).isFalse();
+    assertThat(childList(inc)).containsExactly(x);
+    assertNode(inc).hasJSTypeThat().isEqualTo(getNativeType(JSTypeNative.NUMBER_TYPE));
+  }
+
+  @Test
+  public void testCreateInc_postfix_jstypes() {
+    AstFactory astFactory = createTestAstFactory();
+
+    Node x = astFactory.createNameWithUnknownType("x");
+
+    Node inc = astFactory.createInc(x, /* isPost= */ true);
+
+    assertNode(inc).hasToken(Token.INC);
+    assertThat(inc.getBooleanProp(Node.INCRDECR_PROP)).isTrue();
+    assertThat(childList(inc)).containsExactly(x);
+    assertNode(inc).hasJSTypeThat().isEqualTo(getNativeType(JSTypeNative.NUMBER_TYPE));
+  }
+
+  @Test
+  public void testCreateInc_prefix_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node x = astFactory.createNameWithUnknownType("x");
+
+    Node inc = astFactory.createInc(x, /* isPost= */ false);
+
+    assertNode(inc).hasToken(Token.INC);
+    assertThat(inc.getBooleanProp(Node.INCRDECR_PROP)).isFalse();
+    assertThat(childList(inc)).containsExactly(x);
+    assertNode(inc).hasColorThat().isEqualTo(StandardColors.NUMBER);
+  }
+
+  @Test
+  public void testCreateCallWithTypeFromNode() {
+    AstFactory astFactory = createTestAstFactory();
+
+    Node root =
+        parseAndAddTypes(
+            lines(
+                "/**",
+                " * @param {string} arg1",
+                " * @param {number} arg2",
+                " * @return {string}",
+                " */",
+                "function foo() { return arg1; }",
+                ""));
+    Scope scope = getScope(root);
+
+    // foo("hi", 2112)
+    Node callee = astFactory.createName(scope, "foo");
+    Node arg1 = astFactory.createString("hi");
+    Node arg2 = astFactory.createNumber(2112D);
+    Node callNode = astFactory.createCall(callee, type(astFactory.createString("tmp")), arg1, arg2);
+
+    assertNode(callNode).hasType(Token.CALL);
+    assertThat(callNode.getBooleanProp(Node.FREE_CALL)).isTrue();
+    assertThat(childList(callNode)).containsExactly(callee, arg1, arg2).inOrder();
+    assertType(callNode.getJSType()).isString();
+  }
+
+  @Test
+  public void testCreateCallWithColorFromNode() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node root =
+        parseAndAddColors(
+            lines(
+                "/**",
+                " * @param {string} arg1",
+                " * @param {number} arg2",
+                " * @return {string}",
+                " */",
+                "function foo() { return arg1; }",
+                ""));
+    Scope scope = getScope(root);
+
+    // foo("hi", 2112)
+    Node callee = astFactory.createName(scope, "foo");
+    Node arg1 = astFactory.createString("hi");
+    Node arg2 = astFactory.createNumber(2112D);
+    Node callNode = astFactory.createCall(callee, type(astFactory.createString("tmp")), arg1, arg2);
+
+    assertNode(callNode).hasType(Token.CALL);
+    assertThat(callNode.getBooleanProp(Node.FREE_CALL)).isTrue();
+    assertThat(childList(callNode)).containsExactly(callee, arg1, arg2).inOrder();
+    assertNode(callNode).hasColorThat().isEqualTo(StandardColors.STRING);
   }
 
   @Test
@@ -703,7 +1056,7 @@ public class AstFactoryTest {
     Node callee = astFactory.createName(scope, "foo");
     Node arg1 = astFactory.createString("hi");
     Node arg2 = astFactory.createNumber(2112D);
-    Node callNode = astFactory.createCall(callee, arg1, arg2);
+    Node callNode = astFactory.createCall(callee, type(JSTypeNative.STRING_TYPE), arg1, arg2);
 
     assertNode(callNode).hasType(Token.CALL);
     assertThat(callNode.getBooleanProp(Node.FREE_CALL)).isTrue();
@@ -712,41 +1065,33 @@ public class AstFactoryTest {
   }
 
   @Test
-  public void testCreateMethodCall() {
+  public void testCreateMethodCall_throws() {
     AstFactory astFactory = createTestAstFactory();
 
-    Node root =
-        parseAndAddTypes(
-            lines(
-                "class Foo {",
-                "  /**",
-                "   * @param {string} arg1",
-                "   * @param {number} arg2",
-                "   * @return {string}",
-                "   */",
-                "  method(arg1, arg2) { return arg1; }",
-                "}",
-                "const foo = new Foo();"));
-    Scope scope = getScope(root);
+    parseAndAddTypes(
+        lines(
+            "class Foo {",
+            "  /**",
+            "   * @param {string} arg1",
+            "   * @param {number} arg2",
+            "   * @return {string}",
+            "   */",
+            "  method(arg1, arg2) { return arg1; }",
+            "}",
+            "const foo = new Foo();"));
+    StaticScope scope = compiler.getTranspilationNamespace();
 
+    // createQName only accepts globally qualified qnames. foo.method is a prototype method access.
     // foo.method("hi", 2112)
-    Node callee = astFactory.createQName(scope, "foo.method");
-    Node arg1 = astFactory.createString("hi");
-    Node arg2 = astFactory.createNumber(2112D);
-    Node callNode = astFactory.createCall(callee, arg1, arg2);
-
-    assertNode(callNode).hasType(Token.CALL);
-    assertThat(callNode.getBooleanProp(Node.FREE_CALL)).isFalse();
-    assertThat(childList(callNode)).containsExactly(callee, arg1, arg2).inOrder();
-    assertType(callNode.getJSType()).isString();
+    assertThrows(Exception.class, () -> astFactory.createQName(scope, "foo.method"));
   }
 
   @Test
-  public void testCreateStaticMethodCall() {
+  public void testCreateStaticMethodCallDotCallThrows() {
     // NOTE: This method is testing both createCall() and createQName()
     AstFactory astFactory = createTestAstFactory();
 
-    Node root =
+
         parseAndAddTypes(
             lines(
                 "class Foo {",
@@ -757,95 +1102,60 @@ public class AstFactoryTest {
                 "   */",
                 "  static method(arg1, arg2) { return arg1; }",
                 "}"));
-    Scope scope = getScope(root);
+    StaticScope scope = compiler.getTranspilationNamespace();
 
-    // Foo.method("hi", 2112)
-    Node callee = astFactory.createQName(scope, "Foo.method");
-    Node arg1 = astFactory.createString("hi");
-    Node arg2 = astFactory.createNumber(2112D);
-    Node callNode = astFactory.createCall(callee, arg1, arg2);
-
-    assertNode(callNode).hasType(Token.CALL);
-    assertThat(callNode.getBooleanProp(Node.FREE_CALL)).isFalse();
-    assertThat(childList(callNode)).containsExactly(callee, arg1, arg2).inOrder();
-    assertType(callNode.getJSType()).isString();
-  }
-
-  @Test
-  public void testCreateStaticMethodCallDotCall() {
-    // NOTE: This method is testing both createCall() and createQName()
-    AstFactory astFactory = createTestAstFactory();
-
-    Node root =
-        parseAndAddTypes(
-            lines(
-                "class Foo {",
-                "  /**",
-                "   * @param {string} arg1",
-                "   * @param {number} arg2",
-                "   * @return {string}",
-                "   */",
-                "  static method(arg1, arg2) { return arg1; }",
-                "}"));
-    Scope scope = getScope(root);
-
+    // createQName only accepts globally qualified qnames. While Foo.method is a global qualified
+    // name, its '.call' property is not.
     // Foo.method.call(null, "hi", 2112)
-    Node callee = astFactory.createQName(scope, "Foo.method.call");
-    Node nullNode = astFactory.createNull();
-    Node arg1 = astFactory.createString("hi");
-    Node arg2 = astFactory.createNumber(2112D);
-    Node callNode = astFactory.createCall(callee, nullNode, arg1, arg2);
+    assertThrows(Exception.class, () -> astFactory.createQName(scope, "Foo.method.call"));
+  }
 
-    assertNode(callNode).hasType(Token.CALL);
-    assertThat(callNode.getBooleanProp(Node.FREE_CALL)).isFalse();
-    assertThat(childList(callNode)).containsExactly(callee, nullNode, arg1, arg2).inOrder();
-    assertType(callNode.getJSType()).isString();
+  @Test
+  public void testCreateQNameWithUnknownTypeFromString_jstype() {
+    AstFactory astFactory = createTestAstFactory();
+
+    Node objDotInnerDotStr = astFactory.createQNameWithUnknownType("obj.inner.str");
+
+    assertNode(objDotInnerDotStr).matchesQualifiedName("obj.inner.str");
+    Node objDotInner = objDotInnerDotStr.getFirstChild();
+    Node obj = objDotInner.getFirstChild();
+
+    assertNode(obj).hasJSTypeThat().isUnknown();
+    assertNode(objDotInner).hasJSTypeThat().isUnknown();
+    assertNode(objDotInnerDotStr).hasJSTypeThat().isUnknown();
+  }
+
+  @Test
+  public void testCreateQNameWithUnknownTypeFromString_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node objDotInnerDotStr = astFactory.createQNameWithUnknownType("obj.inner.str");
+
+    assertNode(objDotInnerDotStr).matchesQualifiedName("obj.inner.str");
+    Node objDotInner = objDotInnerDotStr.getFirstChild();
+    Node obj = objDotInner.getFirstChild();
+
+    assertNode(obj).hasColorThat().isEqualTo(StandardColors.UNKNOWN);
+    assertNode(objDotInner).hasColorThat().isEqualTo(StandardColors.UNKNOWN);
+    assertNode(objDotInnerDotStr).hasColorThat().isEqualTo(StandardColors.UNKNOWN);
   }
 
   @Test
   public void testCreateQNameFromString() {
     AstFactory astFactory = createTestAstFactory();
 
-    Node root =
-        parseAndAddTypes(
-            lines(
-                "", //
-                "const obj = {",
-                "  inner: {",
-                "    str: 'hi',",
-                "  }",
-                "};",
-                ""));
-    Scope scope = getScope(root);
+    parseAndAddTypes(
+        lines(
+            "", //
+            "const obj = {",
+            "  inner: {",
+            "    str: 'hi',",
+            "  }",
+            "};",
+            ""));
+    StaticScope scope = compiler.getTranspilationNamespace();
 
     Node objDotInnerDotStr = astFactory.createQName(scope, "obj.inner.str");
-
-    assertNode(objDotInnerDotStr).matchesQualifiedName("obj.inner.str");
-    Node objDotInner = objDotInnerDotStr.getFirstChild();
-    Node obj = objDotInner.getFirstChild();
-
-    assertNode(obj).hasJSTypeThat().toStringIsEqualTo("{inner: {str: string}}");
-    assertNode(objDotInner).hasJSTypeThat().toStringIsEqualTo("{str: string}");
-    assertNode(objDotInnerDotStr).hasJSTypeThat().isString();
-  }
-
-  @Test
-  public void testCreateQNameFromStringIterable() {
-    AstFactory astFactory = createTestAstFactory();
-
-    Node root =
-        parseAndAddTypes(
-            lines(
-                "", //
-                "const obj = {",
-                "  inner: {",
-                "    str: 'hi',",
-                "  }",
-                "};",
-                ""));
-    Scope scope = getScope(root);
-
-    Node objDotInnerDotStr = astFactory.createQName(scope, ImmutableList.of("obj", "inner", "str"));
 
     assertNode(objDotInnerDotStr).matchesQualifiedName("obj.inner.str");
     Node objDotInner = objDotInnerDotStr.getFirstChild();
@@ -860,17 +1170,16 @@ public class AstFactoryTest {
   public void testCreateQNameFromBaseNamePlusStringIterable() {
     AstFactory astFactory = createTestAstFactory();
 
-    Node root =
-        parseAndAddTypes(
-            lines(
-                "", //
-                "const obj = {",
-                "  inner: {",
-                "    str: 'hi',",
-                "  }",
-                "};",
-                ""));
-    Scope scope = getScope(root);
+    parseAndAddTypes(
+        lines(
+            "", //
+            "const obj = {",
+            "  inner: {",
+            "    str: 'hi',",
+            "  }",
+            "};",
+            ""));
+    StaticScope scope = compiler.getTranspilationNamespace();
 
     Node objDotInnerDotStr = astFactory.createQName(scope, "obj", ImmutableList.of("inner", "str"));
 
@@ -887,19 +1196,18 @@ public class AstFactoryTest {
   public void testCreateQNameFromStringVarArgs() {
     AstFactory astFactory = createTestAstFactory();
 
-    Node root =
-        parseAndAddTypes(
-            lines(
-                "", //
-                "const obj = {",
-                "  inner: {",
-                "    str: 'hi',",
-                "  }",
-                "};",
-                ""));
-    Scope scope = getScope(root);
+    parseAndAddTypes(
+        lines(
+            "", //
+            "const obj = {",
+            "  inner: {",
+            "    str: 'hi',",
+            "  }",
+            "};",
+            ""));
 
-    Node objDotInnerDotStr = astFactory.createQName(scope, "obj", "inner", "str");
+    Node objDotInnerDotStr =
+        astFactory.createQName(compiler.getTranspilationNamespace(), "obj", "inner", "str");
 
     assertNode(objDotInnerDotStr).matchesQualifiedName("obj.inner.str");
     Node objDotInner = objDotInnerDotStr.getFirstChild();
@@ -917,7 +1225,7 @@ public class AstFactoryTest {
     TypedScope scope = TypedScope.createGlobalScope(IR.root());
     scope.declare("x", IR.name("x"), getNativeType(JSTypeNative.NUMBER_TYPE), null, true);
 
-    Node name = astFactory.createQName(scope, "x");
+    Node name = astFactory.createQNameFromTypedScope(scope, "x");
 
     assertNode(name).hasStringThat().isEqualTo("x");
     assertNode(name).hasJSTypeThat().isNumber();
@@ -933,7 +1241,7 @@ public class AstFactoryTest {
     objectWithYProp.defineDeclaredProperty("y", getNativeType(JSTypeNative.NUMBER_TYPE), null);
     scope.declare("x", IR.name("x"), objectWithYProp, null, true);
 
-    Node name = astFactory.createQName(scope, "x.y");
+    Node name = astFactory.createQNameFromTypedScope(scope, "x.y");
 
     assertNode(name).matchesQualifiedName("x.y");
     assertNode(name).hasJSTypeThat().isNumber();
@@ -946,7 +1254,7 @@ public class AstFactoryTest {
 
     TypedScope scope = TypedScope.createGlobalScope(IR.root());
 
-    assertThrows(Exception.class, () -> astFactory.createQName(scope, "x"));
+    assertThrows(Exception.class, () -> astFactory.createQNameFromTypedScope(scope, "x"));
   }
 
   @Test
@@ -961,8 +1269,10 @@ public class AstFactoryTest {
     globalScope.declare("x", IR.name("x"), getNativeType(JSTypeNative.NUMBER_TYPE), null, true);
     TypedScope localScope = new TypedScope(globalScope, block);
 
-    astFactory.createQName(globalScope, "x");
-    assertThrows(IllegalArgumentException.class, () -> astFactory.createQName(localScope, "x"));
+    astFactory.createQNameFromTypedScope(globalScope, "x");
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> astFactory.createQNameFromTypedScope(localScope, "x"));
   }
 
   @Test
@@ -986,92 +1296,12 @@ public class AstFactoryTest {
     Node callee = IR.superNode().setJSType(classBExtendsNode.getJSType());
     Node arg1 = astFactory.createString("hi");
     Node arg2 = astFactory.createNumber(2112D);
-    Node callNode = astFactory.createConstructorCall(classBType, callee, arg1, arg2);
+    Node callNode = astFactory.createConstructorCall(type(classBNode), callee, arg1, arg2);
 
     assertNode(callNode).hasType(Token.CALL);
     assertThat(callNode.getBooleanProp(Node.FREE_CALL)).isTrue();
     assertThat(childList(callNode)).containsExactly(callee, arg1, arg2).inOrder();
     assertType(callNode.getJSType()).isEqualTo(classBInstanceType);
-  }
-
-  @Test
-  public void createObjectGetPrototypeOfCallWithoutTypes() {
-    AstFactory astFactory = createTestAstFactoryWithoutTypes();
-
-    Node nameNode = astFactory.createName("name", (JSType) null);
-    Node callObjectDotGetPrototypeOfOnName = astFactory.createObjectGetPrototypeOfCall(nameNode);
-    // expect
-    // `Object.getPrototypeOf(name)`
-    assertNode(callObjectDotGetPrototypeOfOnName).hasType(Token.CALL);
-    assertThat(callObjectDotGetPrototypeOfOnName.getJSType()).isNull();
-
-    Node callee = callObjectDotGetPrototypeOfOnName.getFirstChild();
-    assertNode(callee).matchesQualifiedName("Object.getPrototypeOf");
-    Node firstArg = callee.getNext();
-    assertThat(firstArg).isEqualTo(nameNode);
-  }
-
-  @Test
-  public void createObjectGetPrototypeOfCallOnInstance() {
-    AstFactory astFactory = createTestAstFactory();
-
-    // NOTE: the "WithoutTypes" version of this test checks that the method creates
-    // `Object.getPrototypeOf(someThing)`. This test case is about making sure we get the
-    // right types applied to the call
-    Node root =
-        parseAndAddTypes(
-            lines(
-                "class A {}", //
-                "A.prototype;", // convenient way to grab class prototype
-                "const a = new A();",
-                ""));
-
-    Scope scope = getScope(root);
-
-    // `class A {}`
-    Node classANode =
-        root.getFirstChild() // script
-            .getFirstChild();
-
-    // `A.prototype`
-    Node classADotPrototype =
-        classANode
-            .getNext() // expr_result
-            .getOnlyChild();
-
-    Node aNameNode = astFactory.createName(scope, "a");
-    Node callObjectDotGetPrototypeOf = astFactory.createObjectGetPrototypeOfCall(aNameNode);
-    assertNode(callObjectDotGetPrototypeOf)
-        .hasJSTypeThat()
-        .isEqualTo(classADotPrototype.getJSTypeRequired());
-  }
-
-  @Test
-  public void createObjectGetPrototypeOfCallOnClass() {
-    AstFactory astFactory = createTestAstFactory();
-
-    // NOTE: the "WithoutTypes" version of this test checks that the method creates
-    // `Object.getPrototypeOf(someThing)`. This test case is about making sure we get the
-    // right types applied to the call
-    Node root =
-        parseAndAddTypes(
-            lines(
-                "class A {}", //
-                "class B extends A {}",
-                ""));
-
-    Scope scope = getScope(root);
-
-    // `class A {}`
-    Node classANode =
-        root.getFirstChild() // script
-            .getFirstChild();
-
-    Node classBNameNode = astFactory.createName(scope, "B");
-    Node callObjectDotGetPrototypeOf = astFactory.createObjectGetPrototypeOfCall(classBNameNode);
-    assertNode(callObjectDotGetPrototypeOf)
-        .hasJSTypeThat()
-        .isEqualTo(classANode.getJSTypeRequired());
   }
 
   @Test
@@ -1085,7 +1315,7 @@ public class AstFactoryTest {
             .getFirstChild() // function
             .getJSType();
 
-    Node emptyFunction = astFactory.createEmptyFunction(functionType);
+    Node emptyFunction = astFactory.createEmptyFunction(type(functionType));
     assertNode(emptyFunction).hasToken(Token.FUNCTION);
     assertType(emptyFunction.getJSType()).isEqualTo(functionType);
   }
@@ -1104,7 +1334,7 @@ public class AstFactoryTest {
     Node paramList = IR.paramList();
     Node body = IR.block();
 
-    Node functionNode = astFactory.createFunction("bar", paramList, body, functionType);
+    Node functionNode = astFactory.createFunction("bar", paramList, body, type(functionType));
     assertNode(functionNode).hasToken(Token.FUNCTION);
     assertType(functionNode.getJSType()).isEqualTo(functionType);
     Node functionNameNode = functionNode.getFirstChild();
@@ -1115,7 +1345,7 @@ public class AstFactoryTest {
   }
 
   @Test
-  public void testCreateMemberFunctionDef() {
+  public void testCreateMemberFunctionDef_jstypes() {
     AstFactory astFactory = createTestAstFactory();
 
     // just a quick way to get a valid function type
@@ -1127,12 +1357,33 @@ public class AstFactoryTest {
 
     Node paramList = IR.paramList();
     Node body = IR.block();
-    Node functionNode = astFactory.createFunction("", paramList, body, functionType);
+    Node functionNode = astFactory.createFunction("", paramList, body, type(functionType));
 
     Node memberFunctionDef = astFactory.createMemberFunctionDef("bar", functionNode);
     assertNode(memberFunctionDef).hasToken(Token.MEMBER_FUNCTION_DEF);
     assertThat(memberFunctionDef.getString()).isEqualTo("bar");
     assertType(memberFunctionDef.getJSType()).isEqualTo(functionType);
+  }
+
+  @Test
+  public void testCreateMemberFunctionDef_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    // just a quick way to get a valid function type
+    Node root = parseAndAddColors("function foo() {}");
+    Color functionType =
+        root.getFirstChild() // script
+            .getFirstChild() // function
+            .getColor();
+
+    Node paramList = IR.paramList();
+    Node body = IR.block();
+    Node functionNode = IR.function(IR.name(""), paramList, body).setColor(functionType);
+
+    Node memberFunctionDef = astFactory.createMemberFunctionDef("bar", functionNode);
+    assertNode(memberFunctionDef).hasToken(Token.MEMBER_FUNCTION_DEF);
+    assertThat(memberFunctionDef.getString()).isEqualTo("bar");
+    assertNode(memberFunctionDef).hasColorThat().isEqualTo(functionType);
   }
 
   @Test
@@ -1216,6 +1467,34 @@ public class AstFactoryTest {
   }
 
   @Test
+  public void testCreateAssignFromNodes_jstypes() {
+    AstFactory astFactory = createTestAstFactory();
+
+    Node lhs = astFactory.createName("x", type(JSTypeNative.STRING_TYPE));
+    Node rhs = astFactory.createNumber(0);
+
+    Node assign = astFactory.createAssign(lhs, rhs);
+    assertNode(assign).hasToken(Token.ASSIGN);
+    assertNode(assign).hasFirstChildThat().isEqualTo(lhs);
+    assertNode(assign).hasSecondChildThat().isEqualTo(rhs);
+    assertNode(assign).hasJSTypeThat().isNumber(); // take the rhs type, not lhs type
+  }
+
+  @Test
+  public void testCreateAssignFromNodes_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node lhs = astFactory.createName("x", type(StandardColors.STRING));
+    Node rhs = astFactory.createNumber(0);
+
+    Node assign = astFactory.createAssign(lhs, rhs);
+    assertNode(assign).hasToken(Token.ASSIGN);
+    assertNode(assign).hasFirstChildThat().isEqualTo(lhs);
+    assertNode(assign).hasSecondChildThat().isEqualTo(rhs);
+    assertNode(assign).hasColorThat().isEqualTo(StandardColors.NUMBER); // rhs type, not lhs type
+  }
+
+  @Test
   public void testCreateObjectLit_empty() {
     AstFactory astFactory = createTestAstFactory();
 
@@ -1231,6 +1510,19 @@ public class AstFactoryTest {
 
     assertType(objectLit.getJSType()).toStringIsEqualTo("{}");
     assertThat(objectLit.getJSType()).isInstanceOf(objectLitType.getClass());
+    assertNode(objectLit).hasToken(Token.OBJECTLIT);
+    assertNode(objectLit).hasChildren(false);
+  }
+
+  @Test
+  public void testCreateObjectLit_empty_withColor() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Color objColor = Color.singleBuilder().setId(ColorId.fromAscii("1")).build();
+
+    Node objectLit = astFactory.createObjectLit(type(JSTypeNative.UNKNOWN_TYPE, objColor));
+
+    assertNode(objectLit).hasColorThat().isEqualTo(objColor);
     assertNode(objectLit).hasToken(Token.OBJECTLIT);
     assertNode(objectLit).hasChildren(false);
   }
@@ -1271,7 +1563,7 @@ public class AstFactoryTest {
             "then",
             astFactory.createZeroArgArrowFunctionForExpression(astFactory.createString("hi")));
 
-    Node objectLit = astFactory.createObjectLit(thenableType, thenStringKey);
+    Node objectLit = astFactory.createObjectLit(type(thenableType), thenStringKey);
 
     assertThat(objectLit.getJSType()).isEqualTo(thenableType);
     assertNode(objectLit).hasToken(Token.OBJECTLIT);
@@ -1279,7 +1571,18 @@ public class AstFactoryTest {
   }
 
   @Test
-  public void testCreateDelProp() {
+  public void testCreateObjectLit_empty_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node objectLit = astFactory.createObjectLit();
+
+    assertNode(objectLit).hasColorThat().isEqualTo(StandardColors.TOP_OBJECT);
+    assertNode(objectLit).hasToken(Token.OBJECTLIT);
+    assertNode(objectLit).hasChildren(false);
+  }
+
+  @Test
+  public void testCreateDelProp_jstypes() {
     AstFactory astFactory = createTestAstFactory();
 
     Node getprop = IR.getprop(IR.name("obj"), "prop");
@@ -1291,7 +1594,19 @@ public class AstFactoryTest {
   }
 
   @Test
-  public void testCreateSheq() {
+  public void testCreateDelProp_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node getprop = IR.getprop(IR.name("obj"), "prop");
+
+    Node delprop = astFactory.createDelProp(getprop);
+    assertNode(delprop).hasToken(Token.DELPROP);
+    assertNode(delprop).hasColorThat().isEqualTo(StandardColors.BOOLEAN);
+    assertNode(delprop).hasChildren(true);
+  }
+
+  @Test
+  public void testCreateSheq_jstypes() {
     AstFactory astFactory = createTestAstFactory();
 
     Node left = IR.string("left");
@@ -1303,7 +1618,19 @@ public class AstFactoryTest {
   }
 
   @Test
-  public void testCreateEq() {
+  public void testCreateSheq_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node left = IR.string("left");
+    Node right = IR.number(0);
+
+    Node sheq = astFactory.createSheq(left, right);
+    assertNode(sheq).hasToken(Token.SHEQ);
+    assertNode(sheq).hasColorThat().isEqualTo(StandardColors.BOOLEAN);
+  }
+
+  @Test
+  public void testCreateEq_jstypes() {
     AstFactory astFactory = createTestAstFactory();
 
     Node left = IR.string("left");
@@ -1315,7 +1642,43 @@ public class AstFactoryTest {
   }
 
   @Test
-  public void testCreateHook() {
+  public void testCreateEq_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node left = IR.string("left");
+    Node right = IR.number(0);
+
+    Node eq = astFactory.createEq(left, right);
+    assertNode(eq).hasToken(Token.EQ);
+    assertNode(eq).hasColorThat().isEqualTo(StandardColors.BOOLEAN);
+  }
+
+  @Test
+  public void testCreateNe_jstypes() {
+    AstFactory astFactory = createTestAstFactory();
+
+    Node left = IR.string("left");
+    Node right = IR.number(0);
+
+    Node ne = astFactory.createNe(left, right);
+    assertNode(ne).hasToken(Token.NE);
+    assertType(ne.getJSType()).isEqualTo(getNativeType(JSTypeNative.BOOLEAN_TYPE));
+  }
+
+  @Test
+  public void testCreateNe_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node left = IR.string("left");
+    Node right = IR.number(0);
+
+    Node ne = astFactory.createNe(left, right);
+    assertNode(ne).hasToken(Token.NE);
+    assertNode(ne).hasColorThat().isEqualTo(StandardColors.BOOLEAN);
+  }
+
+  @Test
+  public void testCreateHook_jstypes() {
     AstFactory astFactory = createTestAstFactory();
     JSType stringType = getNativeType(JSTypeNative.STRING_TYPE);
     JSType numberType = getNativeType(JSTypeNative.NUMBER_TYPE);
@@ -1330,7 +1693,20 @@ public class AstFactoryTest {
   }
 
   @Test
-  public void testCreateArraylit() {
+  public void testCreateHook_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node condition = IR.falseNode();
+    Node left = astFactory.createString("left");
+    Node right = astFactory.createNumber(0);
+
+    Node hook = astFactory.createHook(condition, left, right);
+    assertNode(hook).hasToken(Token.HOOK);
+    assertNode(hook).hasColorThat().hasAlternates(StandardColors.STRING, StandardColors.NUMBER);
+  }
+
+  @Test
+  public void testCreateArraylit_jstypes() {
     // Given
     AstFactory astFactory = createTestAstFactory();
     JSType numberType = getNativeType(JSTypeNative.NUMBER_TYPE);
@@ -1354,7 +1730,30 @@ public class AstFactoryTest {
   }
 
   @Test
-  public void testCreateNewNode() {
+  public void testCreateArraylit_colors() {
+    // Given
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node first = astFactory.createNumber(0);
+    Node second = astFactory.createNumber(1);
+    Node third = astFactory.createNumber(2);
+
+    Node expected =
+        parseAndAddColors("[0, 1, 2]")
+            .getFirstChild() // Script
+            .getFirstChild() // Expression
+            .getFirstChild(); // Array
+
+    // When
+    Node array = astFactory.createArraylit(first, second, third);
+
+    // Then
+    assertNode(array).isEquivalentTo(expected);
+    assertThat(array.getColor()).isEqualTo(expected.getColor());
+  }
+
+  @Test
+  public void testCreateNewNode_jstypes() {
     // Given
     AstFactory astFactory = createTestAstFactory();
     JSType numberType = getNativeType(JSTypeNative.NUMBER_TYPE);
@@ -1377,12 +1776,42 @@ public class AstFactoryTest {
 
     // When
     Node newExpr =
-        astFactory.createNewNode(
-            astFactory.createName("Example", classNode.getJSType()), first, second);
+        astFactory.createNewNode(astFactory.createName("Example", type(classNode)), first, second);
 
     // Then
     assertNode(newExpr).isEquivalentTo(expected);
     assertType(newExpr.getJSType()).isEqualTo(expected.getJSType());
+  }
+
+  @Test
+  public void testCreateNewNode_colors() {
+    // Given
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node first = astFactory.createNumber(0);
+    Node second = astFactory.createNumber(1);
+
+    Node classNode =
+        parseAndAddColors(
+                lines(
+                    "class Example { constructor(arg0, arg1) {} }", //
+                    "new Example(0, 1);"))
+            .getFirstChild() // Script
+            .getFirstChild(); // class
+
+    Node expected =
+        classNode
+            .getNext() // ExpressionResult
+            .getFirstChild(); // NewExpression
+
+    // When
+    Node newExpr =
+        astFactory.createNewNode(
+            astFactory.createName("Example", type(classNode.getColor())), first, second);
+
+    // Then
+    assertNode(newExpr).isEquivalentTo(expected);
+    assertNode(newExpr).hasColorThat().isEqualTo(expected.getColor());
   }
 
   private static ImmutableList<Node> childList(Node parent) {

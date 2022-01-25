@@ -16,10 +16,12 @@
 
 package com.google.javascript.jscomp;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.annotations.GwtIncompatible;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.javascript.jscomp.NodeTraversal.Callback;
 import com.google.javascript.rhino.Node;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.TextFormat;
@@ -28,6 +30,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Provides a framework for checking code against a set of user configured conformance rules. The
@@ -39,7 +42,7 @@ import java.util.Set;
  * to the {cI gue@link ErrorManager}
  */
 @GwtIncompatible("com.google.protobuf")
-public final class CheckConformance implements Callback, CompilerPass {
+public final class CheckConformance implements NodeTraversal.Callback, CompilerPass {
   static final DiagnosticType CONFORMANCE_ERROR =
       DiagnosticType.error("JSC_CONFORMANCE_ERROR", "Violation: {0}{1}{2}");
 
@@ -55,23 +58,66 @@ public final class CheckConformance implements Callback, CompilerPass {
           "Invalid requirement. Reason: {0}\nRequirement spec:\n{1}");
 
   private final AbstractCompiler compiler;
-  private final ImmutableList<Rule> rules;
+  private final ImmutableList<Category> categories;
 
   public static interface Rule {
+
+    /**
+     * Return a precondition for this rule.
+     *
+     * <p>This method will only be called once (per rule) during the creation of the
+     * CheckConformance pass. Therefore, the return must be constant.
+     *
+     * <p>Returning null means that there is no precondition. This is convenient, but can be a major
+     * performance hit.
+     */
+    @Nullable
+    default Precondition getPrecondition() {
+      return Precondition.CHECK_ALL;
+    }
+
     /** Perform conformance check */
     void check(NodeTraversal t, Node n);
+  }
+
+  /**
+   * A condition that must be true for a rule to possibly match a node.
+   *
+   * <p>Instances are used as keys to group rules with common preconditions. Grouping allows shared
+   * computation to be done only once per node, which is a substantial performance improvement.
+   */
+  public static interface Precondition {
+    boolean shouldCheck(Node n);
+
+    public static final Precondition CHECK_ALL =
+        new Precondition() {
+          @Override
+          public boolean shouldCheck(Node n) {
+            return true;
+          }
+        };
+  }
+
+  private static final class Category {
+    final Precondition precondition;
+    final ImmutableList<Rule> rules;
+
+    Category(Precondition precondition, ImmutableList<Rule> rules) {
+      this.precondition = precondition;
+      this.rules = rules;
+    }
   }
 
   /** @param configs The rules to check. */
   CheckConformance(AbstractCompiler compiler, ImmutableList<ConformanceConfig> configs) {
     this.compiler = compiler;
     // Initialize the map of functions to inspect for renaming candidates.
-    this.rules = initRules(compiler, configs);
+    this.categories = initRules(compiler, configs);
   }
 
   @Override
   public void process(Node externs, Node root) {
-    if (!rules.isEmpty()) {
+    if (!this.categories.isEmpty()) {
       NodeTraversal.traverseRoots(compiler, this, externs, root);
     }
   }
@@ -84,24 +130,36 @@ public final class CheckConformance implements Callback, CompilerPass {
 
   @Override
   public void visit(NodeTraversal t, Node n, Node parent) {
-    for (int i = 0, len = rules.size(); i < len; i++) {
-      Rule rule = rules.get(i);
-      rule.check(t, n);
+    /**
+     * Use counted loops and backward iteration for performance.
+     *
+     * <p>These loops are run a huge number of times. The overhead of enhanced-for loops and even
+     * calling size() can add seconds of build time to large projects.
+     */
+    for (int c = this.categories.size() - 1; c >= 0; c--) {
+      Category category = this.categories.get(c);
+      if (category.precondition.shouldCheck(n)) {
+        for (int r = category.rules.size() - 1; r >= 0; r--) {
+          category.rules.get(r).check(t, n);
+        }
+      }
     }
   }
 
   /** Build the data structures need by this pass from the provided configurations. */
-  private static ImmutableList<Rule> initRules(
+  private static ImmutableList<Category> initRules(
       AbstractCompiler compiler, ImmutableList<ConformanceConfig> configs) {
-    ImmutableList.Builder<Rule> builder = ImmutableList.builder();
+    HashMultimap<Precondition, Rule> builder = HashMultimap.create();
     List<Requirement> requirements = mergeRequirements(compiler, configs);
     for (Requirement requirement : requirements) {
       Rule rule = initRule(compiler, requirement);
       if (rule != null) {
-        builder.add(rule);
+        builder.put(rule.getPrecondition(), rule);
       }
     }
-    return builder.build();
+    return builder.asMap().entrySet().stream()
+        .map((e) -> new Category(e.getKey(), ImmutableList.copyOf(e.getValue())))
+        .collect(toImmutableList());
   }
 
   private static final ImmutableSet<String> EXTENDABLE_FIELDS =
@@ -224,6 +282,8 @@ public final class CheckConformance implements Callback, CompilerPass {
           return new ConformanceRules.BannedDependency(compiler, requirement);
         case BANNED_DEPENDENCY_REGEX:
           return new ConformanceRules.BannedDependencyRegex(compiler, requirement);
+        case BANNED_ENHANCE:
+          return new ConformanceRules.BannedEnhance(compiler, requirement);
         case BANNED_NAME:
         case BANNED_NAME_CALL:
           return new ConformanceRules.BannedName(compiler, requirement);
@@ -259,7 +319,6 @@ public final class CheckConformance implements Callback, CompilerPass {
     }
   }
 
-  /** @param requirement */
   private static void reportInvalidRequirement(
       AbstractCompiler compiler, Requirement requirement, String reason) {
     compiler.report(

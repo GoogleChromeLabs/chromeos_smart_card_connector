@@ -704,38 +704,6 @@ public class NodeTraversal {
   }
 
   /**
-   * Gets the current line number, or zero if it cannot be determined. The line number is retrieved
-   * lazily as a running time optimization.
-   */
-  public int getLineNumber() {
-    Node cur = currentNode;
-    while (cur != null) {
-      int line = cur.getLineno();
-      if (line >= 0) {
-        return line;
-      }
-      cur = cur.getParent();
-    }
-    return 0;
-  }
-
-  /**
-   * Gets the current char number, or zero if it cannot be determined. The line number is retrieved
-   * lazily as a running time optimization.
-   */
-  public int getCharno() {
-    Node cur = currentNode;
-    while (cur != null) {
-      int line = cur.getCharno();
-      if (line >= 0) {
-        return line;
-      }
-      cur = cur.getParent();
-    }
-    return 0;
-  }
-
-  /**
    * Gets the current input source name.
    *
    * @return A string that may be empty, but not null
@@ -860,12 +828,28 @@ public class NodeTraversal {
       return;
     }
 
-    if (NodeUtil.createsBlockScope(n)) {
+    boolean createsBlockScope = NodeUtil.createsBlockScope(n);
+    if (createsBlockScope) {
       pushScope(n);
-      traverseChildren(n);
+    }
+
+    /**
+     * Intentiionally inlined call to traverseChildren.
+     *
+     * <p>Calling traverseChildren here would double the maximum stack depth seen during
+     * compilation. That can cause stack overflows on some very deep ASTs (e.g. b/188616350).
+     * Inlining side-steps the issue.
+     */
+    for (Node child = n.getFirstChild(); child != null; ) {
+      // child could be replaced, in which case our child node
+      // would no longer point to the true next
+      Node next = child.getNext();
+      traverseBranch(child, n);
+      child = next;
+    }
+
+    if (createsBlockScope) {
       popScope();
-    } else {
-      traverseChildren(n);
     }
 
     currentNode = n;

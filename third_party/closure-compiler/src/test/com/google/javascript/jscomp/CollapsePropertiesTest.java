@@ -4157,10 +4157,8 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
 
     ignoreWarnings(LOAD_WARNING);
     test(
-        new String[] {"import * as a from './a.js'; let b = a.b;", "var a = {}; a.b = 5;"},
-        new String[] {
-          "import * as a$jscomp$1 from './a.js'; let b = a$jscomp$1.b;", "var a$b = 5;"
-        });
+        srcs("import * as a from './a.js'; let b = a.b;", "var a = {}; a.b = 5;"),
+        expected("import * as a$jscomp$1 from './a.js'; let b = a$jscomp$1.b;", "var a$b = 5;"));
   }
 
   @Test
@@ -4197,7 +4195,7 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
         SourceFile.fromCode(
             "entry.js", "var mod = module$mod1$default; alert(module$mod1$default);"));
 
-    test(inputs, expected);
+    test(srcs(inputs), expected(expected));
   }
 
   @Test
@@ -4225,7 +4223,7 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
         SourceFile.fromCode(
             "entry.js", "alert($jscompDefaultExport$$module$mod1); alert(bar$$module$mod1);"));
 
-    test(inputs, expected);
+    test(srcs(inputs), expected(expected));
   }
 
   @Test
@@ -4264,7 +4262,7 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
                 "alert($jscompDefaultExport$$module$mod1);", //
                 "alert(bar$$module$mod1);")));
 
-    test(inputs, expected);
+    test(srcs(inputs), expected(expected));
   }
 
   @Test
@@ -4294,7 +4292,7 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
         SourceFile.fromCode(
             "entry.js", "var mod = module$mod1$default; alert(module$mod1$default.bar.baz);"));
 
-    test(inputs, expected);
+    test(srcs(inputs), expected(expected));
   }
 
   @Test
@@ -4327,7 +4325,7 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
     expected.add(
         SourceFile.fromCode("entry.js", "alert($jscompDefaultExport$$module$mod1.bar.baz);"));
 
-    test(inputs, expected);
+    test(srcs(inputs), expected(expected));
   }
 
   @Test
@@ -4355,7 +4353,7 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
         SourceFile.fromCode(
             "entry.js", "var mod = module$mod1$default; alert(module$mod1$default.bar);"));
 
-    test(inputs, expected);
+    test(srcs(inputs), expected(expected));
   }
 
   @Test
@@ -4459,6 +4457,6 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
                 "/** @const */ var module$mod1 = {};",
                 "/** @const */ var module$mod1$default = 123;")));
 
-    test(inputs, expected);
+    test(srcs(inputs), expected(expected));
   }
 }

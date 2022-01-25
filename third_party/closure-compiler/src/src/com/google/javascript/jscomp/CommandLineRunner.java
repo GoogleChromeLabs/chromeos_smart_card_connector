@@ -16,6 +16,7 @@
 
 package com.google.javascript.jscomp;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.GwtIncompatible;
@@ -190,7 +191,7 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
         name = "--emit_use_strict",
         handler = BooleanOptionHandler.class,
         usage = "Start output with \"'use strict';\".")
-    private boolean emitUseStrict = true;
+    private boolean emitUseStrict = false;
 
     @Option(
         name = "--strict_mode_input",
@@ -258,19 +259,43 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
                 + "modules.")
     private List<String> chunk = new ArrayList<>();
 
+    // TODO(bradfordcsmith): deprecate and remove this in favor of --restore_stage1_from_file
     @Option(
         name = "--continue-saved-compilation",
-        usage = "Filename where the intermediate compilation state was previously saved.",
+        usage = "Filename where a stage 1 compilation state was previously saved.",
         hidden = true)
     private String continueSavedCompilationFile = null;
 
     @Option(
+        name = "--restore_stage1_from_file",
+        usage = "Filename where a stage 1 compilation state was previously saved.",
+        hidden = true)
+    private String restoreStage1FromFile = null;
+
+    @Option(
+        name = "--restore_stage2_from_file",
+        usage = "Filename where a stage 2 compilation state was previously saved.",
+        hidden = true)
+    private String restoreStage2FromFile = null;
+
+    // TODO(bradfordcsmith): deprecate and remove this in favor of --save_stage1_to_file
+    @Option(
         name = "--save-after-checks",
-        usage =
-            "Filename to save phase 1 intermediate state so that the compilation can be"
-                + " resumed later.",
+        usage = "Filename to save stage 1 state so that the compilation can be resumed later.",
         hidden = true)
     private String saveAfterChecksFile = null;
+
+    @Option(
+        name = "--save_stage1_to_file",
+        usage = "Filename to save stage 1 state so that the compilation can be resumed later.",
+        hidden = true)
+    private String saveStage1ToFile = null;
+
+    @Option(
+        name = "--save_stage2_to_file",
+        usage = "Filename to save stage 2 state so that the compilation can be resumed later.",
+        hidden = true)
+    private String saveStage2ToFile = null;
 
     @Option(
         name = "--variable_renaming_report",
@@ -282,9 +307,10 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
     @Option(
         name = "--instrument_mapping_report",
         usage =
-            "File where the encoded parameters created by Production "
-                + "Instrumentation are mapped to their pre-encoded values. Must "
-                + "be used in tandem with --instrument_for_coverage_option=PRODUCTION")
+            "File where the encoded parameters created by Production Instrumentation are mapped to"
+                + " their pre-encoded values. The %outname% placeholder will expand to the name of"
+                + " the output file that the source map corresponds to. Must be used in tandem with"
+                + " --instrument_for_coverage_option=PRODUCTION")
     private String instrumentationMappingOutputFile = "";
 
     @Option(
@@ -551,6 +577,12 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
     private boolean debug = false;
 
     @Option(
+        name = "--typed_ast_output_file__INTENRNAL_USE_ONLY",
+        usage = "Sets file to output in-progress typedAST format. DO NOT USE!",
+        hidden = true)
+    private String typedAstOutputFile = null;
+
+    @Option(
         name = "--generate_exports",
         handler = BooleanOptionHandler.class,
         usage = "Generates export code for those marked with @export")
@@ -649,19 +681,20 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
         usage =
             "Sets the language spec to which input sources should conform. "
                 + "Options: ECMASCRIPT3, ECMASCRIPT5, ECMASCRIPT5_STRICT, "
-                + "ECMASCRIPT_2015, ECMASCRIPT_2016, "
-                + "ECMASCRIPT_2017, ECMASCRIPT_2018, ECMASCRIPT_2019, ECMASCRIPT_2020, STABLE, "
-                + "ECMASCRIPT_NEXT (latest features supported)")
+                + "ECMASCRIPT_2015, ECMASCRIPT_2016, ECMASCRIPT_2017, "
+                + "ECMASCRIPT_2018, ECMASCRIPT_2019, ECMASCRIPT_2020,"
+                + "ECMASCRIPT_2021, STABLE, ECMASCRIPT_NEXT (latest features supported)")
     private String languageIn = "STABLE";
 
     @Option(
         name = "--language_out",
         usage =
             "Sets the language spec to which output should conform. "
-                + "Options: ECMASCRIPT3, ECMASCRIPT5, ECMASCRIPT5_STRICT, "
+                + "Options: ECMASCRIPT3, ECMASCRIPT5, "
                 + "ECMASCRIPT_2015, ECMASCRIPT_2016, ECMASCRIPT_2017, "
-                + "ECMASCRIPT_2018, ECMASCRIPT_2019, ECMASCRIPT_2020, STABLE")
-    private String languageOut = "STABLE";
+                + "ECMASCRIPT_2018, ECMASCRIPT_2019, ECMASCRIPT_2020, "
+                + "ECMASCRIPT_2021, STABLE, ECMASCRIPT_NEXT (latest features supported)")
+    private String languageOut = "ECMASCRIPT_NEXT";
 
     @Option(
         name = "--version",
@@ -749,7 +782,7 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
         usage =
             "Specifies whether standard input and output streams will be "
                 + "a JSON array of sources. Each source will be an object of the "
-                + "form {path: filename, src: file_contents, srcmap: srcmap_contents }. "
+                + "form {path: filename, src: file_contents, source_map: srcmap_contents }. "
                 + "Intended for use by stream-based build systems such as gulpjs. "
                 + "Options: NONE, IN, OUT, BOTH. Defaults to NONE.")
     private CompilerOptions.JsonStreamMode jsonStreamMode = CompilerOptions.JsonStreamMode.NONE;
@@ -802,7 +835,9 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
     @Option(
         name = "--rewrite_polyfills",
         handler = BooleanOptionHandler.class,
-        usage = "Rewrite ES6 library calls to use polyfills provided by the compiler's runtime.")
+        usage =
+            "Injects polyfills for ES2015+ library classes and methods used in source. See also"
+                + " the \"Polyfills\" GitHub Wiki page.")
     private boolean rewritePolyfills = true;
 
     @Option(
@@ -894,8 +929,18 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
         usage =
             "Instructs the compiler to replace dynamic imports expressions with a function call "
                 + "using the specified name. Allows dynamic import expressions to be externally "
-                + "polyfilled when the output language level does not natively support them.")
+                + "polyfilled when the output language level does not natively support them. "
+                + "An alias of 'import' is allowed.")
     private String dynamicImportAlias = null;
+
+    @Option(
+        name = "--assume_static_inheritance_is_not_used",
+        handler = BooleanOptionHandler.class,
+        usage =
+            "Assume that static (class-side) inheritance is not being used and that static"
+                + " methods will not be referenced via `this` or through subclasses. This enables"
+                + " optimizations that could break code that did those things.")
+    private boolean assumeStaticInheritanceIsNotUsed = true;
 
     @Argument private List<String> arguments = new ArrayList<>();
     private final CmdLineParser parser;
@@ -953,6 +998,7 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
                 ImmutableList.of(
                     "assume_function_wrapper",
                     "debug",
+                    "emit_use_strict",
                     "export_local_property_definitions",
                     "formatting",
                     "generate_exports",
@@ -1009,6 +1055,7 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
                     "json_streams",
                     "third_party",
                     "use_types_for_optimization",
+                    "assume_static_inheritance_required",
                     "version"))
             .build();
 
@@ -1239,7 +1286,7 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
         result.put(parts.get(0), parts.get(1));
       }
 
-      return result.build();
+      return result.buildOrThrow();
     }
 
     List<String> getPackageJsonEntryNames() throws CmdLineException {
@@ -1585,6 +1632,11 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
       flags.processClosurePrimitives = true;
     }
 
+    if (flags.browserFeaturesetYear != 0 && flags.languageOut != "ECMASCRIPT_NEXT") {
+      throw new FlagUsageException(
+          "ERROR - both flags `--browser_featureset_year` and `--language_out` specified.");
+    }
+
     if (flags.outputWrapper == null) {
       flags.outputWrapper = "";
     }
@@ -1656,7 +1708,8 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
     } else {
       runCompiler = true;
 
-      getCommandLineConfig()
+      final CommandLineConfig config = getCommandLineConfig();
+      config
           .setPrintVersion(flags.version)
           .setPrintTree(flags.printTree)
           .setPrintAst(flags.printAst)
@@ -1667,8 +1720,6 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
           .setMixedJsSources(mixedSources)
           .setDefaultToStdin()
           .setJsOutputFile(flags.jsOutputFile)
-          .setSaveAfterChecksFileName(flags.saveAfterChecksFile)
-          .setContinueSavedCompilationFileName(flags.continueSavedCompilationFile)
           .setModule(flags.chunk)
           .setVariableMapOutputFile(flags.variableMapOutputFile)
           .setCreateNameMapFiles(flags.createNameMapFiles)
@@ -1701,6 +1752,38 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
           .setAngularPass(flags.angularPass)
           .setJsonStreamMode(flags.jsonStreamMode)
           .setErrorFormat(flags.errorFormat);
+
+      String stage1RestoreFile = flags.restoreStage1FromFile;
+      if (stage1RestoreFile == null) {
+        // TODO(bradfordcsmith): deprecate and remove this flag
+        stage1RestoreFile = flags.continueSavedCompilationFile;
+      }
+      if (stage1RestoreFile != null) {
+        config.setContinueSavedCompilationFileName(stage1RestoreFile, /* stage= */ 1);
+      }
+      String stage2RestoreFile = flags.restoreStage2FromFile;
+      if (stage1RestoreFile != null) {
+        checkState(stage2RestoreFile == null, "cannot restore both from stage 1 and from stage 2");
+        config.setContinueSavedCompilationFileName(stage1RestoreFile, 1);
+      } else if (stage2RestoreFile != null) {
+        config.setContinueSavedCompilationFileName(stage2RestoreFile, 2);
+      }
+
+      String stage1SaveFile = flags.saveStage1ToFile;
+      if (stage1SaveFile == null) {
+        // TODO(bradfordcsmith): deprecate and remove this flag
+        stage1SaveFile = flags.saveAfterChecksFile;
+      }
+      String stage2SaveFile = flags.saveStage2ToFile;
+      if (stage1SaveFile != null) {
+        checkState(stage2SaveFile == null, "cannot save both stage 1 and stage 2");
+        checkState(stage1RestoreFile == null, "cannot perform stage 1 on a restored stage 1");
+        config.setSaveCompilationStateToFilename(stage1SaveFile, 1);
+      } else if (stage2SaveFile != null) {
+        checkState(stage2RestoreFile == null, "Cannot perform stage 2 on a restored stage 2");
+        checkState(stage1RestoreFile != null, "Saving stage 2 requires restoring from stage 1");
+        config.setSaveCompilationStateToFilename(stage2SaveFile, 2);
+      }
     }
 
     errorStream = null;
@@ -1736,20 +1819,16 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
       }
     }
 
-    if (flags.languageOut.isEmpty()) {
-      options.setLanguageOut(options.getLanguageIn());
+    CompilerOptions.LanguageMode languageMode =
+        CompilerOptions.LanguageMode.fromString(flags.languageOut);
+    if (languageMode == LanguageMode.UNSUPPORTED) {
+      throw new FlagUsageException(
+          "Cannot specify the unsupported set of features for language_out.");
+    }
+    if (languageMode != null) {
+      options.setLanguageOut(languageMode);
     } else {
-      CompilerOptions.LanguageMode languageMode =
-          CompilerOptions.LanguageMode.fromString(flags.languageOut);
-      if (languageMode == LanguageMode.UNSUPPORTED) {
-        throw new FlagUsageException(
-            "Cannot specify the unsupported set of features for language_out.");
-      }
-      if (languageMode != null) {
-        options.setLanguageOut(languageMode);
-      } else {
-        throw new FlagUsageException("Unknown language `" + flags.languageOut + "' specified.");
-      }
+      throw new FlagUsageException("Unknown language `" + flags.languageOut + "' specified.");
     }
 
     options.setCodingConvention(new ClosureCodingConvention());
@@ -1789,6 +1868,9 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
       level.setWrappedOutputOptimizations(options);
     }
 
+    if (flags.typedAstOutputFile != null) {
+      options.setTypedAstOutputFile(Paths.get(flags.typedAstOutputFile));
+    }
     options.setGenerateExports(flags.generateExports);
     options.setExportLocalPropertyDefinitions(flags.exportLocalPropertyDefinitions);
 
@@ -1868,9 +1950,7 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
     options.setPrintSourceAfterEachPass(flags.printSourceAfterEachPass);
     options.setTracerMode(flags.tracerMode);
     options.setStrictModeInput(flags.strictModeInput);
-    if (!flags.emitUseStrict) {
-      options.setEmitUseStrict(false);
-    }
+    options.setEmitUseStrict(flags.emitUseStrict);
     options.setSourceMapIncludeSourcesContent(flags.sourceMapIncludeSourcesContent);
     options.setModuleResolutionMode(flags.moduleResolutionMode);
     options.setBrowserResolverPrefixReplacements(
@@ -1914,6 +1994,7 @@ public class CommandLineRunner extends AbstractCommandLineRunner<Compiler, Compi
     options.setProductionInstrumentationArrayName(flags.productionInstrumentationArrayName);
     options.setAllowDynamicImport(flags.allowDynamicImport);
     options.setDynamicImportAlias(flags.dynamicImportAlias);
+    options.setAssumeStaticInheritanceIsNotUsed(flags.assumeStaticInheritanceIsNotUsed);
 
     if (flags.chunkOutputType == ChunkOutputType.ES_MODULES) {
       if (flags.renamePrefixNamespace != null) {

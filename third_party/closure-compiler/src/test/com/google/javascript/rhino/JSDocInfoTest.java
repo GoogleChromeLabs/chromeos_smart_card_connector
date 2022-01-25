@@ -320,6 +320,15 @@ public class JSDocInfoTest {
   }
 
   @Test
+  public void testSetTypeSummary() {
+    JSDocInfo.Builder builder = JSDocInfo.builder();
+    builder.recordTypeSummary();
+    JSDocInfo info = builder.build();
+
+    assertThat(info.isTypeSummary()).isTrue();
+  }
+
+  @Test
   public void testSetOverride() {
     JSDocInfo.Builder builder = JSDocInfo.builder();
     builder.recordOverride();
@@ -643,7 +652,7 @@ public class JSDocInfoTest {
     JSDocInfo.Builder builder = JSDocInfo.builder();
     builder.parseDocumentation();
     builder.recordSuppressions(ImmutableSet.of("sam", "bob"));
-    builder.addSuppression("fred");
+    builder.recordSuppression("fred");
     JSDocInfo info = builder.build();
     assertThat(info.getSuppressions()).isEqualTo(ImmutableSet.of("bob", "sam", "fred"));
   }
@@ -700,15 +709,12 @@ public class JSDocInfoTest {
 
     // Set a description so that builder is initialized.
     builder.recordDescription("Lorem");
-
-    JSTypeExpression errorType = fromString("Error");
-    JSTypeExpression otherType = fromString("Other");
-    builder.recordThrowDescription(errorType, "Because it does.");
-    builder.recordThrowDescription(otherType, "");
+    builder.recordThrowsAnnotation("{Error} Because it does.");
+    builder.recordThrowsAnnotation("{not a type}");
     JSDocInfo info = builder.build();
-    assertThat(info.getThrowsDescriptionForType(errorType)).isEqualTo("Because it does.");
-    assertThat(info.getThrowsDescriptionForType(otherType)).isEmpty();
-    assertThat(info.getThrowsDescriptionForType(fromString("NeverSeen"))).isNull();
+    assertThat(info.getThrowsAnnotations())
+        .containsExactly("{Error} Because it does.", "{not a type}")
+        .inOrder();
   }
 
   // https://github.com/google/closure-compiler/issues/2328

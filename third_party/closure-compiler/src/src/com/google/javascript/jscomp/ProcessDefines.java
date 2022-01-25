@@ -236,7 +236,7 @@ class ProcessDefines implements CompilerPass {
       }
     }
 
-    if (this.mode.check) {
+    if (this.mode.optimize) {
       Set<String> unusedReplacements =
           Sets.difference(
               Sets.union(
@@ -570,6 +570,7 @@ class ProcessDefines implements CompilerPass {
         // Binary operators are only valid if both children are valid.
       case AND:
       case OR:
+      case COALESCE:
       case ADD:
       case BITAND:
       case BITNOT:

@@ -79,12 +79,18 @@ public final class FeatureSet implements Serializable {
 
   public static final FeatureSet ES2020 = ES2020_MODULES.without(Feature.MODULES);
 
-  // "highest" output level
-  public static final FeatureSet ES_NEXT = ES2020_MODULES.with(LangVersion.ES_NEXT.features());
+  public static final FeatureSet ES2021_MODULES =
+      ES2020_MODULES.with(LangVersion.ES2021.features());
 
-  // "highest" input level; for features that can be transpiled but lack optimization/pass through
+  public static final FeatureSet ES2021 = ES2021_MODULES.without(Feature.MODULES);
+
+  // Set of all fully supported features, even those part of language versions not fully supported
+  public static final FeatureSet ES_NEXT = ES2021_MODULES.with(LangVersion.ES_NEXT.features());
+
+  // Set of features fully supported in checks, even those not fully supported in optimizations
   public static final FeatureSet ES_NEXT_IN = ES_NEXT.with(LangVersion.ES_NEXT_IN.features());
 
+  // Set of all features that can be parsed, even those not yet fully supported in checks.
   public static final FeatureSet ES_UNSUPPORTED =
       ES_NEXT_IN.with(LangVersion.ES_UNSUPPORTED.features());
 
@@ -118,6 +124,7 @@ public final class FeatureSet implements Serializable {
     ES2018,
     ES2019,
     ES2020,
+    ES2021,
     ES_NEXT_IN,
     ES_NEXT,
     ES_UNSUPPORTED,
@@ -215,8 +222,17 @@ public final class FeatureSet implements Serializable {
     NULL_COALESCE_OP("Nullish coalescing", LangVersion.ES2020),
     OPTIONAL_CHAINING("Optional chaining", LangVersion.ES2020),
 
-    // ES_NEXT_IN
-    NUMERIC_SEPARATOR("numeric separator", LangVersion.ES_NEXT_IN),
+    // ES 2021 Stage 4
+    NUMERIC_SEPARATOR("numeric separator", LangVersion.ES2021),
+    LOGICAL_ASSIGNMENT("Logical assignments", LangVersion.ES2021),
+
+    // ES_NEXT: Features that are fully supported, but part of a language version that is not yet
+    // fully supported
+
+    // Checks and optimizations are supported, but not transpilation
+    PUBLIC_CLASS_FIELDS("Public class fields", LangVersion.ES_NEXT), // Part of ES2022
+
+    // ES_UNSUPORTED: Features that we can parse, but not yet supported in all checks
 
     // TypeScript type syntax that will never be implemented in browsers. Only used as an indicator
     // to the CodeGenerator that it should handle type syntax.
@@ -270,6 +286,9 @@ public final class FeatureSet implements Serializable {
     if (ES2020_MODULES.contains(this)) {
       return "es_2020";
     }
+    if (ES2021_MODULES.contains(this)) {
+      return "es_2021";
+    }
     if (ES_NEXT.contains(this)) {
       return "es_next";
     }
@@ -312,6 +331,16 @@ public final class FeatureSet implements Serializable {
    */
   public FeatureSet union(FeatureSet other) {
     return new FeatureSet(union(features, other.features));
+  }
+
+  /** Does this {@link FeatureSet} contain at least one of the features of {@code other}? */
+  public boolean containsAtLeastOneOf(FeatureSet other) {
+    for (Feature otherFeature : other.features) {
+      if (this.features.contains(otherFeature)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Does this {@link FeatureSet} contain all of the features of {@code other}? */
@@ -423,6 +452,8 @@ public final class FeatureSet implements Serializable {
         return ES2019;
       case "es_2020":
         return ES2020;
+      case "es_2021":
+        return ES2021;
       case "es_next":
         return ES_NEXT;
       case "es_next_in":

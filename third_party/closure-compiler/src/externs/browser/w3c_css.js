@@ -145,11 +145,25 @@ function DocumentStyle() {}
 DocumentStyle.prototype.styleSheets;
 
 /**
+ * Type of the `options` parameter for the `CSSStyleSheet` constructor.
+ *
+ * The actual property definitions are in wicg_constructable_stylesheets.js,
+ * which must be explicitly passed to the compiler in order to use them. This
+ * record is defined here since CSSStyleSheet cannot be redefined with its optional
+ * init parameter.
+ * @record
+ * @see https://wicg.github.io/construct-stylesheets/#dictdef-cssstylesheetinit
+ */
+function CSSStyleSheetInit() {}
+
+/**
  * @constructor
  * @extends {StyleSheet}
+ * @param {CSSStyleSheetInit=} options
  * @see http://www.w3.org/TR/DOM-Level-2-Style/css.html#CSS-CSSStyleSheet
+ * @see https://wicg.github.io/construct-stylesheets/#dom-cssstylesheet-cssstylesheet
  */
-function CSSStyleSheet() {}
+function CSSStyleSheet(options) {}
 
 /**
  * @type {CSSRule}
@@ -1256,9 +1270,21 @@ CSSProperties.prototype.color;
 
 /**
  * @type {string}
+ * @see http://www.w3.org/TR/css-contain-2/#contain-property
+ */
+CSSProperties.prototype.contain;
+
+/**
+ * @type {string}
  * @see http://www.w3.org/TR/DOM-Level-2-Style/css.html#CSS-CSSProperties-content
  */
 CSSProperties.prototype.content;
+
+/**
+ * @type {string}
+ * @see http://www.w3.org/TR/css-contain-2/#content-visibility
+ */
+CSSProperties.prototype.contentVisibility;
 
 /**
  * @type {string}
@@ -2733,6 +2759,7 @@ var FontFaceLoadStatus;
 
 /**
  * @typedef {{
+ *   display: (string|undefined),
  *   style: (string|undefined),
  *   weight: (string|undefined),
  *   stretch: (string|undefined),
@@ -2796,7 +2823,37 @@ FontFace.prototype.variant;
 FontFace.prototype.featureSettings;
 
 /**
- * @type {FontFaceLoadStatus}
+ * @type {string}
+ * @see http://dev.w3.org/csswg/css-font-loading/#dom-fontface-variationsettings
+ */
+FontFace.prototype.variationSettings;
+
+/**
+ * @type {string}
+ * @see http://dev.w3.org/csswg/css-font-loading/#dom-fontface-display
+ */
+FontFace.prototype.display;
+
+/**
+ * @type {string}
+ * @see http://dev.w3.org/csswg/css-font-loading/#dom-fontface-ascentoverride
+ */
+FontFace.prototype.ascentOverride;
+
+/**
+ * @type {string}
+ * @see http://dev.w3.org/csswg/css-font-loading/#dom-fontface-descentoverride
+ */
+FontFace.prototype.descentOverride;
+
+/**
+ * @type {string}
+ * @see http://dev.w3.org/csswg/css-font-loading/#dom-fontface-linegapoverride
+ */
+FontFace.prototype.lineGapOverride;
+
+/**
+ * @type {!FontFaceLoadStatus}
  * @see http://dev.w3.org/csswg/css-font-loading/#dom-fontface-status
  */
 FontFace.prototype.status;
@@ -2806,6 +2863,35 @@ FontFace.prototype.status;
  * @see http://dev.w3.org/csswg/css-font-loading/#font-face-load
  */
 FontFace.prototype.load = function() {};
+
+/**
+ * @type {!Promise<!FontFace>}
+ * @see http://dev.w3.org/csswg/css-font-loading/#dom-fontface-loaded
+ */
+FontFace.prototype.loaded;
+
+/**
+ * @typedef {{
+ *   fontfaces: (Array<!FontFace>|undefined)
+ * }}
+ * @see http://dev.w3.org/css-font-loading/#dictdef-fontfacesetloadeventinit
+ */
+var FontFaceSetLoadEventInit;
+
+/**
+ * @constructor
+ * @param {string} type
+ * @param {!FontFaceSetLoadEventInit=} eventInitDict
+ * @extends {Event}
+ * @see https://drafts.csswg.org/css-font-loading/#fontfacesetloadevent
+ */
+function FontFaceSetLoadEvent(type, eventInitDict) {}
+
+/**
+ * @type {!Array<!FontFace>}
+ * @see http://dev.w3.org/css-font-loading/#dom-fontfacesetloadevent-fontfaces
+ */
+FontFaceSetLoadEvent.prototype.fontfaces;
 
 /**
  * Set of possible string values: 'loaded', 'loading'.

@@ -112,7 +112,6 @@ final class ClosureModuleProcessor implements ModuleProcessor {
                 .boundNames(ImmutableMap.copyOf(boundNames))
                 .localNameToLocalExport(ImmutableMap.of())
                 .closureNamespace(Iterables.getOnlyElement(metadata.googNamespaces()))
-                .unresolvedModule(this)
                 .build();
       }
       return resolved;
@@ -355,8 +354,8 @@ final class ClosureModuleProcessor implements ModuleProcessor {
           initializeNamedExportsLiteral(rhs);
         } else {
           seenExportsAssignment = true;
+          markExportsAssignmentInNamespace(lhs);
         }
-        markExportsAssignmentInNamespace(lhs);
       } else if (lhs.isGetProp()
           && lhs.getFirstChild().isName()
           && lhs.getFirstChild().getString().equals("exports")) {

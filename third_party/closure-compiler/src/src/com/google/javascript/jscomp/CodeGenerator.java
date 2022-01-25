@@ -34,10 +34,7 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/**
- * CodeGenerator generates codes from a parse tree, sending it to the specified
- * CodeConsumer.
- */
+/** CodeGenerator generates codes from a parse tree, sending it to the specified CodeConsumer. */
 public class CodeGenerator {
   private static final String LT_ESCAPED = "\\x3c";
   private static final String GT_ESCAPED = "\\x3e";
@@ -55,7 +52,6 @@ public class CodeGenerator {
   private final boolean trustedStrings;
   private final boolean quoteKeywordProperties;
   private final boolean useOriginalName;
-  private final boolean prettyPrint;
   private final FeatureSet outputFeatureSet;
   private final JSDocInfoPrinter jsDocInfoPrinter;
 
@@ -68,7 +64,6 @@ public class CodeGenerator {
     printNonJSDocComments = false;
     quoteKeywordProperties = false;
     useOriginalName = false;
-    prettyPrint = false;
     this.outputFeatureSet = FeatureSet.BARE_MINIMUM;
     this.jsDocInfoPrinter = new JSDocInfoPrinter(false);
   }
@@ -84,7 +79,6 @@ public class CodeGenerator {
     this.quoteKeywordProperties = options.shouldQuoteKeywordProperties();
     this.useOriginalName = options.getUseOriginalNamesInOutput();
     this.outputFeatureSet = options.getOutputFeatureSet();
-    this.prettyPrint = options.isPrettyPrint();
     this.jsDocInfoPrinter = new JSDocInfoPrinter(useOriginalName);
   }
 
@@ -97,9 +91,7 @@ public class CodeGenerator {
     add("/** @fileoverview @typeSummary */\n");
   }
 
-  /**
-   * Insert a ECMASCRIPT 5 strict annotation.
-   */
+  /** Insert a ECMASCRIPT 5 strict annotation. */
   public void tagAsStrict() {
     add("'use strict';");
     cc.endLine();
@@ -123,7 +115,7 @@ public class CodeGenerator {
       // Don't print an empty jsdoc
       if (!jsdocAsString.equals("/** */ ")) {
         add(jsdocAsString);
-        if (prettyPrint && !node.isCast()) {
+        if (!node.isCast()) {
           cc.endLine();
         }
       }
@@ -655,6 +647,38 @@ public class CodeGenerator {
           break;
         }
 
+      case MEMBER_FIELD_DEF:
+      case COMPUTED_FIELD_DEF:
+        {
+          checkState(node.getParent().isClassMembers());
+          if (node.getBooleanProp(Node.STATIC_MEMBER)) {
+            add("static ");
+          }
+          Node init = null;
+          switch (type) {
+            case MEMBER_FIELD_DEF:
+              String propertyName = node.getString();
+              add(propertyName);
+              init = first;
+              break;
+            case COMPUTED_FIELD_DEF:
+              add("[");
+              // Must use addExpr() with a priority of 1, because comma expressions aren't allowed.
+              // https://www.ecma-international.org/ecma-262/9.0/index.html#prod-ComputedPropertyName
+              addExpr(first, 1, Context.OTHER);
+              add("]");
+              init = node.getSecondChild();
+              break;
+            default:
+              break;
+          }
+          if (init != null) {
+            add("=");
+            addExpr(init, 1, Context.OTHER);
+          }
+          add(";");
+          break;
+        }
       case SCRIPT:
       case MODULE_BODY:
       case BLOCK:
@@ -926,38 +950,12 @@ public class CodeGenerator {
         }
 
       case CALL:
-        // We have two special cases here:
-        // 1) If the left hand side of the call is a direct reference to eval,
-        // then it must have a DIRECT_EVAL annotation. If it does not, then
-        // that means it was originally an indirect call to eval, and that
-        // indirectness must be preserved.
-        // 2) If the left hand side of the call is a property reference,
-        // then the call must not a FREE_CALL annotation. If it does, then
-        // that means it was originally an call without an explicit this and
-        // that must be preserved.
-        {
-          boolean needsParens = NodeUtil.isOptChainNode(first);
-          if (isIndirectEval(first)
-              || (node.getBooleanProp(Node.FREE_CALL) && NodeUtil.isNormalOrOptChainGet(first))) {
-            add("(0,");
-          addExpr(first, NodeUtil.precedence(Token.COMMA), Context.OTHER);
-          add(")");
-        } else {
-            if (needsParens) {
-              add("(");
-            }
-            addExpr(first, NodeUtil.precedence(type), context);
-            if (needsParens) {
-              add(")");
-            }
-        }
+        this.addInvocationTarget(node, context);
 
-        Node args = first.getNext();
         add("(");
-        addList(args);
+        addList(first.getNext());
         add(")");
         break;
-        }
 
       case IF:
         Preconditions.checkState(childCount == 2 || childCount == 3, node);
@@ -1087,6 +1085,7 @@ public class CodeGenerator {
         // to force parentheses. Otherwise, when parsed, NEW will bind to the
         // first viable parentheses (don't traverse into functions).
         // Also, NEW requires parentheses around an optional chain callee.
+        // If the first child is an arrow function, then parentheses is needed
         if (NodeUtil.has(first, Node::isCall, NodeUtil.MATCH_NOT_FUNCTION)
             || NodeUtil.isOptChainNode(first)) {
           precedence = NodeUtil.precedence(first.getToken()) + 1;
@@ -1099,6 +1098,11 @@ public class CodeGenerator {
           add("(");
           addList(next);
           add(")");
+        } else {
+          if (cc.shouldPreserveExtras(node)) {
+            add("(");
+            add(")");
+          }
         }
         break;
 
@@ -1132,8 +1136,8 @@ public class CodeGenerator {
             checkState(NodeUtil.isObjLitProperty(c) || c.isSpread(), c);
             add(c);
           }
-          if (first != null && prettyPrint && node.hasTrailingComma()) {
-            cc.listSeparator();
+          if (first != null && node.hasTrailingComma()) {
+            cc.optionalListSeparator();
           }
           add("}");
           if (needsParens) {
@@ -1249,7 +1253,7 @@ public class CodeGenerator {
         break;
 
       case TAGGED_TEMPLATELIT:
-        add(first, Context.START_OF_EXPR);
+        this.addInvocationTarget(node, context);
         add(first.getNext());
         break;
 
@@ -1434,6 +1438,37 @@ public class CodeGenerator {
     return NodeUtil.precedence(n.getToken());
   }
 
+  /**
+   * We have two special cases here:
+   *
+   * <ul>
+   *   <li>If the left hand side of the call is a direct reference to eval, then it must have a
+   *       DIRECT_EVAL annotation. If it does not, then that means it was originally an indirect
+   *       call to eval, and that indirectness must be preserved.
+   *   <li>If the left hand side of the call is a property reference, then the call must not a
+   *       FREE_CALL annotation. If it does, then that means it was originally an call without an
+   *       explicit this and that must be preserved.
+   */
+  private void addInvocationTarget(Node node, Context context) {
+    Node first = node.getFirstChild();
+
+    boolean needsParens = NodeUtil.isOptChainNode(first);
+    if (isIndirectEval(first)
+        || (node.getBooleanProp(Node.FREE_CALL) && NodeUtil.isNormalOrOptChainGet(first))) {
+      add("(0,");
+      addExpr(first, NodeUtil.precedence(Token.COMMA), Context.OTHER);
+      add(")");
+    } else {
+      if (needsParens) {
+        add("(");
+      }
+      addExpr(first, NodeUtil.precedence(node.getToken()), context);
+      if (needsParens) {
+        add(")");
+      }
+    }
+  }
+
   private static boolean arrowFunctionNeedsParens(Node n) {
     Node parent = n.getParent();
 
@@ -1461,13 +1496,19 @@ public class CodeGenerator {
         || NodeUtil.isUnaryOperator(parent)
         || NodeUtil.isUpdateOperator(parent)
         || parent.isTaggedTemplateLit()
-        || parent.isGetProp()) {
+        || parent.isGetProp()
+        || parent.isOptChainGetProp()) {
       // LeftHandSideExpression OP LeftHandSideExpression
       // OP LeftHandSideExpression | LeftHandSideExpression OP
       // MemberExpression TemplateLiteral
       // MemberExpression '.' IdentifierName
       return true;
-    } else if (parent.isGetElem() || parent.isCall() || parent.isHook()) {
+    } else if (parent.isGetElem()
+        || parent.isCall()
+        || parent.isHook()
+        || parent.isOptChainGetElem()
+        || parent.isOptChainCall()
+        || parent.isNew()) {
       // MemberExpression '[' Expression ']'
       // MemberFunction '(' AssignmentExpressionList ')'
       // LeftHandSideExpression ? AssignmentExpression : AssignmentExpression
@@ -1572,15 +1613,19 @@ public class CodeGenerator {
   }
 
   /**
-   * We could use addList recursively here, but sometimes we produce
-   * very deeply nested operators and run out of stack space, so we
-   * just unroll the recursion when possible.
+   * We could use addList recursively here, but sometimes we produce very deeply nested operators
+   * and run out of stack space, so we just unroll the recursion when possible.
    *
-   * We assume nodes are left-recursive.
+   * <p>We assume nodes are left-recursive.
    */
   private void unrollBinaryOperator(
-      Node n, Token op, String opStr, Context context,
-      Context rhsContext, int leftPrecedence, int rightPrecedence) {
+      Node n,
+      Token op,
+      String opStr,
+      Context context,
+      Context rhsContext,
+      int leftPrecedence,
+      int rightPrecedence) {
     Node firstNonOperator = n.getFirstChild();
     while (firstNonOperator.getToken() == op) {
       firstNonOperator = firstNonOperator.getFirstChild();
@@ -1624,22 +1669,19 @@ public class CodeGenerator {
     return Double.NaN;
   }
 
-  /**
-   * @return Whether the name is an indirect eval.
-   */
+  /** @return Whether the name is an indirect eval. */
   private static boolean isIndirectEval(Node n) {
     return n.isName() && "eval".equals(n.getString()) && !n.getBooleanProp(Node.DIRECT_EVAL);
   }
 
   /**
-   * Adds a block or expression, substituting a VOID with an empty statement.
-   * This is used for "for (...);" and "if (...);" type statements.
+   * Adds a block or expression, substituting a VOID with an empty statement. This is used for "for
+   * (...);" and "if (...);" type statements.
    *
    * @param n The node to print.
    * @param context The context to determine how the node should be printed.
    */
-  private void addNonEmptyStatement(
-      Node n, Context context, boolean allowNonBlockChild) {
+  private void addNonEmptyStatement(Node n, Context context, boolean allowNonBlockChild) {
     Node nodeToProcess = n;
 
     if (!allowNonBlockChild && !n.isBlock()) {
@@ -1651,7 +1693,7 @@ public class CodeGenerator {
     if (n.isBlock()) {
       int count = getNonEmptyChildCount(n, 2);
       if (count == 0) {
-        if (cc.shouldPreserveExtraBlocks()) {
+        if (cc.shouldPreserveExtras(n)) {
           cc.beginBlock();
           cc.endBlock(cc.breakAfterBlockFor(n, context == Context.STATEMENT));
         } else {
@@ -1662,10 +1704,10 @@ public class CodeGenerator {
 
       if (count == 1) {
         // Preserve the block only if needed or requested.
-        //'let', 'const', etc are not allowed by themselves in "if" and other
+        // 'let', 'const', etc are not allowed by themselves in "if" and other
         // structures. Also, hack around a IE6/7 browser bug that needs a block around DOs.
         Node firstAndOnlyChild = getFirstNonEmptyChild(n);
-        boolean alwaysWrapInBlock = cc.shouldPreserveExtraBlocks();
+        boolean alwaysWrapInBlock = cc.shouldPreserveExtras(n);
         if (alwaysWrapInBlock || isBlockDeclOrDo(firstAndOnlyChild)) {
           cc.beginBlock();
           add(firstAndOnlyChild, Context.STATEMENT);
@@ -1687,8 +1729,7 @@ public class CodeGenerator {
   }
 
   /**
-   * @return Whether the Node is a DO or a declaration that is only allowed
-   * in restricted contexts.
+   * @return Whether the Node is a DO or a declaration that is only allowed in restricted contexts.
    */
   private static boolean isBlockDeclOrDo(Node n) {
     if (n.isLabel()) {
@@ -1767,7 +1808,7 @@ public class CodeGenerator {
     Node parent = n.getParent();
     return parent != null && parent.getToken() == Token.EXPONENT && parent.getFirstChild() == n;
   }
-
+  
   void addList(Node firstInList) {
     addList(firstInList, true, Context.OTHER, ",");
   }
@@ -1776,25 +1817,23 @@ public class CodeGenerator {
     addList(firstInList, true, Context.OTHER, separator);
   }
 
-  void addList(Node firstInList, boolean isArrayOrFunctionArgument,
-      Context lhsContext, String separator) {
+  void addList(
+      Node firstInList, boolean isArrayOrFunctionArgument, Context lhsContext, String separator) {
     if (firstInList == null) {
       return;
     }
     for (Node n = firstInList; n != null; n = n.getNext()) {
       boolean isFirst = n == firstInList;
+      int minPrecedence = isArrayOrFunctionArgument ? 1 : 0;
       if (isFirst) {
-        addExpr(n, isArrayOrFunctionArgument ? 1 : 0, lhsContext);
+        addExpr(n, minPrecedence, lhsContext);
       } else {
         cc.addOp(separator, true);
-        addExpr(n, isArrayOrFunctionArgument ? 1 : 0,
-            getContextForNoInOperator(lhsContext));
+        addExpr(n, minPrecedence, getContextForNoInOperator(lhsContext));
       }
     }
-    if (prettyPrint
-        && isArrayOrFunctionArgument
-        && checkNotNull(firstInList.getParent()).hasTrailingComma()) {
-      cc.listSeparator();
+    if (isArrayOrFunctionArgument && checkNotNull(firstInList.getParent()).hasTrailingComma()) {
+      cc.optionalListSeparator();
     }
   }
 
@@ -1803,10 +1842,10 @@ public class CodeGenerator {
     // Object literal property names don't have to be quoted if they are not JavaScript keywords.
     boolean mustBeQuoted =
         n.isQuotedString()
-        || (quoteKeywordProperties && TokenStream.isKeyword(key))
-        || !TokenStream.isJSIdentifier(key)
-        // do not encode literally any non-literal characters that were Unicode escaped.
-        || !NodeUtil.isLatin(key);
+            || (quoteKeywordProperties && TokenStream.isKeyword(key))
+            || !TokenStream.isJSIdentifier(key)
+            // do not encode literally any non-literal characters that were Unicode escaped.
+            || !NodeUtil.isLatin(key);
     if (!mustBeQuoted) {
       // Check if the property is eligible to be printed as shorthand.
       if (n.isShorthandProperty()) {
@@ -1866,8 +1905,10 @@ public class CodeGenerator {
       lastWasEmpty = n.isEmpty();
     }
 
-    if (lastWasEmpty || (prettyPrint && checkNotNull(firstInList.getParent()).hasTrailingComma())) {
+    if (lastWasEmpty) {
       cc.listSeparator();
+    } else if (firstInList.getParent().hasTrailingComma()) {
+      cc.optionalListSeparator();
     }
   }
 
@@ -1947,8 +1988,12 @@ public class CodeGenerator {
     // could count the quotes and pick the optimal quote character
     for (int i = 0; i < s.length(); i++) {
       switch (s.charAt(i)) {
-        case '"': doubleq++; break;
-        case '\'': singleq++; break;
+        case '"':
+          doubleq++;
+          break;
+        case '\'':
+          singleq++;
+          break;
         default: // skip non-quote characters
       }
     }
@@ -1992,7 +2037,9 @@ public class CodeGenerator {
     for (int i = 0; i < s.length(); i++) {
       char c = s.charAt(i);
       switch (c) {
-        case '\0': sb.append("\\x00"); break;
+        case '\0':
+          sb.append("\\x00");
+          break;
         case '\u000B':
           if (useSlashV) {
             sb.append("\\v");
@@ -2000,17 +2047,37 @@ public class CodeGenerator {
             sb.append("\\x0B");
           }
           break;
-        // From the SingleEscapeCharacter grammar production.
-        case '\b': sb.append("\\b"); break;
-        case '\f': sb.append("\\f"); break;
-        case '\n': sb.append("\\n"); break;
-        case '\r': sb.append("\\r"); break;
-        case '\t': sb.append("\\t"); break;
-        case '\\': sb.append(backslashEscape); break;
-        case '\"': sb.append(doublequoteEscape); break;
-        case '\'': sb.append(singlequoteEscape); break;
-        case '$': sb.append(dollarEscape); break;
-        case '`': sb.append(backtickEscape); break;
+          // From the SingleEscapeCharacter grammar production.
+        case '\b':
+          sb.append("\\b");
+          break;
+        case '\f':
+          sb.append("\\f");
+          break;
+        case '\n':
+          sb.append("\\n");
+          break;
+        case '\r':
+          sb.append("\\r");
+          break;
+        case '\t':
+          sb.append("\\t");
+          break;
+        case '\\':
+          sb.append(backslashEscape);
+          break;
+        case '\"':
+          sb.append(doublequoteEscape);
+          break;
+        case '\'':
+          sb.append(singlequoteEscape);
+          break;
+        case '$':
+          sb.append(dollarEscape);
+          break;
+        case '`':
+          sb.append(backtickEscape);
+          break;
 
         case '=':
           // '=' is a syntactically significant regexp character.
@@ -2174,8 +2241,7 @@ public class CodeGenerator {
   }
   /**
    * @param maxCount The maximum number of children to look for.
-   * @return The number of children of this node that are non empty up to
-   * maxCount.
+   * @return The number of children of this node that are non empty up to maxCount.
    */
   private static int getNonEmptyChildCount(Node n, int maxCount) {
     int i = 0;
@@ -2206,9 +2272,8 @@ public class CodeGenerator {
   }
 
   /**
-   * Information on the current context. Used for disambiguating special cases.
-   * For example, a "{" could indicate the start of an object literal or a
-   * block, depending on the current context.
+   * Information on the current context. Used for disambiguating special cases. For example, a "{"
+   * could indicate the start of an object literal or a block, depending on the current context.
    */
   public enum Context {
     STATEMENT,
@@ -2266,8 +2331,8 @@ public class CodeGenerator {
   }
 
   /**
-   * If we're in a IN_FOR_INIT_CLAUSE, we can't permit in operators in the
-   * expression.  Pass on the IN_FOR_INIT_CLAUSE flag through subexpressions.
+   * If we're in a IN_FOR_INIT_CLAUSE, we can't permit in operators in the expression. Pass on the
+   * IN_FOR_INIT_CLAUSE flag through subexpressions.
    */
   private static Context getContextForNoInOperator(Context context) {
     return (context.inForInInitClause() ? context : Context.OTHER);

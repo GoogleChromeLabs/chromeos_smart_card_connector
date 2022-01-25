@@ -27,7 +27,6 @@ import com.google.common.collect.Multiset;
 import com.google.javascript.jscomp.CompilerOptions.AliasTransformation;
 import com.google.javascript.jscomp.CompilerOptions.AliasTransformationHandler;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
-import com.google.javascript.jscomp.NodeTraversal.Callback;
 import com.google.javascript.jscomp.modules.ModuleMetadataMap;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
@@ -353,12 +352,7 @@ class ScopedAliases implements CompilerPass {
       if (replacement.hasChildren()) {
         replacement.getFirstChild().makeNonIndexableRecursive();
       }
-      if (aliasReference.isStringKey()) {
-        checkState(!aliasReference.hasChildren());
-        aliasReference.addChildToFront(replacement);
-      } else {
-        aliasReference.replaceWith(replacement);
-      }
+      aliasReference.replaceWith(replacement);
       compiler.reportChangeToEnclosingScope(replacement);
     }
   }
@@ -736,7 +730,7 @@ class ScopedAliases implements CompilerPass {
     private void renameBleedingFunctionName(NodeTraversal t, final Node fnName) {
       final String name = fnName.getString();
       final String suffix = compiler.getUniqueNameIdSupplier().get();
-      Callback cb =
+      NodeTraversal.Callback cb =
           new AbstractPostOrderCallback() {
             @Override
             public void visit(NodeTraversal t, Node n, Node parent) {

@@ -18,16 +18,15 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.javascript.jscomp.modules.Module;
-import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.StaticScope;
 import com.google.javascript.rhino.jstype.FunctionType;
 import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.ObjectType;
 import com.google.javascript.rhino.jstype.StaticTypedScope;
-import com.google.javascript.rhino.jstype.StaticTypedSlot;
 import java.util.HashSet;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -60,7 +59,9 @@ public class TypedScope extends AbstractScope<TypedScope, TypedVar> implements S
   /** Whether this is a bottom scope for the purposes of type inference. */
   private final boolean isBottom;
 
-  private final Set<String> reservedNames; // Not immutable; will shrink over time.
+  // Will shrink over time. Set to "ImmutableSet.of()" once empty (so don't try removing
+  // elements from an empty set)
+  private Set<String> reservedNames;
 
   // Scope.java contains an arguments field.
   // We haven't added it here because it's unused by the passes that need typed scopes.
@@ -82,7 +83,7 @@ public class TypedScope extends AbstractScope<TypedScope, TypedVar> implements S
     this.parent = parent;
     this.depth = parent.depth + 1;
     this.isBottom = false;
-    this.reservedNames = reservedNames;
+    this.reservedNames = reservedNames.isEmpty() ? ImmutableSet.of() : new HashSet<>(reservedNames);
     this.module = module;
   }
 
@@ -98,7 +99,7 @@ public class TypedScope extends AbstractScope<TypedScope, TypedVar> implements S
     this.parent = null;
     this.depth = 0;
     this.isBottom = isBottom;
-    this.reservedNames = new HashSet<>();
+    this.reservedNames = ImmutableSet.of();
     this.module = null;
   }
 
@@ -122,6 +123,9 @@ public class TypedScope extends AbstractScope<TypedScope, TypedVar> implements S
         "Expected %s to have no reserved names, found: %s",
         this,
         reservedNames);
+    // let a (16-bit) VM garabage collect 64 bytes per TypedScope. (ImmutableSet.of() returns a
+    // singleton)
+    reservedNames = ImmutableSet.of();
   }
 
   /** Whether this is the bottom of the lattice. */
@@ -168,7 +172,11 @@ public class TypedScope extends AbstractScope<TypedScope, TypedVar> implements S
   TypedVar declare(String name, Node nameNode,
       JSType type, CompilerInput input, boolean inferred) {
     checkState(name != null && !name.isEmpty());
-    reservedNames.remove(name);
+    if (!reservedNames.isEmpty()) {
+      // (reservedNames only contains simple, non-qualified names; so it's completely normal to
+      // declare qualified names that were not 'reserved')
+      reservedNames.remove(name);
+    }
     TypedVar var = new TypedVar(inferred, name, nameNode, type, this, getVarCount(), input);
     declareInternal(name, var);
     return var;
@@ -249,16 +257,6 @@ public class TypedScope extends AbstractScope<TypedScope, TypedVar> implements S
         && !var.isExtern();
   }
 
-  public JSType getNamespaceOrTypedefType(String typeName) {
-    StaticTypedSlot slot = getSlot(typeName);
-    return slot == null ? null : slot.getType();
-  }
-
-  public JSDocInfo getJsdocOfTypeDeclaration(String typeName) {
-    StaticTypedSlot slot = getSlot(typeName);
-    return slot == null ? null : slot.getJSDocInfo();
-  }
-
   /**
    * Returns the slot for {@code name}, considering shadowing of qualified names.
    *
@@ -277,9 +275,8 @@ public class TypedScope extends AbstractScope<TypedScope, TypedVar> implements S
    * function scope contains "a". When looking up "a.b" in the function scope, AbstractScope::getVar
    * returns "a.b". This method returns null because the global "a" is shadowed.
    */
-  // Non-final for JSDev
   @Override
-  public TypedVar getVar(String name) {
+  public final TypedVar getVar(String name) {
     TypedVar ownSlot = getOwnSlot(name);
     if (ownSlot != null) {
       // Micro-optimization: variables declared directly in this scope cannot have been shadowed.

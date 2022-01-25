@@ -87,8 +87,8 @@ public class GenerateExports implements CompilerPass {
 
   @Override
   public void process(Node externs, Node root) {
-    FindExportableNodes findExportableNodes = new FindExportableNodes(
-        compiler, allowNonGlobalExports);
+    FindExportableNodes findExportableNodes =
+        new FindExportableNodes(compiler, allowNonGlobalExports);
     NodeTraversal.traverse(compiler, root, findExportableNodes);
     Map<String, Node> exports = findExportableNodes.getExports();
     Map<Node, String> es6Exports = findExportableNodes.getEs6ClassExports();
@@ -179,7 +179,7 @@ public class GenerateExports implements CompilerPass {
   }
 
   private void declareSyntheticExternsVar(String name, Node srcref) {
-    CompilerInput syntheticInput = compiler.getSynthesizedExternsInputAtEnd();
+    CompilerInput syntheticInput = compiler.getSynthesizedExternsInput();
     Node syntheticVarRoot = syntheticInput.getAstRoot(compiler);
 
     Node varDeclaration = IR.var(IR.name(name)).srcrefTree(srcref);
@@ -278,7 +278,6 @@ public class GenerateExports implements CompilerPass {
                 context, exportPropertyFunction));
 
     Node expression = IR.exprResult(call).srcrefTreeIfMissing(context);
-    annotate(expression);
 
     addStatement(context, expression);
   }
@@ -298,7 +297,6 @@ public class GenerateExports implements CompilerPass {
                 context, export));
 
     Node expression = IR.exprResult(call).srcrefTreeIfMissing(context);
-    annotate(expression);
 
     addStatement(context, expression);
   }
@@ -325,18 +323,12 @@ public class GenerateExports implements CompilerPass {
       }
     }
 
-    Node block = exprRoot.getParent();
     stmt.insertAfter(exprRoot);
     compiler.reportChangeToEnclosingScope(stmt);
   }
 
-  private void annotate(Node node) {
-    NodeTraversal.traverse(
-        compiler, node, new PrepareAst.PrepareAnnotations());
-  }
-
   /** Lazily create a "new" externs root for undeclared variables. */
   private Node getSynthesizedExternsRoot() {
-    return  compiler.getSynthesizedExternsInput().getAstRoot(compiler);
+    return compiler.getSynthesizedExternsInput().getAstRoot(compiler);
   }
 }

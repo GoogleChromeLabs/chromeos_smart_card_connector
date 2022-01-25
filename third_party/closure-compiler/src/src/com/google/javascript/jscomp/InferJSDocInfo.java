@@ -161,6 +161,7 @@ class InferJSDocInfo extends AbstractPostOrderCallback implements CompilerPass {
       case GETTER_DEF:
       case SETTER_DEF:
       case MEMBER_FUNCTION_DEF:
+      case MEMBER_FIELD_DEF:
         {
           JSDocInfo typeDoc = n.getJSDocInfo();
           if (typeDoc == null) {
@@ -174,7 +175,13 @@ class InferJSDocInfo extends AbstractPostOrderCallback implements CompilerPass {
               return;
             }
 
-            owningType = n.isStaticMember() ? ctorType : ctorType.getPrototype();
+            if (n.isStaticMember()) {
+              owningType = ctorType;
+            } else if (n.isMemberFieldDef()) {
+              owningType = ctorType.getInstanceType();
+            } else {
+              owningType = ctorType.getPrototype();
+            }
           } else {
             owningType = dereferenced(parent.getJSType());
           }

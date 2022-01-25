@@ -19,12 +19,14 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.javascript.jscomp.AstFactory.type;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.MakeDeclaredNamesUnique.ContextualRenamer;
+import com.google.javascript.jscomp.colors.StandardColors;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.QualifiedName;
@@ -142,9 +144,6 @@ class ExpressionDecomposer {
 
   /**
    * Perform partial decomposition to get the given expression closer to being {@code MOVEABLE}.
-   *
-   * <p>This method should not be called from outside of this class. Instead call {@link
-   * #maybeExposeExpression(Node)}.
    */
   private void exposeExpression(Node expression) {
     // First rewrite all optional chains containing the expression.
@@ -234,7 +233,9 @@ class ExpressionDecomposer {
       } else if (expressionParent.isCall()
           && NodeUtil.isNormalGet(expressionParent.getFirstChild())) {
         Node callee = expressionParent.getFirstChild();
-        decomposeSubExpressions(callee.getNext(), expressionToExpose, state);
+        if (callee != expressionToExpose) {
+          decomposeSubExpressions(callee.getNext(), expressionToExpose, state);
+        }
 
         // Now handle the call expression. We only have to do this if we arrived at decomposing this
         // call through one of the arguments, rather than the callee; otherwise the callee would
@@ -536,7 +537,7 @@ class ExpressionDecomposer {
         trueExpr.addChildToFront(
             astFactory.exprResult(
                 buildResultExpression(
-                    astFactory.createName(tempNameAssign, first.getJSType()).srcref(expr),
+                    astFactory.createName(tempNameAssign, type(first)).srcref(expr),
                     needResult,
                     tempName)));
         falseExpr.addChildToFront(
@@ -609,6 +610,10 @@ class ExpressionDecomposer {
    * @return The extracted statement node.
    */
   private Node extractExpression(Node expr, Node injectionPoint) {
+    // Since all instances of logical assignment ops are normalized into an expression that
+    // separates the logical operation from the assignment, logical assignment ops are
+    // never seen here, and its logical operation part is instead handled by extractConditional().
+    checkState(!NodeUtil.isLogicalAssignmentOp(expr), expr);
     Node parent = expr.getParent();
 
     boolean isLhsOfAssignOp =
@@ -639,8 +644,8 @@ class ExpressionDecomposer {
 
     final Node tempNameValue;
 
-    // If it is ASSIGN_XXX, keep the assignment in place and extract the
-    // original value of the LHS operand.
+    // If it is ASSIGN_XXX and not a logical assignment operator keep the
+    // assignment in place and extract the original value of the LHS operand.
     if (isLhsOfAssignOp) {
       checkState(expr.isName() || NodeUtil.isNormalGet(expr), expr);
       // Transform "x += 2" into "x = temp + 2"
@@ -721,8 +726,6 @@ class ExpressionDecomposer {
    * var temp1 = a; var temp0 = temp1.b;
    * temp0.call(temp1,c);
    * </pre>
-   *
-   * @return The replacement node.
    */
   private void rewriteCallExpression(Node call, DecompositionState state) {
     checkArgument(call.isCall(), call);
@@ -730,9 +733,9 @@ class ExpressionDecomposer {
     checkArgument(NodeUtil.isNormalGet(first), first);
 
     // Find the type of (fn expression).call
-    JSType fnType = first.getJSType();
     JSType fnCallType = null;
-    if (fnType != null) {
+    if (astFactory.isAddingTypes()) {
+    JSType fnType = first.getJSType();
       fnCallType =
           fnType.isFunctionType()
               ? fnType.toMaybeFunctionType().getPropertyType("call")
@@ -759,7 +762,7 @@ class ExpressionDecomposer {
       // Original callee was like `super.prop(args)`.
       // The correct way to call the value `super.prop` from a temporary variable is
       // `tmpVar.call(this, args)`, so just create a `this` here.
-      receiverNode = astFactory.createThis(origThisValue.getJSType()).srcref(origThisValue);
+      receiverNode = astFactory.createThis(type(origThisValue)).srcref(origThisValue);
     } else {
       final Node thisVarNode = extractExpression(origThisValue, state.extractBeforeStatement);
       state.extractBeforeStatement = thisVarNode;
@@ -779,7 +782,9 @@ class ExpressionDecomposer {
     call.removeFirstChild();
     call.addChildToFront(receiverNode);
     call.addChildToFront(
-        IR.getprop(functionNameNode, "call").setJSType(fnCallType).srcrefTreeIfMissing(call));
+        astFactory
+            .createGetProp(functionNameNode, "call", type(fnCallType, StandardColors.TOP_OBJECT))
+            .srcrefTreeIfMissing(call));
     call.putBooleanProp(Node.FREE_CALL, false);
   }
 
@@ -990,11 +995,12 @@ class ExpressionDecomposer {
     Node child = subExpression;
     for (Node parent : child.getAncestors()) {
       if (NodeUtil.isNameDeclaration(parent) && !child.isFirstChildOf(parent)) {
-        // Case: `let x = 5, y = 2 * x;` where `child = y`.
-        // Compound declarations cannot generally be decomposed. Later declarations might reference
-        // earlier ones and if it were possible to separate them, `Normalize` would already have
-        // done so. Therefore, we only support decomposing the first declaration.
-        // TODO(b/121157467): FOR initializers are probably the only source of these cases.
+        // Most declarations are split by `Normalize` but to do so in loops would change the
+        // behavior of the code.  We don't current handle this case but it is possible:
+        // For this case: `for (let x = 5, y = 2 * x; ...` where `child = y`.
+        // As later expressions may reference the earlier expression, it would be necessary to
+        // rewrite references when extracting the expressions:
+        // `var temp1 = 5; var temp2 = 2 * temp1; for (let x = temp1, y = temp2; ...`
         return DecompositionType.UNDECOMPOSABLE;
       }
 

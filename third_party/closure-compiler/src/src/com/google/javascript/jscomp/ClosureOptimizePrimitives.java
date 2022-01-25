@@ -61,9 +61,7 @@ final class ClosureOptimizePrimitives implements CompilerPass {
         Node fn = n.getFirstChild();
         // TODO(user): Once goog.object becomes a goog.module, remove "goog$object$create" and
         // related checks.
-        if (compiler
-            .getCodingConvention()
-            .isPropertyRenameFunction(fn.getOriginalQualifiedName())) {
+        if (compiler.getCodingConvention().isPropertyRenameFunction(fn)) {
           processRenamePropertyCall(n);
         } else if (fn.matchesName("goog$object$create")
             || fn.matchesName("module$contents$goog$object_create")
@@ -228,6 +226,8 @@ final class ClosureOptimizePrimitives implements CompilerPass {
         keyNode = IR.string(numberToString(keyNode.getDouble()))
             .srcref(keyNode);
       }
+      // It isn't valid for a `STRING_KEY` to be marked as parenthesized.
+      keyNode.setIsParenthesized(false);
       keyNode.setToken(Token.STRING_KEY);
       keyNode.setQuotedString();
       objNode.addChildToBack(IR.propdef(keyNode, valueNode));

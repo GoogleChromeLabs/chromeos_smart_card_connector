@@ -16,6 +16,8 @@
 
 package com.google.javascript.jscomp.serialization;
 
+import javax.annotation.Nullable;
+
 /**
  * Emitted when deserialization sees a TypedAst with semantic errors.
  *
@@ -29,13 +31,24 @@ package com.google.javascript.jscomp.serialization;
  */
 public final class MalformedTypedAstException extends RuntimeException {
 
-  static void checkWellFormed(boolean condition, Object msg) {
+  static void checkWellFormed(boolean condition, String description) {
     if (!condition) {
-      throw new MalformedTypedAstException(msg);
+      throw new MalformedTypedAstException(description);
+    }
+  }
+
+  static void checkWellFormed(boolean condition, String description, @Nullable Object param) {
+    if (!condition) {
+      String message = description + ": " + param;
+      throw new MalformedTypedAstException(message);
     }
   }
 
   public MalformedTypedAstException(Object msg) {
     super(msg.toString());
+  }
+
+  public MalformedTypedAstException(Object msg, Throwable cause) {
+    super(msg.toString(), cause);
   }
 }

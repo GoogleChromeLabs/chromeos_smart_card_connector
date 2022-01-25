@@ -33,6 +33,13 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+/**
+ * Test removal of unused global and local variables.
+ *
+ * <p>These test cases for `RemoveUnusedCode` focus on removal of variables and do not enable the
+ * options for removing individual properties, fields, or methods. See the other
+ * `RemoveUnusedCode*Test` classes for that kind of code removal.
+ */
 @RunWith(JUnit4.class)
 public final class RemoveUnusedCodeTest extends CompilerTestCase {
 
@@ -758,13 +765,14 @@ public final class RemoveUnusedCodeTest extends CompilerTestCase {
   @Test
   public void testModule() {
     test(
-        JSChunkGraphBuilder.forUnordered()
-            .addChunk(
-                "var unreferenced=1; function x() { foo(); }"
-                    + "function uncalled() { var x; return 2; }")
-            .addChunk("var a,b; function foo() { this.foo(a); } x()")
-            .build(),
-        new String[] {"function x(){foo()}", "var a;function foo(){this.foo(a)}x()"});
+        srcs(
+            JSChunkGraphBuilder.forUnordered()
+                .addChunk(
+                    "var unreferenced=1; function x() { foo(); }"
+                        + "function uncalled() { var x; return 2; }")
+                .addChunk("var a,b; function foo() { this.foo(a); } x()")
+                .build()),
+        expected("function x(){foo()}", "var a;function foo(){this.foo(a)}x()"));
   }
 
   @Test
@@ -1583,6 +1591,122 @@ public final class RemoveUnusedCodeTest extends CompilerTestCase {
             "  }",
             "}",
             "new C"));
+  }
+
+  @Test
+  public void testClassFields() {
+    // Removal of individual fields is not enabled in this test class.
+    // These tests confirm that the existence of fields does not prevent removal of a class that
+    // is never instantiated.
+    testSame(
+        lines(
+            "class C {", //
+            "  x;",
+            "  y = 2;",
+            "  z = 'hi';",
+            "  static x;",
+            "  static y = 2;",
+            "  static z = 'hi';",
+            "}",
+            "new C"));
+    test(
+        lines(
+            "class C {", //
+            "  x;",
+            "  y = 2;",
+            "  z = 'hi';",
+            "  static x;",
+            "  static y = 2;",
+            "  static z = 'hi';",
+            "}"),
+        "");
+    testSame(
+        lines(
+            "class C {", //
+            "  ['x'];",
+            "  1 = 2",
+            "  'a' = 'foo';",
+            "  static ['x'];",
+            "  static 1 = 2",
+            "  static 'a' = 'foo';",
+            "}",
+            "new C"));
+    test(
+        lines(
+            "class C {", //
+            "  ['x'];",
+            "  1 = 2",
+            "  'a' = 'foo';",
+            "  static ['x'];",
+            "  static 1 = 2",
+            "  static 'a' = 'foo';",
+            "}"),
+        "");
+  }
+
+  @Test
+  public void testComputedPropSideEffects() {
+    testSame(
+        lines(
+            "class C {", //
+            "  [alert(1)](){}",
+            "}"));
+  }
+
+  @Test
+  public void testNonstaticClassFieldWithSideEffectsDoesRemove() {
+    test(
+        lines(
+            "class C {", //
+            "  y = alert(1);",
+            "}"),
+        "");
+
+    test(
+        lines(
+            "class C {", //
+            "  ['y'] = alert(1);",
+            "}"),
+        "");
+  }
+
+  @Test
+  public void testStaticClassFieldDetectsSideEffects() {
+    testSame(
+        lines(
+            "class C {", //
+            "  static y = alert(1);",
+            "}"));
+  }
+
+  @Test
+  public void testComputedClassFieldDetectsSideEffects() {
+    testSame(
+        lines(
+            "class C {", //
+            "  [alert(1)];",
+            "}"));
+
+    testSame(
+        lines(
+            "class C {", //
+            "  [alert(1)] = 'str';",
+            "}"));
+  }
+
+  @Test
+  public void testStaticComputedClassFieldDetectsSideEffects() {
+    testSame(
+        lines(
+            "class C {", //
+            "  static [alert(1)];",
+            "}"));
+
+    testSame(
+        lines(
+            "class C {", //
+            "  static [alert(1)] = 'str';",
+            "}"));
   }
 
   @Test

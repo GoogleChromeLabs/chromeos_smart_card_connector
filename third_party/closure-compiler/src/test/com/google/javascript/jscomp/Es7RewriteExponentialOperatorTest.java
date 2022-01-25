@@ -18,6 +18,7 @@ package com.google.javascript.jscomp;
 import static com.google.javascript.jscomp.Es7RewriteExponentialOperator.TRANSPILE_EXPONENT_USING_BIGINT;
 
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
+import com.google.javascript.jscomp.testing.TestExternsBuilder;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -31,12 +32,14 @@ public final class Es7RewriteExponentialOperatorTest extends CompilerTestCase {
   @Before
   public void setUp() throws Exception {
     super.setUp();
-
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT_2016);
-    setLanguageOut(LanguageMode.ECMASCRIPT5);
-
     enableTypeInfoValidation();
     enableTypeCheck();
+    replaceTypesWithColors();
+    // TODO(b/211899097): enable multistage compilation
+  }
+
+  public Es7RewriteExponentialOperatorTest() {
+    super(new TestExternsBuilder().addMath().build());
   }
 
   @Override
@@ -50,8 +53,33 @@ public final class Es7RewriteExponentialOperatorTest extends CompilerTestCase {
   }
 
   @Test
-  public void testExponentiationAssignmentOperator() {
+  public void testExponentiationAssignmentOperatorSimple() {
     test(srcs("x **= 2;"), expected("x = Math.pow(x, 2)"));
+  }
+
+  @Test
+  public void testExponentiationAssignmentOperatorPropertyReference() {
+    test(
+        srcs("a.x **= 2;"),
+        expected(
+            lines(
+                "let $jscomp$exp$assign$tmpm1146332801$0;", //
+                "($jscomp$exp$assign$tmpm1146332801$0 = a).x",
+                " = Math.pow($jscomp$exp$assign$tmpm1146332801$0.x, 2);")));
+  }
+
+  @Test
+  public void testExponentiationAssignmentOperatorPropertyReferenceElement() {
+    test(
+        srcs("a[x] **= 2;"),
+        expected(
+            lines(
+                "let $jscomp$exp$assign$tmpm1146332801$0;", //
+                "let $jscomp$exp$assign$tmpindexm1146332801$0;",
+                "($jscomp$exp$assign$tmpm1146332801$0 = a)",
+                "[$jscomp$exp$assign$tmpindexm1146332801$0 = x]",
+                " = Math.pow($jscomp$exp$assign$tmpm1146332801$0",
+                "[$jscomp$exp$assign$tmpindexm1146332801$0], 2);")));
   }
 
   /** @see <a href="https://github.com/google/closure-compiler/issues/2821">Issue 2821</a> */

@@ -235,9 +235,9 @@ public class OptionalChainTypeCheckTest {
     public void test() {
       String js = createTestString(testCase);
       if (!testCase.mustReport().isPresent()) {
-        testTypes(js);
+        newTest().addSource(js).run();
       } else {
-        testTypes(js, testCase.mustReport().get());
+        newTest().addSource(js).addDiagnostic(testCase.mustReport().get()).run();
       }
     }
   }
@@ -320,9 +320,9 @@ public class OptionalChainTypeCheckTest {
     public void test() {
       String js = createTestString(testCase);
       if (!testCase.mustReport().isPresent()) {
-        testTypes(js);
+        newTest().addSource(js).run();
       } else {
-        testTypes(js, testCase.mustReport().get());
+        newTest().addSource(js).addDiagnostic(testCase.mustReport().get()).run();
       }
     }
   }
@@ -354,22 +354,23 @@ public class OptionalChainTypeCheckTest {
 
     @Test
     public void testOptChainGetProp_accessOnDict1() {
-      testTypes(
-          lines(
+      newTest()
+          .addSource(
               "/**",
               " * @constructor",
               " * @dict",
               " */",
               "function Dict1(){ this['prop'] = 123; }",
               "/** @param{Dict1} x */",
-              "function takesDict(x) {return " + testCase.withExpr() + " }"),
-          testCase.mustReport().get());
+              "function takesDict(x) {return " + testCase.withExpr() + " }")
+          .addDiagnostic(testCase.mustReport().get())
+          .run();
     }
 
     @Test
     public void testOptChainGetPropDict2() {
-      testTypes(
-          lines(
+      newTest()
+          .addSource(
               "/**",
               " * @constructor",
               " * @dict",
@@ -383,14 +384,15 @@ public class OptionalChainTypeCheckTest {
               "/** @param{Dict1kid} x */",
               "function takesDict(x) { return ",
               testCase.withExpr(),
-              " }"),
-          testCase.mustReport().get());
+              " }")
+          .addDiagnostic(testCase.mustReport().get())
+          .run();
     }
 
     @Test
     public void testOptChainGetPropDict_accessingDictOrNonDict() {
-      testTypes(
-          lines(
+      newTest()
+          .addSource(
               "/**",
               " * @constructor",
               " * @dict",
@@ -401,14 +403,15 @@ public class OptionalChainTypeCheckTest {
               "/** @param{(NonDict|Dict1)} x */",
               "function takesDict(x) { return ",
               testCase.withExpr(),
-              "}"),
-          testCase.mustReport().get());
+              "}")
+          .addDiagnostic(testCase.mustReport().get())
+          .run();
     }
 
     @Test
     public void testOptChainGetProp_accessingDictOrStruct() {
-      testTypes(
-          lines(
+      newTest()
+          .addSource(
               "/**",
               " * @constructor",
               " * @dict",
@@ -422,8 +425,9 @@ public class OptionalChainTypeCheckTest {
               "/** @param{(Struct1|Dict1)} x */",
               "function takesNothing(x) { return ",
               testCase.withExpr(),
-              "}"),
-          testCase.mustReport().get());
+              "}")
+          .addDiagnostic(testCase.mustReport().get())
+          .run();
     }
   }
 
@@ -535,9 +539,9 @@ public class OptionalChainTypeCheckTest {
     public void testOptChainCallExpressions() {
       String js = createOptChainCallTestString(testCase);
       if (!testCase.mustReport().isPresent()) {
-        testTypes(js);
+        newTest().addSource(js).run();
       } else {
-        testTypes(js, testCase.mustReport().get());
+        newTest().addSource(js).addDiagnostic(testCase.mustReport().get()).run();
       }
     }
   }
@@ -571,8 +575,8 @@ public class OptionalChainTypeCheckTest {
 
     @Test
     public void testOptChainGetElemOnStruct1() {
-      testTypes(
-          lines(
+      newTest()
+          .addSource(
               "/**",
               " * @constructor",
               " * @struct",
@@ -582,14 +586,15 @@ public class OptionalChainTypeCheckTest {
               "function takesStruct(x) {",
               "  var a = x;",
               "  return a?.[b];",
-              "}"),
-          "Cannot do '[]' access on a struct");
+              "}")
+          .addDiagnostic("Cannot do '[]' access on a struct")
+          .run();
     }
 
     @Test
     public void testOptChainGetElemOnStruct2() {
-      testTypes(
-          lines(
+      newTest()
+          .addSource(
               "/**",
               " * @constructor",
               " * @struct",
@@ -602,89 +607,99 @@ public class OptionalChainTypeCheckTest {
               "function Struct1kid(){ this.b = 123; }",
               "/** @param{Struct1kid} a */",
               "function takesStruct2(a) { return a?.[b];",
-              " }"),
-          "Cannot do '[]' access on a struct");
+              " }")
+          .addDiagnostic("Cannot do '[]' access on a struct")
+          .run();
     }
 
     @Test
     public void testGetProp_propAccessOnVoidFunction() {
-      testTypes(
-          "/** @return {void}*/function foo(){foo().bar;}",
-          lines("No properties on this expression", "found   : undefined", "required: Object"));
+      newTest()
+          .addSource("/** @return {void}*/function foo(){foo().bar;}")
+          .addDiagnostic(
+              lines("No properties on this expression", "found   : undefined", "required: Object"))
+          .run();
     }
 
     // Optionally accessing a prop on NULL_TYPE or VOID_TYPE is not an error.
     @Test
     public void testOptChainGetProp_propAccessOnVoidFunction_guarded() {
-      testTypes("/** @return {void}*/function foo(){foo()?.bar;}");
+      newTest().addSource("/** @return {void}*/function foo(){foo()?.bar;}").run();
     }
 
     @Test
     public void testOptChainGetProp_propAccessedAfterObjectInitialized() {
-      testTypes(
-          lines(
+      newTest()
+          .addSource(
               "/** @constructor */ ",
               "function Foo() { /** @type {?Object} */ this.x = null; }",
               "Foo.prototype.initX = function() { this.x = {foo: 1}; };",
               "Foo.prototype.bar = function() {",
               "  if (this.x == null) { this.initX(); alert(this.x?.foo); }",
-              "};"));
+              "};")
+          .run();
     }
 
     @Test
     public void testAssignToUnknown_noError() {
-      testTypes(lines("let a = 4;", "/** @type {?} */ let b;", "a =b;"));
+      newTest().addSource("let a = 4;", "/** @type {?} */ let b;", "a =b;").run();
     }
 
     @Test
     public void testOptChainCall_numberCalled() {
-      testTypes("3?.();", "number expressions are not callable");
+      newTest().addSource("3?.();").addDiagnostic("number expressions are not callable").run();
     }
 
     @Test
     public void testCall_paramMismatch() {
-      testTypes(
-          "/** @param {!Number} foo*/function bar(foo){ bar('abc'); }",
-          lines(
-              "actual parameter 1 of bar does not match formal parameter",
-              "found   : string",
-              "required: Number"));
+      newTest()
+          .addSource("/** @param {!Number} foo*/function bar(foo){ bar('abc'); }")
+          .addDiagnostic(
+              lines(
+                  "actual parameter 1 of bar does not match formal parameter",
+                  "found   : string",
+                  "required: Number"))
+          .run();
     }
 
     @Test
     public void testOptChainCall_paramMismatch() {
-      testTypes(
-          "/** @param {!Number} foo*/function bar(foo){ bar?.('abc'); }",
-          lines(
-              "actual parameter 1 of bar does not match formal parameter",
-              "found   : string",
-              "required: Number"));
+      newTest()
+          .addSource("/** @param {!Number} foo*/function bar(foo){ bar?.('abc'); }")
+          .addDiagnostic(
+              lines(
+                  "actual parameter 1 of bar does not match formal parameter",
+                  "found   : string",
+                  "required: Number"))
+          .run();
     }
 
     @Test
     public void testCall3() {
       // We are checking that an unresolved named type can successfully
       // meet with a functional type to produce a callable type.
-      testTypes(
-          lines(
+      newTest()
+          .addSource(
               "/** @type {Function|undefined} */var opt_f;",
               "/** @type {some.unknown.type} */var f1;",
               "var f2 = opt_f || f1;",
-              "f2();"),
-          "Bad type annotation. Unknown type some.unknown.type");
+              "f2();")
+          .addDiagnostic("Bad type annotation. Unknown type some.unknown.type")
+          .run();
     }
 
     @Test
     public void testOptChainCall3() {
       // We are checking that an unresolved named type can successfully
       // meet with a functional type to produce a callable type.
-      testTypes(
-          lines(
+      newTest()
+          .addSource(
               "/** @type {Function|undefined} */var opt_f;",
               "/** @type {some.unknown.type} */var f1;",
               "var f2 = opt_f || f1;",
-              "f2();"),
-          "Bad type annotation. Unknown type some.unknown.type");
+              "f2();")
+          .addDiagnostic("Bad type annotation. Unknown type some.unknown.type")
+          .run();
     }
   }
 }

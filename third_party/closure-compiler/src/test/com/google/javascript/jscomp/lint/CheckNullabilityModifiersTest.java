@@ -227,20 +227,6 @@ public final class CheckNullabilityModifiersTest extends CompilerTestCase {
   }
 
   @Test
-  public void testThrowsType() {
-    // TODO(tjgq): The style guide forbids throwing anything other than Error subclasses, so an
-    // @throws should never contain a primitive type. Should we suppress the warning in this case?
-    checkRedundantWarning("/** @throws {!string} */ function f(){}");
-
-    checkMissingWarning("/** @throws {Object} */ function f(){}");
-
-    checkNoWarning("/** @throws {string} */ function f(){}");
-    checkNoWarning("/** @throws {?string} */ function f(){}");
-    checkNoWarning("/** @throws {?Object} */ function f(){}");
-    checkNoWarning("/** @throws {!Object} */ function f(){}");
-  }
-
-  @Test
   public void testTypeOf() {
     checkNoWarning("/** @type {typeof Object} */ var x;");
   }
@@ -268,15 +254,22 @@ public final class CheckNullabilityModifiersTest extends CompilerTestCase {
         "/** @constructor */ function C() {} /** @private {Object} */ C.prop = null;");
     checkNullMissingWarning(
         "/** @constructor */ function C() { /** @private {Object} */ this.foo = null; }");
+    checkNullMissingWarning(
+        "/** @constructor */ function C() { /** @private {Object|string} */ this.foo = null; }");
+    checkNullMissingWarning(
+        "/** @constructor */ function C() { /** @private {!String|Symbol} */ this.foo = null; }");
 
     checkNoWarning("/** @type {?Object} */ var x = null;");
     checkNoWarning("/** @constructor */ function C() {} /** @private {?Symbol} */ C.prop = null;");
     checkNoWarning(
         "/** @constructor */ function C() { /** @private {?Object} */ this.foo = null; }");
+    // don't recommend making 'Type' nullable since it's not the root of the type expression
+    checkMissingWarning("/** @type {!Array<Type>} */ let arr = null;");
+    checkMissingWarning("/** @type {?{prop: Type}} */ let o = null;");
   }
 
   private void checkNoWarning(String... js) {
-    testSame(js);
+    testSame(srcs(js));
   }
 
   private void checkMissingWarning(String... js) {

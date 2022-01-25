@@ -23,10 +23,11 @@ import static java.util.Comparator.comparingInt;
 import com.google.common.base.Joiner;
 import com.google.javascript.jscomp.AbstractCompiler.LifeCycleStage;
 import com.google.javascript.jscomp.ControlFlowGraph.Branch;
-import com.google.javascript.jscomp.DataFlowAnalysis.FlowState;
+import com.google.javascript.jscomp.DataFlowAnalysis.LinearFlowState;
 import com.google.javascript.jscomp.LiveVariablesAnalysis.LiveVariableLattice;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.jscomp.NodeTraversal.ScopedCallback;
+import com.google.javascript.jscomp.NodeUtil.AllVarsDeclaredInFunction;
 import com.google.javascript.jscomp.graph.DiGraph.DiGraphNode;
 import com.google.javascript.jscomp.graph.GraphColoring;
 import com.google.javascript.jscomp.graph.GraphColoring.GreedyGraphColoring;
@@ -39,14 +40,13 @@ import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Comparator;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import javax.annotation.Nullable;
 
 /**
  * Reuse variable names if possible.
@@ -63,21 +63,26 @@ import javax.annotation.Nullable;
  * graph coloring in {@link GraphColoring} to determine which two variables can
  * be merge together safely.
  */
-class CoalesceVariableNames extends AbstractPostOrderCallback implements
-    CompilerPass, ScopedCallback {
+class CoalesceVariableNames extends AbstractPostOrderCallback
+    implements CompilerPass, ScopedCallback {
 
   private final AbstractCompiler compiler;
+  private final MemoizedScopeCreator scopeCreator;
   private final Deque<GraphColoring<Var, Void>> colorings;
   private final Deque<LiveVariablesAnalysis> liveAnalyses;
   private final boolean usePseudoNames;
+  private final AstFactory astFactory;
   private LiveVariablesAnalysis liveness;
 
   private final Comparator<Var> coloringTieBreaker =
       comparingInt((Var arg) -> liveness.getVarIndex(arg.getName()));
 
+  /** A stack of shouldOptimizeScope results. */
+  private final Deque<Boolean> shouldOptimizeScopeStack = new ArrayDeque<>();
+
   /**
-   * @param usePseudoNames For debug purposes, when merging variable foo and bar
-   * to foo, rename both variable to foo_bar.
+   * @param usePseudoNames For debug purposes, when merging variable foo and bar to foo, rename both
+   *     variable to foo_bar.
    */
   CoalesceVariableNames(AbstractCompiler compiler, boolean usePseudoNames) {
     // The code is normalized at this point in the compilation process. This allows us to use the
@@ -89,48 +94,59 @@ class CoalesceVariableNames extends AbstractPostOrderCallback implements
     colorings = new ArrayDeque<>();
     liveAnalyses = new ArrayDeque<>();
     this.usePseudoNames = usePseudoNames;
+    this.astFactory = compiler.createAstFactory();
+    this.scopeCreator = new MemoizedScopeCreator(new SyntacticScopeCreator(compiler));
   }
 
   @Override
   public void process(Node externs, Node root) {
     checkNotNull(externs);
     checkNotNull(root);
-    NodeTraversal.traverse(compiler, root, this);
+    NodeTraversal.builder()
+        .setCompiler(compiler)
+        .setCallback(this)
+        .setScopeCreator(this.scopeCreator)
+        .traverse(root);
     compiler.setLifeCycleStage(LifeCycleStage.RAW);
   }
 
-  private static boolean shouldOptimizeScope(NodeTraversal t) {
+  /** Returns populated AllVarsDeclaredInFunction object iff shouldOptimizeScope is true. */
+  private static AllVarsDeclaredInFunction shouldOptimizeScope(NodeTraversal t) {
     // TODO(user): We CAN do this in the global scope, just need to be
     // careful when something is exported. Liveness uses bit-vector for live
     // sets so I don't see compilation time will be a problem for running this
     // pass in the global scope.
 
-    if (!t.getScopeRoot().isFunction()) {
-      return false;
+    if (t.getScopeRoot().isFunction()) {
+      AllVarsDeclaredInFunction allVarsDeclaredInFunction =
+          NodeUtil.getAllVarsDeclaredInFunction(t.getCompiler(), t.getScopeCreator(), t.getScope());
+      if (LiveVariablesAnalysis.MAX_VARIABLES_TO_ANALYZE
+          > allVarsDeclaredInFunction.getAllVariablesInOrder().size()) {
+        return allVarsDeclaredInFunction;
+      }
     }
 
-    Map<String, Var> allVarsInFn = new HashMap<>();
-    List<Var> orderedVars = new ArrayList<>();
-    NodeUtil.getAllVarsDeclaredInFunction(
-        allVarsInFn, orderedVars, t.getCompiler(), t.getScopeCreator(), t.getScope());
-
-    return LiveVariablesAnalysis.MAX_VARIABLES_TO_ANALYZE > orderedVars.size();
+    return null;
   }
 
   @Override
   public void enterScope(NodeTraversal t) {
-    Scope scope = t.getScope();
-    if (!shouldOptimizeScope(t)) {
+    AllVarsDeclaredInFunction allVarsDeclaredInFunction = shouldOptimizeScope(t);
+    if (allVarsDeclaredInFunction == null) {
+      shouldOptimizeScopeStack.push(false);
       return;
     }
+    shouldOptimizeScopeStack.push(true);
 
+    Scope scope = t.getScope();
     checkState(scope.isFunctionScope(), scope);
 
     // live variables analysis is based off of the control flow graph
     ControlFlowGraph<Node> cfg = t.getControlFlowGraph();
 
     liveness =
-        new LiveVariablesAnalysis(cfg, scope, null, compiler, new SyntacticScopeCreator(compiler));
+        new LiveVariablesAnalysis(
+            cfg, scope, null, compiler, this.scopeCreator, allVarsDeclaredInFunction);
 
     if (FeatureSet.ES3.contains(compiler.getOptions().getOutputFeatureSet())) {
       // If the function has exactly 2 params, mark them as escaped. This is a work-around for a
@@ -162,7 +178,7 @@ class CoalesceVariableNames extends AbstractPostOrderCallback implements
 
   @Override
   public void exitScope(NodeTraversal t) {
-    if (!shouldOptimizeScope(t)) {
+    if (!shouldOptimizeScopeStack.pop()) {
       return;
     }
     colorings.pop();
@@ -242,12 +258,13 @@ class CoalesceVariableNames extends AbstractPostOrderCallback implements
 
   /**
    * In order to determine when it is appropriate to coalesce two variables, we use a live variables
-   * analysis to make sure they are not alive at the same time. We take every pairing of variables
-   * and for every CFG node, determine whether the two variables are alive at the same time. If two
-   * variables are alive at the same time, we create an edge between them in the interference graph.
-   * The interference graph is the input to a graph coloring algorithm that ensures any interfering
-   * variables are marked in different color groups, while variables that can safely be coalesced
-   * are assigned the same color group.
+   * analysis to make sure they are not alive at the same time. We take every CFG node and determine
+   * which pairs of variables are alive at the same time. These pairs are set to true in a bit map.
+   * We take every pairing of variables and use the bit map to check if the two variables are alive
+   * at the same time. If two variables are alive at the same time, we create an edge between them
+   * in the interference graph. The interference graph is the input to a graph coloring algorithm
+   * that ensures any interfering variables are marked in different color groups, while variables
+   * that can safely be coalesced are assigned the same color group.
    *
    * @param cfg
    * @param escaped we don't want to coalesce any escaped variables
@@ -260,9 +277,20 @@ class CoalesceVariableNames extends AbstractPostOrderCallback implements
     // First create a node for each non-escaped variable. We add these nodes in the order in which
     // they appear in the code because we want the names that appear earlier in the code to be used
     // when coalescing to variables that appear later in the code.
-    List<Var> orderedVariables = liveness.getAllVariablesInOrder();
+    Var[] orderedVariables = liveness.getAllVariablesInOrder().toArray(new Var[0]);
 
+    // index i in interferenceGraphNodes is set to true when interferenceGraph
+    // has node orderedVariables[i]
+    BitSet interferenceGraphNodes = new BitSet();
+
+    // interferenceBitSet[i] = indices of all variables that should have an edge with
+    // orderedVariables[i]
+    BitSet[] interferenceBitSet = new BitSet[orderedVariables.length];
+    Arrays.setAll(interferenceBitSet, i -> new BitSet());
+
+    int vIndex = -1;
     for (Var v : orderedVariables) {
+      vIndex++;
       if (escaped.contains(v)) {
         continue;
       }
@@ -295,6 +323,38 @@ class CoalesceVariableNames extends AbstractPostOrderCallback implements
       }
 
       interferenceGraph.createNode(v);
+      interferenceGraphNodes.set(vIndex);
+    }
+
+    // Go through every CFG node in the program and look at variables that are live.
+    // Set the pair of live variables in interferenceBitSet so we can add an edge between them.
+    for (DiGraphNode<Node, Branch> cfgNode : cfg.getNodes()) {
+      if (cfg.isImplicitReturn(cfgNode)) {
+        continue;
+      }
+
+      LinearFlowState<LiveVariableLattice> state = cfgNode.getAnnotation();
+
+      // Check the live states and add edge when possible. An edge between two variables
+      // means that they are alive at overlapping times, which means that their
+      // variable names cannot be coalesced.
+      LiveVariableLattice livein = state.getIn();
+      for (int i = livein.nextSetBit(0); i >= 0; i = livein.nextSetBit(i + 1)) {
+        for (int j = livein.nextSetBit(i); j >= 0; j = livein.nextSetBit(j + 1)) {
+          interferenceBitSet[i].set(j);
+        }
+      }
+      LiveVariableLattice liveout = state.getOut();
+      for (int i = liveout.nextSetBit(0); i >= 0; i = liveout.nextSetBit(i + 1)) {
+        for (int j = liveout.nextSetBit(i); j >= 0; j = liveout.nextSetBit(j + 1)) {
+          interferenceBitSet[i].set(j);
+        }
+      }
+
+      LiveRangeChecker liveRangeChecker =
+          new LiveRangeChecker(cfgNode.getValue(), orderedVariables, state);
+      liveRangeChecker.check(cfgNode.getValue());
+      liveRangeChecker.setCrossingVariables(interferenceBitSet);
     }
 
     // Go through each variable and try to connect them.
@@ -303,65 +363,22 @@ class CoalesceVariableNames extends AbstractPostOrderCallback implements
       v1Index++;
 
       int v2Index = -1;
-      NEXT_VAR_PAIR:
       for (Var v2 : orderedVariables) {
         v2Index++;
-        // Skip duplicate pairs.
+        // Skip duplicate pairs. Also avoid merging a variable with itself.
         if (v1Index > v2Index) {
           continue;
         }
 
-        if (!interferenceGraph.hasNode(v1) || !interferenceGraph.hasNode(v2)) {
-          // Skip nodes that were not added. They are globals and escaped
-          // locals. Also avoid merging a variable with itself.
-          continue NEXT_VAR_PAIR;
+        if (!interferenceGraphNodes.get(v1Index) || !interferenceGraphNodes.get(v2Index)) {
+          // Skip nodes that were not added. They are globals and escaped locals.
+          continue;
         }
 
-        if (v1.isParam() && v2.isParam()) {
+        if ((v1.isParam() && v2.isParam()) || interferenceBitSet[v1Index].get(v2Index)) {
+          // Add an edge between variable pairs that are both parameters
+          // because we don't want parameters to share a name.
           interferenceGraph.connectIfNotFound(v1, null, v2);
-          continue NEXT_VAR_PAIR;
-        }
-
-        // Go through every CFG node in the program and look at
-        // this variable pair. If they are both live at the same
-        // time, add an edge between them and continue to the next pair.
-        NEXT_CROSS_CFG_NODE:
-        for (DiGraphNode<Node, Branch> cfgNode : cfg.getNodes()) {
-          if (cfg.isImplicitReturn(cfgNode)) {
-            continue NEXT_CROSS_CFG_NODE;
-          }
-
-          FlowState<LiveVariableLattice> state = cfgNode.getAnnotation();
-
-          // Check the live states and add edge when possible.
-
-          if ((state.getIn().isLive(v1Index) && state.getIn().isLive(v2Index))
-              || (state.getOut().isLive(v1Index) && state.getOut().isLive(v2Index))) {
-            interferenceGraph.connectIfNotFound(v1, null, v2);
-            continue NEXT_VAR_PAIR;
-          }
-        }
-
-        // v1 and v2 might not have an edge between them! woohoo. there's
-        // one last sanity check that we have to do: we have to check
-        // if there's a collision *within* the cfg node.
-        NEXT_INTRA_CFG_NODE:
-        for (DiGraphNode<Node, Branch> cfgNode : cfg.getNodes()) {
-          if (cfg.isImplicitReturn(cfgNode)) {
-            continue NEXT_INTRA_CFG_NODE;
-          }
-
-          FlowState<LiveVariableLattice> state = cfgNode.getAnnotation();
-          boolean v1OutLive = state.getOut().isLive(v1Index);
-          boolean v2OutLive = state.getOut().isLive(v2Index);
-          CombinedLiveRangeChecker checker = new CombinedLiveRangeChecker(
-              cfgNode.getValue(),
-              new LiveRangeChecker(v1, v2OutLive ? null : v2),
-              new LiveRangeChecker(v2, v1OutLive ? null : v1));
-          checker.check(cfgNode.getValue());
-          if (checker.connectIfCrossed(interferenceGraph)) {
-            continue NEXT_VAR_PAIR;
-          }
         }
       }
     }
@@ -383,61 +400,6 @@ class CoalesceVariableNames extends AbstractPostOrderCallback implements
         return NodeUtil.findLhsNodesInNode(nameDecl).size() > 1;
       default:
         return false;
-    }
-  }
-
-  /**
-   * A simple wrapper to call two LiveRangeChecker callbacks during the same traversal.
-   */
-  private static class CombinedLiveRangeChecker {
-
-    private final Node root;
-    private final LiveRangeChecker callback1;
-    private final LiveRangeChecker callback2;
-
-    CombinedLiveRangeChecker(
-        Node root,
-        LiveRangeChecker callback1,
-        LiveRangeChecker callback2) {
-      this.root = root;
-      this.callback1 = callback1;
-      this.callback2 = callback2;
-    }
-
-    void check(Node n) {
-      // For most AST nodes, traverse the subtree in postorder because that's how the expressions
-      // are evaluated.
-      if (n == root || !ControlFlowGraph.isEnteringNewCfgNode(n)) {
-        if ((n.isDestructuringLhs() && n.hasTwoChildren())
-            || (n.isAssign() && n.getFirstChild().isDestructuringPattern())
-            || n.isDefaultValue()) {
-          // Evaluate the rhs of a destructuring assignment/declaration before the lhs.
-          check(n.getSecondChild());
-          check(n.getFirstChild());
-        } else {
-          for (Node c = n.getFirstChild(); c != null; c = c.getNext()) {
-            check(c);
-          }
-        }
-        visit(n, n.getParent());
-      }
-    }
-
-    void visit(Node n, Node parent) {
-      if (LiveRangeChecker.shouldVisit(n)) {
-        callback1.visit(n, parent);
-        callback2.visit(n, parent);
-      }
-    }
-
-    boolean connectIfCrossed(UndiGraph<Var, Void> interferenceGraph) {
-      if (callback1.crossed || callback2.crossed) {
-        Var v1 = callback1.def;
-        Var v2 = callback2.def;
-        interferenceGraph.connectIfNotFound(v1, null, v2);
-        return true;
-      }
-      return false;
     }
   }
 
@@ -519,8 +481,7 @@ class CoalesceVariableNames extends AbstractPostOrderCallback implements
         // const x = 1; // constant requires an initializer
         // let {x, y} = obj; // destructuring requires an initializer
         // let [x, y] = iterable; // destructuring requires an initializer
-        Node undefinedValue =
-            compiler.createAstFactory().createUndefinedValue().srcrefTree(nameNode);
+        Node undefinedValue = astFactory.createUndefinedValue().srcrefTree(nameNode);
         nameNode.addChildToFront(undefinedValue);
       }
       // find the declaration node in a way that works normal and destructuring declarations.
@@ -558,35 +519,76 @@ class CoalesceVariableNames extends AbstractPostOrderCallback implements
     return NodeUtil.isWithinLoop(letParent);
   }
 
+  /**
+   * Used to find written and read variables in the same CFG node so that the variable pairs can be
+   * marked as interfering in an interference bit map. Indices of written and read variables are put
+   * in a list. These two lists are used to mark each written variable as "crossing" all read
+   * variables.
+   */
   private static class LiveRangeChecker {
-    boolean defFound = false;
-    boolean crossed = false;
 
-    private final Var def;
+    private final Node root;
+    private final LinearFlowState<LiveVariableLattice> state;
+    private final Var[] orderedVariables;
+    private final List<Integer> isAssignToList = new ArrayList<>(); // indices of written variables
+    private final List<Integer> isReadFromList = new ArrayList<>(); // indices of read variables
 
-    @Nullable
-    private final Var use;
-
-    public LiveRangeChecker(Var def, Var use) {
-      this.def = checkNotNull(def);
-      this.use = use;
+    LiveRangeChecker(
+        Node root, Var[] orderedVariables, LinearFlowState<LiveVariableLattice> state) {
+      this.root = root;
+      this.orderedVariables = orderedVariables;
+      this.state = state;
     }
 
-    /**
-     * @return Whether any LiveRangeChecker would be interested in the node.
-     */
-    public static boolean shouldVisit(Node n) {
-      return (n.isName() || (n.hasChildren() && n.getFirstChild().isName()));
+    void check(Node n) {
+      // For most AST nodes, traverse the subtree in postorder because that's how the expressions
+      // are evaluated.
+      if (n == root || !ControlFlowGraph.isEnteringNewCfgNode(n)) {
+        if ((n.isDestructuringLhs() && n.hasTwoChildren())
+            || (n.isAssign() && n.getFirstChild().isDestructuringPattern())
+            || n.isDefaultValue()) {
+          // Evaluate the rhs of a destructuring assignment/declaration before the lhs.
+          check(n.getSecondChild());
+          check(n.getFirstChild());
+        } else {
+          for (Node c = n.getFirstChild(); c != null; c = c.getNext()) {
+            check(c);
+          }
+        }
+        if (shouldVisit(n)) {
+          visit(n, n.getParent());
+        }
+      }
     }
 
     void visit(Node n, Node parent) {
-      if (!defFound && isAssignTo(def, n, parent)) {
-        defFound = true;
+      for (int iVar = 0; iVar < orderedVariables.length; iVar++) {
+        if (isAssignTo(orderedVariables[iVar], n, parent)) {
+          isAssignToList.add(iVar);
+        }
       }
+      if (!isAssignToList.isEmpty()) {
+        for (int iVar = 0; iVar < orderedVariables.length; iVar++) {
+          boolean varOutLive = state.getOut().isLive(iVar);
+          if (varOutLive || isReadFrom(orderedVariables[iVar], n)) {
+            isReadFromList.add(iVar);
+          }
+        }
+      }
+    }
 
-      if (defFound && (use == null || isReadFrom(use, n))) {
-        crossed = true;
+    void setCrossingVariables(BitSet[] interferenceBitSet) {
+      for (Integer iWrittenVar : isAssignToList) {
+        for (Integer iReadVar : isReadFromList) {
+          interferenceBitSet[iWrittenVar].set(iReadVar);
+          interferenceBitSet[iReadVar].set(iWrittenVar);
+        }
       }
+    }
+
+    /** Returns whether any LiveRangeChecker would be interested in the node. */
+    public static boolean shouldVisit(Node n) {
+      return (n.isName() || (n.hasChildren() && n.getFirstChild().isName()));
     }
 
     static boolean isAssignTo(Var var, Node n, Node parent) {

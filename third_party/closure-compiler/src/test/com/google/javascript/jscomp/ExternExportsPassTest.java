@@ -18,7 +18,6 @@ package com.google.javascript.jscomp;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.javascript.jscomp.testing.NoninjectingCompiler;
-import com.google.javascript.jscomp.testing.TestExternsBuilder;
 import java.util.function.Consumer;
 import org.junit.Before;
 import org.junit.Test;
@@ -418,8 +417,16 @@ public final class ExternExportsPassTest extends CompilerTestCase {
             "};",
             "goog.exportProperty(a.b, 'cprop', a.b.c)"),
         lines(
-            "var a;",
-            "a.b;",
+            "/**",
+            " * @const",
+            " * @suppress {const,duplicate}",
+            " */",
+            "var a = {};",
+            "/**",
+            " * @const",
+            " * @suppress {const,duplicate}",
+            " */",
+            "a.b = {};",
             "/**",
             " * @param {?} d",
             " * @param {?} e",
@@ -486,7 +493,11 @@ public final class ExternExportsPassTest extends CompilerTestCase {
             "goog.exportProperty(a.b, 'c', a.b.c);",
             "goog.exportProperty(a.b.prototype, 'c', a.b.prototype.c);"),
         lines(
-            "var a;",
+            "/**",
+            " * @const",
+            " * @suppress {const,duplicate}",
+            " */",
+            "var a = {};",
             "/**",
             " * @param {?} p1",
             " * @constructor",
@@ -1446,82 +1457,6 @@ public final class ExternExportsPassTest extends CompilerTestCase {
   }
 
   @Test
-  public void exportTranspiledEs6ClassHierarchy() {
-    enableTranspile();
-    compileAndCheck(
-        // transpilation requires
-        new TestExternsBuilder().addEs6ClassTranspilationExterns().build(),
-        lines(
-            "class SuperClass {}",
-            "goog.exportSymbol('Foo', SuperClass);",
-            "",
-            "class SubClass extends SuperClass {}",
-            "goog.exportSymbol('Bar', SubClass);",
-            ""),
-        lines(
-            "/**",
-            // TODO(b/123352214): SuperClass should be called Foo in exported @extends annotation
-            " * @extends {SuperClass}",
-            " * @constructor",
-            " */",
-            "var Bar = function() {",
-            "};",
-            "/**",
-            " * @constructor",
-            " */",
-            "var Foo = function() {",
-            "};",
-            ""));
-  }
-
-  @Test
-  public void exportTranspiledPartialEs6ClassHierarchy() {
-    enableTranspile();
-    compileAndCheck(
-        // transpilation requires
-        new TestExternsBuilder().addEs6ClassTranspilationExterns().build(),
-        lines(
-            "class SuperClass {}",
-            "",
-            "class SubClass extends SuperClass {}",
-            "goog.exportSymbol('Bar', SubClass);",
-            ""),
-        lines(
-            "/**",
-            // TODO(b/123352214): SuperClass should be called Foo in exported @extends annotation
-            " * @extends {SuperClass}",
-            " * @constructor",
-            " */",
-            "var Bar = function() {",
-            "};",
-            ""));
-  }
-
-  @Test
-  public void exportTranspiledEs6ClassExtendingNonExportedEs5Class() {
-    enableTranspile();
-    compileAndCheck(
-        // transpilation requires
-        new TestExternsBuilder().addEs6ClassTranspilationExterns().build(),
-        lines(
-            "/** @constructor */",
-            "function SuperClass() {}",
-            "",
-            "class SubClass extends SuperClass {}",
-            "goog.exportSymbol('Bar', SubClass);",
-            ""),
-        lines(
-            "/**",
-            // TODO(b/123352214): SuperClass should be called Foo in exported @extends annotation
-            " * @extends {SuperClass}",
-            " * @constructor",
-            " */",
-            "var Bar = function() {",
-            "};",
-            ""));
-  }
-
-  @Test
   public void testExportLocalPropertyInConstructor() {
     compileAndCheck(
         "/** @constructor */function F() { /** @export */ this.x = 5;} goog.exportSymbol('F', F);",
@@ -1574,17 +1509,12 @@ public final class ExternExportsPassTest extends CompilerTestCase {
             "function F() { /** @export */ this.x = function(/** string */ x){};}",
             "goog.exportSymbol('F', F);"),
         lines(
-            "/**",
+            "/**", //
             " * @constructor",
             " */",
             "var F = function() {",
             "};",
-            "/**",
-            " * @param {string} x",
-            " * @return {undefined}",
-            " */",
-            "F.prototype.x = function(x) {",
-            "};",
+            "F.prototype.x;",
             ""));
   }
 

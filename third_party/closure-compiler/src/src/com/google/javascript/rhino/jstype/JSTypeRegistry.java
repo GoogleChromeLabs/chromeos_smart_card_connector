@@ -61,15 +61,16 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
+import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Table;
 import com.google.javascript.rhino.ErrorReporter;
 import com.google.javascript.rhino.HamtPMap;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSTypeExpression;
+import com.google.javascript.rhino.Msg;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.PMap;
 import com.google.javascript.rhino.QualifiedName;
-import com.google.javascript.rhino.SimpleErrorReporter;
 import com.google.javascript.rhino.StaticScope;
 import com.google.javascript.rhino.StaticSlot;
 import com.google.javascript.rhino.Token;
@@ -77,7 +78,6 @@ import com.google.javascript.rhino.jstype.NamedType.ResolutionKind;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -88,9 +88,8 @@ import javax.annotation.Nullable;
  * The type registry is used to resolve named types.
  *
  * <p>This class is not thread-safe.
- *
  */
-public class JSTypeRegistry {
+public final class JSTypeRegistry {
   private static final Splitter DOT_SPLITTER = Splitter.on('.');
 
   /**
@@ -195,12 +194,14 @@ public class JSTypeRegistry {
   private final transient Set<String> forwardDeclaredTypes;
 
   // A map of properties to the types on which those properties have been declared.
-  private transient Multimap<String, JSType> typesIndexedByProperty =
+  // "Reference" types are excluded because those already exist in eachRefTypeIndexedByProperty to
+  // avoid blowing up the size of this map.
+  private final transient SetMultimap<String, JSType> nonRefTypesIndexedByProperty =
       MultimapBuilder.hashKeys().linkedHashSetValues().build();
 
   private JSType sentinelObjectLiteral;
 
-  // To avoid blowing up the size of typesIndexedByProperty, we use the sentinel object
+  // To avoid blowing up the size of nonRefTypesIndexedByProperty, we use the sentinel object
   // literal instead of registering arbitrarily many types.
   // But because of the way unions are constructed, some properties of record types in unions
   // are getting dropped and cause spurious "non-existent property" warnings.
@@ -210,15 +211,13 @@ public class JSTypeRegistry {
   // canPropertyBeDefined, if the type has a property in propertiesOfSupertypesInUnions, we
   // consider it to possibly have any property in droppedPropertiesOfUnions. This is a loose
   // check, but we restrict it to records that may be present in unions, and it allows us to
-  // keep typesIndexedByProperty small.
+  // keep nonRefTypesIndexedByProperty small.
   private final Set<String> propertiesOfSupertypesInUnions = new HashSet<>();
   private final Set<String> droppedPropertiesOfUnions = new HashSet<>();
 
-  // A map of properties to each reference type on which those
-  // properties have been declared. Each type has a unique name used
-  // for de-duping.
-  private transient Map<String, Map<String, ObjectType>> eachRefTypeIndexedByProperty =
-      new LinkedHashMap<>();
+  // A map of properties to each reference type on which those properties have been declared.
+  private final SetMultimap<String, ObjectType> eachRefTypeIndexedByProperty =
+      MultimapBuilder.SetMultimapBuilder.hashKeys().linkedHashSetValues().build();
 
   // A single empty TemplateTypeMap, which can be safely reused in cases where
   // there are no template types.
@@ -238,7 +237,10 @@ public class JSTypeRegistry {
     this.resolver = JSTypeResolver.create(this);
     this.nativeTypes = new JSType[JSTypeNative.values().length];
 
-    resetForTypeCheck();
+    try (JSTypeResolver.Closer closer = this.resolver.openForDefinition()) {
+      initializeBuiltInTypes();
+      initializeRegistry();
+    }
   }
 
   private JSType getSentinelObjectLiteral() {
@@ -311,19 +313,6 @@ public class JSTypeRegistry {
     return reporter;
   }
 
-  /**
-   * Reset to run the TypeCheck pass.
-   */
-  public void resetForTypeCheck() {
-    try (JSTypeResolver.Closer closer = this.resolver.openForDefinition()) {
-      typesIndexedByProperty.clear();
-      eachRefTypeIndexedByProperty.clear();
-      initializeBuiltInTypes();
-      scopedNameTable.clear();
-      initializeRegistry();
-    }
-  }
-
   private void initializeBuiltInTypes() {
     // These locals shouldn't be all caps.
     BooleanType booleanType = new BooleanType(this);
@@ -370,6 +359,7 @@ public class JSTypeRegistry {
     asyncIteratorValueTemplate = new TemplateType(this, "VALUE");
     TemplateType asyncIteratorReturnTemplate = new TemplateType(this, "UNUSED_RETURN_T");
     TemplateType asyncIteratorNextTemplate = new TemplateType(this, "UNUSED_NEXT_T");
+    TemplateType asyncIteratorIterableTemplate = new TemplateType(this, "VALUE");
     generatorValueTemplate = new TemplateType(this, "VALUE");
     TemplateType generatorReturnTemplate = new TemplateType(this, "UNUSED_RETURN_T");
     TemplateType generatorNextTemplate = new TemplateType(this, "UNUSED_NEXT_T");
@@ -566,6 +556,21 @@ public class JSTypeRegistry {
     registerNativeType(
         JSTypeNative.ASYNC_ITERABLE_TYPE, asyncIterableFunctionType.getInstanceType());
 
+    FunctionType asyncIteratorIterableFunctionType =
+        nativeInterface("AsyncIteratorIterable", asyncIteratorIterableTemplate);
+    asyncIteratorIterableFunctionType.setExtendedInterfaces(
+        ImmutableList.of(
+            createTemplatizedType(
+                asyncIteratorFunctionType.getInstanceType(), asyncIteratorIterableTemplate),
+            createTemplatizedType(
+                asyncIterableFunctionType.getInstanceType(), asyncIteratorIterableTemplate)));
+
+    registerNativeType(
+        JSTypeNative.ASYNC_ITERATOR_ITERABLE_FUNCTION_TYPE, asyncIteratorIterableFunctionType);
+    registerNativeType(
+        JSTypeNative.ASYNC_ITERATOR_ITERABLE_TYPE,
+        asyncIteratorIterableFunctionType.getInstanceType());
+
     FunctionType asyncGeneratorFunctionType =
         nativeInterface(
             "AsyncGenerator",
@@ -614,6 +619,16 @@ public class JSTypeRegistry {
 
     registerNativeType(JSTypeNative.PROMISE_FUNCTION_TYPE, promiseFunctionType);
     registerNativeType(JSTypeNative.PROMISE_TYPE, promiseFunctionType.getInstanceType());
+
+    // Arguments
+    FunctionType argumentsFunctionType =
+        nativeConstructorBuilder("Arguments").withParameters().build();
+    argumentsFunctionType.setImplementedInterfaces(
+        ImmutableList.of(
+            createTemplatizedType(iArrayLikeType, unknownType),
+            createTemplatizedType(iterableType, unknownType)));
+    registerNativeType(JSTypeNative.ARGUMENTS_FUNCTION_TYPE, argumentsFunctionType);
+    registerNativeType(JSTypeNative.ARGUMENTS_TYPE, argumentsFunctionType.getInstanceType());
 
     // (bigint,number,string)
     JSType bigintNumberString = createUnionType(bigIntType, numberType, stringType);
@@ -780,9 +795,11 @@ public class JSTypeRegistry {
   }
 
   private void initializeRegistry() {
+    registerGlobalType(getNativeType(JSTypeNative.ARGUMENTS_TYPE));
     registerGlobalType(getNativeType(JSTypeNative.ARRAY_TYPE));
     registerGlobalType(getNativeType(JSTypeNative.ASYNC_ITERABLE_TYPE));
     registerGlobalType(getNativeType(JSTypeNative.ASYNC_ITERATOR_TYPE));
+    registerGlobalType(getNativeType(JSTypeNative.ASYNC_ITERATOR_ITERABLE_TYPE));
     registerGlobalType(getNativeType(JSTypeNative.ASYNC_GENERATOR_TYPE));
     registerGlobalType(getNativeType(JSTypeNative.BIGINT_OBJECT_TYPE));
     registerGlobalType(getNativeType(JSTypeNative.BIGINT_TYPE));
@@ -1027,15 +1044,6 @@ public class JSTypeRegistry {
     scopedNameTable.put(getRootNodeForScope(scope), name, type);
   }
 
-  /**
-   * Removes a type by name.
-   *
-   * @param name The name string.
-   */
-  public void removeType(StaticScope scope, String name) {
-    scopedNameTable.remove(getRootNodeForScope(getLookupScope(scope, name)), name);
-  }
-
   private void registerNativeType(JSTypeNative typeId, JSType type) {
     nativeTypes[typeId.ordinal()] = type;
   }
@@ -1074,50 +1082,22 @@ public class JSTypeRegistry {
    * show up in the type registry").
    */
   public void registerPropertyOnType(String propertyName, JSType type) {
+    if (type.isUnionType()) {
+      for (JSType alternate : type.toMaybeUnionType().getAlternates()) {
+        registerPropertyOnType(propertyName, alternate);
+      }
+      return;
+    }
+
     if (isObjectLiteralThatCanBeSkipped(type)) {
       type = getSentinelObjectLiteral();
     }
 
-    if (type.isUnionType()) {
-      typesIndexedByProperty.putAll(propertyName, type.toMaybeUnionType().getAlternates());
-    } else {
-      typesIndexedByProperty.put(propertyName, type);
-    }
-
-    addReferenceTypeIndexedByProperty(propertyName, type);
-  }
-
-  private void addReferenceTypeIndexedByProperty(
-      String propertyName, JSType type) {
     if (type instanceof ObjectType && ((ObjectType) type).hasReferenceName()) {
-      Map<String, ObjectType> typeSet =
-          eachRefTypeIndexedByProperty.computeIfAbsent(propertyName, k -> new LinkedHashMap<>());
       ObjectType objType = (ObjectType) type;
-      typeSet.put(objType.getReferenceName(), objType);
-    } else if (type instanceof NamedType) {
-      addReferenceTypeIndexedByProperty(
-          propertyName, ((NamedType) type).getReferencedType());
-    } else if (type.isUnionType()) {
-      for (JSType alternate : type.toMaybeUnionType().getAlternates()) {
-        addReferenceTypeIndexedByProperty(propertyName, alternate);
-      }
-    }
-  }
-
-  /**
-   * Removes the index's reference to a property on the given type (if it is
-   * currently registered). If the property is not registered on the type yet,
-   * this method will not change internal state.
-   *
-   * @param propertyName the name of the property to unregister
-   * @param type the type to unregister the property on.
-   */
-  public void unregisterPropertyOnType(String propertyName, JSType type) {
-    // TODO(bashir): typesIndexedByProperty should also be updated!
-    Map<String, ObjectType> typeSet =
-        eachRefTypeIndexedByProperty.get(propertyName);
-    if (typeSet != null) {
-      typeSet.remove(type.toObjectType().getReferenceName());
+      eachRefTypeIndexedByProperty.put(propertyName, objType);
+    } else {
+      nonRefTypesIndexedByProperty.put(propertyName, type);
     }
   }
 
@@ -1161,19 +1141,26 @@ public class JSTypeRegistry {
         }
       }
 
-      if (typesIndexedByProperty.containsKey(propertyName)) {
-        for (JSType alternative : typesIndexedByProperty.get(propertyName)) {
-          JSType greatestSubtype = alternative.getGreatestSubtype(type);
-          if (!greatestSubtype.isEmptyType()) {
-            // We've found a type with this property. Now we just have to make
-            // sure it's not a type used for internal bookkeeping.
-            RecordType maybeRecordType = greatestSubtype.toMaybeRecordType();
-            if (maybeRecordType != null && maybeRecordType.isSynthetic()) {
-              continue;
-            }
+      Iterable<JSType> associatedTypes = ImmutableList.of();
+      if (nonRefTypesIndexedByProperty.containsKey(propertyName)) {
+        associatedTypes = nonRefTypesIndexedByProperty.get(propertyName);
+      }
+      if (eachRefTypeIndexedByProperty.containsKey(propertyName)) {
+        associatedTypes =
+            Iterables.concat(associatedTypes, eachRefTypeIndexedByProperty.get(propertyName));
+      }
 
-            return PropDefinitionKind.LOOSE;
+      for (JSType alternative : associatedTypes) {
+        JSType greatestSubtype = alternative.getGreatestSubtype(type);
+        if (!greatestSubtype.isEmptyType()) {
+          // We've found a type with this property. Now we just have to make
+          // sure it's not a type used for internal bookkeeping.
+          RecordType maybeRecordType = greatestSubtype.toMaybeRecordType();
+          if (maybeRecordType != null && maybeRecordType.isSynthetic()) {
+            continue;
           }
+
+          return PropDefinitionKind.LOOSE;
         }
       }
 
@@ -1208,7 +1195,7 @@ public class JSTypeRegistry {
   public Iterable<ObjectType> getEachReferenceTypeWithProperty(
       String propertyName) {
     if (eachRefTypeIndexedByProperty.containsKey(propertyName)) {
-      return eachRefTypeIndexedByProperty.get(propertyName).values();
+      return eachRefTypeIndexedByProperty.get(propertyName);
     } else {
       return ImmutableList.of();
     }
@@ -1278,14 +1265,6 @@ public class JSTypeRegistry {
 
     registerForScope(scope, type, name);
     return true;
-  }
-
-  /**
-   * Overrides a declared global type name. Throws an exception if this type name hasn't been
-   * declared yet.
-   */
-  public void overwriteDeclaredType(String name, JSType type) {
-    overwriteDeclaredType(null, name, type);
   }
 
   /**
@@ -1575,11 +1554,6 @@ public class JSTypeRegistry {
     return builder.build();
   }
 
-  /** Creates an empty parameter list node. */
-  Node createEmptyParams() {
-    return new Node(Token.PARAM_LIST);
-  }
-
   /**
    * Creates a function type.
    *
@@ -1738,7 +1712,7 @@ public class JSTypeRegistry {
     for (String propName : propNames) {
       props.put(propName, objType.getPropertyType(propName));
     }
-    return createRecordType(props.build());
+    return createRecordType(props.buildOrThrow());
   }
 
   public JSType createRecordType(Map<String, ? extends JSType> props) {
@@ -2051,7 +2025,7 @@ public class JSTypeRegistry {
             thisType = ObjectType.cast(candidateThisType.restrictByNotNullOrUndefined());
             if (thisType == null) {
               reporter.warning(
-                  SimpleErrorReporter.getMessage0("msg.jsdoc.function.newnotobject"),
+                  Msg.JSDOC_FUNCTION_NEWNOTOBJECT.format(),
                   sourceName,
                   contextNode.getLineno(),
                   contextNode.getCharno());
@@ -2079,7 +2053,7 @@ public class JSTypeRegistry {
                 boolean addSuccess = paramBuilder.addOptionalParams(type);
                 if (!addSuccess) {
                   reporter.warning(
-                      SimpleErrorReporter.getMessage0("msg.jsdoc.function.varargs"),
+                      Msg.JSDOC_FUNCTION_VARARGS.format(),
                       sourceName,
                       arg.getLineno(),
                       arg.getCharno());

@@ -23,11 +23,13 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Table;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
+import com.google.javascript.jscomp.modules.ModuleMetadataMap.ModuleType;
 import com.google.javascript.jscomp.parsing.parser.util.format.SimpleFormat;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSDocInfo.Marker;
@@ -54,12 +56,15 @@ import com.google.javascript.rhino.jstype.UnionType;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeSet;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -292,7 +297,7 @@ public final class SymbolTable {
 
   /** Gets the symbol for the given enum. */
   public Symbol getSymbolDeclaredBy(EnumType enumType) {
-    return getSymbolForName(null, enumType.getElementsType().getReferenceName());
+    return getSymbolForName(enumType.getSource(), enumType.getElementsType().getReferenceName());
   }
 
   /** Gets the symbol for the prototype if this is the symbol for a constructor or interface. */
@@ -317,10 +322,33 @@ public final class SymbolTable {
     }
 
     SymbolScope scope = source == null ? globalScope : getEnclosingScope(source);
+    if (scope == null) {
+      return null;
+    }
+    if (scope.isModuleScope()) {
+      // In the case of elements like
+      //
+      // goog.module('foo.bar');
+      // exports.Pinky = {};
+      //
+      // we might get fully-qualified name `foo.bar.Pinky` but when looking it up within the module
+      // - the symbol is just `Pinky`. So we need to remove module name to be able to find the
+      // symbol in module scope.
+      String moduleNameWithDot =
+          Iterables.getFirst(
+                  compiler
+                      .getModuleMetadataMap()
+                      .getModulesByPath()
+                      .get(scope.getRootNode().getSourceFileName())
+                      .googNamespaces(),
+                  null)
+              + ".";
+      if (name.startsWith(moduleNameWithDot)) {
+        name = name.substring(moduleNameWithDot.length());
+      }
+    }
 
-    // scope will sometimes be null if one of the type-stripping passes
-    // was run, and the symbol isn't in the AST anymore.
-    return scope == null ? null : scope.getQualifiedSlot(name);
+    return scope.getQualifiedSlot(name);
   }
 
   /**
@@ -334,7 +362,7 @@ public final class SymbolTable {
 
     UnionType unionType = type.toMaybeUnionType();
     if (unionType != null) {
-      List<Symbol> result = new ArrayList<>(2);
+      ImmutableList.Builder<Symbol> result = ImmutableList.builder();
       for (JSType alt : unionType.getAlternates()) {
         // Our type system never has nested unions.
         Symbol altSym = getSymbolForTypeHelper(alt, true);
@@ -342,7 +370,7 @@ public final class SymbolTable {
           result.add(altSym);
         }
       }
-      return result;
+      return result.build();
     }
     Symbol result = getSymbolForTypeHelper(type, true);
     return result == null ? ImmutableList.of() : ImmutableList.of(result);
@@ -384,51 +412,109 @@ public final class SymbolTable {
           : globalScope.getQualifiedSlot("Function.prototype");
     } else if (type.autoboxesTo() != null) {
       return getSymbolForTypeHelper(type.autoboxesTo(), linkToCtor);
+    } else if (type.isEnumType()) {
+      return getSymbolDeclaredBy((EnumType) type);
     } else {
       return null;
     }
+  }
+
+  /**
+   * Methods returns debug representation of the SymbolTable. It starts with the global scope and
+   * all its symbols recursively going to children scopes and printing their symbols.
+   */
+  @SuppressWarnings("unused")
+  public String toDebugStringTree() {
+    // We are recursively going through scopes from global to nested and need to build parent =>
+    // children map as it doesn't exist at the moment.
+    ImmutableListMultimap.Builder<SymbolScope, SymbolScope> childrenScopesBuilder =
+        ImmutableListMultimap.builder();
+    for (SymbolScope scope : getAllScopes()) {
+      if (scope.getParentScope() != null) {
+        childrenScopesBuilder.put(scope.getParentScope(), scope);
+      }
+    }
+    ImmutableListMultimap<SymbolScope, SymbolScope> childrenScopes = childrenScopesBuilder.build();
+    StringBuilder builder = new StringBuilder();
+    // Go through all scopes that don't have parent. It's likely only Global scope.
+    for (SymbolScope scope : getAllScopes()) {
+      if (scope.getParentScope() == null) {
+        toDebugStringTree(builder, "", scope, childrenScopes);
+      }
+    }
+
+    // All objects/classes have property scopes. They usually don't have parents. These scopes
+    // confusingly are not included in "getAllScopes()" pass above.
+    HashSet<SymbolScope> visitedScopes = new HashSet<>(getAllScopes());
+    for (Symbol symbol : getAllSymbols()) {
+      if (symbol.propertyScope == null || visitedScopes.contains(symbol.propertyScope)) {
+        continue;
+      }
+      visitedScopes.add(symbol.getPropertyScope());
+      toDebugStringTree(builder, "", symbol.propertyScope, childrenScopes);
+    }
+    return builder.toString();
+  }
+
+  private void toDebugStringTree(
+      StringBuilder builder,
+      String prefix,
+      SymbolScope scope,
+      ImmutableListMultimap<SymbolScope, SymbolScope> childrenScopes) {
+    builder.append(prefix).append(scope);
+    String childrenPrefix = prefix + "    ";
+    boolean printedSomething = false;
+    if (!scope.ownSymbols.isEmpty()) {
+      printedSomething = true;
+      builder.append('\n').append(prefix).append("  Symbols:\n");
+      for (Symbol symbol : scope.ownSymbols.values()) {
+        toDebugString(builder, childrenPrefix, symbol, /* printScope= */ false);
+      }
+    }
+    if (childrenScopes.containsKey(scope)) {
+      printedSomething = true;
+      builder.append('\n').append(prefix).append("  Scopes:\n");
+      for (SymbolScope childScope : childrenScopes.get(scope)) {
+        toDebugStringTree(builder, childrenPrefix, childScope, childrenScopes);
+      }
+    }
+    if (!printedSomething) {
+      builder.append('\n');
+    }
+    builder.append('\n');
   }
 
   @SuppressWarnings("unused")
   public String toDebugString() {
     StringBuilder builder = new StringBuilder();
     for (Symbol symbol : getAllSymbols()) {
-      toDebugString(builder, symbol);
+      toDebugString(builder, "", symbol, /* printScope= */ true);
     }
     return builder.toString();
   }
 
-  private void toDebugString(StringBuilder builder, Symbol symbol) {
-    SymbolScope scope = symbol.scope;
-    if (scope.isGlobalScope()) {
-      builder.append(SimpleFormat.format("'%s' : in global scope:\n", symbol.getName()));
-    } else if (scope.getRootNode() != null) {
-      builder.append(
-          SimpleFormat.format(
-              "'%s' : in scope %s:%d\n",
-              symbol.getName(),
-              scope.getRootNode().getSourceFileName(),
-              scope.getRootNode().getLineno()));
-    } else if (scope.getSymbolForScope() != null) {
-      builder.append(
-          SimpleFormat.format(
-              "'%s' : in scope %s\n", symbol.getName(), scope.getSymbolForScope().getName()));
-    } else {
-      builder.append(SimpleFormat.format("'%s' : in unknown scope\n", symbol.getName()));
+  private void toDebugString(
+      StringBuilder builder, String prefix, Symbol symbol, boolean printScope) {
+    builder.append(prefix).append("'").append(symbol.getName()).append("'");
+    if (printScope) {
+      builder.append(" in ").append(symbol.scope);
     }
+    builder.append('\n');
 
     int refCount = 0;
     for (Reference ref : getReferences(symbol)) {
       Node node = ref.getNode();
-      builder.append(
-          SimpleFormat.format(
-              "  Ref %d: %s line: %d col: %d len: %d %s\n",
-              refCount,
-              node.getSourceFileName(),
-              node.getLineno(),
-              node.getCharno(),
-              node.getLength(),
-              node.isIndexable() ? "" : "non indexable"));
+      builder
+          .append(prefix)
+          .append(
+              SimpleFormat.format(
+                  "  Ref %d: %s line: %d col: %d len: %d %s\n",
+                  refCount,
+                  node.getSourceFileName(),
+                  node.getLineno(),
+                  node.getCharno(),
+                  node.getLength(),
+                  node.isIndexable() ? "" : "non indexable"));
       refCount++;
     }
   }
@@ -595,7 +681,7 @@ public final class SymbolTable {
     return ref != null
         && ref.getNode() != null
         && ref.getNode().getStaticSourceFile() != null
-        && !Compiler.SYNTHETIC_EXTERNS.equals(ref.getNode().getStaticSourceFile().getName())
+        && !NodeUtil.isInSyntheticScript(ref.getNode())
         // Typechecking assigns implicitly goog.provided names a declaration node of the expr:
         // For example, 'some' and 'some.name' in 'goog.provide('some.name.child');' have their
         // declaration node set to the entire call node. Use the actual declaration instead.
@@ -685,6 +771,24 @@ public final class SymbolTable {
     }
   }
 
+  private void renameSymbol(SymbolScope scope, Symbol sym, String newName) {
+    Preconditions.checkState(
+        sym.propertyScope == null,
+        "Renaming supported for simple symbols that don't have property scopes.");
+    Symbol existingSym = scope.getSlot(newName);
+    if (existingSym == null) {
+      existingSym =
+          declareSymbol(
+              newName,
+              getType(sym),
+              isTypeInferred(sym),
+              scope,
+              sym.getDeclarationNode(),
+              sym.getJSDocInfo());
+    }
+    mergeSymbol(sym, existingSym);
+  }
+
   /**
    * Not all symbol tables record references to "namespace" objects. For example, if you have:
    * goog.dom.DomHelper = function() {}; The symbol table may not record that as a reference to
@@ -715,26 +819,31 @@ public final class SymbolTable {
           currentNode = currentNode.getFirstChild();
 
           String name = currentNode.getQualifiedName();
-          if (name != null) {
-            Symbol namespace = isAnySymbolDeclared(name, currentNode, root.scope);
-            if (namespace == null) {
-              namespace = root.scope.getQualifiedSlot(name);
-            }
+          if (name == null) {
+            continue;
+          }
+          Symbol namespace = isAnySymbolDeclared(name, currentNode, root.scope);
+          if (namespace == null) {
+            namespace = root.scope.getQualifiedSlot(name);
+          }
 
-            if (namespace == null && root.scope.isGlobalScope()) {
-              namespace =
-                  declareSymbol(
-                      name,
-                      registry.getNativeType(JSTypeNative.UNKNOWN_TYPE),
-                      true,
-                      root.scope,
-                      currentNode,
-                      null /* JsDoc info */);
-            }
+          if (namespace == null && root.scope.isGlobalScope()) {
+            // Originally UNKNOWN_TYPE has been always used for namespace symbols even though
+            // compiler does have type information attached to a node. Unclear why. Changing code to
+            // propery type mostly works. It only fails on Foo.prototype cases for some reason.
+            // It's pretty rare case when Foo.prototype defined in global scope though so for now
+            // just carve it out.
+            JSType symbolType =
+                currentNode.getJSType().isFunctionPrototypeType()
+                    ? registry.getNativeType(JSTypeNative.UNKNOWN_TYPE)
+                    : currentNode.getJSType();
+            namespace =
+                declareSymbol(
+                    name, symbolType, true, root.scope, currentNode, null /* JsDoc info */);
+          }
 
-            if (namespace != null) {
-              namespace.defineReferenceAt(currentNode);
-            }
+          if (namespace != null) {
+            namespace.defineReferenceAt(currentNode);
           }
         }
       }
@@ -816,47 +925,47 @@ public final class SymbolTable {
     // In this case the map will be {one: 1} => OBJ. Using this map will skip 'alias' when creating
     // property scopes.
     //
-    // Another similar case is NodeJs modules. Consider following setup:
-    //
-    // foo.js:
-    // exports.one = 1;
-    //
-    // bar.js:
-    // const foo = require('./foo.js');
-    // foo.one;
-    //
-    // In this setup foo.js transpiled to:
-    // module$foo.default = {};
-    // module$foo.default.one = 1;
-    //
-    // and bar.js transpiled to:
-    // const foo = module$foo.default;
-    // foo.one;
-    //
-    // So here 'foo' becomes alias of 'module$foo.default' and we get the same issue of having 2
-    // symbols with the same type and we need to make sure that 'module$foo.default' becomes the
-    // root symbol. That's why all module symbols (moduleTypes list) processed last.
-    //
     // NOTE: we are using IdentityHashMap to compare types using == because we need to find symbols
     // that point to the exact same type instance.
-    Map<JSType, Symbol> symbolThatDeclaresType = new IdentityHashMap<>();
+    IdentityHashMap<JSType, Symbol> symbolThatDeclaresType = new IdentityHashMap<>();
     for (Symbol s : allTypes) {
       // Symbols are sorted in reverse order so that those with more outer scope will come later in
       // the list, and therefore override those set by aliases in more inner scope. The sorting
       // happens few lines above.
+      JSType type = s.getType();
+      Symbol symbolForType = getSymbolForTypeHelper(type, /* linkToCtor= */ false);
+      if ((type.isNominalConstructorOrInterface()
+              || type.isFunctionPrototypeType()
+              || type.isEnumType())
+          && !s.equals(symbolForType)) {
+        // Some cases can't be handled by sorting. For example
+        //
+        // goog.module('some.Foo');
+        // class Foo {}
+        // exports = Foo;
+        //
+        // goog.module('some.bar');
+        // const Foo = goog.require('some.Foo');
+        //
+        // Both Foo symbols (declaration and alias) have the same type and equal candidates to
+        // become "symbol that declares Foo type". But in reality we should use the Foo in some.Foo
+        // module. So if symbolForType exists and not equal to current symbol - it means it's an
+        // alias.
+        continue;
+      }
       symbolThatDeclaresType.put(s.getType(), s);
     }
 
     for (Symbol s : allTypes) {
       // Create property scopes only based on "root" symbols for each type to handle aliases.
-      if (s.getType() == null || symbolThatDeclaresType.get(s.getType()).equals(s)) {
+      if (s.getType() == null || s.equals(symbolThatDeclaresType.get(s.getType()))) {
         createPropertyScopeFor(s);
       }
     }
 
     // Now we need to set the new property scope symbol to all aliases.
     for (Symbol s : allTypes) {
-      if (s.getType() != null) {
+      if (s.getType() != null && symbolThatDeclaresType.get(s.getType()) != null) {
         s.propertyScope = symbolThatDeclaresType.get(s.getType()).getPropertyScope();
       }
     }
@@ -876,16 +985,13 @@ public final class SymbolTable {
     }
 
     // Constructors/prototypes
-    // Should this check for
-    // (type.isNominalConstructor() || type.isFunctionPrototypeType())
-    // ?
-    if (sym.getName().equals(type.getReferenceName())) {
+    if (type.isNominalConstructorOrInterface() || type.isFunctionPrototypeType()) {
       return true;
     }
-
-    // Enums
-    return type.isEnumType()
-        && sym.getName().equals(type.toMaybeEnumType().getElementsType().getReferenceName());
+    if (type.isEnumType()) {
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -939,7 +1045,7 @@ public final class SymbolTable {
    * represented by the same symbol.
    */
   void fillPropertySymbols(Node externs, Node root) {
-    (new PropertyRefCollector()).process(externs, root);
+    new PropertyRefCollector().process(externs, root);
   }
 
   /** Index JSDocInfo. */
@@ -1001,11 +1107,7 @@ public final class SymbolTable {
     ImmutableMap<StaticSourceFile, Visibility> visibilityMap =
         collectPass.getFileOverviewVisibilityMap();
 
-    NodeTraversal.traverseRoots(
-        compiler,
-        new VisibilityCollector(visibilityMap, compiler.getCodingConvention()),
-        externs,
-        root);
+    NodeTraversal.traverseRoots(compiler, new VisibilityCollector(visibilityMap), externs, root);
   }
 
   /**
@@ -1032,6 +1134,14 @@ public final class SymbolTable {
       return;
     }
 
+    // For cases like
+    // const foo = goog.require('some.foo');
+    // where createPropertyScopeFor() is called for 'foo' - instead of creating new PropertyScope we
+    // reuse ModuleScope corresponding to 'some.foo' module.
+    if (s.getName().equals("exports") && s.getDeclarationNode().isModuleBody()) {
+      s.propertyScope = scopes.get(s.getDeclarationNode());
+      return;
+    }
     // Create an empty property scope for the given symbol, maybe with a parent scope if it has
     // an implicit prototype.
     SymbolScope parentPropertyScope = maybeGetParentPropertyScope(type);
@@ -1135,7 +1245,7 @@ public final class SymbolTable {
 
   /** Fill in references to "this" variables. */
   void fillThisReferences(Node externs, Node root) {
-    (new ThisRefCollector()).process(externs, root);
+    new ThisRefCollector().process(externs, root);
   }
 
   /** Fill in references to "super" variables. */
@@ -1155,6 +1265,191 @@ public final class SymbolTable {
           }
         };
     NodeTraversal.traverseRoots(compiler, collectSuper, externs, root);
+  }
+
+  /**
+   * This function connects imported symbol back to its declaration. For example?
+   *
+   * <pre>
+   * goog.module('some.Foo');
+   * class Foo {}
+   * exports = Foo;
+   *
+   * goog.module('some.bar');
+   * const Foo = goog.require('some.Foo');
+   * </pre>
+   *
+   * This method will add a reference from the `Foo` symbol in `some.Bar` module pointing to the
+   * `class Foo` in `some.Foo` module.
+   */
+  private void addRefsInGoogRequireStatement(Node n, Map<String, SymbolScope> googModuleScopes) {
+    if (compiler.getOptions().shouldRewriteModules()) {
+      // When modules are rewritten - there is no need to connect imported names back to definitions
+      // as that was done with the help of Preprocessor tables in ClosureRewriteModule pass.
+      return;
+    }
+    if (n.isName()) {
+      // This is `const Foo = goog.require('some.Foo');` case.
+      // The type of Foo is either a class/interface in which case we can find its symbol that
+      // declared class/interface. Alternatively it's a namespace and there is no declaration. Just
+      // skip it.
+      Symbol declaration = getSymbolForTypeHelper(n.getJSType(), false);
+      if (declaration != null) {
+        declaration.defineReferenceAt(n);
+      }
+    } else if (n.isDestructuringLhs()) {
+      // This is `const {one} = goog.require('some.foo')` case.
+      // For each imported symbol in destructuring we need to find corresponding declaration symbol
+      // in `some.foo` namespace and connect them.
+      Node require = n.getLastChild();
+      String moduleName = require.getSecondChild().getString();
+      ModuleType type =
+          compiler.getModuleMap().getClosureModule(moduleName).metadata().moduleType();
+      SymbolScope moduleScope = googModuleScopes.get(moduleName);
+      checkState(n.getFirstChild().isObjectPattern());
+      // Iterate through all symbols in destructuring.
+      for (Node stringKey : n.getFirstChild().children()) {
+        checkState(stringKey.isStringKey());
+        String varName = stringKey.getString();
+        Symbol varDeclaration = null;
+        // AST of goog.module and goog.provide differs significantly so we need to lookup variables
+        // differently.
+        switch (type) {
+          case GOOG_MODULE:
+          case LEGACY_GOOG_MODULE:
+            varDeclaration = moduleScope.getOwnSlot(varName);
+            break;
+          case GOOG_PROVIDE:
+            varDeclaration = getSymbolForName(null, moduleName + "." + varName);
+            break;
+          default:
+            // skip
+        }
+        if (varDeclaration != null) {
+          varDeclaration.defineReferenceAt(stringKey);
+        }
+      }
+    }
+  }
+
+  /**
+   * Connects goog.module/goog.provide calls with goog.require/goog.requireType. For each
+   * goog.module/goog.provide call creates a symbol and all goog.require/goog.requireType added as
+   * references.
+   */
+  void fillGoogProvideModuleRequires(Node externs, Node root) {
+    // small optimization to keep symbols created within this function for fast access instead of
+    // going through SymbolTable.getSymbolForName() every time.
+    Map<String, Symbol> declaredNamespaces = new HashMap<>();
+    // Map containind goog.module names to Scope object representing them. For goog.provide
+    // namespaces there is no scope as elements of goog.provide are global.
+    Map<String, SymbolScope> moduleScopes = new HashMap<>();
+    Predicate<Node> looksLikeGoogCall =
+        (Node n) -> {
+          if (!n.isCall()) {
+            return false;
+          }
+          Node left = n.getFirstChild();
+          Node arg = n.getSecondChild();
+          // We want only nodes of type `goog.xyz('somestring')`.
+          if (!(left.isGetProp()
+                  && left.getFirstChild().isName()
+                  && left.getFirstChild().getString().equals("goog"))
+              || arg == null
+              || !arg.isStringLit()) {
+            return false;
+          }
+          return true;
+        };
+    NodeTraversal.Callback collectModuleScopes =
+        new AbstractPostOrderCallback() {
+          @Override
+          public void visit(NodeTraversal t, Node n, Node parent) {
+            if (!looksLikeGoogCall.test(n)) {
+              return;
+            }
+            Node arg = n.getSecondChild();
+            String namespaceName = "ns$" + arg.getString();
+            switch (n.getFirstChild().getString()) {
+              case "module":
+              case "provide":
+                Symbol ns =
+                    declareSymbol(
+                        namespaceName,
+                        /* type= */ null,
+                        /* inferred= */ false,
+                        getGlobalScope(),
+                        arg,
+                        /* info= */ null);
+                declaredNamespaces.put(namespaceName, ns);
+                if (n.getGrandparent().isModuleBody()) {
+                  moduleScopes.put(arg.getString(), scopes.get(n.getGrandparent()));
+                }
+                break;
+              default:
+                // do nothing. Some other goog.xyz call.
+            }
+          }
+        };
+    NodeTraversal.Callback processRequireStatements =
+        new AbstractPostOrderCallback() {
+          @Override
+          public void visit(NodeTraversal t, Node n, Node parent) {
+            if (!looksLikeGoogCall.test(n)) {
+              return;
+            }
+            Node arg = n.getSecondChild();
+            String namespaceName = "ns$" + arg.getString();
+            switch (n.getFirstChild().getString()) {
+              case "require":
+              case "requireType":
+              case "forwardDeclare":
+                addRefsInGoogRequireStatement(n.getParent(), moduleScopes);
+                Symbol symbol = declaredNamespaces.get(namespaceName);
+                // We expect that namespace was already processed by that point, but in some broken
+                // code it might be missing. In which case just skip it.
+                if (symbol != null) {
+                  symbol.defineReferenceAt(arg);
+                }
+                break;
+              default:
+                // do nothing. Some other goog.xyz call.
+            }
+          }
+        };
+    NodeTraversal.traverseRoots(compiler, collectModuleScopes, externs, root);
+    NodeTraversal.traverseRoots(compiler, processRequireStatements, externs, root);
+  }
+
+  /**
+   * Flattens symbols within a module scope (goog.module). In goog.module we often have different
+   * variations of declaring Foo, exports.Foo, exports = {Foo}. In some cases there are both Foo and
+   * exports.Foo = Foo while in others there is only exports.Foo. Semantically they are the same to
+   * the user so we flatten them into Foo. All 'exports.Foo' symbols renamed or merged into 'Foo'
+   * (depending on whether it already exists). That way we get more predictable table which is
+   * required for better index data and integration with other languages, e.g. JS <=> TS indexing.
+   *
+   * <p>This is not a correct operation in 100% of times. For example it will produce very incorrect
+   * result for:
+   *
+   * <pre>
+   *   class Foo {}
+   *   exports.Foo = NotFoo;
+   * </pre>
+   *
+   * But that should be very rare case and the code is misleading and should be avoided.
+   */
+  void flattenGoogModuleExports() {
+    for (SymbolScope moduleScope : getAllScopes()) {
+      if (!moduleScope.isModuleScope()) {
+        continue;
+      }
+      for (Symbol sym : ImmutableList.copyOf(moduleScope.ownSymbols.values())) {
+        if (sym.getName().startsWith("exports.")) {
+          renameSymbol(moduleScope, sym, sym.getName().substring("exports.".length()));
+        }
+      }
+    }
   }
 
   /*
@@ -1414,6 +1709,7 @@ public final class SymbolTable {
 
   /** Reference */
   public static final class Reference extends SimpleReference<Symbol> {
+
     Reference(Symbol symbol, Node node) {
       super(symbol, node);
     }
@@ -1517,6 +1813,10 @@ public final class SymbolTable {
       return getParentScope() == null && getRootNode() != null;
     }
 
+    public boolean isModuleScope() {
+      return getRootNode() != null && getRootNode().isModuleBody();
+    }
+
     /**
      * Returns whether this is a doc scope. A doc scope is a table for symbols that are documented
      * solely within a JSDoc comment.
@@ -1548,8 +1848,18 @@ public final class SymbolTable {
     @Override
     public String toString() {
       Node n = getRootNode();
-      if (n != null) {
-        return "Scope@" + n.getSourceFileName() + ":" + n.getLineno();
+      if (isGlobalScope()) {
+        return "GlobalScope";
+      } else if (n != null) {
+        String type = "Scope";
+        if (isModuleScope()) {
+          type = "ModuleScope";
+        } else if (isBlockScope()) {
+          type = "BlockScope";
+        } else if (isLexicalScope()) {
+          type = "LexicalScope";
+        }
+        return type + "@" + n.getSourceFileName() + ":" + n.getLineno();
       } else {
         return "PropertyScope@" + getSymbolForScope();
       }
@@ -1619,7 +1929,34 @@ public final class SymbolTable {
             defined = true;
           }
         }
-        return defined;
+        if (defined) {
+          return true;
+        }
+      }
+      // Handle cases like accessing properties on a imported module.
+      // const foo = goog.require('some.module.foo');
+      // foo.doSomething();
+      // here n is foo, propName is doSomething and owner is module type.
+      if (owner.isObjectType() && owner.toMaybeObjectType() != null) {
+        Node propNodeDecl = owner.assertObjectType().getPropertyNode(propName);
+        // There is no handy way to find symbol object the given property node. So we do
+        // property node => namespace node => namespace symbol => property symbol.
+        if (propNodeDecl != null && propNodeDecl.isGetProp()) {
+          Node namespace = propNodeDecl.getFirstChild();
+          Symbol namespaceSym = getSymbolForName(namespace, namespace.getQualifiedName());
+          if (namespaceSym != null && namespaceSym.getPropertyScope() != null) {
+            Symbol propSym = namespaceSym.getPropertyScope().getSlot(propName);
+            if (propSym != null && propSym.getDeclarationNode() != n) {
+              propSym.defineReferenceAt(n);
+              return true;
+            }
+          }
+        }
+        Symbol symbol = getSymbolForName(propNodeDecl, propName);
+        if (symbol != null && symbol.getDeclarationNode() != n) {
+          symbol.defineReferenceAt(n);
+          return true;
+        }
       }
       return false;
     }
@@ -1863,13 +2200,9 @@ public final class SymbolTable {
   /** Collects the visibility information for each name/property. */
   private class VisibilityCollector extends NodeTraversal.AbstractPostOrderCallback {
     private final ImmutableMap<StaticSourceFile, Visibility> fileVisibilityMap;
-    private final CodingConvention codingConvention;
 
-    private VisibilityCollector(
-        ImmutableMap<StaticSourceFile, Visibility> fileVisibilityMap,
-        CodingConvention codingConvention) {
+    private VisibilityCollector(ImmutableMap<StaticSourceFile, Visibility> fileVisibilityMap) {
       this.fileVisibilityMap = fileVisibilityMap;
-      this.codingConvention = codingConvention;
     }
 
     @Override

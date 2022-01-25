@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.primitives.Chars;
+import com.google.javascript.jscomp.base.Tri;
 import com.google.javascript.jscomp.deps.ModuleLoader;
 import com.google.javascript.jscomp.deps.ModuleLoader.ResolutionMode;
 import com.google.javascript.jscomp.parsing.Config;
@@ -148,6 +149,8 @@ public class CompilerOptions implements Serializable {
           CompilerOptions.this.setOutputFeatureSet(FeatureSet.BROWSER_2020);
         } else if (year == 2019) {
           CompilerOptions.this.setLanguageOut(LanguageMode.ECMASCRIPT_2017);
+        } else if (year == 2018) {
+          CompilerOptions.this.setLanguageOut(LanguageMode.ECMASCRIPT_2016);
         } else if (year == 2012) {
           CompilerOptions.this.setLanguageOut(LanguageMode.ECMASCRIPT5_STRICT);
         }
@@ -169,9 +172,14 @@ public class CompilerOptions implements Serializable {
    */
   public void validateBrowserFeaturesetYearOption(Integer inputYear) {
     checkState(
-        inputYear == 2021 || inputYear == 2020 || inputYear == 2019 || inputYear == 2012,
+        inputYear == 2021
+            || inputYear == 2020
+            || inputYear == 2019
+            || inputYear == 2018
+            || inputYear == 2012,
         SimpleFormat.format(
-            "Illegal browser_featureset_year=%d. We support values 2012, 2019, 2020, and 2021 only",
+            "Illegal browser_featureset_year=%d. We support values 2012, 2018, 2019, 2020 and 2021"
+                + " only",
             inputYear));
   }
 
@@ -198,7 +206,7 @@ public class CompilerOptions implements Serializable {
   @Nullable private Path typedAstOutputFile = null;
 
   /** Sets file to output in-progress TypedAST format to. DO NOT USE! */
-  void setTypedAstOutputFile(@Nullable Path file) {
+  public void setTypedAstOutputFile(@Nullable Path file) {
     this.typedAstOutputFile = file;
   }
 
@@ -341,6 +349,9 @@ public class CompilerOptions implements Serializable {
   /** Returns localized replacement for MSG_* variables */
   public MessageBundle messageBundle = null;
 
+  /** Whether we should report an error if a message is absent from a bundle. */
+  private boolean strictMessageReplacement;
+
   // --------------------------------
   // Checks
   // --------------------------------
@@ -354,32 +365,6 @@ public class CompilerOptions implements Serializable {
 
   /** Checks types on expressions */
   public boolean checkTypes;
-
-  // whether to skip the RemoveTypes pass
-  private boolean shouldUnsafelyPreserveTypesForDebugging;
-
-  @Deprecated // no-op
-  public CheckLevel checkGlobalNamesLevel;
-
-  /**
-   * Checks the integrity of references to qualified global names. (e.g. "a.b")
-   *
-   * <p>TODO(b/188976086): delete this flag.
-   *
-   * @deprecated no-op
-   */
-  @Deprecated // no-op
-  public void setCheckGlobalNamesLevel(CheckLevel level) {}
-
-  @Deprecated public CheckLevel brokenClosureRequiresLevel;
-
-  /**
-   * Sets the check level for bad Closure require calls. Do not use; this should always be an error.
-   */
-  @Deprecated
-  public void setBrokenClosureRequiresLevel(CheckLevel level) {
-    brokenClosureRequiresLevel = level;
-  }
 
   /** Deprecated. Please use setWarningLevel(DiagnosticGroups.GLOBAL_THIS, level) instead. */
   @Deprecated
@@ -506,10 +491,8 @@ public class CompilerOptions implements Serializable {
   /** Collapses anonymous function declarations into named function declarations */
   public boolean collapseAnonymousFunctions;
 
-  /**
-   * Aliases all string literals to global instances, to avoid creating more objects than necessary
-   */
-  public boolean aliasAllStrings;
+  /** Aliases string literals to global instances, to reduce code size. */
+  private AliasStringsMode aliasStringsMode;
 
   /** Print string usage as part of the compilation log. */
   boolean outputJsStringUsage;
@@ -664,7 +647,7 @@ public class CompilerOptions implements Serializable {
   // --------------------------------
 
   /** Replace UI strings with chrome.i18n.getMessage calls. Used by Chrome extensions/apps. */
-  boolean replaceMessagesWithChromeI18n;
+  private boolean replaceMessagesWithChromeI18n;
 
   String tcProjectId;
 
@@ -680,6 +663,26 @@ public class CompilerOptions implements Serializable {
 
     this.replaceMessagesWithChromeI18n = replaceMessagesWithChromeI18n;
     this.tcProjectId = tcProjectId;
+  }
+
+  /**
+   * Should we run the pass that does replacement of the chrome-specific `chrome.i18n.getMessage()`
+   * translatable message definitions?
+   *
+   * <p>This form of l10n is incompatible with our standard `goog.getMsg()` messages.
+   */
+  public boolean shouldRunReplaceMessagesForChrome() {
+    if (replaceMessagesWithChromeI18n) {
+      checkState(
+          messageBundle == null || messageBundle instanceof EmptyMessageBundle,
+          "When replacing messages with chrome.i18n.getMessage, a message bundle should not be"
+              + " specified.");
+      checkState(
+          !doLateLocalization, "Late localization is not supported for chrome.i18n.getMessage");
+      return true;
+    } else {
+      return false;
+    }
   }
 
   /** Inserts run-time type assertions for debugging. */
@@ -699,6 +702,16 @@ public class CompilerOptions implements Serializable {
 
   /** Compiling locale */
   public String locale;
+
+  /**
+   * If true, then perform localization passes as late as possible.
+   *
+   * <p>At the moment this only affects when `ReplaceMessages` does the work of inserting the
+   * localized form of declared messages from the message bundle.
+   *
+   * <p>TODO(johnlenz): Use this option to control late substitution of other locale-specific code.
+   */
+  private boolean doLateLocalization;
 
   /** Sets the special "COMPILED" value to true */
   public boolean markAsCompiled;
@@ -832,6 +845,12 @@ public class CompilerOptions implements Serializable {
   boolean preventLibraryInjection = false;
 
   boolean assumeForwardDeclaredForMissingTypes = false;
+
+  /**
+   * A Set of goog.requires to be removed. If null, ALL of the unused goog.requires will be counted
+   * as a candidate to be removed.
+   */
+  @Nullable ImmutableSet<String> unusedImportsToRemove;
 
   /**
    * If {@code true}, considers all missing types to be forward declared (useful for partial
@@ -1060,15 +1079,15 @@ public class CompilerOptions implements Serializable {
   }
 
   /**
-   * Consider that static (class-side) inheritance may be being used and that static methods may be
-   * referenced via `this` or through subclasses.
+   * Assume that static (class-side) inheritance is not being used and that static methods will not
+   * be referenced via `this` or through subclasses.
    *
-   * <p>When {@code false}, the compiler is free to make unsafe (breaking) optimizations to code
-   * that depends on static inheritance. These optimizations represent a substantial code-size
-   * reduction for older projects and therefore cannot be unilaterally disabled. {@code false} was
-   * the long-standing implicit assumption before static inheritance came about in ES2015.
+   * <p>When {@code true}, the compiler is free to make unsafe (breaking) optimizations to code that
+   * depends on static inheritance. These optimizations represent a substantial code-size reduction
+   * for older projects and therefore cannot be unilaterally disabled. {@code true} was the
+   * long-standing implicit assumption before static inheritance came about in ES2015.
    *
-   * <p>Example of what may break if this flag is {@code false}:
+   * <p>Example of what may break if this flag is {@code true}:
    *
    * <pre>{@code
    * class Parent {
@@ -1080,14 +1099,14 @@ public class CompilerOptions implements Serializable {
    * Child.method(); // `method` will not be defined.
    * }</pre>
    */
-  private boolean assumeStaticInheritanceRequired = false;
+  private boolean assumeStaticInheritanceIsNotUsed = true;
 
-  public void setAssumeStaticInheritanceRequired(boolean x) {
-    this.assumeStaticInheritanceRequired = x;
+  public void setAssumeStaticInheritanceIsNotUsed(boolean x) {
+    this.assumeStaticInheritanceIsNotUsed = x;
   }
 
-  public boolean getAssumeStaticInheritanceRequired() {
-    return assumeStaticInheritanceRequired;
+  public boolean getAssumeStaticInheritanceIsNotUsed() {
+    return assumeStaticInheritanceIsNotUsed;
   }
 
   /** Data holder Alias Transformation information accumulated during a compile. */
@@ -1164,7 +1183,7 @@ public class CompilerOptions implements Serializable {
   }
 
   /**
-   * Experimental option to disable all Closure and ES module rewriting
+   * Experimental option to disable all Closure and ES module and goog.provide rewriting
    *
    * <p>Use at your own risk - disabling module rewriting is not fully tested yet.
    */
@@ -1174,6 +1193,22 @@ public class CompilerOptions implements Serializable {
 
   boolean shouldRewriteModulesAfterTypechecking() {
     return this.enableModuleRewriting && !this.rewriteModulesBeforeTypechecking;
+  }
+
+  boolean shouldRewriteModules() {
+    return this.enableModuleRewriting;
+  }
+
+  private boolean rewriteProvidesInChecksOnly;
+
+  public void setBadRewriteProvidesInChecksOnlyThatWeWantToGetRidOf(boolean b) {
+    this.rewriteProvidesInChecksOnly = b;
+  }
+
+  boolean shouldRewriteProvidesInChecksOnly() {
+    // Disabling module rewriting automatically disables provide rewriting, as provide rewriting
+    // must happen after module rewriting.
+    return this.rewriteProvidesInChecksOnly && this.shouldRewriteModules();
   }
 
   /** Which algorithm to use for locating ES6 and CommonJS modules */
@@ -1247,6 +1282,7 @@ public class CompilerOptions implements Serializable {
     packageJsonEntryNames = ImmutableList.of("browser", "module", "main");
     pathEscaper = ModuleLoader.PathEscaper.ESCAPE;
     rewriteModulesBeforeTypechecking = false;
+    rewriteProvidesInChecksOnly = false;
     enableModuleRewriting = true;
 
     // Checks
@@ -1256,9 +1292,6 @@ public class CompilerOptions implements Serializable {
     checkSymbols = false;
     checkSuspiciousCode = false;
     checkTypes = false;
-    shouldUnsafelyPreserveTypesForDebugging = false;
-    checkGlobalNamesLevel = CheckLevel.OFF;
-    brokenClosureRequiresLevel = CheckLevel.ERROR;
     computeFunctionSideEffects = false;
     extraAnnotationNames = null;
 
@@ -1287,7 +1320,7 @@ public class CompilerOptions implements Serializable {
     removeUnusedLocalVars = false;
     collapseVariableDeclarations = false;
     collapseAnonymousFunctions = false;
-    aliasAllStrings = false;
+    aliasStringsMode = AliasStringsMode.NONE;
     outputJsStringUsage = false;
     convertToDottedProperties = false;
     rewriteFunctionExpressions = false;
@@ -1313,6 +1346,7 @@ public class CompilerOptions implements Serializable {
     syntheticBlockStartMarker = null;
     syntheticBlockEndMarker = null;
     locale = null;
+    doLateLocalization = false;
     markAsCompiled = false;
     closurePass = false;
     preserveClosurePrimitives = false;
@@ -1361,6 +1395,7 @@ public class CompilerOptions implements Serializable {
     aliasHandler = NULL_ALIAS_TRANSFORMATION_HANDLER;
     errorHandler = null;
     printSourceAfterEachPass = false;
+    strictMessageReplacement = false;
   }
 
   /** @return Whether to attempt to remove unused class properties */
@@ -1389,7 +1424,7 @@ public class CompilerOptions implements Serializable {
         throw new IllegalStateException(String.valueOf(value));
       }
     }
-    return map.build();
+    return map.buildOrThrow();
   }
 
   /** Sets the value of the {@code @define} variable in JS to a boolean literal. */
@@ -1418,13 +1453,13 @@ public class CompilerOptions implements Serializable {
   }
 
   /** Whether the warnings guard in this Options object enables the given group of warnings. */
-  boolean enables(DiagnosticGroup type) {
-    return this.warningsGuard.enables(type);
+  boolean enables(DiagnosticGroup group) {
+    return this.warningsGuard.mustRunChecks(group) == Tri.TRUE;
   }
 
   /** Whether the warnings guard in this Options object disables the given group of warnings. */
-  boolean disables(DiagnosticGroup type) {
-    return this.warningsGuard.disables(type);
+  boolean disables(DiagnosticGroup group) {
+    return this.warningsGuard.mustRunChecks(group) == Tri.FALSE;
   }
 
   /** Configure the given type of warning to the given level. */
@@ -1468,7 +1503,7 @@ public class CompilerOptions implements Serializable {
     for (String name : idGenerators) {
       builder.put(name, gen);
     }
-    this.idGenerators = builder.build();
+    this.idGenerators = builder.buildOrThrow();
   }
 
   /** Sets the id generators to replace. */
@@ -1850,6 +1885,21 @@ public class CompilerOptions implements Serializable {
   @Deprecated
   public void setNewTypeInference(boolean enable) {}
 
+  /**
+   * Bypass check preventing output at a language mode that includes async functions when zone.js is
+   * detected as present. Since this check catches difficult-to-debug issues at build time (see
+   * https://github.com/angular/angular/issues/31730), setting this option is not recommended.
+   */
+  private boolean allowZoneJsWithAsyncFunctionsInOutput;
+
+  public void setAllowZoneJsWithAsyncFunctionsInOutput(boolean enable) {
+    this.allowZoneJsWithAsyncFunctionsInOutput = enable;
+  }
+
+  boolean allowsZoneJsWithAsyncFunctionsInOutput() {
+    return this.checksOnly || this.allowZoneJsWithAsyncFunctionsInOutput;
+  }
+
   /** @return true if either typechecker is ON. */
   public boolean isTypecheckingEnabled() {
     return this.checkTypes;
@@ -1966,22 +2016,6 @@ public class CompilerOptions implements Serializable {
     this.checkTypes = checkTypes;
   }
 
-  /**
-   * Skips the RemoveTypes pass so that JSTypes may be viewed on the AST post-compilation.
-   *
-   * <p>Not safe to use in general! optimization behavior is not guaranteed to be correct or even
-   * not crash, and this option should eventually be deleted if typechecking is moved to the library
-   * level.
-   */
-  public void setShouldUnsafelyPreserveTypesForDebugging(boolean preserveTypes) {
-    this.shouldUnsafelyPreserveTypesForDebugging = preserveTypes;
-  }
-
-  @Deprecated
-  public boolean shouldUnsafelyPreserveTypesForDebugging() {
-    return this.shouldUnsafelyPreserveTypesForDebugging;
-  }
-
   public void setFoldConstants(boolean foldConstants) {
     this.foldConstants = foldConstants;
   }
@@ -2066,8 +2100,12 @@ public class CompilerOptions implements Serializable {
     this.collapseAnonymousFunctions = enabled;
   }
 
-  public void setAliasAllStrings(boolean aliasAllStrings) {
-    this.aliasAllStrings = aliasAllStrings;
+  public void setAliasStringsMode(AliasStringsMode aliasStringsMode) {
+    this.aliasStringsMode = aliasStringsMode;
+  }
+
+  public AliasStringsMode getAliasStringsMode() {
+    return this.aliasStringsMode;
   }
 
   public void setOutputJsStringUsage(boolean outputJsStringUsage) {
@@ -2222,6 +2260,19 @@ public class CompilerOptions implements Serializable {
     this.locale = locale;
   }
 
+  public void setDoLateLocalization(boolean doLateLocalization) {
+    this.doLateLocalization = doLateLocalization;
+  }
+
+  public boolean doLateLocalization() {
+    return doLateLocalization;
+  }
+
+  /** Should we run any form of the `ReplaceMessages` pass? */
+  public boolean shouldRunReplaceMessagesPass() {
+    return !shouldRunReplaceMessagesForChrome() && messageBundle != null;
+  }
+
   public void setMarkAsCompiled(boolean markAsCompiled) {
     this.markAsCompiled = markAsCompiled;
   }
@@ -2269,7 +2320,7 @@ public class CompilerOptions implements Serializable {
   /** @deprecated StripCode is deprecated. Code should be designed to be removed by other means. */
   @Deprecated
   public ImmutableSet<String> getStripTypes() {
-    return ImmutableSet.copyOf(this.stripTypes);
+    return this.stripTypes;
   }
 
   /** @deprecated StripCode is deprecated. Code should be designed to be removed by other means. */
@@ -2528,6 +2579,15 @@ public class CompilerOptions implements Serializable {
     this.preventLibraryInjection = preventLibraryInjection;
   }
 
+  public void setUnusedImportsToRemove(@Nullable ImmutableSet<String> unusedImportsToRemove) {
+    this.unusedImportsToRemove = unusedImportsToRemove;
+  }
+
+  @Nullable
+  public ImmutableSet<String> getUnusedImportsToRemove() {
+    return this.unusedImportsToRemove;
+  }
+
   public void setInstrumentForCoverageOption(InstrumentOption instrumentForCoverageOption) {
     this.instrumentForCoverageOption = checkNotNull(instrumentForCoverageOption);
   }
@@ -2646,11 +2706,19 @@ public class CompilerOptions implements Serializable {
     return (CompilerOptions) new java.io.ObjectInputStream(objectInputStream).readObject();
   }
 
+  public void setStrictMessageReplacement(boolean strictMessageReplacement) {
+    this.strictMessageReplacement = strictMessageReplacement;
+  }
+
+  public boolean getStrictMessageReplacement() {
+    return this.strictMessageReplacement;
+  }
+
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
         .omitNullValues()
-        .add("aliasAllStrings", aliasAllStrings)
+        .add("aliasStringsMode", getAliasStringsMode())
         .add("aliasHandler", getAliasTransformationHandler())
         .add("ambiguateProperties", ambiguateProperties)
         .add("angularPass", angularPass)
@@ -2658,9 +2726,7 @@ public class CompilerOptions implements Serializable {
         .add("assumeGettersArePure", assumeGettersArePure)
         .add("assumeStrictThis", assumeStrictThis())
         .add("browserResolverPrefixReplacements", browserResolverPrefixReplacements)
-        .add("brokenClosureRequiresLevel", brokenClosureRequiresLevel)
         .add("checkDeterminism", getCheckDeterminism())
-        .add("checkGlobalNamesLevel", checkGlobalNamesLevel)
         .add("checksOnly", checksOnly)
         .add("checkSuspiciousCode", checkSuspiciousCode)
         .add("checkSymbols", checkSymbols)
@@ -2809,6 +2875,7 @@ public class CompilerOptions implements Serializable {
         .add("sourceMapFormat", sourceMapFormat)
         .add("sourceMapLocationMappings", sourceMapLocationMappings)
         .add("sourceMapOutputPath", sourceMapOutputPath)
+        .add("strictMessageReplacement", strictMessageReplacement)
         .add("stripNamePrefixes", stripNamePrefixes)
         .add("stripNameSuffixes", stripNameSuffixes)
         .add("stripTypes", stripTypes)
@@ -2822,6 +2889,7 @@ public class CompilerOptions implements Serializable {
         .add("tweakProcessing", getTweakProcessing())
         .add("emitUseStrict", emitUseStrict)
         .add("useTypesForLocalOptimization", useTypesForLocalOptimization)
+        .add("unusedImportsToRemove", unusedImportsToRemove)
         .add("variableRenaming", variableRenaming)
         .add("warningsGuard", getWarningsGuard())
         .add("wrapGoogModulesForWhitespaceOnly", wrapGoogModulesForWhitespaceOnly)
@@ -2899,6 +2967,9 @@ public class CompilerOptions implements Serializable {
     /** ECMAScript standard approved in 2020. */
     ECMASCRIPT_2020,
 
+    /** ECMAScript standard approved in 2021. */
+    ECMASCRIPT_2021,
+
     /** ECMAScript latest draft standard. */
     ECMASCRIPT_NEXT,
 
@@ -2920,7 +2991,7 @@ public class CompilerOptions implements Serializable {
      */
     UNSUPPORTED;
 
-    public static final LanguageMode STABLE_IN = ECMASCRIPT_2020;
+    public static final LanguageMode STABLE_IN = ECMASCRIPT_2021;
     public static final LanguageMode STABLE_OUT = ECMASCRIPT5;
 
     /** Whether this language mode defaults to strict mode */
@@ -2972,6 +3043,8 @@ public class CompilerOptions implements Serializable {
           return FeatureSet.ES2019_MODULES;
         case ECMASCRIPT_2020:
           return FeatureSet.ES2020_MODULES;
+        case ECMASCRIPT_2021:
+          return FeatureSet.ES2021_MODULES;
         case ECMASCRIPT_NEXT:
           return FeatureSet.ES_NEXT;
         case NO_TRANSPILE:
@@ -3035,6 +3108,13 @@ public class CompilerOptions implements Serializable {
   public static enum IsolationMode {
     NONE, // output does not include additional isolation.
     IIFE; // The output should be wrapped in an IIFE to isolate global variables.
+  }
+
+  /** A mode enum used to indicate the alias strings policy for the AliasStrings pass */
+  public static enum AliasStringsMode {
+    NONE, // Do not alias string literals.
+    LARGE, // Alias all string literals with a length greater than 100 characters.
+    ALL // Alias all string literals.
   }
 
   /**

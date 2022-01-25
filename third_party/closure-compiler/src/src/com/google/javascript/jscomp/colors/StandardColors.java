@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 /**
- * Colors that are expected to be referenceable as part of any compilation.
+ * Colors that are expected to be referencable as part of any compilation.
  *
  * <p>This set describes any Color that needs to be used a priori by a compiler pass. That includes:
  *
@@ -28,9 +28,19 @@ import com.google.common.collect.ImmutableSet;
  *   <li>"axiomatic" Colors (those with constant definitions, e.g. UNKNOWN)
  *   <li>primitive Colors (e.g. `number`, `null`)
  *   <li>box Colors (e.g. `Number`, `String`)
+ *   <li>Colors used in AstFactory to type synthetic nodes (e.g. `Array`)
  * </ul>
  */
 public final class StandardColors {
+
+  // These IDs are randomly chosen.
+  public static final ColorId ARGUMENTS_ID = ColorId.fromUnsigned(0x1939a66d);
+  public static final ColorId ARRAY_ID = ColorId.fromUnsigned(0x79d4a603);
+  public static final ColorId GENERATOR_ID = ColorId.fromUnsigned(0x9bb1303f);
+  public static final ColorId I_TEMPLATE_ARRAY_ID = ColorId.fromUnsigned(0x46ab3f0e);
+  public static final ColorId ITERATOR_ID = ColorId.fromUnsigned(0x417ed2ab);
+  public static final ColorId ASYNC_ITERATOR_ITERABLE_ID = ColorId.fromUnsigned(0xcb382e0a);
+  public static final ColorId PROMISE_ID = ColorId.fromUnsigned(0x39581abf);
 
   public static final ColorId BIGINT_OBJECT_ID = ColorId.fromUnsigned(0xa9d9ad6d);
   public static final ColorId BOOLEAN_OBJECT_ID = ColorId.fromUnsigned(0x9205dc06);
@@ -42,7 +52,7 @@ public final class StandardColors {
       Color.singleBuilder()
           .setId(ColorId.fromUnsigned(0x234eb61a))
           .setBoxId(BIGINT_OBJECT_ID)
-          .setDebugInfo(DebugInfo.builder().setClassName("bigint").build())
+          .setDebugInfo(DebugInfo.builder().setCompositeTypename("bigint").build())
           .setInvalidating(false)
           .buildAxiomatic();
 
@@ -50,7 +60,7 @@ public final class StandardColors {
       Color.singleBuilder()
           .setId(ColorId.fromUnsigned(0x126812ee))
           .setBoxId(BOOLEAN_OBJECT_ID)
-          .setDebugInfo(DebugInfo.builder().setClassName("boolean").build())
+          .setDebugInfo(DebugInfo.builder().setCompositeTypename("boolean").build())
           .setInvalidating(false)
           .buildAxiomatic();
 
@@ -58,7 +68,7 @@ public final class StandardColors {
       Color.singleBuilder()
           .setBoxId(null)
           .setId(ColorId.fromUnsigned(0x22b49f69))
-          .setDebugInfo(DebugInfo.builder().setClassName("null_or_void").build())
+          .setDebugInfo(DebugInfo.builder().setCompositeTypename("null_or_void").build())
           .setInvalidating(false)
           .buildAxiomatic();
 
@@ -66,7 +76,7 @@ public final class StandardColors {
       Color.singleBuilder()
           .setId(ColorId.fromUnsigned(0xd081722c))
           .setBoxId(NUMBER_OBJECT_ID)
-          .setDebugInfo(DebugInfo.builder().setClassName("number").build())
+          .setDebugInfo(DebugInfo.builder().setCompositeTypename("number").build())
           .setInvalidating(false)
           .buildAxiomatic();
 
@@ -74,7 +84,7 @@ public final class StandardColors {
       Color.singleBuilder()
           .setId(ColorId.fromUnsigned(0x8c4d8f65))
           .setBoxId(STRING_OBJECT_ID)
-          .setDebugInfo(DebugInfo.builder().setClassName("string").build())
+          .setDebugInfo(DebugInfo.builder().setCompositeTypename("string").build())
           .setInvalidating(false)
           .buildAxiomatic();
 
@@ -82,7 +92,7 @@ public final class StandardColors {
       Color.singleBuilder()
           .setId(ColorId.fromUnsigned(0x759f2066))
           .setBoxId(SYMBOL_OBJECT_ID)
-          .setDebugInfo(DebugInfo.builder().setClassName("symbol").build())
+          .setDebugInfo(DebugInfo.builder().setCompositeTypename("symbol").build())
           .setInvalidating(false)
           .buildAxiomatic();
 
@@ -96,7 +106,7 @@ public final class StandardColors {
       Color.singleBuilder()
           .setId(ColorId.fromUnsigned(0x889b6838))
           .setBoxId(null)
-          .setDebugInfo(DebugInfo.builder().setClassName("top_object").build())
+          .setDebugInfo(DebugInfo.builder().setCompositeTypename("top_object").build())
           .setInvalidating(true)
           .buildAxiomatic();
 
@@ -105,7 +115,7 @@ public final class StandardColors {
       Color.singleBuilder()
           .setBoxId(null)
           .setId(ColorId.fromUnsigned(0)) // Make UNKNOWN the "default" numerical value.
-          .setDebugInfo(DebugInfo.builder().setClassName("unknown").build())
+          .setDebugInfo(DebugInfo.builder().setCompositeTypename("unknown").build())
           .setInvalidating(true)
           .buildAxiomatic();
 
@@ -128,7 +138,7 @@ public final class StandardColors {
           .put(SYMBOL.getId(), SYMBOL)
           .put(TOP_OBJECT.getId(), TOP_OBJECT)
           .put(UNKNOWN.getId(), UNKNOWN)
-          .build();
+          .buildOrThrow();
 
   /**
    * The set of Colors that have associated runtime values but are not objects.
@@ -143,7 +153,7 @@ public final class StandardColors {
           .put(NUMBER.getId(), NUMBER)
           .put(STRING.getId(), STRING)
           .put(SYMBOL.getId(), SYMBOL)
-          .build();
+          .buildOrThrow();
 
   /**
    * The set of ColorIds for object Colors that "box" primitive Colors.
@@ -160,6 +170,23 @@ public final class StandardColors {
           NUMBER_OBJECT_ID,
           STRING_OBJECT_ID,
           SYMBOL_OBJECT_ID);
+
+  /**
+   * The set of ColorIds for object Colors that need to be referenced in optimizations
+   *
+   * <p>The exact definition of each box Color may be altered by JS code.
+   */
+  static final ImmutableSet<ColorId> STANDARD_OBJECT_IDS =
+      ImmutableSet.<ColorId>builder()
+          .addAll(PRIMITIVE_BOX_IDS)
+          .add(ARRAY_ID)
+          .add(ARGUMENTS_ID)
+          .add(ASYNC_ITERATOR_ITERABLE_ID)
+          .add(GENERATOR_ID)
+          .add(I_TEMPLATE_ARRAY_ID)
+          .add(ITERATOR_ID)
+          .add(PROMISE_ID)
+          .build();
 
   private StandardColors() {
     throw new AssertionError();

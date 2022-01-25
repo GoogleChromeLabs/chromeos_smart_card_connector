@@ -51,6 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -84,7 +85,6 @@ class GlobalNamespace
   private final Node globalRoot = IR.root();
   private final LinkedHashMap<Node, Boolean> spreadSiblingCache = new LinkedHashMap<>();
   private SourceKind sourceKind;
-  private Scope externsScope;
   private boolean generated = false;
 
   /**
@@ -112,11 +112,6 @@ class GlobalNamespace
     }
   }
 
-  /**
-   * Each reference has an index in post-order. Notice that some nodes are represented by 2 Ref
-   * objects, so this index is not necessarily unique.
-   */
-  private int currentPreOrderIndex = 0;
 
   /** Global namespace tree */
   private final List<Name> globalNames = new ArrayList<>();
@@ -126,6 +121,9 @@ class GlobalNamespace
 
   /** Maps names (e.g. "a.b.c") and MODULE_BODY nodes to Names in that module */
   private final Table<ModuleMetadata, String, Name> nameMapByModule = HashBasedTable.create();
+
+  /** Limits traversal to scripts matching the given predicate. */
+  private Predicate<Node> shouldTraverseScript = (n) -> true;
 
   /**
    * Creates an instance that may emit warnings when building the namespace.
@@ -177,7 +175,12 @@ class GlobalNamespace
     this.compiler = compiler;
     this.externsRoot = externsRoot;
     this.root = root;
-    this.enableImplicityAliasedValues = compiler.getOptions().getAssumeStaticInheritanceRequired();
+    this.enableImplicityAliasedValues =
+        !compiler.getOptions().getAssumeStaticInheritanceIsNotUsed();
+  }
+
+  void setShouldTraverseScriptPredicate(Predicate<Node> shouldTraverseScript) {
+    this.shouldTraverseScript = shouldTraverseScript;
   }
 
   boolean hasExternsRoot() {
@@ -199,9 +202,6 @@ class GlobalNamespace
   private Node getRootNode(String name, Scope s) {
     name = getTopVarName(name);
     Var v = s.getVar(name);
-    if (v == null && externsScope != null) {
-      v = externsScope.getVar(name);
-    }
     if (v == null) {
       Name providedName = nameMap.get(name);
       return providedName != null && providedName.isProvided ? globalRoot : null;
@@ -271,12 +271,10 @@ class GlobalNamespace
    * the global namespace.
    */
   static class AstChange {
-    final JSChunk module;
     final Scope scope;
     final Node node;
 
-    AstChange(JSChunk module, Scope scope, Node node) {
-      this.module = module;
+    AstChange(Scope scope, Node node) {
       this.scope = scope;
       this.node = node;
     }
@@ -285,16 +283,14 @@ class GlobalNamespace
     public boolean equals(Object obj) {
       if (obj instanceof AstChange) {
         AstChange other = (AstChange) obj;
-        return Objects.equals(this.module, other.module)
-            && Objects.equals(this.scope, other.scope)
-            && Objects.equals(this.node, other.node);
+        return Objects.equals(this.scope, other.scope) && Objects.equals(this.node, other.node);
       }
       return false;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(this.module, this.scope, this.node);
+      return Objects.hash(this.scope, this.node);
     }
   }
 
@@ -311,42 +307,43 @@ class GlobalNamespace
       if (!info.node.isQualifiedName() && !NodeUtil.mayBeObjectLitKey(info.node)) {
         continue;
       }
-      scanFromNode(builder, info.module, info.scope, info.node);
+      scanFromNode(builder, info.scope, info.node);
     }
   }
 
-  private void scanFromNode(BuildGlobalNamespace builder, JSChunk module, Scope scope, Node n) {
+  private void scanFromNode(BuildGlobalNamespace builder, Scope scope, Node n) {
     // Check affected parent nodes first.
     Node parent = n.getParent();
     if ((n.isName() || n.isGetProp()) && parent.isGetProp()) {
       // e.g. when replacing "my.alias.prop" with "foo.bar.prop"
       // we want also want to visit "foo.bar.prop", since that's a new global qname we are now
       // referencing.
-      scanFromNode(builder, module, scope, n.getParent());
+      scanFromNode(builder, scope, n.getParent());
     } else if (n.getPrevious() != null && n.getPrevious().isObjectPattern()) {
       // e.g. if we change `const {x} = bar` to `const {x} = foo`, add a new reference to `foo.x`
       // attached to the STRING_KEY `x`
       Node pattern = n.getPrevious();
       for (Node key = pattern.getFirstChild(); key != null; key = key.getNext()) {
         if (key.isStringKey()) {
-          scanFromNode(builder, module, scope, key);
+          scanFromNode(builder, scope, key);
         }
       }
     }
-    builder.collect(module, scope, n);
+    builder.collect(scope, n);
   }
 
   /** Builds the namespace lazily. */
   private void process() {
-    if (hasExternsRoot()) {
-      sourceKind = SourceKind.EXTERN;
-      NodeTraversal.traverse(compiler, externsRoot, new BuildGlobalNamespace());
-    }
-    sourceKind = SourceKind.CODE;
+    NodeTraversal.Builder traversal =
+        NodeTraversal.builder().setCompiler(compiler).setCallback(new BuildGlobalNamespace());
 
-    NodeTraversal.traverse(compiler, root, new BuildGlobalNamespace());
+    if (hasExternsRoot()) {
+      traversal.traverseRoots(externsRoot, root);
+    } else {
+      traversal.traverse(root);
+    }
+
     generated = true;
-    externsScope = null;
   }
 
   /**
@@ -415,16 +412,15 @@ class GlobalNamespace
     /** Collect the references in pre-order. */
     @Override
     public boolean shouldTraverse(NodeTraversal t, Node n, Node parent) {
-      if (hasExternsRoot()) {
-        if (n == externsRoot) {
-          // If we are traversing the externs, then we save a pointer to the scope
-          // generated by them, so that we can do lookups in it later.
-          externsScope = t.getScope();
-        } else if (n.isScript()) {
-          // When checking type-summary files, we want to consider them like normal code
-          // for some things (like alias inlining) but like externs for other things.
-          sourceKind = SourceKind.fromScriptNode(n);
-        }
+      if (n.isScript() && !shouldTraverseScript.test(n)) {
+        return false;
+      }
+      if (hasExternsRoot() && n.isScript()) {
+        // When checking type-summary files, we want to consider them like normal code
+        // for some things (like alias inlining) but like externs for other things.
+        sourceKind = SourceKind.fromScriptNode(n);
+      } else if (n == root) {
+        sourceKind = SourceKind.CODE;
       }
       if (n.isModuleBody() || NodeUtil.isBundledGoogModuleScopeRoot(n)) {
         setupModuleMetadata(n);
@@ -433,7 +429,7 @@ class GlobalNamespace
         curMetadata = null;
       }
 
-      collect(t.getChunk(), t.getScope(), n);
+      collect(t.getScope(), n);
 
       return true;
     }
@@ -459,7 +455,7 @@ class GlobalNamespace
       }
     }
 
-    private void collect(JSChunk module, Scope scope, Node n) {
+    private void collect(Scope scope, Node n) {
       Node parent = n.getParent();
 
       String name;
@@ -607,12 +603,12 @@ class GlobalNamespace
         // name set in a module scope is a 'global' set.
         if (hoistScope.isGlobal()
             || (root != globalRoot && hoistScope.getRootNode() == curModuleRoot)) {
-          handleSetFromGlobal(module, scope, n, parent, name, type, nameMetadata);
+          handleSetFromGlobal(scope, n, name, type, nameMetadata);
         } else {
-          handleSetFromLocal(module, scope, n, parent, name, nameMetadata);
+          handleSetFromLocal(scope, n, name, nameMetadata);
         }
       } else {
-        handleGet(module, scope, n, parent, name, nameMetadata);
+        handleGet(scope, n, name, nameMetadata);
       }
     }
 
@@ -748,22 +744,14 @@ class GlobalNamespace
      * in any scope where variables are hoisted to the global scope (i.e. the global scope in an ES5
      * sense).
      *
-     * @param module the current module
      * @param scope the current scope
      * @param n The node currently being visited
-     * @param parent {@code n}'s parent
      * @param name The global name (e.g. "a" or "a.b.c.d")
      * @param type The type of the value that the name is being assigned
      */
     void handleSetFromGlobal(
-        JSChunk module,
-        Scope scope,
-        Node n,
-        Node parent,
-        String name,
-        NameType type,
-        ModuleMetadata metadata) {
-      if (maybeHandlePrototypePrefix(module, scope, n, parent, name, metadata)) {
+        Scope scope, Node n, String name, NameType type, ModuleMetadata metadata) {
+      if (maybeHandlePrototypePrefix(scope, n, name, metadata)) {
         return;
       }
 
@@ -781,12 +769,12 @@ class GlobalNamespace
         nameObj.isModuleProp = true;
       }
 
-      if (isNestedAssign(parent)) {
+      if (isNestedAssign(n.getParent())) {
         // This assignment is both a set and a get that creates an alias.
         Ref.Type refType = Ref.Type.SET_FROM_GLOBAL;
-        addOrConfirmTwinRefs(nameObj, n, refType, module, scope);
+        addOrConfirmTwinRefs(nameObj, n, refType, scope);
       } else {
-        addOrConfirmRef(nameObj, n, Ref.Type.SET_FROM_GLOBAL, module, scope);
+        addOrConfirmRef(nameObj, n, Ref.Type.SET_FROM_GLOBAL, scope);
         nameObj.setDeclaredType(getDeclaredTypeKind(n));
       }
     }
@@ -798,15 +786,12 @@ class GlobalNamespace
      * @param nameObj
      * @param node
      * @param setRefType
-     * @param module
      * @param scope
      */
-    private void addOrConfirmTwinRefs(
-        Name nameObj, Node node, Ref.Type setRefType, JSChunk module, Scope scope) {
+    private void addOrConfirmTwinRefs(Name nameObj, Node node, Ref.Type setRefType, Scope scope) {
       ImmutableList<Ref> existingRefs = nameObj.getRefsForNode(node);
       if (existingRefs.isEmpty()) {
-        nameObj.addTwinRefs(module, scope, node, setRefType, currentPreOrderIndex);
-        currentPreOrderIndex += 2; // addTwinRefs uses 2 index values
+        nameObj.addTwinRefs(scope, node, setRefType);
       } else {
         checkState(existingRefs.size() == 2, "unexpected existing refs: %s", existingRefs);
         Ref setRef = existingRefs.get(0);
@@ -854,15 +839,12 @@ class GlobalNamespace
      * Updates our representation of the global namespace to reflect an assignment to a global name
      * in a local scope.
      *
-     * @param module The current module
      * @param scope The current scope
      * @param n The node currently being visited
-     * @param parent {@code n}'s parent
      * @param name The global name (e.g. "a" or "a.b.c.d")
      */
-    void handleSetFromLocal(
-        JSChunk module, Scope scope, Node n, Node parent, String name, ModuleMetadata metadata) {
-      if (maybeHandlePrototypePrefix(module, scope, n, parent, name, metadata)) {
+    void handleSetFromLocal(Scope scope, Node n, String name, ModuleMetadata metadata) {
+      if (maybeHandlePrototypePrefix(scope, n, name, metadata)) {
         return;
       }
 
@@ -871,33 +853,46 @@ class GlobalNamespace
         nameObj.isModuleProp = true;
       }
 
-      if (isNestedAssign(parent)) {
+      if (isNestedAssign(n.getParent())) {
         // This assignment is both a set and a get that creates an alias.
-        addOrConfirmTwinRefs(nameObj, n, Ref.Type.SET_FROM_LOCAL, module, scope);
+        addOrConfirmTwinRefs(nameObj, n, Ref.Type.SET_FROM_LOCAL, scope);
       } else {
-        addOrConfirmRef(nameObj, n, Ref.Type.SET_FROM_LOCAL, module, scope);
+        addOrConfirmRef(nameObj, n, Ref.Type.SET_FROM_LOCAL, scope);
       }
     }
 
     /**
      * Updates our representation of the global namespace to reflect a read of a global name.
      *
-     * @param module The current module
      * @param scope The current scope
      * @param n The node currently being visited
-     * @param parent {@code n}'s parent
      * @param name The global name (e.g. "a" or "a.b.c.d")
      */
-    void handleGet(
-        JSChunk module, Scope scope, Node n, Node parent, String name, ModuleMetadata metadata) {
-      if (maybeHandlePrototypePrefix(module, scope, n, parent, name, metadata)) {
+    void handleGet(Scope scope, Node n, String name, ModuleMetadata metadata) {
+      if (maybeHandlePrototypePrefix(scope, n, name, metadata)) {
         return;
       }
+      Ref.Type type = determineRefTypeForGet(n, n, name);
 
+      addOrConfirmRef(getOrCreateName(name, metadata), n, type, scope);
+    }
+
+    /**
+     * Determine the Ref.Type for referenceNode by inspecting parents and recusively ascending as
+     * necessary, where n represents.
+     *
+     * @param n The node currently being visited
+     * @param referenceNode The node hosting the name.
+     * @param name The global name (e.g. "a" or "a.b.c.d")
+     */
+    private Ref.Type determineRefTypeForGet(Node n, Node referenceNode, String name) {
       Ref.Type type;
+      Node parent = n.getParent();
       switch (parent.getToken()) {
         case EXPR_RESULT:
         case IF:
+        case WHILE:
+        case FOR:
         case INSTANCEOF:
         case TYPEOF:
         case VOID:
@@ -941,6 +936,7 @@ class GlobalNamespace
         case NEW:
           type = n == parent.getFirstChild() ? Ref.Type.DIRECT_GET : Ref.Type.ALIASING_GET;
           break;
+        case CAST:
         case OR:
         case AND:
         case COALESCE:
@@ -948,14 +944,25 @@ class GlobalNamespace
           // alias is not getting created for this name if the result is used
           // in a boolean context or assigned to the same name
           // (e.g. var a = a || {}).
-          type = determineGetTypeForHookOrBooleanExpr(module, scope, parent, name);
+          type = determineRefTypeForGet(parent, referenceNode, name);
           break;
+        case NAME:
+          // Only LET, CONST, VAR declarations have NAME nodes
+          // with children.
+          // Of particular interest is "var n = n || {}"
+          if (n != referenceNode && name.equals(parent.getString())) {
+            type = Ref.Type.DIRECT_GET;
+          } else {
+            type = Ref.Type.ALIASING_GET;
+          }
+          break;
+        case COMMA:
         case HOOK:
           if (n != parent.getFirstChild()) {
-            // This node is y or z in (x?y:z). We only know that an alias is
+            // This node is y or z in (x?y:z) or (x,y). We only know that an alias is
             // not getting created for this name if the result is assigned to
             // the same name (e.g. var a = a ? a : {}).
-            type = determineGetTypeForHookOrBooleanExpr(module, scope, parent, name);
+            type = determineRefTypeForGet(parent, referenceNode, name);
           } else {
             type = Ref.Type.DIRECT_GET;
           }
@@ -970,9 +977,23 @@ class GlobalNamespace
         case DESTRUCTURING_LHS:
         case ASSIGN:
           Node lhs = n.getPrevious();
+          if (lhs == null) {
+            // TODO(b/127505242): CAST confused the "is this a get or set?"
+            // logic and "handleGet" should not have been called.
+            type = Ref.Type.ALIASING_GET;
+            break;
+          }
           while (lhs.isCast()) {
             // Case: `/** @type {!Foo} */ (x) = ...`; or multiple casts like `(cast(cast(x)) =`
             lhs = lhs.getOnlyChild();
+          }
+
+          // This is a recursive ascent check if this an assignment
+          // to itself.  This handles cases like: "a.b = a.b || {}"
+          if (n != referenceNode) {
+            if (lhs.matchesQualifiedName(name)) {
+              return Ref.Type.DIRECT_GET;
+            }
           }
 
           switch (lhs.getToken()) {
@@ -990,54 +1011,29 @@ class GlobalNamespace
               throw new IllegalStateException(
                   "Unexpected previous sibling of " + n.getToken() + ": " + n.getPrevious());
           }
-
           break;
         case OBJECT_PATTERN: // Handle STRING_KEYS in object patterns.
         case ITER_SPREAD:
         case OBJECT_SPREAD:
+        case RETURN:
+        case THROW:
         default:
-          // TODO(b/148237949): There are likely more cases where we should be returning
+          // NOTE: There are likely more cases where we should be returning
           // DIRECT_GET.
           type = Ref.Type.ALIASING_GET;
           break;
       }
-
-      handleGet(module, scope, n, parent, name, type, metadata);
-    }
-
-    /**
-     * Updates our representation of the global namespace to reflect a read of a global name.
-     *
-     * @param module The current module
-     * @param scope The current scope
-     * @param n The node currently being visited
-     * @param parent {@code n}'s parent
-     * @param name The global name (e.g. "a" or "a.b.c.d")
-     * @param type The reference type
-     */
-    void handleGet(
-        JSChunk module,
-        Scope scope,
-        Node n,
-        Node parent,
-        String name,
-        Ref.Type type,
-        ModuleMetadata metadata) {
-      Name nameObj = getOrCreateName(name, metadata);
-
-      // No need to look up additional ancestors, since they won't be used.
-      addOrConfirmRef(nameObj, n, type, module, scope);
+      return type;
     }
 
     /**
      * If there is already a Ref for the given name & node, confirm it matches what we would create.
      * Otherwise add a new one.
      */
-    private void addOrConfirmRef(
-        Name nameObj, Node node, Ref.Type refType, JSChunk module, Scope scope) {
+    private void addOrConfirmRef(Name nameObj, Node node, Ref.Type refType, Scope scope) {
       ImmutableList<Ref> existingRefs = nameObj.getRefsForNode(node);
       if (existingRefs.isEmpty()) {
-        nameObj.addSingleRef(module, scope, node, refType, currentPreOrderIndex++);
+        nameObj.addSingleRef(scope, node, refType);
       } else {
         checkState(existingRefs.size() == 1, "unexpected twin refs: %s", existingRefs);
         // module and scope are dependent on Node, so not much point in checking them
@@ -1078,91 +1074,16 @@ class GlobalNamespace
     }
 
     /**
-     * Determines whether the result of a hook (x?y:z) or boolean expression (x||y) or (x&&y) is
-     * assigned to a specific global name.
-     *
-     * @param module The current module
-     * @param scope The current scope
-     * @param parent The parent of the current node in the traversal. This node should already be
-     *     known to be a HOOK, AND, or OR node.
-     * @param name A name that is already known to be global in the current scope (e.g. "a" or
-     *     "a.b.c.d")
-     * @return The expression's get type, either {@link Ref.Type#DIRECT_GET} or {@link
-     *     Ref.Type#ALIASING_GET}
-     */
-    Ref.Type determineGetTypeForHookOrBooleanExpr(
-        JSChunk module, Scope scope, Node parent, String name) {
-      Node prev = parent;
-      for (Node anc : parent.getAncestors()) {
-        switch (anc.getToken()) {
-          case INSTANCEOF:
-          case EXPR_RESULT:
-          case VAR:
-          case LET:
-          case CONST:
-          case IF:
-          case WHILE:
-          case FOR:
-          case FOR_IN:
-          case TYPEOF:
-          case VOID:
-          case NOT:
-          case BITNOT:
-          case POS:
-          case NEG:
-            return Ref.Type.DIRECT_GET;
-          case HOOK:
-            if (anc.getFirstChild() == prev) {
-              return Ref.Type.DIRECT_GET;
-            }
-            break;
-          case DESTRUCTURING_LHS:
-          case RETURN:
-          case THROW:
-            // e.g.
-            // `const {a, b} = condition ? qname1 : qname2;`
-            // `return condition ? qname1 : qname2;`
-            // `throw condition ? qname1 : qname2;
-            return Ref.Type.ALIASING_GET;
-          case ASSIGN:
-            if (!anc.getFirstChild().matchesQualifiedName(name)) {
-              return Ref.Type.ALIASING_GET;
-            }
-            break;
-          case NAME: // a variable declaration
-            if (!name.equals(anc.getString())) {
-              return Ref.Type.ALIASING_GET;
-            }
-            break;
-          case CALL:
-            if (anc.getFirstChild() != prev) {
-              return Ref.Type.ALIASING_GET;
-            }
-            break;
-          case DELPROP:
-            return Ref.Type.DELETE_PROP;
-          default:
-            break;
-        }
-        prev = anc;
-      }
-      return Ref.Type.ALIASING_GET;
-    }
-
-    /**
      * Updates our representation of the global namespace to reflect a read of a global name's
      * longest prefix before the "prototype" property if the name includes the "prototype" property.
      * Does nothing otherwise.
      *
-     * @param module The current module
      * @param scope The current scope
      * @param n The node currently being visited
-     * @param parent {@code n}'s parent
      * @param name The global name (e.g. "a" or "a.b.c.d")
      * @return Whether the name was handled
      */
-    boolean maybeHandlePrototypePrefix(
-        JSChunk module, Scope scope, Node n, Node parent, String name, ModuleMetadata metadata) {
+    boolean maybeHandlePrototypePrefix(Scope scope, Node n, String name, ModuleMetadata metadata) {
       // We use a string-based approach instead of inspecting the parse tree
       // to avoid complexities with object literals, possibly nested, beneath
       // assignments.
@@ -1186,18 +1107,17 @@ class GlobalNamespace
         }
       }
 
-      if (parent != null && NodeUtil.mayBeObjectLitKey(n)) {
+      if (NodeUtil.mayBeObjectLitKey(n)) {
         // Object literal keys have no prefix that's referenced directly per
         // key, so we're done.
         return true;
       }
 
       for (int i = 0; i < numLevelsToRemove; i++) {
-        parent = n;
         n = n.getFirstChild();
       }
 
-      handleGet(module, scope, n, parent, prefix, Ref.Type.PROTOTYPE_GET, metadata);
+      addOrConfirmRef(getOrCreateName(prefix, metadata), n, Ref.Type.PROTOTYPE_GET, scope);
       return true;
     }
 
@@ -1484,19 +1404,15 @@ class GlobalNamespace
      * <p>This covers cases like `var a = b = 0`. The 'b' node needs a ALIASING_GET reference and a
      * SET_FROM_GLOBAL or SET_FROM_LOCAL reference.
      *
-     * @param module
      * @param scope
      * @param node
      * @param setType either SET_FROM_LOCAL or SET_FROM_GLOBAL
-     * @param setRefPreOrderIndex used for setter Ref, getter ref will be this value + 1
      */
-    private void addTwinRefs(
-        JSChunk module, Scope scope, Node node, Ref.Type setType, int setRefPreOrderIndex) {
+    private void addTwinRefs(Scope scope, Node node, Ref.Type setType) {
       checkArgument(
           setType == Ref.Type.SET_FROM_GLOBAL || setType == Ref.Type.SET_FROM_LOCAL, setType);
-      Ref setRef = createNewRef(module, scope, node, setType, setRefPreOrderIndex);
-      Ref getRef =
-          createNewRef(module, scope, node, Ref.Type.ALIASING_GET, setRefPreOrderIndex + 1);
+      Ref setRef = createNewRef(scope, node, setType);
+      Ref getRef = createNewRef(scope, node, Ref.Type.ALIASING_GET);
       setRef.twin = getRef;
       getRef.twin = setRef;
       refsForNodeMap.put(node, ImmutableList.of(setRef, getRef));
@@ -1506,10 +1422,9 @@ class GlobalNamespace
       updateStateForAddedRef(getRef);
     }
 
-    private void addSingleRef(
-        JSChunk module, Scope scope, Node node, Ref.Type type, int preOrderIndex) {
+    private void addSingleRef(Scope scope, Node node, Ref.Type type) {
       checkNoExistingRefsForNode(node);
-      Ref ref = createNewRef(module, scope, node, type, preOrderIndex);
+      Ref ref = createNewRef(scope, node, type);
       refs.add(ref);
       refsForNodeMap.put(node, ImmutableList.of(ref));
       updateStateForAddedRef(ref);
@@ -1520,21 +1435,16 @@ class GlobalNamespace
       checkState(refsForNode == null, "Refs already exist for node: %s", refsForNode);
     }
 
-    private Ref createNewRef(
-        JSChunk module, Scope scope, Node node, Ref.Type type, int preOrderIndex) {
+    private Ref createNewRef(Scope scope, Node node, Ref.Type type) {
       return new Ref(
-          module, // null if the compilation isn't using JSModules
           checkNotNull(scope),
           checkNotNull(node), // may be null later, but not on creation
           this,
-          type,
-          preOrderIndex);
+          type);
     }
 
-    Ref addSingleRefForTesting(Ref.Type type, int preOrderIndex) {
-      Ref ref =
-          new Ref(
-              /* module= */ null, /* scope= */ null, /* node = */ null, this, type, preOrderIndex);
+    Ref addSingleRefForTesting(Ref.Type type) {
+      Ref ref = new Ref(/* scope= */ null, /* node = */ null, this, type);
       refs.add(ref);
       // node is Null for testing in this case, so nothing to add to refsForNodeMap
       updateStateForAddedRef(ref);
@@ -1551,10 +1461,9 @@ class GlobalNamespace
      *     module and scope as the Ref that declares this Name
      */
     void addAliasingGetClonedFromDeclaration(Node newRefNode) {
-      // TODO(bradfordcsmith): It would be good to add checks that the scope and module are correct.
+      // TODO(bradfordcsmith): It would be good to add checks that the scope is correct.
       Ref declRef = checkNotNull(declaration);
-      addSingleRef(
-          declRef.module, declRef.scope, newRefNode, Ref.Type.ALIASING_GET, declRef.preOrderIndex);
+      addSingleRef(declRef.scope, newRefNode, Ref.Type.ALIASING_GET);
     }
 
     /**
@@ -2425,7 +2334,6 @@ class GlobalNamespace
 
     // Not final because CollapseProperties needs to update the namespace in-place.
     private Node node;
-    final JSChunk module;
     final Name name;
     final Type type;
     /**
@@ -2433,8 +2341,6 @@ class GlobalNamespace
      * this scope may not be the correct hoist scope of the aliasing VAR.
      */
     final Scope scope;
-
-    final int preOrderIndex;
 
     /**
      * Certain types of references are actually double-refs. For example, var a = b = 0; counts as
@@ -2451,13 +2357,11 @@ class GlobalNamespace
      * created just for testing. However, all Refs for real use must be created by methods on the
      * Name class, which does do argument checking.
      */
-    private Ref(JSChunk module, Scope scope, Node node, Name name, Type type, int index) {
+    private Ref(Scope scope, Node node, Name name, Type type) {
       this.node = node;
       this.name = name;
-      this.module = module;
       this.type = type;
       this.scope = scope;
-      this.preOrderIndex = index;
     }
 
     @Override
@@ -2473,10 +2377,6 @@ class GlobalNamespace
     @Override
     public StaticSlot getSymbol() {
       return name;
-    }
-
-    JSChunk getModule() {
-      return module;
     }
 
     /** Returns the corresponding read/write Ref of a name in a nested assign, or null otherwise */
@@ -2495,9 +2395,7 @@ class GlobalNamespace
           .add("name", name)
           .add("type", type)
           .add("node", node)
-          .add("preOrderIndex", preOrderIndex)
           .add("isTwin", twin != null)
-          .add("module", module)
           .add("scope", scope)
           .toString();
     }

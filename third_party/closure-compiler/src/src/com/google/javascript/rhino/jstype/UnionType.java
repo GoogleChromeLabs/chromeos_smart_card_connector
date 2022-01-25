@@ -57,8 +57,8 @@ import com.google.javascript.rhino.ErrorReporter;
 import com.google.javascript.rhino.Outcome;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
-import java.util.TreeSet;
 import javax.annotation.Nullable;
 
 /**
@@ -75,7 +75,7 @@ import javax.annotation.Nullable;
  *
  * <p>The implementation of this class prevents the creation of nested unions.
  */
-public class UnionType extends JSType {
+public final class UnionType extends JSType {
   private static final JSTypeClass TYPE_CLASS = JSTypeClass.UNION;
 
   /**
@@ -462,13 +462,14 @@ public class UnionType extends JSType {
   void appendTo(TypeStringBuilder sb) {
     sb.append("(");
 
-    // Sort types by stringification to get deterministic behaviour.
-    TreeSet<String> sortedNames = new TreeSet<>();
+    List<String> names = new ArrayList<>();
     for (JSType alt : this.alternates) {
       // Clone the config to preserve indentation.
-      sortedNames.add(sb.cloneWithConfig().append(alt).build());
+      names.add(sb.cloneWithConfig().append(alt).build());
     }
-    sb.appendAll(sortedNames, "|");
+    // Sort types by stringification to get deterministic behaviour.
+    Collections.sort(names);
+    sb.appendAll(names, "|");
 
     sb.append(")");
   }

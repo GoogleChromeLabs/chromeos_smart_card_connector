@@ -17,6 +17,7 @@
 package com.google.javascript.jscomp.parsing;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -29,8 +30,8 @@ import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSDocInfo.Visibility;
 import com.google.javascript.rhino.JSTypeExpression;
+import com.google.javascript.rhino.Msg;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.SimpleErrorReporter;
 import com.google.javascript.rhino.StaticSourceFile;
 import com.google.javascript.rhino.Token;
 import com.google.javascript.rhino.TokenStream;
@@ -68,45 +69,41 @@ public final class JsDocInfoParser {
   // memory footprint associated with these (similar to IRFactory).
   private final Node templateNode;
 
-  private void addParserWarning(String messageId, String messageArg) {
-    addParserWarning(messageId, messageArg, stream.getLineno(), stream.getCharno());
+  private void addParserWarning(Msg msg, String messageArg) {
+    addParserWarning(msg, messageArg, stream.getLineno(), stream.getCharno());
   }
 
-  private void addParserWarning(String messageId, String messageArg, int lineno, int charno) {
+  private void addParserWarning(Msg msg, String messageArg, int lineno, int charno) {
+    errorReporter.warning(msg.format(messageArg), getSourceName(), lineno, charno);
+  }
+
+  private void addParserWarning(Msg msg) {
+    addParserWarning(msg, stream.getLineno(), stream.getCharno());
+  }
+
+  private void addParserWarning(Msg msg, int lineno, int charno) {
+    errorReporter.warning(msg.format(), getSourceName(), lineno, charno);
+  }
+
+  private void addTypeWarning(Msg msg, String messageArg) {
+    addTypeWarning(msg, messageArg, stream.getLineno(), stream.getCharno());
+  }
+
+  private void addTypeWarning(Msg msg, String messageArg, int lineno, int charno) {
     errorReporter.warning(
-        SimpleErrorReporter.getMessage1(messageId, messageArg), getSourceName(), lineno, charno);
-  }
-
-  private void addParserWarning(String messageId) {
-    addParserWarning(messageId, stream.getLineno(), stream.getCharno());
-  }
-
-  private void addParserWarning(String messageId, int lineno, int charno) {
-    errorReporter.warning(
-        SimpleErrorReporter.getMessage0(messageId), getSourceName(), lineno, charno);
-  }
-
-  private void addTypeWarning(String messageId, String messageArg) {
-    addTypeWarning(messageId, messageArg, stream.getLineno(), stream.getCharno());
-  }
-
-  private void addTypeWarning(String messageId, String messageArg, int lineno, int charno) {
-    errorReporter.warning(
-        "Bad type annotation. "
-            + SimpleErrorReporter.getMessage1(messageId, messageArg)
-            + BAD_TYPE_WIKI_LINK,
+        "Bad type annotation. " + msg.format(messageArg) + BAD_TYPE_WIKI_LINK,
         getSourceName(),
         lineno,
         charno);
   }
 
-  private void addTypeWarning(String messageId) {
-    addTypeWarning(messageId, stream.getLineno(), stream.getCharno());
+  private void addTypeWarning(Msg msg) {
+    addTypeWarning(msg, stream.getLineno(), stream.getCharno());
   }
 
-  private void addTypeWarning(String messageId, int lineno, int charno) {
+  private void addTypeWarning(Msg msg, int lineno, int charno) {
     errorReporter.warning(
-        "Bad type annotation. " + SimpleErrorReporter.getMessage0(messageId) + BAD_TYPE_WIKI_LINK,
+        "Bad type annotation. " + msg.format() + BAD_TYPE_WIKI_LINK,
         getSourceName(),
         lineno,
         charno);
@@ -131,16 +128,17 @@ public final class JsDocInfoParser {
   private static final Set<String> primitiveTypes =
       ImmutableSet.of("number", "string", "boolean", "symbol");
 
-  private JSDocInfo.Builder fileLevelJsDocBuilder;
+  @Nullable private String licenseText;
 
-  /**
-   * Sets the JsDocBuilder for the file-level (root) node of this parse. The parser uses the builder
-   * to append any preserve annotations it encounters in JsDoc comments.
-   *
-   * @param fileLevelJsDocBuilder
-   */
-  void setFileLevelJsDocBuilder(JSDocInfo.Builder fileLevelJsDocBuilder) {
-    this.fileLevelJsDocBuilder = fileLevelJsDocBuilder;
+  private void setLicenseTextMonotonic(String x) {
+    checkNotNull(x);
+    checkState(this.licenseText == null);
+    this.licenseText = x;
+  }
+
+  @Nullable
+  String getLicenseText() {
+    return this.licenseText;
   }
 
   /**
@@ -303,9 +301,8 @@ public final class JsDocInfoParser {
     // so we need to add one here so they will be identical
     String license = " " + info.string;
 
-    if (fileLevelJsDocBuilder != null) {
-      fileLevelJsDocBuilder.addLicense(license);
-    } else if (jsdocBuilder.shouldParseDocumentation()) {
+    this.setLicenseTextMonotonic(license);
+    if (jsdocBuilder.shouldParseDocumentation()) {
       jsdocBuilder.recordBlockDescription(license);
     } else {
       jsdocBuilder.recordBlockDescription("");
@@ -337,7 +334,7 @@ public final class JsDocInfoParser {
               case PROTECTED:
                 // PRIVATE and PROTECTED are not allowed in @fileoverview JsDoc.
                 addParserWarning(
-                    "msg.bad.fileoverview.visibility.annotation",
+                    Msg.BAD_FILEOVERVIEW_VISIBIIITY_ANNOTATION,
                     Ascii.toLowerCase(visibility.toString()));
                 success = false;
                 break;
@@ -352,7 +349,7 @@ public final class JsDocInfoParser {
         case EOF:
           // discard any accumulated information
           jsdocBuilder.build();
-          addParserWarning("msg.unexpected.eof");
+          addParserWarning(Msg.UNEXPECTED_EOF);
           checkExtendedTypes(extendedTypes);
           return false;
 
@@ -384,7 +381,7 @@ public final class JsDocInfoParser {
     String annotationName = stream.getString();
     Annotation annotation = annotations.get(annotationName);
     if (annotation == null || annotationName.isEmpty()) {
-      addParserWarning("msg.bad.jsdoc.tag", annotationName);
+      addParserWarning(Msg.BAD_JSDOC_TAG, annotationName);
     } else {
       // Mark the beginning of the annotation.
       jsdocBuilder.markAnnotation(annotationName, lineno, charno);
@@ -392,7 +389,7 @@ public final class JsDocInfoParser {
       switch (annotation) {
         case NG_INJECT:
           if (jsdocBuilder.isNgInjectRecorded()) {
-            addParserWarning("msg.jsdoc.nginject.extra");
+            addParserWarning(Msg.JSDOC_NGINJECT_EXTRA);
           } else {
             jsdocBuilder.recordNgInject(true);
           }
@@ -400,7 +397,7 @@ public final class JsDocInfoParser {
 
         case ABSTRACT:
           if (!jsdocBuilder.recordAbstract()) {
-            addTypeWarning("msg.jsdoc.incompat.type");
+            addTypeWarning(Msg.JSDOC_INCOMPAT_TYPE);
           }
           return eatUntilEOLIfNotAnnotation();
 
@@ -410,9 +407,9 @@ public final class JsDocInfoParser {
             String author = authorInfo.string;
 
             if (author.isEmpty()) {
-              addParserWarning("msg.jsdoc.authormissing");
+              addParserWarning(Msg.JSDOC_AUTHORMISSING);
             } else {
-              jsdocBuilder.addAuthor(author);
+              jsdocBuilder.recordAuthor(author);
             }
             token = authorInfo.token;
           } else {
@@ -422,46 +419,46 @@ public final class JsDocInfoParser {
 
         case UNRESTRICTED:
           if (!jsdocBuilder.recordUnrestricted()) {
-            addTypeWarning("msg.jsdoc.incompat.type");
+            addTypeWarning(Msg.JSDOC_INCOMPAT_TYPE);
           }
           return eatUntilEOLIfNotAnnotation();
 
         case STRUCT:
           if (!jsdocBuilder.recordStruct()) {
-            addTypeWarning("msg.jsdoc.incompat.type");
+            addTypeWarning(Msg.JSDOC_INCOMPAT_TYPE);
           }
           return eatUntilEOLIfNotAnnotation();
 
         case DICT:
           if (!jsdocBuilder.recordDict()) {
-            addTypeWarning("msg.jsdoc.incompat.type");
+            addTypeWarning(Msg.JSDOC_INCOMPAT_TYPE);
           }
           return eatUntilEOLIfNotAnnotation();
 
         case COLLAPSIBLE_OR_BREAK_MY_CODE:
           if (!jsdocBuilder.recordCollapsibleOrBreakMyCode()) {
-            addParserWarning("msg.jsdoc.collapsibleorbreakmycode");
+            addParserWarning(Msg.JSDOC_COLLAPSIBLEORBREAKMYCODE);
           }
           return eatUntilEOLIfNotAnnotation();
         case CONSTRUCTOR:
           if (!jsdocBuilder.recordConstructor()) {
             if (jsdocBuilder.isInterfaceRecorded()) {
-              addTypeWarning("msg.jsdoc.interface.constructor");
+              addTypeWarning(Msg.JSDOC_INTERFACE_CONSTRUCTOR);
             } else {
-              addTypeWarning("msg.jsdoc.incompat.type");
+              addTypeWarning(Msg.JSDOC_INCOMPAT_TYPE);
             }
           }
           return eatUntilEOLIfNotAnnotation();
 
         case RECORD:
           if (!jsdocBuilder.recordImplicitMatch()) {
-            addTypeWarning("msg.jsdoc.record");
+            addTypeWarning(Msg.JSDOC_RECORD);
           }
           return eatUntilEOLIfNotAnnotation();
 
         case DEPRECATED:
           if (!jsdocBuilder.recordDeprecated()) {
-            addParserWarning("msg.jsdoc.deprecated");
+            addParserWarning(Msg.JSDOC_DEPRECATED);
           }
 
           // Find the reason/description, if any.
@@ -479,16 +476,16 @@ public final class JsDocInfoParser {
         case INTERFACE:
           if (!jsdocBuilder.recordInterface()) {
             if (jsdocBuilder.isConstructorRecorded()) {
-              addTypeWarning("msg.jsdoc.interface.constructor");
+              addTypeWarning(Msg.JSDOC_INTERFACE_CONSTRUCTOR);
             } else {
-              addTypeWarning("msg.jsdoc.incompat.type");
+              addTypeWarning(Msg.JSDOC_INCOMPAT_TYPE);
             }
           }
           return eatUntilEOLIfNotAnnotation();
 
         case DESC:
           if (jsdocBuilder.isDescriptionRecorded()) {
-            addParserWarning("msg.jsdoc.desc.extra");
+            addParserWarning(Msg.JSDOC_DESC_EXTRA);
             return eatUntilEOLIfNotAnnotation();
           } else {
             ExtractionInfo descriptionInfo = extractMultilineTextualBlock(token);
@@ -515,7 +512,7 @@ public final class JsDocInfoParser {
           }
 
           if (!jsdocBuilder.recordFileOverview(fileOverview)) {
-            addParserWarning("msg.jsdoc.fileoverview.extra");
+            addParserWarning(Msg.JSDOC_FILEOVERVIEW_EXTRA);
           }
           return token;
 
@@ -528,12 +525,18 @@ public final class JsDocInfoParser {
           String preserve = preserveInfo.string;
 
           if (preserve.length() > 0) {
-            if (fileLevelJsDocBuilder != null) {
-              fileLevelJsDocBuilder.addLicense(preserve);
-            }
+            this.setLicenseTextMonotonic(preserve);
           }
 
           token = preserveInfo.token;
+          return token;
+
+        case ENHANCE:
+          ExtractionInfo enhanceInfo = extractSingleLineBlock();
+          String enhance = enhanceInfo.string;
+          token = enhanceInfo.token;
+
+          jsdocBuilder.recordEnhance(enhance);
           return token;
 
         case ENUM:
@@ -559,19 +562,19 @@ public final class JsDocInfoParser {
             type = createJSTypeExpression(newStringNode("number"));
           }
           if (!jsdocBuilder.recordEnumParameterType(type)) {
-            addTypeWarning("msg.jsdoc.incompat.type", lineno, charno);
+            addTypeWarning(Msg.JSDOC_INCOMPAT_TYPE, lineno, charno);
           }
           return eatUntilEOLIfNotAnnotation();
 
         case EXTERNS:
           if (!jsdocBuilder.recordExterns()) {
-            addParserWarning("msg.jsdoc.externs");
+            addParserWarning(Msg.JSDOC_EXTERNS);
           }
           return eatUntilEOLIfNotAnnotation();
 
         case TYPE_SUMMARY:
           if (!jsdocBuilder.recordTypeSummary()) {
-            addParserWarning("msg.jsdoc.typesummary");
+            addParserWarning(Msg.JSDOC_TYPESUMMARY);
           }
           return eatUntilEOLIfNotAnnotation();
 
@@ -603,32 +606,32 @@ public final class JsDocInfoParser {
             } else {
               checkState(annotation == Annotation.IMPLEMENTS);
               if (!jsdocBuilder.recordImplementedInterface(type)) {
-                addTypeWarning("msg.jsdoc.implements.duplicate", lineno, charno);
+                addTypeWarning(Msg.JSDOC_IMPLEMENTS_DUPLICATE, lineno, charno);
               }
             }
             token = next();
             if (matchingRc) {
               if (token != JsDocToken.RIGHT_CURLY) {
-                addTypeWarning("msg.jsdoc.missing.rc");
+                addTypeWarning(Msg.JSDOC_MISSING_RC);
               } else {
                 token = next();
               }
             } else if (token != JsDocToken.EOL
                 && token != JsDocToken.EOF
                 && token != JsDocToken.EOC) {
-              addTypeWarning("msg.end.annotation.expected");
+              addTypeWarning(Msg.END_ANNOTATION_EXPECTED);
             }
           } else if (token == JsDocToken.BANG || token == JsDocToken.QMARK) {
-            addTypeWarning("msg.jsdoc.implements.extraqualifier", lineno, charno);
+            addTypeWarning(Msg.JSDOC_IMPLEMENTS_EXTRAQUALIFIER, lineno, charno);
           } else {
-            addTypeWarning("msg.no.type.name", lineno, charno);
+            addTypeWarning(Msg.NO_TYPE_NAME, lineno, charno);
           }
           token = eatUntilEOLIfNotAnnotation(token);
           return token;
 
         case HIDDEN:
           if (!jsdocBuilder.recordHiddenness()) {
-            addParserWarning("msg.jsdoc.hidden");
+            addParserWarning(Msg.JSDOC_HIDDEN);
           }
           return eatUntilEOLIfNotAnnotation();
 
@@ -644,14 +647,14 @@ public final class JsDocInfoParser {
           if (match(JsDocToken.STRING)) {
             JSTypeExpression lendsExpression = createJSTypeExpression(parseNameExpression(next()));
             if (!jsdocBuilder.recordLends(lendsExpression)) {
-              addTypeWarning("msg.jsdoc.lends.incompatible");
+              addTypeWarning(Msg.JSDOC_LENDS_INCOMPATIBLE);
             }
           } else {
-            addTypeWarning("msg.jsdoc.lends.missing");
+            addTypeWarning(Msg.JSDOC_LENDS_MISSING);
           }
 
           if (matchingRc && !match(JsDocToken.RIGHT_CURLY)) {
-            addTypeWarning("msg.jsdoc.missing.rc");
+            addTypeWarning(Msg.JSDOC_MISSING_RC);
           }
           return eatUntilEOLIfNotAnnotation();
 
@@ -660,7 +663,7 @@ public final class JsDocInfoParser {
           String meaning = meaningInfo.string;
           token = meaningInfo.token;
           if (!jsdocBuilder.recordMeaning(meaning)) {
-            addParserWarning("msg.jsdoc.meaning.extra");
+            addParserWarning(Msg.JSDOC_MEANING_EXTRA);
           }
           return token;
 
@@ -669,7 +672,7 @@ public final class JsDocInfoParser {
           String alternateMessageId = alternateMessageIdInfo.string;
           token = alternateMessageIdInfo.token;
           if (!jsdocBuilder.recordAlternateMessageId(alternateMessageId)) {
-            addParserWarning("msg.jsdoc.alternateMessageId.extra");
+            addParserWarning(Msg.JSDOC_ALTERNATEMESSAGEID_EXTRA);
           }
           return token;
 
@@ -679,25 +682,54 @@ public final class JsDocInfoParser {
 
         case NO_COMPILE:
           if (!jsdocBuilder.recordNoCompile()) {
-            addParserWarning("msg.jsdoc.nocompile");
+            addParserWarning(Msg.JSDOC_NOCOMPILE);
           }
           return eatUntilEOLIfNotAnnotation();
 
         case NO_COLLAPSE:
           if (!jsdocBuilder.recordNoCollapse()) {
-            addParserWarning("msg.jsdoc.nocollapse");
+            addParserWarning(Msg.JSDOC_NOCOLLAPSE);
           }
           return eatUntilEOLIfNotAnnotation();
 
         case NO_INLINE:
           if (!jsdocBuilder.recordNoInline()) {
-            addParserWarning("msg.jsdoc.noinline");
+            addParserWarning(Msg.JSDOC_NOINLINE);
           }
           return eatUntilEOLIfNotAnnotation();
 
+        case LOCALE_FILE:
+          if (!jsdocBuilder.recordLocaleFile()) {
+            addParserWarning(Msg.JSDOC_LOCALEFILE);
+          }
+          return eatUntilEOLIfNotAnnotation();
+
+        case LOCALE_OBJECT:
+          if (!jsdocBuilder.recordLocaleObject()) {
+            addParserWarning(Msg.JSDOC_LOCALEOBJECT);
+          }
+          return eatUntilEOLIfNotAnnotation();
+
+        case LOCALE_SELECT:
+          if (!jsdocBuilder.recordLocaleSelect()) {
+            addParserWarning(Msg.JSDOC_LOCALESELECT);
+          }
+          return eatUntilEOLIfNotAnnotation();
+
+        case LOCALE_VALUE:
+          if (!jsdocBuilder.recordLocaleValue()) {
+            addParserWarning(Msg.JSDOC_LOCALEVALUE);
+          }
+          return eatUntilEOLIfNotAnnotation();
+
+        case PROVIDE_GOOG:
+          if (!jsdocBuilder.recordProvideGoog()) {
+            addParserWarning(Msg.JSDOC_PROVIDE_GOOG);
+          }
+          return eatUntilEOLIfNotAnnotation();
         case PURE_OR_BREAK_MY_CODE:
           if (!jsdocBuilder.recordPureOrBreakMyCode()) {
-            addParserWarning("msg.jsdoc.pureorbreakmycode");
+            addParserWarning(Msg.JSDOC_PUREORBREAKMYCODE);
           }
           return eatUntilEOLIfNotAnnotation();
 
@@ -707,13 +739,13 @@ public final class JsDocInfoParser {
         case INHERIT_DOC:
         case OVERRIDE:
           if (!jsdocBuilder.recordOverride()) {
-            addTypeWarning("msg.jsdoc.override");
+            addTypeWarning(Msg.JSDOC_OVERRIDE);
           }
           return eatUntilEOLIfNotAnnotation();
 
         case POLYMER:
           if (jsdocBuilder.isPolymerRecorded()) {
-            addParserWarning("msg.jsdoc.polymer.extra");
+            addParserWarning(Msg.JSDOC_POLYMER_EXTRA);
           } else {
             jsdocBuilder.recordPolymer();
           }
@@ -721,7 +753,7 @@ public final class JsDocInfoParser {
 
         case POLYMER_BEHAVIOR:
           if (jsdocBuilder.isPolymerBehaviorRecorded()) {
-            addParserWarning("msg.jsdoc.polymerBehavior.extra");
+            addParserWarning(Msg.JSDOC_POLYMERBEHAVIOR_EXTRA);
           } else {
             jsdocBuilder.recordPolymerBehavior();
           }
@@ -729,7 +761,7 @@ public final class JsDocInfoParser {
 
         case CUSTOM_ELEMENT:
           if (jsdocBuilder.isCustomElementRecorded()) {
-            addParserWarning("msg.jsdoc.customElement.extra");
+            addParserWarning(Msg.JSDOC_CUSTOMELEMENT_EXTRA);
           } else {
             jsdocBuilder.recordCustomElement();
           }
@@ -737,7 +769,7 @@ public final class JsDocInfoParser {
 
         case MIXIN_CLASS:
           if (jsdocBuilder.isMixinClassRecorded()) {
-            addParserWarning("msg.jsdoc.mixinClass.extra");
+            addParserWarning(Msg.JSDOC_MIXINCLASS_EXTRA);
           } else {
             jsdocBuilder.recordMixinClass();
           }
@@ -745,7 +777,7 @@ public final class JsDocInfoParser {
 
         case MIXIN_FUNCTION:
           if (jsdocBuilder.isMixinFunctionRecorded()) {
-            addParserWarning("msg.jsdoc.mixinFunction.extra");
+            addParserWarning(Msg.JSDOC_MIXINFUNCTION_EXTRA);
           } else {
             jsdocBuilder.recordMixinFunction();
           }
@@ -753,43 +785,16 @@ public final class JsDocInfoParser {
 
         case THROWS:
           {
-            skipEOLs();
-            token = next();
             lineno = stream.getLineno();
             charno = stream.getCharno();
-            type = null;
-
-            if (token == JsDocToken.LEFT_CURLY) {
-              type = createJSTypeExpression(parseAndRecordTypeNode(token));
-
-              if (type == null) {
-                // parsing error reported during recursive descent
-                // recovering parsing
-                return eatUntilEOLIfNotAnnotation();
+            if (!lookAheadForAnnotation()) {
+              ExtractionInfo throwsInfo = extractMultilineTextualBlock(token);
+              String throwsAnnotation = throwsInfo.string;
+              throwsAnnotation = throwsAnnotation.trim();
+              if (throwsAnnotation.length() > 0) {
+                jsdocBuilder.recordThrowsAnnotation(throwsAnnotation);
               }
-            }
-
-            // *Update* the token to that after the type annotation.
-            token = current();
-
-            // Save the throw type.
-            jsdocBuilder.recordThrowType(type);
-
-            boolean isAnnotationNext = lookAheadForAnnotation();
-
-            // Find the throw's description (if applicable).
-            if (jsdocBuilder.shouldParseDocumentation() && !isAnnotationNext) {
-              ExtractionInfo descriptionInfo = extractMultilineTextualBlock(token);
-
-              String description = descriptionInfo.string;
-
-              if (description.length() > 0) {
-                jsdocBuilder.recordThrowDescription(type, description);
-              }
-
-              token = descriptionInfo.token;
-            } else {
-              token = eatUntilEOLIfNotAnnotation();
+              token = throwsInfo.token;
             }
             return token;
           }
@@ -825,7 +830,7 @@ public final class JsDocInfoParser {
           }
 
           if (JsDocToken.STRING != token) {
-            addTypeWarning("msg.missing.variable.name", lineno, charno);
+            addTypeWarning(Msg.MISSING_VARIABLE_NAME, lineno, charno);
           } else {
             if (!hasParamType) {
               addMissingTypeWarning(stream.getLineno(), stream.getCharno());
@@ -847,7 +852,7 @@ public final class JsDocInfoParser {
               }
 
               if (JsDocToken.RIGHT_SQUARE != token) {
-                reportTypeSyntaxWarning("msg.jsdoc.missing.rb");
+                reportTypeSyntaxWarning(Msg.JSDOC_MISSING_RB);
               } else if (type != null) {
                 // Make the type expression optional, if it isn't
                 // already.
@@ -860,13 +865,13 @@ public final class JsDocInfoParser {
             // in it, report a warning and throw it out.
             // See https://github.com/google/closure-compiler/issues/499
             if (!TokenStream.isJSIdentifier(name)) {
-              addParserWarning("msg.invalid.variable.name", name, lineno, charno);
+              addParserWarning(Msg.INVALID_VARIABLE_NAME, name, lineno, charno);
               name = null;
             } else if (!jsdocBuilder.recordParameter(name, type)) {
               if (jsdocBuilder.hasParameter(name)) {
-                addTypeWarning("msg.dup.variable.name", name, lineno, charno);
+                addTypeWarning(Msg.DUP_VARIABLE_NAME, name, lineno, charno);
               } else {
-                addTypeWarning("msg.jsdoc.incompat.type", name, lineno, charno);
+                addTypeWarning(Msg.JSDOC_INCOMPAT_TYPE, name, lineno, charno);
               }
             }
           }
@@ -896,7 +901,7 @@ public final class JsDocInfoParser {
 
         case NO_SIDE_EFFECTS:
           if (!jsdocBuilder.recordNoSideEffects()) {
-            addParserWarning("msg.jsdoc.nosideeffects");
+            addParserWarning(Msg.JSDOC_NOSIDEEFFECTS);
           }
           return eatUntilEOLIfNotAnnotation();
 
@@ -906,7 +911,7 @@ public final class JsDocInfoParser {
 
         case IMPLICIT_CAST:
           if (!jsdocBuilder.recordImplicitCast()) {
-            addTypeWarning("msg.jsdoc.implicitcast");
+            addTypeWarning(Msg.JSDOC_IMPLICITCAST);
           }
           return eatUntilEOLIfNotAnnotation();
 
@@ -916,9 +921,9 @@ public final class JsDocInfoParser {
             String reference = referenceInfo.string;
 
             if (reference.isEmpty()) {
-              addParserWarning("msg.jsdoc.seemissing");
+              addParserWarning(Msg.JSDOC_SEEMISSING);
             } else {
-              jsdocBuilder.addReference(reference);
+              jsdocBuilder.recordReference(reference);
             }
 
             token = referenceInfo.token;
@@ -936,7 +941,7 @@ public final class JsDocInfoParser {
             // Attempt to parse a template bound type.
             JSTypeExpression boundTypeExpression = null;
             if (match(JsDocToken.LEFT_CURLY)) {
-              addParserWarning("msg.jsdoc.template.boundedgenerics.used", lineno, charno);
+              addParserWarning(Msg.JSDOC_TEMPLATE_BOUNDEDGENERICS_USED, lineno, charno);
 
               Node boundTypeNode = parseTypeExpressionAnnotation(next());
               if (boundTypeNode != null) {
@@ -976,35 +981,35 @@ public final class JsDocInfoParser {
             // Validate the number of declared template names, which depends on bounds and TTL.
             switch (templateNames.size()) {
               case 0:
-                addTypeWarning("msg.jsdoc.template.name.missing", lineno, charno);
+                addTypeWarning(Msg.JSDOC_TEMPLATE_NAME_MISSING, lineno, charno);
                 return token; // There's nothing we can connect a bound or TTL to.
               case 1:
                 break;
               default:
                 if (boundTypeExpression != null || ttlAst != null) {
-                  addTypeWarning("msg.jsdoc.template.multipleDeclaration", lineno, charno);
+                  addTypeWarning(Msg.JSDOC_TEMPLATE_MULTIPLEDECLARATION, lineno, charno);
                 }
                 break;
             }
 
             if (boundTypeExpression != null && ttlAst != null) {
-              addTypeWarning("msg.jsdoc.template.boundsWithTTL", lineno, charno);
+              addTypeWarning(Msg.JSDOC_TEMPLATE_BOUNDSWITHTTL, lineno, charno);
               return token; // It's undecidable what the user intent was.
             }
 
             // Based on the form form of the declaration, record the information in the JsDocInfo.
             if (ttlAst != null) {
               if (!jsdocBuilder.recordTypeTransformation(templateNames.get(0), ttlAst)) {
-                addTypeWarning("msg.jsdoc.template.name.redeclaration", lineno, charno);
+                addTypeWarning(Msg.JSDOC_TEMPLATE_NAME_REDECLARATION, lineno, charno);
               }
             } else if (boundTypeExpression != null) {
               if (!jsdocBuilder.recordTemplateTypeName(templateNames.get(0), boundTypeExpression)) {
-                addTypeWarning("msg.jsdoc.template.name.redeclaration", lineno, charno);
+                addTypeWarning(Msg.JSDOC_TEMPLATE_NAME_REDECLARATION, lineno, charno);
               }
             } else {
               for (String templateName : templateNames) {
                 if (!jsdocBuilder.recordTemplateTypeName(templateName)) {
-                  addTypeWarning("msg.jsdoc.template.name.redeclaration", lineno, charno);
+                  addTypeWarning(Msg.JSDOC_TEMPLATE_NAME_REDECLARATION, lineno, charno);
                 }
               }
             }
@@ -1020,7 +1025,7 @@ public final class JsDocInfoParser {
           return eatUntilEOLIfNotAnnotation();
         case WIZACTION:
           if (!jsdocBuilder.recordWizaction()) {
-            addParserWarning("msg.jsdoc.wizaction");
+            addParserWarning(Msg.JSDOC_WIZACTION);
           }
           return eatUntilEOLIfNotAnnotation();
 
@@ -1029,10 +1034,10 @@ public final class JsDocInfoParser {
           String version = versionInfo.string;
 
           if (version.isEmpty()) {
-            addParserWarning("msg.jsdoc.versionmissing");
+            addParserWarning(Msg.JSDOC_VERSIONMISSING);
           } else {
             if (!jsdocBuilder.recordVersion(version)) {
-              addParserWarning("msg.jsdoc.extraversion");
+              addParserWarning(Msg.JSDOC_EXTRAVERSION);
             }
           }
 
@@ -1096,7 +1101,7 @@ public final class JsDocInfoParser {
             // but should be mostly OK.
             if (((type != null && isAlternateTypeAnnotation) || annotation == Annotation.TYPE)
                 && !jsdocBuilder.recordType(type)) {
-              addTypeWarning("msg.jsdoc.incompat.type", lineno, charno);
+              addTypeWarning(Msg.JSDOC_INCOMPAT_TYPE, lineno, charno);
             }
 
             boolean isAnnotationNext = lookAheadForAnnotation();
@@ -1104,19 +1109,19 @@ public final class JsDocInfoParser {
             switch (annotation) {
               case CONSTANT:
                 if (!jsdocBuilder.recordConstancy()) {
-                  addParserWarning("msg.jsdoc.const");
+                  addParserWarning(Msg.JSDOC_CONST);
                 }
                 break;
 
               case FINAL:
                 if (!jsdocBuilder.recordFinality()) {
-                  addTypeWarning("msg.jsdoc.final");
+                  addTypeWarning(Msg.JSDOC_FINAL);
                 }
                 break;
 
               case DEFINE:
                 if (!jsdocBuilder.recordDefineType(type)) {
-                  addParserWarning("msg.jsdoc.define", lineno, charno);
+                  addParserWarning(Msg.JSDOC_DEFINE, lineno, charno);
                 }
                 if (!isAnnotationNext) {
                   return recordDescription(token);
@@ -1125,9 +1130,7 @@ public final class JsDocInfoParser {
 
               case EXPORT:
                 if (!jsdocBuilder.recordExport()) {
-                  addParserWarning("msg.jsdoc.export", lineno, charno);
-                } else if (!jsdocBuilder.recordVisibility(Visibility.PUBLIC)) {
-                  addParserWarning("msg.jsdoc.extra.visibility", lineno, charno);
+                  addParserWarning(Msg.JSDOC_EXPORT, lineno, charno);
                 }
                 if (!isAnnotationNext) {
                   return recordDescription(token);
@@ -1136,7 +1139,7 @@ public final class JsDocInfoParser {
 
               case PRIVATE:
                 if (!jsdocBuilder.recordVisibility(Visibility.PRIVATE)) {
-                  addParserWarning("msg.jsdoc.extra.visibility", lineno, charno);
+                  addParserWarning(Msg.JSDOC_EXTRA_VISIBILITY, lineno, charno);
                 }
                 if (!isAnnotationNext) {
                   return recordDescription(token);
@@ -1145,7 +1148,7 @@ public final class JsDocInfoParser {
 
               case PACKAGE:
                 if (!jsdocBuilder.recordVisibility(Visibility.PACKAGE)) {
-                  addParserWarning("msg.jsdoc.extra.visibility", lineno, charno);
+                  addParserWarning(Msg.JSDOC_EXTRA_VISIBILITY, lineno, charno);
                 }
                 if (!isAnnotationNext) {
                   return recordDescription(token);
@@ -1154,7 +1157,7 @@ public final class JsDocInfoParser {
 
               case PROTECTED:
                 if (!jsdocBuilder.recordVisibility(Visibility.PROTECTED)) {
-                  addParserWarning("msg.jsdoc.extra.visibility", lineno, charno);
+                  addParserWarning(Msg.JSDOC_EXTRA_VISIBILITY, lineno, charno);
                 }
                 if (!isAnnotationNext) {
                   return recordDescription(token);
@@ -1163,7 +1166,7 @@ public final class JsDocInfoParser {
 
               case PUBLIC:
                 if (!jsdocBuilder.recordVisibility(Visibility.PUBLIC)) {
-                  addParserWarning("msg.jsdoc.extra.visibility", lineno, charno);
+                  addParserWarning(Msg.JSDOC_EXTRA_VISIBILITY, lineno, charno);
                 }
                 if (!isAnnotationNext) {
                   return recordDescription(token);
@@ -1176,7 +1179,7 @@ public final class JsDocInfoParser {
                 }
 
                 if (!jsdocBuilder.recordReturnType(type)) {
-                  addTypeWarning("msg.jsdoc.incompat.type", lineno, charno);
+                  addTypeWarning(Msg.JSDOC_INCOMPAT_TYPE, lineno, charno);
                   break;
                 }
 
@@ -1203,13 +1206,13 @@ public final class JsDocInfoParser {
 
               case THIS:
                 if (!jsdocBuilder.recordThisType(type)) {
-                  addTypeWarning("msg.jsdoc.incompat.type", lineno, charno);
+                  addTypeWarning(Msg.JSDOC_INCOMPAT_TYPE, lineno, charno);
                 }
                 break;
 
               case TYPEDEF:
                 if (!jsdocBuilder.recordTypedef(type)) {
-                  addTypeWarning("msg.jsdoc.incompat.type", lineno, charno);
+                  addTypeWarning(Msg.JSDOC_INCOMPAT_TYPE, lineno, charno);
                 }
                 break;
               default:
@@ -1237,12 +1240,12 @@ public final class JsDocInfoParser {
     if (endIndex >= 0) {
       ttlExpression = ttlExpression.substring(0, endIndex);
     } else {
-      addTypeWarning("msg.jsdoc.template.typetransformation.missingDelimiter", lineno, charno);
+      addTypeWarning(Msg.JSDOC_TEMPLATE_TYPETRANSFORMATION_MISSINGDELIMIIER, lineno, charno);
     }
     ttlExpression = ttlExpression.trim();
 
     if (ttlExpression.isEmpty()) {
-      addTypeWarning("msg.jsdoc.template.typetransformation.expressionMissing", lineno, charno);
+      addTypeWarning(Msg.JSDOC_TEMPLATE_TYPETRANSFORMATION_EXPRESSIONMISSING, lineno, charno);
       return null;
     }
 
@@ -1264,6 +1267,7 @@ public final class JsDocInfoParser {
   /**
    * Records a marker's description if there is one available and record it in the current marker.
    */
+  // TODO(rishipal): This function is a misnomer as it does not record anything.
   private JsDocToken recordDescription(JsDocToken token) {
     // Find marker's description (if applicable).
     if (jsdocBuilder.shouldParseDocumentation()) {
@@ -1280,11 +1284,11 @@ public final class JsDocInfoParser {
       // If interface, record the multiple extended interfaces
       if (jsdocBuilder.isInterfaceRecorded()) {
         if (!jsdocBuilder.recordExtendedInterface(typeInfo.type)) {
-          addParserWarning("msg.jsdoc.extends.duplicate", typeInfo.lineno, typeInfo.charno);
+          addParserWarning(Msg.JSDOC_EXTENDS_DUPLICATE, typeInfo.lineno, typeInfo.charno);
         }
       } else {
         if (!jsdocBuilder.recordBaseType(typeInfo.type)) {
-          addTypeWarning("msg.jsdoc.incompat.type", typeInfo.lineno, typeInfo.charno);
+          addTypeWarning(Msg.JSDOC_INCOMPAT_TYPE, typeInfo.lineno, typeInfo.charno);
         }
       }
     }
@@ -1297,7 +1301,7 @@ public final class JsDocInfoParser {
    */
   private JsDocToken parseSuppressTag(JsDocToken token) {
     if (token != JsDocToken.LEFT_CURLY) {
-      addParserWarning("msg.jsdoc.suppress");
+      addParserWarning(Msg.JSDOC_SUPPRESS);
       return token;
     } else {
       Set<String> suppressions = new HashSet<>();
@@ -1305,13 +1309,13 @@ public final class JsDocInfoParser {
         if (match(JsDocToken.STRING)) {
           String name = stream.getString();
           if (!suppressionNames.contains(name)) {
-            addParserWarning("msg.jsdoc.suppress.unknown", name);
+            addParserWarning(Msg.JSDOC_SUPPRESS_UNKNOWN, name);
           }
 
           suppressions.add(stream.getString());
           token = next();
         } else {
-          addParserWarning("msg.jsdoc.suppress");
+          addParserWarning(Msg.JSDOC_SUPPRESS);
           return token;
         }
 
@@ -1323,12 +1327,21 @@ public final class JsDocInfoParser {
       }
 
       if (!match(JsDocToken.RIGHT_CURLY)) {
-        addParserWarning("msg.jsdoc.suppress");
+        addParserWarning(Msg.JSDOC_SUPPRESS);
       } else {
         token = next();
-        jsdocBuilder.recordSuppressions(suppressions);
+        // Find the suppressions' description (if applicable).
+        if (jsdocBuilder.shouldParseDocumentation() && token != JsDocToken.ANNOTATION) {
+          ExtractionInfo suppressDescriptionInfo = extractMultilineTextualBlock(token);
+          String suppressDescription = suppressDescriptionInfo.string;
+          jsdocBuilder.recordSuppressions(ImmutableSet.copyOf(suppressions), suppressDescription);
+          token = suppressDescriptionInfo.token;
+        } else if (token != JsDocToken.EOC && token != JsDocToken.EOF) {
+          token = eatUntilEOLIfNotAnnotation();
+          jsdocBuilder.recordSuppressions(suppressions);
+        }
       }
-      return eatUntilEOLIfNotAnnotation();
+      return token;
     }
   }
 
@@ -1339,23 +1352,23 @@ public final class JsDocInfoParser {
    */
   private JsDocToken parseClosurePrimitiveTag(JsDocToken token) {
     if (token != JsDocToken.LEFT_CURLY) {
-      addParserWarning("msg.jsdoc.missing.lc");
+      addParserWarning(Msg.JSDOC_MISSING_LC);
       return token;
     } else if (match(JsDocToken.STRING)) {
       String name = stream.getString();
       if (!closurePrimitiveNames.contains(name)) {
-        addParserWarning("msg.jsdoc.closurePrimitive.invalid", name);
+        addParserWarning(Msg.JSDOC_CLOSUREPRIMITIVE_INVALID, name);
       } else if (!jsdocBuilder.recordClosurePrimitiveId(name)) {
-        addParserWarning("msg.jsdoc.closurePrimitive.extra");
+        addParserWarning(Msg.JSDOC_CLOSUREPRIMITIVE_EXTRA);
       }
       token = next();
     } else {
-      addParserWarning("msg.jsdoc.closurePrimitive.missing");
+      addParserWarning(Msg.JSDOC_CLOSUREPRIMITIVE_MISSING);
       return token;
     }
 
     if (!match(JsDocToken.RIGHT_CURLY)) {
-      addParserWarning("msg.jsdoc.missing.rc");
+      addParserWarning(Msg.JSDOC_MISSING_RC);
     } else {
       token = next();
     }
@@ -1374,13 +1387,13 @@ public final class JsDocInfoParser {
         if (match(JsDocToken.STRING)) {
           String name = stream.getString();
           if (!modifiesAnnotationKeywords.contains(name) && !jsdocBuilder.hasParameter(name)) {
-            addParserWarning("msg.jsdoc.modifies.unknown", name);
+            addParserWarning(Msg.JSDOC_MODIFIES_UNKNOWN, name);
           }
 
           modifies.add(stream.getString());
           token = next();
         } else {
-          addParserWarning("msg.jsdoc.modifies");
+          addParserWarning(Msg.JSDOC_MODIFIES);
           return token;
         }
 
@@ -1392,11 +1405,11 @@ public final class JsDocInfoParser {
       }
 
       if (!match(JsDocToken.RIGHT_CURLY)) {
-        addParserWarning("msg.jsdoc.modifies");
+        addParserWarning(Msg.JSDOC_MODIFIES);
       } else {
         token = next();
         if (!jsdocBuilder.recordModifies(modifies)) {
-          addParserWarning("msg.jsdoc.modifies.duplicate");
+          addParserWarning(Msg.JSDOC_MODIFIES_DUPLICATE);
         }
       }
     }
@@ -1415,18 +1428,18 @@ public final class JsDocInfoParser {
       if (match(JsDocToken.STRING)) {
         String name = stream.getString();
         if (!idGeneratorAnnotationKeywords.contains(name) && !jsdocBuilder.hasParameter(name)) {
-          addParserWarning("msg.jsdoc.idgen.unknown", name);
+          addParserWarning(Msg.JSDOC_IDGEN_UNKNOWN, name);
         }
 
         idgenKind = name;
         token = next();
       } else {
-        addParserWarning("msg.jsdoc.idgen.bad");
+        addParserWarning(Msg.JSDOC_IDGEN_BAD);
         return token;
       }
 
       if (!match(JsDocToken.RIGHT_CURLY)) {
-        addParserWarning("msg.jsdoc.idgen.bad");
+        addParserWarning(Msg.JSDOC_IDGEN_BAD);
       } else {
         token = next();
       }
@@ -1435,27 +1448,27 @@ public final class JsDocInfoParser {
     switch (idgenKind) {
       case "unique":
         if (!jsdocBuilder.recordIdGenerator()) {
-          addParserWarning("msg.jsdoc.idgen.duplicate");
+          addParserWarning(Msg.JSDOC_IDGEN_DUPLICATE);
         }
         break;
       case "consistent":
         if (!jsdocBuilder.recordConsistentIdGenerator()) {
-          addParserWarning("msg.jsdoc.idgen.duplicate");
+          addParserWarning(Msg.JSDOC_IDGEN_DUPLICATE);
         }
         break;
       case "stable":
         if (!jsdocBuilder.recordStableIdGenerator()) {
-          addParserWarning("msg.jsdoc.idgen.duplicate");
+          addParserWarning(Msg.JSDOC_IDGEN_DUPLICATE);
         }
         break;
       case "xid":
         if (!jsdocBuilder.recordXidGenerator()) {
-          addParserWarning("msg.jsdoc.idgen.duplicate");
+          addParserWarning(Msg.JSDOC_IDGEN_DUPLICATE);
         }
         break;
       case "mapped":
         if (!jsdocBuilder.recordMappedIdGenerator()) {
-          addParserWarning("msg.jsdoc.idgen.duplicate");
+          addParserWarning(Msg.JSDOC_IDGEN_DUPLICATE);
         }
         break;
     }
@@ -1898,9 +1911,9 @@ public final class JsDocInfoParser {
         skipEOLs();
         if (!match(JsDocToken.RIGHT_CURLY)) {
           if (typeNode.isStringLit() && "import".equals(typeNode.getString())) {
-            reportTypeSyntaxWarning("msg.jsdoc.import");
+            reportTypeSyntaxWarning(Msg.JSDOC_IMPORT);
           } else {
-            reportTypeSyntaxWarning("msg.jsdoc.missing.rc");
+            reportTypeSyntaxWarning(Msg.JSDOC_MISSING_RC);
           }
         } else {
           next();
@@ -1910,7 +1923,7 @@ public final class JsDocInfoParser {
       return typeNode;
     } else {
       // TODO(tbreisacher): Add a SuggestedFix for this warning.
-      reportTypeSyntaxWarning("msg.jsdoc.missing.braces");
+      reportTypeSyntaxWarning(Msg.JSDOC_MISSING_BRACES);
       return parseTypeExpression(token);
     }
   }
@@ -1964,7 +1977,7 @@ public final class JsDocInfoParser {
     Node typeNode = parseParamTypeExpression(next());
     if (typeNode != null) {
       if (!match(JsDocToken.RIGHT_CURLY)) {
-        reportTypeSyntaxWarning("msg.jsdoc.missing.rc");
+        reportTypeSyntaxWarning(Msg.JSDOC_MISSING_RC);
       } else {
         next();
       }
@@ -1981,7 +1994,7 @@ public final class JsDocInfoParser {
       if (typeNode != null) {
         skipEOLs();
         if (!match(JsDocToken.RIGHT_CURLY)) {
-          reportTypeSyntaxWarning("msg.jsdoc.missing.rc");
+          reportTypeSyntaxWarning(Msg.JSDOC_MISSING_RC);
         } else {
           next();
         }
@@ -2146,7 +2159,7 @@ public final class JsDocInfoParser {
 
   private Node parseNameExpression(JsDocToken token) {
     if (token != JsDocToken.STRING) {
-      addParserWarning("msg.jsdoc.name.syntax", stream.getLineno(), stream.getCharno());
+      addParserWarning(Msg.JSDOC_NAME_SYNTAX, stream.getLineno(), stream.getCharno());
       return null;
     }
 
@@ -2192,7 +2205,7 @@ public final class JsDocInfoParser {
 
         skipEOLs();
         if (!match(JsDocToken.RIGHT_ANGLE)) {
-          return reportTypeSyntaxWarning("msg.jsdoc.missing.gt");
+          return reportTypeSyntaxWarning(Msg.JSDOC_MISSING_GT);
         }
 
         next();
@@ -2204,7 +2217,7 @@ public final class JsDocInfoParser {
   /** TypeofType := 'typeof' NameExpression | 'typeof' '(' NameExpression ')' */
   private Node parseTypeofType(JsDocToken token) {
     if (token == JsDocToken.LEFT_CURLY) {
-      return reportTypeSyntaxWarning("msg.jsdoc.unnecessary.braces");
+      return reportTypeSyntaxWarning(Msg.JSDOC_UNNECESSARY_BRACES);
     }
 
     Node typeofType = newNode(Token.TYPEOF);
@@ -2238,7 +2251,7 @@ public final class JsDocInfoParser {
     // just throw out TypeParameters.
     if (token != JsDocToken.LEFT_PAREN) {
       restoreLookAhead(token);
-      return reportTypeSyntaxWarning("msg.jsdoc.missing.lp");
+      return reportTypeSyntaxWarning(Msg.JSDOC_MISSING_LP);
     }
 
     Node functionType = newNode(Token.FUNCTION);
@@ -2264,7 +2277,7 @@ public final class JsDocInfoParser {
 
             functionType.addChildToFront(contextType);
           } else {
-            return reportTypeSyntaxWarning("msg.jsdoc.missing.colon");
+            return reportTypeSyntaxWarning(Msg.JSDOC_MISSING_COLON);
           }
 
           if (match(JsDocToken.COMMA)) {
@@ -2291,7 +2304,7 @@ public final class JsDocInfoParser {
 
     skipEOLs();
     if (!match(JsDocToken.RIGHT_PAREN)) {
-      return reportTypeSyntaxWarning("msg.jsdoc.missing.rp");
+      return reportTypeSyntaxWarning(Msg.JSDOC_MISSING_RP);
     }
 
     skipEOLs();
@@ -2378,7 +2391,7 @@ public final class JsDocInfoParser {
     }
 
     if (isVarArgs && match(JsDocToken.COMMA)) {
-      return reportTypeSyntaxWarning("msg.jsdoc.function.varargs");
+      return reportTypeSyntaxWarning(Msg.JSDOC_FUNCTION_VARARGS);
     }
 
     // The right paren will be checked by parseFunctionType
@@ -2444,7 +2457,7 @@ public final class JsDocInfoParser {
     if (alternate == null) {
       skipEOLs();
       if (!match(JsDocToken.RIGHT_PAREN)) {
-        return reportTypeSyntaxWarning("msg.jsdoc.missing.rp");
+        return reportTypeSyntaxWarning(Msg.JSDOC_MISSING_RP);
       }
       next();
     }
@@ -2467,7 +2480,7 @@ public final class JsDocInfoParser {
 
     skipEOLs();
     if (!match(JsDocToken.RIGHT_CURLY)) {
-      return reportTypeSyntaxWarning("msg.jsdoc.missing.rc");
+      return reportTypeSyntaxWarning(Msg.JSDOC_MISSING_RC);
     }
 
     next();
@@ -2494,7 +2507,7 @@ public final class JsDocInfoParser {
       if (names.add(name)) {
         fieldTypeList.addChildToBack(fieldType);
       } else {
-        addTypeWarning("msg.jsdoc.type.record.duplicate", name);
+        addTypeWarning(Msg.JSDOC_TYPE_RECORD_DUPLICATE, name);
       }
 
       skipEOLs();
@@ -2589,13 +2602,13 @@ public final class JsDocInfoParser {
     return n;
   }
 
-  private Node reportTypeSyntaxWarning(String warning) {
+  private Node reportTypeSyntaxWarning(Msg warning) {
     addTypeWarning(warning, stream.getLineno(), stream.getCharno());
     return null;
   }
 
   private Node reportGenericTypeSyntaxWarning() {
-    return reportTypeSyntaxWarning("msg.jsdoc.type.syntax");
+    return reportTypeSyntaxWarning(Msg.JSDOC_TYPE_SYNTAX);
   }
 
   private JsDocToken eatUntilEOLIfNotAnnotation() {

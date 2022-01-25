@@ -35,6 +35,7 @@ enum Annotation {
   DEPRECATED,
   DESC,
   DICT,
+  ENHANCE,
   ENUM,
   EXTENDS,
   EXTERNS,
@@ -49,6 +50,10 @@ enum Annotation {
   INTERFACE,
   LENDS,
   LICENSE, // same as preserve
+  LOCALE_FILE,
+  LOCALE_OBJECT,
+  LOCALE_SELECT,
+  LOCALE_VALUE,
   MEANING,
   MIXIN_CLASS,
   MIXIN_FUNCTION,
@@ -66,6 +71,7 @@ enum Annotation {
   PRESERVE, // same as license
   PRIVATE,
   PROTECTED,
+  PROVIDE_GOOG, // @provideGoog - appears only in base.js
   PUBLIC,
   PURE_OR_BREAK_MY_CODE,
   RETURN,
@@ -103,6 +109,7 @@ enum Annotation {
           .put("desc", Annotation.DESC)
           .put("dict", Annotation.DICT)
           .put("enum", Annotation.ENUM)
+          .put("enhance", Annotation.ENHANCE)
           .put("export", Annotation.EXPORT)
           .put("extends", Annotation.EXTENDS)
           .put("externs", Annotation.EXTERNS)
@@ -117,6 +124,10 @@ enum Annotation {
           .put("record", Annotation.RECORD)
           .put("lends", Annotation.LENDS)
           .put("license", Annotation.LICENSE)
+          .put("localeFile", Annotation.LOCALE_FILE)
+          .put("localeObject", Annotation.LOCALE_OBJECT)
+          .put("localeSelect", Annotation.LOCALE_SELECT)
+          .put("localeValue", Annotation.LOCALE_VALUE)
           .put("meaning", Annotation.MEANING)
           .put("mixinClass", Annotation.MIXIN_CLASS)
           .put("mixinFunction", Annotation.MIXIN_FUNCTION)
@@ -134,6 +145,7 @@ enum Annotation {
           .put("preserve", Annotation.PRESERVE)
           .put("private", Annotation.PRIVATE)
           .put("protected", Annotation.PROTECTED)
+          .put("provideGoog", Annotation.PROVIDE_GOOG)
           .put("public", Annotation.PUBLIC)
           .put("pureOrBreakMyCode", Annotation.PURE_OR_BREAK_MY_CODE)
           .put("return", Annotation.RETURN)
@@ -152,5 +164,5 @@ enum Annotation {
           .put("unrestricted", Annotation.UNRESTRICTED)
           .put("version", Annotation.VERSION)
           .put("wizaction", Annotation.WIZACTION)
-          .build();
+          .buildOrThrow();
 }

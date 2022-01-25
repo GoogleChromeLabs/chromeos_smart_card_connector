@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Predicate;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -40,13 +39,6 @@ public final class NormalizeTest extends CompilerTestCase {
 
   public NormalizeTest() {
     super(EXTERNS);
-  }
-
-  @Override
-  @Before
-  public void setUp() throws Exception {
-    super.setUp();
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT_NEXT_IN);
   }
 
   @Override
@@ -69,7 +61,6 @@ public final class NormalizeTest extends CompilerTestCase {
 
   @Test
   public void testNullishCoalesce() {
-    setLanguage(LanguageMode.UNSUPPORTED, LanguageMode.UNSUPPORTED);
     test("var a = x ?? y, b = foo()", "var a = x ?? y; var b = foo()");
     test(
         lines(
@@ -210,6 +201,25 @@ public final class NormalizeTest extends CompilerTestCase {
   }
 
   @Test
+  public void testClassField() {
+    test(
+        lines(
+            "class Foo {", //
+            "  f1;",
+            "  ['f2'] = 1;",
+            "  static f3;",
+            "  static 'f4' = 'hi';",
+            "}"),
+        lines(
+            "class Foo {", //
+            "  f1",
+            "  ['f2'] = 1",
+            "  static f3",
+            "  static 'f4' = 'hi'",
+            "}"));
+  }
+
+  @Test
   public void testClassInForLoop() {
     testSame("for (class a {};;) { break; }");
   }
@@ -308,6 +318,115 @@ public final class NormalizeTest extends CompilerTestCase {
   }
 
   @Test
+  public void testAssignShorthandDontNormalizeWhenLHSNotName() {
+    testSame("obj.x += 1;");
+  }
+
+  @Test
+  public void testLogicalAssignShorthand() {
+    test("x ||= 1;", "x || (x = 1);");
+    test("x &&= 1;", "x && (x = 1);");
+    test("x ??= 1;", "x ?? (x = 1);");
+  }
+
+  @Test
+  public void testLogicalAssignPropertyReferenceShorthand() {
+    test(
+        srcs("a.x ||= b"),
+        expected(
+            lines(
+                "let $jscomp$logical$assign$tmpm1146332801$0;", //
+                "($jscomp$logical$assign$tmpm1146332801$0 = a).x ",
+                "   ||",
+                "($jscomp$logical$assign$tmpm1146332801$0.x = b);")));
+    test(
+        srcs("a.foo &&= null"),
+        expected(
+            lines(
+                "let $jscomp$logical$assign$tmpm1146332801$0;", //
+                "($jscomp$logical$assign$tmpm1146332801$0 = a).foo ",
+                "   &&",
+                "($jscomp$logical$assign$tmpm1146332801$0.foo = null);")));
+    test(
+        srcs(
+            lines(
+                "foo().x = null;", //
+                "foo().x ??= y")),
+        expected(
+            lines(
+                "foo().x = null;", //
+                "let $jscomp$logical$assign$tmpm1146332801$0;",
+                "($jscomp$logical$assign$tmpm1146332801$0 = foo()).x ",
+                "   ??",
+                "($jscomp$logical$assign$tmpm1146332801$0.x = y);")));
+  }
+
+  @Test
+  public void testLogicalAssignPropertyReferenceElementShorthand() {
+    test(
+        srcs("a[x] ||= b"),
+        expected(
+            lines(
+                "let $jscomp$logical$assign$tmpm1146332801$0;", //
+                "let $jscomp$logical$assign$tmpindexm1146332801$0;",
+                "($jscomp$logical$assign$tmpm1146332801$0 = a)",
+                "[$jscomp$logical$assign$tmpindexm1146332801$0 = x]",
+                "   ||",
+                "($jscomp$logical$assign$tmpm1146332801$0",
+                "[$jscomp$logical$assign$tmpindexm1146332801$0] = b);")));
+    test(
+        srcs("a[x + 5 + 's'] &&= b"),
+        expected(
+            lines(
+                "let $jscomp$logical$assign$tmpm1146332801$0;", //
+                "let $jscomp$logical$assign$tmpindexm1146332801$0;",
+                "($jscomp$logical$assign$tmpm1146332801$0 = a)",
+                "[$jscomp$logical$assign$tmpindexm1146332801$0 = (x + 5 + 's')] ",
+                "   &&",
+                "($jscomp$logical$assign$tmpm1146332801$0",
+                "[$jscomp$logical$assign$tmpindexm1146332801$0] = b);")));
+    test(
+        srcs("foo[x] ??= bar[y]"),
+        expected(
+            lines(
+                "let $jscomp$logical$assign$tmpm1146332801$0;", //
+                "let $jscomp$logical$assign$tmpindexm1146332801$0;",
+                "($jscomp$logical$assign$tmpm1146332801$0 = foo)",
+                "[$jscomp$logical$assign$tmpindexm1146332801$0 = x]",
+                "   ??",
+                "($jscomp$logical$assign$tmpm1146332801$0",
+                "[$jscomp$logical$assign$tmpindexm1146332801$0] = bar[y]);")));
+  }
+
+  @Test
+  public void testLogicalAssignmentNestedName() {
+    test(
+        srcs("a ||= (b &&= (c ??= d));"), //
+        expected("a || (a = (b && (b = (c ?? (c = d)))));"));
+  }
+
+  @Test
+  public void logicalAssignmentNestedPropertyReference() {
+    test(
+        lines(
+            "const foo = {}, bar = {};", //
+            "foo.x ||= (foo.y &&= (bar.z ??= 'something'));"),
+        lines(
+            "const foo = {}; const bar = {};", //
+            "let $jscomp$logical$assign$tmpm1146332801$0;",
+            "let $jscomp$logical$assign$tmpm1146332801$1;",
+            "let $jscomp$logical$assign$tmpm1146332801$2;",
+            "($jscomp$logical$assign$tmpm1146332801$2 = foo).x",
+            "   ||",
+            "($jscomp$logical$assign$tmpm1146332801$2.x",
+            " = ($jscomp$logical$assign$tmpm1146332801$1 = foo).y",
+            "   &&",
+            "($jscomp$logical$assign$tmpm1146332801$1.y",
+            " = ($jscomp$logical$assign$tmpm1146332801$0 = bar).z",
+            "   ?? ($jscomp$logical$assign$tmpm1146332801$0.z = 'something')));"));
+  }
+
+  @Test
   public void testDuplicateVarInExterns() {
     test(
         externs("var extern;"),
@@ -368,7 +487,7 @@ public final class NormalizeTest extends CompilerTestCase {
 
   @Test
   public void testForIn2() {
-    setExpectParseWarningsThisTest();
+    setExpectParseWarningsInThisTest();
     setAcceptedLanguage(LanguageMode.ECMASCRIPT5);
     // Verify vars are extracted from the FOR-IN node.
     test("for(var a = foo() in b) foo()", "var a = foo(); for(a in b) foo()");
@@ -541,19 +660,18 @@ public final class NormalizeTest extends CompilerTestCase {
 
     // Verify import * as <alias> is renamed.
     test(
-        new String[] {"let a = 5;", "import * as a from './a.js'; const TAU = 2 * a.PI;"},
-        new String[] {
-          "let a = 5;", "import * as a$jscomp$1 from './a.js'; const TAU = 2 * a$jscomp$1.PI"
-        });
+        srcs("let a = 5;", "import * as a from './a.js'; const TAU = 2 * a.PI;"),
+        expected(
+            "let a = 5;", "import * as a$jscomp$1 from './a.js'; const TAU = 2 * a$jscomp$1.PI"));
 
     // Verify exported and imported names are untouched.
     test(
-        new String[] {"var a;", "let a; export {a as a};"},
-        new String[] {"var a;", "let a$jscomp$1; export {a$jscomp$1 as a};"});
+        srcs("var a;", "let a; export {a as a};"),
+        expected("var a;", "let a$jscomp$1; export {a$jscomp$1 as a};"));
 
     test(
-        new String[] {"var a;", "import {a as a} from './foo.js'; let b = a;"},
-        new String[] {"var a;", "import {a as a$jscomp$1} from './foo.js'; let b = a$jscomp$1;"});
+        srcs("var a;", "import {a as a} from './foo.js'; let b = a;"),
+        expected("var a;", "import {a as a$jscomp$1} from './foo.js'; let b = a$jscomp$1;"));
   }
 
   @Test
@@ -765,7 +883,7 @@ public final class NormalizeTest extends CompilerTestCase {
     options.setEmitUseStrict(false);
     compiler.init(new ArrayList<SourceFile>(), new ArrayList<SourceFile>(), options);
     String code = "function f(x) {} function g(x) {}";
-    Node ast = compiler.parseSyntheticCode(code);
+    Node ast = compiler.parseSyntheticCode("testNormalizeSyntheticCode", code);
     Normalize.normalizeSyntheticCode(compiler, ast, "prefix_");
     assertThat(compiler.toSource(ast))
         .isEqualTo("function f(x$jscomp$prefix_0){}function g(x$jscomp$prefix_1){}");

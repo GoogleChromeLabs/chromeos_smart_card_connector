@@ -20,8 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.MultimapBuilder;
 import com.google.javascript.jscomp.ControlFlowGraph.Branch;
 import com.google.javascript.jscomp.MaybeReachingVariableUse.ReachingUses;
 import com.google.javascript.jscomp.graph.DiGraph.DiGraphEdge;
@@ -75,7 +73,7 @@ class MaybeReachingVariableUse extends DataFlowAnalysis<Node, ReachingUses> {
 
   MaybeReachingVariableUse(
       ControlFlowGraph<Node> cfg, Set<Var> escaped, Map<String, Var> allVarsInFn) {
-    super(cfg, new ReachingUsesJoinOp());
+    super(cfg);
     this.escaped = escaped;
     this.allVarsInFn = allVarsInFn;
   }
@@ -106,11 +104,9 @@ class MaybeReachingVariableUse extends DataFlowAnalysis<Node, ReachingUses> {
    */
   static final class ReachingUses implements LatticeElement {
     // Maps variables to all their uses that are upward exposed at the current cfgNode.
-    final Multimap<Var, Node> mayUseMap;
+    final HashMultimap<Var, Node> mayUseMap = HashMultimap.create();
 
-    public ReachingUses() {
-      mayUseMap = HashMultimap.create();
-    }
+    public ReachingUses() {}
 
     /**
      * Copy constructor.
@@ -118,7 +114,7 @@ class MaybeReachingVariableUse extends DataFlowAnalysis<Node, ReachingUses> {
      * @param other The constructed object is a replicated copy of this element.
      */
     public ReachingUses(ReachingUses other) {
-      mayUseMap = MultimapBuilder.hashKeys().hashSetValues().build(other.mayUseMap);
+      this.mayUseMap.putAll(other.mayUseMap);
     }
 
     @Override
@@ -140,13 +136,16 @@ class MaybeReachingVariableUse extends DataFlowAnalysis<Node, ReachingUses> {
    *
    * <p>The read of A "may be" exposed to A = 1 in the beginning.
    */
-  private static class ReachingUsesJoinOp implements JoinOp<ReachingUses> {
+  private static class ReachingUsesJoinOp implements FlowJoiner<ReachingUses> {
+    final ReachingUses result = new ReachingUses();
+
     @Override
-    public ReachingUses apply(List<ReachingUses> from) {
-      ReachingUses result = new ReachingUses();
-      for (ReachingUses uses : from) {
-        result.mayUseMap.putAll(uses.mayUseMap);
-      }
+    public void joinFlow(ReachingUses uses) {
+      this.result.mayUseMap.putAll(uses.mayUseMap);
+    }
+
+    @Override
+    public ReachingUses finish() {
       return result;
     }
   }
@@ -166,15 +165,21 @@ class MaybeReachingVariableUse extends DataFlowAnalysis<Node, ReachingUses> {
     return new ReachingUses();
   }
 
+  @Override
+  FlowJoiner<ReachingUses> createFlowJoiner() {
+    return new ReachingUsesJoinOp();
+  }
+
   /**
    * Computes the new LatticeElement for a given node given its LatticeElement from previous
    * iteration.
    *
    * @param n node
    * @param input - Backward dataflow analyses compute their LatticeElement bottom-up (i.e.
-   *     FlowState.out to FlowState.in). See {@link DataFlowAnalysis#flow(DiGraphNode)}. Here param
-   *     `input` is the readonly input FlowState.out that was constructed as `FlowState.in` in the
-   *     previous iteration, or the initial lattice element if this is the first iteration.
+   *     LinearFlowState.out to LinearFlowState.in). See {@link DataFlowAnalysis#flow(DiGraphNode)}.
+   *     Here param `input` is the readonly input LinearFlowState.out that was constructed as
+   *     `LinearFlowState.in` in the previous iteration, or the initial lattice element if this is
+   *     the first iteration.
    */
   @Override
   ReachingUses flowThrough(Node n, ReachingUses input) {
@@ -314,6 +319,7 @@ class MaybeReachingVariableUse extends DataFlowAnalysis<Node, ReachingUses> {
 
       default:
         if (NodeUtil.isAssignmentOp(n) && n.getFirstChild().isName()) {
+          checkState(!NodeUtil.isLogicalAssignmentOp(n));
           Node name = n.getFirstChild();
           if (!conditional) {
             removeFromUseIfLocal(name.getString(), output);
@@ -381,7 +387,7 @@ class MaybeReachingVariableUse extends DataFlowAnalysis<Node, ReachingUses> {
   Collection<Node> getUses(String name, Node defNode) {
     GraphNode<Node, Branch> n = getCfg().getNode(defNode);
     checkNotNull(n);
-    FlowState<ReachingUses> state = n.getAnnotation();
+    LinearFlowState<ReachingUses> state = n.getAnnotation();
     return state.getOut().mayUseMap.get(allVarsInFn.get(name));
   }
 }

@@ -70,11 +70,12 @@ public final class InjectTranspilationRuntimeLibraries extends AbstractPostOrder
       Es6ToEs3Util.preloadEs6RuntimeFunction(compiler, "createtemplatetagfirstarg");
     }
 
-    if (mustBeCompiledAway.contains(Feature.FOR_OF)) {
-      Es6ToEs3Util.preloadEs6RuntimeFunction(compiler, "makeIterator");
-    }
-
-    if (mustBeCompiledAway.contains(Feature.ARRAY_DESTRUCTURING)) {
+    if (mustBeCompiledAway.contains(Feature.FOR_OF)
+        || mustBeCompiledAway.contains(Feature.ARRAY_DESTRUCTURING)
+        || mustBeCompiledAway.contains(Feature.OBJECT_PATTERN_REST)) {
+      // `makeIterator` isn't needed directly for `OBJECT_PATTERN_REST`, but when we transpile
+      // a destructuring case that contains it, we transpile the entire destructured assignment,
+      // which may also include `ARRAY_DESTRUCTURING`.
       Es6ToEs3Util.preloadEs6RuntimeFunction(compiler, "makeIterator");
     }
 
@@ -88,6 +89,15 @@ public final class InjectTranspilationRuntimeLibraries extends AbstractPostOrder
       // and those must call super(...arguments), so we end up injecting our own spread
       // expressions for such cases.
       Es6ToEs3Util.preloadEs6RuntimeFunction(compiler, "arrayFromIterable");
+    }
+
+    if ((mustBeCompiledAway.contains(Feature.OBJECT_LITERALS_WITH_SPREAD)
+            || mustBeCompiledAway.contains(Feature.OBJECT_PATTERN_REST))
+        && !outputFeatures.contains(FeatureSet.ES2015)) {
+      // We need `Object.assign` to transpile `obj = {a, ...rest};` or `const {a, ...rest} = obj;`,
+      // but the output language level doesn't indicate that it is guaranteed to be present, so
+      // we'll include our polyfill.
+      compiler.ensureLibraryInjected("es6/object/assign", /* force= */ false);
     }
 
     if (mustBeCompiledAway.contains(Feature.CLASS_EXTENDS)) {
@@ -114,6 +124,10 @@ public final class InjectTranspilationRuntimeLibraries extends AbstractPostOrder
     if (mustBeCompiledAway.contains(Feature.FOR_AWAIT_OF)) {
       compiler.ensureLibraryInjected("es6/util/makeasynciterator", /* force= */ false);
     }
+
+    if (mustBeCompiledAway.contains(Feature.REST_PARAMETERS)) {
+      compiler.ensureLibraryInjected("es6/util/restarguments", /* force= */ false);
+    }
   }
 
   private static FeatureSet getScriptFeatures(Node script) {
@@ -130,7 +144,7 @@ public final class InjectTranspilationRuntimeLibraries extends AbstractPostOrder
         }
         break;
 
-      // TODO(johnlenz): this check doesn't belong here.
+        // TODO(johnlenz): this check doesn't belong here.
       case GETTER_DEF:
       case SETTER_DEF:
         if (!getterSetterSupported) {

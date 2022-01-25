@@ -26,8 +26,10 @@ public class CompilerTestCaseUtils {
   public static Compiler multistageSerializeAndDeserialize(
       CompilerTestCase testCase,
       Compiler compiler,
+      List<SourceFile> externs,
       List<SourceFile> inputs,
       CodeChangeHandler changeHandler) {
+    new RemoveCastNodes(compiler).process(compiler.getExternsRoot(), compiler.getJsRoot());
     ErrorManager errorManager = compiler.getErrorManager();
     try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
       compiler.removeChangeHandler(changeHandler);
@@ -37,7 +39,7 @@ public class CompilerTestCaseUtils {
       try (ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray())) {
         compiler = testCase.createCompiler();
         compiler.disableThreads();
-        compiler.init(testCase.externsInputs, inputs, testCase.getOptions());
+        compiler.init(externs, inputs, testCase.getOptions());
         compiler.restoreState(bais);
         compiler.setErrorManager(errorManager);
         compiler.addChangeHandler(changeHandler);

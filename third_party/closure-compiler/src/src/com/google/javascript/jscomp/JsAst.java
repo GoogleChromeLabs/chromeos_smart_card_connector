@@ -39,19 +39,13 @@ public class JsAst implements SourceAst {
 
   private final InputId inputId;
   private final SourceFile sourceFile;
-  private final Supplier<Node> immutableRootSource;
 
   private Node root;
   private FeatureSet features;
 
   public JsAst(SourceFile sourceFile) {
-    this(sourceFile, null);
-  }
-
-  public JsAst(SourceFile sourceFile, Supplier<Node> immutableRootSource) {
     this.inputId = new InputId(sourceFile.getName());
     this.sourceFile = sourceFile;
-    this.immutableRootSource = immutableRootSource;
   }
 
   @Override
@@ -60,8 +54,9 @@ public class JsAst implements SourceAst {
       return this.root;
     }
 
-    if (this.immutableRootSource != null) {
-      this.root = this.immutableRootSource.get();
+    Supplier<Node> astRootSource = compiler.getTypedAstDeserializer(this.sourceFile);
+    if (astRootSource != null) {
+      this.root = astRootSource.get();
       this.features = (FeatureSet) this.root.getProp(Node.FEATURE_SET);
     } else {
       this.parse(compiler);
@@ -153,8 +148,6 @@ public class JsAst implements SourceAst {
   }
 
   private void parse(AbstractCompiler compiler) {
-    checkState(this.immutableRootSource == null);
-
     RecordingReporterProxy reporter = new RecordingReporterProxy(
         compiler.getDefaultErrorReporter());
 
@@ -187,8 +180,6 @@ public class JsAst implements SourceAst {
 
     if (root == null) {
       root = IR.script();
-    } else {
-      compiler.prepareAst(root);
     }
 
     if (!reporter.errors.isEmpty() || !reporter.warnings.isEmpty()) {

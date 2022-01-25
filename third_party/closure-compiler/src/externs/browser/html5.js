@@ -490,6 +490,11 @@ BaseRenderingContext2D.prototype.setTransform = function(
     m11, m12, m21, m22, dx, dy) {};
 
 /**
+ * @return {undefined}
+ */
+BaseRenderingContext2D.prototype.resetTransform = function() {};
+
+/**
  * @return {!DOMMatrixReadOnly}
  */
 BaseRenderingContext2D.prototype.getTransform = function() {};
@@ -893,6 +898,12 @@ BaseRenderingContext2D.prototype.textBaseline;
 BaseRenderingContext2D.prototype.lineDashOffset;
 
 /**
+ * @type {string}
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/direction
+ */
+BaseRenderingContext2D.prototype.direction;
+
+/**
  * @constructor
  * @extends {BaseRenderingContext2D}
  * @see http://www.w3.org/TR/2dcontext/#canvasrenderingcontext2d
@@ -901,6 +912,12 @@ function CanvasRenderingContext2D() {}
 
 /** @const {!HTMLCanvasElement} */
 CanvasRenderingContext2D.prototype.canvas;
+
+/**
+ * @type {string}
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/filter
+ */
+CanvasRenderingContext2D.prototype.filter;
 
 /**
  * @constructor
@@ -1746,7 +1763,7 @@ HTMLElement.observedAttributes;
 HTMLElement.prototype.adoptedCallback = function(oldDocument, newDocument) {};
 
 /**
- * @param {!{mode: string}} options
+ * @param {!ShadowRootInit} options
  * @return {!ShadowRoot}
  */
 HTMLElement.prototype.attachShadow = function(options) {};
@@ -4207,6 +4224,9 @@ HTMLSelectElement.prototype.autofocus;
  */
 HTMLSelectElement.prototype.labels;
 
+/** @type {boolean} */
+HTMLSelectElement.prototype.required;
+
 /** @type {HTMLCollection<!HTMLOptionElement>} */
 HTMLSelectElement.prototype.selectedOptions;
 
@@ -4632,7 +4652,7 @@ ShadowRoot.prototype.activeElement;
 
 
 /**
- * @type {string}
+ * @type {!ShadowRootMode}
  */
 ShadowRoot.prototype.mode;
 
@@ -4656,6 +4676,35 @@ ShadowRoot.prototype.innerHTML;
  */
 ShadowRoot.prototype.styleSheets;
 
+
+/**
+ * @typedef {string}
+ * @see https://dom.spec.whatwg.org/#enumdef-shadowrootmode
+ */
+var ShadowRootMode;
+
+
+/**
+ * @typedef {string}
+ * @see https://dom.spec.whatwg.org/#enumdef-slotassignmentmode
+ */
+var SlotAssignmentMode;
+
+
+/**
+ * @record
+ * @see https://dom.spec.whatwg.org/#dictdef-shadowrootinit
+ */
+function ShadowRootInit() {}
+
+/** @type {!ShadowRootMode} */
+ShadowRootInit.prototype.mode;
+
+/** @type {(undefined|boolean)} */
+ShadowRootInit.prototype.delegatesFocus;
+
+/** @type {(undefined|SlotAssignmentMode)} */
+ShadowRootInit.prototype.slotAssignment;
 
 
 /**
@@ -5709,3 +5758,139 @@ Element.prototype.focus = function(options) {};
  * @see https://html.spec.whatwg.org/multipage/interaction.html#dom-blur
  */
 Element.prototype.blur = function() {};
+
+/**
+ * @see https://www.w3.org/TR/CSP3/#securitypolicyviolationevent
+ *
+ * @constructor
+ * @extends {Event}
+ *
+ * @param {string} type
+ * @param {SecurityPolicyViolationEventInit=}
+ *     opt_securityPolicyViolationEventInitDict
+ */
+function SecurityPolicyViolationEvent(
+    type, opt_securityPolicyViolationEventInitDict) {}
+
+/** @const {string} */
+SecurityPolicyViolationEvent.prototype.documentURI;
+
+/** @const {string} */
+SecurityPolicyViolationEvent.prototype.referrer;
+
+/** @const {string} */
+SecurityPolicyViolationEvent.prototype.blockedURI;
+
+/** @const {string} */
+SecurityPolicyViolationEvent.prototype.effectiveDirective;
+
+/** @const {string} */
+SecurityPolicyViolationEvent.prototype.violatedDirective;
+
+/** @const {string} */
+SecurityPolicyViolationEvent.prototype.originalPolicy;
+
+/** @const {string} */
+SecurityPolicyViolationEvent.prototype.sourceFile;
+
+/** @const {string} */
+SecurityPolicyViolationEvent.prototype.sample;
+
+/**
+ * @see https://www.w3.org/TR/CSP3/#enumdef-securitypolicyviolationeventdisposition
+ * @const {string}
+ */
+SecurityPolicyViolationEvent.prototype.disposition;
+
+/** @const {number} */
+SecurityPolicyViolationEvent.prototype.statusCode;
+
+/** @const {number} */
+SecurityPolicyViolationEvent.prototype.lineNumber;
+
+/** @const {number} */
+SecurityPolicyViolationEvent.prototype.columnNumber;
+
+
+
+/**
+ * @record
+ * @extends {EventInit}
+ * @see https://www.w3.org/TR/CSP3/#dictdef-securitypolicyviolationeventinit
+ */
+function SecurityPolicyViolationEventInit() {}
+
+/** @type {string} */
+SecurityPolicyViolationEventInit.prototype.documentURI;
+
+/** @type {undefined|string} */
+SecurityPolicyViolationEventInit.prototype.referrer;
+
+/** @type {undefined|string} */
+SecurityPolicyViolationEventInit.prototype.blockedURI;
+
+/** @type {string} */
+SecurityPolicyViolationEventInit.prototype.disposition;
+
+/** @type {string} */
+SecurityPolicyViolationEventInit.prototype.effectiveDirective;
+
+/** @type {string} */
+SecurityPolicyViolationEventInit.prototype.violatedDirective;
+
+/** @type {string} */
+SecurityPolicyViolationEventInit.prototype.originalPolicy;
+
+/** @type {undefined|string} */
+SecurityPolicyViolationEventInit.prototype.sourceFile;
+
+/** @type {undefined|string} */
+SecurityPolicyViolationEventInit.prototype.sample;
+
+/** @type {number} */
+SecurityPolicyViolationEventInit.prototype.statusCode;
+
+/** @type {undefined|number} */
+SecurityPolicyViolationEventInit.prototype.lineNumber;
+
+/** @type {undefined|number} */
+SecurityPolicyViolationEventInit.prototype.columnNumber;
+
+
+/**
+ * @see https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#formdataevent
+ *
+ * @constructor
+ * @extends {Event}
+ *
+ * @param {string} type
+ * @param {FormDataEventInit=} eventInitDict
+ */
+function FormDataEvent(type, eventInitDict) {}
+
+/** @const {!FormData} */
+FormDataEvent.prototype.formData;
+
+/**
+ * @see https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#formdataeventinit
+ *
+ * @record
+ * @extends {EventInit}
+ */
+function FormDataEventInit() {}
+
+/** @type {!FormData} */
+FormDataEventInit.prototype.formData;
+
+/**
+ * @see https://html.spec.whatwg.org/multipage/indices.html#event-formdata
+ * @type {?function(FormDataEvent)}
+ */
+HTMLFormElement.prototype.onformdata;
+
+/**
+ * @const {boolean}
+ * Whether the document has opted in to cross-origin isolation.
+ * @see https://html.spec.whatwg.org/multipage/webappapis.html#dom-crossoriginisolated
+ */
+Window.prototype.crossOriginIsolated;

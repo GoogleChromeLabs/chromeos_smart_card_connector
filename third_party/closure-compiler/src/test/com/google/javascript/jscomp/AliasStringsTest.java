@@ -16,23 +16,21 @@
 
 package com.google.javascript.jscomp;
 
+import com.google.javascript.jscomp.CompilerOptions.AliasStringsMode;
 import com.google.javascript.jscomp.testing.JSChunkGraphBuilder;
-import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link AliasStrings}.
- *
- */
+/** Tests for {@link AliasStrings}. */
 @RunWith(JUnit4.class)
 public final class AliasStringsTest extends CompilerTestCase {
 
   private static final String EXTERNS = "alert";
-  private static final Set<String> ALL_STRINGS = null;
 
   private boolean hashReduction = false;
+
+  private AliasStringsMode aliasStringsMode = AliasStringsMode.ALL;
 
   public AliasStringsTest() {
     super(EXTERNS);
@@ -40,7 +38,8 @@ public final class AliasStringsTest extends CompilerTestCase {
 
   @Override
   protected CompilerPass getProcessor(Compiler compiler) {
-    AliasStrings pass = new AliasStrings(compiler, compiler.getModuleGraph(), false);
+    AliasStrings pass =
+        new AliasStrings(compiler, compiler.getModuleGraph(), false, aliasStringsMode);
     if (hashReduction) {
       pass.unitTestHashReductionMask = 0;
     }
@@ -62,26 +61,53 @@ public final class AliasStringsTest extends CompilerTestCase {
             "const AB = `${A}aliasable string${B}`"));
   }
 
+  @Test
+  public void testProtectedMessage() {
+    test(
+        lines(
+            "const A = 'aliasable string';",
+            "const B = 'aliasable string';",
+            "var MSG_A =",
+            "    " + ReplaceMessagesConstants.DEFINE_MSG_CALLEE + "(",
+            "        {",
+            "          \"key\":    \"MSG_A\",",
+            "          \"msg_text\":\"aliasable string\",",
+            "        });",
+            ""),
+        lines(
+            "var $$S_aliasable$20string = 'aliasable string';",
+            "const A = $$S_aliasable$20string;",
+            "const B = $$S_aliasable$20string;",
+            "var MSG_A =",
+            "    " + ReplaceMessagesConstants.DEFINE_MSG_CALLEE + "(",
+            "        {",
+            "          \"key\":    \"MSG_A\",",
+            // This string is left unmolested instead of using an alias,
+            // because `ReplaceMessages` needs the literal string here.
+            "          \"msg_text\":\"aliasable string\",",
+            "        });",
+            ""));
+  }
 
   @Test
   public void testLongStableAlias() {
     // Check long strings get a hash code
 
-    test("a='Antidisestablishmentarianism';" +
-         "b='Antidisestablishmentarianism';",
-         "var $$S_Antidisestablishment_e428eaa9=" +
-         "  'Antidisestablishmentarianism';"      +
-         "a=$$S_Antidisestablishment_e428eaa9;"   +
-         "b=$$S_Antidisestablishment_e428eaa9");
+    test(
+        "a='Antidisestablishmentarianism';" + "b='Antidisestablishmentarianism';",
+        "var $$S_Antidisestablishment_e428eaa9="
+            + "  'Antidisestablishmentarianism';"
+            + "a=$$S_Antidisestablishment_e428eaa9;"
+            + "b=$$S_Antidisestablishment_e428eaa9");
 
     // Check that small changes give different hash codes
 
-    test("a='AntidisestablishmentarianIsm';" +
-         "b='AntidisestablishmentarianIsm';",
-         "var $$S_Antidisestablishment_e4287289=" +
-         "  'AntidisestablishmentarianIsm';"      +
-         "a=$$S_Antidisestablishment_e4287289;"   +
-         "b=$$S_Antidisestablishment_e4287289");
+    test(
+        "a='AntidisestablishmentarianIsm';" + "b='AntidisestablishmentarianIsm';",
+        "var $$S_Antidisestablishment_e4287289="
+            + "  'AntidisestablishmentarianIsm';"
+            + "a=$$S_Antidisestablishment_e4287289;"
+            + "b=$$S_Antidisestablishment_e4287289");
 
     // TODO(user): check that hash code collisions are handled.
   }
@@ -93,20 +119,19 @@ public final class AliasStringsTest extends CompilerTestCase {
     // Check that hash code collisions generate different alias
     // variable names
 
-    test("f('Antidisestablishmentarianism');"  +
-         "f('Antidisestablishmentarianism');"  +
-         "f('Antidisestablishmentarianismo');" +
-         "f('Antidisestablishmentarianismo');",
-
-         "var $$S_Antidisestablishment_0="     +
-         "  'Antidisestablishmentarianism';"   +
-         "var $$S_Antidisestablishment_0_1="   +
-         "  'Antidisestablishmentarianismo';"  +
-
-         "f($$S_Antidisestablishment_0);"      +
-         "f($$S_Antidisestablishment_0);"      +
-         "f($$S_Antidisestablishment_0_1);"    +
-         "f($$S_Antidisestablishment_0_1);");
+    test(
+        "f('Antidisestablishmentarianism');"
+            + "f('Antidisestablishmentarianism');"
+            + "f('Antidisestablishmentarianismo');"
+            + "f('Antidisestablishmentarianismo');",
+        "var $$S_Antidisestablishment_0="
+            + "  'Antidisestablishmentarianism';"
+            + "var $$S_Antidisestablishment_0_1="
+            + "  'Antidisestablishmentarianismo';"
+            + "f($$S_Antidisestablishment_0);"
+            + "f($$S_Antidisestablishment_0);"
+            + "f($$S_Antidisestablishment_0_1);"
+            + "f($$S_Antidisestablishment_0_1);");
   }
 
   @Test
@@ -163,36 +188,39 @@ public final class AliasStringsTest extends CompilerTestCase {
             .build();
 
     test(
-        modules,
-        new String[] {
-          // m1
-          "var $$S_ciaociaociaociaociao = 'ciaociaociaociaociao';"
-              + "var $$S_ffffffffffffffffffff = 'ffffffffffffffffffff';"
-              + "function f(a) { alert($$S_ffffffffffffffffffff + $$S_ffffffffffffffffffff + a); }"
-              + "function g() { alert($$S_ciaociaociaociaociao); }",
-          // m2
-          "var $$S_$2d$2d$2d$2d$2d$2d$2d$2d$2dhi$2d$2d$2d$2d$2d$2d$2d$2d$2d"
-              + " = '---------hi---------';"
-              + "var $$S_$2d$2d$2d$2d$2d$2d$2d$2d_adios$2d$2d$2d$2d$2d$2d$2d"
-              + " = '--------adios-------'; "
-              + "var $$S_hhhhhhhhhhhhhhhhhhhh = 'hhhhhhhhhhhhhhhhhhhh';"
-              + "f($$S_$2d$2d$2d$2d$2d$2d$2d$2d$2dhi$2d$2d$2d$2d$2d$2d$2d$2d$2d);"
-              + "f('bye');"
-              + "function h(a) { alert($$S_hhhhhhhhhhhhhhhhhhhh + $$S_hhhhhhhhhhhhhhhhhhhh + a); }",
-          // m3
-          "var $$S_zzzzzzzzzzzzzzzzzzzz = 'zzzzzzzzzzzzzzzzzzzz';"
-              + "f($$S_$2d$2d$2d$2d$2d$2d$2d$2d$2dhi$2d$2d$2d$2d$2d$2d$2d$2d$2d);"
-              + "h($$S_ciaociaociaociaociao + "
-              + "$$S_$2d$2d$2d$2d$2d$2d$2d$2d_adios$2d$2d$2d$2d$2d$2d$2d);"
-              + "(function() { alert($$S_zzzzzzzzzzzzzzzzzzzz + $$S_zzzzzzzzzzzzzzzzzzzz) })();",
-          // m4
-          "var $$S_$2d$2d$2d$2d$2d$2d$2dpeaches$2d$2d$2d$2d$2d$2d"
-              + " = '-------peaches------';"
-              + "f($$S_$2d$2d$2d$2d$2d$2d$2d$2d$2dhi$2d$2d$2d$2d$2d$2d$2d$2d$2d);"
-              + "alert($$S_$2d$2d$2d$2d$2d$2d$2d$2d_adios$2d$2d$2d$2d$2d$2d$2d);"
-              + "h($$S_$2d$2d$2d$2d$2d$2d$2dpeaches$2d$2d$2d$2d$2d$2d);"
-              + "h($$S_$2d$2d$2d$2d$2d$2d$2dpeaches$2d$2d$2d$2d$2d$2d);",
-        });
+        srcs(modules),
+        expected(
+            // m1
+            "var $$S_ciaociaociaociaociao = 'ciaociaociaociaociao';"
+                + "var $$S_ffffffffffffffffffff = 'ffffffffffffffffffff';"
+                + "function f(a) { "
+                + "  alert($$S_ffffffffffffffffffff + $$S_ffffffffffffffffffff + a); "
+                + "}"
+                + "function g() { alert($$S_ciaociaociaociaociao); }",
+            // m2
+            "var $$S_$2d$2d$2d$2d$2d$2d$2d$2d$2dhi$2d$2d$2d$2d$2d$2d$2d$2d$2d"
+                + " = '---------hi---------';"
+                + "var $$S_$2d$2d$2d$2d$2d$2d$2d$2d_adios$2d$2d$2d$2d$2d$2d$2d"
+                + " = '--------adios-------'; "
+                + "var $$S_hhhhhhhhhhhhhhhhhhhh = 'hhhhhhhhhhhhhhhhhhhh';"
+                + "f($$S_$2d$2d$2d$2d$2d$2d$2d$2d$2dhi$2d$2d$2d$2d$2d$2d$2d$2d$2d);"
+                + "f('bye');"
+                + "function h(a) {"
+                + "  alert($$S_hhhhhhhhhhhhhhhhhhhh + $$S_hhhhhhhhhhhhhhhhhhhh + a);"
+                + "}",
+            // m3
+            "var $$S_zzzzzzzzzzzzzzzzzzzz = 'zzzzzzzzzzzzzzzzzzzz';"
+                + "f($$S_$2d$2d$2d$2d$2d$2d$2d$2d$2dhi$2d$2d$2d$2d$2d$2d$2d$2d$2d);"
+                + "h($$S_ciaociaociaociaociao + "
+                + "$$S_$2d$2d$2d$2d$2d$2d$2d$2d_adios$2d$2d$2d$2d$2d$2d$2d);"
+                + "(function() { alert($$S_zzzzzzzzzzzzzzzzzzzz + $$S_zzzzzzzzzzzzzzzzzzzz) })();",
+            // m4
+            "var $$S_$2d$2d$2d$2d$2d$2d$2dpeaches$2d$2d$2d$2d$2d$2d"
+                + " = '-------peaches------';"
+                + "f($$S_$2d$2d$2d$2d$2d$2d$2d$2d$2dhi$2d$2d$2d$2d$2d$2d$2d$2d$2d);"
+                + "alert($$S_$2d$2d$2d$2d$2d$2d$2d$2d_adios$2d$2d$2d$2d$2d$2d$2d);"
+                + "h($$S_$2d$2d$2d$2d$2d$2d$2dpeaches$2d$2d$2d$2d$2d$2d);"
+                + "h($$S_$2d$2d$2d$2d$2d$2d$2dpeaches$2d$2d$2d$2d$2d$2d);"));
   }
 
   @Test
@@ -215,24 +243,23 @@ public final class AliasStringsTest extends CompilerTestCase {
             .build();
 
     test(
-        modules,
-        new String[] {
-          // m1
-          lines(
-              "var $$S_ciaociaociaociaociao = 'ciaociaociaociaociao';",
-              "function g() { alert($$S_ciaociaociaociaociao); }"),
-          // m2
-          lines(
-              "var $$S_hhhhhhhhhhhhhhhhhhh$3a = 'hhhhhhhhhhhhhhhhhhh:';",
-              "function h(a) {"
-                  + "  alert($$S_hhhhhhhhhhhhhhhhhhh$3a + a);"
-                  + "  alert($$S_hhhhhhhhhhhhhhhhhhh$3a + a);"
-                  + "}"),
-          // m3
-          "h($$S_ciaociaociaociaociao + 'adios');",
-          // m4
-          "g();",
-        });
+        srcs(modules),
+        expected(
+            // m1
+            lines(
+                "var $$S_ciaociaociaociaociao = 'ciaociaociaociaociao';",
+                "function g() { alert($$S_ciaociaociaociaociao); }"),
+            // m2
+            lines(
+                "var $$S_hhhhhhhhhhhhhhhhhhh$3a = 'hhhhhhhhhhhhhhhhhhh:';",
+                "function h(a) {"
+                    + "  alert($$S_hhhhhhhhhhhhhhhhhhh$3a + a);"
+                    + "  alert($$S_hhhhhhhhhhhhhhhhhhh$3a + a);"
+                    + "}"),
+            // m3
+            "h($$S_ciaociaociaociaociao + 'adios');",
+            // m4
+            "g();"));
   }
 
   @Test
@@ -249,19 +276,18 @@ public final class AliasStringsTest extends CompilerTestCase {
     // The "ciao" string is used in m1 and m2.
     // Since m2 depends on m1, we should create the module there and not force it into m0.
     test(
-        modules,
-        new String[] {
-          // m0
-          "",
-          // m1
-          lines(
-              "var $$S_ciaociaociaociaociao = 'ciaociaociaociaociao';",
-              "function g() { alert($$S_ciaociaociaociaociao); }"),
-          // m2
-          "h($$S_ciaociaociaociaociao + 'adios');",
-          // m3
-          "g();",
-        });
+        srcs(modules),
+        expected(
+            // m0
+            "",
+            // m1
+            lines(
+                "var $$S_ciaociaociaociaociao = 'ciaociaociaociaociao';",
+                "function g() { alert($$S_ciaociaociaociaociao); }"),
+            // m2
+            "h($$S_ciaociaociaociaociao + 'adios');",
+            // m3
+            "g();"));
   }
 
   @Test
@@ -274,14 +300,35 @@ public final class AliasStringsTest extends CompilerTestCase {
             .build();
 
     test(
-        modules,
-        new String[] {
-          // m0
-          "var $$S_goodgoodgoodgoodgood='goodgoodgoodgoodgood'",
-          // m1
-          "function foo() {f($$S_goodgoodgoodgoodgood)}",
-          // m2
-          "function foo() {f($$S_goodgoodgoodgoodgood)}",
-        });
+        srcs(modules),
+        expected(
+            // m0
+            "var $$S_goodgoodgoodgoodgood='goodgoodgoodgoodgood'",
+            // m1
+            "function foo() {f($$S_goodgoodgoodgoodgood)}",
+            // m2
+            "function foo() {f($$S_goodgoodgoodgoodgood)}"));
+  }
+
+  @Test
+  public void testOnlyAliasLargeStrings() {
+    aliasStringsMode = AliasStringsMode.LARGE;
+
+    test(
+        lines(
+            "const A = 'non aliasable string with length <= 100 characters';",
+            "const B = 'non aliasable string with length <= 100 characters';",
+            // C and D have lengths of 101 characters
+            "const C = 'aliasable large string"
+                + " largestringlargestringlargestringlargestringlargestringlargestringlargestring!';",
+            "const D = 'aliasable large string"
+                + " largestringlargestringlargestringlargestringlargestringlargestringlargestring!';"),
+        lines(
+            "var $$S_aliasable$20large$20stri_6c7cf169 = 'aliasable large string"
+                + " largestringlargestringlargestringlargestringlargestringlargestringlargestring!';",
+            "const A = 'non aliasable string with length <= 100 characters';",
+            "const B = 'non aliasable string with length <= 100 characters';",
+            "const C = $$S_aliasable$20large$20stri_6c7cf169;",
+            "const D = $$S_aliasable$20large$20stri_6c7cf169;"));
   }
 }

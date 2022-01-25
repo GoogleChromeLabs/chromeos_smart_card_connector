@@ -32,6 +32,8 @@ public class RewriteNewDotTargetTest extends CompilerTestCase {
   public void enableTypeCheckBeforePass() {
     enableTypeCheck();
     enableTypeInfoValidation();
+    replaceTypesWithColors();
+    enableMultistageCompilation();
   }
 
   @Override

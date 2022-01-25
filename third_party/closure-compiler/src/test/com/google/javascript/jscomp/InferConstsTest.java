@@ -23,26 +23,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.javascript.rhino.Node;
 import java.util.HashSet;
 import java.util.Set;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link InferConsts}.
- *
- */
+/** Tests for {@link InferConsts}. */
 @RunWith(JUnit4.class)
 public final class InferConstsTest extends CompilerTestCase {
   private FindConstants constFinder;
 
   private ImmutableList<String> names;
-
-  @Override
-  @Before
-  public void setUp() throws Exception {
-    super.setUp();
-  }
 
   @Override
   public CompilerPass getProcessor(final Compiler compiler) {
@@ -63,6 +53,7 @@ public final class InferConstsTest extends CompilerTestCase {
     assertConsts("var x = 3, y = 4;", inferred("x", "y"));
     assertConsts("var x = 3, y;", inferred("x"), notInferred("y"));
     assertConsts("var x = 3;  function f(){x;}", inferred("x"));
+    assertConsts("var x = 3, y; y ||= 4;", inferred("x"), notInferred("y"));
   }
 
   @Test
@@ -73,6 +64,7 @@ public final class InferConstsTest extends CompilerTestCase {
     assertConsts("let x = 3; let y = 4;", inferred("x", "y"));
     assertConsts("let x = 3, y = 4; x++;", inferred("y"));
     assertConsts("let x = 3;  function f(){let x = 4;}", inferred("x"));
+    assertConsts("let x; x ||= 0;", notInferred("x"));
     assertConsts("/** @const */ let x;", declared("x"), notInferred("x"));
     assertConsts("const x = 1;", declared("x"), inferred("x"));
   }
@@ -86,6 +78,7 @@ public final class InferConstsTest extends CompilerTestCase {
     assertConsts("function f() { Foo; } class Foo {}", inferred("Foo"));
     assertConsts("function f() { g; } function g() {}", inferred("g"));
     assertConsts("function f([y = () => x], x) {}", inferred("x"));
+    assertConsts("function f() { x ||= 1; } let x = 0;", notInferred("x"));
   }
 
   @Test
@@ -97,6 +90,8 @@ public final class InferConstsTest extends CompilerTestCase {
     assertNotConsts("let x = 3; x = 2;", "x", "y");
     assertNotConsts("/** @const */let x; let y;", "y");
     assertNotConsts("let x = 3;  function f() {let x = 4; x++;} x++;", "x");
+    assertNotConsts("var x = 2; x ||= 1;", "x");
+    assertNotConsts("let x = 3; x ||= 1;", "x");
   }
 
   @Test

@@ -18,7 +18,6 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.javascript.jscomp.GatherModuleMetadata.INVALID_MODULE_ID;
 import static com.google.javascript.jscomp.GatherModuleMetadata.INVALID_NAMESPACE_OR_MODULE_ID;
 
 import com.google.common.collect.ImmutableList;
@@ -88,7 +87,7 @@ public final class GatherModuleMetadataTest extends CompilerTestCase {
   public void testGoogProvideWithGoogDeclaredInOtherFile() {
     // Closure's base.js declare the global goog. It should be ignored when scanning the provide'd
     // file. Only local variables named goog should cause the pass to back off.
-    testSame(new String[] {"var goog;", "goog.provide('my.provide');"});
+    testSame(srcs("var goog;", "goog.provide('my.provide');"));
     assertThat(metadataMap().getModulesByGoogNamespace().keySet()).containsExactly("my.provide");
     ModuleMetadata m = metadataMap().getModulesByGoogNamespace().get("my.provide");
     assertThat(m.googNamespaces()).containsExactly("my.provide");
@@ -127,8 +126,15 @@ public final class GatherModuleMetadataTest extends CompilerTestCase {
     test(srcs("goog.provide(' ');"), error(INVALID_NAMESPACE_OR_MODULE_ID));
     test(srcs("goog.provide('a..b');"), error(INVALID_NAMESPACE_OR_MODULE_ID));
 
-    testSame(srcs("goog.provide('ā');"));
+    test(srcs("goog.provide('ā');"), error(INVALID_NAMESPACE_OR_MODULE_ID));
     testSame(srcs("goog.provide('a');"));
+
+    testSame(srcs("goog.provide('a.class');"));
+    test(srcs("goog.provide('class.a');"), error(INVALID_NAMESPACE_OR_MODULE_ID));
+
+    setAcceptedLanguage(LanguageMode.ECMASCRIPT3);
+    testError(srcs("goog.provide('a.class');"), error(INVALID_NAMESPACE_OR_MODULE_ID));
+    testError(srcs("goog.provide('class.a');"), error(INVALID_NAMESPACE_OR_MODULE_ID));
   }
 
   @Test
@@ -151,8 +157,8 @@ public final class GatherModuleMetadataTest extends CompilerTestCase {
     test(srcs("goog.module('a. .b');"), error(INVALID_NAMESPACE_OR_MODULE_ID));
     test(srcs("goog.module('a.-.b');"), error(INVALID_NAMESPACE_OR_MODULE_ID));
 
-    test(srcs("goog.module('0');"), error(INVALID_MODULE_ID));
-    test(srcs("goog.module('ā');"), error(INVALID_MODULE_ID));
+    test(srcs("goog.module('0');"), error(INVALID_NAMESPACE_OR_MODULE_ID));
+    test(srcs("goog.module('ā');"), error(INVALID_NAMESPACE_OR_MODULE_ID));
 
     testSame(srcs("goog.module('a');"));
     testSame(srcs("goog.module('a0');"));
@@ -413,7 +419,7 @@ public final class GatherModuleMetadataTest extends CompilerTestCase {
   @Test
   public void testEs6ModuleDeclareModuleIdImportedGoog() {
     testSame(
-        ImmutableList.of(
+        srcs(
             SourceFile.fromCode("goog.js", ""),
             SourceFile.fromCode(
                 "testcode",

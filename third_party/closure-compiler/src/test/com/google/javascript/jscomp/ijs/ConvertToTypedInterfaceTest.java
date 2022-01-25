@@ -977,58 +977,53 @@ public final class ConvertToTypedInterfaceTest extends CompilerTestCase {
             "exports = Foo;"));
 
     testSame(
-        new String[] {
-          lines(
-              "goog.module('a.b.c');",
-              "/** @constructor */ function Foo() {}",
-              "Foo.prototype.display = function() {};",
-              "exports = Foo;"),
-          lines(
-              "goog.module('x.y.z');",
-              "/** @constructor */ function Foo() {}",
-              "Foo.prototype.display = function() {};",
-              "exports = Foo;"),
-        });
+        srcs(
+            lines(
+                "goog.module('a.b.c');",
+                "/** @constructor */ function Foo() {}",
+                "Foo.prototype.display = function() {};",
+                "exports = Foo;"),
+            lines(
+                "goog.module('x.y.z');",
+                "/** @constructor */ function Foo() {}",
+                "Foo.prototype.display = function() {};",
+                "exports = Foo;")));
 
     testSame(
-        new String[] {
-          lines(
-              "/** @constructor */ function Foo() {}",
-              "Foo.prototype.display = function() {};"),
-          lines(
-              "goog.module('x.y.z');",
-              "/** @constructor */ function Foo() {}",
-              "Foo.prototype.display = function() {};",
-              "exports = Foo;"),
-        });
+        srcs(
+            lines(
+                "/** @constructor */ function Foo() {}", "Foo.prototype.display = function() {};"),
+            lines(
+                "goog.module('x.y.z');",
+                "/** @constructor */ function Foo() {}",
+                "Foo.prototype.display = function() {};",
+                "exports = Foo;")));
 
     test(
-        new String[] {
-          lines(
-              "goog.module('a.b.c');",
-              "/** @constructor */ function Foo() {",
-              "  /** @type {number} */ this.x = 5;",
-              "}",
-              "exports = Foo;"),
-          lines(
-              "goog.module('x.y.z');",
-              "/** @constructor */ function Foo() {",
-              "  /** @type {number} */ this.x = 99;",
-              "}",
-              "exports = Foo;"),
-        },
-        new String[] {
-          lines(
-              "goog.module('a.b.c');",
-              "/** @constructor */ function Foo() {}",
-              "/** @type {number} */ Foo.prototype.x;",
-              "exports = Foo;"),
-          lines(
-              "goog.module('x.y.z');",
-              "/** @constructor */ function Foo() {}",
-              "/** @type {number} */ Foo.prototype.x;",
-              "exports = Foo;"),
-        });
+        srcs(
+            lines(
+                "goog.module('a.b.c');",
+                "/** @constructor */ function Foo() {",
+                "  /** @type {number} */ this.x = 5;",
+                "}",
+                "exports = Foo;"),
+            lines(
+                "goog.module('x.y.z');",
+                "/** @constructor */ function Foo() {",
+                "  /** @type {number} */ this.x = 99;",
+                "}",
+                "exports = Foo;")),
+        expected(
+            lines(
+                "goog.module('a.b.c');",
+                "/** @constructor */ function Foo() {}",
+                "/** @type {number} */ Foo.prototype.x;",
+                "exports = Foo;"),
+            lines(
+                "goog.module('x.y.z');",
+                "/** @constructor */ function Foo() {}",
+                "/** @type {number} */ Foo.prototype.x;",
+                "exports = Foo;")));
   }
 
   @Test
@@ -1910,7 +1905,7 @@ public final class ConvertToTypedInterfaceTest extends CompilerTestCase {
 
   @Test
   public void testEmptyFile() {
-    test(new String[] {"const x = 42;", ""}, new String[] {"/** @const {number} */ var x;", ""});
+    test(srcs("const x = 42;", ""), expected("/** @const {number} */ var x;", ""));
   }
 
   @Test

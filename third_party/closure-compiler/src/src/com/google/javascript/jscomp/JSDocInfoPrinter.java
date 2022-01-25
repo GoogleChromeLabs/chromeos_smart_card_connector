@@ -21,6 +21,7 @@ import static java.util.Comparator.naturalOrder;
 import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSDocInfo.Visibility;
 import com.google.javascript.rhino.JSTypeExpression;
@@ -30,7 +31,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Prints a JSDocInfo, used for preserving type annotations in ES6 transpilation.
@@ -62,7 +62,8 @@ public final class JSDocInfoPrinter {
 
     if (info.isExterns()) {
       parts.add("@externs");
-    } else if (info.isTypeSummary()) {
+    }
+    if (info.isTypeSummary()) {
       parts.add("@typeSummary");
     }
 
@@ -71,6 +72,13 @@ public final class JSDocInfoPrinter {
     } else if (info.getVisibility() != null
         && info.getVisibility() != Visibility.INHERITED) {
       parts.add("@" + Ascii.toLowerCase(info.getVisibility().toString()));
+    }
+
+    if (info.getAuthors() != null) {
+      multiline = true;
+      for (String name : info.getAuthors()) {
+        parts.add("@author " + name);
+      }
     }
 
     if (info.isAbstract()) {
@@ -93,6 +101,13 @@ public final class JSDocInfoPrinter {
     if (description != null) {
       multiline = true;
       parts.add("@desc " + description);
+    }
+
+    if (info.getReferences() != null) {
+      multiline = true;
+      for (String desc : info.getReferences()) {
+        parts.add("@see " + desc);
+      }
     }
 
     if (info.isWizaction()) {
@@ -212,8 +227,9 @@ public final class JSDocInfoPrinter {
           buildAnnotationWithType("return", info.getReturnType(), info.getReturnDescription()));
     }
 
-    if (!info.getThrownTypes().isEmpty()) {
-      parts.add(buildAnnotationWithType("throws", info.getThrownTypes().get(0)));
+    if (!info.getThrowsAnnotations().isEmpty() && !info.getThrowsAnnotations().get(0).isEmpty()) {
+      multiline = true;
+      parts.add("@throws " + info.getThrowsAnnotations().get(0));
     }
 
     ImmutableMap<String, JSTypeExpression> templates = info.getTemplateTypes();
@@ -276,12 +292,23 @@ public final class JSDocInfoPrinter {
       parts.add("@nocollapse");
     }
 
-    Set<String> suppressions = info.getSuppressions();
+    ImmutableMap<ImmutableSet<String>, String> suppressions =
+        info.getSuppressionsAndTheirDescription();
     if (!suppressions.isEmpty()) {
-      // Print suppressions in sorted order to avoid non-deterministic output.
-      String[] arr = suppressions.toArray(new String[0]);
-      Arrays.sort(arr, naturalOrder());
-      parts.add("@suppress {" + Joiner.on(',').join(arr) + "}");
+      // With ImmutableMap, the iteration order will be same as insertion order (i.e. parse order).
+      for (Map.Entry<ImmutableSet<String>, String> suppression : suppressions.entrySet()) {
+        String[] warnings = suppression.getKey().toArray(new String[0]);
+        // Even the warnings inside a suppress annotation are printed in natural order for
+        // consistency
+        Arrays.sort(warnings, naturalOrder());
+        String text = suppression.getValue();
+        StringBuilder sb = new StringBuilder();
+        sb.append("@suppress {").append(Joiner.on(',').join(warnings)).append("}");
+        if (!text.isEmpty()) {
+          sb.append(" ").append(text);
+        }
+        parts.add(sb.toString());
+      }
       multiline = true;
     }
 

@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.javascript.jscomp.serialization.TypePointers.isAxiomatic;
-import static java.util.Comparator.comparingInt;
 import static java.util.Comparator.naturalOrder;
 
 import com.google.common.collect.ImmutableList;
@@ -48,7 +47,8 @@ import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.Optional;
+import java.util.TreeSet;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 final class JSTypeReconserializer {
@@ -58,6 +58,7 @@ final class JSTypeReconserializer {
   private final InvalidatingTypes invalidatingTypes;
   private final StringPool.Builder stringPoolBuilder;
   private final JSTypeColorIdHasher hasher;
+  private final Predicate<String> shouldPropagatePropertyName;
 
   // Cache some commonly used types.
   private final SeenTypeRecord unknownRecord;
@@ -92,7 +93,7 @@ final class JSTypeReconserializer {
           .put(JSTypeNative.OBJECT_FUNCTION_TYPE, StandardColors.TOP_OBJECT)
           .put(JSTypeNative.OBJECT_PROTOTYPE, StandardColors.TOP_OBJECT)
           .put(JSTypeNative.OBJECT_TYPE, StandardColors.TOP_OBJECT)
-          .build();
+          .buildOrThrow();
 
   private enum State {
     COLLECTING_TYPES,
@@ -104,11 +105,13 @@ final class JSTypeReconserializer {
       JSTypeRegistry registry,
       InvalidatingTypes invalidatingTypes,
       StringPool.Builder stringPoolBuilder,
+      Predicate<String> shouldPropagatePropertyName,
       SerializationOptions serializationMode) {
     this.registry = registry;
     this.hasher = new JSTypeColorIdHasher(registry);
     this.invalidatingTypes = invalidatingTypes;
     this.stringPoolBuilder = stringPoolBuilder;
+    this.shouldPropagatePropertyName = shouldPropagatePropertyName;
     this.serializationMode = serializationMode;
 
     this.seedCachesWithAxiomaticTypes();
@@ -116,21 +119,32 @@ final class JSTypeReconserializer {
     this.unknownRecord = this.seenTypeRecords.get(StandardColors.UNKNOWN.getId());
   }
 
+  /**
+   * Initializes a JSTypeReconserializer
+   *
+   * @param shouldPropagatePropertyName decide whether a property present on some ObjectType should
+   *     actually be serialized. Used to avoid serializing properties that won't impact
+   *     optimizations (because they aren't present in the AST)
+   */
   public static JSTypeReconserializer create(
       JSTypeRegistry registry,
       InvalidatingTypes invalidatingTypes,
       StringPool.Builder stringPoolBuilder,
+      Predicate<String> shouldPropagatePropertyName,
       SerializationOptions serializationMode) {
     JSTypeReconserializer serializer =
         new JSTypeReconserializer(
-            registry, invalidatingTypes, stringPoolBuilder, serializationMode);
-    serializer.checkValid();
+            registry,
+            invalidatingTypes,
+            stringPoolBuilder,
+            shouldPropagatePropertyName,
+            serializationMode);
+    serializer.checkValidLinearTime();
     return serializer;
   }
 
   /** Returns a pointer to the given type. If it is not already serialized, serializes it too */
   TypePointer serializeType(JSType type) {
-    checkValid();
     SeenTypeRecord record = recordType(type);
     return record.pointer;
   }
@@ -239,7 +253,6 @@ final class JSTypeReconserializer {
   }
 
   private SeenTypeRecord getOrCreateRecord(ColorId id, JSType jstype) {
-    checkValid();
     checkNotNull(jstype);
     checkState(State.COLLECTING_TYPES == this.state || State.GENERATING_POOL == this.state);
 
@@ -264,13 +277,14 @@ final class JSTypeReconserializer {
                 .addAllUnionMember(
                     seen.unionMembers.stream()
                         .map((r) -> r.pointer)
-                        .sorted(comparingInt(TypePointer::getPoolOffset))
+                        .sorted(TypePointers.OFFSET_ASCENDING)
                         .collect(toImmutableList()))
                 .build())
         .build();
   }
 
   private TypeProto reconcileObjectTypes(SeenTypeRecord seen) {
+    TreeSet<String> debugTypenames = new TreeSet<>();
     LinkedHashSet<TypePointer> instancePointers = new LinkedHashSet<>();
     LinkedHashSet<TypePointer> prototypePointers = new LinkedHashSet<>();
     LinkedHashSet<Integer> ownProperties = new LinkedHashSet<>();
@@ -278,26 +292,12 @@ final class JSTypeReconserializer {
     boolean isConstructor = false;
     boolean isInvalidating = false;
     boolean propertiesKeepOriginalName = false;
-    ObjectTypeProto.DebugInfo.Builder sampleDebugInfo = null;
 
     for (JSType type : seen.jstypes) {
       ObjectType objType = checkNotNull(type.toMaybeObjectType(), type);
 
       if (this.serializationMode.includeDebugInfo()) {
-        // TODO(nickreid): Actually reconcile these
-        String classname = debugNameOf(objType);
-        if (classname != null) {
-          if (sampleDebugInfo == null) {
-            sampleDebugInfo = ObjectTypeProto.DebugInfo.newBuilder();
-          }
-          sampleDebugInfo
-              .setClassName(classname)
-              .setFilename(
-                  Optional.ofNullable(sourceRefFor(objType))
-                      .map(JSType.WithSourceRef::getSource)
-                      .map(Node::getSourceFileName)
-                      .orElse(""));
-        }
+        debugTypenames.add(debugNameOf(type));
       }
 
       if (objType.isFunctionType()) {
@@ -317,7 +317,9 @@ final class JSTypeReconserializer {
       for (String ownProperty : objType.getOwnPropertyNames()) {
         // TODO(b/169899789): consider omitting common, well-known properties like "prototype" to
         // save space.
+        if (shouldPropagatePropertyName.test(ownProperty)) {
         ownProperties.add(this.stringPoolBuilder.put(ownProperty));
+        }
       }
 
       isInvalidating |= this.invalidatingTypes.isInvalidating(objType);
@@ -340,8 +342,8 @@ final class JSTypeReconserializer {
             .setMarkedConstructor(isConstructor)
             .setPropertiesKeepOriginalName(propertiesKeepOriginalName)
             .setUuid(seen.colorId.asByteString());
-    if (sampleDebugInfo != null) {
-      objectProto.setDebugInfo(sampleDebugInfo);
+    if (!debugTypenames.isEmpty()) {
+      objectProto.getDebugInfoBuilder().addAllTypename(debugTypenames);
     }
     return TypeProto.newBuilder().setObject(objectProto).build();
   }
@@ -393,7 +395,7 @@ final class JSTypeReconserializer {
   }
 
   /** Checks that this instance is in a valid state. */
-  private void checkValid() {
+  private void checkValidLinearTime() {
     if (!this.serializationMode.runValidation()) {
       return;
     }
@@ -420,10 +422,32 @@ final class JSTypeReconserializer {
    */
   TypePool generateTypePool() {
     checkState(this.state == State.COLLECTING_TYPES);
-    checkValid();
-    this.state = State.GENERATING_POOL;
+    checkValidLinearTime();
 
     TypePool.Builder builder = TypePool.newBuilder();
+
+    if (this.serializationMode.includeDebugInfo()) {
+      TypePool.DebugInfo.Builder debugInfo = builder.getDebugInfoBuilder();
+      this.invalidatingTypes
+          .getMismatchLocations()
+          .inverse() // Key by source ref to deduplicate the strings, which are pretty long.
+          .asMap()
+          .forEach(
+              (location, types) ->
+                  debugInfo
+                      .addMismatchBuilder()
+                      .setSourceRef(location.getLocation())
+                      .addAllInvolvedColor(
+                          types.stream()
+                              .peek((t) -> checkState(!t.isUnionType(), t))
+                              // Ensure all types are recorded before reconciliation.
+                              .map(this::serializeType)
+                              .distinct()
+                              .sorted(TypePointers.OFFSET_ASCENDING)
+                              .collect(toImmutableList())));
+    }
+
+    this.state = State.GENERATING_POOL;
 
     for (SeenTypeRecord seen : this.seenTypeRecords.values()) {
       if (StandardColors.AXIOMATIC_COLORS.containsKey(seen.colorId)) {
@@ -444,7 +468,7 @@ final class JSTypeReconserializer {
     }
 
     this.state = State.FINISHED;
-    checkValid();
+    checkValidLinearTime();
     return builder.build();
   }
 
@@ -502,27 +526,6 @@ final class JSTypeReconserializer {
     throw new AssertionError();
   }
 
-  @Nullable
-  private static JSType.WithSourceRef sourceRefFor(ObjectType type) {
-    if (type.isEnumType()) {
-      return type.toMaybeEnumType();
-    } else if (type.isEnumElementType()) {
-      // EnumElementTypes are proxied to their underlying type when transformed to colors.
-      throw new AssertionError(type);
-    }
-
-    if (type.isFunctionType()) {
-      return type.toMaybeFunctionType();
-    } else if (type.isFunctionPrototypeType()) {
-      return type.getOwnerFunction();
-    } else if (type.getConstructor() != null) {
-      return type.getConstructor();
-    }
-
-    return null;
-  }
-
-  @Nullable
   private static String debugNameOf(JSType type) {
     ObjectType oType = type.toMaybeObjectType();
     if (oType == null) {
@@ -541,6 +544,6 @@ final class JSTypeReconserializer {
         className = "(typeof " + className + ")";
       }
     }
-    return className;
+    return (className == null) ? type.toString() : className;
   }
 }

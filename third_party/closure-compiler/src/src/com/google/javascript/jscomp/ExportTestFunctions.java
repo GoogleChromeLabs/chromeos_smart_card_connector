@@ -16,8 +16,8 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
-import com.google.javascript.jscomp.parsing.parser.util.format.SimpleFormat;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import java.util.regex.Pattern;
@@ -80,7 +80,7 @@ public class ExportTestFunctions implements CompilerPass {
           String className = NodeUtil.getName(classNode);
           exportClass(classNode, className, n);
         } else if (n.isClass()) {
-          exportClass(parent, n);
+          exportClass(n);
         }
       } else if (NodeUtil.isExprAssign(parent)) {
         // Check for a test method assignment.
@@ -98,7 +98,7 @@ public class ExportTestFunctions implements CompilerPass {
               if (n.getFirstChild().isName()) {
                 exportTestFunctionAsSymbol(nodeName, parent);
               } else {
-                exportTestFunctionAsProperty(nodeName, parent, n, grandparent);
+                exportTestFunctionAsProperty(firstChild, n);
               }
             }
           } else if (lastChild.isClass()) {
@@ -119,7 +119,7 @@ public class ExportTestFunctions implements CompilerPass {
       }
     }
 
-    private void exportClass(Node scriptNode, Node classNode) {
+    private void exportClass(Node classNode) {
       String className = NodeUtil.getName(classNode);
       exportClass(classNode, className, classNode);
     }
@@ -238,28 +238,28 @@ public class ExportTestFunctions implements CompilerPass {
     compiler.reportChangeToEnclosingScope(expression);
   }
 
-
   // Adds exportProperty() of the test function name on the prototype object
-  private void exportTestFunctionAsProperty(String fullyQualifiedFunctionName,
-      Node parent, Node node, Node scriptNode) {
+  private void exportTestFunctionAsProperty(Node fullyQualifiedFunctionName, Node node) {
+    checkState(fullyQualifiedFunctionName.isGetProp(), fullyQualifiedFunctionName);
 
     String testFunctionName =
         NodeUtil.getPrototypePropertyName(node.getFirstChild());
     if (node.getFirstChild().getQualifiedName().startsWith("window.")) {
       testFunctionName = node.getFirstChild().getQualifiedName().substring("window.".length());
     }
-    String objectName = fullyQualifiedFunctionName.substring(0,
-        fullyQualifiedFunctionName.lastIndexOf('.'));
-    String exportCallStr = SimpleFormat.format("%s(%s, '%s', %s);",
-        exportPropertyFunction, objectName, testFunctionName,
-        fullyQualifiedFunctionName);
 
-    Node exportCall = this.compiler.parseSyntheticCode(exportCallStr)
-        .removeChildren();
-    exportCall.srcrefTree(scriptNode);
+    Node exportCall =
+        IR.call(
+            NodeUtil.newQName(this.compiler, this.exportPropertyFunction),
+            fullyQualifiedFunctionName.getOnlyChild().cloneTree(),
+            IR.string(testFunctionName),
+            fullyQualifiedFunctionName.cloneTree());
+    exportCall.putBooleanProp(Node.FREE_CALL, exportCall.getFirstChild().isName());
 
-    scriptNode.addChildrenAfter(exportCall, parent);
-    compiler.reportChangeToEnclosingScope(exportCall);
+    Node export = IR.exprResult(exportCall).srcrefTree(node);
+
+    export.insertAfter(node.getParent());
+    compiler.reportChangeToEnclosingScope(export);
   }
 
   /**
@@ -282,6 +282,7 @@ public class ExportTestFunctions implements CompilerPass {
    * robust to handle forwardDeclares, destructuring requires, etc.
    */
   private static boolean isGoogTestingTestSuite(NodeTraversal t, Node qname) {
+    qname = NodeUtil.getCallTargetResolvingIndirectCalls(qname.getParent());
     if (!qname.isQualifiedName()) {
       return false;
     }

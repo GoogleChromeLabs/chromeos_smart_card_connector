@@ -115,39 +115,6 @@ class RenameProperties implements CompilerPass {
   /**
    * Creates an instance.
    *
-   * @param compiler The JSCompiler
-   * @param generatePseudoNames Generate pseudo names. e.g foo -> $foo$ instead
-   *        of compact obfuscated names. This is used for debugging.
-   * @param nameGenerator a shared NameGenerator that this instance can use;
-   *        the instance may reset or reconfigure it, so the caller should
-   *        not expect any state to be preserved
-   */
-  RenameProperties(AbstractCompiler compiler, boolean generatePseudoNames,
-      NameGenerator nameGenerator) {
-    this(compiler, generatePseudoNames, null, null, null, nameGenerator);
-  }
-
-  /**
-   * Creates an instance.
-   *
-   * @param compiler The JSCompiler.
-   * @param generatePseudoNames Generate pseudo names. e.g foo -> $foo$ instead
-   *        of compact obfuscated names. This is used for debugging.
-   * @param prevUsedPropertyMap The property renaming map used in a previous
-   *        compilation.
-   * @param nameGenerator a shared NameGenerator that this instance can use;
-   *        the instance may reset or reconfigure it, so the caller should
-   *        not expect any state to be preserved
-   */
-  RenameProperties(AbstractCompiler compiler,
-      boolean generatePseudoNames, VariableMap prevUsedPropertyMap,
-      NameGenerator nameGenerator) {
-    this(compiler, generatePseudoNames, prevUsedPropertyMap, null, null, nameGenerator);
-  }
-
-  /**
-   * Creates an instance.
-   *
    * @param compiler The JSCompiler.
    * @param generatePseudoNames Generate pseudo names. e.g foo -> $foo$ instead of compact
    *     obfuscated names. This is used for debugging.
@@ -309,7 +276,7 @@ class RenameProperties implements CompilerPass {
         map.put(p.oldName, p.newName);
       }
     }
-    return new VariableMap(map.build());
+    return new VariableMap(map.buildOrThrow());
   }
 
 
@@ -324,47 +291,10 @@ class RenameProperties implements CompilerPass {
     @Override
     public void visit(NodeTraversal t, Node n, Node parent) {
       switch (n.getToken()) {
-        case COMPUTED_PROP:
-          break;
         case GETPROP:
         case OPTCHAIN_GETPROP:
-          if (compiler.getCodingConvention().blockRenamingForProperty(n.getString())) {
-            externedNames.add(n.getString());
-            break;
-            }
+        case MEMBER_FIELD_DEF:
           maybeMarkCandidate(n);
-          break;
-        case OBJECTLIT:
-        case OBJECT_PATTERN:
-          // Iterate through all the properties.
-          for (Node key = n.getFirstChild(); key != null; key = key.getNext()) {
-            switch (key.getToken()) {
-              case COMPUTED_PROP: // We don't want to rename computed properties
-              case OBJECT_REST:
-              case OBJECT_SPREAD:
-                break;
-
-              case GETTER_DEF:
-              case MEMBER_FUNCTION_DEF:
-              case SETTER_DEF:
-              case STRING_KEY:
-                String propName = key.getString();
-                if (key.isQuotedString()) {
-                  // Ensure that we never rename some other property in a way
-                  // that could conflict with this quoted key.
-                  quotedNames.add(propName);
-                } else if (compiler.getCodingConvention().blockRenamingForProperty(propName)) {
-                  externedNames.add(propName);
-                } else {
-                  maybeMarkCandidate(key);
-                }
-                break;
-
-              default:
-                throw new IllegalStateException(
-                    "Unexpected child of " + n.getToken() + ": " + key.toStringTree());
-            }
-          }
           break;
         case GETELEM:
         case OPTCHAIN_GETELEM:
@@ -380,41 +310,31 @@ class RenameProperties implements CompilerPass {
           // We replace property renaming function calls with a string
           // containing the renamed property.
           Node fnName = n.getFirstChild();
-          if (compiler
-              .getCodingConvention()
-              .isPropertyRenameFunction(fnName.getOriginalQualifiedName())) {
+            if (compiler.getCodingConvention().isPropertyRenameFunction(fnName)) {
             callNodeToParentMap.put(n, parent);
             countCallCandidates(t, n);
           }
           break;
         }
-        case CLASS_MEMBERS:
-          {
-            // Replace function names defined in a class scope
-            for (Node key = n.getFirstChild(); key != null; key = key.getNext()) {
-              if (key.isComputedProp()) {
-                // We don't want to rename computed properties.
-                continue;
-              } else {
-                Node member = key.getFirstChild();
-
-                String memberDefName = key.getString();
-                if (member.isFunction()) {
-                  Node fnName = member.getFirstChild();
-                  if (compiler.getCodingConvention().blockRenamingForProperty(memberDefName)) {
-                    externedNames.add(fnName.getString());
-                  } else if (NodeUtil.isEs6ConstructorMemberFunctionDef(key)
-                      || memberDefName.equals("superClass_")) {
-                    // TODO (simarora) is there a better way to identify these externs?
-                    externedNames.add(fnName.getString());
-                  } else {
-                    maybeMarkCandidate(key);
-                  }
-                }
-              }
-            }
-            break;
+        case MEMBER_FUNCTION_DEF:
+          checkState(!n.isQuotedString());
+          if (NodeUtil.isEs6ConstructorMemberFunctionDef(n)) {
+            externedNames.add(n.getString());
+          } else {
+            maybeMarkCandidate(n);
           }
+          break;
+        case GETTER_DEF:
+        case SETTER_DEF:
+        case STRING_KEY:
+          if (n.isQuotedString()) {
+            // Ensure that we never rename some other property in a way
+            // that could conflict with this quoted key.
+            quotedNames.add(n.getString());
+          } else {
+            maybeMarkCandidate(n);
+          }
+          break;
         case FUNCTION:
           {
             // We eliminate any stub implementations of JSCompiler_renameProperty
@@ -438,7 +358,7 @@ class RenameProperties implements CompilerPass {
                 // function
                 && compiler
                     .getCodingConvention()
-                    .isPropertyRenameFunction(parent.getFirstChild().getOriginalQualifiedName())) {
+                    .isPropertyRenameFunction(parent.getFirstChild())) {
               Node exprResult = parent.getParent();
               if (exprResult.isExprResult()
                   && NodeUtil.isStatementBlock(exprResult.getParent())

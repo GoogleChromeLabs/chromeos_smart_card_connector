@@ -19,6 +19,7 @@ package com.google.javascript.jscomp;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.javascript.jscomp.AstFactory.type;
 import static com.google.javascript.jscomp.JsMessageVisitor.MESSAGE_TREE_MALFORMED;
 
 import com.google.common.annotations.GwtIncompatible;
@@ -60,18 +61,6 @@ public final class ReplaceMessages {
           "JSC_INVALID_ALTERNATE_MESSAGE_PLACEHOLDERS",
           "Alternate message ID={0} placeholders ({1}) differs from {2} placeholders ({3}).");
 
-  /**
-   * `goog.getMsg()` calls will be converted into a call to this method which is defined in
-   * synthetic externs.
-   */
-  public static final String DEFINE_MSG_CALLEE = "__jscomp_define_msg__";
-
-  /**
-   * `goog.getMsgWithFallback(MSG_NEW, MSG_OLD)` will be converted into a call to this method which
-   * is defined in * synthetic externs.
-   */
-  public static final String FALLBACK_MSG_CALLEE = "__jscomp_msg_fallback__";
-
   private final AbstractCompiler compiler;
   private final MessageBundle bundle;
   private final JsMessage.Style style;
@@ -109,8 +98,9 @@ public final class ReplaceMessages {
     @Override
     public void process(Node externs, Node root) {
       // Add externs declarations for the function names we use in our replacements.
-      NodeUtil.createSynthesizedExternsSymbol(compiler, DEFINE_MSG_CALLEE);
-      NodeUtil.createSynthesizedExternsSymbol(compiler, FALLBACK_MSG_CALLEE);
+      NodeUtil.createSynthesizedExternsSymbol(compiler, ReplaceMessagesConstants.DEFINE_MSG_CALLEE);
+      NodeUtil.createSynthesizedExternsSymbol(
+          compiler, ReplaceMessagesConstants.FALLBACK_MSG_CALLEE);
 
       // JsMessageVisitor.process() does the traversal that calls the processX() methods below.
       super.process(externs, root);
@@ -156,26 +146,47 @@ public final class ReplaceMessages {
 
       // Construct
       // `__jscomp_define_msg__({<msg properties>}, {<substitutions>})`
+      final String protectionFunctionName = ReplaceMessagesConstants.DEFINE_MSG_CALLEE;
       final Node newCallee =
-          astFactory.createNameWithUnknownType(DEFINE_MSG_CALLEE).srcref(googGetMsg);
+          createProtectionFunctionCallee(protectionFunctionName).srcref(googGetMsg);
       final Node msgPropertiesNode =
           createMsgPropertiesNode(message, msgOptions).srcrefTree(originalMessageString);
-      Node newCallNode = astFactory.createCall(newCallee, msgPropertiesNode).srcref(callNode);
+      Node newCallNode =
+          astFactory.createCall(newCallee, type(callNode), msgPropertiesNode).srcref(callNode);
       // If the result of this call (the message) is unused, there is no reason for optimizations
       // to preserve it.
       newCallNode.setSideEffectFlags(SideEffectFlags.NO_SIDE_EFFECTS);
       if (placeholdersNode != null) {
+        checkState(placeholdersNode.isObjectLit(), placeholdersNode);
+        // put quotes around the keys so they won't get renamed.
+        for (Node strKey = placeholdersNode.getFirstChild();
+            strKey != null;
+            strKey = strKey.getNext()) {
+          checkState(strKey.isStringKey(), strKey);
+          strKey.setQuotedString();
+        }
         newCallNode.addChildToBack(placeholdersNode.detach());
       }
       callNode.replaceWith(newCallNode);
       compiler.reportChangeToEnclosingScope(newCallNode);
     }
 
+    private Node createProtectionFunctionCallee(String protectionFunctionName) {
+      final Node callee = astFactory.createNameWithUnknownType(protectionFunctionName);
+      // The name is declared constant in the externs definition we created, so all references
+      // to it must also be marked as constant for consistency's sake.
+      callee.putBooleanProp(Node.IS_CONSTANT_NAME, true);
+      return callee;
+    }
+
     private void protectStringLiteralOrConcatMsg(Node valueNode, JsMessage message) {
       final Node msgProps = createMsgPropertiesNode(message, new MsgOptions());
       final Node newCallNode =
           astFactory
-              .createCall(astFactory.createNameWithUnknownType(DEFINE_MSG_CALLEE), msgProps)
+              .createCall(
+                  createProtectionFunctionCallee(ReplaceMessagesConstants.DEFINE_MSG_CALLEE),
+                  type(valueNode),
+                  msgProps)
               .srcrefTreeIfMissing(valueNode);
       newCallNode.setSideEffectFlags(SideEffectFlags.NO_SIDE_EFFECTS);
       valueNode.replaceWith(newCallNode);
@@ -200,7 +211,8 @@ public final class ReplaceMessages {
       //     return __jscomp_define_msg__({<msg properties>}, {<substitutions>});
       // };
       // ```
-      final Node newCallee = astFactory.createNameWithUnknownType(DEFINE_MSG_CALLEE);
+      final Node newCallee =
+          createProtectionFunctionCallee(ReplaceMessagesConstants.DEFINE_MSG_CALLEE);
       final Node msgPropertiesNode = createMsgPropertiesNode(message, new MsgOptions());
       // Convert the parameter list into a simple placeholders object
       // ```javascript
@@ -221,7 +233,7 @@ public final class ReplaceMessages {
       final Node placeholderNode = placeholderObjLlitBuilder.build();
       final Node newValueNode =
           astFactory
-              .createCall(newCallee, msgPropertiesNode, placeholderNode)
+              .createCall(newCallee, type(origValueNode), msgPropertiesNode, placeholderNode)
               .srcrefTreeIfMissing(origValueNode);
       origValueNode.replaceWith(newValueNode);
       compiler.reportChangeToChangeScope(functionNode);
@@ -231,7 +243,8 @@ public final class ReplaceMessages {
     void processMessageFallback(Node callNode, JsMessage message1, JsMessage message2) {
       final Node originalCallee = checkNotNull(callNode.getFirstChild(), callNode);
       final Node fallbackCallee =
-          astFactory.createNameWithUnknownType(FALLBACK_MSG_CALLEE).srcref(originalCallee);
+          createProtectionFunctionCallee(ReplaceMessagesConstants.FALLBACK_MSG_CALLEE)
+              .srcref(originalCallee);
 
       final Node originalFirstArg = checkNotNull(originalCallee.getNext(), callNode);
       final Node firstMsgKey = astFactory.createString(message1.getKey()).srcref(originalFirstArg);
@@ -245,6 +258,7 @@ public final class ReplaceMessages {
           astFactory
               .createCall(
                   fallbackCallee,
+                  type(callNode),
                   firstMsgKey,
                   originalFirstArg.detach(),
                   secondMsgKey,
@@ -343,6 +357,7 @@ public final class ReplaceMessages {
     void visitMsgDefinition(ProtectedJsMessage protectedJsMessage) {
       try {
         final JsMessage originalMsg = protectedJsMessage.jsMessage;
+        final Node nodeToReplace = protectedJsMessage.definitionNode;
         final JsMessage translatedMsg =
             lookupMessage(protectedJsMessage.definitionNode, bundle, originalMsg);
         final JsMessage msgToUse;
@@ -351,6 +366,10 @@ public final class ReplaceMessages {
           // Remember that this one got translated in case it is used in a fallback.
           translatedMsgKeys.add(originalMsg.getKey());
         } else {
+          if (strictReplacement) {
+            compiler.report(
+                JSError.make(nodeToReplace, BUNDLE_DOES_NOT_HAVE_THE_MESSAGE, originalMsg.getId()));
+          }
           msgToUse = originalMsg;
         }
         final MsgOptions msgOptions = new MsgOptions();
@@ -358,10 +377,22 @@ public final class ReplaceMessages {
         msgOptions.unescapeHtmlEntities = protectedJsMessage.unescapeHtmlEntities;
         final Map<String, Node> placeholderMap =
             createPlaceholderNodeMap(protectedJsMessage.substitutionsNode);
+        final ImmutableSet<String> placeholderNames = msgToUse.placeholders();
+        if (placeholderMap.isEmpty() && !placeholderNames.isEmpty()) {
+          throw new MalformedException(
+              "Empty placeholder value map for a translated message with placeholders.",
+              nodeToReplace);
+        } else {
+          for (String placeholderName : placeholderNames) {
+            if (!placeholderMap.containsKey(placeholderName)) {
+              throw new MalformedException(
+                  "Unrecognized message placeholder referenced: " + placeholderName, nodeToReplace);
+            }
+          }
+        }
         final Node finalMsgConstructionExpression =
             constructStringExprNode(
                 mergeStringParts(msgToUse.getParts()), placeholderMap, msgOptions);
-        final Node nodeToReplace = protectedJsMessage.definitionNode;
         finalMsgConstructionExpression.srcrefTreeIfMissing(nodeToReplace);
         nodeToReplace.replaceWith(finalMsgConstructionExpression);
         compiler.reportChangeToEnclosingScope(finalMsgConstructionExpression);
@@ -414,7 +445,7 @@ public final class ReplaceMessages {
         return null;
       }
       final Node callee = n.getFirstChild();
-      if (!callee.matchesName(FALLBACK_MSG_CALLEE)) {
+      if (!callee.matchesName(ReplaceMessagesConstants.FALLBACK_MSG_CALLEE)) {
         return null;
       }
       checkState(n.hasXChildren(5), "bad message fallback call: %s", n);
@@ -549,7 +580,7 @@ public final class ReplaceMessages {
           return origValueNode;
         case ADD:
           // The message is a simple string. Create a string node.
-          return IR.string(message.toString());
+          return astFactory.createString(message.toString());
         case CALL:
           // The message is a function call. Replace it with a string expression.
           return replaceCallNode(message, origValueNode);
@@ -595,7 +626,7 @@ public final class ReplaceMessages {
       checkNode(oldBlockNode, Token.BLOCK);
 
       Node valueNode = constructAddOrStringNode(message.getParts(), argListNode);
-      Node newBlockNode = IR.block(IR.returnNode(valueNode));
+      Node newBlockNode = IR.block(astFactory.createReturn(valueNode));
 
       if (!newBlockNode.isEquivalentTo(
           oldBlockNode,
@@ -623,13 +654,13 @@ public final class ReplaceMessages {
     private Node constructAddOrStringNode(ImmutableList<CharSequence> parts, Node argListNode)
         throws MalformedException {
       if (parts.isEmpty()) {
-        return IR.string("");
+        return astFactory.createString("");
       }
 
       Node resultNode = null;
       for (CharSequence part : parts) {
         final Node partNode = constructLegacyFunctionMsgPart(argListNode, part);
-        resultNode = resultNode == null ? partNode : IR.add(resultNode, partNode);
+        resultNode = resultNode == null ? partNode : astFactory.createAdd(resultNode, partNode);
       }
       return resultNode;
     }
@@ -659,7 +690,7 @@ public final class ReplaceMessages {
         }
       } else {
         // The part is just a string literal.
-        partNode = IR.string(part.toString());
+        partNode = astFactory.createString(part.toString());
       }
       return partNode;
     }
@@ -742,22 +773,22 @@ public final class ReplaceMessages {
    * @param placeholderMap map from placeholder names to value Nodes
    * @return the root of the constructed parse tree
    */
-  private static Node constructStringExprNode(
+  private Node constructStringExprNode(
       List<CharSequence> msgParts, Map<String, Node> placeholderMap, MsgOptions options) {
 
     if (msgParts.isEmpty()) {
-      return IR.string("");
+      return astFactory.createString("");
     } else {
       Node resultNode = null;
       for (CharSequence msgPart : msgParts) {
         final Node partNode = createNodeForMsgPart(msgPart, options, placeholderMap);
-        resultNode = (resultNode == null) ? partNode : IR.add(resultNode, partNode);
+        resultNode = (resultNode == null) ? partNode : astFactory.createAdd(resultNode, partNode);
       }
       return resultNode;
     }
   }
 
-  private static Node createNodeForMsgPart(
+  private Node createNodeForMsgPart(
       CharSequence part, MsgOptions options, Map<String, Node> placeholderMap) {
     final Node partNode;
     if (part instanceof JsMessage.PlaceholderReference) {
@@ -784,7 +815,7 @@ public final class ReplaceMessages {
                 .replace("&quot;", "\"")
                 .replace("&amp;", "&");
       }
-      partNode = IR.string(s);
+      partNode = astFactory.createString(s);
     }
     return partNode;
   }
@@ -933,7 +964,7 @@ public final class ReplaceMessages {
         return null;
       }
       final Node calleeNode = checkNotNull(node.getFirstChild(), node);
-      if (!calleeNode.matchesName(DEFINE_MSG_CALLEE)) {
+      if (!calleeNode.matchesName(ReplaceMessagesConstants.DEFINE_MSG_CALLEE)) {
         return null;
       }
       final Node propertiesNode = checkNotNull(calleeNode.getNext(), calleeNode);

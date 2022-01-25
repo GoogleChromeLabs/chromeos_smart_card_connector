@@ -35,10 +35,12 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class RhinoErrorReporterTest {
   private boolean reportLintWarnings;
+  private CompilerOptions.LanguageMode languageIn;
 
   @Before
   public void setUp() throws Exception {
     reportLintWarnings = true;
+    this.languageIn = CompilerOptions.LanguageMode.UNSUPPORTED;
   }
 
   @Test
@@ -72,6 +74,16 @@ public final class RhinoErrorReporterTest {
         "Bad type annotation. Type annotations should have curly braces." + BAD_TYPE_WIKI_LINK);
   }
 
+  @Test
+  public void testLanguageFeatureInHigherLanguageInError() {
+    this.languageIn = CompilerOptions.LanguageMode.ECMASCRIPT_2015;
+    assertError(
+        "2 ** 3",
+        RhinoErrorReporter.LANGUAGE_FEATURE,
+        "This language feature is only supported for ECMASCRIPT_2016 mode or better: "
+            + "exponent operator (**).");
+  }
+
   /**
    * Verifies that the compiler emits an error for the given code.
    */
@@ -82,6 +94,17 @@ public final class RhinoErrorReporterTest {
   }
 
   /** Verifies that the compiler emits an error for the given code. */
+  private JSError assertError(String code, DiagnosticType type, String description) {
+    Compiler compiler = parseCode(code);
+    assertWithMessage("Expected error").that(compiler.getErrorCount()).isEqualTo(1);
+
+    JSError error = Iterables.getOnlyElement(compiler.getErrors());
+    assertThat(error.getType()).isEqualTo(type);
+    assertThat(error.getDescription()).isEqualTo(description);
+    return error;
+  }
+
+  /** Verifies that the compiler emits a warning for the given code. */
   private JSError assertWarning(String code, DiagnosticType type, String description) {
     Compiler compiler = parseCode(code);
     assertWithMessage("Expected warning").that(compiler.getWarningCount()).isEqualTo(1);
@@ -108,6 +131,8 @@ public final class RhinoErrorReporterTest {
           DiagnosticGroups.JSDOC_MISSING_TYPE,
           CheckLevel.WARNING);
     }
+
+    options.setLanguageIn(languageIn);
 
     List<SourceFile> externs = ImmutableList.of();
     List<SourceFile> inputs = ImmutableList.of(

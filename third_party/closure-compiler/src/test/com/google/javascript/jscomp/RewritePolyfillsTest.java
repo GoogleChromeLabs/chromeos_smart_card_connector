@@ -93,7 +93,7 @@ public final class RewritePolyfillsTest extends CompilerTestCase {
           // super method just records library in `injected`
           super.ensureLibraryInjected(library, force);
           Node parent = getNodeForCodeInsertion(null);
-          Node ast = parseSyntheticCode(injectableLibraries.get(library));
+          Node ast = parseSyntheticCode(library, injectableLibraries.get(library));
           Node lastChild = ast.getLastChild();
           Node firstChild = ast.removeChildren();
           // Any newly added functions must be marked as changed.
@@ -575,7 +575,7 @@ public final class RewritePolyfillsTest extends CompilerTestCase {
     isolatePolyfills = true;
     addLibrary("String.prototype.endsWith", "es6", "es5", "es6/string/endswith");
 
-    testExternChanges("", "var $jscomp$lookupPolyfilledValue");
+    testExternChanges(srcs(""), expected("var $jscomp$lookupPolyfilledValue"));
   }
 
   @Test
@@ -584,7 +584,7 @@ public final class RewritePolyfillsTest extends CompilerTestCase {
     injectPolyfills = false;
     addLibrary("String.prototype.endsWith", "es6", "es5", "es6/string/endswith");
 
-    testExternChanges("", "var $jscomp$lookupPolyfilledValue");
+    testExternChanges(srcs(""), expected("var $jscomp$lookupPolyfilledValue"));
 
     allowExternsChanges();
     testSame("'x'.endsWith('y');");

@@ -28,9 +28,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.deps.ModuleLoader;
-import com.google.javascript.jscomp.disambiguate.DisambiguateProperties2;
+import com.google.javascript.jscomp.disambiguate.DisambiguateProperties;
 import com.google.javascript.jscomp.ijs.IjsErrors;
 import com.google.javascript.jscomp.lint.CheckArrayWithGoogObject;
+import com.google.javascript.jscomp.lint.CheckConstPrivateProperties;
 import com.google.javascript.jscomp.lint.CheckConstantCaseNames;
 import com.google.javascript.jscomp.lint.CheckDefaultExportOfGoogModule;
 import com.google.javascript.jscomp.lint.CheckDuplicateCase;
@@ -46,12 +47,12 @@ import com.google.javascript.jscomp.lint.CheckMissingSemicolon;
 import com.google.javascript.jscomp.lint.CheckNestedNames;
 import com.google.javascript.jscomp.lint.CheckNoMutatedEs6Exports;
 import com.google.javascript.jscomp.lint.CheckNullabilityModifiers;
-import com.google.javascript.jscomp.lint.CheckNullableReturn;
 import com.google.javascript.jscomp.lint.CheckPrimitiveAsObject;
 import com.google.javascript.jscomp.lint.CheckPrototypeProperties;
 import com.google.javascript.jscomp.lint.CheckProvidesSorted;
 import com.google.javascript.jscomp.lint.CheckRequiresSorted;
 import com.google.javascript.jscomp.lint.CheckUnusedLabels;
+import com.google.javascript.jscomp.lint.CheckUnusedPrivateProperties;
 import com.google.javascript.jscomp.lint.CheckUselessBlocks;
 import com.google.javascript.jscomp.lint.CheckVar;
 import com.google.javascript.jscomp.modules.ModuleMapCreator;
@@ -67,7 +68,6 @@ public class DiagnosticGroups {
       ImmutableSet.of(
           "reportUnknownTypes",
           "analyzerChecks",
-          "analyzerChecksInternal",
           "missingSourcesWarnings");
 
   public DiagnosticGroups() {}
@@ -158,7 +158,6 @@ public class DiagnosticGroups {
           + "strictPrimitiveOperators, "
           + "suspiciousCode, "
           + "typeInvalidation, "
-          + "undefinedNames, "
           + "undefinedVars, "
           + "underscore, "
           + "unknownDefines, "
@@ -218,6 +217,7 @@ public class DiagnosticGroups {
           CheckAccessControls.BAD_PACKAGE_PROPERTY_ACCESS,
           CheckAccessControls.BAD_PROTECTED_PROPERTY_ACCESS,
           CheckAccessControls.EXTEND_FINAL_CLASS,
+          CheckAccessControls.FINAL_PROPERTY_OVERRIDDEN,
           CheckAccessControls.PRIVATE_OVERRIDE,
           CheckAccessControls.VISIBILITY_MISMATCH);
 
@@ -286,9 +286,6 @@ public class DiagnosticGroups {
 
   public static final DiagnosticGroup UNDEFINED_VARIABLES =
       DiagnosticGroups.registerGroup("undefinedVars", VarCheck.UNDEFINED_VAR_ERROR);
-
-  public static final DiagnosticGroup UNDEFINED_NAMES =
-      DiagnosticGroups.registerDeprecatedGroup("undefinedNames");
 
   public static final DiagnosticGroup DEBUGGER_STATEMENT_PRESENT =
       DiagnosticGroups.registerGroup(
@@ -363,21 +360,18 @@ public class DiagnosticGroups {
           CheckAccessControls.CONST_PROPERTY_REASSIGNED_VALUE,
           ConstCheck.CONST_REASSIGNED_VALUE_ERROR);
 
-  static final DiagnosticGroup ACCESS_CONTROLS_CONST =
-      DiagnosticGroups.registerGroup(
-          "accessControlsConst",
-          CheckAccessControls.CONST_PROPERTY_DELETED,
-          CheckAccessControls.CONST_PROPERTY_REASSIGNED_VALUE);
-
   public static final DiagnosticGroup CONSTANT_PROPERTY =
       DiagnosticGroups.registerGroup(
           "constantProperty",
           CheckAccessControls.CONST_PROPERTY_DELETED,
           CheckAccessControls.CONST_PROPERTY_REASSIGNED_VALUE);
 
+  static final DiagnosticGroup ACCESS_CONTROLS_CONST =
+      DiagnosticGroups.registerGroup("accessControlsConst", CONSTANT_PROPERTY);
+
   public static final DiagnosticGroup TYPE_INVALIDATION =
       DiagnosticGroups.registerGroup(
-          "typeInvalidation", DisambiguateProperties2.PROPERTY_INVALIDATION);
+          "typeInvalidation", DisambiguateProperties.PROPERTY_INVALIDATION);
 
   public static final DiagnosticGroup DUPLICATE_VARS =
       DiagnosticGroups.registerGroup(
@@ -433,7 +427,6 @@ public class DiagnosticGroups {
       DiagnosticGroups.registerGroup(
           "missingSourcesWarnings",
           REPORT_UNKNOWN_TYPES,
-          UNDEFINED_NAMES,
           UNDEFINED_VARIABLES,
           MISSING_PROVIDE,
           DiagnosticGroup.forType(FunctionTypeBuilder.RESOLVED_TAG_EMPTY),
@@ -481,6 +474,7 @@ public class DiagnosticGroups {
       DiagnosticGroups.registerGroup(
           "misplacedTypeAnnotation",
           CheckJSDoc.ARROW_FUNCTION_AS_CONSTRUCTOR,
+          CheckJSDoc.BAD_REST_PARAMETER_ANNOTATION,
           CheckJSDoc.DEFAULT_PARAM_MUST_BE_MARKED_OPTIONAL,
           CheckJSDoc.DISALLOWED_MEMBER_JSDOC,
           CheckJSDoc.INVALID_NO_SIDE_EFFECT_ANNOTATION,
@@ -517,17 +511,19 @@ public class DiagnosticGroups {
   public static final DiagnosticGroup DEPRECATED_ANNOTATIONS =
       DiagnosticGroups.registerGroup("deprecatedAnnotations", CheckJSDoc.ANNOTATION_DEPRECATED);
 
+  /** @deprecated this check has been moved into the "lintChecks" group */
+  @Deprecated
   public static final DiagnosticGroup UNUSED_PRIVATE_PROPERTY =
-      DiagnosticGroups.registerGroup(
-          "unusedPrivateMembers", CheckUnusedPrivateProperties.UNUSED_PRIVATE_PROPERTY);
+      DiagnosticGroups.registerDeprecatedGroup("unusedPrivateMembers");
 
   public static final DiagnosticGroup UNUSED_LOCAL_VARIABLE =
       DiagnosticGroups.registerGroup(
           "unusedLocalVariables", VariableReferenceCheck.UNUSED_LOCAL_ASSIGNMENT);
 
+  /** @deprecated this check has been moved into the "lintChecks" group */
+  @Deprecated
   public static final DiagnosticGroup MISSING_CONST_PROPERTY =
-      DiagnosticGroups.registerGroup(
-          "jsdocMissingConst", CheckConstPrivateProperties.MISSING_CONST_PROPERTY);
+      DiagnosticGroups.registerDeprecatedGroup("jsdocMissingConst");
 
   public static final DiagnosticGroup JSDOC_MISSING_TYPE =
       DiagnosticGroups.registerGroup(
@@ -559,6 +555,7 @@ public class DiagnosticGroups {
           USE_OF_GOOG_PROVIDE,
           new DiagnosticGroup(
               CheckClosureImports.LET_CLOSURE_IMPORT,
+              CheckConstPrivateProperties.MISSING_CONST_PROPERTY,
               CheckConstantCaseNames.REASSIGNED_CONSTANT_CASE_NAME,
               CheckConstantCaseNames.MISSING_CONST_PROPERTY,
               CheckDefaultExportOfGoogModule.DEFAULT_EXPORT_IN_GOOG_MODULE,
@@ -593,6 +590,7 @@ public class DiagnosticGroups {
               CheckProvidesSorted.PROVIDES_NOT_SORTED,
               CheckRequiresSorted.REQUIRES_NOT_SORTED,
               CheckUnusedLabels.UNUSED_LABEL,
+              CheckUnusedPrivateProperties.UNUSED_PRIVATE_PROPERTY,
               CheckUselessBlocks.USELESS_BLOCK,
               CheckVar.VAR,
               ClosureCheckModule.DECLARE_LEGACY_NAMESPACE_IN_NON_MODULE,
@@ -609,29 +607,16 @@ public class DiagnosticGroups {
           ClosureCheckModule.REFERENCE_TO_FULLY_QUALIFIED_IMPORT_NAME,
           ClosureCheckModule.REFERENCE_TO_SHORT_IMPORT_BY_LONG_NAME_INCLUDING_SHORT_NAME);
 
-  // A diagnostic group appears to be enabled if any of the DiagnosticTypes it
-  // contains are enabled. We need this group so we can distinguish whether
-  // ANALYZER_CHECKS was directly enabled or only appears to be, because
-  // UNUSED_PRIVATE_PROPERTY was enabled.
-  static final DiagnosticGroup ANALYZER_CHECKS_INTERNAL =
-      DiagnosticGroups.registerGroup(
-          "analyzerChecksInternal", // undocumented
-          CheckArrayWithGoogObject.ARRAY_PASSED_TO_GOOG_OBJECT,
-          CheckNullableReturn.NULLABLE_RETURN,
-          CheckNullableReturn.NULLABLE_RETURN_WITH_NAME,
-          ImplicitNullabilityCheck.IMPLICITLY_NONNULL_JSDOC,
-          ImplicitNullabilityCheck.IMPLICITLY_NULLABLE_JSDOC,
-          CheckNestedNames.NESTED_NAME_IN_GOOG_MODULE);
-
   // Similar to the lintChecks group above, but includes things that cannot be done on a single
   // file at a time, for example because they require typechecking. If you enable these as errors
   // in your build targets, the JS Compiler team will break your build and not rollback.
   public static final DiagnosticGroup ANALYZER_CHECKS =
       DiagnosticGroups.registerGroup(
           "analyzerChecks", // undocumented
-          ANALYZER_CHECKS_INTERNAL,
-          MISSING_CONST_PROPERTY,
-          UNUSED_PRIVATE_PROPERTY);
+          CheckArrayWithGoogObject.ARRAY_PASSED_TO_GOOG_OBJECT,
+          ImplicitNullabilityCheck.IMPLICITLY_NONNULL_JSDOC,
+          ImplicitNullabilityCheck.IMPLICITLY_NULLABLE_JSDOC,
+          CheckNestedNames.NESTED_NAME_IN_GOOG_MODULE);
 
   public static final DiagnosticGroup CLOSURE_DEP_METHOD_USAGE_CHECKS =
       DiagnosticGroups.registerGroup(

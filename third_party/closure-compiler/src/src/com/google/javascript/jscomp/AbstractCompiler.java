@@ -16,11 +16,10 @@
 
 package com.google.javascript.jscomp;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
+import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
@@ -36,17 +35,18 @@ import com.google.javascript.jscomp.modules.ModuleMetadataMap;
 import com.google.javascript.jscomp.parsing.Config;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.jscomp.parsing.parser.trees.Comment;
+import com.google.javascript.jscomp.serialization.ColorPool;
 import com.google.javascript.jscomp.type.ReverseAbstractInterpreter;
 import com.google.javascript.rhino.ErrorReporter;
 import com.google.javascript.rhino.InputId;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.StaticScope;
 import com.google.javascript.rhino.Token;
 import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -60,8 +60,6 @@ import javax.annotation.Nullable;
 public abstract class AbstractCompiler implements SourceExcerptProvider, CompilerInputProvider {
   static final DiagnosticType READ_ERROR =
       DiagnosticType.error("JSC_READ_ERROR", "Cannot read file {0}: {1}");
-
-  protected Map<String, Object> annotationMap = new HashMap<>();
 
   private int currentPassIndex = -1;
 
@@ -81,7 +79,10 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
   // Many of them are just accessors that should be passed to the
   // CompilerPass's constructor.
 
+  abstract java.util.function.Supplier<Node> getTypedAstDeserializer(SourceFile file);
+
   /** Looks up an input (possibly an externs input) by input id. May return null. */
+  @Override
   public abstract CompilerInput getInput(InputId inputId);
 
   /** Looks up a source file by name. May return null. */
@@ -154,6 +155,13 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
   /** Whether the AST has been annotated with optimization colors. */
   public abstract boolean hasOptimizationColors();
 
+  /**
+   * Returns `true` when type checking has run, but the type registry has been cleared.
+   *
+   * <p>See also `clearJSTypeRegistry()`.
+   */
+  public abstract boolean isTypeRegistryCleared();
+
   /** Gets a central registry of type information from the compiled JS. */
   public abstract JSTypeRegistry getTypeRegistry();
 
@@ -177,6 +185,13 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
 
   /** Sets the top scope. */
   abstract void setTopScope(TypedScope x);
+
+  /**
+   * Returns a scope containing only externs and synthetic code or other code in the first script.
+   *
+   * <p>Intended for transpilation passes to look up types when synthesizing new code.
+   */
+  abstract StaticScope getTranspilationNamespace();
 
   /** Report an error or warning. */
   public abstract void report(JSError error);
@@ -229,11 +244,8 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
 
   abstract void setExternExports(String externExports);
 
-  /** Parses code for injecting. */
-  public abstract Node parseSyntheticCode(String code);
-
   /** Parses code for injecting, and associate it with a given source file. */
-  abstract Node parseSyntheticCode(String filename, String code);
+  public abstract Node parseSyntheticCode(String filename, String code);
 
   /** Parses code for testing. */
   @VisibleForTesting
@@ -270,6 +282,22 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
   /** Returns whether a file name was created by {@link createFillFileName}. */
   public static boolean isFillFileName(String fileName) {
     return fileName.endsWith(FILL_FILE_SUFFIX);
+  }
+
+  /**
+   * Deserialize runtime libraries from a TypedAST packaged as a JAR resource and reconcile their
+   * Colors with the current inputs.
+   *
+   * <p>This method must be called anywhere that Colors are reconciled for application to the AST.
+   * Otherwise Color information won't be consistent. `colorPoolBuilder` must be the same builder as
+   * used for the other inputs, and the caller retains ownership.
+   *
+   * @param colorPoolBuilder if present, includes inferred optimization colors on the deserialized
+   *     ASTs. If absent, does not include colors.
+   */
+  public void initRuntimeLibraryTypedAsts(Optional<ColorPool.Builder> colorPoolBuilder) {
+    throw new UnsupportedOperationException(
+        "Implementation in Compiler.java is not J2CL compatible.");
   }
 
   /**
@@ -347,13 +375,6 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
   /** Returns the parser configuration for the specified context. */
   abstract Config getParserConfig(ConfigContext context);
 
-  /**
-   * Normalizes the types of AST nodes in the given tree, and annotates any nodes to which the
-   * coding convention applies so that passes can read the annotations instead of using the coding
-   * convention.
-   */
-  abstract void prepareAst(Node root);
-
   /** Gets the error manager. */
   public abstract ErrorManager getErrorManager();
 
@@ -385,6 +406,11 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
   public static enum LifeCycleStage implements Serializable {
     RAW,
 
+    // See constraints put on the AST by either running the ConvertTypesToColors.java pass /or/ by
+    // having created the AST via serialization/TypedAstDeserializer.java
+    // NORMALIZED implies this constraint
+    COLORS_AND_SIMPLIFIED_JSDOC,
+
     // See constraints put on the tree by Normalize.java
     NORMALIZED,
 
@@ -403,6 +429,10 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
 
     public boolean isNormalizedObfuscated() {
       return this == NORMALIZED_OBFUSCATED;
+    }
+
+    public boolean hasColorAndSimplifiedJSDoc() {
+      return this != RAW;
     }
   }
 
@@ -437,41 +467,11 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
 
   abstract void setFeatureSet(FeatureSet fs);
 
-  // TODO(bashir) It would be good to extract a single dumb data object with
-  // only getters and setters that keeps all global information we keep for a
-  // compiler instance. Then move some of the functions of this class there.
-
-  /**
-   * Updates the list of references for variables in global scope.
-   *
-   * @param refMapPatch Maps each variable to all of its references; may contain references
-   *     collected from the whole AST or only a SCRIPT sub-tree.
-   * @param collectionRoot The root of sub-tree in which reference collection has been done. This
-   *     should either be a SCRIPT node (if collection is done on a single file) or it is assumed
-   *     that collection is on full AST.
-   */
-  abstract void updateGlobalVarReferences(
-      Map<Var, ReferenceCollection> refMapPatch, Node collectionRoot);
-
-  /**
-   * This can be used to get the list of all references to all global variables based on all
-   * previous calls to {@code updateGlobalVarReferences}.
-   *
-   * @return The reference collection map associated to global scope variable.
-   */
-  abstract GlobalVarReferenceMap getGlobalVarReferences();
-
   /**
    * @return a CompilerInput that can be modified to add additional extern definitions to the
    *     beginning of the externs AST
    */
   abstract CompilerInput getSynthesizedExternsInput();
-
-  /**
-   * @return a CompilerInput that can be modified to add additional extern definitions to the end of
-   *     the externs AST
-   */
-  abstract CompilerInput getSynthesizedExternsInputAtEnd();
 
   /**
    * @return a number in [0,1] range indicating an approximate progress of the last compile. Note
@@ -490,6 +490,9 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
    *     to set the last pass name.
    */
   abstract void setProgress(double progress, @Nullable String lastPassName);
+
+  static final String RUNTIME_LIB_DIR =
+  "src/com/google/javascript/jscomp/js/";
 
   /**
    * The subdir js/ contains libraries of code that we inject at compile-time only if requested by
@@ -512,13 +515,13 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
    *
    * @param externProperties The set of property names defined in externs.
    */
-  abstract void setExternProperties(Set<String> externProperties);
+  abstract void setExternProperties(ImmutableSet<String> externProperties);
 
   /**
    * Gets the names of the properties defined in externs or null if GatherExternProperties pass was
    * not run yet.
    */
-  abstract Set<String> getExternProperties();
+  public abstract ImmutableSet<String> getExternProperties();
 
   /**
    * Adds a {@link SourceMapInput} for the given {@code sourceFileName}, to be used for error
@@ -548,29 +551,11 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
   /** Lookup the type of a module from its name. */
   abstract CompilerInput.ModuleType getModuleTypeByName(String moduleName);
 
-  /**
-   * Sets an annotation for the given key.
-   *
-   * @param key the annotation key
-   * @param object the object to store as the annotation
-   */
-  void setAnnotation(String key, Object object) {
-    checkArgument(object != null, "The stored annotation value cannot be null.");
-    Preconditions.checkArgument(
-        !annotationMap.containsKey(key), "Cannot overwrite the existing annotation '%s'.", key);
-    annotationMap.put(key, object);
-  }
+  /** Set whether J2CL passes should run */
+  abstract void setRunJ2clPasses(boolean runJ2clPasses);
 
-  /**
-   * Gets the annotation for the given key.
-   *
-   * @param key the annotation key
-   * @return the annotation object for the given key if it has been set, or null
-   */
-  @Nullable
-  Object getAnnotation(String key) {
-    return annotationMap.get(key);
-  }
+  /** Whether J2CL passes should run */
+  abstract boolean runJ2clPasses();
 
   /**
    * Returns a new AstFactory that will add type information to the nodes it creates if and only if
@@ -581,8 +566,10 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
    * added if it proves useful.
    */
   public final AstFactory createAstFactory() {
-    return hasTypeCheckingRun() && !hasOptimizationColors()
-        ? AstFactory.createFactoryWithTypes(getTypeRegistry())
+    return hasTypeCheckingRun()
+        ? (hasOptimizationColors()
+            ? AstFactory.createFactoryWithColors(getColorRegistry())
+            : AstFactory.createFactoryWithTypes(getTypeRegistry()))
         : AstFactory.createFactoryWithoutTypes();
   }
 
@@ -631,15 +618,19 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
 
   public abstract void setModuleMap(ModuleMap moduleMap);
 
+  public final boolean isDebugLoggingEnabled() {
+    return this.getOptions().getDebugLogDirectory() != null;
+  }
+
   /** Provides logging access to a file with the specified name. */
   @MustBeClosed
   public final LogFile createOrReopenLog(
       Class<?> owner, String firstNamePart, String... restNameParts) {
-    @Nullable Path dir = getOptions().getDebugLogDirectory();
-    if (dir == null) {
+    if (!this.isDebugLoggingEnabled()) {
       return LogFile.createNoOp();
     }
 
+    Path dir = getOptions().getDebugLogDirectory();
     Path relativeParts = Paths.get(firstNamePart, restNameParts);
     Path file = dir.resolve(owner.getSimpleName()).resolve(relativeParts);
     return LogFile.createOrReopen(file);
@@ -688,4 +679,19 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
    * rewriting has not occurred.
    */
   abstract void mergeSyntheticCodeInput();
+
+  /** A trivial interface to make the LocaleData opaque */
+  interface LocaleData {}
+
+  /**
+   * Storage for i18n data extracted from the compilation set, to use for localization of the
+   * compilation late in the compilation process.
+   */
+  abstract void setLocaleSubstitutionData(LocaleData localeDataValueMap);
+
+  /**
+   * Retrieve extracted i18n data extracted, to use for localization of the compilation late in the
+   * compilation process.
+   */
+  abstract LocaleData getLocaleSubstitutionData();
 }

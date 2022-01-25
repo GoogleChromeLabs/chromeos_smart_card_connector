@@ -30,7 +30,6 @@ import com.google.javascript.jscomp.Es6ToEs3Util;
 import com.google.javascript.jscomp.JSError;
 import com.google.javascript.jscomp.NodeTraversal;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
-import com.google.javascript.jscomp.NodeTraversal.Callback;
 import com.google.javascript.jscomp.NodeUtil;
 import com.google.javascript.jscomp.Scope;
 import com.google.javascript.jscomp.Var;
@@ -55,19 +54,13 @@ import javax.annotation.Nullable;
  * module related checks.
  *
  * <p>This information is stored outside of any {@link Scope} because it should never be
- * recalculated. Recalculation is prevented for the following reasons:
+ * recalculated because it is expensive.
  *
- * <ul>
- *   <li>Calculation is expensive.
- *   <li>When ES modules are hotswapped, we want the original information, not the "current"
- *       information, because it would show no other ES modules.
- * </ul>
- *
- * <a
+ * <p><a
  * href="https://www.ecma-international.org/ecma-262/9.0/index.html#sec-source-text-module-records">
  * Suggested reading</a>
  */
-public final class EsModuleProcessor implements Callback, ModuleProcessor {
+public final class EsModuleProcessor implements NodeTraversal.Callback, ModuleProcessor {
 
   /**
    * Error occurs when there is an ambiguous export, which can happen if there are multiple {@code
@@ -346,7 +339,6 @@ public final class EsModuleProcessor implements Callback, ModuleProcessor {
                 .metadata(metadata)
                 .path(path)
                 .localNameToLocalExport(ImmutableMap.copyOf(localNameToLocalExport))
-                .unresolvedModule(this)
                 .build();
       }
 

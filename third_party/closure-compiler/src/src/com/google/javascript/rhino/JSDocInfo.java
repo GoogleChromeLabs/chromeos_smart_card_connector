@@ -56,6 +56,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -73,7 +74,6 @@ import javax.annotation.Nullable;
  *
  * <p>Constructing {@link JSDocInfo} objects is simplified by {@link JSDocInfo.Builder} which
  * provides early incompatibility detection.
- *
  */
 public class JSDocInfo implements Serializable {
   private static final long serialVersionUID = 1L;
@@ -314,6 +314,7 @@ public class JSDocInfo implements Serializable {
     DEPRECATED,
     INTERFACE,
     EXPORT,
+    ENHANCED_NAMESPACE,
     NOINLINE,
     FILEOVERVIEW,
     IMPLICITCAST,
@@ -336,7 +337,14 @@ public class JSDocInfo implements Serializable {
     CUSTOM_ELEMENT,
     MIXIN_CLASS,
     MIXIN_FUNCTION,
-    ;
+
+    LOCALE_FILE,
+    LOCALE_SELECT,
+    LOCALE_OBJECT,
+    LOCALE_VALUE,
+
+    // `@provideGoog` only appears in base.js
+    PROVIDE_GOOG;
 
     final String name;
     final long mask;
@@ -434,7 +442,7 @@ public class JSDocInfo implements Serializable {
   private static final TypeListProperty IMPLEMENTED_INTERFACES =
       new TypeListProperty("extendedInterfaces");
   private static final TypeMapProperty PARAMETERS = new TypeMapProperty("parameters");
-  private static final TypeListProperty THROWN_TYPES = new TypeListProperty("thrownTypes");
+  private static final Property<List<String>> THROWS_ANNOTATIONS = new Property<>("throws");
   private static final TypeMapProperty TEMPLATE_TYPE_NAMES =
       new TypeMapProperty("templateTypeNames");
   private static final NodeMapProperty TYPE_TRANSFORMATIONS =
@@ -446,7 +454,11 @@ public class JSDocInfo implements Serializable {
   private static final Property<String> DEPRECATION_REASON = new Property<>("deprecationReason");
   private static final Property<String> LICENSE = new Property<>("license");
 
-  private static final Property<ImmutableSet<String>> SUPPRESSIONS = new Property<>("suppressions");
+  // For example, `@suppress {first, second} Some description applying to the set (of both first and
+  // second).`
+  // For example, `@suppress {first} Some description applying to only to first.`
+  private static final Property<ImmutableMap<ImmutableSet<String>, String>> SUPPRESSIONS =
+      new Property<>("suppressions");
   private static final Property<ImmutableSet<String>> MODIFIES = new Property<>("modifies");
   private static final TypeProperty LENDS_NAME = new TypeProperty("lendsName");
   private static final Property<String> CLOSURE_PRIMITIVE_ID = new Property<>("closurePrimitiveId");
@@ -457,13 +469,12 @@ public class JSDocInfo implements Serializable {
   private static final Property<ArrayList<Marker>> MARKERS = new MarkerListProperty("markers");
   private static final Property<LinkedHashMap<String, String>> PARAMETER_DESCRIPTIONS =
       new Property<>("parameterDescriptions");
-  private static final Property<LinkedHashMap<JSTypeExpression, String>> THROWS_DESCRIPTIONS =
-      new Property<>("throwsDescriptions");
   private static final Property<String> BLOCK_DESCRIPTION = new Property<>("blockDescription");
   private static final Property<String> FILEOVERVIEW_DESCRIPTION =
       new Property<>("fileoverviewDescription");
   private static final Property<String> RETURN_DESCRIPTION = new Property<>("returnDescription");
   private static final Property<String> VERSION = new Property<>("version");
+  private static final Property<String> ENHANCED_NAMESPACE = new Property<>("enhance");
 
   private static final Property<List<String>> AUTHORS = new Property<>("authors");
   private static final Property<List<String>> SEES = new Property<>("sees");
@@ -843,6 +854,31 @@ public class JSDocInfo implements Serializable {
     return checkBit(Bit.PURE_OR_BREAK_MY_CODE);
   }
 
+  /** Returns whether the {@code @localeFile} annotation is present on this {@link JSDocInfo}. */
+  public boolean isLocaleFile() {
+    return checkBit(Bit.LOCALE_FILE);
+  }
+
+  /** Returns whether the {@code @localeFile} annotation is present on this {@link JSDocInfo}. */
+  public boolean isLocaleSelect() {
+    return checkBit(Bit.LOCALE_SELECT);
+  }
+
+  /** Returns whether the {@code @localeFile} annotation is present on this {@link JSDocInfo}. */
+  public boolean isLocaleObject() {
+    return checkBit(Bit.LOCALE_OBJECT);
+  }
+
+  /** Returns whether the {@code @localeFile} annotation is present on this {@link JSDocInfo}. */
+  public boolean isLocaleValue() {
+    return checkBit(Bit.LOCALE_VALUE);
+  }
+
+  /** Returns whether the {@code @provideGoog} annotation is present on this {@link JSDocInfo}. */
+  public boolean isProvideGoog() {
+    return checkBit(Bit.PROVIDE_GOOG);
+  }
+
   /**
    * Returns whether there is a declaration present on this {@link JSDocInfo}.
    *
@@ -995,15 +1031,10 @@ public class JSDocInfo implements Serializable {
     return params != null ? params.size() : 0;
   }
 
-  /** Returns the list of thrown types. */
-  public List<JSTypeExpression> getThrownTypes() {
-    return THROWN_TYPES.getUnmodifiable(this);
-  }
-
-  /** Get the message for a given thrown type. */
-  public String getThrowsDescriptionForType(JSTypeExpression type) {
-    LinkedHashMap<JSTypeExpression, String> descriptions = THROWS_DESCRIPTIONS.get(this);
-    return descriptions != null ? descriptions.get(type) : null;
+  /** Returns the list of thrown types and descriptions as text. */
+  public List<String> getThrowsAnnotations() {
+    List<String> annotations = THROWS_ANNOTATIONS.get(this);
+    return annotations != null ? annotations : ImmutableList.of();
   }
 
   /**
@@ -1179,7 +1210,7 @@ public class JSDocInfo implements Serializable {
 
   @Override
   public String toString() {
-    return "JSDocInfo";
+    return toStringVerbose();
   }
 
   @VisibleForTesting
@@ -1187,6 +1218,13 @@ public class JSDocInfo implements Serializable {
     MoreObjects.ToStringHelper helper =
         MoreObjects.toStringHelper(this)
             .add("bitset", (propertyBits == 0) ? null : Long.toHexString(propertyBits));
+
+    for (Bit b : Bit.values()) {
+      if (checkBit(b)) {
+        helper.add("bit:" + b.name, true);
+      }
+    }
+
     long bits = propertyKeysBitset;
     int index = 0;
     while (bits > 0) {
@@ -1194,6 +1232,7 @@ public class JSDocInfo implements Serializable {
       bits &= ~(1L << low);
       helper = helper.add(Property.values[low].name, propertyValues.get(index++));
     }
+
     return helper.omitNullValues().toString();
   }
 
@@ -1239,8 +1278,25 @@ public class JSDocInfo implements Serializable {
 
   /** Returns the set of suppressed warnings. */
   public Set<String> getSuppressions() {
-    ImmutableSet<String> suppressions = SUPPRESSIONS.get(this);
-    return suppressions != null ? suppressions : ImmutableSet.of();
+    ImmutableMap<ImmutableSet<String>, String> suppressions = SUPPRESSIONS.get(this);
+    if (suppressions == null) {
+      return ImmutableSet.of();
+    }
+    Set<ImmutableSet<String>> nameSets = suppressions.keySet();
+    Set<String> names = new LinkedHashSet<>();
+    for (Set<String> nameSet : nameSets) {
+      names.addAll(nameSet);
+    }
+    return ImmutableSet.copyOf(names);
+  }
+
+  /**
+   * Returns a map containing key=set of suppressions, and value=the corresponding description for
+   * the set.
+   */
+  public ImmutableMap<ImmutableSet<String>, String> getSuppressionsAndTheirDescription() {
+    ImmutableMap<ImmutableSet<String>, String> suppressions = SUPPRESSIONS.get(this);
+    return suppressions != null ? suppressions : ImmutableMap.of();
   }
 
   /** Returns the set of sideeffect notations. */
@@ -1294,6 +1350,16 @@ public class JSDocInfo implements Serializable {
   /** Returns the file overview or null if none specified. */
   public String getFileOverview() {
     return FILEOVERVIEW_DESCRIPTION.get(this);
+  }
+
+  /** Returns whether this has an enhanced namespace. */
+  public boolean hasEnhance() {
+    return checkBit(Bit.ENHANCED_NAMESPACE);
+  }
+
+  /** Returns the enhanced namespace or null if none is specified. */
+  public String getEnhance() {
+    return ENHANCED_NAMESPACE.get(this);
   }
 
   /** Gets the list of all markers for the documentation in this JSDoc. */
@@ -1438,7 +1504,7 @@ public class JSDocInfo implements Serializable {
     // the current marker, if any.
     Marker currentMarker;
     // the set of unique license texts
-    Set<String> licenseTexts = new HashSet<>();
+    Set<String> licenseTexts;
 
     public static Builder copyFrom(JSDocInfo info) {
       return info.toBuilder();
@@ -1526,7 +1592,8 @@ public class JSDocInfo implements Serializable {
                   & (Bit.FILEOVERVIEW.mask
                       | Bit.EXTERNS.mask
                       | Bit.NOCOMPILE.mask
-                      | Bit.TYPE_SUMMARY.mask))
+                      | Bit.TYPE_SUMMARY.mask
+                      | Bit.ENHANCED_NAMESPACE.mask))
               != 0;
     }
 
@@ -1742,31 +1809,35 @@ public class JSDocInfo implements Serializable {
       return populatePropEntry(TYPE_TRANSFORMATIONS, name, expr);
     }
 
-    /** Records a thrown type. */
-    public boolean recordThrowType(JSTypeExpression type) {
-      if (type != null && !hasAnySingletonTypeTags()) {
-        getPropWithDefault(THROWN_TYPES, ArrayList::new).add(type);
-        populated = true;
+    /**
+     * Records a throw annotation description.
+     *
+     * @return {@code true} if the type's description was recorded. The description
+     *     of a throw annotation is the text including the type.
+     */
+    public boolean recordThrowsAnnotation(String annotation) {
+      populated = true;
+      // TODO(user): Does it make sense to check for singleton tags here?
+      // Note that if the @throws annotation appears before a singleton tag like @type,
+      // the throws annotation is preserved, but if it appears after the singleton tag,
+      // it gets dropped.
+      if (!hasAnySingletonTypeTags()) {
+        List<String> throwsAnnotations = getPropWithDefault(THROWS_ANNOTATIONS, ArrayList::new);
+        if (shouldParseDocumentation()) {
+          throwsAnnotations.add(annotation);
+        } else if (throwsAnnotations.isEmpty()) {
+          // Add at least one annotation so that PureFunctionIdentifier knows about
+          // the side effect.
+          throwsAnnotations.add("");
+        }
         return true;
       }
       return false;
     }
 
-    /**
-     * Records a throw type's description.
-     *
-     * @return {@code true} if the type's description was recorded and {@code false} if a
-     *     description with the same type was already defined
-     */
-    public boolean recordThrowDescription(JSTypeExpression type, String description) {
-      if (!shouldParseDocumentation()) {
-        return true;
-      }
-      return populatePropEntry(THROWS_DESCRIPTIONS, type, description);
-    }
-
     /** Adds an author to the current information. */
-    public boolean addAuthor(String author) {
+    public boolean recordAuthor(String author) {
+      populated = true;
       if (shouldParseDocumentation()) {
         getPropWithDefault(AUTHORS, ArrayList::new).add(author);
       }
@@ -1775,7 +1846,8 @@ public class JSDocInfo implements Serializable {
     }
 
     /** Adds a reference ("@see") to the current information. */
-    public boolean addReference(String reference) {
+    public boolean recordReference(String reference) {
+      populated = true;
       if (shouldParseDocumentation()) {
         getPropWithDefault(SEES, ArrayList::new).add(reference);
       }
@@ -1856,23 +1928,32 @@ public class JSDocInfo implements Serializable {
       return getProp(DEPRECATION_REASON) != null;
     }
 
+    public void recordSuppressions(ImmutableSet<String> suppressions, String description) {
+      populated = true;
+      ImmutableMap.Builder<ImmutableSet<String>, String> mapBuilder = ImmutableMap.builder();
+      ImmutableMap<ImmutableSet<String>, String> current = getProp(SUPPRESSIONS);
+      if (current != null) {
+        if (current.containsKey(suppressions)) {
+          // Exact @suppress warning exists already. Return without recording.
+          return;
+        }
+        mapBuilder.putAll(current);
+      }
+      mapBuilder.put(suppressions, description);
+      ImmutableMap<ImmutableSet<String>, String> suppressionsMap = mapBuilder.buildOrThrow();
+      setProp(SUPPRESSIONS, suppressionsMap);
+    }
+
     /**
      * Records the list of suppressed warnings, possibly adding to the set of already configured
      * warnings.
      */
     public void recordSuppressions(Set<String> suppressions) {
-      populated = true;
-      ImmutableSet.Builder<String> builder = ImmutableSet.builder();
-      ImmutableSet<String> current = getProp(SUPPRESSIONS);
-      if (current != null) {
-        builder.addAll(current);
-      }
-      builder.addAll(suppressions);
-      setProp(SUPPRESSIONS, builder.build());
+      recordSuppressions(ImmutableSet.copyOf(suppressions), "");
     }
 
-    public void addSuppression(String suppression) {
-      recordSuppressions(ImmutableSet.of(suppression));
+    public void recordSuppression(String suppression) {
+      recordSuppressions(ImmutableSet.of(suppression), "");
     }
 
     /** Records the list of modifies warnings. */
@@ -2080,6 +2161,17 @@ public class JSDocInfo implements Serializable {
       return populateProp(FILEOVERVIEW_DESCRIPTION, description);
     }
 
+    /**
+     * Records enhanced namespace.
+     *
+     * @return {@code true} If the enhanced namespace was recorded.
+     */
+    public boolean recordEnhance(String namespace) {
+      setBit(Bit.ENHANCED_NAMESPACE, true);
+      populated = true;
+      return populateProp(ENHANCED_NAMESPACE, namespace);
+    }
+
     public boolean recordLicense(String license) {
       setProp(LICENSE, license);
       populated = true;
@@ -2087,6 +2179,14 @@ public class JSDocInfo implements Serializable {
     }
 
     public boolean addLicense(String license) {
+      // The vast majority of JSDoc doesn't have @license so it make sense to be lazy about building
+      // the HashSet.
+      if (licenseTexts == null) {
+        // The HashSet is only used to remove duplicates, it is never read beyond the add,
+        // so LinkedHashSet is not required.
+        licenseTexts = new HashSet<>();
+      }
+
       if (!licenseTexts.add(license)) {
         return false;
       }
@@ -2186,6 +2286,54 @@ public class JSDocInfo implements Serializable {
           && !isConstructorOrInterface()
           && populateBit(Bit.RECORD, true)
           && populateBit(Bit.INTERFACE, true);
+    }
+
+    /**
+     * Records that the {@link JSDocInfo} being built should have its {@link JSDocInfo#xxx()} flag
+     * set to {@code true}.
+     *
+     * @return {@code true} if the no inline flag was recorded and {@code false} if it was already
+     *     recorded
+     */
+    public boolean recordLocaleFile() {
+      return populateBit(Bit.LOCALE_FILE, true);
+    }
+
+    /**
+     * Records that the {@link JSDocInfo} being built should have its {@link JSDocInfo#xxx()} flag
+     * set to {@code true}.
+     *
+     * @return {@code true} if the no inline flag was recorded and {@code false} if it was already
+     *     recorded
+     */
+    public boolean recordLocaleObject() {
+      return populateBit(Bit.LOCALE_OBJECT, true);
+    }
+
+    /**
+     * Records that the {@link JSDocInfo} being built should have its {@link JSDocInfo#xxx()} flag
+     * set to {@code true}.
+     *
+     * @return {@code true} if the no inline flag was recorded and {@code false} if it was already
+     *     recorded
+     */
+    public boolean recordLocaleValue() {
+      return populateBit(Bit.LOCALE_VALUE, true);
+    }
+
+    /**
+     * Records that the {@link JSDocInfo} being built should have its {@link JSDocInfo#xxx()} flag
+     * set to {@code true}.
+     *
+     * @return {@code true} if the no inline flag was recorded and {@code false} if it was already
+     *     recorded
+     */
+    public boolean recordLocaleSelect() {
+      return populateBit(Bit.LOCALE_SELECT, true);
+    }
+
+    public boolean recordProvideGoog() {
+      return populateBit(Bit.PROVIDE_GOOG, true);
     }
 
     /**
@@ -2327,7 +2475,7 @@ public class JSDocInfo implements Serializable {
      * flag set to {@code true}.
      */
     public boolean recordExterns() {
-      return !checkBit(Bit.TYPE_SUMMARY) && populateBit(Bit.EXTERNS, true);
+      return populateBit(Bit.EXTERNS, true);
     }
 
     /**
@@ -2335,7 +2483,7 @@ public class JSDocInfo implements Serializable {
      * JSDocInfo#isTypeSummary()} flag set to {@code true}.
      */
     public boolean recordTypeSummary() {
-      return !checkBit(Bit.EXTERNS) && populateBit(Bit.TYPE_SUMMARY, true);
+      return populateBit(Bit.TYPE_SUMMARY, true);
     }
 
     /**

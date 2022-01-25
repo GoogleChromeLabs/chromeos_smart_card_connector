@@ -19,12 +19,10 @@ package com.google.javascript.jscomp;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 import java.util.LinkedHashSet;
-import java.util.Set;
 
 /**
  * Gathers property names defined in externs.
@@ -33,21 +31,28 @@ import java.util.Set;
  * exporting local property definitions, the externs may be modified after type checking, and we
  * want to collect the new names as well.
  */
-final class GatherExternProperties extends AbstractPostOrderCallback implements CompilerPass {
-  private final Set<String> externProperties;
+final class GatherExternProperties implements NodeTraversal.Callback, CompilerPass {
   private final AbstractCompiler compiler;
+
+  private final LinkedHashSet<String> externProperties = new LinkedHashSet<>();
 
   GatherExternProperties(AbstractCompiler compiler) {
     this.compiler = compiler;
-    this.externProperties = compiler.getExternProperties() == null
-        ? new LinkedHashSet<String>()
-        : new LinkedHashSet<String>(compiler.getExternProperties());
+
+    if (compiler.getExternProperties() != null) {
+      this.externProperties.addAll(compiler.getExternProperties());
+    }
   }
 
   @Override
   public void process(Node externs, Node root) {
     NodeTraversal.traverse(compiler, externs, this);
     compiler.setExternProperties(ImmutableSet.copyOf(externProperties));
+  }
+
+  @Override
+  public boolean shouldTraverse(NodeTraversal t, Node n, Node parent) {
+    return !n.isScript() || !NodeUtil.isFromTypeSummary(n);
   }
 
   @Override

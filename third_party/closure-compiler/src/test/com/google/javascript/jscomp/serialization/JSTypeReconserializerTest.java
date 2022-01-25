@@ -37,6 +37,7 @@ import com.google.protobuf.Descriptors.FieldDescriptor;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Predicate;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -47,6 +48,7 @@ public final class JSTypeReconserializerTest extends CompilerTestCase {
 
   // individual test cases may override this
   private ImmutableSet<String> typesToForwardDeclare = null;
+  private Predicate<String> shouldSerializeProperty;
 
   private TypePool typePool;
   private StringPool.Builder stringPoolBuilder;
@@ -71,6 +73,7 @@ public final class JSTypeReconserializerTest extends CompilerTestCase {
     super.setUp();
     enableTypeCheck();
     this.typesToForwardDeclare = ImmutableSet.of();
+    this.shouldSerializeProperty = (propertyName) -> true;
     enableSourceInformationAnnotator();
   }
 
@@ -86,6 +89,7 @@ public final class JSTypeReconserializerTest extends CompilerTestCase {
                   .addAllTypeMismatches(compiler.getTypeMismatches())
                   .build(),
               this.stringPoolBuilder,
+              this.shouldSerializeProperty,
               SerializationOptions.INCLUDE_DEBUG_INFO_AND_EXPENSIVE_VALIDITY_CHECKS);
 
       NodeTraversal.traverseRoots(
@@ -150,7 +154,7 @@ public final class JSTypeReconserializerTest extends CompilerTestCase {
     List<TypeProto> typePool = compileToTypes("class Foo { m() {} } new Foo().m();");
 
     assertThat(typePool)
-        .ignoringFieldDescriptors(ObjectTypeProto.getDescriptor().findFieldByName("uuid"))
+        .ignoringFieldDescriptors(OBJECT_UUID)
         .containsAtLeast(
             TypeProto.newBuilder()
                 .setObject(
@@ -169,6 +173,33 @@ public final class JSTypeReconserializerTest extends CompilerTestCase {
                 .build(),
             TypeProto.newBuilder()
                 .setObject(namedObjectBuilder("Foo.prototype.m").setIsInvalidating(true))
+                .build());
+  }
+
+  @Test
+  public void testObjectTypeSerializationFormat_canAvoidSerializingProperty() {
+    ImmutableSet<String> propertiesToSerialize = ImmutableSet.of("constructor", "serializeMe");
+    this.shouldSerializeProperty = propertiesToSerialize::contains;
+
+    List<TypeProto> typePool =
+        compileToTypes(
+            lines(
+                "class Foo {",
+                "  serializeMe() {}",
+                "  doNotSerializeMe() {}",
+                "}",
+                "new Foo().serializeMe();",
+                "new Foo().doNotSerializeMe();"));
+
+    assertThat(typePool)
+        .ignoringFieldDescriptors(OBJECT_UUID)
+        .contains(
+            TypeProto.newBuilder()
+                .setObject(
+                    namedObjectBuilder("Foo.prototype")
+                        .addOwnProperty(findInStringPool("constructor"))
+                        .addOwnProperty(findInStringPool("serializeMe")))
+                // the "doNotSerializeMe" property is not present
                 .build());
   }
 
@@ -333,7 +364,7 @@ public final class JSTypeReconserializerTest extends CompilerTestCase {
         .contains(
             TypeProto.newBuilder()
                 .setObject(
-                    ObjectTypeProto.newBuilder()
+                    namedObjectBuilder("{x: string}")
                         .setIsInvalidating(true)
                         .addOwnProperty(findInStringPool("x")))
                 .build());
@@ -366,7 +397,7 @@ public final class JSTypeReconserializerTest extends CompilerTestCase {
   }
 
   @Test
-  public void reconciles_differentFunctionsWithSameJspath() {
+  public void reconcile_differentFunctionsWithSameJspath() {
     assertThat(
             compileToTypes(
                 lines(
@@ -427,7 +458,7 @@ public final class JSTypeReconserializerTest extends CompilerTestCase {
         .contains(
             TypeProto.newBuilder()
                 .setObject(
-                    ObjectTypeProto.newBuilder()
+                    namedObjectBuilder("function(new:*): ?")
                         .setIsInvalidating(true)
                         .addPrototype(pointerForType(PrimitiveType.UNKNOWN_TYPE))
                         .addInstanceType(pointerForType(PrimitiveType.UNKNOWN_TYPE))
@@ -459,7 +490,7 @@ public final class JSTypeReconserializerTest extends CompilerTestCase {
         .ignoringFieldDescriptors(BRITTLE_TYPE_FIELDS)
         .containsExactly(
             TypeProto.newBuilder()
-                .setObject(ObjectTypeProto.newBuilder().setIsInvalidating(true))
+                .setObject(namedObjectBuilder("{x: string}").setIsInvalidating(true))
                 .build(),
             TypeProto.newBuilder().setObject(namedObjectBuilder("Foo")).build(),
             TypeProto.newBuilder().setObject(namedObjectBuilder("Bar")).build(),
@@ -514,7 +545,7 @@ public final class JSTypeReconserializerTest extends CompilerTestCase {
         .contains(
             TypeProto.newBuilder()
                 .setObject(
-                    ObjectTypeProto.newBuilder()
+                    namedObjectBuilder("function(new:Bar): ?", "function(new:Foo): ?")
                         .setMarkedConstructor(true)
                         .addInstanceType(pointerForType("Foo"))
                         .addInstanceType(pointerForType("Bar"))
@@ -607,12 +638,42 @@ public final class JSTypeReconserializerTest extends CompilerTestCase {
     // Enum types have a unique reference names format which is part of the ColorId
   }
 
-  private ObjectTypeProto.Builder namedObjectBuilder(String className) {
+  @Test
+  public void debugInfo_mismatchLocations() {
+    TypePool typePool =
+        compileToTypePool(
+            lines(
+                "class A { }",
+                "class B { }",
+                "class C { }",
+                "",
+                "/**",
+                " * @suppress {checkTypes}",
+                " * @type {(!A|!B)}",
+                " */",
+                "const x = new C();"));
+
+    assertThat(typePool.getDebugInfo().getMismatchList())
+        .contains(
+            TypePool.DebugInfo.Mismatch.newBuilder()
+                .setSourceRef("testcode:9:10")
+                .addInvolvedColor(pointerForType("(typeof A)"))
+                .addInvolvedColor(pointerForType("A"))
+                .addInvolvedColor(pointerForType("A.prototype"))
+                .addInvolvedColor(pointerForType("(typeof B)"))
+                .addInvolvedColor(pointerForType("B"))
+                .addInvolvedColor(pointerForType("B.prototype"))
+                .addInvolvedColor(pointerForType("(typeof C)"))
+                .addInvolvedColor(pointerForType("C"))
+                .addInvolvedColor(pointerForType("C.prototype"))
+                .build());
+  }
+
+  private ObjectTypeProto.Builder namedObjectBuilder(String... className) {
     return ObjectTypeProto.newBuilder()
         .setDebugInfo(
             ObjectTypeProto.DebugInfo.newBuilder()
-                .setClassName(className)
-                .setFilename("testcode")
+                .addAllTypename(ImmutableList.copyOf(className))
                 .build());
   }
 
@@ -644,7 +705,7 @@ public final class JSTypeReconserializerTest extends CompilerTestCase {
   private TypePointer pointerForType(String className) {
     List<TypeProto> types = this.typePool.getTypeList();
     for (int i = 0; i < types.size(); i++) {
-      if (types.get(i).getObject().getDebugInfo().getClassName().equals(className)) {
+      if (types.get(i).getObject().getDebugInfo().getTypenameList().contains(className)) {
         return TypePointer.newBuilder().setPoolOffset(untrimOffset(i)).build();
       }
     }
@@ -664,7 +725,7 @@ public final class JSTypeReconserializerTest extends CompilerTestCase {
         continue;
       }
       ObjectTypeProto objectSubtype = subtype.getObject();
-      if (!objectSubtype.getDebugInfo().getClassName().equals(className)) {
+      if (!objectSubtype.getDebugInfo().getTypename(0).equals(className)) {
         continue;
       }
       if (isAxiomatic(edge.getSupertype())) {

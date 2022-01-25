@@ -19,9 +19,9 @@ package com.google.javascript.jscomp;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.javascript.jscomp.PhaseOptimizer.FEATURES_NOT_SUPPORTED_BY_PASS;
+import static com.google.javascript.jscomp.testing.JSCompCorrespondences.DIAGNOSTIC_EQUALITY;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.truth.Correspondence;
 import com.google.javascript.jscomp.CompilerOptions.TracerMode;
 import com.google.javascript.jscomp.PhaseOptimizer.Loop;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
@@ -144,8 +144,13 @@ public final class PhaseOptimizerTest {
             createPassFactory("e", 1, true),
             createPassFactory("f", 0, true)));
     // The pass iterations can be grouped as:
-    // [a] [b c d] [b c d] [c] [b d] [e] [f]
-    assertPasses("a", "b", "c", "d", "b", "c", "d", "c", "b", "d", "e", "f");
+    // 1. [a]  2. [b c d]  3. [b c d]  4. [c]  5. [b]  6. [e]  7. [f]
+    // In loop #3, "b" is run and does not make changes, then "c" is run and makes changes, then "d"
+    // is run and does not make changes.
+    // In loop #4, "c" is run and does not make changes.
+    // In loop #5, "b" is run but "d" is not run. This is because the AST changed after the last run
+    // of "b" but has not changed after the last run of "d".
+    assertPasses("a", "b", "c", "d", "b", "c", "d", "c", "b", "e", "f");
   }
 
   @Test
@@ -226,7 +231,7 @@ public final class PhaseOptimizerTest {
 
     // Error will be converted to warning by a `WarningsGuard`.
     assertThat(compiler.getErrors())
-        .comparingElementsUsing(DIAGNOSTIC_CORRESPONDENCE)
+        .comparingElementsUsing(DIAGNOSTIC_EQUALITY)
         .containsExactly(FEATURES_NOT_SUPPORTED_BY_PASS);
   }
 
@@ -238,7 +243,7 @@ public final class PhaseOptimizerTest {
     assertPasses("testPassFactory");
 
     assertThat(compiler.getErrors())
-        .comparingElementsUsing(DIAGNOSTIC_CORRESPONDENCE)
+        .comparingElementsUsing(DIAGNOSTIC_EQUALITY)
         .containsExactly(FEATURES_NOT_SUPPORTED_BY_PASS);
   }
 
@@ -297,8 +302,4 @@ public final class PhaseOptimizerTest {
       }
     };
   }
-
-  private static final Correspondence<JSError, DiagnosticType> DIAGNOSTIC_CORRESPONDENCE =
-      Correspondence.from(
-          (actual, expected) -> actual.getType().equals(expected), "has diagnostic");
 }

@@ -47,7 +47,7 @@ import java.util.HashMap;
  * A builder for record types.
  *
  */
-public class RecordTypeBuilder {
+public final class RecordTypeBuilder {
   private boolean isEmpty = true;
   private boolean isDeclared = true;
   private final JSTypeRegistry registry;
@@ -89,7 +89,7 @@ public class RecordTypeBuilder {
     }
     ImmutableSortedMap.Builder<String, RecordProperty> m = ImmutableSortedMap.naturalOrder();
     m.putAll(this.properties);
-    return new RecordType(registry, m.build(), isDeclared);
+    return new RecordType(registry, m.buildOrThrow(), isDeclared);
   }
 
   static class RecordProperty {

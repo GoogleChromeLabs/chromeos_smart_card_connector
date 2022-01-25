@@ -21,32 +21,35 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
+import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 
 /**
- * Enforces that invocations of the method {@code goog.string.Const.from} are
- * done with an argument which is a string literal.
+ * Enforces that invocations of the method {@code goog.string.Const.from} are done with an argument
+ * which is a string literal.
  *
- * <p>This function parameter checker enforces that for all invocations of
- * method {@code goog.string.Const.from} the actual argument satisfies one of
- * the following conditions:
+ * <p>This function parameter checker enforces that for all invocations of method {@code
+ * goog.string.Const.from} the actual argument satisfies one of the following conditions:
+ *
  * <ol>
- * <li>The argument is an expression that is a string literal or concatenation
- * thereof, or
- * <li>The argument is a constant variable previously assigned from a string
- * literal or concatenation thereof.
+ *   <li>The argument is an expression that is a string literal or concatenation thereof, or
+ *   <li>The argument is a constant variable previously assigned from a string literal or
+ *       concatenation thereof.
  * </ol>
  */
 class ConstParamCheck extends AbstractPostOrderCallback implements CompilerPass {
 
-  private static final String CONST_FUNCTION_NAME = "goog.string.Const.from";
-  private static final String CONST_FUNCTION_NAME_COLLAPSED = "goog$string$Const$from";
+  // NOTE: Comparison of Node qualified names is faster than comparing against strings.
+  private static final Node CONST_FUNCTION_NAME =
+      IR.getprop(IR.name("goog"), "string", "Const", "from");
+  private static final Node CONST_FUNCTION_NAME_COLLAPSED = IR.name("goog$string$Const$from");
 
   @VisibleForTesting
   static final DiagnosticType CONST_NOT_STRING_LITERAL_ERROR =
-      DiagnosticType.error("JSC_CONSTANT_NOT_STRING_LITERAL_ERROR",
+      DiagnosticType.error(
+          "JSC_CONSTANT_NOT_STRING_LITERAL_ERROR",
           "Function argument is not a string literal or a constant assigned "
-          + "from a string literal or a concatenation of these.");
+              + "from a string literal or a concatenation of these.");
 
   private final AbstractCompiler compiler;
 
@@ -61,11 +64,10 @@ class ConstParamCheck extends AbstractPostOrderCallback implements CompilerPass 
   }
 
   /**
-   * Callback to visit a node and check method call arguments of
-   * {@code goog.string.Const.from}.
+   * Callback to visit a node and check method call arguments of {@code goog.string.Const.from}.
    *
-   * @param traversal The node traversal object that supplies context, such as
-   *        the scope chain to use in name lookups as well as error reporting.
+   * @param traversal The node traversal object that supplies context, such as the scope chain to
+   *     use in name lookups as well as error reporting.
    * @param node The node being visited.
    * @param parent The parent of the node.
    */

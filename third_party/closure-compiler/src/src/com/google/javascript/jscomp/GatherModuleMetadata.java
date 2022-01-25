@@ -22,7 +22,6 @@ import static com.google.javascript.jscomp.ClosurePrimitiveErrors.INVALID_REQUIR
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.LinkedHashMultiset;
-import com.google.javascript.jscomp.NodeTraversal.Callback;
 import com.google.javascript.jscomp.deps.ModuleLoader.ModulePath;
 import com.google.javascript.jscomp.deps.ModuleLoader.ResolutionMode;
 import com.google.javascript.jscomp.modules.ModuleMetadataMap;
@@ -48,12 +47,7 @@ public final class GatherModuleMetadata implements CompilerPass {
       DiagnosticType.error(
           "JSC_INVALID_NAMESPACE_OR_MODULE_ID",
           "Namespace and module ID must be a dot-separated sequence of legal property"
-              + " identifiers. Found ''{0}''");
-
-  static final DiagnosticType INVALID_MODULE_ID =
-      DiagnosticType.error(
-          "JSC_INVALID_MODULE_ID",
-          "Module ID must only contain ASCII, 0-9, $, ., and _. Found ''{0}''");
+              + " identifiers and must only contain ASCII, 0-9, $, ., and _. Found ''{0}''");
 
   static final DiagnosticType INVALID_DECLARE_MODULE_ID_CALL =
       DiagnosticType.error(
@@ -206,7 +200,7 @@ public final class GatherModuleMetadata implements CompilerPass {
   }
 
   /** Traverses the AST and build a sets of {@link ModuleMetadata}s. */
-  private final class Finder implements Callback {
+  private final class Finder implements NodeTraversal.Callback {
     @Override
     public boolean shouldTraverse(NodeTraversal t, Node n, Node parent) {
       switch (n.getToken()) {
@@ -445,11 +439,19 @@ public final class GatherModuleMetadata implements CompilerPass {
         String namespace,
         NodeTraversal t,
         Node n) {
-      if (!isValidNamespaceOrModuleId(namespace)) {
-        compiler.report(JSError.make(n, INVALID_NAMESPACE_OR_MODULE_ID, namespace));
-      } else if (moduleType.equals(ModuleType.GOOG_MODULE) && !isValidModuleId(namespace)) {
-
-        compiler.report(JSError.make(n, INVALID_MODULE_ID, namespace));
+      if (moduleType.equals(ModuleType.GOOG_PROVIDE)
+          || moduleType.equals(ModuleType.LEGACY_GOOG_MODULE)) {
+        if (!NodeUtil.isValidQualifiedName(
+            compiler.getOptions().getLanguageIn().toFeatureSet(), namespace)) {
+          compiler.report(JSError.make(n, INVALID_NAMESPACE_OR_MODULE_ID, namespace));
+        }
+      }
+      if (moduleType.equals(ModuleType.GOOG_MODULE)
+          || moduleType.equals(ModuleType.LEGACY_GOOG_MODULE)) {
+        // non-legacy goog.modules don't technically need to be valid qualified names
+        if (!isValidModuleId(namespace)) {
+          compiler.report(JSError.make(n, INVALID_NAMESPACE_OR_MODULE_ID, namespace));
+        }
       }
 
       ModuleType existingType = null;
@@ -491,7 +493,9 @@ public final class GatherModuleMetadata implements CompilerPass {
     compiler.setModuleMetadataMap(new ModuleMetadataMap(modulesByPath, modulesByGoogNamespace));
   }
 
-  private static boolean isValidNamespaceOrModuleId(String id) {
+  // Must match closure/base.js's goog.VALID_MODULE_RE_ & also validates that dotted segments are
+  // non-empty.
+  private static boolean isValidModuleId(String id) {
     for (String segment : DOT_SPLITTER.split(id)) {
       if (segment.isEmpty()) {
         return false;
@@ -502,11 +506,6 @@ public final class GatherModuleMetadata implements CompilerPass {
         }
       }
     }
-    return true;
-  }
-
-  // stricter than isValidNamespace. Must match closure/base.js's goog.VALID_MODULE_RE_
-  private static boolean isValidModuleId(String id) {
     return NAMESPACE_SEGMENT_REGEX.matcher(id).matches();
   }
 
