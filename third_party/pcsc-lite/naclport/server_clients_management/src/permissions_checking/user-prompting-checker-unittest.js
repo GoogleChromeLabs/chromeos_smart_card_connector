@@ -22,6 +22,7 @@ goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistry');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.UserPromptingChecker');
 goog.require('GoogleSmartCard.PopupOpener');
 goog.require('goog.Promise');
+goog.require('goog.asserts');
 goog.require('goog.testing');
 goog.require('goog.testing.MockControl');
 goog.require('goog.testing.PropertyReplacer');
@@ -62,24 +63,26 @@ const MockedDialogBehavior = {
 };
 
 /**
- * Sets up a mock instance of KnownAppsRegistry.
+ * A fake implementtion of `TrustedClientsRegistry`.
  *
- * This mock instance is only aware of |FAKE_CLIENT_1_ORIGIN|.
- * @param {!goog.testing.MockControl} mockControl
+ * It's only aware of `FAKE_CLIENT_1_ORIGIN`.
+ * @implements {TrustedClientsRegistry}
+ * @constructor
  */
-function setUpKnownAppsRegistryMock(mockControl) {
-  const mockInstance = {
-    getByOrigin: function(origin) {
-      if (origin === FAKE_CLIENT_1_ORIGIN)
-        return goog.Promise.resolve(FAKE_TRUSTED_CLIENT_INFO_1);
-      return goog.Promise.reject();
-    }
-  };
-  /** @type {?} */
-  const mockedConstructor = mockControl.createConstructorMock(
-      GSC.PcscLiteServer, 'TrustedClientsRegistry');
-  mockedConstructor().$returns(mockInstance);
-}
+function FakeTrustedClientsRegistry() {}
+
+/** @override */
+FakeTrustedClientsRegistry.prototype.getByOrigin = function(origin) {
+  if (origin === FAKE_CLIENT_1_ORIGIN)
+    return goog.Promise.resolve(FAKE_TRUSTED_CLIENT_INFO_1);
+  return goog.Promise.reject();
+};
+
+/** @override */
+FakeTrustedClientsRegistry.prototype.tryGetByOrigins = function(originList) {
+  fail('Unexpected tryGetByOrigins() call');
+  goog.asserts.fail();
+};
 
 /**
  * Sets up mocks for get() and set() methods of the chrome.storage.local
@@ -93,9 +96,9 @@ function setUpKnownAppsRegistryMock(mockControl) {
 function setUpChromeStorageMock(
     mockControl, propertyReplacer, fakeInitialData, expectedDataToBeWritten) {
   propertyReplacer.set(chrome, 'storage', {
-    local: {
-      get: mockControl.createFunctionMock('chrome.storage.local.get'),
-      set: mockControl.createFunctionMock('chrome.storage.local.set')
+    'local': {
+      'get': mockControl.createFunctionMock('chrome.storage.local.get'),
+      'set': mockControl.createFunctionMock('chrome.storage.local.set')
     }
   });
 
@@ -114,38 +117,35 @@ function setUpChromeStorageMock(
 }
 
 /**
- * Sets up mocks for the GSC.PopupOpener.runModalDialog method.
+ * Returns a mocks for the `GSC.PopupOpener.runModalDialog()` method.
  * @param {!goog.testing.MockControl} mockControl
  * @param {!MockedDialogBehavior} mockedBehavior If |NOT_RUN|, then the method
  * is not expected to be called; otherwise, the called method will return the
  * corresponding result.
+ * @return {!Function}
  */
-function setUpDialogMock(mockControl, mockedBehavior) {
-  /** @type {?} */
-  const mockedFunction =
-      mockControl.createMethodMock(GSC.PopupOpener, 'runModalDialog');
-  let mockAction;
+function getDialogMock(mockControl, mockedBehavior) {
   switch (mockedBehavior) {
     case MockedDialogBehavior.NOT_RUN:
-      return;
+      return function() {
+        fail(`Unexpected dialog request`);
+      };
     case MockedDialogBehavior.USER_APPROVES:
-      mockAction = function() {
+      return function() {
         return goog.Promise.resolve(true);
       };
       break;
     case MockedDialogBehavior.USER_DENIES:
-      mockAction = function() {
+      return function() {
         return goog.Promise.resolve(false);
       };
       break;
     case MockedDialogBehavior.USER_CANCELS:
-      mockAction = function() {
+      return function() {
         return goog.Promise.reject();
       };
-      break;
   }
-  mockedFunction(ignoreArgument, ignoreArgument, ignoreArgument)
-      .$does(mockAction);
+  goog.asserts.fail();
 }
 
 /**
@@ -193,6 +193,8 @@ function makeTest(
       mockControl.$tearDown();
       mockControl.$resetAll();
       propertyReplacer.reset();
+      UserPromptingChecker.overrideTrustedClientsRegistryForTesting(null);
+      UserPromptingChecker.overrideModalDialogRunnerForTesting(null);
     }
 
     function verifyAndCleanup() {
@@ -205,11 +207,13 @@ function makeTest(
       }
     }
 
-    setUpKnownAppsRegistryMock(mockControl);
     setUpChromeStorageMock(
         mockControl, propertyReplacer, fakeInitialStorageData,
         expectedStorageDataToBeWritten);
-    setUpDialogMock(mockControl, mockedDialogBehavior);
+    UserPromptingChecker.overrideTrustedClientsRegistryForTesting(
+        new FakeTrustedClientsRegistry());
+    UserPromptingChecker.overrideModalDialogRunnerForTesting(
+        getDialogMock(mockControl, mockedDialogBehavior));
 
     mockControl.$replayAll();
 

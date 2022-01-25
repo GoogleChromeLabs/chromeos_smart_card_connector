@@ -36,6 +36,7 @@ goog.require('GoogleSmartCard.MessagingOrigin');
 goog.require('GoogleSmartCard.Packaging');
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientInfo');
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistry');
+goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistryImpl');
 goog.require('GoogleSmartCard.PopupOpener');
 goog.require('goog.Promise');
 goog.require('goog.iter');
@@ -60,6 +61,11 @@ const GSC = GoogleSmartCard;
 const PermissionsChecking =
     GSC.PcscLiteServerClientsManagement.PermissionsChecking;
 
+/** @type {!GSC.PcscLiteServer.TrustedClientsRegistry|null} */
+let trustedClientsRegistryOverrideForTesting = null;
+/** @type {function(string,!GSC.PopupOpener.WindowOptions,!Object=)|null} */
+let modalDialogRunnerOverrideForTesting = null;
+
 /**
  * This class encapsulates the part of the client app permission check that is
  * related to prompting the user about permissions and loading/storing these
@@ -68,7 +74,10 @@ const PermissionsChecking =
  */
 PermissionsChecking.UserPromptingChecker = function() {
   /** @private @const */
-  this.trustedClientsRegistry_ = new GSC.PcscLiteServer.TrustedClientsRegistry;
+  this.trustedClientsRegistry_ =
+      trustedClientsRegistryOverrideForTesting !== null ?
+      trustedClientsRegistryOverrideForTesting :
+      new GSC.PcscLiteServer.TrustedClientsRegistryImpl();
 
   /** @type {!goog.promise.Resolver.<!Map.<string,boolean>>} @private @const */
   this.localStoragePromiseResolver_ = goog.Promise.withResolver();
@@ -79,6 +88,24 @@ PermissionsChecking.UserPromptingChecker = function() {
 };
 
 const UserPromptingChecker = PermissionsChecking.UserPromptingChecker;
+
+/**
+ * @param {!GSC.PcscLiteServer.TrustedClientsRegistry|null}
+ *     trustedClientsRegistry
+ */
+UserPromptingChecker.overrideTrustedClientsRegistryForTesting = function(
+    trustedClientsRegistry) {
+  trustedClientsRegistryOverrideForTesting = trustedClientsRegistry;
+};
+
+/**
+ * @param {function(string,!GSC.PopupOpener.WindowOptions,!Object=)|null}
+ *     modalDialogRunner
+ */
+UserPromptingChecker.overrideModalDialogRunnerForTesting = function(
+    modalDialogRunner) {
+  modalDialogRunnerOverrideForTesting = modalDialogRunner;
+};
 
 /**
  * @type {!goog.log.Logger}
@@ -332,7 +359,10 @@ UserPromptingChecker.prototype.promptUserForUntrustedClient_ = function(
  */
 UserPromptingChecker.prototype.runPromptDialog_ = function(
     clientOrigin, userPromptDialogData, promiseResolver) {
-  const dialogPromise = GSC.PopupOpener.runModalDialog(
+  const modalDialogRunner = modalDialogRunnerOverrideForTesting !== null ?
+      modalDialogRunnerOverrideForTesting :
+      GSC.PopupOpener.runModalDialog;
+  const dialogPromise = modalDialogRunner(
       USER_PROMPT_DIALOG_URL, USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES,
       userPromptDialogData);
   dialogPromise.then(

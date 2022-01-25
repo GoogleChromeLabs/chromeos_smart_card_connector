@@ -24,7 +24,6 @@ goog.require('GoogleSmartCard.PortMessageChannel');
 goog.require('GoogleSmartCard.TypedMessage');
 goog.require('goog.Promise');
 goog.require('goog.asserts');
-goog.require('goog.testing.PropertyReplacer');
 goog.require('goog.testing.jsunit');
 goog.require('goog.testing.mockmatchers');
 
@@ -98,34 +97,44 @@ goog.exportSymbol('testPortMessageChannelEstablishing', function() {
 
 // Test that the channel is not established and is disposed of when there are no
 // responses to the ping requests received.
-goog.exportSymbol('testPortMessageChannelFailureToEstablish', function() {
-  const testCasePromiseResolver = goog.Promise.withResolver();
+goog.exportSymbol('testPortMessageChannelFailureToEstablish', {
 
-  const mockPort = new GSC.MockPort('mock port');
-  mockPort.postMessage(goog.testing.mockmatchers.isObject).$anyTimes();
-  mockPort.postMessage.$replay();
+  'setUp': function() {
+    // Override the pinger's default timeouts, to prevent the test from hitting
+    // the test framework's limit on the single test execution.
+    Pinger.overrideTimeoutForTesting(400);
+    Pinger.overrideIntervalForTesting(200);
+  },
 
-  const propertyReplacer = new goog.testing.PropertyReplacer;
-  propertyReplacer.set(Pinger, 'TIMEOUT_MILLISECONDS', 400);
-  propertyReplacer.set(Pinger, 'INTERVAL_MILLISECONDS', 200);
-  testCasePromiseResolver.promise.thenAlways(
-      propertyReplacer.reset, propertyReplacer);
+  'tearDown': function() {
+    // Restore pinger's default timeouts.
+    Pinger.overrideTimeoutForTesting(null);
+    Pinger.overrideIntervalForTesting(null);
+  },
 
-  function onPortMessageChannelEstablished() {
-    testCasePromiseResolver.reject();
+  'test': function() {
+    const testCasePromiseResolver = goog.Promise.withResolver();
+
+    const mockPort = new GSC.MockPort('mock port');
+    mockPort.postMessage(goog.testing.mockmatchers.isObject).$anyTimes();
+    mockPort.postMessage.$replay();
+
+    function onPortMessageChannelEstablished() {
+      testCasePromiseResolver.reject();
+    }
+
+    function onPortMessageChannelDisposed() {
+      mockPort.postMessage.$verify();
+      testCasePromiseResolver.resolve();
+      mockPort.dispose();
+    }
+
+    const portMessageChannel = new GSC.PortMessageChannel(
+        mockPort.getFakePort(), onPortMessageChannelEstablished);
+    portMessageChannel.addOnDisposeCallback(onPortMessageChannelDisposed);
+
+    return testCasePromiseResolver.promise;
   }
-
-  function onPortMessageChannelDisposed() {
-    mockPort.postMessage.$verify();
-    testCasePromiseResolver.resolve();
-    mockPort.dispose();
-  }
-
-  const portMessageChannel = new GSC.PortMessageChannel(
-      mockPort.getFakePort(), onPortMessageChannelEstablished);
-  portMessageChannel.addOnDisposeCallback(onPortMessageChannelDisposed);
-
-  return testCasePromiseResolver.promise;
 });
 
 // Test that the messages sent through the port message channel are posted

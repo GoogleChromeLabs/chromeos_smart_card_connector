@@ -26,7 +26,7 @@ goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.MessagingOrigin');
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientInfo');
-goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistry');
+goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistryImpl');
 goog.require('goog.Promise');
 goog.require('goog.array');
 goog.require('goog.asserts');
@@ -46,7 +46,8 @@ const logger = GSC.Logging.getScopedLogger('ConnectorApp.MainWindow');
 const appListElement =
     /** @type {!Element} */ (goog.dom.getElement('app-list'));
 
-const trustedClientsRegistry = new GSC.PcscLiteServer.TrustedClientsRegistry();
+const trustedClientsRegistry =
+    new GSC.PcscLiteServer.TrustedClientsRegistryImpl();
 
 /**
  * @type {goog.Promise.<!Array.<!TrustedClientInfo>>?}
@@ -98,10 +99,12 @@ function onUpdateListener(clientOriginList) {
   trustedClientInfosPromise.then(
       function(trustedClientInfos) {
         updateAppView(
-            trustedClientInfosPromise, sortedClientOriginList, trustedClientInfos);
+            trustedClientInfosPromise, sortedClientOriginList,
+            trustedClientInfos);
       },
       function(error) {
-        if (!updateAppView(trustedClientInfosPromise, sortedClientOriginList, null))
+        if (!updateAppView(
+                trustedClientInfosPromise, sortedClientOriginList, null))
           return;
 
         goog.log.warning(logger, 'Couldn\'t resolve client origins: ' + error);

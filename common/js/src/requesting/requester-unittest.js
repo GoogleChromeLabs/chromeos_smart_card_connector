@@ -19,6 +19,7 @@ goog.require('GoogleSmartCard.Requester');
 goog.require('GoogleSmartCard.RequesterMessage');
 goog.require('GoogleSmartCard.RequesterMessage.RequestMessageData');
 goog.require('GoogleSmartCard.RequesterMessage.ResponseMessageData');
+goog.require('goog.reflect');
 goog.require('goog.testing.MockControl');
 goog.require('goog.testing.jsunit');
 goog.require('goog.testing.messaging.MockMessageChannel');
@@ -129,7 +130,8 @@ goog.exportSymbol('testRequester', function() {
     // Hack: call the protected disposeInternal() method in order to trigger the
     // disposal notifications; the MockMessageChannel.dispose() doesn't call
     // them.
-    mockMessageChannel['disposeInternal']();
+    mockMessageChannel[goog.reflect.objectProperty(
+        'disposeInternal', mockMessageChannel)]();
     return request0Promise.then(null, function(rejectionError) {
       assert(request0PromiseTracker.isResolved);
       assert(request1PromiseTracker.isResolved);
