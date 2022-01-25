@@ -30,12 +30,12 @@ const substituteArrayBuffersRecursively =
 goog.exportSymbol('testBuildObjectFromMap', function() {
   assertObjectEquals(buildObjectFromMap(new Map), {});
   assertObjectEquals(
-      buildObjectFromMap(new Map([['key', 'value']])), {key: 'value'});
+      buildObjectFromMap(new Map([['key', 'value']])), {'key': 'value'});
   assertObjectEquals(
       buildObjectFromMap(new Map([['key1', 'value1'], ['key2', 'value2']])),
-      {key1: 'value1', key2: 'value2'});
+      {'key1': 'value1', 'key2': 'value2'});
   // Test cases where keys and/or values are not strings.
-  assertObjectEquals(buildObjectFromMap(new Map([['key', 123]])), {key: 123});
+  assertObjectEquals(buildObjectFromMap(new Map([['key', 123]])), {'key': 123});
   assertObjectEquals(
       buildObjectFromMap(new Map([[123, 'value']])), {123: 'value'});
   assertObjectEquals(

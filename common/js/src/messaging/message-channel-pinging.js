@@ -51,17 +51,38 @@ const PINGER_LOGGER_TITLE = 'Pinger';
 const PING_RESPONDER_LOGGER_TITLE = 'PingResponder';
 const CHANNEL_ID_MESSAGE_KEY = 'channel_id';
 
+/**
+ * This constant represents the timeout in milliseconds after which the channel
+ * is considered dead.
+ */
+const PINGER_TIMEOUT_MILLISECONDS = goog.DEBUG ? 20 * 1000 : 600 * 1000;
+
+/**
+ * This constant represents the time in milliseconds between consecutive ping
+ * requests.
+ */
+const PINGER_INTERVAL_MILLISECONDS = goog.DEBUG ? 1 * 1000 : 10 * 1000;
+
 const GSC = GoogleSmartCard;
+
+// The implementation in this file relies on the interval to be strictly smaller
+// than the timeout.
+goog.asserts.assert(PINGER_INTERVAL_MILLISECONDS < PINGER_TIMEOUT_MILLISECONDS);
+
+// Used for overriding `PINGER_TIMEOUT_MILLISECONDS` and
+// `PINGER_INTERVAL_MILLISECONDS` constants in tests.
+let timeoutOverrideForTesting = null;
+let intervalOverrideForTesting = null;
 
 /**
  * This class implements pinging of the specified message channel.
  *
  * Upon construction and then later with some periodicity (see the
- * PINGER_INTERVAL_MILLISECONDS constant), a special "ping" message is sent
+ * `PINGER_INTERVAL_MILLISECONDS` constant), a special "ping" message is sent
  * through the message channel. Also the class subscribes itself for receiving
  * the special "pong" messages through the channel. If no responses are received
- * within some timeout (see the PINGER_TIMEOUT_MILLISECONDS constant) or if the
- * received response is incorrect, then the message channel is immediately
+ * within some timeout (see the `PINGER_TIMEOUT_MILLISECONDS` constant) or if
+ * the received response is incorrect, then the message channel is immediately
  * disposed.
  *
  * Note that the "pong" message should contain the special channel identifier,
@@ -114,25 +135,22 @@ const Pinger = GSC.MessageChannelPinging.Pinger;
 
 goog.inherits(Pinger, goog.Disposable);
 
-/**
- * This constant represents the timeout in milliseconds after which the channel
- * is considered dead.
- * @const
- */
-Pinger.TIMEOUT_MILLISECONDS = goog.DEBUG ? 20 * 1000 : 600 * 1000;
-
-/**
- * This constant represents the time in milliseconds between consecutive ping
- * requests.
- *
- * Note that Pinger.INTERVAL_MILLISECONDS < Pinger.TIMEOUT_MILLISECONDS needs to
- * hold because of how pinging is implemented here.
- * @const
- */
-Pinger.INTERVAL_MILLISECONDS = goog.DEBUG ? 1 * 1000 : 10 * 1000;
-
 /** @const */
 Pinger.SERVICE_NAME = 'ping';
+
+/**
+ * @param {number|null} timeoutMilliseconds
+ */
+Pinger.overrideTimeoutForTesting = function(timeoutMilliseconds) {
+  timeoutOverrideForTesting = timeoutMilliseconds;
+};
+
+/**
+ * @param {number|null} intervalMilliseconds
+ */
+Pinger.overrideIntervalForTesting = function(intervalMilliseconds) {
+  intervalOverrideForTesting = intervalMilliseconds;
+};
 
 /**
  * @return {!Object}
@@ -238,15 +256,20 @@ Pinger.prototype.postPingMessageAndScheduleNext_ = function() {
 Pinger.prototype.schedulePostingPingMessage_ = function() {
   if (this.isDisposed())
     return;
-  goog.Timer.callOnce(
-      this.postPingMessageAndScheduleNext_, Pinger.INTERVAL_MILLISECONDS, this);
+  const interval = intervalOverrideForTesting !== null ?
+      intervalOverrideForTesting :
+      PINGER_INTERVAL_MILLISECONDS;
+  goog.Timer.callOnce(this.postPingMessageAndScheduleNext_, interval, this);
 };
 
 /** @private */
 Pinger.prototype.scheduleTimeoutTimer_ = function() {
   GSC.Logging.checkWithLogger(this.logger, this.timeoutTimerId_ === null);
-  this.timeoutTimerId_ = goog.Timer.callOnce(
-      this.timeoutCallback_.bind(this), Pinger.TIMEOUT_MILLISECONDS, this);
+  const timeout = timeoutOverrideForTesting !== null ?
+      timeoutOverrideForTesting :
+      PINGER_TIMEOUT_MILLISECONDS;
+  this.timeoutTimerId_ =
+      goog.Timer.callOnce(this.timeoutCallback_.bind(this), timeout, this);
 };
 
 /** @private */

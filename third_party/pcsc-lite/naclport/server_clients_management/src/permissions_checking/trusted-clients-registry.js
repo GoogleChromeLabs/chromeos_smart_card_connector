@@ -28,6 +28,7 @@
 
 goog.provide('GoogleSmartCard.PcscLiteServer.TrustedClientInfo');
 goog.provide('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistry');
+goog.provide('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistryImpl');
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Json');
@@ -71,25 +72,11 @@ const TrustedClientInfo = GSC.PcscLiteServer.TrustedClientInfo;
  * maintained
  * //third_party/pcsc-lite/naclport/server_clients_management/src/known_client_apps.json
  * config).
- * @constructor
+ * @interface
  */
-GSC.PcscLiteServer.TrustedClientsRegistry = function() {
-  /**
-   * @type {!goog.promise.Resolver.<!Map.<string,!TrustedClientInfo>>} @private @const
-   */
-  this.promiseResolver_ = goog.Promise.withResolver();
-
-  this.startLoadingJson_();
-};
+GSC.PcscLiteServer.TrustedClientsRegistry = function() {};
 
 const TrustedClientsRegistry = GSC.PcscLiteServer.TrustedClientsRegistry;
-
-/**
- * @type {!goog.log.Logger}
- * @const
- */
-TrustedClientsRegistry.prototype.logger =
-    GSC.Logging.getScopedLogger('PcscLiteServer.TrustedClientsRegistry');
 
 /**
  * Requests information about the given client from the config that contains the
@@ -100,7 +87,51 @@ TrustedClientsRegistry.prototype.logger =
  * @param {string} origin
  * @return {!goog.Promise.<!TrustedClientInfo>}
  */
-TrustedClientsRegistry.prototype.getByOrigin = function(origin) {
+TrustedClientsRegistry.prototype.getByOrigin = function(origin) {};
+
+/**
+ * Similar to getByOrigin(), but performs a batch request for the list of given
+ * origins at once.
+ *
+ * The result is returned asynchronously as a promise that, when resolved, will
+ * contain the same number of elements as |originList|, with the i-th value
+ * containing either the information for the i-th client in |originList| or
+ * |null| if the client isn't present in the config.
+ * @param {!Array.<string>} originList
+ * @return {!goog.Promise.<!Array.<?TrustedClientInfo>>}
+ */
+TrustedClientsRegistry.prototype.tryGetByOrigins = function(originList) {};
+
+/**
+ * This class provides an interface for querying the information about trusted
+ * client applications (i.e., the clients that are listed in the manually
+ * maintained
+ * //third_party/pcsc-lite/naclport/server_clients_management/src/known_client_apps.json
+ * config).
+ * @implements {TrustedClientsRegistry}
+ * @constructor
+ */
+GSC.PcscLiteServer.TrustedClientsRegistryImpl = function() {
+  /**
+   * @type {!goog.promise.Resolver.<!Map.<string,!TrustedClientInfo>>} @private @const
+   */
+  this.promiseResolver_ = goog.Promise.withResolver();
+
+  this.startLoadingJson_();
+};
+
+const TrustedClientsRegistryImpl =
+    GSC.PcscLiteServer.TrustedClientsRegistryImpl;
+
+/**
+ * @type {!goog.log.Logger}
+ * @const
+ */
+TrustedClientsRegistryImpl.prototype.logger =
+    GSC.Logging.getScopedLogger('PcscLiteServer.TrustedClientsRegistry');
+
+/** @override */
+TrustedClientsRegistryImpl.prototype.getByOrigin = function(origin) {
   const promiseResolver = goog.Promise.withResolver();
 
   this.tryGetByOrigins([origin]).then(
@@ -121,18 +152,8 @@ TrustedClientsRegistry.prototype.getByOrigin = function(origin) {
   return promiseResolver.promise;
 };
 
-/**
- * Similar to getByOrigin(), but performs a batch request for the list of given
- * origins at once.
- *
- * The result is returned asynchronously as a promise that, when resolved, will
- * contain the same number of elements as |originList|, with the i-th value
- * containing either the information for the i-th client in |originList| or
- * |null| if the client isn't present in the config.
- * @param {!Array.<string>} originList
- * @return {!goog.Promise.<!Array.<?TrustedClientInfo>>}
- */
-TrustedClientsRegistry.prototype.tryGetByOrigins = function(originList) {
+/** @override */
+TrustedClientsRegistryImpl.prototype.tryGetByOrigins = function(originList) {
   const promiseResolver = goog.Promise.withResolver();
 
   this.promiseResolver_.promise.then(
@@ -153,7 +174,7 @@ TrustedClientsRegistry.prototype.tryGetByOrigins = function(originList) {
 };
 
 /** @private */
-TrustedClientsRegistry.prototype.startLoadingJson_ = function() {
+TrustedClientsRegistryImpl.prototype.startLoadingJson_ = function() {
   goog.log.fine(
       this.logger,
       'Loading registry from JSON file (URL: "' + JSON_CONFIG_URL + '")...');
@@ -161,7 +182,7 @@ TrustedClientsRegistry.prototype.startLoadingJson_ = function() {
 };
 
 /** @private */
-TrustedClientsRegistry.prototype.jsonLoadedCallback_ = function(e) {
+TrustedClientsRegistryImpl.prototype.jsonLoadedCallback_ = function(e) {
   /** @type {!goog.net.XhrIo} */
   const xhrio = e.target;
 
@@ -200,7 +221,7 @@ TrustedClientsRegistry.prototype.jsonLoadedCallback_ = function(e) {
  * @param {!Object} json
  * @private
  */
-TrustedClientsRegistry.prototype.parseJsonAndApply_ = function(json) {
+TrustedClientsRegistryImpl.prototype.parseJsonAndApply_ = function(json) {
   /** @type {!Map.<string, !TrustedClientInfo>} */
   const originToInfoMap = new Map;
   let success = true;
@@ -240,7 +261,7 @@ TrustedClientsRegistry.prototype.parseJsonAndApply_ = function(json) {
  * @return {TrustedClientInfo?}
  * @private
  */
-TrustedClientsRegistry.prototype.tryParseTrustedClientInfo_ = function(
+TrustedClientsRegistryImpl.prototype.tryParseTrustedClientInfo_ = function(
     key, value) {
   if (!goog.isObject(value))
     return null;
