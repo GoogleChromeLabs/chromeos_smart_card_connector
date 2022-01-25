@@ -129,42 +129,33 @@ JS_BUILD_COMPILATION_FLAGS += \
 	--use_types_for_optimization=false \
 	--warning_level=VERBOSE \
 
-ifeq ($(PACKAGING),app)
+ifeq ($(PACKAGING) $(TOOLCHAIN),app pnacl)
 
 # Add Closure Compiler flags specific to App builds.
 #
 # Note that PACKAGING=app TOOLCHAIN=pnacl builds keep backwards compatibility
 # with all versions of Chrome since the start of this project, which is 2015.
-# For simplicity of the conditions here, we're only checking PACKAGING=app here,
-# since practically we don't want to deploy this packaging mode with other
-# toolchains.
 #
 # browser_featureset_year: Specify the year that's appropriate for the oldest
 #   Chrome release still supported by the NaCl builds, which is 2012.
-# language_out: Specify the JS language revision that corresponds to the oldest
-#   Chrome release still supported by the NaCl builds: ECMASCRIPT5 (released in
-#   year 2009).
 JS_BUILD_COMPILATION_FLAGS += \
 	--browser_featureset_year=2012 \
-	--language_out=ECMASCRIPT5 \
 
-else ifeq ($(PACKAGING),extension)
+else
 
-# Add Closure Compiler flags specific to Extension builds.
+# Add Closure Compiler flags in the generic (non-App-with-PNaCl) case.
 #
 # Note that we're only guaranteeing backwards compatibility with Chrome >=96,
 # since it's the first version that made the PACKAGING=extension version of the
 # Smart Card Connector workable:
-# <https://bugs.chromium.org/p/chromium/issues/detail?id=1233881>.
+# <https://bugs.chromium.org/p/chromium/issues/detail?id=1233881>. WebAssembly
+# builds are generally workable with earlier versions, however older Chrome
+# versions had a few critical bugs, so for simplicity we assume >=96 as well.
 #
 # browser_featureset_year: Specify the year that's appropriate for the oldest
-#   Chrome release still supported by Emscripten builds, which is 2020.
-# language_out: Specify the JS language revision that corresponds to the oldest
-#   Chrome release still supported by Emscripten builds: ECMASCRIPT_2020.
+#   still supported Chrome release, which is 2020.
 JS_BUILD_COMPILATION_FLAGS += \
 	--browser_featureset_year=2020 \
-	--language_out=ECMASCRIPT_2020 \
-
 
 endif
 
