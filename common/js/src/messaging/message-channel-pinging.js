@@ -65,7 +65,7 @@ const PINGER_INTERVAL_MILLISECONDS = goog.DEBUG ? 1 * 1000 : 10 * 1000;
 
 const GSC = GoogleSmartCard;
 
-// The implementation in this file relies on the interval to be stricly smaller
+// The implementation in this file relies on the interval to be strictly smaller
 // than the timeout.
 goog.asserts.assert(PINGER_INTERVAL_MILLISECONDS < PINGER_TIMEOUT_MILLISECONDS);
 
