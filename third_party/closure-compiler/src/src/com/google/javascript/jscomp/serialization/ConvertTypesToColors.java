@@ -16,6 +16,9 @@
 
 package com.google.javascript.jscomp.serialization;
 
+import static com.google.common.base.Preconditions.checkState;
+
+import com.google.common.base.Optional;
 import com.google.javascript.jscomp.AbstractCompiler;
 import com.google.javascript.jscomp.CompilerPass;
 import com.google.javascript.jscomp.NodeTraversal;
@@ -30,7 +33,8 @@ import java.util.IdentityHashMap;
  * whose sole use is to enable running optimizations and delete all other references to JSTypes.
  *
  * <p>This pass is also responsible for logging debug information that needs to know about both
- * JSType objects and their corresponding colors.
+ * JSType objects and their corresponding colors, and for telling the compiler to prepare for
+ * reading runtime libraries from precompiled TypedASTs instead of source.
  */
 public final class ConvertTypesToColors implements CompilerPass {
   private final AbstractCompiler compiler;
@@ -55,7 +59,7 @@ public final class ConvertTypesToColors implements CompilerPass {
 
       JSDocInfo jsdoc = n.getJSDocInfo();
       if (jsdoc != null) {
-        n.setJSDocInfo(JsdocSerializer.convertJSDocInfoForOptimizations(jsdoc));
+        n.setJSDocInfo(JSDocSerializer.convertJSDocInfoForOptimizations(jsdoc));
       }
     }
   }
@@ -65,9 +69,10 @@ public final class ConvertTypesToColors implements CompilerPass {
     private final IdentityHashMap<JSType, TypePointer> typePointersByJstype;
 
     RemoveTypesAndApplyColors(
-        ColorPool colorPool, IdentityHashMap<JSType, TypePointer> typePointersByJstype) {
+        ColorPool.ShardView colorPoolShard,
+        IdentityHashMap<JSType, TypePointer> typePointersByJstype) {
       super();
-      this.colorPoolShard = colorPool.getOnlyShard();
+      this.colorPoolShard = colorPoolShard;
       this.typePointersByJstype = typePointersByJstype;
     }
 
@@ -95,18 +100,21 @@ public final class ConvertTypesToColors implements CompilerPass {
 
   @Override
   public void process(Node externs, Node root) {
-    if (compiler.hasOptimizationColors()) {
-      // Pass is a no-op if we already have optimization colors, either because
-      //  a) this pass already ran or
-      //  b) TypedAST serialization/deserilaization converted JSTypes to colors
+    if (compiler.getLifeCycleStage().hasColorAndSimplifiedJSDoc()) {
+      // Pass is a no-op if we already have optimization colors or have finished the checks phase
       return;
     }
+    // NOTE(lharker): this pass could probably safely run after normalization, except that the
+    // LifeCycleStage enum assumes that normalization implies "colors + simplified JSDoc"
+    checkState(
+        !compiler.getLifeCycleStage().isNormalized(), "Not expected to run after normalization");
 
     Node externsAndJsRoot = root.getParent();
 
     if (!compiler.hasTypeCheckingRun()) {
       NodeTraversal.traverse(compiler, externsAndJsRoot, new RemoveTypes());
       compiler.clearJSTypeRegistry();
+      this.compiler.initRuntimeLibraryTypedAsts(Optional.absent());
       return;
     }
 
@@ -118,11 +126,16 @@ public final class ConvertTypesToColors implements CompilerPass {
     TypePool typePool = serializeJstypes.getTypePool();
     StringPool stringPool = stringPoolBuilder.build();
 
-    ColorPool colorPool = ColorPool.fromOnlyShard(typePool, stringPool);
-    NodeTraversal.traverse(
-        compiler,
-        externsAndJsRoot,
-        new RemoveTypesAndApplyColors(colorPool, serializeJstypes.getTypePointersByJstype()));
+    ColorPool.Builder colorPoolBuilder = ColorPool.builder();
+    this.compiler.initRuntimeLibraryTypedAsts(Optional.of(colorPoolBuilder));
+
+    RemoveTypesAndApplyColors callback =
+        new RemoveTypesAndApplyColors(
+            colorPoolBuilder.addShard(typePool, stringPool),
+            serializeJstypes.getTypePointersByJstype());
+
+    ColorPool colorPool = colorPoolBuilder.build();
+    NodeTraversal.traverse(compiler, externsAndJsRoot, callback);
 
     compiler.clearJSTypeRegistry();
     compiler.setColorRegistry(colorPool.getRegistry());

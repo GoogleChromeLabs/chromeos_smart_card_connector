@@ -17,27 +17,19 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
-import static java.util.Comparator.comparingInt;
+import static com.google.javascript.rhino.testing.Asserts.assertThrows;
 
 import com.google.javascript.jscomp.AbstractCompiler.LifeCycleStage;
 import com.google.javascript.jscomp.ControlFlowGraph.Branch;
-import com.google.javascript.jscomp.DataFlowAnalysis.BranchedFlowState;
-import com.google.javascript.jscomp.DataFlowAnalysis.BranchedForwardDataFlowAnalysis;
-import com.google.javascript.jscomp.DataFlowAnalysis.FlowState;
-import com.google.javascript.jscomp.DataFlowAnalysis.MaxIterationsExceededException;
-import com.google.javascript.jscomp.JoinOp.BinaryJoinOp;
-import com.google.javascript.jscomp.graph.DiGraph.DiGraphEdge;
+import com.google.javascript.jscomp.DataFlowAnalysis.FlowJoiner;
+import com.google.javascript.jscomp.DataFlowAnalysis.LinearFlowState;
+import com.google.javascript.jscomp.NodeUtil.AllVarsDeclaredInFunction;
 import com.google.javascript.jscomp.graph.GraphNode;
 import com.google.javascript.jscomp.graph.LatticeElement;
 import com.google.javascript.rhino.InputId;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.junit.Test;
@@ -420,12 +412,22 @@ public final class DataFlowAnalysisTest {
     }
   }
 
-  private static class ConstPropJoinOp
-      extends BinaryJoinOp<ConstPropLatticeElement> {
+  private static class ConstPropJoinOp implements FlowJoiner<ConstPropLatticeElement> {
+
+    ConstPropLatticeElement result;
 
     @Override
-    public ConstPropLatticeElement apply(ConstPropLatticeElement a,
-        ConstPropLatticeElement b) {
+    public void joinFlow(ConstPropLatticeElement input) {
+      this.result = (this.result == null) ? input : apply(this.result, input);
+    }
+
+    @Override
+    public ConstPropLatticeElement finish() {
+      return this.result;
+    }
+
+    private static ConstPropLatticeElement apply(
+        ConstPropLatticeElement a, ConstPropLatticeElement b) {
       ConstPropLatticeElement result = new ConstPropLatticeElement();
       // By the definition of TOP of the lattice.
       if (a.isTop) {
@@ -462,12 +464,17 @@ public final class DataFlowAnalysisTest {
      * @param targetCfg Control Flow Graph.
      */
     DummyConstPropagation(ControlFlowGraph<Instruction> targetCfg) {
-      super(targetCfg, new ConstPropJoinOp());
+      super(targetCfg);
     }
 
     @Override
     boolean isForward() {
       return true;
+    }
+
+    @Override
+    FlowJoiner<ConstPropLatticeElement> createFlowJoiner() {
+      return new ConstPropJoinOp();
     }
 
     @Override
@@ -651,21 +658,6 @@ public final class DataFlowAnalysisTest {
     verifyOutHas(n4, c, null);
   }
 
-  @Test
-  public void testLatticeArrayMinimizationWhenMidpointIsEven() {
-    assertThat(JoinOp.BinaryJoinOp.computeMidPoint(12)).isEqualTo(6);
-  }
-
-  @Test
-  public void testLatticeArrayMinimizationWhenMidpointRoundsDown() {
-    assertThat(JoinOp.BinaryJoinOp.computeMidPoint(18)).isEqualTo(8);
-  }
-
-  @Test
-  public void testLatticeArrayMinimizationWithTwoElements() {
-    assertThat(JoinOp.BinaryJoinOp.computeMidPoint(2)).isEqualTo(1);
-  }
-
   // tests for computeEscaped method
 
   @Test
@@ -756,21 +748,34 @@ public final class DataFlowAnalysisTest {
     cfa.process(null, script);
     ControlFlowGraph<Node> cfg = cfa.getCfg();
 
+    // All variables declared in function
+    AllVarsDeclaredInFunction allVarsDeclaredInFunction =
+        NodeUtil.getAllVarsDeclaredInFunction(compiler, scopeCreator, scope);
+
     // Compute liveness of variables
     LiveVariablesAnalysis analysis =
-        new LiveVariablesAnalysis(cfg, scope, childScope, compiler, scopeCreator);
+        new LiveVariablesAnalysis(
+            cfg, scope, childScope, compiler, scopeCreator, allVarsDeclaredInFunction);
     analysis.analyze();
     return analysis.getEscapedLocals();
   }
 
-  /**
-   * A simple forward constant propagation.
-   */
-  static class BranchedDummyConstPropagation extends
-      BranchedForwardDataFlowAnalysis<Instruction, ConstPropLatticeElement> {
+  /** A simple forward constant propagation. */
+  static class BranchedDummyConstPropagation
+      extends DataFlowAnalysis<Instruction, ConstPropLatticeElement> {
 
     BranchedDummyConstPropagation(ControlFlowGraph<Instruction> targetCfg) {
-      super(targetCfg, new ConstPropJoinOp());
+      super(targetCfg);
+    }
+
+    @Override
+    boolean isForward() {
+      return true;
+    }
+
+    @Override
+    boolean isBranched() {
+      return true;
     }
 
     @Override
@@ -785,27 +790,25 @@ public final class DataFlowAnalysisTest {
     }
 
     @Override
-    List<ConstPropLatticeElement> branchedFlowThrough(Instruction node,
-        ConstPropLatticeElement input) {
-      List<ConstPropLatticeElement> result = new ArrayList<>();
-      List<? extends DiGraphEdge<Instruction, Branch>> outEdges = getCfg().getOutEdges(node);
-      if (node.isArithmetic()) {
-        assertThat(outEdges.size()).isLessThan(2);
-        ConstPropLatticeElement aResult = flowThroughArithmeticInstruction(
-            (ArithmeticInstruction) node, input);
-        result.addAll(Collections.nCopies(outEdges.size(), aResult));
-      } else {
-        BranchInstruction branchInst = (BranchInstruction) node;
-        for (DiGraphEdge<Instruction, Branch> branch : outEdges) {
-          ConstPropLatticeElement edgeResult = new ConstPropLatticeElement(input);
-          if (branch.getValue() == Branch.ON_FALSE &&
-              branchInst.getCondition().isVariable()) {
-            edgeResult.constMap.put((Variable) branchInst.getCondition(), 0);
-          }
-          result.add(edgeResult);
+    FlowBrancher<ConstPropLatticeElement> createFlowBrancher(
+        Instruction node, ConstPropLatticeElement input) {
+      ConstPropLatticeElement aResult =
+          node.isArithmetic()
+              ? flowThroughArithmeticInstruction((ArithmeticInstruction) node, input)
+              : null;
+
+      return (Branch branch) -> {
+        if (aResult != null) {
+          return aResult;
         }
-      }
-      return result;
+
+        BranchInstruction branchInst = (BranchInstruction) node;
+        ConstPropLatticeElement edgeResult = new ConstPropLatticeElement(input);
+        if (branch == Branch.ON_FALSE && branchInst.getCondition().isVariable()) {
+          edgeResult.constMap.put((Variable) branchInst.getCondition(), 0);
+        }
+        return edgeResult;
+      };
     }
 
     @Override
@@ -816,6 +819,11 @@ public final class DataFlowAnalysisTest {
     @Override
     ConstPropLatticeElement createInitialEstimateLattice() {
       return new ConstPropLatticeElement(true);
+    }
+
+    @Override
+    FlowJoiner<ConstPropLatticeElement> createFlowJoiner() {
+      return new ConstPropJoinOp();
     }
   }
 
@@ -844,76 +852,114 @@ public final class DataFlowAnalysisTest {
     constProp.analyze();
 
     // We cannot conclude anything from if (a).
-    verifyBranchedInHas(n1, a, null);
-    verifyBranchedInHas(n1, b, null);
-    verifyBranchedInHas(n1, c, null);
+    verifyInHas(n1, a, null);
+    verifyInHas(n1, b, null);
+    verifyInHas(n1, c, null);
 
     // Nothing is known on the true branch.
-    verifyBranchedInHas(n2, a, null);
-    verifyBranchedInHas(n2, b, null);
-    verifyBranchedInHas(n2, c, null);
+    verifyInHas(n2, a, null);
+    verifyInHas(n2, b, null);
+    verifyInHas(n2, c, null);
 
     // Verify that we have a = 0 on the false branch.
-    verifyBranchedInHas(n3, a, 0);
-    verifyBranchedInHas(n3, b, null);
-    verifyBranchedInHas(n3, c, null);
+    verifyInHas(n3, a, 0);
+    verifyInHas(n3, b, null);
+    verifyInHas(n3, c, null);
 
     // After the merge we should still have a = 0.
-    verifyBranchedInHas(n4, a, 0);
+    verifyInHas(n4, a, 0);
   }
 
-  private static final int MAX_STEP = 10;
+  static final class DivergentAnalysis
+      extends DataFlowAnalysis<DivergentAnalysis.Counter, DivergentAnalysis.Step> {
+
+    static final class Counter {
+      int count = 0;
+    }
+
+    static final class Step implements LatticeElement {
+
+      Step() {}
+
+      @Override
+      public int hashCode() {
+        return 0;
+      }
+
+      @Override
+      public boolean equals(Object o) {
+        return false;
+      }
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param targetCfg Control Flow Graph.
+     */
+    DivergentAnalysis(ControlFlowGraph<Counter> targetCfg) {
+      super(targetCfg);
+    }
+
+    @Override
+    boolean isForward() {
+      return true;
+    }
+
+    @Override
+    Step flowThrough(Counter node, Step input) {
+      node.count++;
+      return input;
+    }
+
+    @Override
+    Step createEntryLattice() {
+      return new Step();
+    }
+
+    @Override
+    Step createInitialEstimateLattice() {
+      return new Step();
+    }
+
+    @Override
+    FlowJoiner<DivergentAnalysis.Step> createFlowJoiner() {
+      return new FlowJoiner<DivergentAnalysis.Step>() {
+        @Override
+        public void joinFlow(DivergentAnalysis.Step x) {}
+
+        @Override
+        public DivergentAnalysis.Step finish() {
+          return new Step();
+        }
+      };
+    }
+  }
 
   @Test
   public void testMaxIterationsExceededException() {
-    Variable a = new Variable("a");
-    Instruction inst1 = new ArithmeticInstruction(a, a, Operation.ADD, a);
-    ControlFlowGraph<Instruction> cfg =
-        new ControlFlowGraph<Instruction>(inst1, true, true) {
-          @Override
-          public Comparator<DiGraphNode<Instruction, Branch>> getOptionalNodeComparator(
-              boolean isForward) {
-            return comparingInt(arg -> arg.getValue().order);
-          }
-        };
-    cfg.createNode(inst1);
+    DivergentAnalysis.Counter entrypoint = new DivergentAnalysis.Counter();
+    ControlFlowGraph<DivergentAnalysis.Counter> cfg =
+        new ControlFlowGraph<>(entrypoint, true, true);
 
-    // We have MAX_STEP + 1 nodes, it is impossible to finish the analysis with
-    // MAX_STEP number of steps.
-    for (int i = 0; i < MAX_STEP + 1; i++) {
-      Instruction inst2 = new ArithmeticInstruction(a, a, Operation.ADD, a);
-      inst2.order = i + 1;
-      cfg.createNode(inst2);
-      cfg.connect(inst1, ControlFlowGraph.Branch.UNCOND, inst2);
-      inst1 = inst2;
-    }
-    DummyConstPropagation constProp = new DummyConstPropagation(cfg);
-    try {
-      constProp.analyze(MAX_STEP);
-      assertWithMessage("Expected MaxIterationsExceededException to be thrown.").fail();
-    } catch (MaxIterationsExceededException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo("Analysis did not terminate after " + MAX_STEP + " iterations");
-    }
+    cfg.connect(entrypoint, ControlFlowGraph.Branch.UNCOND, entrypoint);
+    DivergentAnalysis constProp = new DivergentAnalysis(cfg);
+
+    Exception e = assertThrows(Exception.class, constProp::analyze);
+    assertThat(entrypoint.count).isEqualTo(DataFlowAnalysis.MAX_STEPS_PER_NODE + 1);
+    assertThat(e).hasMessageThat().startsWith("Dataflow analysis appears to diverge around: ");
   }
 
   static void verifyInHas(GraphNode<Instruction, Branch> node, Variable var,
       Integer constant) {
-    FlowState<ConstPropLatticeElement> fState = node.getAnnotation();
+    LinearFlowState<ConstPropLatticeElement> fState = node.getAnnotation();
     veritfyLatticeElementHas(fState.getIn(), var, constant);
   }
 
   static void verifyOutHas(GraphNode<Instruction, Branch> node, Variable var,
       Integer constant) {
-    FlowState<ConstPropLatticeElement> fState = node.getAnnotation();
+    LinearFlowState<ConstPropLatticeElement> fState = node.getAnnotation();
     veritfyLatticeElementHas(fState.getOut(), var, constant);
-  }
-
-  static void verifyBranchedInHas(GraphNode<Instruction, Branch> node,
-      Variable var, Integer constant) {
-    BranchedFlowState<ConstPropLatticeElement> fState = node.getAnnotation();
-    veritfyLatticeElementHas(fState.getIn(), var, constant);
   }
 
   static void veritfyLatticeElementHas(ConstPropLatticeElement el, Variable var, Integer constant) {

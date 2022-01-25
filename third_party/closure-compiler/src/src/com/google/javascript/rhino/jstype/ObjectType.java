@@ -572,7 +572,7 @@ public abstract class ObjectType extends JSType {
   /**
    * Whether the given property is declared on this object.
    */
-  final boolean hasOwnDeclaredProperty(String name) {
+  public final boolean hasOwnDeclaredProperty(String name) {
     return hasOwnProperty(name) && isPropertyTypeDeclared(name);
   }
 
@@ -751,7 +751,7 @@ public abstract class ObjectType extends JSType {
     for (String name : this.getPropertyNames()) {
       propTypeMap.put(name, this.getPropertyType(name));
     }
-    return propTypeMap.build();
+    return propTypeMap.buildOrThrow();
   }
 
   public JSType getEnumeratedTypeOfEnumObject() {

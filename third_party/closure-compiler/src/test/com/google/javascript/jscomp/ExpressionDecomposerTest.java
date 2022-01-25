@@ -157,6 +157,12 @@ public final class ExpressionDecomposerTest {
   }
 
   @Test
+  public void assignCoalesceMovable() {
+    helperCanExposeExpression(
+        DecompositionType.DECOMPOSABLE, "x ??= goo() + foo()", exprMatchesStr("foo()"));
+  }
+
+  @Test
   public void optChainMovable() {
     helperCanExposeExpression(DecompositionType.MOVABLE, "foo()?.x", exprMatchesStr("foo()"));
     helperCanExposeExpression(DecompositionType.MOVABLE, "foo()?.[x]", exprMatchesStr("foo()"));
@@ -1050,6 +1056,74 @@ public final class ExpressionDecomposerTest {
   }
 
   @Test
+  public void testBug117935266_expose_call_target() {
+    helperExposeExpression(
+        lines(
+            "function first() {",
+            "  alert('first');",
+            "  return '';",
+            "}",
+            // alert must be preserved before the first side-effect
+            "alert(first().method(alert('second')).method(alert('third')));"),
+        exprMatchesStr("first()"),
+        lines(
+            "function first() {",
+            "  alert('first');",
+            "      return '';",
+            "}",
+            "var temp_const$jscomp$0 = alert;",
+            "temp_const$jscomp$0(first().method(",
+            "    alert('second')).method(alert('third')));"));
+  }
+
+  @Test
+  public void testBug117935266_move_call_target() {
+    helperMoveExpression(
+        lines(
+            "function first() {",
+            "  alert('first');",
+            "      return '';",
+            "}",
+            "var temp_const$jscomp$0 = alert;",
+            "temp_const$jscomp$0(first().toString(",
+            "    alert('second')).toString(alert('third')));"),
+        exprMatchesStr("first()"),
+        lines(
+            "function first() {",
+            "  alert('first');",
+            "      return '';",
+            "}",
+            "var temp_const$jscomp$0 = alert;",
+            "var result$jscomp$0 = first();",
+            "temp_const$jscomp$0(result$jscomp$0.toString(",
+            "    alert('second')).toString(alert('third')));"));
+  }
+
+  @Test
+  public void testBug117935266_expose_call_parameters() {
+    helperExposeExpression(
+        lines(
+            // alert must be preserved before the first side-effect
+            "alert(fn(first(), second(), third()));"),
+        exprMatchesStr("first()"),
+        lines(
+            "var temp_const$jscomp$1 = alert;",
+            "var temp_const$jscomp$0 = fn;",
+            "temp_const$jscomp$1(temp_const$jscomp$0(first(), second(), third()));"));
+
+    helperExposeExpression(
+        lines(
+            // alert must be preserved before the first side-effect
+            "alert(fn(first(), second(), third()));"),
+        exprMatchesStr("second()"),
+        lines(
+            "var temp_const$jscomp$2 = alert;",
+            "var temp_const$jscomp$1 = fn;",
+            "var temp_const$jscomp$0 = first();",
+            "temp_const$jscomp$2(temp_const$jscomp$1(temp_const$jscomp$0, second(), third()));"));
+  }
+
+  @Test
   public void exposeExpressionAfterTwoOptionalChains() {
     helperExposeExpression(
         "a = x?.y.z?.q(foo());",
@@ -1544,6 +1618,76 @@ public final class ExpressionDecomposerTest {
             "y = (temp_const$jscomp$0.b = temp_const$jscomp$1 + foo()) + goo().a"));
   }
 
+  // Simple name on LHS of logical assignment-op.
+  @Test
+  public void testExposeLogicalAssignment1() {
+    // Part of the work here is being done by Normalize, which converts all
+    // instances of logical assignment operators into an larger expression
+    // that separates the logical operation from the assignment.
+    helperExposeExpression(
+        "let x = 0; x ||= foo() + 1",
+        exprMatchesStr("foo()"),
+        lines(
+            "let x = 0;", //
+            "if (x) {",
+            "} else {",
+            "   x = foo() + 1;",
+            "}"));
+
+    helperExposeExpression(
+        "let x = 0; x &&= foo() + 1",
+        exprMatchesStr("foo()"),
+        lines(
+            "let x = 0;", //
+            "if (x) {",
+            "   x = foo() + 1;",
+            "}"));
+
+    helperExposeExpression(
+        "let x = 0; x ??= foo() + 1",
+        exprMatchesStr("foo()"),
+        lines(
+            "let x = 0;", //
+            "var temp$jscomp$1;",
+            "if ((temp$jscomp$1 = x) != null) {",
+            "   temp$jscomp$1;",
+            "} else {",
+            "   x = foo() + 1;",
+            "}"));
+  }
+
+  // Property reference on LHS of logical assignment-op.
+  @Test
+  public void testExposeLogicalAssignment2() {
+    // Part of the work here is being done by Normalize, which converts all
+    // instances of logical assignment operators into an larger expression
+    // that separates the logical operation from the assignment.
+    helperExposeExpression(
+        "let x = {}; x.a ||= foo() + 1",
+        exprMatchesStr("foo()"),
+        lines(
+            "let x = {};", //
+            "let $jscomp$logical$assign$tmpm1879438141$0;",
+            "if (($jscomp$logical$assign$tmpm1879438141$0 = x).a) {",
+            "} else {",
+            "   var temp_const$jscomp$1 = $jscomp$logical$assign$tmpm1879438141$0;",
+            "   temp_const$jscomp$1.a = foo() + 1;",
+            "}"));
+    helperExposeExpression(
+        "let x = {}; x[a] &&= foo() + 1",
+        exprMatchesStr("foo()"),
+        lines(
+            "let x = {};", //
+            "let $jscomp$logical$assign$tmpm1879438141$0;",
+            "let $jscomp$logical$assign$tmpindexm1879438141$0;",
+            "if (($jscomp$logical$assign$tmpm1879438141$0 = x)",
+            "    [$jscomp$logical$assign$tmpindexm1879438141$0 = a]) {",
+            "    var temp_const$jscomp$2 = $jscomp$logical$assign$tmpm1879438141$0;",
+            "    var temp_const$jscomp$1 = $jscomp$logical$assign$tmpindexm1879438141$0;",
+            "    temp_const$jscomp$2[temp_const$jscomp$1] = foo() + 1;",
+            "}"));
+  }
+
   @Test
   public void testExposeObjectLit1() {
     // Validate that getter and setters methods are seen as side-effect
@@ -1997,6 +2141,7 @@ public final class ExpressionDecomposerTest {
     // It's noise for these tests, and it interferes with tests that
     // want to use compiler.toSource() to string match expressions.
     options.setEmitUseStrict(false);
+    options.setLanguageIn(LanguageMode.UNSUPPORTED);
     compiler.initOptions(options);
     return compiler;
   }

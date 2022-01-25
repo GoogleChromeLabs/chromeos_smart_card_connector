@@ -17,6 +17,7 @@
 package com.google.javascript.jscomp.serialization;
 
 import com.google.common.annotations.GwtIncompatible;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.SourceFile;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
@@ -24,7 +25,12 @@ import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.ExtensionRegistry;
+import java.io.IOException;
 import java.math.BigInteger;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /**
@@ -34,19 +40,21 @@ import javax.annotation.Nullable;
  * to only a single SCRIPT. The other deserialized content must be provided beforehand.
  */
 @GwtIncompatible("protobuf.lite")
-public final class ScriptNodeDeserializer {
+final class ScriptNodeDeserializer {
 
-  private final AstNode scriptProto;
-  private final ColorPool.ShardView colorPoolShard;
+  private final SourceFile sourceFile;
+  private final ByteString scriptBytes;
+  private final Optional<ColorPool.ShardView> colorPoolShard;
   private final StringPool stringPool;
   private final ImmutableList<SourceFile> filePool;
 
-  public ScriptNodeDeserializer(
-      AstNode scriptProto,
+  ScriptNodeDeserializer(
+      LazyAst ast,
       StringPool stringPool,
-      ColorPool.ShardView colorPoolShard,
+      Optional<ColorPool.ShardView> colorPoolShard,
       ImmutableList<SourceFile> filePool) {
-    this.scriptProto = scriptProto;
+    this.scriptBytes = ast.getScript();
+    this.sourceFile = filePool.get(ast.getSourceFile() - 1);
     this.colorPoolShard = colorPoolShard;
     this.stringPool = stringPool;
     this.filePool = filePool;
@@ -62,9 +70,20 @@ public final class ScriptNodeDeserializer {
     private int previousColumn = 0;
 
     Node run() {
-      Node scriptNode = this.visit(this.owner().scriptProto, null, null);
-      scriptNode.putProp(Node.FEATURE_SET, this.scriptFeatures);
-      return scriptNode;
+      try {
+        CodedInputStream astStream = this.owner().scriptBytes.newCodedInput();
+        astStream.setRecursionLimit(Integer.MAX_VALUE); // The real limit is stack space.
+
+        Node scriptNode =
+            this.visit(
+                AstNode.parseFrom(astStream, ExtensionRegistry.getEmptyRegistry()),
+                null,
+                this.owner().createSourceInfoTemplate(this.owner().sourceFile));
+        scriptNode.putProp(Node.FEATURE_SET, this.scriptFeatures);
+        return scriptNode;
+      } catch (IOException ex) {
+        throw new MalformedTypedAstException(this.owner().sourceFile, ex);
+      }
     }
 
     private ScriptNodeDeserializer owner() {
@@ -74,7 +93,9 @@ public final class ScriptNodeDeserializer {
     private Node visit(AstNode astNode, Node parent, @Nullable Node sourceFileTemplate) {
       if (sourceFileTemplate == null || astNode.getSourceFile() != 0) {
         // 0 == 'not set'
-        sourceFileTemplate = this.owner().createSourceInfoTemplate(astNode);
+        sourceFileTemplate =
+            this.owner()
+                .createSourceInfoTemplate(this.owner().filePool.get(astNode.getSourceFile() - 1));
       }
 
       int currentLine = this.previousLine + astNode.getRelativeLine();
@@ -82,11 +103,13 @@ public final class ScriptNodeDeserializer {
 
       Node n = this.owner().deserializeSingleNode(astNode);
       n.setStaticSourceFileFrom(sourceFileTemplate);
-      if (astNode.hasType()) {
-        n.setColor(this.owner().colorPoolShard.getColor(astNode.getType()));
+      if (astNode.hasType() && this.owner().colorPoolShard.isPresent()) {
+        n.setColor(this.owner().colorPoolShard.get().getColor(astNode.getType()));
       }
-      this.owner().deserializeProperties(n, astNode);
-      n.setJSDocInfo(JsdocSerializer.deserializeJsdoc(astNode.getJsdoc()));
+      if (astNode.getBooleanPropertyCount() > 0) {
+        n.deserializeProperties(filterOutCastProp(astNode.getBooleanPropertyList()));
+      }
+      n.setJSDocInfo(JSDocSerializer.deserializeJsdoc(astNode.getJsdoc(), stringPool));
       n.setLinenoCharno(currentLine, currentColumn);
       this.previousLine = currentLine;
       this.previousColumn = currentColumn;
@@ -202,13 +225,22 @@ public final class ScriptNodeDeserializer {
         case DYNAMIC_IMPORT:
           this.addScriptFeature(Feature.DYNAMIC_IMPORT);
           return;
-        case FOR:
-          if (node.isForOf()) {
-            this.addScriptFeature(Feature.FOR_OF);
-          } else if (node.isForAwaitOf()) {
-            this.addScriptFeature(Feature.FOR_AWAIT_OF);
-          }
+        case ASSIGN_OR:
+        case ASSIGN_AND:
+          this.addScriptFeature(Feature.LOGICAL_ASSIGNMENT);
           return;
+        case ASSIGN_COALESCE:
+          this.addScriptFeature(Feature.NULL_COALESCE_OP);
+          this.addScriptFeature(Feature.LOGICAL_ASSIGNMENT);
+          return;
+
+        case FOR_OF:
+          this.addScriptFeature(Feature.FOR_OF);
+          return;
+        case FOR_AWAIT_OF:
+          this.addScriptFeature(Feature.FOR_AWAIT_OF);
+          return;
+
         case IMPORT:
         case EXPORT:
           this.addScriptFeature(Feature.MODULES);
@@ -226,6 +258,10 @@ public final class ScriptNodeDeserializer {
         case CLASS_MEMBERS:
         case MEMBER_FUNCTION_DEF:
           this.addScriptFeature(Feature.MEMBER_DECLARATIONS);
+          return;
+        case MEMBER_FIELD_DEF:
+        case COMPUTED_FIELD_DEF:
+          this.addScriptFeature(Feature.PUBLIC_CLASS_FIELDS);
           return;
         case SUPER:
           this.addScriptFeature(Feature.SUPER);
@@ -253,10 +289,9 @@ public final class ScriptNodeDeserializer {
    * <p>This allows the prop structure to be shared among all the node from this source file. This
    * reduces the cost of these properties to O(nodes) to O(files).
    */
-  private Node createSourceInfoTemplate(AstNode astNode) {
+  private Node createSourceInfoTemplate(SourceFile file) {
     // The Node type choice is arbitrary.
     Node sourceInfoTemplate = new Node(Token.SCRIPT);
-    SourceFile file = this.filePool.get(astNode.getSourceFile() - 1);
     sourceInfoTemplate.setStaticSourceFile(file);
     return sourceInfoTemplate;
   }
@@ -426,10 +461,13 @@ public final class ScriptNodeDeserializer {
       case TEMPLATELIT_SUB:
         return new Node(Token.TEMPLATELIT_SUB);
       case TEMPLATELIT_STRING:
-        TemplateStringValue templateStringValue = n.getTemplateStringValue();
-        String rawString = this.stringPool.get(templateStringValue.getRawStringPointer());
-        String cookedString = this.stringPool.get(templateStringValue.getCookedStringPointer());
-        return Node.newTemplateLitString(cookedString, rawString);
+        {
+          TemplateStringValue templateStringValue = n.getTemplateStringValue();
+          int cookedPointer = templateStringValue.getCookedStringPointer();
+          String cookedString = cookedPointer == -1 ? null : this.stringPool.get(cookedPointer);
+          String rawString = this.stringPool.get(templateStringValue.getRawStringPointer());
+          return Node.newTemplateLitString(cookedString, rawString);
+        }
       case NEW_TARGET:
         return new Node(Token.NEW_TARGET);
       case COMPUTED_PROP:
@@ -447,8 +485,12 @@ public final class ScriptNodeDeserializer {
       case DYNAMIC_IMPORT:
         return new Node(Token.DYNAMIC_IMPORT);
 
-      case CAST:
-        return new Node(Token.CAST);
+      case ASSIGN_OR:
+        return new Node(Token.ASSIGN_OR);
+      case ASSIGN_AND:
+        return new Node(Token.ASSIGN_AND);
+      case ASSIGN_COALESCE:
+        return new Node(Token.ASSIGN_COALESCE);
 
       case EXPRESSION_STATEMENT:
         return new Node(Token.EXPR_RESULT);
@@ -510,6 +552,10 @@ public final class ScriptNodeDeserializer {
         return new Node(Token.CLASS_MEMBERS);
       case METHOD_DECLARATION:
         return Node.newString(Token.MEMBER_FUNCTION_DEF, getString(n));
+      case FIELD_DECLARATION:
+        return Node.newString(Token.MEMBER_FIELD_DEF, getString(n));
+      case COMPUTED_PROP_FIELD:
+        return new Node(Token.COMPUTED_FIELD_DEF);
       case PARAMETER_LIST:
         return new Node(Token.PARAM_LIST);
       case RENAMABLE_STRING_KEY:
@@ -578,127 +624,24 @@ public final class ScriptNodeDeserializer {
     throw new IllegalStateException("Unexpected serialized kind for AstNode: " + n);
   }
 
-  private void deserializeProperties(Node n, AstNode serializedNode) {
-    for (NodeProperty prop : serializedNode.getBooleanPropertyList()) {
-      switch (prop) {
-        case ARROW_FN:
-          n.setIsArrowFunction(true);
-          continue;
-        case ASYNC_FN:
-          n.setIsAsyncFunction(true);
-          continue;
-        case GENERATOR_FN:
-          n.setIsGeneratorFunction(true);
-          continue;
-        case IS_PARENTHESIZED:
-          n.setIsParenthesized(true);
-          continue;
-        case SYNTHETIC:
-          n.setIsSyntheticBlock(true);
-          continue;
-        case ADDED_BLOCK:
-          n.setIsAddedBlock(true);
-          continue;
-        case IS_CONSTANT_NAME:
-          n.putBooleanProp(Node.IS_CONSTANT_NAME, true);
-          continue;
-        case IS_DECLARED_CONSTANT:
-          n.setDeclaredConstantVar(true);
-          continue;
-        case IS_INFERRED_CONSTANT:
-          n.setInferredConstantVar(true);
-          continue;
-        case IS_NAMESPACE:
-          n.putBooleanProp(Node.IS_NAMESPACE, true);
-          continue;
-        case DIRECT_EVAL:
-          n.putBooleanProp(Node.DIRECT_EVAL, true);
-          continue;
-        case FREE_CALL:
-          n.putBooleanProp(Node.FREE_CALL, true);
-          continue;
-        case SLASH_V:
-          n.putBooleanProp(Node.SLASH_V, true);
-          continue;
-        case REFLECTED_OBJECT:
-          n.putBooleanProp(Node.REFLECTED_OBJECT, true);
-          continue;
-        case STATIC_MEMBER:
-          n.setStaticMember(true);
-          continue;
-        case YIELD_ALL:
-          n.setYieldAll(true);
-          continue;
-        case EXPORT_DEFAULT:
-          n.putBooleanProp(Node.EXPORT_DEFAULT, true);
-          continue;
-        case EXPORT_ALL_FROM:
-          n.putBooleanProp(Node.EXPORT_ALL_FROM, true);
-          continue;
-        case IS_GENERATOR_MARKER:
-          n.setGeneratorMarker(true);
-          continue;
-        case IS_GENERATOR_SAFE:
-          n.setGeneratorSafe(true);
-          continue;
-        case COMPUTED_PROP_METHOD:
-          n.putBooleanProp(Node.COMPUTED_PROP_METHOD, true);
-          continue;
-        case COMPUTED_PROP_GETTER:
-          n.putBooleanProp(Node.COMPUTED_PROP_GETTER, true);
-          continue;
-        case COMPUTED_PROP_SETTER:
-          n.putBooleanProp(Node.COMPUTED_PROP_SETTER, true);
-          continue;
-        case COMPUTED_PROP_VARIABLE:
-          n.putBooleanProp(Node.COMPUTED_PROP_VARIABLE, true);
-          continue;
-        case COLOR_FROM_CAST:
-          n.setColorFromTypeCast();
-          continue;
-        case NON_INDEXABLE:
-          n.makeNonIndexable();
-          continue;
-        case GOOG_MODULE:
-          n.putBooleanProp(Node.GOOG_MODULE, true);
-          continue;
-        case TRANSPILED:
-          n.putBooleanProp(Node.TRANSPILED, true);
-          continue;
-        case DELETED:
-          n.setDeleted(true);
-          continue;
-        case MODULE_ALIAS:
-          n.putBooleanProp(Node.MODULE_ALIAS, true);
-          continue;
-        case IS_UNUSED_PARAMETER:
-          n.setUnusedParameter(true);
-          continue;
-        case MODULE_EXPORT:
-          n.putBooleanProp(Node.MODULE_EXPORT, true);
-          continue;
-        case IS_SHORTHAND_PROPERTY:
-          n.setShorthandProperty(true);
-          continue;
-        case ES6_MODULE:
-          n.putBooleanProp(Node.ES6_MODULE, true);
-          continue;
-        case START_OF_OPT_CHAIN:
-          n.setIsOptionalChainStart(true);
-          continue;
-        case TRAILING_COMMA:
-          n.setTrailingComma(true);
-          continue;
-        case FEATURE_SET:
-        case SIDE_EFFECT_FLAGS:
-        case DIRECTIVES:
-        case CONSTANT_VAR_FLAGS:
-        case DECLARED_TYPE_EXPR:
-          // We'll need to reevaluate these once we support non-binary node properties
-        case UNRECOGNIZED:
-        case NODE_PROPERTY_UNSPECIFIED:
-          throw new RuntimeException("Hit unhandled node property: " + prop);
+  /**
+   * If no colors are being deserialized, filters out any NodeProperty.COLOR_BEFORE_CASTs
+   *
+   * <p>This is because it doesn't make sense to have that property present on nodes that don't have
+   * colors.
+   */
+  private List<NodeProperty> filterOutCastProp(List<NodeProperty> nodeProperties) {
+    if (colorPoolShard.isPresent()) {
+      return nodeProperties; // we are deserializing colors, so this is fine.
+    }
+    for (int i = 0; i < nodeProperties.size(); i++) {
+      if (nodeProperties.get(i).equals(NodeProperty.COLOR_FROM_CAST)) {
+        return ImmutableList.<NodeProperty>builder()
+            .addAll(nodeProperties.subList(0, i))
+            .addAll(nodeProperties.subList(i + 1, nodeProperties.size()))
+            .build();
       }
     }
+    return nodeProperties;
   }
 }

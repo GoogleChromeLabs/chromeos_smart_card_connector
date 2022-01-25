@@ -20,25 +20,27 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.javascript.jscomp.PassFactory.createEmptyPass;
 import static com.google.javascript.jscomp.parsing.parser.FeatureSet.ES2015;
-import static com.google.javascript.jscomp.parsing.parser.FeatureSet.ES5;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.AbstractCompiler.LifeCycleStage;
+import com.google.javascript.jscomp.AbstractCompiler.LocaleData;
+import com.google.javascript.jscomp.CompilerOptions.AliasStringsMode;
 import com.google.javascript.jscomp.CompilerOptions.ChunkOutputType;
 import com.google.javascript.jscomp.CompilerOptions.ExtractPrototypeMemberDeclarationsMode;
 import com.google.javascript.jscomp.CompilerOptions.InstrumentOption;
 import com.google.javascript.jscomp.CompilerOptions.PropertyCollapseLevel;
 import com.google.javascript.jscomp.CompilerOptions.Reach;
 import com.google.javascript.jscomp.ExtractPrototypeMemberDeclarations.Pattern;
-import com.google.javascript.jscomp.NodeTraversal.Callback;
+import com.google.javascript.jscomp.LocaleDataPasses.ExtractAndProtect;
 import com.google.javascript.jscomp.ScopedAliases.InvalidModuleGetHandling;
 import com.google.javascript.jscomp.disambiguate.AmbiguateProperties;
-import com.google.javascript.jscomp.disambiguate.DisambiguateProperties2;
+import com.google.javascript.jscomp.disambiguate.DisambiguateProperties;
 import com.google.javascript.jscomp.ijs.ConvertToTypedInterface;
 import com.google.javascript.jscomp.instrumentation.CoverageInstrumentationPass;
 import com.google.javascript.jscomp.instrumentation.CoverageInstrumentationPass.CoverageReach;
 import com.google.javascript.jscomp.lint.CheckArrayWithGoogObject;
+import com.google.javascript.jscomp.lint.CheckConstPrivateProperties;
 import com.google.javascript.jscomp.lint.CheckConstantCaseNames;
 import com.google.javascript.jscomp.lint.CheckDefaultExportOfGoogModule;
 import com.google.javascript.jscomp.lint.CheckDuplicateCase;
@@ -54,12 +56,12 @@ import com.google.javascript.jscomp.lint.CheckMissingSemicolon;
 import com.google.javascript.jscomp.lint.CheckNestedNames;
 import com.google.javascript.jscomp.lint.CheckNoMutatedEs6Exports;
 import com.google.javascript.jscomp.lint.CheckNullabilityModifiers;
-import com.google.javascript.jscomp.lint.CheckNullableReturn;
 import com.google.javascript.jscomp.lint.CheckPrimitiveAsObject;
 import com.google.javascript.jscomp.lint.CheckPrototypeProperties;
 import com.google.javascript.jscomp.lint.CheckProvidesSorted;
 import com.google.javascript.jscomp.lint.CheckRequiresSorted;
 import com.google.javascript.jscomp.lint.CheckUnusedLabels;
+import com.google.javascript.jscomp.lint.CheckUnusedPrivateProperties;
 import com.google.javascript.jscomp.lint.CheckUselessBlocks;
 import com.google.javascript.jscomp.lint.CheckVar;
 import com.google.javascript.jscomp.modules.ModuleMapCreator;
@@ -68,6 +70,7 @@ import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
 import com.google.javascript.jscomp.serialization.ConvertTypesToColors;
 import com.google.javascript.jscomp.serialization.SerializationOptions;
+import com.google.javascript.jscomp.serialization.SerializeTypedAstPass;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import java.util.ArrayList;
@@ -123,7 +126,9 @@ public final class DefaultPassConfig extends PassConfig {
 
     passes.add(markUntranspilableFeaturesAsRemoved);
 
-    passes.add(checkVariableReferencesForTranspileOnly);
+    // Certain errors in block-scoped variable declarations will prevent correct transpilation
+    passes.add(checkVariableReferences);
+
     passes.add(gatherModuleMetadataPass);
     passes.add(createModuleMapPass);
 
@@ -149,7 +154,7 @@ public final class DefaultPassConfig extends PassConfig {
 
     TranspilationPasses.addTranspilationRuntimeLibraries(passes, options);
 
-    TranspilationPasses.addPostCheckTranspilationPasses(passes, options);
+    TranspilationPasses.addEarlyOptimizationTranspilationPasses(passes, options);
 
     if (options.needsTranspilationFrom(ES2015)) {
       if (options.getRewritePolyfills()) {
@@ -161,7 +166,8 @@ public final class DefaultPassConfig extends PassConfig {
       }
     }
 
-    passes.add(injectRuntimeLibraries);
+    passes.add(injectRuntimeLibrariesForChecks);
+    passes.add(injectRuntimeLibrariesForOptimizations);
 
     assertAllOneTimePasses(passes);
     assertValidOrderForChecks(passes);
@@ -193,12 +199,15 @@ public final class DefaultPassConfig extends PassConfig {
     if (options.closurePass) {
       checks.add(closureRewriteModule);
     }
-    // TODO(b/141389184): include processClosureProvidesAndRequires here
   }
 
   @Override
   protected List<PassFactory> getChecks() {
     List<PassFactory> checks = new ArrayList<>();
+    checkState(
+        !options.skipNonTranspilationPasses,
+        "options.skipNonTranspilationPasses cannot be mixed with PassConfig::getChecks. Call"
+            + " PassConfig::getTranspileOnlyPasses instead.");
 
     checks.add(syncCompilerFeatures);
 
@@ -207,7 +216,9 @@ public final class DefaultPassConfig extends PassConfig {
       checks.add(closureGoogScopeAliasesForIjs);
       checks.add(closureRewriteClass);
       checks.add(generateIjs);
-      checks.add(whitespaceWrapGoogModules);
+      if (options.wrapGoogModulesForWhitespaceOnly) {
+        checks.add(whitespaceWrapGoogModules);
+      }
       checks.add(removeSyntheticScript);
       return checks;
     }
@@ -310,9 +321,6 @@ public final class DefaultPassConfig extends PassConfig {
 
     if (options.closurePass) {
       checks.add(closurePrimitives);
-      if (options.shouldRewriteModulesBeforeTypechecking()) {
-        checks.add(closureProvidesRequires);
-      }
     }
 
     // It's important that the PolymerPass run *after* the ClosurePrimitives and ChromePass rewrites
@@ -342,13 +350,7 @@ public final class DefaultPassConfig extends PassConfig {
     // Passes running before this point should expect to see language features up to ES_2017.
     checks.add(createEmptyPass(PassNames.BEFORE_PRE_TYPECHECK_TRANSPILATION));
 
-    TranspilationPasses.addTranspilationRuntimeLibraries(checks, options);
-
-    if ((options.rewritePolyfills || options.getIsolatePolyfills()) && !options.checksOnly) {
-      TranspilationPasses.addRewritePolyfillPass(checks);
-    }
-
-    checks.add(injectRuntimeLibraries);
+    checks.add(injectRuntimeLibrariesForChecks);
     checks.add(createEmptyPass(PassNames.BEFORE_TYPE_CHECKING));
 
     if (options.checkTypes || options.inferTypes) {
@@ -365,7 +367,7 @@ public final class DefaultPassConfig extends PassConfig {
       checks.add(analyzerChecks);
     }
 
-    if (options.isCheckingMissingOverrideTypes()) {
+    if (options.isTypecheckingEnabled() && options.isCheckingMissingOverrideTypes()) {
       checks.add(checkMissingOverrideTypes);
     }
 
@@ -377,9 +379,6 @@ public final class DefaultPassConfig extends PassConfig {
 
     if (options.shouldRewriteModulesAfterTypechecking()) {
       addModuleRewritingPasses(checks, options);
-      if (options.closurePass) {
-        checks.add(closureProvidesRequires);
-      }
     }
 
     // Dynamic import rewriting must always occur after type checking
@@ -460,9 +459,6 @@ public final class DefaultPassConfig extends PassConfig {
       if (options.exportTestFunctions) {
         checks.add(exportTestFunctions);
       }
-
-      // There's no need to complete transpilation if we're only running checks.
-      TranspilationPasses.addPostCheckTranspilationPasses(checks, options);
     }
 
     // Create extern exports after the normalize because externExports depends on unique names.
@@ -471,7 +467,12 @@ public final class DefaultPassConfig extends PassConfig {
     }
 
     if (options.runtimeTypeCheck) {
+      // RuntimeTypeCheck depends on the AST being normalized. We immediately mark the AST
+      // unnormalized as subsequent passes may produce unnormalized code.
+      // TODO(b/197349249): always run normalize here.
+      checks.add(normalize);
       checks.add(runtimeTypeCheck);
+      checks.add(markUnnormalized);
     }
 
     if (!options.checksOnly) {
@@ -481,10 +482,18 @@ public final class DefaultPassConfig extends PassConfig {
       checks.add(gatherExternProperties);
     }
 
+    if (options.checksOnly && options.closurePass && options.shouldRewriteProvidesInChecksOnly()) {
+      checks.add(closureProvidesRequires);
+    }
+
     assertAllOneTimePasses(checks);
     assertValidOrderForChecks(checks);
 
     checks.add(createEmptyPass(PassNames.BEFORE_SERIALIZATION));
+
+    if (options.getTypedAstOutputFile() != null) {
+      checks.add(serializeTypedAst);
+    }
 
     return checks;
   }
@@ -494,23 +503,54 @@ public final class DefaultPassConfig extends PassConfig {
     List<PassFactory> passes = new ArrayList<>();
 
     if (options.skipNonTranspilationPasses) {
+      // Reaching this if-condition means the 'getChecks()' phase has been skipped in favor of
+      // 'getTranspileOnlyPasses'.
       return passes;
     }
 
-    passes.add(typesToColors);
+    addNonTypedAstNormalizationPasses(passes);
 
-    // i18n
-    // If you want to customize the compiler to use a different i18n pass,
-    // you can create a PassConfig that calls replacePassFactory
-    // to replace this.
-    if (options.replaceMessagesWithChromeI18n) {
+    // Remove synthetic extern declarations of names that are now defined in source
+    // This is expected to do nothing when in a monolithic build
+    passes.add(removeUnnecessarySyntheticExterns);
+
+    TranspilationPasses.addTranspilationRuntimeLibraries(passes, options);
+
+    if (options.rewritePolyfills || options.getIsolatePolyfills()) {
+      TranspilationPasses.addRewritePolyfillPass(passes);
+    }
+
+    passes.add(injectRuntimeLibrariesForOptimizations);
+
+    if (options.closurePass) {
+      passes.add(closureProvidesRequires);
+    }
+
+    if (options.shouldRunReplaceMessagesForChrome()) {
       passes.add(replaceMessagesForChrome);
-    } else if (options.messageBundle != null) {
-      passes.add(replaceMessages);
+    } else if (options.shouldRunReplaceMessagesPass()) {
+      if (options.doLateLocalization()) {
+        // With late localization we protect the messages from mangling by optimizations now,
+        // then actually replace them after optimizations.
+        // The purpose of doing this is to separate localization from optimization so we can
+        // optimize just once for all locales.
+        passes.add(getProtectMessagesPass());
+      } else {
+        // TODO(bradfordcsmith): At the moment we expect the optimized output may be slightly
+        // smaller if you replace messages before optimizing, but if we can change that, it would
+        // be good to drop this early replacement entirely.
+        passes.add(getFullReplaceMessagesPass());
+      }
+    }
+
+    if (options.doLateLocalization()) {
+      passes.add(protectLocaleData);
     }
 
     // Defines in code always need to be processed.
     passes.add(processDefinesOptimize);
+
+    TranspilationPasses.addEarlyOptimizationTranspilationPasses(passes, options);
 
     passes.add(normalize);
 
@@ -594,7 +634,7 @@ public final class DefaultPassConfig extends PassConfig {
     // information and so that other passes can take advantage of the renamed
     // properties.
     if (options.shouldDisambiguateProperties() && options.isTypecheckingEnabled()) {
-      passes.add(disambiguateProperties2);
+      passes.add(disambiguateProperties);
     }
 
     if (options.computeFunctionSideEffects) {
@@ -679,13 +719,61 @@ public final class DefaultPassConfig extends PassConfig {
       passes.add(getCustomPasses(CustomPassExecutionTime.AFTER_OPTIMIZATION_LOOP));
     }
 
+    assertValidOrderForOptimizations(passes);
+    return passes;
+  }
+
+  @Override
+  protected List<PassFactory> getFinalizations() {
+    List<PassFactory> passes = new ArrayList<>();
+
+    if (options.doLateLocalization()) {
+      if (options.shouldRunReplaceMessagesPass()) {
+        passes.add(getReplaceProtectedMessagesPass());
+      }
+      passes.add(substituteLocaleData);
+    }
+
     if (options.inlineVariables || options.inlineLocalVariables) {
       passes.add(flowSensitiveInlineVariables);
 
-      // After inlining some of the variable uses, some variables are unused.
-      // Re-run remove unused vars to clean it up.
-      if (shouldRunRemoveUnusedCode()) {
+      // After inlining variable uses, some variables may be unused.
+      // If we're doing late localization, the simple code removal pass runs added below will clean
+      // those up. Otherwise, clean them up now.
+      if (!options.doLateLocalization() && shouldRunRemoveUnusedCode()) {
         passes.add(removeUnusedCodeOnce);
+      }
+    }
+
+    if (options.doLateLocalization()) {
+      // Now that we've replaced message references with string constants and `goog.LOCALE` with a
+      // constant value, we need to re-run simple code removal passes, so they can throw away code
+      // for locales that aren't relevant and perform constant folding on the message strings we've
+      // now inserted.
+      //
+      // This needs to happen after the flowSensitiveInlineVariables above, because it will
+      // enable the PeepholeOptimizations we run here to do constant folding.
+      //
+      // For example, `flowSensitiveInlineVariables` will change this
+      // ```
+      // var x = 'localized version of message';
+      // x = x + '&nbsp';
+      // ```
+      // to this
+      // ```
+      // var x = 'localized version of message' + '&nbsp;';
+      // ```
+      // We cannot expect the peepholeOptimizations runs that come later to do this constant
+      // folding, because `aliasStrings` may replace the string literals with variables before
+      // they run.
+      addSimpleCodeRemovingPasses(passes);
+
+      if (options.getInlineFunctionsLevel() != Reach.NONE) {
+        passes.add(inlineFunctions);
+      }
+
+      if (options.optimizeCalls) {
+        passes.add(optimizeCalls);
       }
     }
 
@@ -750,7 +838,7 @@ public final class DefaultPassConfig extends PassConfig {
 
     // This comes after converting quoted property accesses to dotted property
     // accesses in order to avoid aliasing property names.
-    if (options.aliasAllStrings) {
+    if (options.getAliasStringsMode() != AliasStringsMode.NONE) {
       passes.add(aliasStrings);
     }
 
@@ -811,20 +899,20 @@ public final class DefaultPassConfig extends PassConfig {
       passes.add(rescopeGlobalSymbols);
     }
 
-    // Safety checks
-    passes.add(checkAstValidity);
-    passes.add(varCheckValidity);
-
     // Raise to ES2015, if allowed
     if (options.getOutputFeatureSet().contains(ES2015)) {
       passes.add(optimizeToEs6);
     }
-    // must run after ast validity check as modules may not be allowed in the output feature set
+
+    // Must run after all non-safety-check passes as the optimizations do not support modules.
     if (options.chunkOutputType == ChunkOutputType.ES_MODULES) {
       passes.add(convertChunksToESModules);
     }
 
-    assertValidOrderForOptimizations(passes);
+    // Safety checks.  These should always be the last passes.
+    passes.add(checkAstValidity);
+    passes.add(varCheckValidity);
+
     return passes;
   }
 
@@ -879,6 +967,13 @@ public final class DefaultPassConfig extends PassConfig {
       passes.add(collapseObjectLiterals);
     }
 
+    addSimpleCodeRemovingPasses(passes);
+
+    assertAllLoopablePasses(passes);
+    return passes;
+  }
+
+  private void addSimpleCodeRemovingPasses(List<PassFactory> passes) {
     if (options.inlineVariables || options.inlineLocalVariables) {
       passes.add(inlineVariables);
     } else if (options.inlineConstantVars) {
@@ -896,9 +991,15 @@ public final class DefaultPassConfig extends PassConfig {
     if (shouldRunRemoveUnusedCode()) {
       passes.add(removeUnusedCode);
     }
+  }
 
-    assertAllLoopablePasses(passes);
-    return passes;
+  /**
+   * For use in builds that run getOptimizations() on the result of an AST directly from
+   * getChecks(), that has not gone through TypedAST serialization/deserialization.
+   */
+  private void addNonTypedAstNormalizationPasses(List<PassFactory> passes) {
+    passes.add(removeCastNodes);
+    passes.add(typesToColors);
   }
 
   private boolean shouldRunRemoveUnusedCode() {
@@ -945,7 +1046,7 @@ public final class DefaultPassConfig extends PassConfig {
           .setName("suspiciousCode")
           .setInternalFactory(
               (compiler) -> {
-                List<Callback> sharedCallbacks = new ArrayList<>();
+                List<NodeTraversal.Callback> sharedCallbacks = new ArrayList<>();
                 if (options.checkSuspiciousCode) {
                   sharedCallbacks.add(new CheckSuspiciousCode());
                   sharedCallbacks.add(new CheckDuplicateCase(compiler));
@@ -1094,6 +1195,19 @@ public final class DefaultPassConfig extends PassConfig {
   private void assertValidOrderForOptimizations(List<PassFactory> optimizations) {
     assertPassOrder(
         optimizations,
+        TranspilationPasses.rewritePolyfills,
+        processDefinesOptimize,
+        "Polyfill injection must be done before processDefines as some polyfills reference "
+            + "goog.defines.");
+    assertPassOrder(
+        optimizations,
+        TranspilationPasses.injectTranspilationRuntimeLibraries,
+        processDefinesOptimize,
+        "Runtime library injection must be done before processDefines some runtime libraries "
+            + "reference goog.defines.");
+
+    assertPassOrder(
+        optimizations,
         processDefinesOptimize,
         j2clUtilGetDefineRewriterPass,
         "J2CL define re-writing should be done after processDefines since it relies on "
@@ -1112,7 +1226,8 @@ public final class DefaultPassConfig extends PassConfig {
       PassFactory.builder()
           .setName("checkExtraRequires")
           .setFeatureSetForChecks()
-          .setInternalFactory(CheckExtraRequires::new)
+          .setInternalFactory(
+              (compiler) -> new CheckExtraRequires(compiler, options.getUnusedImportsToRemove()))
           .build();
 
   private final PassFactory checkMissingRequires =
@@ -1230,14 +1345,9 @@ public final class DefaultPassConfig extends PassConfig {
       PassFactory.builder()
           .setName("closureProvidesRequires")
           .setInternalFactory(
-              (compiler) -> {
-                preprocessorSymbolTableFactory.maybeInitialize(compiler);
-                return new ProcessClosureProvidesAndRequires(
-                    compiler,
-                    preprocessorSymbolTableFactory.getInstanceOrNull(),
-                    options.brokenClosureRequiresLevel,
-                    options.shouldPreservesGoogProvidesAndRequires());
-              })
+              (compiler) ->
+                  new ProcessClosureProvidesAndRequires(
+                      compiler, options.shouldPreservesGoogProvidesAndRequires()))
           .setFeatureSetForChecks()
           .build();
 
@@ -1250,24 +1360,61 @@ public final class DefaultPassConfig extends PassConfig {
           .build();
 
   /**
-   * The default i18n pass. A lot of the options are not configurable, because ReplaceMessages has a
-   * lot of legacy logic.
+   * Return the form of `replaceMessages` that does the replacement all at once, and which must run
+   * before optimizations.
    */
-  private final PassFactory replaceMessages =
-      PassFactory.builder()
-          .setName(PassNames.REPLACE_MESSAGES)
-          .setInternalFactory(
-              (compiler) ->
-                  new ReplaceMessages(
-                          compiler,
-                          options.messageBundle,
-                          /* allow messages with goog.getMsg */
-                          JsMessage.Style.CLOSURE,
-                          /* if we can't find a translation, don't worry about it. */
-                          false)
-                      .getFullReplacementPass())
-          .setFeatureSetForOptimizations()
-          .build();
+  private PassFactory getFullReplaceMessagesPass() {
+    return PassFactory.builder()
+        .setName(PassNames.REPLACE_MESSAGES)
+        .setInternalFactory(
+            (compiler) ->
+                new ReplaceMessages(
+                        compiler,
+                        options.messageBundle,
+                        /* allow messages with goog.getMsg */
+                        JsMessage.Style.CLOSURE,
+                        options.getStrictMessageReplacement())
+                    .getFullReplacementPass())
+        .setFeatureSetForOptimizations()
+        .build();
+  }
+
+  /**
+   * Return the pass that protects messages from mangling, so they can be found and replaced after
+   * optimizations.
+   */
+  private PassFactory getProtectMessagesPass() {
+    return PassFactory.builder()
+        .setName("protectMessages")
+        .setInternalFactory(
+            (compiler) ->
+                new ReplaceMessages(
+                        compiler,
+                        options.messageBundle,
+                        /* allow messages with goog.getMsg */
+                        JsMessage.Style.CLOSURE,
+                        options.getStrictMessageReplacement())
+                    .getMsgProtectionPass())
+        .setFeatureSetForOptimizations()
+        .build();
+  }
+
+  /** Return the pass that identifies protected messages and completes their replacement. */
+  private PassFactory getReplaceProtectedMessagesPass() {
+    return PassFactory.builder()
+        .setName("replaceProtectedMessages")
+        .setInternalFactory(
+            (compiler) ->
+                new ReplaceMessages(
+                        compiler,
+                        options.messageBundle,
+                        /* allow messages with goog.getMsg */
+                        JsMessage.Style.CLOSURE,
+                        options.getStrictMessageReplacement())
+                    .getReplacementCompletionPass())
+        .setFeatureSetForOptimizations()
+        .build();
+  }
 
   private final PassFactory replaceMessagesForChrome =
       PassFactory.builder()
@@ -1310,10 +1457,17 @@ public final class DefaultPassConfig extends PassConfig {
           .setFeatureSetForChecks()
           .build();
 
-  private final PassFactory injectRuntimeLibraries =
+  private final PassFactory injectRuntimeLibrariesForChecks =
       PassFactory.builder()
           .setName("InjectRuntimeLibraries")
-          .setInternalFactory(InjectRuntimeLibraries::new)
+          .setInternalFactory((compiler) -> InjectRuntimeLibraries.forChecks(compiler))
+          .setFeatureSetForChecks()
+          .build();
+
+  private final PassFactory injectRuntimeLibrariesForOptimizations =
+      PassFactory.builder()
+          .setName("InjectRuntimeLibraries")
+          .setInternalFactory((compiler) -> InjectRuntimeLibraries.forOptimizations(compiler))
           .setFeatureSetForChecks()
           .build();
 
@@ -1575,14 +1729,6 @@ public final class DefaultPassConfig extends PassConfig {
           .build();
 
   /** Checks that references to variables look reasonable. */
-  private final PassFactory checkVariableReferencesForTranspileOnly =
-      PassFactory.builder()
-          .setName(PassNames.CHECK_VARIABLE_REFERENCES)
-          .setInternalFactory((compiler) -> new VariableReferenceCheck(compiler, true))
-          .setFeatureSetForChecks()
-          .build();
-
-  /** Checks that references to variables look reasonable. */
   private final PassFactory checkVariableReferences =
       PassFactory.builder()
           .setName(PassNames.CHECK_VARIABLE_REFERENCES)
@@ -1682,7 +1828,7 @@ public final class DefaultPassConfig extends PassConfig {
           .setName("checkControlFlow")
           .setInternalFactory(
               (compiler) -> {
-                List<Callback> callbacks = new ArrayList<>();
+                List<NodeTraversal.Callback> callbacks = new ArrayList<>();
                 if (!options.disables(DiagnosticGroups.CHECK_USELESS_CODE)) {
                   callbacks.add(new CheckUnreachableCode(compiler));
                 }
@@ -1713,8 +1859,9 @@ public final class DefaultPassConfig extends PassConfig {
           .setName(PassNames.LINT_CHECKS)
           .setInternalFactory(
               (compiler) -> {
-                ImmutableList.Builder<Callback> callbacks =
-                    ImmutableList.<Callback>builder()
+                ImmutableList.Builder<NodeTraversal.Callback> callbacks =
+                    ImmutableList.<NodeTraversal.Callback>builder()
+                        .add(new CheckConstPrivateProperties(compiler))
                         .add(new CheckConstantCaseNames(compiler))
                         .add(new CheckDefaultExportOfGoogModule(compiler))
                         .add(new CheckEmptyStatements(compiler))
@@ -1729,6 +1876,7 @@ public final class DefaultPassConfig extends PassConfig {
                         .add(new CheckNullabilityModifiers(compiler))
                         .add(new CheckPrimitiveAsObject(compiler))
                         .add(new CheckPrototypeProperties(compiler))
+                        .add(new CheckUnusedPrivateProperties(compiler))
                         .add(new CheckUnusedLabels(compiler))
                         .add(new CheckUselessBlocks(compiler))
                         .add(new CheckVar(compiler));
@@ -1742,22 +1890,13 @@ public final class DefaultPassConfig extends PassConfig {
           .setName(PassNames.ANALYZER_CHECKS)
           .setInternalFactory(
               (compiler) -> {
-                ImmutableList.Builder<Callback> callbacks = ImmutableList.builder();
-                if (options.enables(DiagnosticGroups.ANALYZER_CHECKS_INTERNAL)) {
-                  callbacks
-                      .add(new CheckNullableReturn(compiler))
-                      .add(new CheckArrayWithGoogObject(compiler))
-                      .add(new ImplicitNullabilityCheck(compiler))
-                      .add(new CheckNestedNames(compiler));
-                }
-                // These are grouped together for better execution efficiency.
-                if (options.enables(DiagnosticGroups.UNUSED_PRIVATE_PROPERTY)) {
-                  callbacks.add(new CheckUnusedPrivateProperties(compiler));
-                }
-                if (options.enables(DiagnosticGroups.MISSING_CONST_PROPERTY)) {
-                  callbacks.add(new CheckConstPrivateProperties(compiler));
-                }
-                return combineChecks(compiler, callbacks.build());
+                ImmutableList<NodeTraversal.Callback> callbacks =
+                    ImmutableList.of(
+                        new CheckArrayWithGoogObject(compiler),
+                        new ImplicitNullabilityCheck(compiler),
+                        new CheckNestedNames(compiler));
+
+                return combineChecks(compiler, callbacks);
               })
           .setFeatureSetForChecks()
           .build();
@@ -1776,7 +1915,8 @@ public final class DefaultPassConfig extends PassConfig {
           .build();
 
   /** Executes the given callbacks with a {@link CombinedCompilerPass}. */
-  private static CompilerPass combineChecks(AbstractCompiler compiler, List<Callback> callbacks) {
+  private static CompilerPass combineChecks(
+      AbstractCompiler compiler, List<NodeTraversal.Callback> callbacks) {
     checkArgument(!callbacks.isEmpty());
     return new CombinedCompilerPass(compiler, callbacks);
   }
@@ -1866,8 +2006,7 @@ public final class DefaultPassConfig extends PassConfig {
   private final PassFactory checkConsts =
       PassFactory.builder()
           .setName("checkConsts")
-          .setInternalFactory(
-              (compiler) -> new ConstCheck(compiler, compiler.getModuleMetadataMap()))
+          .setInternalFactory(ConstCheck::new)
           .setFeatureSetForChecks()
           .build();
 
@@ -1886,8 +2025,8 @@ public final class DefaultPassConfig extends PassConfig {
           .setInternalFactory(
               (compiler) -> new RuntimeTypeCheck(compiler, options.runtimeTypeCheckLogFunction))
           // TODO(bradfordcsmith): Drop support for this pass.
-          // It's never been updated to handle ES6+ code, because it isn't worth the effort.
-          .setFeatureSet(ES5)
+          // It's never been updated to handle ES2016+ code, because it isn't worth the effort.
+          .setFeatureSetForChecks()
           .build();
 
   /** Generates unique ids. */
@@ -2016,13 +2155,12 @@ public final class DefaultPassConfig extends PassConfig {
           .build();
 
   /** Disambiguate property names based on type information. */
-  private final PassFactory disambiguateProperties2 =
+  private final PassFactory disambiguateProperties =
       PassFactory.builder()
           .setName(PassNames.DISAMBIGUATE_PROPERTIES)
           .setInternalFactory(
               (compiler) ->
-                  new DisambiguateProperties2(
-                      compiler, options.getPropertiesThatMustDisambiguate()))
+                  new DisambiguateProperties(compiler, options.getPropertiesThatMustDisambiguate()))
           .setFeatureSetForOptimizations()
           .build();
 
@@ -2258,7 +2396,7 @@ public final class DefaultPassConfig extends PassConfig {
           .setFeatureSetForOptimizations()
           .build();
 
-  /** Some simple, local collapses (e.g., {@code var x; var y;} becomes {@code var x,y;}. */
+  /** Collapses assignment expressions (e.g., {@code x = 3; y = x;} becomes {@code y = x = 3;}. */
   private final PassFactory exploitAssign =
       PassFactory.builder()
           .setName(PassNames.EXPLOIT_ASSIGN)
@@ -2269,7 +2407,7 @@ public final class DefaultPassConfig extends PassConfig {
           .setFeatureSetForOptimizations()
           .build();
 
-  /** Some simple, local collapses (e.g., {@code var x; var y;} becomes {@code var x,y;}. */
+  /** Collapses variable declarations (e.g., {@code var x; var y;} becomes {@code var x,y;}. */
   private final PassFactory collapseVariableDeclarations =
       PassFactory.builder()
           .setName(PassNames.COLLAPSE_VARIABLE_DECLARATIONS)
@@ -2330,14 +2468,17 @@ public final class DefaultPassConfig extends PassConfig {
           .setFeatureSetForOptimizations()
           .build();
 
-  /** Alias string literals with global variables, to avoid creating lots of transient objects. */
+  /** Alias string literals with global variables, to reduce code size. */
   private final PassFactory aliasStrings =
       PassFactory.builder()
           .setName("aliasStrings")
           .setInternalFactory(
               (compiler) ->
                   new AliasStrings(
-                      compiler, compiler.getModuleGraph(), options.outputJsStringUsage))
+                      compiler,
+                      compiler.getModuleGraph(),
+                      options.outputJsStringUsage,
+                      options.getAliasStringsMode()))
           .setFeatureSetForOptimizations()
           .build();
 
@@ -2391,7 +2532,8 @@ public final class DefaultPassConfig extends PassConfig {
   private final PassFactory denormalize =
       PassFactory.builder()
           .setName("denormalize")
-          .setInternalFactory(Denormalize::new)
+          .setInternalFactory(
+              (compiler) -> new Denormalize(compiler, options.getOutputFeatureSet()))
           .setFeatureSetForOptimizations()
           .build();
 
@@ -2559,7 +2701,7 @@ public final class DefaultPassConfig extends PassConfig {
       additionalReplacements.put(COMPILED_CONSTANT_NAME, IR.trueNode());
     }
 
-    if (options.closurePass && options.locale != null) {
+    if (options.closurePass && options.locale != null && !options.doLateLocalization()) {
       additionalReplacements.put(CLOSURE_LOCALE_CONSTANT_NAME, IR.string(options.locale));
     }
 
@@ -2660,9 +2802,14 @@ public final class DefaultPassConfig extends PassConfig {
       PassFactory.builder()
           .setName(PassNames.CHECK_CONFORMANCE)
           .setInternalFactory(
-              (compiler) ->
-                  new CheckConformance(
-                      compiler, ImmutableList.copyOf(options.getConformanceConfigs())))
+              (compiler) -> new CheckConformance(compiler, options.getConformanceConfigs()))
+          .setFeatureSetForChecks()
+          .build();
+
+  private final PassFactory removeCastNodes =
+      PassFactory.builder()
+          .setName("removeCastNodes")
+          .setInternalFactory(RemoveCastNodes::new)
           .setFeatureSetForChecks()
           .build();
 
@@ -2672,8 +2819,35 @@ public final class DefaultPassConfig extends PassConfig {
           .setName("typesToColors")
           .setInternalFactory(
               (compiler) ->
-                  new ConvertTypesToColors(compiler, SerializationOptions.SKIP_DEBUG_INFO))
+                  (externs, js) -> {
+                    new ConvertTypesToColors(
+                            compiler,
+                            compiler.isDebugLoggingEnabled()
+                                ? SerializationOptions.INCLUDE_DEBUG_INFO
+                                : SerializationOptions.SKIP_DEBUG_INFO)
+                        .process(externs, js);
+
+                    compiler.setLifeCycleStage(
+                        AbstractCompiler.LifeCycleStage.COLORS_AND_SIMPLIFIED_JSDOC);
+                  })
           .setFeatureSetForOptimizations()
+          .build();
+
+  /** Emit a TypedAST into of the current compilation. */
+  private final PassFactory serializeTypedAst =
+      PassFactory.builder()
+          .setName("serializeTypedAst")
+          .setInternalFactory(
+              (compiler) ->
+                  SerializeTypedAstPass.createFromPath(compiler, options.getTypedAstOutputFile()))
+          .setFeatureSetForChecks()
+          .build();
+
+  private final PassFactory removeUnnecessarySyntheticExterns =
+      PassFactory.builder()
+          .setName("removeUnnecessarySyntheticExterns")
+          .setInternalFactory(RemoveUnnecessarySyntheticExterns::new)
+          .setFeatureSetForChecks()
           .build();
 
   /** Optimizations that output ES2015 features. */
@@ -2777,5 +2951,47 @@ public final class DefaultPassConfig extends PassConfig {
                       compiler,
                       compiler.getOptions().getDynamicImportAlias(),
                       compiler.getOptions().getChunkOutputType()))
+          .build();
+
+  /** Replace locale values with stubs that can survive optimizations and be replaced afterwards. */
+  private final PassFactory protectLocaleData =
+      PassFactory.builder()
+          .setName("protectLocaleData")
+          .setInternalFactory(
+              (compiler) ->
+                  new CompilerPass() {
+                    @Override
+                    public void process(Node externs, Node root) {
+                      compiler.setLocaleSubstitutionData(
+                          runLocaleDataProtect(compiler, externs, root));
+                    }
+                  })
+          .setFeatureSetForOptimizations()
+          .build();
+
+  LocaleData runLocaleDataProtect(AbstractCompiler compiler, Node externs, Node root) {
+    LocaleDataPasses.ExtractAndProtect pass = new ExtractAndProtect(compiler);
+
+    pass.process(externs, root);
+    return pass.getLocaleValuesDataMaps();
+  }
+
+  /** Replace locale data stubs with the values for a locale. */
+  private final PassFactory substituteLocaleData =
+      PassFactory.builder()
+          .setName("SubstituteLocaleData")
+          .setInternalFactory(
+              (compiler) ->
+                  new CompilerPass() {
+                    @Override
+                    public void process(Node externs, Node root) {
+                      new LocaleDataPasses.LocaleSubstitutions(
+                              compiler,
+                              compiler.getOptions().locale,
+                              compiler.getLocaleSubstitutionData())
+                          .process(externs, root);
+                    }
+                  })
+          .setFeatureSetForOptimizations()
           .build();
 }

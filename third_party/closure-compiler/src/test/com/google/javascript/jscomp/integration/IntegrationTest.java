@@ -32,6 +32,7 @@ import com.google.javascript.jscomp.ClosureCodingConvention;
 import com.google.javascript.jscomp.CompilationLevel;
 import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.CompilerOptions;
+import com.google.javascript.jscomp.CompilerOptions.AliasStringsMode;
 import com.google.javascript.jscomp.CompilerOptions.DevMode;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.CompilerOptions.PropertyCollapseLevel;
@@ -73,6 +74,27 @@ public final class IntegrationTest extends IntegrationTestCase {
   private static final String CLOSURE_BOILERPLATE = "";
 
   private static final String CLOSURE_COMPILED = "";
+
+  @Test
+  public void testSubstituteEs6Syntax() {
+    CompilerOptions options = createCompilerOptions();
+    CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
+    options.setLanguageIn(LanguageMode.ECMASCRIPT_NEXT_IN);
+    options.setLanguageOut(LanguageMode.ECMASCRIPT_NEXT);
+
+    externs =
+        ImmutableList.of(
+            SourceFile.fromCode("testExterns.js", new TestExternsBuilder().addConsole().build()));
+
+    // This is a regression test to confirm both that SubstituteEs6Syntax switches to object
+    // literal shorthand here and that it correctly reports that it has added that feature.
+    // IntegrationTestCase runs `ValidityCheck` to report an error if a feature usage gets added to
+    // the AST without that addition being recorded.
+    test(
+        options,
+        "console.log({console: console});", //
+        "console.log({console});");
+  }
 
   @Test
   public void testNewDotTargetTranspilation() {
@@ -537,11 +559,14 @@ public final class IntegrationTest extends IntegrationTestCase {
     // (0, [...])() doesn't parse as expected.
     assertThat(compiler.toSource())
         .isEqualTo(
-            "" //
-                + "goog.$testing$={};"
-                + "goog.$testing$.$testSuite$=function($a$$){};"
-                + "var $module$exports$testing$$={};"
-                + "(0,goog.$testing$.$testSuite$)({\"testMethod\":function(){}});");
+            lines(
+                "goog.$testing$ = {};", //
+                "goog.$testing$.$testSuite$ = function($a$$) {",
+                "};",
+                "var $module$exports$testing$$ = {};",
+                "(0,goog.$testing$.$testSuite$)({\"testMethod\":function() {",
+                "}});",
+                ""));
   }
 
   @Test
@@ -2140,7 +2165,7 @@ public final class IntegrationTest extends IntegrationTestCase {
             + "}";
     testSame(options, code);
 
-    options.setAliasAllStrings(true);
+    options.setAliasStringsMode(AliasStringsMode.ALL);
     test(options, code, expected);
   }
 
@@ -2600,7 +2625,7 @@ public final class IntegrationTest extends IntegrationTestCase {
             "class Baz extends Foo {",
             "  bar() {",
             "    const $jscomp$async$this = this, $jscomp$async$super$get$bar =",
-            "        () => Object.getPrototypeOf(Object.getPrototypeOf(this)).bar;",
+            "        () => super.bar;",
             "    return $jscomp.asyncExecutePromiseGeneratorFunction(function*() {",
             "      yield Promise.resolve();",
             "      $jscomp$async$super$get$bar().call($jscomp$async$this);",
@@ -2654,7 +2679,7 @@ public final class IntegrationTest extends IntegrationTestCase {
             "  bar() {",
             "    const $jscomp$asyncIter$this = this,",
             "          $jscomp$asyncIter$super$get$bar =",
-            "              () => Object.getPrototypeOf(Object.getPrototypeOf(this)).bar;",
+            "              () => super.bar;",
             "    return new $jscomp.AsyncGeneratorWrapper(function*() {",
             "      $jscomp$asyncIter$super$get$bar().call($jscomp$asyncIter$this).next();",
             "    }());",
@@ -3352,6 +3377,7 @@ public final class IntegrationTest extends IntegrationTestCase {
   public void testIjsWithDestructuringTypeWorks() {
     CompilerOptions options = createCompilerOptions();
     options.setCheckTypes(true);
+    options.setChecksOnly(true);
     // To enable type-checking
     options.setLanguageOut(LanguageMode.ECMASCRIPT5);
 
@@ -3371,6 +3397,7 @@ public final class IntegrationTest extends IntegrationTestCase {
   public void testTypeSummaryWithTypedefAliasWorks() {
     CompilerOptions options = createCompilerOptions();
     options.setCheckTypes(true);
+    options.setChecksOnly(true);
     options.setClosurePass(true);
     // To enable type-checking
     options.setLanguageOut(LanguageMode.ECMASCRIPT5);
@@ -3456,27 +3483,18 @@ public final class IntegrationTest extends IntegrationTestCase {
             "  return 123;",
             "}"),
         lines(
-            "/**",
-            " * @constructor",
-            " * @template T",
-            " */",
+            "var $jscomp=$jscomp||{};",
+            "$jscomp.scope={};",
+            "$jscomp.getRestArguments=function(){",
+            "  var startIndex=Number(this);",
+            "  var restArgs=[];",
+            "  for(var i=startIndex;i<arguments.length;i++) restArgs[i-startIndex]=arguments[i];",
+            "  return restArgs",
+            "};",
             "function Foo() {}",
-            "/**",
-            " * @param {...function(!Foo<T>)} x",
-            " * @template T",
-            " */",
-            "function f(x) {",
-            "  var $jscomp$restParams = [];",
-            "  for (var $jscomp$restIndex = 0;",
-            "       $jscomp$restIndex < arguments.length;",
-            "       ++$jscomp$restIndex) {",
-            "         $jscomp$restParams[$jscomp$restIndex - 0] =",
-            "        arguments[$jscomp$restIndex];",
-            "       }",
-            "  {",
-            "    var /** @type {!Array<function(!Foo<?>)>} */ x$0 = $jscomp$restParams;",
-            "    return 123;",
-            "  }",
+            "function f(){",
+            "  var x=$jscomp.getRestArguments.apply(0,arguments);",
+            "  return 123;",
             "}"));
   }
 
@@ -3581,25 +3599,8 @@ public final class IntegrationTest extends IntegrationTestCase {
   }
 
   @Test
-  public void testDestructuringCannotConvert() {
-    CompilerOptions options = createCompilerOptions();
-
-    test(
-        options,
-        "for (var   [x] = [], {y} = {}, z = 2;;) {}",
-        DiagnosticGroups.CANNOT_TRANSPILE_FEATURE);
-    test(
-        options,
-        "for (let   [x] = [], {y} = {}, z = 2;;) {}",
-        DiagnosticGroups.CANNOT_TRANSPILE_FEATURE);
-    test(
-        options,
-        "for (const [x] = [], {y} = {}, z = 2;;) {}",
-        DiagnosticGroups.CANNOT_TRANSPILE_FEATURE);
-  }
-
-  @Test
   public void testDefaultParameterRemoval() {
+    useNoninjectingCompiler = true;
     CompilerOptions options = createCompilerOptions();
     options.setLanguageOut(LanguageMode.ECMASCRIPT_2017);
     test(
@@ -3616,7 +3617,7 @@ public final class IntegrationTest extends IntegrationTestCase {
         lines(
             "var $jscomp$destructuring$var0 = {",
             "  func:(params)=>{",
-            "    params=params===undefined?{}:params;",
+            "    params=params===void 0?{}:params;",
             "    console.log(params);",
             "  }};",
             "var $jscomp$destructuring$var1 = Object.assign({},$jscomp$destructuring$var0);",
@@ -3667,6 +3668,7 @@ public final class IntegrationTest extends IntegrationTestCase {
 
   @Test
   public void testDestructuringRest() {
+    useNoninjectingCompiler = true;
     CompilerOptions options = createCompilerOptions();
     options.setLanguageOut(LanguageMode.ECMASCRIPT_2017);
 
@@ -3734,7 +3736,6 @@ public final class IntegrationTest extends IntegrationTestCase {
   }
 
   /** Creates a CompilerOptions object with google coding conventions. */
-  @Override
   public CompilerOptions createCompilerOptions() {
     CompilerOptions options = new CompilerOptions();
     options.setLanguageOut(LanguageMode.ECMASCRIPT3);
@@ -3742,6 +3743,7 @@ public final class IntegrationTest extends IntegrationTestCase {
     options.setCodingConvention(new GoogleCodingConvention());
     options.setRenamePrefixNamespaceAssumeCrossChunkNames(true);
     options.setAssumeGettersArePure(false);
+    options.setPrettyPrint(true);
     return options;
   }
 

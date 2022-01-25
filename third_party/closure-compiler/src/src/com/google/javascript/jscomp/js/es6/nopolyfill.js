@@ -23,7 +23,10 @@
 
 'require util/polyfill';
 
+// Proxy is not really possible to polyfill, because pre-es6 JS doesn't provide
+// all of the hooks necessary to build it.
 $jscomp.polyfill('Proxy', null, 'es6', 'es6');
 
-$jscomp.polyfill('String.raw', null, 'es6', 'es6');
+// Polyfilling this in infeasible, since it would require including a large
+// table of unicode information in the polyfill.
 $jscomp.polyfill('String.prototype.normalize', null, 'es6', 'es6');

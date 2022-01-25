@@ -126,7 +126,7 @@ public class RewriteJsonToModule extends NodeTraversal.AbstractPostOrderCallback
 
     JSDocInfo.Builder jsdoc = JSDocInfo.builder();
     jsdoc.recordFileOverview("Suppresses undefined var goog error");
-    jsdoc.addSuppression("undefinedVars");
+    jsdoc.recordSuppression("undefinedVars");
     n.setJSDocInfo(jsdoc.build());
 
     Node jsonObject = n.getFirstFirstChild().detach();
@@ -141,7 +141,7 @@ public class RewriteJsonToModule extends NodeTraversal.AbstractPostOrderCallback
         IR.exprResult(IR.call(IR.getprop(IR.name("goog"), "provide"), IR.string(moduleName)))
             .srcrefTreeIfMissing(n));
 
-    String inputPath = t.getInput().getSourceFile().getOriginalPath();
+    String inputPath = t.getInput().getSourceFile().getName();
     if (inputPath.endsWith("/package.json") && jsonObject.isObjectLit()) {
       List<String> possibleMainEntries = compiler.getOptions().getPackageJsonEntryNames();
 

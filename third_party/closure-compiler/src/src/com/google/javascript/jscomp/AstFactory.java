@@ -20,15 +20,20 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.Splitter;
-import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.javascript.jscomp.colors.Color;
+import com.google.javascript.jscomp.colors.ColorId;
+import com.google.javascript.jscomp.colors.ColorRegistry;
+import com.google.javascript.jscomp.colors.StandardColors;
 import com.google.javascript.rhino.IR;
-import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.StaticRef;
+import com.google.javascript.rhino.StaticScope;
+import com.google.javascript.rhino.StaticSlot;
 import com.google.javascript.rhino.Token;
-import com.google.javascript.rhino.jstype.BooleanLiteralSet;
 import com.google.javascript.rhino.jstype.FunctionType;
 import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.JSTypeNative;
@@ -38,6 +43,7 @@ import com.google.javascript.rhino.jstype.TemplateTypeMap;
 import com.google.javascript.rhino.jstype.TemplateTypeReplacer;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -49,37 +55,58 @@ import javax.annotation.Nullable;
  * logic for deciding whether type information should be added or not, and only minimal logic for
  * determining which types to add when they are necessary. Most methods in this class are able to
  * determine the correct type information from already existing AST nodes and the current scope.
+ *
+ * <p>AstFactory supports both Closure types (see {@link JSType}) and optimization-only types (see
+ * {@link Color})s. Colors contain less information than JSTypes which puts some restrictions on the
+ * amount of inference this class can do. For example, there's no way to ask "What is the color of
+ * property 'x' on receiver color 'obj'". This is why many methods accept a StaticScope instead of a
+ * Scope: you may pass in a {@link GlobalNamespace} or similar object which contains fully qualified
+ * names, to look up colors for an entire property chain.
+ *
+ * <p>TODO(b/193800507): delete the methods in this class that only work for JSTypes but not colors.
  */
 final class AstFactory {
 
   private static final Splitter DOT_SPLITTER = Splitter.on(".");
 
+  @Nullable private final ColorRegistry colorRegistry;
   @Nullable private final JSTypeRegistry registry;
   // We need the unknown type so frequently, it's worth caching it.
   private final JSType unknownType;
-  // We might not need Arguments type, but if we do, we should avoid redundant lookups
-  private final Supplier<JSType> argumentsTypeSupplier;
+  private static final Supplier<Color> bigintNumberStringColor =
+      Suppliers.memoize(
+          () ->
+              Color.createUnion(
+                  ImmutableSet.of(
+                      StandardColors.BIGINT, StandardColors.STRING, StandardColors.NUMBER)));
 
-  private AstFactory() {
-    this.registry = null;
-    unknownType = null;
-    argumentsTypeSupplier = () -> null;
+  enum TypeMode {
+    JSTYPE,
+    COLOR,
+    NONE
   }
+
+  private final TypeMode typeMode;
 
   private AstFactory(JSTypeRegistry registry) {
     this.registry = registry;
+    this.colorRegistry = null;
     this.unknownType = getNativeType(JSTypeNative.UNKNOWN_TYPE);
-    this.argumentsTypeSupplier =
-        Suppliers.memoize(
-            () -> {
-              JSType globalType = registry.getGlobalType("Arguments");
-              if (globalType != null) {
-                return globalType;
-              } else {
-                return unknownType;
-              }
-            });
-    ;
+    this.typeMode = TypeMode.JSTYPE;
+  }
+
+  private AstFactory() {
+    this.registry = null;
+    this.colorRegistry = null;
+    this.unknownType = null;
+    this.typeMode = TypeMode.NONE;
+  }
+
+  private AstFactory(ColorRegistry colorRegistry) {
+    this.registry = null;
+    this.colorRegistry = colorRegistry;
+    this.unknownType = null;
+    this.typeMode = TypeMode.COLOR;
   }
 
   static AstFactory createFactoryWithoutTypes() {
@@ -90,9 +117,22 @@ final class AstFactory {
     return new AstFactory(registry);
   }
 
+  static AstFactory createFactoryWithColors(ColorRegistry colorRegistry) {
+    return new AstFactory(colorRegistry);
+  }
+
   /** Does this class instance add types to the nodes it creates? */
   boolean isAddingTypes() {
-    return registry != null;
+    return TypeMode.JSTYPE.equals(this.typeMode);
+  }
+
+  /** Does this class instance add optimization colors to the nodes it creates? */
+  boolean isAddingColors() {
+    return TypeMode.COLOR.equals(this.typeMode);
+  }
+
+  private void assertNotAddingColors() {
+    checkState(!this.isAddingColors(), "method not supported for colors");
   }
 
   /**
@@ -186,68 +226,54 @@ final class AstFactory {
   /**
    * Returns a new {@code yield} expression.
    *
-   * @param jsType Type we expect to get back after the yield
+   * @param type Type we expect to get back after the yield
    * @param value value to yield
    */
-  Node createYield(JSType jsType, Node value) {
+  Node createYield(Type type, Node value) {
     Node result = IR.yield(value);
-    if (isAddingTypes()) {
-      result.setJSType(checkNotNull(jsType));
-    }
+    this.setJSTypeOrColor(type, result);
     return result;
   }
 
   /**
    * Returns a new {@code await} expression.
    *
-   * @param jsType Type we expect to get back after the await
+   * @param type Type we expect to get back after the await
    * @param value value to await
    */
-  Node createAwait(JSType jsType, Node value) {
+  Node createAwait(Type type, Node value) {
     Node result = IR.await(value);
-    if (isAddingTypes()) {
-      result.setJSType(checkNotNull(jsType));
-    }
+    setJSTypeOrColor(type, result);
     return result;
   }
 
   Node createString(String value) {
     Node result = IR.string(value);
-    if (isAddingTypes()) {
-      result.setJSType(getNativeType(JSTypeNative.STRING_TYPE));
-    }
+    setJSTypeOrColor(type(JSTypeNative.STRING_TYPE, StandardColors.STRING), result);
     return result;
   }
 
   Node createNumber(double value) {
     Node result = IR.number(value);
-    if (isAddingTypes()) {
-      result.setJSType(getNativeType(JSTypeNative.NUMBER_TYPE));
-    }
+    setJSTypeOrColor(type(JSTypeNative.NUMBER_TYPE, StandardColors.NUMBER), result);
     return result;
   }
 
   Node createBoolean(boolean value) {
     Node result = value ? IR.trueNode() : IR.falseNode();
-    if (isAddingTypes()) {
-      result.setJSType(getNativeType(JSTypeNative.BOOLEAN_TYPE));
-    }
+    setJSTypeOrColor(type(JSTypeNative.BOOLEAN_TYPE, StandardColors.BOOLEAN), result);
     return result;
   }
 
   Node createNull() {
     Node result = IR.nullNode();
-    if (isAddingTypes()) {
-      result.setJSType(getNativeType(JSTypeNative.NULL_TYPE));
-    }
+    setJSTypeOrColor(type(JSTypeNative.NULL_TYPE, StandardColors.NULL_OR_VOID), result);
     return result;
   }
 
   Node createVoid(Node child) {
     Node result = IR.voidNode(child);
-    if (isAddingTypes()) {
-      result.setJSType(getNativeType(JSTypeNative.VOID_TYPE));
-    }
+    setJSTypeOrColor(type(JSTypeNative.VOID_TYPE, StandardColors.NULL_OR_VOID), result);
     return result;
   }
 
@@ -258,58 +284,60 @@ final class AstFactory {
     return createVoid(createNumber(0));
   }
 
-  Node createCastToUnknown(Node child, JSDocInfo jsdoc) {
-    Node result = IR.cast(child, jsdoc);
-    if (isAddingTypes()) {
-      result.setJSType(getNativeType(JSTypeNative.UNKNOWN_TYPE));
-    }
-    return result;
-  }
-
   Node createNot(Node child) {
     Node result = IR.not(child);
-    if (isAddingTypes()) {
-      result.setJSType(getNativeType(JSTypeNative.BOOLEAN_TYPE));
-    }
+    setJSTypeOrColor(type(JSTypeNative.BOOLEAN_TYPE, StandardColors.BOOLEAN), result);
     return result;
   }
 
-  Node createThis(JSType thisType) {
+  Node createThis(Type thisType) {
     Node result = IR.thisNode();
-    if (isAddingTypes()) {
-      result.setJSType(checkNotNull(thisType));
-    }
+    setJSTypeOrColor(thisType, result);
     return result;
   }
 
-  Node createSuper(JSType superType) {
+  Node createSuper(Type superType) {
     Node result = IR.superNode();
-    if (isAddingTypes()) {
-      result.setJSType(checkNotNull(superType));
-    }
+    setJSTypeOrColor(superType, result);
     return result;
   }
 
-  /** Creates a THIS node with the correct type for the given function node. */
-  Node createThisForFunction(Node functionNode) {
+  /**
+   * Creates a THIS node with the correct type for the given ES6 class node.
+   *
+   * <p>With the optimization colors type system, we can support inferring the type of this for
+   * constructors but not generic functions annotated @this
+   */
+  Node createThisForEs6Class(Node functionNode) {
+    checkState(functionNode.isClass(), functionNode);
     final Node result = IR.thisNode();
-    if (isAddingTypes()) {
-      result.setJSType(getTypeOfThisForFunctionNode(functionNode));
-    }
+    setJSTypeOrColor(getTypeOfThisForEs6Class(functionNode), result);
     return result;
   }
 
-  /** Creates a SUPER node with the correct type for the given function node. */
-  Node createSuperForFunction(Node functionNode) {
-    final Node result = IR.superNode();
-    if (isAddingTypes()) {
-      result.setJSType(getTypeOfSuperForFunctionNode(functionNode));
+  /**
+   * Creates a THIS node with the correct type for the given ES6 class node.
+   *
+   * <p>With the optimization colors type system, we can support inferring the type of this for
+   * constructors but not generic functions annotated @this
+   */
+  Node createThisForEs6ClassMember(Node functionNode) {
+    checkState(
+        functionNode.isMemberFunctionDef() && functionNode.getParent().isClassMembers(),
+        functionNode);
+    Node classNode = functionNode.getGrandparent();
+    if (functionNode.isStaticMember()) {
+      final Node result = IR.thisNode();
+      setJSTypeOrColor(type(classNode), result);
+      return result;
+    } else {
+      return createThisForEs6Class(classNode);
     }
-    return result;
   }
 
   @Nullable
   private JSType getTypeOfThisForFunctionNode(Node functionNode) {
+    assertNotAddingColors();
     if (isAddingTypes()) {
       FunctionType functionType = getFunctionType(functionNode);
       return checkNotNull(functionType.getTypeOfThis(), functionType);
@@ -319,17 +347,25 @@ final class AstFactory {
   }
 
   @Nullable
-  private JSType getTypeOfSuperForFunctionNode(Node functionNode) {
-    if (isAddingTypes()) {
-      ObjectType thisType = getTypeOfThisForFunctionNode(functionNode).assertObjectType();
-      return checkNotNull(thisType.getSuperClassConstructor().getInstanceType(), thisType);
-    } else {
-      return null; // not adding type information
+  private Type getTypeOfThisForEs6Class(Node functionNode) {
+    checkArgument(functionNode.isClass(), functionNode);
+    switch (this.typeMode) {
+      case JSTYPE:
+        return type(getTypeOfThisForFunctionNode(functionNode));
+      case COLOR:
+        return type(getInstanceOfColor(functionNode.getColor()));
+      case NONE:
+        return noTypeInformation();
     }
+    throw new AssertionError();
   }
 
   private FunctionType getFunctionType(Node functionNode) {
-    checkState(functionNode.isFunction(), "not a function: %s", functionNode);
+    checkState(
+        functionNode.isFunction() || functionNode.isClass(),
+        "not a function or class: %s",
+        functionNode);
+    assertNotAddingColors();
     // If the function declaration was cast to a different type, we want the original type
     // from before the cast.
     final JSType typeBeforeCast = functionNode.getJSTypeBeforeCast();
@@ -342,23 +378,16 @@ final class AstFactory {
     return functionType;
   }
 
-  /** Creates a NAME node having the type of "this" appropriate for the given function node. */
-  Node createThisAliasReferenceForFunction(String aliasName, Node functionNode) {
-    final Node result = IR.name(aliasName);
-    if (isAddingTypes()) {
-      result.setJSType(getTypeOfThisForFunctionNode(functionNode));
-    }
-    return result;
-  }
-
   /**
-   * Creates a statement declaring a const alias for "this" to be used in the given function node.
+   * Creates a NAME node having the type of "this" appropriate for the given ES6 class node
    *
-   * <p>e.g. `const aliasName = this;`
+   * <p>With the optimization colors type system, we can support inferring the type of this for
+   * classes but not generic functions annotated @this.
    */
-  Node createThisAliasDeclarationForFunction(String aliasName, Node functionNode) {
-    return createSingleConstNameDeclaration(
-        aliasName, createThis(getTypeOfThisForFunctionNode(functionNode)));
+  Node createThisAliasReferenceForEs6Class(String aliasName, Node functionNode) {
+    final Node result = IR.name(aliasName);
+    setJSTypeOrColor(getTypeOfThisForEs6Class(functionNode), result);
+    return result;
   }
 
   /**
@@ -367,7 +396,19 @@ final class AstFactory {
    * <p>e.g. `let variableName`
    */
   Node createSingleLetNameDeclaration(String variableName) {
-    return IR.let(createName(variableName, JSTypeNative.VOID_TYPE));
+    return IR.let(
+        createName(variableName, type(JSTypeNative.VOID_TYPE, StandardColors.NULL_OR_VOID)));
+  }
+
+  /**
+   * Creates a new `let` declaration statement for a single variable name.
+   *
+   * <p>Takes the type for the variable name from the value node.
+   *
+   * <p>e.g. `let variableName = value;`
+   */
+  Node createSingleLetNameDeclaration(String variableName, Node value) {
+    return IR.let(createName(variableName, type(value)), value);
   }
 
   /**
@@ -377,7 +418,8 @@ final class AstFactory {
    * <p>e.g. `var variableName`
    */
   Node createSingleVarNameDeclaration(String variableName) {
-    return IR.var(createName(variableName, JSTypeNative.VOID_TYPE));
+    return IR.var(
+        createName(variableName, type(JSTypeNative.VOID_TYPE, StandardColors.NULL_OR_VOID)));
   }
 
   /**
@@ -388,7 +430,7 @@ final class AstFactory {
    * <p>e.g. `var variableName = value;`
    */
   Node createSingleVarNameDeclaration(String variableName, Node value) {
-    return IR.var(createName(variableName, value.getJSType()), value);
+    return IR.var(createName(variableName, type(value)), value);
   }
 
   /**
@@ -399,7 +441,7 @@ final class AstFactory {
    * <p>e.g. `const variableName = value;`
    */
   Node createSingleConstNameDeclaration(String variableName, Node value) {
-    return IR.constNode(createName(variableName, value.getJSType()), value);
+    return IR.constNode(createName(variableName, type(value.getJSType(), value.getColor())), value);
   }
 
   /**
@@ -408,8 +450,15 @@ final class AstFactory {
    */
   Node createArgumentsReference() {
     Node result = IR.name("arguments");
-    if (isAddingTypes()) {
-      result.setJSType(argumentsTypeSupplier.get());
+    switch (this.typeMode) {
+      case JSTYPE:
+        result.setJSType(registry.getNativeType(JSTypeNative.ARGUMENTS_TYPE));
+        break;
+      case COLOR:
+        result.setColor(colorRegistry.get(StandardColors.ARGUMENTS_ID));
+        break;
+      case NONE:
+        break;
     }
     return result;
   }
@@ -423,49 +472,55 @@ final class AstFactory {
     return createSingleConstNameDeclaration(aliasName, createArgumentsReference());
   }
 
-  Node createName(String name, JSType type) {
+  Node createName(String name, Type type) {
     Node result = IR.name(name);
-    if (isAddingTypes()) {
-      result.setJSType(checkNotNull(type));
-    }
+    setJSTypeOrColor(type, result);
     return result;
   }
 
-  Node createName(String name, JSTypeNative nativeType) {
+  Node createName(StaticScope scope, String name) {
     Node result = IR.name(name);
-    if (isAddingTypes()) {
-      result.setJSType(getNativeType(nativeType));
+    switch (this.typeMode) {
+      case JSTYPE:
+        JSType definitionType = getVarDefinitionNode(scope, name).getJSType();
+        // TODO(b/149843534): crash instead of defaulting to unknown
+        result.setJSType(definitionType != null ? definitionType : unknownType);
+        break;
+      case COLOR:
+        Color definitionColor = getVarDefinitionNode(scope, name).getColor();
+        // TODO(b/149843534): crash instead of defaulting to unknown
+        result.setColor(definitionColor != null ? definitionColor : StandardColors.UNKNOWN);
+        break;
+      case NONE:
+        break;
     }
     return result;
   }
 
   Node createNameWithUnknownType(String name) {
-    return createName(name, unknownType);
+    return createName(name, type(unknownType, StandardColors.UNKNOWN));
   }
 
-  Node createName(Scope scope, String name) {
-    Node result = IR.name(name);
-    if (isAddingTypes()) {
-      result.setJSType(getVarNameType(scope, name));
-    }
-    return result;
-  }
-
-  Node createQName(Scope scope, String qname) {
+  /**
+   * Creates a qualfied name in the given scope.
+   *
+   * <p>Only works if {@link StaticScope#getSlot(String)} returns a name. In practice, that means
+   * this throws an exception for instance methods and properties, for example.
+   */
+  Node createQName(StaticScope scope, String qname) {
     return createQName(scope, DOT_SPLITTER.split(qname));
-  }
-
-  Node createQNameWithUnknownType(String qname) {
-    return createQNameWithUnknownType(DOT_SPLITTER.split(qname));
   }
 
   /**
    * Looks up the type of a name from a {@link TypedScope} created from typechecking
    *
    * @param globalTypedScope Must be the top, global scope.
+   * @deprecated Prefer {@link #createQName(StaticScope, String)}
    */
-  Node createQName(TypedScope globalTypedScope, String qname) {
+  @Deprecated
+  Node createQNameFromTypedScope(TypedScope globalTypedScope, String qname) {
     checkArgument(globalTypedScope == null || globalTypedScope.isGlobal(), globalTypedScope);
+    assertNotAddingColors();
     List<String> nameParts = DOT_SPLITTER.splitToList(qname);
     checkState(!nameParts.isEmpty());
 
@@ -477,13 +532,59 @@ final class AstFactory {
     }
 
     List<String> otherParts = nameParts.subList(1, nameParts.size());
-    return this.createGetProps(receiver, otherParts);
+    return this.createGetPropsWithoutColors(receiver, otherParts);
   }
 
-  Node createQName(Scope scope, Iterable<String> names) {
+  /**
+   * Creates a qualfied name in the given scope.
+   *
+   * <p>Only works if {@link StaticScope#getSlot(String)} returns a name. In practice, that means
+   * this does not work for instance methods or properties, for example.
+   */
+  Node createQName(StaticScope scope, Iterable<String> names) {
     String baseName = checkNotNull(Iterables.getFirst(names, null));
     Iterable<String> propertyNames = Iterables.skip(names, 1);
     return createQName(scope, baseName, propertyNames);
+  }
+
+  /**
+   * Creates a qualfied name in the given scope.
+   *
+   * <p>Only works if {@link StaticScope#getSlot(String)} returns a name. In practice, that means
+   * this does not work for instance methods or properties, for example.
+   */
+  Node createQName(StaticScope scope, String baseName, String... propertyNames) {
+    checkNotNull(baseName);
+    return createQName(scope, baseName, Arrays.asList(propertyNames));
+  }
+
+  /**
+   * Creates a qualfied name in the given scope.
+   *
+   * <p>Only works if {@link StaticScope#getSlot(String)} returns a name. In practice, that means
+   * this does not work for instance methods or properties, for example.
+   */
+  Node createQName(StaticScope scope, String baseName, Iterable<String> propertyNames) {
+    Node baseNameNode = createName(scope, baseName);
+    Node qname = baseNameNode;
+    String name = baseName;
+    for (String propertyName : propertyNames) {
+      name += "." + propertyName;
+      Type type = null;
+      if (isAddingTypes() || isAddingColors()) {
+        Node def =
+            checkNotNull(scope.getSlot(name), "Cannot find name %s in StaticScope.", name)
+                .getDeclaration()
+                .getNode();
+        type = type(def);
+      }
+      qname = createGetProp(qname, propertyName, type);
+    }
+    return qname;
+  }
+
+  Node createQNameWithUnknownType(String qname) {
+    return createQNameWithUnknownType(DOT_SPLITTER.split(qname));
   }
 
   private Node createQNameWithUnknownType(Iterable<String> names) {
@@ -492,22 +593,58 @@ final class AstFactory {
     return createQNameWithUnknownType(baseName, propertyNames);
   }
 
-  Node createQName(Scope scope, String baseName, String... propertyNames) {
-    checkNotNull(baseName);
-    return createQName(scope, baseName, Arrays.asList(propertyNames));
-  }
-
-  Node createQName(Scope scope, String baseName, Iterable<String> propertyNames) {
-    Node baseNameNode = createName(scope, baseName);
-    return createGetProps(baseNameNode, propertyNames);
-  }
-
   Node createQNameWithUnknownType(String baseName, Iterable<String> propertyNames) {
     Node baseNameNode = createNameWithUnknownType(baseName);
-    return createGetProps(baseNameNode, propertyNames);
+    return createGetPropsWithUnknownType(baseNameNode, propertyNames);
   }
 
-  Node createGetProp(Node receiver, String propertyName) {
+  /**
+   * Creates a Node representing <receiver>.prototype
+   *
+   * <p>For example, given the AST for `Foo`, returns `Foo.prototype`
+   */
+  Node createPrototypeAccess(Node receiver) {
+    Node result = IR.getprop(receiver, "prototype");
+    switch (this.typeMode) {
+      case JSTYPE:
+        result.setJSType(getJsTypeForProperty(receiver, "prototype"));
+        break;
+      case COLOR:
+        checkNotNull(receiver.getColor(), "Missing color on %s", receiver);
+        ImmutableSet<Color> possiblePrototypes = receiver.getColor().getPrototypes();
+        result.setColor(
+            possiblePrototypes.isEmpty()
+                ? StandardColors.UNKNOWN
+                : Color.createUnion(possiblePrototypes));
+        break;
+      case NONE:
+        break;
+    }
+    return result;
+  }
+
+  /**
+   * Creates an access of the given {@code qname} on {@code $jscomp.global}
+   *
+   * <p>For example, given "Object.defineProperties", returns an AST representation of
+   * "$jscomp.global.Object.defineProperties".
+   *
+   * <p>This may be useful if adding synthetic code to a local scope, which can shadow the global
+   * like Object you're trying to access. The $jscomp global should not be shadowed.
+   */
+  Node createJSCompDotGlobalAccess(StaticScope scope, String qname) {
+    Node jscompDotGlobal = createQName(scope, "$jscomp.global");
+    Node result = createQName(scope, qname);
+    // Move the fully qualified qname onto the $jscomp.global getprop
+    Node qnameRoot = NodeUtil.getRootOfQualifiedName(result);
+    qnameRoot.replaceWith(createGetProp(jscompDotGlobal, qnameRoot.getString(), type(qnameRoot)));
+    return result;
+  }
+
+  /** @deprecated Use {@link #createGetProp(Node, String, Type)} instead. */
+  @Deprecated
+  Node createGetPropWithoutColor(Node receiver, String propertyName) {
+    assertNotAddingColors();
     Node result = IR.getprop(receiver, propertyName);
     if (isAddingTypes()) {
       result.setJSType(getJsTypeForProperty(receiver, propertyName));
@@ -515,56 +652,66 @@ final class AstFactory {
     return result;
   }
 
-  /** Creates a tree of nodes representing `receiver.name1.name2.etc`. */
-  Node createGetProps(Node receiver, Iterable<String> propertyNames) {
+  Node createGetProp(Node receiver, String propertyName, Type type) {
+    Node result = IR.getprop(receiver, propertyName);
+    setJSTypeOrColor(type, result);
+    return result;
+  }
+
+  /**
+   * Creates a tree of nodes representing `receiver.name1.name2.etc`.
+   *
+   * @deprecated use individual {@link #createGetProp(Node, String, Type)} calls or {@link
+   *     #createQName(StaticScope, String)} instead.
+   */
+  @Deprecated
+  Node createGetPropsWithoutColors(Node receiver, Iterable<String> propertyNames) {
+    assertNotAddingColors();
     Node result = receiver;
     for (String propertyName : propertyNames) {
-      result = createGetProp(result, propertyName);
+      result = createGetPropWithoutColor(result, propertyName);
     }
     return result;
   }
 
   /** Creates a tree of nodes representing `receiver.name1.name2.etc`. */
-  Node createGetProps(Node receiver, String firstPropName, String... otherPropNames) {
-    Node result = createGetProp(receiver, firstPropName);
-    for (String propertyName : otherPropNames) {
-      result = createGetProp(result, propertyName);
+  Node createGetPropsWithUnknownType(Node receiver, Iterable<String> propertyNames) {
+    Node result = receiver;
+    for (String propertyName : propertyNames) {
+      result = createGetPropWithUnknownType(result, propertyName);
     }
+    return result;
+  }
+
+  Node createGetPropWithUnknownType(Node receiver, String propertyName) {
+    Node result = IR.getprop(receiver, propertyName);
+    setJSTypeOrColor(type(unknownType, StandardColors.UNKNOWN), result);
     return result;
   }
 
   Node createGetElem(Node receiver, Node key) {
     Node result = IR.getelem(receiver, key);
-    if (isAddingTypes()) {
-      // In general we cannot assume we know the type we get from a GETELEM.
-      // TODO(bradfordcsmith): When receiver is an Array<T> or an Object<K, V>, use the template
-      // type here.
-      result.setJSType(unknownType);
-    }
+    // TODO(bradfordcsmith): When receiver is an Array<T> or an Object<K, V>, use the template
+    // type here.
+    setJSTypeOrColor(type(unknownType, StandardColors.UNKNOWN), result);
     return result;
   }
 
   Node createDelProp(Node target) {
     Node result = IR.delprop(target);
-    if (isAddingTypes()) {
-      result.setJSType(getNativeType(JSTypeNative.BOOLEAN_TYPE));
-    }
+    setJSTypeOrColor(type(JSTypeNative.BOOLEAN_TYPE, StandardColors.BOOLEAN), result);
     return result;
   }
 
   Node createStringKey(String key, Node value) {
     Node result = IR.stringKey(key, value);
-    if (isAddingTypes()) {
-      result.setJSType(value.getJSType());
-    }
+    setJSTypeOrColor(type(value.getJSType(), value.getColor()), result);
     return result;
   }
 
   Node createComputedProperty(Node key, Node value) {
     Node result = IR.computedProp(key, value);
-    if (isAddingTypes()) {
-      result.setJSType(value.getJSType());
-    }
+    setJSTypeOrColor(type(value.getJSType(), value.getColor()), result);
     return result;
   }
 
@@ -585,17 +732,13 @@ final class AstFactory {
 
   Node createIn(Node left, Node right) {
     Node result = IR.in(left, right);
-    if (isAddingTypes()) {
-      result.setJSType(getNativeType(JSTypeNative.BOOLEAN_TYPE));
-    }
+    setJSTypeOrColor(type(JSTypeNative.BOOLEAN_TYPE, StandardColors.BOOLEAN), result);
     return result;
   }
 
   Node createComma(Node left, Node right) {
     Node result = IR.comma(left, right);
-    if (isAddingTypes()) {
-      result.setJSType(right.getJSType());
-    }
+    setJSTypeOrColor(type(right.getJSType(), right.getColor()), result);
     return result;
   }
 
@@ -609,85 +752,85 @@ final class AstFactory {
 
   Node createAnd(Node left, Node right) {
     Node result = IR.and(left, right);
-    if (isAddingTypes()) {
-      JSType leftType = checkNotNull(left.getJSType(), left);
-      JSType rightType = checkNotNull(right.getJSType(), right);
-
-      BooleanLiteralSet possibleLhsBooleanValues = leftType.getPossibleToBooleanOutcomes();
-      switch (possibleLhsBooleanValues) {
-        case TRUE:
-          // left cannot be false, so rhs will always be evaluated
-          result.setJSType(rightType);
-          break;
-        case FALSE:
-          // left cannot be true, so rhs will never be evaluated
-          result.setJSType(leftType);
-          break;
-        case BOTH:
-          // result could be the type of either the lhs or the rhs
-          result.setJSType(leftType.getLeastSupertype(rightType));
-          break;
-        default:
-          checkState(
-              possibleLhsBooleanValues == BooleanLiteralSet.EMPTY,
-              "unexpected enum value: %s",
-              possibleLhsBooleanValues);
-          // TODO(bradfordcsmith): Should we be trying to determine whether we actually need
-          // NO_OBJECT_TYPE or similar here? It probably doesn't matter since this code is
-          // expected to execute only after all static type analysis has been done.
-          result.setJSType(getNativeType(JSTypeNative.NO_TYPE));
-          break;
-      }
+    switch (this.typeMode) {
+      case JSTYPE:
+        JSType leftType = checkNotNull(left.getJSType(), left);
+        JSType rightType = checkNotNull(right.getJSType(), right);
+        result.setJSType(this.registry.createUnionType(leftType, rightType));
+        break;
+      case COLOR:
+        Color leftColor = checkNotNull(left.getColor(), left);
+        Color rightColor = checkNotNull(right.getColor(), right);
+        result.setColor(Color.createUnion(ImmutableSet.of(leftColor, rightColor)));
+        break;
+      case NONE:
+        break;
     }
     return result;
   }
 
   Node createOr(Node left, Node right) {
     Node result = IR.or(left, right);
-    if (isAddingTypes()) {
-      JSType leftType = checkNotNull(left.getJSType(), left);
-      JSType rightType = checkNotNull(right.getJSType(), right);
-
-      BooleanLiteralSet possibleLhsBooleanValues = leftType.getPossibleToBooleanOutcomes();
-      switch (possibleLhsBooleanValues) {
-        case TRUE:
-          // left cannot be false, so rhs will never be evaluated
-          result.setJSType(leftType);
-          break;
-        case FALSE:
-          // left cannot be true, so rhs will always be evaluated
-          result.setJSType(rightType);
-          break;
-        case BOTH:
-          // result could be the type of either the lhs or the rhs
-          result.setJSType(leftType.getLeastSupertype(rightType));
-          break;
-        default:
-          checkState(
-              possibleLhsBooleanValues == BooleanLiteralSet.EMPTY,
-              "unexpected enum value: %s",
-              possibleLhsBooleanValues);
-          // TODO(bradfordcsmith): Should we be trying to determine whether we actually need
-          // NO_OBJECT_TYPE or similar here? It probably doesn't matter since this code is
-          // expected to execute only after all static type analysis has been done.
-          result.setJSType(getNativeType(JSTypeNative.NO_TYPE));
-          break;
-      }
+    switch (this.typeMode) {
+      case JSTYPE:
+        JSType leftType = checkNotNull(left.getJSType(), left);
+        JSType rightType = checkNotNull(right.getJSType(), right);
+        result.setJSType(this.registry.createUnionType(leftType, rightType));
+        break;
+      case COLOR:
+        Color leftColor = checkNotNull(left.getColor(), left);
+        Color rightColor = checkNotNull(right.getColor(), right);
+        result.setColor(Color.createUnion(ImmutableSet.of(leftColor, rightColor)));
+        break;
+      case NONE:
+        break;
     }
     return result;
   }
 
-  Node createCall(Node callee, Node... args) {
-    Node result = NodeUtil.newCallNode(callee, args);
-    if (isAddingTypes()) {
-      FunctionType calleeType = JSType.toMaybeFunctionType(callee.getJSType());
-      // TODO(sdh): this does not handle generic functions - we'd need to unify the argument types.
-      // checkState(calleeType == null || !calleeType.hasAnyTemplateTypes(), calleeType);
-      // TODO(bradfordcsmith): Consider throwing an exception if calleeType is null.
-      JSType returnType = calleeType != null ? calleeType.getReturnType() : unknownType;
-      result.setJSType(returnType);
+  Node createAdd(Node left, Node right) {
+    Node result = IR.add(left, right);
+    // Note: this result type could be made tighter if it proves useful for optimizations later on
+    // like setting the string type if both operands are strings.
+    switch (this.typeMode) {
+      case JSTYPE:
+        result.setJSType(getNativeType(JSTypeNative.BIGINT_NUMBER_STRING));
+        break;
+      case COLOR:
+        result.setColor(bigintNumberStringColor.get());
+        break;
+      case NONE:
+        break;
     }
     return result;
+  }
+
+  Node createSub(Node left, Node right) {
+    Node result = IR.sub(left, right);
+    setJSTypeOrColor(type(JSTypeNative.NUMBER_TYPE, StandardColors.NUMBER), result);
+    return result;
+  }
+
+  Node createInc(Node operand, boolean isPost) {
+    Node result = IR.inc(operand, isPost);
+    setJSTypeOrColor(type(JSTypeNative.NUMBER_TYPE, StandardColors.NUMBER), result);
+    return result;
+  }
+
+  Node createLessThan(Node left, Node right) {
+    Node result = IR.lt(left, right);
+    setJSTypeOrColor(type(JSTypeNative.BOOLEAN_TYPE, StandardColors.BOOLEAN), result);
+    return result;
+  }
+
+  Node createCall(Node callee, Type resultType, Node... args) {
+    Node result = NodeUtil.newCallNode(callee, args);
+    setJSTypeOrColor(resultType, result);
+    return result;
+  }
+
+  Node createCallWithUnknownType(Node callee, Node... args) {
+    return createCall(callee, type(unknownType, StandardColors.UNKNOWN), args);
   }
 
   /**
@@ -696,20 +839,25 @@ final class AstFactory {
    * <p>Object.assign returns !Object in the externs, which can lose type information if the actual
    * type is known.
    */
-  Node createObjectDotAssignCall(Scope scope, JSType returnType, Node... args) {
+  Node createObjectDotAssignCall(StaticScope scope, Type returnType, Node... args) {
     Node objAssign = createQName(scope, "Object", "assign");
-    Node result = createCall(objAssign, args);
+    Node result = createCall(objAssign, returnType, args);
 
-    if (isAddingTypes()) {
-      // Make a unique function type that returns the exact type we've inferred it to be.
-      // Object.assign in the externs just returns !Object, which loses type information.
-      JSType objAssignType =
-          registry.createFunctionTypeWithVarArgs(
-              returnType,
-              registry.getNativeType(JSTypeNative.OBJECT_TYPE),
-              registry.createUnionType(JSTypeNative.OBJECT_TYPE, JSTypeNative.NULL_TYPE));
-      objAssign.setJSType(objAssignType);
-      result.setJSType(returnType);
+    switch (this.typeMode) {
+      case JSTYPE:
+        // Make a unique function type that returns the exact type we've inferred it to be.
+        // Object.assign in the externs just returns !Object, which loses type information.
+        JSType returnJSType = returnType.getJSType(registry);
+        JSType objAssignType =
+            registry.createFunctionTypeWithVarArgs(
+                returnJSType,
+                registry.getNativeType(JSTypeNative.OBJECT_TYPE),
+                registry.createUnionType(JSTypeNative.OBJECT_TYPE, JSTypeNative.NULL_TYPE));
+        objAssign.setJSType(objAssignType);
+        break;
+      case COLOR:
+      case NONE:
+        break;
     }
 
     return result;
@@ -717,45 +865,30 @@ final class AstFactory {
 
   Node createNewNode(Node target, Node... args) {
     Node result = IR.newNode(target, args);
-    if (isAddingTypes()) {
-      JSType instanceType = target.getJSType();
-      if (instanceType.isFunctionType()) {
-        instanceType = instanceType.toMaybeFunctionType().getInstanceType();
-      } else {
-        instanceType = getNativeType(JSTypeNative.UNKNOWN_TYPE);
-      }
-      result.setJSType(instanceType);
+    switch (this.typeMode) {
+      case JSTYPE:
+        JSType instanceType = target.getJSType();
+        if (instanceType.isFunctionType()) {
+          instanceType = instanceType.toMaybeFunctionType().getInstanceType();
+        } else {
+          instanceType = getNativeType(JSTypeNative.UNKNOWN_TYPE);
+        }
+        result.setJSType(instanceType);
+        break;
+      case COLOR:
+        result.setColor(getInstanceOfColor(target.getColor()));
+        break;
+      case NONE:
+        break;
     }
     return result;
   }
 
-  Node createObjectGetPrototypeOfCall(Node argObjectNode) {
-    Node objectName = createName("Object", JSTypeNative.OBJECT_FUNCTION_TYPE);
-    Node objectGetPrototypeOf = createGetProp(objectName, "getPrototypeOf");
-    Node result = createCall(objectGetPrototypeOf, argObjectNode);
-    if (isAddingTypes()) {
-      ObjectType typeOfArgObject = argObjectNode.getJSTypeRequired().assertObjectType();
-      JSType returnedType = getPrototypeObjectType(typeOfArgObject);
-      result.setJSType(returnedType);
-
-      // Return type of the function needs to match that of the entire expression. getPrototypeOf
-      // normally returns !Object.
-      objectGetPrototypeOf.setJSType(
-          registry.createFunctionType(returnedType, getNativeType(JSTypeNative.OBJECT_TYPE)));
-    }
-    return result;
-  }
-
-  ObjectType getPrototypeObjectType(ObjectType objectType) {
-    checkNotNull(objectType);
-    if (objectType.isUnknownType()) {
-      // Calling getImplicitPrototype() on the unknown type returns `null`, but we want
-      // the prototype of an unknown type to also be unknown.
-      // TODO(bradfordcsmith): Can we fix this behavior of the unknown type?
-      return objectType;
-    } else {
-      return checkNotNull(objectType.getImplicitPrototype(), "null prototype: %s", objectType);
-    }
+  private Color getInstanceOfColor(Color color) {
+    ImmutableSet<Color> possibleInstanceColors = color.getInstanceColors();
+    return possibleInstanceColors.isEmpty()
+        ? StandardColors.UNKNOWN
+        : Color.createUnion(possibleInstanceColors);
   }
 
   /**
@@ -764,13 +897,20 @@ final class AstFactory {
    * <p>This method is intended for use in special cases, such as calling `super()` in a
    * constructor.
    */
-  Node createConstructorCall(@Nullable JSType classType, Node callee, Node... args) {
+  Node createConstructorCall(Type classType, Node callee, Node... args) {
     Node result = NodeUtil.newCallNode(callee, args);
-    if (isAddingTypes()) {
-      checkNotNull(classType);
-      FunctionType constructorType = checkNotNull(classType.toMaybeFunctionType());
+    switch (this.typeMode) {
+      case JSTYPE:
+        JSType classJSType = classType.getJSType(registry);
+        FunctionType constructorType = checkNotNull(classJSType.toMaybeFunctionType());
       ObjectType instanceType = checkNotNull(constructorType.getInstanceType());
       result.setJSType(instanceType);
+        break;
+      case COLOR:
+        result.setColor(getInstanceOfColor(classType.getColor(colorRegistry)));
+        break;
+      case NONE:
+        break;
     }
     return result;
   }
@@ -783,15 +923,14 @@ final class AstFactory {
   /** Creates an assignment expression `lhs = rhs` */
   Node createAssign(Node lhs, Node rhs) {
     Node result = IR.assign(lhs, rhs);
-    if (isAddingTypes()) {
-      result.setJSType(rhs.getJSType());
-    }
+    setJSTypeOrColor(type(rhs), result);
     return result;
   }
 
   /** Creates an assignment expression `lhs = rhs` */
   Node createAssign(String lhsName, Node rhs) {
-    return createAssign(createName(lhsName, rhs.getJSType()), rhs);
+    Node name = createName(lhsName, type(rhs));
+    return createAssign(name, rhs);
   }
 
   /**
@@ -801,9 +940,23 @@ final class AstFactory {
    */
   Node createObjectLit(Node... elements) {
     Node result = IR.objectlit(elements);
-    if (isAddingTypes()) {
-      result.setJSType(registry.createAnonymousObjectType(null));
+    switch (this.typeMode) {
+      case JSTYPE:
+        result.setJSType(registry.createAnonymousObjectType(null));
+        break;
+      case COLOR:
+        result.setColor(StandardColors.TOP_OBJECT);
+        break;
+      case NONE:
+        break;
     }
+    return result;
+  }
+
+  /** Creates an object-literal with zero or more elements and a specific type. */
+  Node createObjectLit(Type type, Node... elements) {
+    Node result = IR.objectlit(elements);
+    setJSTypeOrColor(type, result);
     return result;
   }
 
@@ -813,35 +966,20 @@ final class AstFactory {
     return result;
   }
 
-  /** Creates an object-literal with zero or more elements and a specific type. */
-  Node createObjectLit(@Nullable JSType jsType, Node... elements) {
-    Node result = IR.objectlit(elements);
-    if (isAddingTypes()) {
-      result.setJSType(checkNotNull(jsType));
-    }
-    return result;
-  }
-
   /** Creates an empty function `function() {}` */
-  Node createEmptyFunction(JSType type) {
+  Node createEmptyFunction(Type type) {
     Node result = NodeUtil.emptyFunction();
     if (isAddingTypes()) {
-      checkNotNull(type);
-      checkArgument(type.isFunctionType(), type);
-      result.setJSType(checkNotNull(type));
+      checkArgument(type.getJSType(registry).isFunctionType(), type);
     }
+    setJSTypeOrColor(type, result);
     return result;
   }
 
   /** Creates an empty function `function*() {}` */
-  Node createEmptyGeneratorFunction(JSType type) {
-    Node result = NodeUtil.emptyFunction();
+  Node createEmptyGeneratorFunction(Type type) {
+    Node result = createEmptyFunction(type);
     result.setIsGeneratorFunction(true);
-    if (isAddingTypes()) {
-      checkNotNull(type);
-      checkArgument(type.isFunctionType(), type);
-      result.setJSType(checkNotNull(type));
-    }
     return result;
   }
 
@@ -853,13 +991,13 @@ final class AstFactory {
    * @param body BLOCK node
    * @param type type to apply to the function itself
    */
-  Node createFunction(String name, Node paramList, Node body, JSType type) {
+  Node createFunction(String name, Node paramList, Node body, Type type) {
     Node nameNode = createName(name, type);
     Node result = IR.function(nameNode, paramList, body);
     if (isAddingTypes()) {
-      checkArgument(type.isFunctionType(), type);
-      result.setJSType(type);
+      checkArgument(type.getJSType(registry).isFunctionType(), type);
     }
+    setJSTypeOrColor(type, result);
     return result;
   }
 
@@ -874,7 +1012,8 @@ final class AstFactory {
   Node createZeroArgFunction(String name, Node body, @Nullable JSType returnType) {
     FunctionType functionType =
         isAddingTypes() ? registry.createFunctionType(returnType).toMaybeFunctionType() : null;
-    return createFunction(name, IR.paramList(), body, functionType);
+    return createFunction(
+        name, IR.paramList(), body, type(functionType, StandardColors.TOP_OBJECT));
   }
 
   Node createZeroArgGeneratorFunction(String name, Node body, @Nullable JSType returnType) {
@@ -885,7 +1024,8 @@ final class AstFactory {
 
   Node createZeroArgArrowFunctionForExpression(Node expression) {
     Node result = IR.arrowFunction(IR.name(""), IR.paramList(), expression);
-    if (isAddingTypes()) {
+    switch (this.typeMode) {
+      case JSTYPE:
       // It feels like we should be adding type-of-this here, but it should remain unknown,
       // because you're allowed to supply any kind of value of `this` when calling an arrow
       // function. It will just be ignored in favor of the `this` in the scope where the
@@ -896,6 +1036,12 @@ final class AstFactory {
               .withParameters()
               .buildAndResolve();
       result.setJSType(functionType);
+        break;
+      case COLOR:
+        result.setColor(StandardColors.TOP_OBJECT);
+        break;
+      case NONE:
+        break;
     }
     return result;
   }
@@ -905,42 +1051,41 @@ final class AstFactory {
     // because the name string goes on the MEMBER_FUNCTION_DEF node.
     checkArgument(function.getFirstChild().getString().isEmpty(), function);
     Node result = IR.memberFunctionDef(name, function);
-    if (isAddingTypes()) {
-      // member function definition must share the type of the function that implements it
-      result.setJSType(function.getJSType());
-    }
+    setJSTypeOrColor(type(function), result);
     return result;
   }
 
   Node createSheq(Node expr1, Node expr2) {
     Node result = IR.sheq(expr1, expr2);
-    if (isAddingTypes()) {
-      result.setJSType(getNativeType(JSTypeNative.BOOLEAN_TYPE));
-    }
+    setJSTypeOrColor(type(JSTypeNative.BOOLEAN_TYPE, StandardColors.BOOLEAN), result);
     return result;
   }
 
   Node createEq(Node expr1, Node expr2) {
     Node result = IR.eq(expr1, expr2);
-    if (isAddingTypes()) {
-      result.setJSType(getNativeType(JSTypeNative.BOOLEAN_TYPE));
-    }
+    setJSTypeOrColor(type(JSTypeNative.BOOLEAN_TYPE, StandardColors.BOOLEAN), result);
     return result;
   }
 
   Node createNe(Node expr1, Node expr2) {
     Node result = IR.ne(expr1, expr2);
-    if (isAddingTypes()) {
-      result.setJSType(getNativeType(JSTypeNative.BOOLEAN_TYPE));
-    }
+    setJSTypeOrColor(type(JSTypeNative.BOOLEAN_TYPE, StandardColors.BOOLEAN), result);
     return result;
   }
 
   Node createHook(Node condition, Node expr1, Node expr2) {
     Node result = IR.hook(condition, expr1, expr2);
-    if (isAddingTypes()) {
-      result.setJSType(registry.createUnionType(expr1.getJSType(), expr2.getJSType()));
+    switch (this.typeMode) {
+      case JSTYPE:
+        result.setJSType(registry.createUnionType(expr1.getJSType(), expr2.getJSType()));
+        break;
+      case COLOR:
+        result.setColor(Color.createUnion(ImmutableSet.of(expr1.getColor(), expr2.getColor())));
+        break;
+      case NONE:
+        break;
     }
+
     return result;
   }
 
@@ -950,62 +1095,128 @@ final class AstFactory {
 
   Node createArraylit(Iterable<Node> elements) {
     Node result = IR.arraylit(elements);
-    if (isAddingTypes()) {
+    switch (this.typeMode) {
+      case JSTYPE:
       result.setJSType(
           registry.createTemplatizedType(
               registry.getNativeObjectType(JSTypeNative.ARRAY_TYPE),
               // TODO(nickreid): Use a reasonable template type. Remeber to consider SPREAD.
               getNativeType(JSTypeNative.UNKNOWN_TYPE)));
+        break;
+      case COLOR:
+        result.setColor(colorRegistry.get(StandardColors.ARRAY_ID));
+        break;
+      case NONE:
+        break;
     }
     return result;
   }
 
-  Node createJSCompMakeIteratorCall(Node iterable, Scope scope) {
-    String function = "makeIterator";
-    Node makeIteratorName = createQName(scope, "$jscomp", function);
-    // Since createCall (currently) doesn't handle templated functions, fill in the template types
-    // of makeIteratorName manually.
-    if (isAddingTypes() && !makeIteratorName.getJSType().isUnknownType()) {
-      // if makeIteratorName has the unknown type, we must have not injected the required runtime
-      // libraries - hopefully because this is in a test using NonInjectingCompiler.
-
-      // e.g get `number` from `Iterable<number>`
-      JSType iterableType =
-          iterable
-              .getJSType()
-              .getTemplateTypeMap()
-              .getResolvedTemplateType(registry.getIterableTemplate());
-      JSType makeIteratorType = makeIteratorName.getJSType();
-      // e.g. replace
-      //   function(Iterable<T>): Iterator<T>
-      // with
-      //   function(Iterable<number>): Iterator<number>
-      makeIteratorName.setJSType(replaceTemplate(makeIteratorType, ImmutableList.of(iterableType)));
+  Node createJSCompMakeIteratorCall(Node iterable, StaticScope scope) {
+    Node makeIteratorName = createQName(scope, "$jscomp.makeIterator");
+    final Type type;
+    switch (this.typeMode) {
+      case JSTYPE:
+        // Since createCall (currently) doesn't handle templated functions, fill in the template
+        // types
+        // of makeIteratorName manually.
+        // e.g get `number` from `Iterable<number>`
+        JSType iterableType =
+            iterable
+                .getJSType()
+                .getTemplateTypeMap()
+                .getResolvedTemplateType(registry.getIterableTemplate());
+        JSType makeIteratorType = makeIteratorName.getJSType();
+        // e.g. replace
+        //   function(Iterable<T>): Iterator<T>
+        // with
+        //   function(Iterable<number>): Iterator<number>
+        makeIteratorName.setJSType(
+            replaceTemplate(makeIteratorType, ImmutableList.of(iterableType)));
+        type = type(makeIteratorName.getJSType().assertFunctionType().getReturnType());
+        break;
+      case COLOR:
+        type = type(colorRegistry.get(StandardColors.ITERATOR_ID));
+        break;
+      case NONE:
+        type = noTypeInformation();
+        break;
+      default:
+        throw new AssertionError();
     }
-    return createCall(makeIteratorName, iterable);
+    return createCall(makeIteratorName, type, iterable);
   }
 
-  Node createJscompArrayFromIteratorCall(Node iterator, Scope scope) {
-    Node makeIteratorName = createQName(scope, "$jscomp", "arrayFromIterator");
-    // Since createCall (currently) doesn't handle templated functions, fill in the template types
-    // of makeIteratorName manually.
-    if (isAddingTypes() && !makeIteratorName.getJSType().isUnknownType()) {
-      // if makeIteratorName has the unknown type, we must have not injected the required runtime
-      // libraries - hopefully because this is in a test using NonInjectingCompiler.
+  Node createJscompArrayFromIteratorCall(Node iterator, StaticScope scope) {
+    Node makeIteratorName = createQName(scope, "$jscomp.arrayFromIterator");
 
-      JSType iterableType =
-          iterator
-              .getJSType()
-              .getTemplateTypeMap()
-              .getResolvedTemplateType(registry.getIteratorValueTemplate());
-      JSType makeIteratorType = makeIteratorName.getJSType();
-      // e.g. replace
-      //   function(Iterator<T>): Array<T>
-      // with
-      //   function(Iterator<number>): Array<number>
-      makeIteratorName.setJSType(replaceTemplate(makeIteratorType, ImmutableList.of(iterableType)));
+    final Type resultType;
+    switch (this.typeMode) {
+      case JSTYPE:
+        // Since createCall (currently) doesn't handle templated functions, fill in the template
+        // types of makeIteratorName manually.
+        JSType iterableType =
+            iterator
+                .getJSType()
+                .getTemplateTypeMap()
+                .getResolvedTemplateType(registry.getIteratorValueTemplate());
+        JSType makeIteratorType = makeIteratorName.getJSType();
+        // e.g. replace
+        //   function(Iterator<T>): Array<T>
+        // with
+        //   function(Iterator<number>): Array<number>
+        makeIteratorName.setJSType(
+            replaceTemplate(makeIteratorType, ImmutableList.of(iterableType)));
+        resultType = type(makeIteratorName.getJSType().assertFunctionType().getReturnType());
+        break;
+      case COLOR:
+        // colors don't include generics, so just set the return type to Array.
+        resultType = type(colorRegistry.get(StandardColors.ARRAY_ID));
+        break;
+      case NONE:
+        resultType = noTypeInformation();
+        break;
+      default:
+        throw new AssertionError();
     }
-    return createCall(makeIteratorName, iterator);
+    return createCall(makeIteratorName, resultType, iterator);
+  }
+
+  Node createJscompArrayFromIterableCall(Node iterable, StaticScope scope) {
+    // TODO(b/193800507): consider making this verify the arrayFromIterable $jscomp runtime library
+    // is injected.
+    Node makeIterableName = createQName(scope, "$jscomp.arrayFromIterable");
+
+    final Type resultType;
+    switch (this.typeMode) {
+      case JSTYPE:
+        // Since createCall (currently) doesn't handle templated functions, fill in the template
+        // types of makeIteratorName manually.
+        JSType iterableType =
+            iterable
+                .getJSType()
+                .getTemplateTypeMap()
+                .getResolvedTemplateType(registry.getIterableTemplate());
+        JSType makeIterableType = makeIterableName.getJSType();
+        // e.g. replace
+        //   function(Iterable<T>): Array<T>
+        // with
+        //   function(Iterable<number>): Array<number>
+        makeIterableName.setJSType(
+            replaceTemplate(makeIterableType, ImmutableList.of(iterableType)));
+        resultType = type(makeIterableName.getJSType().assertFunctionType().getReturnType());
+        break;
+      case COLOR:
+        // colors don't include generics, so just set the return type to Array.
+        resultType = type(colorRegistry.get(StandardColors.ARRAY_ID));
+        break;
+      case NONE:
+        resultType = noTypeInformation();
+        break;
+      default:
+        throw new AssertionError();
+    }
+    return createCall(makeIterableName, resultType, iterable);
   }
 
   /**
@@ -1021,27 +1232,36 @@ final class AstFactory {
    * $jscomp.makeAsyncIterator(rhs)
    * }</pre>
    */
-  Node createJSCompMakeAsyncIteratorCall(Node iterable, Scope scope) {
-    Node makeIteratorAsyncName = createQName(scope, "$jscomp", "makeAsyncIterator");
-    // Since createCall (currently) doesn't handle templated functions, fill in the template types
-    // of makeIteratorName manually.
-    if (isAddingTypes() && !makeIteratorAsyncName.getJSType().isUnknownType()) {
-      // if makeIteratorName has the unknown type, we must have not injected the required runtime
-      // libraries - hopefully because this is in a test using NonInjectingCompiler.
-
-      // e.g get `number` from `AsyncIterable<number>`
-      JSType asyncIterableType =
-          JsIterables.maybeBoxIterableOrAsyncIterable(iterable.getJSType(), registry)
-              .orElse(unknownType);
-      JSType makeAsyncIteratorType = makeIteratorAsyncName.getJSType();
-      // e.g. replace
-      //   function(AsyncIterable<T>): AsyncIterator<T>
-      // with
-      //   function(AsyncIterable<number>): AsyncIterator<number>
-      makeIteratorAsyncName.setJSType(
-          replaceTemplate(makeAsyncIteratorType, ImmutableList.of(asyncIterableType)));
+  Node createJSCompMakeAsyncIteratorCall(Node iterable, StaticScope scope) {
+    Node makeIteratorAsyncName = createQName(scope, "$jscomp.makeAsyncIterator");
+    final Type resultType;
+    switch (this.typeMode) {
+      case JSTYPE:
+        // Since createCall (currently) doesn't handle templated functions, fill in the template
+        // types of makeIteratorName manually.
+        // e.g get `number` from `AsyncIterable<number>`
+        JSType asyncIterableType =
+            JsIterables.maybeBoxIterableOrAsyncIterable(iterable.getJSType(), registry)
+                .orElse(unknownType);
+        JSType makeAsyncIteratorType = makeIteratorAsyncName.getJSType();
+        // e.g. replace
+        //   function(AsyncIterable<T>): AsyncIterator<T>
+        // with
+        //   function(AsyncIterable<number>): AsyncIterator<number>
+        makeIteratorAsyncName.setJSType(
+            replaceTemplate(makeAsyncIteratorType, ImmutableList.of(asyncIterableType)));
+        resultType = type(makeIteratorAsyncName.getJSType().assertFunctionType().getReturnType());
+        break;
+      case COLOR:
+        resultType = type(colorRegistry.get(StandardColors.ASYNC_ITERATOR_ITERABLE_ID));
+        break;
+      case NONE:
+        resultType = noTypeInformation();
+        break;
+      default:
+        throw new AssertionError();
     }
-    return createCall(makeIteratorAsyncName, iterable);
+    return createCall(makeIteratorAsyncName, resultType, iterable);
   }
 
   private JSType replaceTemplate(JSType templatedType, ImmutableList<JSType> templateTypes) {
@@ -1054,37 +1274,6 @@ final class AstFactory {
   }
 
   /**
-   * Creates a reference to $jscomp.AsyncGeneratorWrapper with the template filled in to match the
-   * original function.
-   *
-   * @param originalFunctionType the type of the async generator function that needs transpilation
-   */
-  Node createAsyncGeneratorWrapperReference(JSType originalFunctionType, Scope scope) {
-    Node ctor = createQName(scope, "$jscomp", "AsyncGeneratorWrapper");
-
-    if (isAddingTypes() && !ctor.getJSType().isUnknownType()) {
-      // if ctor has the unknown type, we must have not injected the required runtime
-      // libraries - hopefully because this is in a test using NonInjectingCompiler.
-
-      // e.g get `number` from `AsyncIterable<number>`
-      JSType yieldedType =
-          originalFunctionType
-              .toMaybeFunctionType()
-              .getReturnType()
-              .getTemplateTypeMap()
-              .getResolvedTemplateType(registry.getAsyncIterableTemplate());
-
-      // e.g. replace
-      //  AsyncGeneratorWrapper<T>
-      // with
-      //  AsyncGeneratorWrapper<number>
-      ctor.setJSType(replaceTemplate(ctor.getJSType(), ImmutableList.of(yieldedType)));
-    }
-
-    return ctor;
-  }
-
-  /**
    * Creates an empty generator function with the correct return type to be an argument to
    * $jscomp.AsyncGeneratorWrapper.
    *
@@ -1093,37 +1282,54 @@ final class AstFactory {
    *     createAsyncGeneratorWrapperReference.
    */
   Node createEmptyAsyncGeneratorWrapperArgument(JSType asyncGeneratorWrapperType) {
-    JSType generatorType = null;
+    Type generatorType = noTypeInformation();
 
     if (isAddingTypes()) {
       if (asyncGeneratorWrapperType.isUnknownType()) {
         // Not injecting libraries?
         generatorType =
-            registry.createFunctionType(
-                replaceTemplate(
-                    getNativeType(JSTypeNative.GENERATOR_TYPE), ImmutableList.of(unknownType)));
+            type(
+                registry.createFunctionType(
+                    replaceTemplate(
+                        getNativeType(JSTypeNative.GENERATOR_TYPE),
+                        ImmutableList.of(unknownType))));
       } else {
         // Generator<$jscomp.AsyncGeneratorWrapper$ActionRecord<number>>
         JSType innerFunctionReturnType =
             Iterables.getOnlyElement(
                     asyncGeneratorWrapperType.toMaybeFunctionType().getParameters())
                 .getJSType();
-        generatorType = registry.createFunctionType(innerFunctionReturnType);
+        generatorType = type(registry.createFunctionType(innerFunctionReturnType));
       }
+    } else if (isAddingColors()) {
+      // colors don't model function types, so it's fine to fallback to the top object.
+      generatorType = type(StandardColors.TOP_OBJECT);
     }
 
     return createEmptyGeneratorFunction(generatorType);
   }
 
-  Node createJscompAsyncExecutePromiseGeneratorFunctionCall(Scope scope, Node generatorFunction) {
+  Node createJscompAsyncExecutePromiseGeneratorFunctionCall(
+      StaticScope scope, Node generatorFunction) {
     Node jscompDotAsyncExecutePromiseGeneratorFunction =
-        createQName(scope, "$jscomp", "asyncExecutePromiseGeneratorFunction");
-    // TODO(bradfordcsmith): Maybe update the type to be more specific
-    // Currently this method expects `function(): !Generator<?>` and returns `Promise<?>`.
-    // Since we propagate type information only if type checking has already run,
-    // these unknowns probably don't matter, but we should be able to be more specific with the
-    // return type at least.
-    return createCall(jscompDotAsyncExecutePromiseGeneratorFunction, generatorFunction);
+        createQName(scope, "$jscomp.asyncExecutePromiseGeneratorFunction");
+    Type resultType = type(unknownType);
+    if (isAddingTypes()) {
+      // TODO(bradfordcsmith): Maybe update the type to be more specific
+      // Currently this method expects `function(): !Generator<?>` and returns `Promise<?>`.
+      // Since we propagate type information only if type checking has already run,
+      // these unknowns probably don't matter, but we should be able to be more specific with the
+      // return type at least.
+      resultType =
+          type(
+              jscompDotAsyncExecutePromiseGeneratorFunction
+                  .getJSType()
+                  .assertFunctionType()
+                  .getReturnType());
+    } else if (isAddingColors()) {
+      resultType = type(colorRegistry.get(StandardColors.PROMISE_ID));
+    }
+    return createCall(jscompDotAsyncExecutePromiseGeneratorFunction, resultType, generatorFunction);
   }
 
   private JSType getNativeType(JSTypeNative nativeType) {
@@ -1132,25 +1338,13 @@ final class AstFactory {
         registry.getNativeType(nativeType), "native type not found: %s", nativeType);
   }
 
-  /**
-   * Look up the correct type for the given name in the given scope.
-   *
-   * <p>Returns the unknown type if no type can be found
-   */
-  private JSType getVarNameType(Scope scope, String name) {
-    Var var = scope.getVar(name);
-    JSType type = null;
-    if (var != null) {
-      Node nameDefinitionNode = var.getNode();
-      if (nameDefinitionNode != null) {
-        type = nameDefinitionNode.getJSType();
-      }
-    }
-    if (type == null) {
-      // TODO(bradfordcsmith): Consider throwing an error if the type cannot be found.
-      type = unknownType;
-    }
-    return type;
+  private Node getVarDefinitionNode(StaticScope scope, String name) {
+    StaticSlot var = checkNotNull(scope.getSlot(name), "Missing var %s in scope %s", name, scope);
+
+    StaticRef declaration =
+        checkNotNull(
+            var.getDeclaration(), "Cannot find type for var with missing declaration %s", var);
+    return checkNotNull(declaration.getNode(), "Missing node for declaration %s", declaration);
   }
 
   private JSType getJsTypeForProperty(Node receiver, String propertyName) {
@@ -1182,5 +1376,113 @@ final class AstFactory {
       getpropType = getNativeType(JSTypeNative.GLOBAL_THIS);
     }
     return getpropType;
+  }
+
+  private void setJSTypeOrColor(Type type, Node result) {
+    switch (this.typeMode) {
+      case JSTYPE:
+        result.setJSType(type.getJSType(registry));
+        break;
+      case COLOR:
+        result.setColor(type.getColor(colorRegistry));
+        break;
+      case NONE:
+        break;
+    }
+  }
+
+  interface Type {
+    JSType getJSType(JSTypeRegistry registry);
+
+    Color getColor(ColorRegistry registry);
+  }
+
+  private static final class TypeOnNode implements Type {
+    private final Node n;
+
+    TypeOnNode(Node n) {
+      this.n = n;
+    }
+
+    @Override
+    public JSType getJSType(JSTypeRegistry registry) {
+      return checkNotNull(this.n.getJSType(), n);
+    }
+
+    @Override
+    public Color getColor(ColorRegistry registry) {
+      return checkNotNull(this.n.getColor(), n);
+    }
+  }
+
+  private static final class JSTypeOrColor implements Type {
+    private final JSType jstype;
+    private final JSTypeNative jstypeNative;
+    private final Color color;
+    private final ColorId colorId;
+
+    JSTypeOrColor(JSTypeNative jstypeNative, ColorId colorId) {
+      this.jstypeNative = jstypeNative;
+      this.jstype = null;
+      this.color = null;
+      this.colorId = colorId;
+    }
+
+    JSTypeOrColor(JSTypeNative jstypeNative, Color color) {
+      this.jstypeNative = jstypeNative;
+      this.jstype = null;
+      this.color = color;
+      this.colorId = null;
+    }
+
+    JSTypeOrColor(JSType jstype, Color color) {
+      this.jstype = jstype;
+      this.jstypeNative = null;
+      this.color = color;
+      this.colorId = null;
+    }
+
+    @Override
+    public JSType getJSType(JSTypeRegistry registry) {
+      return this.jstype != null ? this.jstype : registry.getNativeType(jstypeNative);
+    }
+
+    @Override
+    public Color getColor(ColorRegistry registry) {
+      return this.color != null ? this.color : registry.get(checkNotNull(this.colorId));
+    }
+  }
+
+  /** Uses the JSType or Color of the given node as a template for adding type information */
+  static Type type(Node node) {
+    return new TypeOnNode(node);
+  }
+
+  static Type type(JSType type) {
+    return new JSTypeOrColor(type, null);
+  }
+
+  static Type type(JSTypeNative type) {
+    return new JSTypeOrColor(type, (Color) null);
+  }
+
+  static Type type(Color type) {
+    return new JSTypeOrColor((JSType) null, type);
+  }
+
+  static Type type(ColorId type) {
+    return new JSTypeOrColor(null, type);
+  }
+
+  static Type type(JSType type, Color color) {
+    return new JSTypeOrColor(type, color);
+  }
+
+  static Type type(JSTypeNative type, Color color) {
+    return new JSTypeOrColor(type, color);
+  }
+
+  private static Type noTypeInformation() {
+    return new JSTypeOrColor((JSType) null, null);
   }
 }

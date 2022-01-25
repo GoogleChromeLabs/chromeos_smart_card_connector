@@ -2788,18 +2788,18 @@ public class InlineFunctionsTest extends CompilerTestCase {
   @Test
   public void testCrossModuleInlining1() {
     test(
-        JSChunkGraphBuilder.forChain()
+        srcs(
+            JSChunkGraphBuilder.forChain()
+                // m1
+                .addChunk("function foo(){return f(1)+g(2)+h(3);}")
+                // m2
+                .addChunk("foo()")
+                .build()),
+        expected(
             // m1
-            .addChunk("function foo(){return f(1)+g(2)+h(3);}")
+            "",
             // m2
-            .addChunk("foo()")
-            .build(),
-        new String[] {
-          // m1
-          "",
-          // m2
-          "f(1)+g(2)+h(3);"
-        });
+            "f(1)+g(2)+h(3);"));
   }
 
   // Inline a single reference function into shallow modules, only if it
@@ -2807,24 +2807,24 @@ public class InlineFunctionsTest extends CompilerTestCase {
   @Test
   public void testCrossModuleInlining2() {
     testSame(
-        JSChunkGraphBuilder.forChain()
-            .addChunk("foo()")
-            .addChunk("function foo(){return f(1)+g(2)+h(3);}")
-            .build());
+        srcs(
+            JSChunkGraphBuilder.forChain()
+                .addChunk("foo()")
+                .addChunk("function foo(){return f(1)+g(2)+h(3);}")
+                .build()));
 
     test(
-        JSChunkGraphBuilder.forChain()
-            // m1
-            .addChunk("foo()")
+        srcs(
+            JSChunkGraphBuilder.forChain()
+                // m1
+                .addChunk("foo()")
+                // m2
+                .addChunk("function foo(){return f();}")
+                .build()),
+        expected( // m1
+            "f();",
             // m2
-            .addChunk("function foo(){return f();}")
-            .build(),
-        new String[] {
-          // m1
-          "f();",
-          // m2
-          ""
-        });
+            ""));
   }
 
   // Inline a multi-reference functions into shallow modules, only if it
@@ -2832,26 +2832,27 @@ public class InlineFunctionsTest extends CompilerTestCase {
   @Test
   public void testCrossModuleInlining3() {
     testSame(
-        JSChunkGraphBuilder.forChain()
-            .addChunk("foo()")
-            .addChunk("function foo(){return f(1)+g(2)+h(3);}")
-            .addChunk("foo()")
-            .build());
+        srcs(
+            JSChunkGraphBuilder.forChain()
+                .addChunk("foo()")
+                .addChunk("function foo(){return f(1)+g(2)+h(3);}")
+                .addChunk("foo()")
+                .build()));
 
     test(
-        JSChunkGraphBuilder.forChain()
-            .addChunk("foo()")
-            .addChunk("function foo(){return f();}")
-            .addChunk("foo()")
-            .build(),
-        new String[] {
-          // m1
-          "f();",
-          // m2
-          "",
-          // m3
-          "f();"
-        });
+        srcs(
+            JSChunkGraphBuilder.forChain()
+                .addChunk("foo()")
+                .addChunk("function foo(){return f();}")
+                .addChunk("foo()")
+                .build()),
+        expected(
+            // m1
+            "f();",
+            // m2
+            "",
+            // m3
+            "f();"));
   }
 
   @Test
@@ -3609,5 +3610,74 @@ public class InlineFunctionsTest extends CompilerTestCase {
             "    };",
             "  }",
             "}"));
+  }
+
+  @Test
+  public void testClassField() {
+    test(
+        lines(
+            "class C {", //
+            "  constructor() {",
+            "   /** @type {someType} */",
+            "    this.field = function f(){ function g() {} g() };",
+            "  }",
+            "}",
+            "C.staticField = function f(){ function g() {} g() };"),
+        lines(
+            "class C {",
+            "  constructor() {",
+            "    this.field = function f(){ void 0 };",
+            "  }",
+            "}",
+            "C.staticField = function f$jscomp$1() { void 0};"));
+    test(
+        lines(
+            "class C {", //
+            "  field = function f(){ function g() {} g() };",
+            "  static staticField = function f(){ function g() {} g() };",
+            "}"),
+        lines(
+            "class C {", //
+            "  field = function f(){ void 0 };",
+            "  static staticField = function f$jscomp$1() { void 0};",
+            "}"));
+
+    test(
+        lines(
+            "class C {", //
+            "  constructor() {",
+            "   /** @return {number} */",
+            "    this.field = function() {return 1 };",
+            "  }",
+            "}",
+            "C.staticField = function() {return 1 };",
+            "console.log(new C().field());",
+            "console.log(C.staticField());"),
+        lines(
+            "class C {", //
+            "  constructor() {",
+            "    this.field = function() {return 1 };",
+            "  }",
+            "}",
+            "C.staticField = function() {return 1 };",
+            "console.log(new C().field());",
+            "console.log(C.staticField());"));
+
+    testSame(
+        lines(
+            "class C {", //
+            "  field = function() {return 1 };",
+            "  static staticField = function() {return 1 };",
+            "}",
+            "console.log(new C().field());",
+            "console.log(C.staticField());"));
+
+    testSame(
+        lines(
+            "function f({x}) {", //
+            "  return x;",
+            "}",
+            "class Foo { x = 0; }",
+            "f(new Foo());"));
   }
 }

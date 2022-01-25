@@ -51,8 +51,8 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.javascript.jscomp.CodingConvention.AssertionFunctionLookup;
-import com.google.javascript.jscomp.DataFlowAnalysis.BranchedFlowState;
-import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
+import com.google.javascript.jscomp.DataFlowAnalysis.LinearFlowState;
+import com.google.javascript.jscomp.NodeTraversal.AbstractScopedCallback;
 import com.google.javascript.jscomp.TypeInference.BigIntPresence;
 import com.google.javascript.jscomp.deps.ModuleLoader.ResolutionMode;
 import com.google.javascript.jscomp.modules.ModuleMapCreator;
@@ -121,6 +121,7 @@ public final class TypeInferenceTest {
     compiler = new Compiler();
     CompilerOptions options = new CompilerOptions();
     options.setClosurePass(true);
+    options.setLanguageIn(CompilerOptions.LanguageMode.UNSUPPORTED);
     compiler.initOptions(options);
     registry = compiler.getTypeRegistry();
     assumptions = new HashMap<>();
@@ -213,7 +214,12 @@ public final class TypeInferenceTest {
       NodeTraversal.builder()
           .setCompiler(compiler)
           .setCallback(
-              new AbstractPostOrderCallback() {
+              new AbstractScopedCallback() {
+                @Override
+                public void enterScope(NodeTraversal t) {
+                  t.getTypedScope();
+                }
+
                 @Override
                 public void visit(NodeTraversal t, Node n, Node parent) {
                   TypedScope scope = t.getTypedScope();
@@ -237,9 +243,9 @@ public final class TypeInferenceTest {
       }
       scopeCreator.resolveWeakImportsPreResolution();
     }
-    scopeCreator.undoTypeAliasChains();
+    scopeCreator.finishAndFreeze();
     // Create the control graph.
-    ControlFlowAnalysis cfa = new ControlFlowAnalysis(compiler, false, false);
+    ControlFlowAnalysis cfa = new ControlFlowAnalysis(compiler, false, true);
     cfa.process(null, cfgRoot);
     ControlFlowGraph<Node> cfg = cfa.getCfg();
     // Create a simple reverse abstract interpreter.
@@ -249,7 +255,7 @@ public final class TypeInferenceTest {
         new TypeInference(compiler, cfg, rai, assumedScope, scopeCreator, ASSERTION_FUNCTION_MAP);
     dfa.analyze();
     // Get the scope of the implicit return.
-    BranchedFlowState<FlowScope> rtnState = cfg.getImplicitReturn().getAnnotation();
+    LinearFlowState<FlowScope> rtnState = cfg.getImplicitReturn().getAnnotation();
     if (cfgRoot.isFunction()) {
       // Reset the flow scope's syntactic scope to the function block, rather than the function
       // node
@@ -2557,6 +2563,152 @@ public final class TypeInferenceTest {
     assuming("x", NUMBER_TYPE);
     inFunction("x += '5';");
     verify("x", STRING_TYPE);
+  }
+
+  @Test
+  public void testAssignOrToNumeric() {
+    // This in line with the existing type-inferencing logic for
+    // or/and, since any boolean type is treated as {true, false},
+    // but there can be improvement in precision here
+    inFunction("var y = false; y ||= 20");
+    verify("y", createUnionType(NUMBER_TYPE, BOOLEAN_TYPE));
+  }
+
+  @Test
+  public void testClassFieldsInControlFlow() {
+    // Based on the class semantics, the static RHS expressions only execute after all of the
+    // computed properties, so `y` will get the string value rather than the boolean here.
+    inFunction(
+        lines(
+            "let y;", //
+            "class Foo {",
+            "  static [y = null] = (y = '');",
+            "  [y = false] = [y = null];",
+            "}"));
+    verify("y", STRING_TYPE);
+  }
+
+  @Test
+  public void testAssignOrNoAssign() {
+    // The two examples below show imprecision of || operator
+    // The resulting type of Node n is (boolean|string), when it can be
+    // more precise by verifying `x` as a string
+    inFunction("var x; var y; y = false; x = (y || 'foo');");
+    verify("x", createUnionType(BOOLEAN_TYPE, STRING_TYPE));
+
+    // Short-circuiting should occur, as `a` is a truthy value,
+    // `c` would be assigned true, and `b` would remain undefined.
+    // To be more precise, `c` may be verified as a BOOLEAN_TYPE,
+    // `a` a BOOLEAN_TYPE, and `b` a VOID_TYPE.
+    // The actual behavior considers `a` (a BOOLEAN_TYPE) to be {true, false},
+    // and states that `c` can be (boolean|string).
+    inFunction("var a; var b; var c; a = true; c = (a || (b = 'foo'));");
+    verify("c", createUnionType(BOOLEAN_TYPE, STRING_TYPE));
+    verify("a", BOOLEAN_TYPE);
+    verify("b", createUnionType(VOID_TYPE, STRING_TYPE));
+
+    // This test should not assign the string to `y` and
+    // should verify `y` as BOOLEAN_TYPE (true).
+    inFunction("var y; y = true; y ||= 'foo';");
+    verify("y", createUnionType(BOOLEAN_TYPE, STRING_TYPE));
+  }
+
+  @Test
+  public void testAssignOrToBooleanEitherAbsoluteFalseOrTrue() {
+    assuming("x", NULL_TYPE);
+    inFunction("x ||= 'foo';");
+    verify("x", STRING_TYPE);
+
+    assuming("y", OBJECT_TYPE);
+    inFunction("y ||= 'foo';");
+    verify("y", OBJECT_TYPE);
+  }
+
+  @Test
+  public void testAssignOrLHSFalsyRHSTruthy() {
+    assuming("x", NULL_TYPE);
+    assuming("obj", OBJECT_TYPE);
+    inFunction("x ||= obj;");
+    verify("x", OBJECT_TYPE);
+  }
+
+  @Test
+  public void testAssignAndToNumeric() {
+    // This in line with the existing type-inferencing logic for
+    // or/and, since any boolean type is treated as {true, false},
+    // but there can be improvement in precision here
+    inFunction("var y = true; y &&= 20");
+    verify("y", createUnionType(NUMBER_TYPE, BOOLEAN_TYPE));
+  }
+
+  @Test
+  public void testAssignAndNoAssign() {
+    // This example below show imprecision of && operator
+    // The resulting type of Node n is (boolean|string), when it can be
+    // more precise by verifying `x` as a boolean type (true).
+    inFunction("var x = true && 'foo';");
+    verify("x", createUnionType(BOOLEAN_TYPE, STRING_TYPE));
+
+    // This test should not assign the string to `y` and
+    // should verify `y` as BOOLEAN_TYPE (false).
+    inFunction("var y = false; y &&= 'foo';");
+    verify("y", createUnionType(BOOLEAN_TYPE, STRING_TYPE));
+  }
+
+  @Test
+  public void testAssignAndToBooleanEitherAbsoluteFalseOrTrue() {
+    assuming("x", NULL_TYPE);
+    inFunction("x &&= 'foo';");
+    verify("x", NULL_TYPE);
+
+    assuming("y", OBJECT_TYPE);
+    inFunction("y &&= 'foo';");
+    verify("y", STRING_TYPE);
+  }
+
+  @Test
+  public void testAssignAndLHSTruthyRHSFalsy() {
+    assuming("x", OBJECT_TYPE);
+    assuming("null", NULL_TYPE);
+    inFunction("x &&= null;");
+    verify("x", NULL_TYPE);
+  }
+
+  @Test
+  public void testAssignCoalesceToNumeric() {
+    assuming("x", NULL_TYPE);
+    inFunction("x ??= 10;");
+    verify("x", NUMBER_TYPE);
+  }
+
+  @Test
+  public void testAssignCoalesceNoAssign() {
+    assuming("x", STRING_TYPE);
+    inFunction("x ??= 10;");
+    verify("x", STRING_TYPE);
+  }
+
+  @Test
+  public void testAssignCoalesceRHSAssignmentScope() {
+    // since lhs is null, ??= executes rhs;
+    // precision can be improved in the future for `y` to expect a number and not undefined,
+    // but this is currently in accordance with the AST and not an oversight.
+    inFunction("var y; var x = null; x ??= (y = 6)");
+    verify("y", createUnionType(VOID_TYPE, NUMBER_TYPE));
+    verify("x", NUMBER_TYPE);
+
+    // ??= does not execute rhs
+    inFunction("var y; var x = true; x ??= (y = 'a' + 6)");
+    verify("y", VOID_TYPE);
+    verify("x", BOOLEAN_TYPE);
+  }
+
+  @Test
+  public void testAssignCoalesceJoin() {
+    assuming("x", createNullableType(NUMBER_TYPE));
+    inFunction("var y = ''; x ??= (y = x, 1)");
+    verify("y", createNullableType(STRING_TYPE));
+    verify("x", NUMBER_TYPE);
   }
 
   @Test

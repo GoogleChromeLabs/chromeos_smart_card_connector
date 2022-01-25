@@ -21,7 +21,6 @@ import com.google.common.collect.Sets;
 import com.google.javascript.jscomp.AbstractScope.ImplicitVar;
 import com.google.javascript.jscomp.NodeTraversal.AbstractShallowCallback;
 import com.google.javascript.jscomp.ReferenceCollector.Behavior;
-import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
@@ -71,10 +70,6 @@ class VariableReferenceCheck implements CompilerPass {
 
   private final AbstractCompiler compiler;
 
-  // If true, the pass will only check code that is at least ES6. Certain errors in block-scoped
-  // variable declarations will prevent correct transpilation, so this pass must be run.
-  private final boolean forTranspileOnly;
-
   private final boolean checkUnusedLocals;
 
   // NOTE(nicksantos): It's a lot faster to use a shared Set that
@@ -89,39 +84,16 @@ class VariableReferenceCheck implements CompilerPass {
           Token.IF, Token.FOR, Token.FOR_IN, Token.FOR_OF, Token.FOR_AWAIT_OF, Token.WHILE);
 
   public VariableReferenceCheck(AbstractCompiler compiler) {
-    this(compiler, false);
-  }
-
-  VariableReferenceCheck(AbstractCompiler compiler, boolean forTranspileOnly) {
     this.compiler = compiler;
-    this.forTranspileOnly = forTranspileOnly;
     this.checkUnusedLocals =
         compiler.getOptions().enables(DiagnosticGroup.forType(UNUSED_LOCAL_ASSIGNMENT));
   }
 
-  private boolean shouldProcess(Node root) {
-    if (!forTranspileOnly) {
-      return true;
-    }
-    if (compiler.getOptions().getLanguageIn().toFeatureSet().contains(FeatureSet.ES2015)) {
-      for (Node singleRoot = root.getFirstChild();
-          singleRoot != null;
-          singleRoot = singleRoot.getNext()) {
-        if (TranspilationPasses.isScriptEs6OrHigher(singleRoot)) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
   @Override
   public void process(Node externs, Node root) {
-    if (shouldProcess(root)) {
-      new ReferenceCollector(
-              compiler, new ReferenceCheckingBehavior(), new SyntacticScopeCreator(compiler))
-          .process(externs, root);
-    }
+    new ReferenceCollector(
+            compiler, new ReferenceCheckingBehavior(), new SyntacticScopeCreator(compiler))
+        .process(externs, root);
   }
 
   /**
@@ -138,19 +110,6 @@ class VariableReferenceCheck implements CompilerPass {
 
     @Override
     public void afterExitScope(NodeTraversal t, ReferenceMap referenceMap) {
-      // TODO(johnlenz): do this only for ides
-      if (t.inGlobalScope()) {
-        // Update global scope reference lists when we are done with it.
-        compiler.updateGlobalVarReferences(
-            ((ReferenceCollector.ReferenceMapWrapper) referenceMap).getRawReferenceMap(),
-            t.getScopeRoot());
-        referenceMap = compiler.getGlobalVarReferences();
-      }
-
-      // TODO(bashir) In hot-swap version this means that for global scope we
-      // only go through all global variables accessed in the modified file not
-      // all global variables. This should be fixed.
-
       // Check all vars after finishing a scope
       Scope scope = t.getScope();
       if (scope.isFunctionBlockScope()) {
@@ -410,39 +369,41 @@ class VariableReferenceCheck implements CompilerPass {
    */
   private boolean checkEarlyReference(Var v, Reference reference, Node referenceNode) {
     // Don't check the order of references in externs files.
-    if (!referenceNode.isFromExterns()) {
-      // Special case to deal with var goog = goog || {}. Note that
-      // let x = x || {} is illegal, just like var y = x || {}; let x = y;
-      if (v.isVar()) {
-        Node curr = reference.getParent();
-        while (curr.isOr() && curr.getParent().getFirstChild() == curr) {
-          curr = curr.getParent();
-        }
-        if (curr.isName() && curr.getString().equals(v.getName())) {
-          return false;
-        }
+    if (referenceNode.isFromExterns() || v.isImplicitGoogNamespace()) {
+      return false;
+    }
+    // Special case to deal with var goog = goog || {}. Note that
+    // let x = x || {} is illegal, just like var y = x || {}; let x = y;
+    if (v.isVar()) {
+      Node curr = reference.getParent();
+      while (curr.isOr() && curr.getParent().getFirstChild() == curr) {
+        curr = curr.getParent();
       }
-
-      // Only generate warnings for early references in the same function scope/global scope in
-      // order to deal with possible forward declarations and recursion
-      // e.g. don't warn on:
-      //   function f() { return x; } f(); let x = 5;
-      // We don't track where `f` is called, just where it's defined, and don't want to warn for
-      //     function f() { return x; } let x = 5; f();
-      // TODO(moz): See if we can remove the bypass for "goog"
-      if (reference.getScope().hasSameContainerScope(v.getScope()) && !v.getName().equals("goog")) {
-        compiler.report(
-            JSError.make(
-                reference.getNode(),
-                v.isGoogModuleExports()
-                    ? EARLY_EXPORTS_REFERENCE
-                    : (v.isLet() || v.isConst() || v.isClass() || v.isParam())
-                        ? EARLY_REFERENCE_ERROR
-                        : EARLY_REFERENCE,
-                v.getName()));
-        return true;
+      if (curr.isName() && curr.getString().equals(v.getName())) {
+        return false;
       }
     }
+
+    // Only generate warnings for early references in the same function scope/global scope in
+    // order to deal with possible forward declarations and recursion
+    // e.g. don't warn on:
+    //   function f() { return x; } f(); let x = 5;
+    // We don't track where `f` is called, just where it's defined, and don't want to warn for
+    //     function f() { return x; } let x = 5; f();
+    // TODO(moz): See if we can remove the bypass for "goog"
+    if (reference.getScope().hasSameContainerScope(v.getScope()) && !v.getName().equals("goog")) {
+      compiler.report(
+          JSError.make(
+              reference.getNode(),
+              v.isGoogModuleExports()
+                  ? EARLY_EXPORTS_REFERENCE
+                  : (v.isLet() || v.isConst() || v.isClass() || v.isParam())
+                      ? EARLY_REFERENCE_ERROR
+                      : EARLY_REFERENCE,
+              v.getName()));
+      return true;
+    }
+
     return false;
   }
 

@@ -20,66 +20,68 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.ControlFlowGraph.Branch;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.jscomp.graph.Annotation;
+import com.google.javascript.jscomp.graph.DiGraph.DiGraphEdge;
 import com.google.javascript.jscomp.graph.DiGraph.DiGraphNode;
 import com.google.javascript.jscomp.graph.LatticeElement;
 import com.google.javascript.jscomp.parsing.parser.util.format.SimpleFormat;
 import com.google.javascript.rhino.Node;
-import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.Comparator;
-import java.util.LinkedHashSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+import java.util.PriorityQueue;
+import java.util.Queue;
 import java.util.Set;
-import java.util.TreeSet;
+import javax.annotation.Nullable;
 
 /**
- * A framework to help writing static program analysis. A subclass of
- * this framework should specify how a single node changes the state
- * of a program. This class finds a safe estimate (a fixed-point) for
- * the whole program. The proven facts about the program will be
- * annotated with
- * {@link com.google.javascript.jscomp.graph.GraphNode#setAnnotation} to the
- * given control flow graph's nodes in form of {@link LatticeElement}
- * after calling {@link #analyze()}.
+ * A framework to help writing static program analysis.
  *
- * <p>As a guideline, the following is a list of behaviors that any analysis
- * can take:
+ * <p>A subclass of this framework should specify how a single node changes the state of a program.
+ * This class finds a safe estimate (a fixed-point) for the whole program. The proven facts about
+ * the program will be annotated with {@link
+ * com.google.javascript.jscomp.graph.GraphNode#setAnnotation} to the given control flow graph's
+ * nodes in form of {@link LatticeElement} after calling {@link #analyze()}.
+ *
+ * <p>As a guideline, the following is a list of behaviors that any analysis can take:
+ *
  * <ol>
- * <li>Flow Direction: Is the analysis a forward or backward analysis?
- * <li>Lattice Elements: How does the analysis represent the state of the
- * program at any given point?
- * <li>JOIN Operation: Given two incoming paths and a lattice state value, what
- * can the compiler conclude at the join point?
- * <li>Flow Equations: How does an instruction modify the state of program in
- * terms of lattice values?
- * <li>Initial Entry Value: What can the compiler assume at the beginning of the
- * program?
- * <li>Initial Estimate: What can the compiler assume at each point of the
- * program? (What is the BOTTOM value of the lattice) By definition this lattice
- * JOIN {@code x} for any {@code x} must also be {@code x}.
- * </ol>
- * To make these behaviors known to the framework, the following steps must be
- * taken.
- * <ol>
- * <li>Flow Direction: Implement {@link #isForward()}.
- * <li>Lattice Elements: Implement {@link LatticeElement}.
- * <li>JOIN Operation: Implement
- *    {@link JoinOp#apply}.
- * <li>Flow Equations: Implement
- * {@link #flowThrough(Object, LatticeElement)}.
- * <li>Initial Entry Value: Implement {@link #createEntryLattice()}.
- * <li>Initial Estimate: Implement {@link #createInitialEstimateLattice()}.
+ *   <li>Flow Direction: Is the analysis a forward or backward analysis?
+ *   <li>Lattice Elements: How does the analysis represent the state of the program at any given
+ *       point?
+ *   <li>Branching: Does the analysis propagate a different lattice element along each branch
+ *       exiting a node?
+ *   <li>JOIN Operation: Given two incoming paths and a lattice state value, what can the compiler
+ *       conclude at the join point?
+ *   <li>Flow Equations: How does an instruction modify the state of program in terms of lattice
+ *       values?
+ *   <li>Initial Entry Value: What can the compiler assume at the beginning of the program?
+ *   <li>Initial Estimate: What can the compiler assume at each point of the program? (What is the
+ *       BOTTOM value of the lattice) By definition this lattice JOIN {@code x} for any {@code x}
+ *       must also be {@code x}.
+ *   <li>(Optional) Branch Operation: How should the flow branch along edges?
  * </ol>
  *
- * <p>Upon execution of the {@link #analyze()} method, nodes of the input
- * control flow graph will be annotated with a {@link FlowState} object that
- * represents maximum fixed point solution. Any previous annotations at the
- * nodes of the control flow graph will be lost.
+ * To make these behaviors known to the framework, the following steps must be taken.
+ *
+ * <ol>
+ *   <li>Flow Direction: Implement {@link #isForward()}.
+ *   <li>Lattice Elements: Implement {@link LatticeElement}.
+ *   <li>JOIN Operation: Implement {@link JoinOp#apply}.
+ *   <li>Flow Equations: Implement {@link #flowThrough(Object, LatticeElement)}.
+ *   <li>Initial Entry Value: Implement {@link #createEntryLattice()}.
+ *   <li>Initial Estimate: Implement {@link #createInitialEstimateLattice()}.
+ *   <li>(Optional) Branch Operation: Return true from {@link #isBranched()} and implement {@link
+ *       #createFlowBrancher}.
+ * </ol>
+ *
+ * <p>Upon execution of the {@link #analyze()} method, nodes of the input control flow graph will be
+ * annotated with a {@link FlowState} object that represents maximum fixed point solution. Any
+ * previous annotations at the nodes of the control flow graph will be lost.
  *
  * @param <N> The control flow graph's node value type.
  * @param <L> Lattice element type.
@@ -87,46 +89,40 @@ import java.util.TreeSet;
 abstract class DataFlowAnalysis<N, L extends LatticeElement> {
 
   private final ControlFlowGraph<N> cfg;
-  final JoinOp<L> joinOp;
-  protected final Set<DiGraphNode<N, Branch>> orderedWorkSet;
+  private final UniqueQueue<DiGraphNode<N, Branch>> workQueue;
 
-  /*
-   * Feel free to increase this to a reasonable number if you are finding that
-   * more and more passes need more steps before finding a fixed-point.
-   * If you just have a special case, consider calling
-   * {@link #analyze(int)} instead.
+  /**
+   * The maximum number of steps per individual CFG node before we assume the analysis is divergent.
+   *
+   * <p>TODO(b/196398705): This is way too high. Find traversal ordering heurisitc that reduces it.
    */
-  public static final int MAX_STEPS = 2000000;
+  public static final int MAX_STEPS_PER_NODE = 20000;
 
   /**
    * Constructs a data flow analysis.
    *
    * <p>Typical usage
+   *
    * <pre>
    * DataFlowAnalysis dfa = ...
    * dfa.analyze();
    * </pre>
    *
-   * {@link #analyze()} annotates the result to the control flow graph by
-   * means of {@link DiGraphNode#setAnnotation} without any
-   * modification of the graph itself. Additional calls to {@link #analyze()}
-   * recomputes the analysis which can be useful if the control flow graph
-   * has been modified.
+   * {@link #analyze()} annotates the result to the control flow graph by means of {@link
+   * DiGraphNode#setAnnotation} without any modification of the graph itself. Additional calls to
+   * {@link #analyze()} recomputes the analysis which can be useful if the control flow graph has
+   * been modified.
    *
-   * @param targetCfg The control flow graph object that this object performs
-   *     on. Modification of the graph requires a separate call to
-   *     {@link #analyze()}.
-   *
+   * @param cfg The control flow graph object that this object performs on. Modification of the
+   *     graph requires a separate call to {@link #analyze()}.
    * @see #analyze()
    */
-  DataFlowAnalysis(ControlFlowGraph<N> targetCfg, JoinOp<L> joinOp) {
-    this.cfg = targetCfg;
-    this.joinOp = joinOp;
-    Comparator<DiGraphNode<N, Branch>> nodeComparator = cfg.getOptionalNodeComparator(isForward());
-    if (nodeComparator != null) {
-      this.orderedWorkSet = new TreeSet<>(nodeComparator);
-    } else {
-      this.orderedWorkSet = new LinkedHashSet<>();
+  DataFlowAnalysis(ControlFlowGraph<N> cfg) {
+    this.cfg = cfg;
+    this.workQueue = new UniqueQueue<>(cfg.getOptionalNodeComparator(isForward()));
+
+    if (this.isBranched()) {
+      checkState(this.isForward());
     }
   }
 
@@ -140,17 +136,59 @@ abstract class DataFlowAnalysis<N, L extends LatticeElement> {
     return cfg;
   }
 
-  protected L join(L latticeA, L latticeB) {
-    return joinOp.apply(ImmutableList.of(latticeA, latticeB));
-  }
-
   /**
-   * Checks whether the analysis is a forward flow analysis or backward flow
-   * analysis.
+   * Checks whether the analysis is a forward flow analysis or backward flow analysis.
    *
    * @return {@code true} if it is a forward analysis.
    */
   abstract boolean isForward();
+
+  /** Whether or not {@link #createFlowBrancher} should be used. */
+  boolean isBranched() {
+    return false;
+  }
+
+  final L join(L latticeA, L latticeB) {
+    FlowJoiner<L> joiner = this.createFlowJoiner();
+    joiner.joinFlow(latticeA);
+    joiner.joinFlow(latticeB);
+    return joiner.finish();
+  }
+
+  /**
+   * Gets a new joiner for an analysis step.
+   *
+   * <p>The joiner is invoked once for each input edge and then the final joined result is
+   * retrieved. No joiner will be created for a single input.
+   */
+  abstract FlowJoiner<L> createFlowJoiner();
+
+  /** A reducer that joins flow states from distinct input states into a single input state. */
+  interface FlowJoiner<L> {
+    void joinFlow(L input);
+
+    L finish();
+  }
+
+  /**
+   * Gets a new brancher for an analysis step.
+   *
+   * <p>The brancher is invoked for each output edge. The returned states are annotated onto each
+   * edge and compared against the previous state to determine whether a fixed-point has been
+   * reached.
+   *
+   * @param node The node at which to branch.
+   * @param output The output state of {@link #flowThrough} at node.
+   */
+  FlowBrancher<L> createFlowBrancher(N node, L output) {
+    throw new UnsupportedOperationException();
+  }
+
+  /** A callback that branches a flow state into a distinct state for each output edge. */
+  @FunctionalInterface
+  interface FlowBrancher<L> {
+    L branchFlow(Branch branch);
+  }
 
   /**
    * Computes the output state for a given node given its input state.
@@ -160,16 +198,6 @@ abstract class DataFlowAnalysis<N, L extends LatticeElement> {
    * @return Output lattice.
    */
   abstract L flowThrough(N node, L input);
-
-  /**
-   * Finds a fixed-point solution using at most {@link #MAX_STEPS}
-   * iterations.
-   *
-   * @see #analyze(int)
-   */
-  final void analyze() {
-    analyze(MAX_STEPS);
-  }
 
   /**
    * Finds a fixed-point solution. The function has the side effect of replacing the existing node
@@ -183,21 +211,16 @@ abstract class DataFlowAnalysis<N, L extends LatticeElement> {
    * that depend on the node's newly modified output value will need to recompute their output state
    * again. Each step will perform a computation at one node until no extra computation will modify
    * any existing output state anymore.
-   *
-   * @param maxSteps Max number of iterations before the method stops and throw a {@link
-   *     MaxIterationsExceededException}. This will prevent the analysis from going into a infinite
-   *     loop.
    */
-  final void analyze(int maxSteps) {
+  final void analyze() {
     initialize();
-    int step = 0;
-    while (!orderedWorkSet.isEmpty()) {
-      if (step > maxSteps) {
-        throw new MaxIterationsExceededException(
-            "Analysis did not terminate after " + maxSteps + " iterations");
+    while (!this.workQueue.isEmpty()) {
+      DiGraphNode<N, Branch> curNode = this.workQueue.removeFirst();
+      LinearFlowState<L> curState = curNode.getAnnotation();
+      if (curState.stepCount++ > MAX_STEPS_PER_NODE) {
+        throw new IllegalStateException("Dataflow analysis appears to diverge around: " + curNode);
       }
-      DiGraphNode<N, Branch> curNode = orderedWorkSet.iterator().next();
-      orderedWorkSet.remove(curNode);
+
       joinInputs(curNode);
       if (flow(curNode)) {
         // If there is a change in the current node, we want to grab the list
@@ -207,11 +230,10 @@ abstract class DataFlowAnalysis<N, L extends LatticeElement> {
 
         for (DiGraphNode<N, Branch> nextNode : nextNodes) {
           if (nextNode != cfg.getImplicitReturn()) {
-            orderedWorkSet.add(nextNode);
+            this.workQueue.add(nextNode);
           }
         }
       }
-      step++;
     }
     if (isForward()) {
       joinInputs(getCfg().getImplicitReturn());
@@ -232,19 +254,22 @@ abstract class DataFlowAnalysis<N, L extends LatticeElement> {
    */
   abstract L createEntryLattice();
 
-  /**
-   * Initializes the work list and the control flow graph.
-   */
-  protected void initialize() {
+  /** Initializes the work list and the control flow graph. */
+  private void initialize() {
     // TODO(user): Calling clear doesn't deallocate the memory in a
     // LinkedHashSet. Consider creating a new work set if we plan to repeatedly
     // call analyze.
-    orderedWorkSet.clear();
+    workQueue.clear();
     for (DiGraphNode<N, Branch> node : cfg.getNodes()) {
-      node.setAnnotation(new FlowState<>(createInitialEstimateLattice(),
-          createInitialEstimateLattice()));
+      node.setAnnotation(
+          new LinearFlowState<>(createInitialEstimateLattice(), createInitialEstimateLattice()));
       if (node != cfg.getImplicitReturn()) {
-        orderedWorkSet.add(node);
+        workQueue.add(node);
+      }
+    }
+    if (this.isBranched()) {
+      for (DiGraphEdge<N, Branch> edge : cfg.getEdges()) {
+        edge.setAnnotation(this.createInitialEstimateLattice());
       }
     }
   }
@@ -254,266 +279,128 @@ abstract class DataFlowAnalysis<N, L extends LatticeElement> {
    *
    * @return {@code true} if the flow state differs from the previous state.
    */
-  protected boolean flow(DiGraphNode<N, Branch> node) {
-    FlowState<L> state = node.getAnnotation();
+  private boolean flow(DiGraphNode<N, Branch> node) {
+    LinearFlowState<L> state = node.getAnnotation();
     if (isForward()) {
-      L outBefore = state.out;
-      state.out = flowThrough(node.getValue(), state.in);
-      return !outBefore.equals(state.out);
+      L outBefore = state.getOut();
+      state.setOut(flowThrough(node.getValue(), state.getIn()));
+      boolean changed = !outBefore.equals(state.getOut());
+
+      if (this.isBranched()) {
+        FlowBrancher<L> brancher = this.createFlowBrancher(node.getValue(), state.getOut());
+        for (DiGraphEdge<N, Branch> outEdge : node.getOutEdges()) {
+          L outBranchBefore = outEdge.getAnnotation();
+          outEdge.setAnnotation(brancher.branchFlow(outEdge.getValue()));
+          if (!changed) {
+            changed = !outBranchBefore.equals(outEdge.getAnnotation());
+          }
+        }
+      }
+
+      return changed;
     } else {
-      L inBefore = state.in;
-      state.in = flowThrough(node.getValue(), state.out);
-      return !inBefore.equals(state.in);
+      L inBefore = state.getIn();
+      state.setIn(flowThrough(node.getValue(), state.getOut()));
+      return !inBefore.equals(state.getIn());
     }
   }
 
   /**
-   * Computes the new flow state at a given node's entry by merging the
-   * output (input) lattice of the node's predecessor (successor).
+   * Computes the new flow state at a given node's entry by merging the output (input) lattice of
+   * the node's predecessor (successor).
    *
    * @param node Node to compute new join.
    */
-  protected void joinInputs(DiGraphNode<N, Branch> node) {
-    FlowState<L> state = node.getAnnotation();
-    if (isForward()) {
-      if (cfg.getEntry() == node) {
-        state.setIn(createEntryLattice());
-      } else {
-        List<? extends DiGraphNode<N, Branch>> inNodes = cfg.getDirectedPredNodes(node);
-        if (inNodes.size() == 1) {
-          FlowState<L> inNodeState = inNodes.get(0).getAnnotation();
-          state.setIn(inNodeState.getOut());
-        } else if (inNodes.size() > 1) {
-          List<L> values = new ArrayList<>(inNodes.size());
-          for (DiGraphNode<N, Branch> currentNode : inNodes) {
-            FlowState<L> currentNodeState = currentNode.getAnnotation();
-            values.add(currentNodeState.getOut());
+  private void joinInputs(DiGraphNode<N, Branch> node) {
+    LinearFlowState<L> state = node.getAnnotation();
+    if (this.isForward() && cfg.getEntry() == node) {
+      state.setIn(createEntryLattice());
+      return;
+    }
+
+    List<? extends DiGraphEdge<N, Branch>> inEdges =
+        this.isForward() ? node.getInEdges() : node.getOutEdges();
+
+    final L result;
+    switch (inEdges.size()) {
+      case 0:
+        return;
+
+      case 1:
+        result = this.getInputFromEdge(inEdges.get(0));
+        break;
+
+      default:
+        {
+          FlowJoiner<L> joiner = this.createFlowJoiner();
+          for (DiGraphEdge<N, Branch> inEdge : inEdges) {
+            joiner.joinFlow(this.getInputFromEdge(inEdge));
           }
-          state.setIn(joinOp.apply(values));
+          result = joiner.finish();
         }
-      }
+    }
+
+    if (this.isForward()) {
+      state.setIn(result);
     } else {
-      List<? extends DiGraphNode<N, Branch>> inNodes = cfg.getDirectedSuccNodes(node);
-      if (inNodes.size() == 1) {
-        DiGraphNode<N, Branch> inNode = inNodes.get(0);
-        if (inNode == cfg.getImplicitReturn()) {
-          state.setOut(createEntryLattice());
-        } else {
-          FlowState<L> inNodeState = inNode.getAnnotation();
-          state.setOut(inNodeState.getIn());
-        }
-      } else if (inNodes.size() > 1) {
-        List<L> values = new ArrayList<>(inNodes.size());
-        for (DiGraphNode<N, Branch> currentNode : inNodes) {
-          FlowState<L> currentNodeState = currentNode.getAnnotation();
-          values.add(currentNodeState.getIn());
-        }
-        state.setOut(joinOp.apply(values));
-      }
+      state.setOut(result);
     }
   }
 
-  /**
-   * The in and out states of a node.
-   *
-   * @param <L> Input and output lattice element type.
-   */
-  static class FlowState<L extends LatticeElement> implements Annotation {
+  private L getInputFromEdge(DiGraphEdge<N, Branch> edge) {
+    if (this.isBranched()) {
+      return edge.getAnnotation();
+    } else if (this.isForward()) {
+      LinearFlowState<L> state = edge.getSource().getAnnotation();
+      return state.getOut();
+    } else {
+      DiGraphNode<N, Branch> node = edge.getDestination();
+      if (node == this.cfg.getImplicitReturn()) {
+        return this.createEntryLattice();
+      }
+      LinearFlowState<L> state = node.getAnnotation();
+      return state.getIn();
+    }
+  }
+
+  /** The in and out states of a node. */
+  static final class LinearFlowState<L> implements Annotation {
+    private int stepCount = 0;
     private L in;
     private L out;
 
-    /**
-     * Private constructor. No other classes should create new states.
-     *
-     * @param inState Input.
-     * @param outState Output.
-     */
-    private FlowState(L inState, L outState) {
-      checkNotNull(inState);
-      checkNotNull(outState);
-      this.in = inState;
-      this.out = outState;
+    private LinearFlowState(L in, L out) {
+      checkNotNull(in);
+      checkNotNull(out);
+      this.in = in;
+      this.out = out;
     }
 
-    L getIn() {
+    int getStepCount() {
+      return this.stepCount;
+    }
+
+    final L getIn() {
       return in;
     }
 
-    void setIn(L in) {
+    private final void setIn(L in) {
       checkNotNull(in);
       this.in = in;
     }
 
-    L getOut() {
+    final L getOut() {
       return out;
     }
 
-    void setOut(L out) {
+    private final void setOut(L out) {
       checkNotNull(out);
       this.out = out;
     }
 
     @Override
-    public String toString() {
+    public final String toString() {
       return SimpleFormat.format("IN: %s OUT: %s", in, out);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (o instanceof FlowState) {
-        FlowState<?> that = (FlowState<?>) o;
-        return that.in.equals(this.in)
-            && that.out.equals(this.out);
-      }
-      return false;
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(in, out);
-    }
-  }
-
-  /**
-   * The exception to be thrown if the analysis has been running for a long
-   * number of iterations. Chances are the analysis is not monotonic, a
-   * fixed-point cannot be found and it is currently stuck in an infinite loop.
-   */
-  static class MaxIterationsExceededException extends RuntimeException {
-    private static final long serialVersionUID = 1L;
-    MaxIterationsExceededException(String msg) {
-      super(msg);
-    }
-  }
-
-  abstract static class BranchedForwardDataFlowAnalysis
-      <N, L extends LatticeElement> extends DataFlowAnalysis<N, L> {
-
-    @Override
-    protected void initialize() {
-      orderedWorkSet.clear();
-      for (DiGraphNode<N, Branch> node : getCfg().getNodes()) {
-        int outEdgeCount = getCfg().getOutEdges(node.getValue()).size();
-        List<L> outLattices = new ArrayList<>();
-        for (int i = 0; i < outEdgeCount; i++) {
-          outLattices.add(createInitialEstimateLattice());
-        }
-        node.setAnnotation(new BranchedFlowState<>(
-            createInitialEstimateLattice(), outLattices));
-        if (node != getCfg().getImplicitReturn()) {
-          orderedWorkSet.add(node);
-        }
-      }
-    }
-
-    BranchedForwardDataFlowAnalysis(ControlFlowGraph<N> targetCfg, JoinOp<L> joinOp) {
-      super(targetCfg, joinOp);
-    }
-
-    @Override
-    final boolean isForward() {
-      return true;
-    }
-
-    /**
-     * The branched flow function maps a single lattice to a list of output
-     * lattices.
-     *
-     * <p>Each outgoing edge of a node will have a corresponding output lattice
-     * in the ordered returned by
-     * {@link com.google.javascript.jscomp.graph.DiGraph#getOutEdges(Object)}
-     * in the returned list.
-     *
-     * @return A list of output values depending on the edge's branch type.
-     */
-    abstract List<L> branchedFlowThrough(N node, L input);
-
-    @Override
-    protected final boolean flow(DiGraphNode<N, Branch> node) {
-      BranchedFlowState<L> state = node.getAnnotation();
-      List<L> outBefore = state.out;
-      state.out = branchedFlowThrough(node.getValue(), state.in);
-      checkState(outBefore.size() == state.out.size());
-      for (int i = 0; i < outBefore.size(); i++) {
-        if (!outBefore.get(i).equals(state.out.get(i))) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    @Override
-    protected void joinInputs(DiGraphNode<N, Branch> node) {
-      BranchedFlowState<L> state = node.getAnnotation();
-      List<? extends DiGraphNode<N, Branch>> predNodes = getCfg().getDirectedPredNodes(node);
-      List<L> values = new ArrayList<>(predNodes.size());
-
-      for (DiGraphNode<N, Branch> predNode : predNodes) {
-        BranchedFlowState<L> predNodeState = predNode.getAnnotation();
-
-        L in = predNodeState.out.get(
-            getCfg().getDirectedSuccNodes(predNode).indexOf(node));
-
-        values.add(in);
-      }
-      if (getCfg().getEntry() == node) {
-        state.setIn(createEntryLattice());
-      } else if (!values.isEmpty()) {
-        state.setIn(joinOp.apply(values));
-      }
-    }
-  }
-
-  /**
-   * The in and out states of a node.
-   *
-   * @param <L> Input and output lattice element type.
-   */
-  static class BranchedFlowState<L extends LatticeElement>
-      implements Annotation {
-    private L in;
-    private List<L> out;
-
-    /**
-     * Private constructor. No other classes should create new states.
-     *
-     * @param inState Input.
-     * @param outState Output.
-     */
-    private BranchedFlowState(L inState, List<L> outState) {
-      checkNotNull(inState);
-      checkNotNull(outState);
-      this.in = inState;
-      this.out = outState;
-    }
-
-    L getIn() {
-      return in;
-    }
-
-    void setIn(L in) {
-      checkNotNull(in);
-      this.in = in;
-    }
-
-    @Override
-    public String toString() {
-      return SimpleFormat.format("IN: %s OUT: %s", in, out);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (o instanceof BranchedFlowState) {
-        BranchedFlowState<?> that = (BranchedFlowState<?>) o;
-        return that.in.equals(this.in)
-            && that.out.equals(this.out);
-      }
-      return false;
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(in, out);
     }
   }
 
@@ -531,7 +418,7 @@ abstract class DataFlowAnalysis<N, L extends LatticeElement> {
       final Scope jsScope,
       final Set<Var> escaped,
       AbstractCompiler compiler,
-      SyntacticScopeCreator scopeCreator,
+      ScopeCreator scopeCreator,
       Map<String, Var> allVarsInFn) {
 
     checkArgument(jsScope.isFunctionScope());
@@ -571,6 +458,36 @@ abstract class DataFlowAnalysis<N, L extends LatticeElement> {
           || compiler.getCodingConvention().isExported(var.getName())) {
         escaped.add(var);
       }
+    }
+  }
+
+  private static final class UniqueQueue<T> {
+    private final HashSet<T> seenSet = new HashSet<>();
+    private final Queue<T> queue;
+
+    UniqueQueue(@Nullable Comparator<T> priority) {
+      this.queue = (priority == null) ? new ArrayDeque<>() : new PriorityQueue<>(priority);
+    }
+
+    boolean isEmpty() {
+      return this.queue.isEmpty();
+    }
+
+    T removeFirst() {
+      T t = this.queue.poll();
+      this.seenSet.remove(t);
+      return t;
+    }
+
+    void add(T t) {
+      if (this.seenSet.add(t)) {
+        this.queue.add(t);
+      }
+    }
+
+    void clear() {
+      this.seenSet.clear();
+      this.queue.clear();
     }
   }
 }

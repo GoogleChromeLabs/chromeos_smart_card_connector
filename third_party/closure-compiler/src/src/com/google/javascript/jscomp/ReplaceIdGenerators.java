@@ -95,8 +95,8 @@ class ReplaceIdGenerators implements CompilerPass {
     idGeneratorMaps = new LinkedHashMap<>();
     consistNameMap = new LinkedHashMap<>();
 
-    Map<String, BiMap<String, String>> previousMap;
-    previousMap = IdMappingUtil.parseSerializedIdMappings(previousMapSerialized);
+    Map<String, BiMap<String, String>> previousMap =
+        IdMappingUtil.parseSerializedIdMappings(previousMapSerialized);
     this.previousMap = previousMap;
 
     if (idGens != null) {
@@ -317,7 +317,8 @@ class ReplaceIdGenerators implements CompilerPass {
         return;
       }
 
-      String callName = n.getFirstChild().getQualifiedName();
+      Node qname = NodeUtil.getCallTargetResolvingIndirectCalls(n);
+      String callName = qname.getQualifiedName();
       NameSupplier nameGenerator = nameGenerators.get(callName);
       if (nameGenerator == null) {
         return;

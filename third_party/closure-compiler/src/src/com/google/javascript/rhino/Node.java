@@ -49,19 +49,23 @@ import com.google.common.annotations.GwtIncompatible;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.DoNotCall;
 import com.google.javascript.jscomp.colors.Color;
+import com.google.javascript.jscomp.serialization.NodeProperty;
 import com.google.javascript.rhino.StaticSourceFile.SourceKind;
 import com.google.javascript.rhino.jstype.JSType;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.function.Function;
-import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 
 /**
@@ -70,7 +74,7 @@ import javax.annotation.Nullable;
  */
 public class Node {
 
-  private enum Prop {
+  enum Prop {
     // Is this Node within parentheses
     IS_PARENTHESIZED,
     // Contains non-JSDoc comment
@@ -198,7 +202,17 @@ public class Node {
     // Indicates a trailing comma in an array literal, object literal, parameter list, or argument
     // list
     TRAILING_COMMA,
+    // Indicates that a variable declaration was synthesized to provide a declaration of some
+    // name referenced in code but never defined, as most compiler passes expect that to be an
+    // invariant.
+    // Only present in the "synthetic externs file". Builds initialized using a
+    // "TypedAST filesystem" will delete any such declarations present in a different compilation
+    // shard
+    SYNTHESIZED_UNFULFILLED_NAME_DECLARATION,
   }
+
+  // Avoid cloning "values" repeatedly in hot code, we save it off now.
+  private static final Prop[] PROP_VALUES = Prop.values();
 
   /**
    * Get the NonJSDoc comment string attached to this node.
@@ -353,34 +367,22 @@ public class Node {
 
   private static final class TemplateLiteralSubstringNode extends Node {
 
-    private static final long serialVersionUID = 1L;
-    // The "cooked" version of the template literal substring. May be null.
-    @Nullable private String cooked;
-    // The raw version of the template literal substring, is not null
-    private String raw;
+    /**
+     * The cooked version of the template literal substring.
+     *
+     * <p>Null iff the raw string contains an uncookable escape sequence.
+     * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals#es2018_revision_of_illegal_escape_sequences
+     */
+    @Nullable private final String cooked;
 
-    // Only for cloneNode
-    private TemplateLiteralSubstringNode() {
-      super(Token.TEMPLATELIT_STRING);
-    }
+    /** The raw version of the template literal substring, is not null */
+    private final String raw;
 
     TemplateLiteralSubstringNode(@Nullable String cooked, String raw) {
       super(Token.TEMPLATELIT_STRING);
-      setCooked(cooked);
-      setRaw(raw);
-    }
-
-    /**
-     * sets the raw string content.
-     *
-     * @param str the new value. Non null.
-     */
-    private void setRaw(String str) {
-      this.raw = RhinoStringPool.addOrGet(str); // RhinoStringPool is null-hostile.
-    }
-
-    private void setCooked(String s) {
-      this.cooked = (s == null) ? null : RhinoStringPool.addOrGet(s);
+      // RhinoStringPool is null-hostile.
+      this.cooked = (cooked == null) ? null : RhinoStringPool.addOrGet(cooked);
+      this.raw = RhinoStringPool.addOrGet(raw);
     }
 
     @Override
@@ -397,10 +399,8 @@ public class Node {
 
     @Override
     TemplateLiteralSubstringNode cloneNode(boolean cloneTypeExprs) {
-      TemplateLiteralSubstringNode clone = new TemplateLiteralSubstringNode();
+      TemplateLiteralSubstringNode clone = new TemplateLiteralSubstringNode(this.cooked, this.raw);
       copyBaseNodeFields(this, clone, cloneTypeExprs);
-      clone.raw = raw;
-      clone.cooked = cooked;
       return clone;
     }
   }
@@ -940,13 +940,114 @@ public class Node {
     return this;
   }
 
+
+
+  /**
+   * Checks for invalid or missing properties and feeds error messages for any violations to the
+   * given `Consumer`.
+   *
+   * <p>We use a `Consumer` to avoid the cost of building a usually-empty list every time this
+   * method is called.
+   */
+  public void validateProperties(Consumer<String> violationMessageConsumer) {
+    if (propListHead == null) {
+      // TODO(bradfordcsmith): Fix the bugs that prevent enabling this validation.
+      //
+      // In particular:
+      //
+      // 1. CoverageInstrumentationPass and BranchCoverageInstrumentationCallback
+      // create a bunch of nodes without valid source reference info, and it isn't obvious what
+      // source reference info they should be using.
+      //
+      // 2. b/186056977 covers an issue blocking correcting a violation in `VarCheck`
+      //
+      // 3. Fixing a violation in DeclaredGlobalExternsOnWindow makes an unexpected change to
+      //    the pre-computed TypedAst for the runtime libraries.
+      //
+      // if (token != Token.ROOT) {
+      //   violationMessageConsumer.accept("non-ROOT has no properties");
+      // }
+      return;
+    }
+
+    if (token == Token.ROOT) {
+      // ROOT tokens should never have properties
+      violationMessageConsumer.accept("ROOT has properties");
+    }
+
+    for (PropListItem propListItem = propListHead;
+        propListItem != null;
+        propListItem = propListItem.next) {
+      final Prop prop = PROP_VALUES[propListItem.propType];
+      // Catch it if the definition of Prop ever changes so that the ordinals don't line up.
+      checkState(prop.ordinal() == propListItem.propType, "ordinal doesn't match: %s", prop);
+
+      // TODO(bradfordcsmith): This is not yet an exhaustive list of validations.
+      // Other validations should be added as it is found useful to have them.
+      // Some property validation is done independently in `AstValidator` and could possibly be
+      // moved here.
+      //
+      // This method was added in response to a bug that created an invalid IS_PARENTHESIZED
+      // property that was discovered by a check in `deserializeProperties()`, so initially
+      // this method was created to cover the checks previously done there.
+      switch (prop) {
+        case IS_PARENTHESIZED:
+          if (!IR.mayBeExpression(this)) {
+            violationMessageConsumer.accept("non-expression is parenthesized");
+          }
+          break;
+        case ARROW_FN:
+          if (!isFunction()) {
+            violationMessageConsumer.accept("invalid ARROW_FN prop");
+          }
+          break;
+        case ASYNC_FN:
+          if (!isFunction()) {
+            violationMessageConsumer.accept("invalid ASYNC_FN prop");
+          }
+          break;
+        case SYNTHETIC:
+          if (!isBlock()) {
+            violationMessageConsumer.accept("invalid SYNTHETIC prop");
+          }
+          break;
+        case COLOR_FROM_CAST:
+          if (getColor() == null) {
+            violationMessageConsumer.accept("COLOR_FROM_CAST with no Color");
+          }
+          break;
+        case START_OF_OPT_CHAIN:
+          if (!(isOptChainCall() || isOptChainGetElem() || isOptChainGetProp())) {
+            violationMessageConsumer.accept("START_OF_OPT_CHAIN on non-optional Node");
+          }
+          break;
+        case CONSTANT_VAR_FLAGS:
+          if (!(isName() || isImportStar())) {
+            violationMessageConsumer.accept("invalid CONST_VAR_FLAGS");
+          }
+          break;
+        case SYNTHESIZED_UNFULFILLED_NAME_DECLARATION:
+          // note: we could relax this restriction if VarCheck needed to generate other forms of
+          // synthetic externs
+          if (!isVar() || !hasOneChild() || !getFirstChild().isName()) {
+            violationMessageConsumer.accept(
+                "Expected all synthetic unfulfilled declarations to be `var <name>`");
+          }
+          break;
+        default:
+          // No validation is currently done for other properties
+          break;
+      }
+    }
+  }
+
   /**
    * @param item The item to inspect
-   * @param propType The property to look for
+   * @param prop The property to look for
    * @return The replacement list if the property was removed, or 'item' otherwise.
    */
   @Nullable
-  private static final PropListItem rebuildListWithoutProp(@Nullable PropListItem item, Prop prop) {
+  private static PropListItem rebuildListWithoutProp(@Nullable PropListItem item, Prop prop) {
     if (item == null) {
       return null;
     } else if (item.propType == prop.ordinal()) {
@@ -971,7 +1072,7 @@ public class Node {
   }
 
   /** Returns the integer value for the property, or 0 if the property is not defined. */
-  private final int getIntProp(Prop propType) {
+  private int getIntProp(Prop propType) {
     PropListItem item = lookupProperty(propType);
     if (item == null) {
       return 0;
@@ -995,6 +1096,75 @@ public class Node {
     if (value != 0) {
       this.propListHead = new IntPropListItem((byte) prop.ordinal(), value, this.propListHead);
     }
+  }
+
+  public final EnumSet<NodeProperty> serializeProperties() {
+    EnumSet<NodeProperty> propSet = EnumSet.noneOf(NodeProperty.class);
+    for (PropListItem propListItem = this.propListHead;
+        propListItem != null;
+        propListItem = propListItem.next) {
+      Prop prop = PROP_VALUES[propListItem.propType];
+
+      switch (prop) {
+        case TYPE_BEFORE_CAST:
+          propSet.add(NodeProperty.COLOR_FROM_CAST);
+          break;
+        case CONSTANT_VAR_FLAGS:
+          int intVal = propListItem.getIntValue();
+          if (anyBitSet(intVal, ConstantVarFlags.INFERRED)) {
+            propSet.add(NodeProperty.IS_INFERRED_CONSTANT);
+          }
+          if (anyBitSet(intVal, ConstantVarFlags.DECLARED)) {
+            propSet.add(NodeProperty.IS_DECLARED_CONSTANT);
+          }
+          break;
+        default:
+          if (propListItem instanceof Node.IntPropListItem) {
+            NodeProperty nodeProperty = PropTranslator.serialize(prop);
+            if (nodeProperty != null) {
+              propSet.add(nodeProperty);
+            }
+          }
+          break;
+      }
+    }
+    return propSet;
+  }
+
+  public final void deserializeProperties(List<NodeProperty> serializedNodeBooleanPropertyList) {
+    if (this.isRoot()) {
+      checkState(this.propListHead == null, this.propListHead);
+    } else {
+      checkState(this.propListHead.propType == Prop.SOURCE_FILE.ordinal(), this.propListHead);
+    }
+
+    EnumSet<NodeProperty> propSet = EnumSet.noneOf(NodeProperty.class);
+    for (int i = 0; i < serializedNodeBooleanPropertyList.size(); i++) {
+      NodeProperty nodeProperty = serializedNodeBooleanPropertyList.get(i);
+      checkState(propSet.add(nodeProperty), "Found multiple node property: %s", nodeProperty);
+    }
+
+    if (propSet.contains(NodeProperty.IS_DECLARED_CONSTANT)
+        || propSet.contains(NodeProperty.IS_INFERRED_CONSTANT)) {
+      int newConstantVarFlags =
+          (propSet.remove(NodeProperty.IS_DECLARED_CONSTANT) ? ConstantVarFlags.DECLARED : 0)
+              | (propSet.remove(NodeProperty.IS_INFERRED_CONSTANT) ? ConstantVarFlags.INFERRED : 0);
+      this.propListHead =
+          new IntPropListItem(
+              (byte) Prop.CONSTANT_VAR_FLAGS.ordinal(), newConstantVarFlags, this.propListHead);
+    }
+
+    for (NodeProperty nodeProperty : propSet) {
+      Prop prop = PropTranslator.deserialize(nodeProperty);
+      this.propListHead = new IntPropListItem((byte) prop.ordinal(), 1, this.propListHead);
+    }
+
+    // Make sure the deserialized properties are valid.
+    validateProperties(
+        // NOTE: errorMessage will never be null, but just passing `false` to `checkState()`
+        // triggers warning messages from some code analysis tools.
+        errorMessage ->
+            checkState(errorMessage != null, "deserialize error: %s: %s", errorMessage, this));
   }
 
   /** Sets the syntactical type specified on this node. */
@@ -1145,12 +1315,17 @@ public class Node {
     if (printAnnotations) {
       byte[] keys = getSortedPropTypes();
       for (int i = 0; i < keys.length; i++) {
-        Prop type = Prop.values()[keys[i]];
+        Prop type = PROP_VALUES[keys[i]];
         PropListItem x = lookupProperty(type);
         sb.append(" [");
         sb.append(Ascii.toLowerCase(String.valueOf(type)));
         sb.append(": ");
         sb.append(x);
+        sb.append(']');
+      }
+      if (this.originalName != null) {
+        sb.append(" [original_name: ");
+        sb.append(this.originalName);
         sb.append(']');
       }
     }
@@ -1278,8 +1453,19 @@ public class Node {
     return ((InputId) this.getProp(Prop.INPUT_ID));
   }
 
-  /** The original name of this node, if the node has been renamed. */
+  /**
+   * The original name of this node, if the node has been renamed.
+   *
+   * <p>Do not use original name to make optimization decisions. The original intent was to preserve
+   * some naming for lightly optimized code to put into source maps. It is not rigorously defined
+   * and is not a suitable replacement for a canonical identifier. "Original name" is not associated
+   * with any scope and easily transfers to unrelated values. Its existance and use beyond its
+   * original purpose has delayed creating useful more precise alternatives.
+   *
+   * @deprecated "original name" is poorly defined.
+   */
   @Nullable
+  @Deprecated
   public final String getOriginalName() {
     return this.originalName;
   }
@@ -1400,6 +1586,10 @@ public class Node {
    *
    * <pre>Node n = ...;
    * for (Node child : n.children()) { ...</pre>
+   *
+   * NOTE: Do not use 'children' for recursive descent of the AST. The overhead of using iterators
+   * rather then getFirstChild()/getNext() is very significant. We have deprecated it as it is easy
+   * to misuse.
    */
   @Deprecated
   public final Iterable<Node> children() {
@@ -1410,7 +1600,7 @@ public class Node {
     }
   }
 
-  /** @see Node#siblings() */
+  /** @see Node#children() */
   private static final class SiblingNodeIterable implements Iterable<Node> {
     private final Node start;
 
@@ -1424,7 +1614,7 @@ public class Node {
     }
   }
 
-  /** @see Node#siblings() */
+  /** @see Node#children() */
   private static final class SiblingNodeIterator implements Iterator<Node> {
     @Nullable private Node current;
 
@@ -1825,8 +2015,10 @@ public class Node {
    *
    * @return a null if this is not a qualified name, or a dot-separated string of the name and
    *     properties.
+   * @deprecated "original name" is poorly defined. See #getOriginalName
    */
   @Nullable
+  @Deprecated
   public final String getOriginalQualifiedName() {
     if (token == Token.NAME) {
       String name = getOriginalName();
@@ -2236,6 +2428,20 @@ public class Node {
    */
   public final boolean isSyntheticBlock() {
     return getBooleanProp(Prop.SYNTHETIC);
+  }
+
+  public final void setIsSynthesizedUnfulfilledNameDeclaration(boolean val) {
+    checkState(
+        token == Token.VAR && hasOneChild() && getFirstChild().isName(),
+        // we could relax this restriction if VarCheck wanted to generate other forms of synthetic
+        // externs
+        "Expected all synthetic unfulfilled declarations to be `var <name>`, found %s",
+        this);
+    putBooleanProp(Prop.SYNTHESIZED_UNFULFILLED_NAME_DECLARATION, val);
+  }
+
+  public final boolean isSynthesizedUnfulfilledNameDeclaration() {
+    return getBooleanProp(Prop.SYNTHESIZED_UNFULFILLED_NAME_DECLARATION);
   }
 
   /** Sets whether this node contained the "use strict" directive. */
@@ -2691,6 +2897,10 @@ public class Node {
     return this.token == Token.AND;
   }
 
+  public final boolean isAssignAnd() {
+    return this.token == Token.ASSIGN_AND;
+  }
+
   public final boolean isArrayLit() {
     return this.token == Token.ARRAYLIT;
   }
@@ -2947,6 +3157,14 @@ public class Node {
     return this.token == Token.MEMBER_VARIABLE_DEF;
   }
 
+  public final boolean isMemberFieldDef() {
+    return this.token == Token.MEMBER_FIELD_DEF;
+  }
+
+  public final boolean isComputedFieldDef() {
+    return this.token == Token.COMPUTED_FIELD_DEF;
+  }
+
   public final boolean isModuleBody() {
     return this.token == Token.MODULE_BODY;
   }
@@ -2957,6 +3175,18 @@ public class Node {
 
   public final boolean isNE() {
     return this.token == Token.NE;
+  }
+
+  public final boolean isSHNE() {
+    return this.token == Token.SHNE;
+  }
+
+  public final boolean isEQ() {
+    return this.token == Token.EQ;
+  }
+
+  public final boolean isSHEQ() {
+    return this.token == Token.SHEQ;
   }
 
   public final boolean isNeg() {
@@ -2977,6 +3207,10 @@ public class Node {
 
   public final boolean isNullishCoalesce() {
     return this.token == Token.COALESCE;
+  }
+
+  public final boolean isAssignNullishCoalesce() {
+    return this.token == Token.ASSIGN_COALESCE;
   }
 
   public final boolean isNumber() {
@@ -3005,6 +3239,10 @@ public class Node {
 
   public final boolean isOr() {
     return this.token == Token.OR;
+  }
+
+  public final boolean isAssignOr() {
+    return this.token == Token.ASSIGN_OR;
   }
 
   public final boolean isParamList() {

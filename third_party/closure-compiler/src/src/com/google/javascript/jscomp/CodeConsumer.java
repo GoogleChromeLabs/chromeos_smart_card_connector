@@ -192,6 +192,8 @@ public abstract class CodeConsumer {
     maybeLineBreak();
   }
 
+  void optionalListSeparator() {}
+
   /**
    * Indicates the end of a statement and a ';' may need to be added.
    * But we don't add it now, in case we're at the end of a block (in which
@@ -369,14 +371,14 @@ public abstract class CodeConsumer {
   }
 
   /**
-   * If the body of a for loop or the then clause of an if statement has
-   * a single statement, should it be wrapped in a block?  Doing so can
-   * help when pretty-printing the code, and permits putting a debugging
-   * breakpoint on the statement inside the condition.
+   * If the body of a for loop or the then clause of an if statement has a single statement, should
+   * it be wrapped in a block? Doing so can help when pretty-printing the code, and permits putting
+   * a debugging breakpoint on the statement inside the condition.
    *
+   * @param n node to process
    * @return {@boolean true} if such expressions should be wrapped
    */
-  boolean shouldPreserveExtraBlocks() {
+  boolean shouldPreserveExtras(Node n) {
     return false;
   }
 

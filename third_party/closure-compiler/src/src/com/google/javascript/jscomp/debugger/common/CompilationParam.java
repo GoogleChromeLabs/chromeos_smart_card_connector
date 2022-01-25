@@ -20,6 +20,7 @@ import static java.util.Comparator.comparing;
 
 import com.google.javascript.jscomp.CheckLevel;
 import com.google.javascript.jscomp.CompilerOptions;
+import com.google.javascript.jscomp.CompilerOptions.AliasStringsMode;
 import com.google.javascript.jscomp.CompilerOptions.PropertyCollapseLevel;
 import com.google.javascript.jscomp.CompilerOptions.Reach;
 import com.google.javascript.jscomp.DiagnosticGroup;
@@ -125,24 +126,32 @@ public enum CompilationParam {
     }
   },
 
-  /** Skip the RemoveTypes pass. May cause unexpected changes in optimization output */
-  PRESERVE_TYPES_FOR_DEBUGGING(ParamGroup.ERROR_CHECKING) {
-    @Override
-    public void apply(CompilerOptions options, boolean value) {
-      options.setShouldUnsafelyPreserveTypesForDebugging(value);
-    }
-
-    @Override
-    public String getJavaInfo() {
-      return diagGroupWarningInfo("options.setShouldUnsafelyPreserveTypesForDebugging(true);");
-    }
-  },
-
   /** Run the module rewriting pass before the typechecking pass. */
   REWRITE_MODULES_BEFORE_TYPECHECKING(true, ParamGroup.ERROR_CHECKING) {
     @Override
     public void apply(CompilerOptions options, boolean value) {
       options.setBadRewriteModulesBeforeTypecheckingThatWeWantToGetRidOf(value);
+    }
+
+    @Override
+    public String getJavaInfo() {
+      return "options.setBadRewriteModulesBeforeTypecheckingThatWeWantToGetRidOf";
+    }
+  },
+
+  /**
+   * Disable the goog.module, ES module, and goog.provide passes. You'll get undefined behavior
+   * unless using with CHECKS_ONLY
+   */
+  DISABLE_MODULE_REWRITING(false, ParamGroup.ERROR_CHECKING) {
+    @Override
+    public void apply(CompilerOptions options, boolean value) {
+      options.setEnableModuleRewriting(!value);
+    }
+
+    @Override
+    public String getJavaInfo() {
+      return "options.setEnableModuleRewriting(!value); only supported with CHECKS_ONLY";
     }
   },
 
@@ -354,18 +363,18 @@ public enum CompilationParam {
   },
 
   /**
-   * Aliases all string literals to global instances, to avoid creating more objects than necessary
-   * (if true, overrides any set of strings passed in to aliasableStrings)
+   * Aliases all string literals to global instances, to reduce code size (if true, overrides any
+   * set of strings passed in to aliasableStrings)
    */
   ALIAS_ALL_STRINGS(ParamGroup.OPTIMIZATION) {
     @Override
     public void apply(CompilerOptions options, boolean value) {
-      options.setAliasAllStrings(value);
+      options.setAliasStringsMode(value ? AliasStringsMode.ALL : AliasStringsMode.NONE);
     }
 
     @Override
     public boolean isApplied(CompilerOptions options) {
-      return options.aliasAllStrings;
+      return options.getAliasStringsMode() == AliasStringsMode.ALL;
     }
   },
 

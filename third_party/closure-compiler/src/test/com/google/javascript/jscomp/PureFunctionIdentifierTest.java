@@ -1807,7 +1807,7 @@ public final class PureFunctionIdentifierTest extends CompilerTestCase {
   }
 
   @Test
-  public void testSideEffectsArePropagated_toPredecingCaller_fromFollowingCallee() {
+  public void testSideEffectsArePropagated_toPrecedingCaller_fromFollowingCallee() {
     assertPureCallsMarked(
         lines(
             "var following = function() { };", // This implementation is pure...
@@ -2966,8 +2966,21 @@ public final class PureFunctionIdentifierTest extends CompilerTestCase {
 
   @Test
   public void testDynamicImport() {
+    ignoreWarnings(DiagnosticGroups.MODULE_LOAD);
     assertNoPureCalls("import('./module.js')");
     assertNoPureCalls("function doImport() { import('./module.js'); } doImport();");
+  }
+
+  @Test
+  public void testParenthesizedExpression() {
+    assertPureCallsMarked(
+        lines(
+            "const namespace = {};",
+            "namespace.noSideEffects = function(x) { return 1; };",
+            // NOTE: `IRFactory` will unwrap `(0, callee)(42)`, so we need to use a non-number
+            // to preserve the parentheses for the test.
+            "('', namespace.noSideEffects)(42);"),
+        ImmutableList.of("('', namespace.noSideEffects)"));
   }
 
   void assertCallableExpressionPure(boolean purity, String expression) {

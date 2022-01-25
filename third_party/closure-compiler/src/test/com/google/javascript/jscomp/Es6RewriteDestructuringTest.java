@@ -16,17 +16,15 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.javascript.rhino.jstype.JSTypeNative.OBJECT_TYPE;
-import static com.google.javascript.rhino.testing.TypeSubject.assertType;
+import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.Es6RewriteDestructuring.ObjectDestructuringRewriteMode;
-import com.google.javascript.jscomp.testing.NoninjectingCompiler;
+import com.google.javascript.jscomp.colors.Color;
+import com.google.javascript.jscomp.colors.StandardColors;
+import com.google.javascript.jscomp.testing.TestExternsBuilder;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.jstype.JSType;
-import com.google.javascript.rhino.jstype.JSTypeNative;
-import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import java.util.stream.Collectors;
 import org.junit.After;
 import org.junit.Before;
@@ -39,7 +37,13 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
 
   private ObjectDestructuringRewriteMode destructuringRewriteMode =
       ObjectDestructuringRewriteMode.REWRITE_ALL_OBJECT_PATTERNS;
-  private boolean useNoninjectingCompiler = true;
+
+  private static final String EXTERNS_BASE =
+      new TestExternsBuilder().addObject().addArguments().addString().addJSCompLibraries().build();
+
+  public Es6RewriteDestructuringTest() {
+    super(EXTERNS_BASE);
+  }
 
   @Override
   @Before
@@ -48,6 +52,8 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
     setAcceptedLanguage(LanguageMode.ECMASCRIPT_2018);
     enableTypeCheck();
     enableTypeInfoValidation();
+    replaceTypesWithColors();
+    enableMultistageCompilation();
 
     // there are a lot of 'property x never defined on ?' warnings caused by object destructuring
     ignoreWarnings(TypeCheck.POSSIBLE_INEXISTENT_PROPERTY);
@@ -82,7 +88,6 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
             "var $jscomp$destructuring$var0 = foo();",
             "var b = $jscomp$destructuring$var0.a;",
             "var d = $jscomp$destructuring$var0.c;"));
-    assertThat(((NoninjectingCompiler) getLastCompiler()).getInjected()).isEmpty();
 
     test(
         "var {a,b} = foo();",
@@ -119,7 +124,7 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
         "var {a : b = 'default'} = foo();",
         lines(
             "var $jscomp$destructuring$var0 = foo();",
-            "var b = ($jscomp$destructuring$var0.a === undefined) ?",
+            "var b = ($jscomp$destructuring$var0.a === void 0) ?",
             "    'default' :",
             "    $jscomp$destructuring$var0.a"));
 
@@ -127,9 +132,82 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
         "var {a = 'default'} = foo();",
         lines(
             "var $jscomp$destructuring$var0 = foo();",
-            "var a = ($jscomp$destructuring$var0.a === undefined) ?",
+            "var a = ($jscomp$destructuring$var0.a === void 0) ?",
             "    'default' :",
             "    $jscomp$destructuring$var0.a"));
+  }
+
+  @Test
+  public void testObjectDestructuring_inVanillaForInitialize_var() {
+    test(
+        lines(
+            "A: B: for (",
+            "    var z = 1, {x: {a: b = 'default'}} = foo(), x = 0, {c} = bar();",
+            "    true;",
+            "    c++) {",
+            "}"),
+        lines(
+            "var z = 1;",
+            "var $jscomp$destructuring$var0 = foo();",
+            "var $jscomp$destructuring$var1 = $jscomp$destructuring$var0.x;",
+            "var b = $jscomp$destructuring$var1.a === void 0 ?",
+            "    'default' : $jscomp$destructuring$var1.a;",
+            "",
+            "var x = 0;",
+            "var $jscomp$destructuring$var2 = bar();",
+            "var c = $jscomp$destructuring$var2.c;",
+            "A: B: for (; true; c++) {}"));
+  }
+
+  @Test
+  public void testObjectDestructuring_inVanillaForInitialize_const() {
+    test(
+        lines(
+            "A: B: for (",
+            "    const z = 1, {x: {a: b = 'default'}} = foo(), x = 0, {c} = bar();",
+            "    true;",
+            "    c++) {",
+            "}"),
+        lines(
+            "{",
+            "  const z = 1;",
+            "  /** @const */ var $jscomp$destructuring$var0 = foo();",
+            "  /** @const */ var $jscomp$destructuring$var1 = $jscomp$destructuring$var0.x;",
+            "  const b = $jscomp$destructuring$var1.a === void 0 ?",
+            "      'default' : $jscomp$destructuring$var1.a;",
+            "  {",
+            "    const x = 0;",
+            "    /** @const */ var $jscomp$destructuring$var2 = bar();",
+            "    const c = $jscomp$destructuring$var2.c;",
+            "    A: B: for (; true; c++) {}",
+            "  }",
+            "}"));
+  }
+
+  @Test
+  public void testObjectDestructuring_inVanillaForInitialize_let() {
+    test(
+        lines(
+            "A: B: for (",
+            "    let z = 1, {x: {a: b = 'default'}} = foo(), x = 0, {c} = bar();",
+            "    true;",
+            "    c++) {",
+            "}"),
+        lines(
+            "A: B: for (let z = 1, b, $jscomp$destructuring$var0$unused = (() => {",
+            "     let $jscomp$destructuring$var1 = foo();",
+            "     var $jscomp$destructuring$var2 = $jscomp$destructuring$var1;",
+            "     var $jscomp$destructuring$var3 = $jscomp$destructuring$var2.x;",
+            "     b = $jscomp$destructuring$var3.a === void 0 ? ",
+            "         'default' : $jscomp$destructuring$var3.a;",
+            "     return $jscomp$destructuring$var1;",
+            "   })(), x = 0, c, $jscomp$destructuring$var4$unused = (() => {",
+            "     let $jscomp$destructuring$var5 = bar();",
+            "     var $jscomp$destructuring$var6 = $jscomp$destructuring$var5;",
+            "     c = $jscomp$destructuring$var6.c;",
+            "     return $jscomp$destructuring$var5;",
+            "   })(); true; c++) {",
+            "}"));
   }
 
   @Test
@@ -157,7 +235,7 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
         lines(
             "var $jscomp$destructuring$var0 = {};",
             "var $jscomp$destructuring$var1 = $jscomp$destructuring$var0[foo()];",
-            "var x = $jscomp$destructuring$var1 === undefined ?",
+            "var x = $jscomp$destructuring$var1 === void 0 ?",
             "    5 : $jscomp$destructuring$var1"));
 
     test(
@@ -172,7 +250,7 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
   // https://github.com/google/closure-compiler/issues/2189
   @Test
   public void testGithubIssue2189() {
-    setExpectParseWarningsThisTest();
+    setExpectParseWarningsInThisTest();
     test(
         lines(
             "/**",
@@ -181,10 +259,6 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
             " */",
             "function x(a, { b }) {}"),
         lines(
-            "/**",
-            " * @param {string} a",
-            " * @param {{b: ?<?>}} __1",
-            " */",
             "function x(a, $jscomp$destructuring$var0) {",
             "  var $jscomp$destructuring$var1 = $jscomp$destructuring$var0;",
             "  var b=$jscomp$destructuring$var1.b;",
@@ -254,7 +328,7 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
         lines(
             "function f($jscomp$destructuring$var0) {",
             "  var $jscomp$destructuring$var1 = $jscomp$destructuring$var0",
-            "  var x = $jscomp$destructuring$var1.key === undefined ?",
+            "  var x = $jscomp$destructuring$var1.key === void 0 ?",
             "      5 : $jscomp$destructuring$var1.key",
             "}"));
 
@@ -264,7 +338,7 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
             "function f($jscomp$destructuring$var0) {",
             "  var $jscomp$destructuring$var1 = $jscomp$destructuring$var0",
             "  var $jscomp$destructuring$var2 = $jscomp$destructuring$var1[key]",
-            "  var x = $jscomp$destructuring$var2 === undefined ?",
+            "  var x = $jscomp$destructuring$var2 === void 0 ?",
             "      5 : $jscomp$destructuring$var2",
             "}"));
 
@@ -273,7 +347,7 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
         lines(
             "function f($jscomp$destructuring$var0) {",
             "  var $jscomp$destructuring$var1 = $jscomp$destructuring$var0",
-            "  var x = $jscomp$destructuring$var1.x === undefined ?",
+            "  var x = $jscomp$destructuring$var1.x === void 0 ?",
             "      5 : $jscomp$destructuring$var1.x",
             "}"));
   }
@@ -281,7 +355,7 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
   @Test
   public void testObjectDestructuringFunctionBadJsdoc() {
     // see https://github.com/google/closure-compiler/issues/3175
-    setExpectParseWarningsThisTest(); // intentionally pass bad JSDoc
+    setExpectParseWarningsInThisTest(); // intentionally pass bad JSDoc
     ignoreWarnings(TypeCheck.INEXISTENT_PROPERTY);
     test(
         lines(
@@ -291,10 +365,6 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
             " */",
             "function f({foo}, id) {}"),
         lines(
-            "/**",
-            " * @param {{foo: string[]}} obj",
-            " * @param {string} id",
-            " */",
             "function f($jscomp$destructuring$var0, id) {",
             "  var $jscomp$destructuring$var1 = $jscomp$destructuring$var0;",
             "  var foo = $jscomp$destructuring$var1.foo;",
@@ -306,7 +376,7 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
     test(
         "function f(/** {x: number, y: number} */ {x, y}) {}",
         lines(
-            "function f(/** {x: number, y: number} */ $jscomp$destructuring$var0) {",
+            "function f($jscomp$destructuring$var0) {",
             "  var $jscomp$destructuring$var1 = $jscomp$destructuring$var0;",
             "  var x = $jscomp$destructuring$var1.x;",
             "  var y = $jscomp$destructuring$var1.y;",
@@ -319,7 +389,7 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
         "function f({a,b} = foo()) {}",
         lines(
             "function f($jscomp$destructuring$var0){",
-            "  var $jscomp$destructuring$var1 = $jscomp$destructuring$var0===undefined ?",
+            "  var $jscomp$destructuring$var1 = $jscomp$destructuring$var0=== void 0 ?",
             "    foo() : $jscomp$destructuring$var0;",
             "  var a = $jscomp$destructuring$var1.a;",
             "  var b = $jscomp$destructuring$var1.b;",
@@ -362,7 +432,7 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
             "var a;",
             "var $jscomp$destructuring$var0 = $jscomp.makeIterator(b())",
             "var $jscomp$destructuring$var1 = $jscomp$destructuring$var0.next().value",
-            "a = ($jscomp$destructuring$var1 === undefined) ?",
+            "a = ($jscomp$destructuring$var1 === void 0) ?",
             "    1 :",
             "    $jscomp$destructuring$var1;"));
 
@@ -371,7 +441,7 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
         lines(
             "var $jscomp$destructuring$var0 = $jscomp.makeIterator(b())",
             "var $jscomp$destructuring$var1 = $jscomp$destructuring$var0.next().value",
-            "var a = ($jscomp$destructuring$var1 === undefined) ?",
+            "var a = ($jscomp$destructuring$var1 === void 0) ?",
             "    1 :",
             "    $jscomp$destructuring$var1;"));
 
@@ -381,13 +451,12 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
             "var $jscomp$destructuring$var0=$jscomp.makeIterator(d());",
             "var a = $jscomp$destructuring$var0.next().value;",
             "var $jscomp$destructuring$var1 = $jscomp$destructuring$var0.next().value;",
-            "var b = ($jscomp$destructuring$var1 === undefined) ?",
+            "var b = ($jscomp$destructuring$var1 === void 0) ?",
             "    1 :",
             "    $jscomp$destructuring$var1;",
             "var c=$jscomp$destructuring$var0.next().value"));
 
     test(
-        externs(MINIMAL_EXTERNS),
         srcs("var a; [[a] = ['b']] = [];"),
         expected(
             lines(
@@ -395,7 +464,7 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
                 "var $jscomp$destructuring$var0 = $jscomp.makeIterator([]);",
                 "var $jscomp$destructuring$var1 = $jscomp$destructuring$var0.next().value;",
                 "var $jscomp$destructuring$var2 = $jscomp.makeIterator(",
-                "    $jscomp$destructuring$var1 === undefined",
+                "    $jscomp$destructuring$var1 === void 0",
                 "        ? ['b']",
                 "        : $jscomp$destructuring$var1);",
                 "a = $jscomp$destructuring$var2.next().value")));
@@ -425,6 +494,66 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
             "  use(x);",
             "  use(y);",
             "}"));
+  }
+
+  @Test
+  public void testArrayDestructuring_inVanillaForInitializer_var() {
+    test(
+        "A: B: for (var z = 1, [a = 'default'] = foo(), x = 0, [c] = bar(); true; c++) { }",
+        lines(
+            "var z = 1;",
+            "var $jscomp$destructuring$var0 = $jscomp.makeIterator(foo());",
+            "var $jscomp$destructuring$var1 = $jscomp$destructuring$var0.next().value;",
+            "var a = $jscomp$destructuring$var1 === void 0 ?",
+            "    'default' : $jscomp$destructuring$var1;",
+            "",
+            "var x = 0;",
+            "var $jscomp$destructuring$var2 = $jscomp.makeIterator(bar());",
+            "var c = $jscomp$destructuring$var2.next().value;",
+            "",
+            "A: B: for (; true; c++) {}"));
+  }
+
+  @Test
+  public void testArrayDestructuring_inVanillaForInitializer_const() {
+    test(
+        "A: B: for (const z = 1, [a = 'default'] = foo(), x = 0, [c] = bar(); true; c++) { }",
+        lines(
+            "{",
+            "  const z = 1;",
+            "  var $jscomp$destructuring$var0 = $jscomp.makeIterator(foo());",
+            "  var $jscomp$destructuring$var1 = $jscomp$destructuring$var0.next().value;",
+            "  const a = $jscomp$destructuring$var1 === void 0 ?",
+            "      'default' : $jscomp$destructuring$var1;",
+            "  {",
+            "    const x = 0;",
+            "    var $jscomp$destructuring$var2 = $jscomp.makeIterator(bar());",
+            "    const c = $jscomp$destructuring$var2.next().value;",
+            "    A: B: for (; true; c++) {}",
+            "  }",
+            "}"));
+  }
+
+  @Test
+  public void testArrayDestructuring_inVanillaForInitializer_let() {
+
+    test(
+        "A: B: for (let z = 1, [a = 'default'] = foo(), x = 0, [c] = bar(); true; c++) { }",
+        lines(
+            "A: B: for (let z = 1, a, $jscomp$destructuring$var0$unused = (() => {",
+            "   let $jscomp$destructuring$var1 = foo();",
+            "   var $jscomp$destructuring$var2 = $jscomp.makeIterator($jscomp$destructuring$var1);",
+            "   var $jscomp$destructuring$var3 = $jscomp$destructuring$var2.next().value;",
+            "   a = $jscomp$destructuring$var3 === void 0 ?",
+            "       'default' : $jscomp$destructuring$var3;",
+            "   return $jscomp$destructuring$var1;",
+            " })(), x = 0, c, $jscomp$destructuring$var4$unused = (() => {",
+            "   let $jscomp$destructuring$var5 = bar();",
+            "   var $jscomp$destructuring$var6 = $jscomp.makeIterator($jscomp$destructuring$var5);",
+            "   c = $jscomp$destructuring$var6.next().value;",
+            "   return $jscomp$destructuring$var5;",
+            " })();",
+            "true; c++) {}"));
   }
 
   @Test
@@ -464,7 +593,6 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
   @Test
   public void testArrayDestructuringMixedRest() {
     test(
-        externs(MINIMAL_EXTERNS),
         srcs("let [first, ...[re, st, ...{length: num_left}]] = f();"),
         expected(
             lines(
@@ -528,7 +656,6 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
   @Test
   public void testDestructuringForOfWithShadowing() {
     test(
-        externs(MINIMAL_EXTERNS),
         srcs("for (const [value] of []) { const value = 0; }"),
         expected(
             lines(
@@ -545,7 +672,6 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
   @Test
   public void testDestructuringForInWithShadowing() {
     test(
-        externs(MINIMAL_EXTERNS),
         srcs("for (const [value] in {}) { const value = 0; }"),
         expected(
             lines(
@@ -566,9 +692,9 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
         lines(
             "function f($jscomp$destructuring$var0, y) {",
             "var $jscomp$destructuring$var1 = $jscomp$destructuring$var0;",
-            "var x = $jscomp$destructuring$var1.x === undefined",
+            "var x = $jscomp$destructuring$var1.x === void 0",
             "       ? a() : $jscomp$destructuring$var1.x;",
-            "y = y === undefined ? b() : y",
+            "y = y === void 0 ? b() : y",
             "}"));
   }
 
@@ -579,9 +705,9 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
     test(
         "function f(/** ? */ zero, /** ?= */ one = 1, /** ?= */ two = 2) {}; f(1); f(1,2,3);",
         lines(
-            "function f(/** ? */ zero, /** ?= */ one, /** ?= */ two) {",
-            "  one = (one === undefined) ? 1 : one;",
-            "  two = (two === undefined) ? 2 : two;",
+            "function f(zero, one, two) {",
+            "  one = (one === void 0) ? 1 : one;",
+            "  two = (two === void 0) ? 2 : two;",
             "};",
             "f(1); f(1,2,3);"));
 
@@ -589,9 +715,9 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
         srcs("function f(/** ? */ zero, /** ?= */ one = 1, /** ?= */ two = 2) {}; f();"),
         expected(
             lines(
-                "function f(/** ? */ zero, /** ?= */ one, /** ?= */ two) {",
-                "  one = (one === undefined) ? 1 : one;",
-                "  two = (two === undefined) ? 2 : two;",
+                "function f(zero, one, two) {",
+                "  one = (one === void 0) ? 1 : one;",
+                "  two = (two === void 0) ? 2 : two;",
                 "}; f();")),
         warning(TypeCheck.WRONG_ARGUMENT_COUNT));
   }
@@ -600,17 +726,11 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
   public void testDefaultAndRestParameters() {
     test(
         "function f(zero, one = 1, ...two) {}",
-        lines(
-            "function f(zero, one, ...two) {",
-            "  one = (one === undefined) ? 1 : one;",
-            "}"));
+        lines("function f(zero, one, ...two) {", "  one = (one === void 0) ? 1 : one;", "}"));
 
     test(
         "function f(/** number= */ x = 5) {}",
-        lines(
-            "function f(/** number= */ x) {",
-            "  x = (x === undefined) ? 5 : x;",
-            "}"));
+        lines("function f(x) {", "  x = (x === void 0) ? 5 : x;", "}"));
   }
 
   @Test
@@ -627,11 +747,11 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
 
     test(
         "function f(zero, one='undefined') {}",
-        "function f(zero, one) {   one = (one === undefined) ? 'undefined' : one; }");
+        "function f(zero, one) {   one = (one === void 0) ? 'undefined' : one; }");
 
     test(
         "function f(zero, one=void g()) {}",
-        "function f(zero, one) {   one = (one === undefined) ? void g() : one; }");
+        "function f(zero, one) {   one = (one === void 0) ? void g() : one; }");
   }
 
   @Test
@@ -652,7 +772,6 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
     test(
         "/** @param {{x: number}} obj */ function f({x}) {}",
         lines(
-            "/** @param {{x: number}} obj */",
             "function f($jscomp$destructuring$var0) {",
             "  var $jscomp$destructuring$var1 = $jscomp$destructuring$var0;",
             "  var x = $jscomp$destructuring$var1.x;",
@@ -665,7 +784,6 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
     test(
         lines("/** @param {{x: number}} obj */", "var f = function({x}) {}"),
         lines(
-            "/** @param {{x: number}} obj */",
             "var f = function($jscomp$destructuring$var0) {",
             "  var $jscomp$destructuring$var1 = $jscomp$destructuring$var0;",
             "  var x = $jscomp$destructuring$var1.x;",
@@ -674,7 +792,6 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
     test(
         lines("/** @param {{x: number}} obj */", "f = function({x}) {}"),
         lines(
-            "/** @param {{x: number}} obj */",
             "f = function($jscomp$destructuring$var0) {",
             "  var $jscomp$destructuring$var1 = $jscomp$destructuring$var0;",
             "  var x = $jscomp$destructuring$var1.x;",
@@ -683,7 +800,6 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
     test(
         lines("/** @param {{x: number}} obj */", "ns.f = function({x}) {}"),
         lines(
-            "/** @param {{x: number}} obj */",
             "ns.f = function($jscomp$destructuring$var0) {",
             "  var $jscomp$destructuring$var1 = $jscomp$destructuring$var0;",
             "  var x = $jscomp$destructuring$var1.x;",
@@ -694,17 +810,16 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
         lines(
             "ns.f = function($jscomp$destructuring$var0) {",
             "  var $jscomp$destructuring$var1 =",
-            "      $jscomp$destructuring$var0 === undefined ? {x:0} : $jscomp$destructuring$var0;",
+            "      $jscomp$destructuring$var0 === void 0 ? {x:0} : $jscomp$destructuring$var0;",
             "  var x = $jscomp$destructuring$var1.x",
             "};"));
 
     test(
         lines("/** @param {{x: number}=} obj */", "ns.f = function({x} = {x: 0}) {};"),
         lines(
-            "/** @param {{x: number}=} obj */",
             "ns.f = function($jscomp$destructuring$var0) {",
             "  var $jscomp$destructuring$var1 = ",
-            "      $jscomp$destructuring$var0===undefined ? {x:0} : $jscomp$destructuring$var0;",
+            "      $jscomp$destructuring$var0=== void 0 ? {x:0} : $jscomp$destructuring$var0;",
             "  var x = $jscomp$destructuring$var1.x",
             "};"));
   }
@@ -717,7 +832,7 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
     testSame(
         externs(
             lines(
-                MINIMAL_EXTERNS,
+                EXTERNS_BASE,
                 "/** @constructor */",
                 "function Foo() {}",
                 "",
@@ -733,7 +848,7 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
     test(
         "function f(/** {x: number} */ {x}) {}",
         lines(
-            "function f(/** {x: number} */ $jscomp$destructuring$var0) {",
+            "function f($jscomp$destructuring$var0) {",
             "  var $jscomp$destructuring$var1 = $jscomp$destructuring$var0;",
             "  var x = $jscomp$destructuring$var1.x;",
             "}"));
@@ -746,7 +861,6 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
   @Test
   public void testDestructuringArrayNotInExprResult() {
     test(
-        externs(MINIMAL_EXTERNS),
         srcs(lines("var x, a, b;", "x = ([a,b] = [1,2])")),
         expected(
             lines(
@@ -761,7 +875,6 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
                 "})();")));
 
     test(
-        externs(MINIMAL_EXTERNS),
         srcs(
             lines(
                 "var foo = function () {", "var x, a, b;", "x = ([a,b] = [1,2]);", "}", "foo();")),
@@ -781,7 +894,6 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
                 "foo();")));
 
     test(
-        externs(MINIMAL_EXTERNS),
         srcs(
             lines(
                 "var prefix;",
@@ -802,7 +914,6 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
                 "}")));
 
     test(
-        externs(MINIMAL_EXTERNS),
         srcs(
             lines(
                 "var prefix;",
@@ -825,7 +936,6 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
                 "}")));
 
     test(
-        externs(MINIMAL_EXTERNS),
         srcs(lines("for (var x = 1; x < 3; [x,] = [3,4]){", "   console.log(x);", "}")),
         expected(
             lines(
@@ -893,7 +1003,6 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
   @Test
   public void testNestedDestructuring() {
     test(
-        externs(MINIMAL_EXTERNS),
         srcs("var [[x]] = [[1]];"),
         expected(
             lines(
@@ -903,7 +1012,6 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
                 "var x = $jscomp$destructuring$var1.next().value;")));
 
     test(
-        externs(MINIMAL_EXTERNS),
         srcs("var [[x,y],[z]] = [[1,2],[3]];"),
         expected(
             lines(
@@ -917,7 +1025,6 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
                 "var z = $jscomp$destructuring$var2.next().value;")));
 
     test(
-        externs(MINIMAL_EXTERNS),
         srcs("var [[x,y],z] = [[1,2],3];"),
         expected(
             lines(
@@ -1283,7 +1390,7 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
             "    var $jscomp$destructuring$var3 = baz();",
             "    var $jscomp$destructuring$var4 = ",
             "        $jscomp$destructuring$var1[$jscomp$destructuring$var3];",
-            "    var d = $jscomp$destructuring$var4===undefined ? 1 : $jscomp$destructuring$var4;",
+            "    var d = $jscomp$destructuring$var4=== void 0 ? 1 : $jscomp$destructuring$var4;",
             "    var rest = (delete $jscomp$destructuring$var2.a,",
             "            delete $jscomp$destructuring$var2[$jscomp$destructuring$var3],",
             "            $jscomp$destructuring$var2);",
@@ -1300,7 +1407,7 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
         lines(
             "var $jscomp$destructuring$var0 = foo();",
             "var $jscomp$destructuring$var1 = Object.assign({},$jscomp$destructuring$var0);",
-            "var b = $jscomp$destructuring$var0.a===undefined ? 3 : $jscomp$destructuring$var0.a;",
+            "var b = $jscomp$destructuring$var0.a=== void 0 ? 3 : $jscomp$destructuring$var0.a;",
             "var $jscomp$destructuring$var2 = bar();",
             "var d = $jscomp$destructuring$var0[$jscomp$destructuring$var2];",
             "var $jscomp$destructuring$var3 = baz();",
@@ -1318,7 +1425,7 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
         lines(
             "var $jscomp$destructuring$var0 = foo();",
             "var $jscomp$destructuring$var1 = Object.assign({}, $jscomp$destructuring$var0);",
-            "var a = $jscomp$destructuring$var0.a===undefined ? 3 : $jscomp$destructuring$var0.a;",
+            "var a = $jscomp$destructuring$var0.a=== void 0 ? 3 : $jscomp$destructuring$var0.a;",
             "var rest = (delete $jscomp$destructuring$var1.a,",
             "            $jscomp$destructuring$var1);"));
 
@@ -1330,8 +1437,8 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
             "var $jscomp$destructuring$var2 = bar();",
             "var $jscomp$destructuring$var3 =",
             "    $jscomp$destructuring$var0[$jscomp$destructuring$var2];",
-            "var a = $jscomp$destructuring$var3===undefined ? 3 : $jscomp$destructuring$var3;",
-            "var b = $jscomp$destructuring$var0[\"b c\"]===undefined",
+            "var a = $jscomp$destructuring$var3=== void 0 ? 3 : $jscomp$destructuring$var3;",
+            "var b = $jscomp$destructuring$var0[\"b c\"]=== void 0",
             "    ? 12 : $jscomp$destructuring$var0[\"b c\"];",
             "var rest=(delete $jscomp$destructuring$var1[$jscomp$destructuring$var2],",
             "          delete $jscomp$destructuring$var1[\"b c\"],",
@@ -1382,11 +1489,11 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
             "function f($jscomp$destructuring$var0,y) {",
             "  var $jscomp$destructuring$var1 = $jscomp$destructuring$var0;",
             "  var $jscomp$destructuring$var2 = Object.assign({},$jscomp$destructuring$var1);",
-            "  var x = $jscomp$destructuring$var1.x===undefined",
+            "  var x = $jscomp$destructuring$var1.x === void 0",
             "      ? a() : $jscomp$destructuring$var1.x;",
             "  var rest= (delete $jscomp$destructuring$var2.x,",
             "             $jscomp$destructuring$var2);",
-            "  y = y===undefined ? b() : y;",
+            "  y = y=== void 0 ? b() : y;",
             "  console.log(y)",
             "}"));
 
@@ -1394,14 +1501,14 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
         "function f({x = a(), ...rest}={}, y=b()) { console.log(y); }",
         lines(
             "function f($jscomp$destructuring$var0,y) {",
-            "  var $jscomp$destructuring$var1 = $jscomp$destructuring$var0===undefined",
+            "  var $jscomp$destructuring$var1 = $jscomp$destructuring$var0=== void 0",
             "      ? {} : $jscomp$destructuring$var0;",
             "  var $jscomp$destructuring$var2 = Object.assign({},$jscomp$destructuring$var1);",
-            "  var x = $jscomp$destructuring$var1.x===undefined",
+            "  var x = $jscomp$destructuring$var1.x=== void 0",
             "      ? a() : $jscomp$destructuring$var1.x;",
             "  var rest= (delete $jscomp$destructuring$var2.x,",
             "             $jscomp$destructuring$var2);",
-            "  y = y===undefined ? b() : y;",
+            "  y = y=== void 0 ? b() : y;",
             "  console.log(y)",
             "}"));
   }
@@ -1414,11 +1521,11 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
             "var f = ($jscomp$destructuring$var0,y) => {",
             "  var $jscomp$destructuring$var1 = $jscomp$destructuring$var0;",
             "  var $jscomp$destructuring$var2 = Object.assign({},$jscomp$destructuring$var1);",
-            "  var x = $jscomp$destructuring$var1.x===undefined",
+            "  var x = $jscomp$destructuring$var1.x=== void 0",
             "      ? a() : $jscomp$destructuring$var1.x;",
             "  var rest = (delete $jscomp$destructuring$var2.x,",
             "              $jscomp$destructuring$var2);",
-            "  y = y===undefined ? b() : y;",
+            "  y = y=== void 0 ? b() : y;",
             "  console.log(y)",
             "}"));
 
@@ -1426,14 +1533,14 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
         "var f = ({x = a(), ...rest}={}, y=b()) => { console.log(y); };",
         lines(
             "var f = ($jscomp$destructuring$var0,y) => {",
-            "  var $jscomp$destructuring$var1 = $jscomp$destructuring$var0===undefined",
+            "  var $jscomp$destructuring$var1 = $jscomp$destructuring$var0=== void 0",
             "      ? {} : $jscomp$destructuring$var0;",
             "  var $jscomp$destructuring$var2 = Object.assign({},$jscomp$destructuring$var1);",
-            "  var x = $jscomp$destructuring$var1.x===undefined",
+            "  var x = $jscomp$destructuring$var1.x=== void 0",
             "      ? a() : $jscomp$destructuring$var1.x;",
             "  var rest= (delete $jscomp$destructuring$var2.x,",
             "             $jscomp$destructuring$var2);",
-            "  y = y===undefined ? b() : y;",
+            "  y = y=== void 0 ? b() : y;",
             "  console.log(y)",
             "}"));
   }
@@ -1531,14 +1638,8 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
 
   @Test
   public void testArrayDestructuring_getsCorrectTypes() {
-    // inject libraries to get the correct $jscomp.makeIterator type
-    useNoninjectingCompiler = false;
-    ensureLibraryInjected("es6/util/makeiterator");
-    disableCompareSyntheticCode();
-    allowExternsChanges();
 
     test(
-        externs(DEFAULT_EXTERNS),
         srcs(
             lines(
                 "function takesIterable(/** !Iterable<number> */ iterable) {", //
@@ -1546,48 +1647,36 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
                 "}")),
         expected(
             lines(
-                "function takesIterable(/** !Iterable<number> */ iterable) {", //
+                "function takesIterable(iterable) {", //
                 "  var $jscomp$destructuring$var0 = $jscomp.makeIterator(iterable);",
                 "  const a = $jscomp$destructuring$var0.next().value;",
                 "}")));
 
     Compiler lastCompiler = getLastCompiler();
-    JSTypeRegistry registry = lastCompiler.getTypeRegistry();
 
     // `$jscomp$destructuring$var0` is an Iterator<number>
     Node jscompDestructuringVar0 =
         getNodeMatchingQName(lastCompiler.getJsRoot(), "$jscomp$destructuring$var0");
-    assertType(jscompDestructuringVar0.getJSType())
-        .isEqualTo(
-            registry.createTemplatizedType(
-                registry.getNativeObjectType(JSTypeNative.ITERATOR_TYPE),
-                registry.getNativeType(JSTypeNative.NUMBER_TYPE)));
+    assertNode(jscompDestructuringVar0)
+        .hasColorThat()
+        .isEqualTo(lastCompiler.getColorRegistry().get(StandardColors.ITERATOR_ID));
 
     // `a` is a number
     Node aName = getNodeMatchingQName(lastCompiler.getJsRoot(), "a");
-    assertType(aName.getJSType()).isEqualTo(registry.getNativeType(JSTypeNative.NUMBER_TYPE));
+    assertNode(aName).hasColorThat().isEqualTo(StandardColors.NUMBER);
 
     // `$jscomp$destructuring$var0.next().value` is a number
     Node destructuringVarNextDotValue = aName.getOnlyChild();
-    assertType(destructuringVarNextDotValue.getJSType())
-        .isEqualTo(registry.getNativeType(JSTypeNative.NUMBER_TYPE));
+    assertNode(destructuringVarNextDotValue).hasColorThat().isEqualTo(StandardColors.NUMBER);
 
     // `$jscomp$destructuring$var0.next()` is an IIterableResult<number>
     Node destructuringVarNextCall = destructuringVarNextDotValue.getFirstChild();
-    assertType(destructuringVarNextCall.getJSType()).toStringIsEqualTo("IIterableResult<number>");
+    assertNode(destructuringVarNextCall).hasColorThat().isEqualTo(StandardColors.UNKNOWN);
   }
 
   @Test
   public void testArrayDestructuringRest_getsCorrectTypes() {
-    // inject libraries to get the correct $jscomp.arrayFromIterator type
-    useNoninjectingCompiler = false;
-    ensureLibraryInjected("es6/util/arrayfromiterator");
-    ensureLibraryInjected("es6/util/makeiterator");
-    disableCompareSyntheticCode();
-    allowExternsChanges();
-
     test(
-        externs(DEFAULT_EXTERNS),
         srcs(
             lines(
                 "function takesIterable(/** !Iterable<number> */ iterable) {", //
@@ -1595,31 +1684,28 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
                 "}")),
         expected(
             lines(
-                "function takesIterable(/** !Iterable<number> */ iterable) {", //
+                "function takesIterable(iterable) {", //
                 "  var $jscomp$destructuring$var0 = $jscomp.makeIterator(iterable);",
                 "  const a = $jscomp$destructuring$var0.next().value;",
                 "  const rest = $jscomp.arrayFromIterator($jscomp$destructuring$var0);",
                 "}")));
 
     Compiler lastCompiler = getLastCompiler();
-    JSTypeRegistry registry = lastCompiler.getTypeRegistry();
 
     Node jscompArrayFromIterator =
         getNodeMatchingQName(lastCompiler.getJsRoot(), "$jscomp.arrayFromIterator");
-    assertType(jscompArrayFromIterator.getJSType())
-        .toStringIsEqualTo("function(Iterator<number,?,?>): Array<number>");
-
-    JSType arrayOfNumber =
-        registry.createTemplatizedType(
-            registry.getNativeObjectType(JSTypeNative.ARRAY_TYPE),
-            registry.getNativeType(JSTypeNative.NUMBER_TYPE));
+    assertNode(jscompArrayFromIterator).hasColorThat().isNotEqualTo(StandardColors.UNKNOWN);
 
     Node jscompArrayFromIteratorCall = jscompArrayFromIterator.getParent();
-    assertType(jscompArrayFromIteratorCall.getJSType()).isEqualTo(arrayOfNumber);
+    assertNode(jscompArrayFromIteratorCall)
+        .hasColorThat()
+        .isEqualTo(lastCompiler.getColorRegistry().get(StandardColors.ARRAY_ID));
 
     // `rest` is Array<number>
     Node restName = getNodeMatchingQName(lastCompiler.getJsRoot(), "rest");
-    assertType(restName.getJSType()).isEqualTo(arrayOfNumber);
+    assertNode(restName)
+        .hasColorThat()
+        .isEqualTo(lastCompiler.getColorRegistry().get(StandardColors.ARRAY_ID));
   }
 
   @Test
@@ -1633,16 +1719,15 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
             "/** @const */ var $jscomp$destructuring$var0=obj;",
             "const a = $jscomp$destructuring$var0.a;"));
 
-    JSTypeRegistry registry = getLastCompiler().getTypeRegistry();
     Node jsRoot = getLastCompiler().getJsRoot();
 
     Node aName = getNodeMatchingQName(jsRoot, "a");
-    assertType(aName.getJSType()).isEqualTo(registry.getNativeType(JSTypeNative.NUMBER_TYPE));
+    assertNode(aName).hasColorThat().isEqualTo(StandardColors.NUMBER);
 
-    JSType objType = getNodeMatchingQName(jsRoot, "obj").getJSType();
+    Color objType = getNodeMatchingQName(jsRoot, "obj").getColor();
     // `$jscomp$destructuring$var0` has the same type as `obj`
     Node jscompDestructuringVar0Name = getNodeMatchingQName(jsRoot, "$jscomp$destructuring$var0");
-    assertType(jscompDestructuringVar0Name.getJSType()).isEqualTo(objType);
+    assertNode(jscompDestructuringVar0Name).hasColorThat().isEqualTo(objType);
   }
 
   @Test
@@ -1654,21 +1739,20 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
         lines(
             "const obj = {a: 3, b: 'string', c: null};",
             "/** @const */ var $jscomp$destructuring$var0=obj;",
-            "const a = $jscomp$destructuring$var0.a === undefined",
+            "const a = $jscomp$destructuring$var0.a === void 0",
             "    ? 4: $jscomp$destructuring$var0.a;"));
 
-    JSTypeRegistry registry = getLastCompiler().getTypeRegistry();
     Node jsRoot = getLastCompiler().getJsRoot();
 
     Node aName = getNodeMatchingQName(jsRoot, "a");
-    assertType(aName.getJSType()).isEqualTo(registry.getNativeType(JSTypeNative.NUMBER_TYPE));
+    assertNode(aName).hasColorThat().isEqualTo(StandardColors.NUMBER);
 
-    JSType objType = getNodeMatchingQName(jsRoot, "obj").getJSType();
+    Color objType = getNodeMatchingQName(jsRoot, "obj").getColor();
 
     // `$jscomp$destructuring$var0` has the same type as `obj`
     assertThat(
             getAllNodesMatchingQName(jsRoot, "$jscomp$destructuring$var0").stream()
-                .map(Node::getJSType)
+                .map(Node::getColor)
                 .collect(Collectors.toSet()))
         .containsExactly(objType);
   }
@@ -1680,28 +1764,27 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
             "const /** !Object<string, number> */ obj = {['a']: 3};", //
             "const {['a']: a = 4} = obj;"),
         lines(
-            "const /** !Object<string, number> */ obj = {['a']: 3};",
+            "const obj = {['a']: 3};",
             "/** @const */ var $jscomp$destructuring$var0=obj;",
             "var $jscomp$destructuring$var1 = $jscomp$destructuring$var0['a'];",
-            "const a = $jscomp$destructuring$var1 === undefined",
+            "const a = $jscomp$destructuring$var1 === void 0",
             "    ? 4: $jscomp$destructuring$var1;"));
 
-    JSTypeRegistry registry = getLastCompiler().getTypeRegistry();
     Node jsRoot = getLastCompiler().getJsRoot();
 
     Node aName = getNodeMatchingQName(jsRoot, "a");
-    assertType(aName.getJSType()).isEqualTo(registry.getNativeType(JSTypeNative.NUMBER_TYPE));
+    assertNode(aName).hasColorThat().isEqualTo(StandardColors.NUMBER);
 
     // `$jscomp$destructuring$var0` has the same type as `obj`
     Node jscompDestructuringVar0Name = getNodeMatchingQName(jsRoot, "$jscomp$destructuring$var0");
 
-    JSType objType = jscompDestructuringVar0Name.getOnlyChild().getJSType();
-    assertType(objType).toStringIsEqualTo("Object<string,number>");
-    assertType(jscompDestructuringVar0Name.getJSType()).isEqualTo(objType);
+    Color objType = jscompDestructuringVar0Name.getOnlyChild().getColor();
+    assertThat(objType).isEqualTo(StandardColors.TOP_OBJECT);
+    assertNode(jscompDestructuringVar0Name).hasColorThat().isEqualTo(objType);
 
     // `$jscomp$destructuring$var1` is typed as `number` (this is probably less important!)
     Node jscompDestructuringVar1Name = getNodeMatchingQName(jsRoot, "$jscomp$destructuring$var0");
-    assertType(jscompDestructuringVar1Name.getJSType()).isEqualTo(objType);
+    assertNode(jscompDestructuringVar1Name).hasColorThat().isEqualTo(objType);
   }
 
   @Test
@@ -1716,23 +1799,22 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
             "var $jscomp$destructuring$var1 = Object.assign({}, $jscomp$destructuring$var0);",
             "const rest = $jscomp$destructuring$var1;"));
 
-    JSTypeRegistry registry = getLastCompiler().getTypeRegistry();
     Node jsRoot = getLastCompiler().getJsRoot();
 
-    JSType objType = getNodeMatchingQName(jsRoot, "obj").getJSType();
+    Color objType = getNodeMatchingQName(jsRoot, "obj").getColor();
 
     // `$jscomp$destructuring$var0` has the same type as `obj`
     Node jscompDestructuringVar0Name = getNodeMatchingQName(jsRoot, "$jscomp$destructuring$var0");
-    assertType(jscompDestructuringVar0Name.getJSType()).isEqualTo(objType);
+    assertNode(jscompDestructuringVar0Name).hasColorThat().isEqualTo(objType);
 
     // `$jscomp$destructuring$var1` has the same type as `obj`
     Node jscompDestructuringVar1Name = getNodeMatchingQName(jsRoot, "$jscomp$destructuring$var1");
-    assertType(jscompDestructuringVar1Name.getJSType()).isEqualTo(objType);
+    assertNode(jscompDestructuringVar1Name).hasColorThat().isEqualTo(objType);
 
     // TODO(b/128355893) Do better inferrence. For now we just consider `rest` an `Object` rather
     // than trying to figure out what properties it gets.
     Node restName = getNodeMatchingQName(jsRoot, "rest");
-    assertType(restName.getJSType()).isEqualTo(registry.getNativeType(OBJECT_TYPE));
+    assertNode(restName).hasColorThat().isEqualTo(StandardColors.TOP_OBJECT);
   }
 
   /** Returns a list of all nodes in the given AST that matches the given qualified name */
@@ -1764,10 +1846,5 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
       }
     }
     return null;
-  }
-
-  @Override
-  protected Compiler createCompiler() {
-    return useNoninjectingCompiler ? new NoninjectingCompiler() : new Compiler();
   }
 }

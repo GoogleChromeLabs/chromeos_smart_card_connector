@@ -24,6 +24,7 @@ import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.errorprone.annotations.Immutable;
+import com.google.javascript.jscomp.diagnostic.LogsGson;
 import com.google.protobuf.ByteString;
 import java.io.Serializable;
 import java.util.Arrays;
@@ -44,7 +45,7 @@ import java.util.Set;
  * the purposes of comparison, serialization, and display, leading 0s are ignored.
  */
 @Immutable
-public final class ColorId implements Serializable {
+public final class ColorId implements Serializable, LogsGson.Able {
 
   // Assume for now that we have at most 8 bytes.
   private final long rightAligned;
@@ -62,11 +63,11 @@ public final class ColorId implements Serializable {
   }
 
   public static ColorId fromBytes(ByteString bytes) {
-    return fromBytesAt(bytes, bytes.size(), BYTESTRING_AT);
+    return fromBytesAt(bytes, bytes.size(), ByteString::byteAt);
   }
 
   public static ColorId fromBytes(byte[] bytes) {
-    return fromBytesAt(bytes, bytes.length, BYTEARRAY_AT);
+    return fromBytesAt(bytes, bytes.length, (s, i) -> s[i]);
   }
 
   @VisibleForTesting
@@ -160,15 +161,16 @@ public final class ColorId implements Serializable {
     return Long.toHexString(this.rightAligned);
   }
 
+  @Override
+  public String toLogsGson() {
+    return this.toString();
+  }
+
   private static final HashFunction FARM_64 = Hashing.farmHashFingerprint64();
 
   private interface ByteAt<T> {
     byte get(T source, int index);
   }
-
-  private static final ByteAt<ByteString> BYTESTRING_AT = (s, i) -> s.byteAt(i);
-
-  private static final ByteAt<byte[]> BYTEARRAY_AT = (s, i) -> s[i];
 
   private static final ByteAt<String> ASCII_AT =
       (s, i) -> {

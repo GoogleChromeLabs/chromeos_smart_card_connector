@@ -23,6 +23,7 @@ import static com.google.javascript.jscomp.deps.ModuleLoader.LOAD_WARNING;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
+import com.google.javascript.jscomp.deps.ModuleLoader.ResolutionMode;
 import com.google.javascript.rhino.Node;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -1026,7 +1027,7 @@ public final class RenameVarsTest extends CompilerTestCase {
       renameMap.put(keyValPairs[i], keyValPairs[i + 1]);
     }
 
-    return new VariableMap(renameMap.build());
+    return new VariableMap(renameMap.buildOrThrow());
   }
 
   private static void assertVariableMapsEqual(VariableMap a, VariableMap b) {
@@ -1044,6 +1045,9 @@ public final class RenameVarsTest extends CompilerTestCase {
 
     @Override
     public void process(Node externs, Node root) {
+      new GatherModuleMetadata(
+              compiler, /* processCommonJsModules= */ false, ResolutionMode.BROWSER)
+          .process(externs, root);
       ProcessClosurePrimitives closurePass = new ProcessClosurePrimitives(compiler);
       closurePass.process(externs, root);
       renameVars =

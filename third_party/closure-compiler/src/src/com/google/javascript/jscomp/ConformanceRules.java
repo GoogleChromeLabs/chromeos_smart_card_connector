@@ -29,14 +29,15 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.reflect.TypeToken;
 import com.google.javascript.jscomp.CheckConformance.InvalidRequirementSpec;
+import com.google.javascript.jscomp.CheckConformance.Precondition;
 import com.google.javascript.jscomp.CheckConformance.Rule;
 import com.google.javascript.jscomp.CodingConvention.AssertionFunctionLookup;
 import com.google.javascript.jscomp.Requirement.Severity;
-import com.google.javascript.jscomp.Requirement.Type;
 import com.google.javascript.jscomp.parsing.JsDocInfoParser;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSDocInfo.Visibility;
@@ -56,7 +57,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -559,78 +559,148 @@ public final class ConformanceRules {
   }
 
   /** Banned name rule */
-  static class BannedName extends AbstractRule {
+  static final class BannedName extends AbstractRule {
     private final Requirement.Type requirementType;
-    private final ImmutableList<Node> names;
+    private final ImmutableList<Node> qualifiedNames;
+    private final ImmutableSet<String> shortNames;
 
     BannedName(AbstractCompiler compiler, Requirement requirement) throws InvalidRequirementSpec {
       super(compiler, requirement);
       if (requirement.getValueCount() == 0) {
         throw new InvalidRequirementSpec("missing value");
       }
-      requirementType = requirement.getType();
-      ImmutableList.Builder<Node> builder = ImmutableList.builder();
+      this.requirementType = requirement.getType();
+
+      ImmutableList.Builder<Node> qualifiedBuilder = ImmutableList.builder();
+      ImmutableSet.Builder<String> shortBuilder = ImmutableSet.builder();
       for (String name : requirement.getValueList()) {
-        builder.add(NodeUtil.newQName(compiler, name));
+        Node qualifiedName = NodeUtil.newQName(compiler, name);
+        qualifiedBuilder.add(qualifiedName);
+        shortBuilder.add(qualifiedName.getString());
       }
-      names = builder.build();
+      this.qualifiedNames = qualifiedBuilder.build();
+      this.shortNames = shortBuilder.build();
+    }
+
+    private static final Precondition IS_CANDIDATE_NODE =
+        new Precondition() {
+          @Override
+          public boolean shouldCheck(Node n) {
+            switch (n.getToken()) {
+              case GETPROP:
+                return n.getFirstChild().isQualifiedName();
+              case NAME:
+                return !n.getString().isEmpty();
+              default:
+                return false;
+            }
+          }
+        };
+
+    @Override
+    public final Precondition getPrecondition() {
+      return IS_CANDIDATE_NODE;
     }
 
     @Override
     protected ConformanceResult checkConformance(NodeTraversal t, Node n) {
-      if (isCandidateNode(n)) {
-        if (requirementType == Type.BANNED_NAME_CALL) {
-          if (!ConformanceUtil.isCallTarget(n)) {
-            return ConformanceResult.CONFORMANCE;
-          }
-        }
-        for (int i = 0; i < names.size(); i++) {
-          Node nameNode = names.get(i);
-          if (n.matchesQualifiedName(nameNode) && isRootOfQualifiedNameGlobal(t, n)) {
-            if (NodeUtil.isInSyntheticScript(n)) {
-              return ConformanceResult.CONFORMANCE;
-            } else {
-              return ConformanceResult.VIOLATION;
-            }
-          }
-        }
+      if (requirementType == Requirement.Type.BANNED_NAME_CALL
+          && !ConformanceUtil.isCallTarget(n)) {
+        return ConformanceResult.CONFORMANCE;
       }
-      return ConformanceResult.CONFORMANCE;
-    }
 
-    private boolean isCandidateNode(Node n) {
-      switch (n.getToken()) {
-        case GETPROP:
-          return n.getFirstChild().isQualifiedName();
-        case NAME:
-          return !n.getString().isEmpty();
-        default:
-          return false;
+      /**
+       * Efficiently filter out nearly all candidates.
+       *
+       * <p>Ideally we could use a hashset containing the qualified names, but it turns out that
+       * creating wrapper a object for every Node is more expensive than the loop below.
+       */
+      if (!this.shortNames.contains(n.getString())) {
+        return ConformanceResult.CONFORMANCE;
       }
+
+      /**
+       * Defer expensive infrequent checks.
+       *
+       * <p>These could be a precondition, but they don't usually need to be checked. Since they're
+       * kind of expensive, it's cheaper overall to defer them.
+       */
+      if (NodeUtil.isInSyntheticScript(n) || !isRootOfQualifiedNameGlobal(t, n)) {
+        return ConformanceResult.CONFORMANCE;
+      }
+
+      for (int i = this.qualifiedNames.size() - 1; i >= 0; i--) {
+        if (n.matchesQualifiedName(this.qualifiedNames.get(i))) {
+          return ConformanceResult.VIOLATION;
+        }
+      }
+
+      return ConformanceResult.CONFORMANCE;
     }
 
     private static boolean isRootOfQualifiedNameGlobal(NodeTraversal t, Node n) {
       String rootName = NodeUtil.getRootOfQualifiedName(n).getQualifiedName();
-      Var v = t.getScope().getVar(rootName);
-      return v != null && v.isGlobal();
+      Var v = checkNotNull(t.getScope().getVar(rootName), "Missing var for %s", rootName);
+      return v.isGlobal();
     }
   }
 
   /** Banned property rule */
-  static class BannedProperty extends AbstractRule {
-    private static class Property {
-      final JSType type;
-      final String property;
+  static final class BannedProperty extends AbstractRule {
 
-      Property(JSType type, String property) {
-        this.type = checkNotNull(type);
-        this.property = checkNotNull(property);
-      }
+    private enum RequirementPrecondition implements Precondition {
+      BANNED_PROPERTY() {
+        @Override
+        public boolean shouldCheck(Node n) {
+          switch (n.getToken()) {
+            case STRING_KEY:
+            case GETPROP:
+            case GETELEM:
+            case COMPUTED_PROP:
+              return true;
+
+            default:
+              return false;
+          }
+        }
+      },
+      BANNED_PROPERTY_WRITE() {
+        @Override
+        public boolean shouldCheck(Node n) {
+          return NodeUtil.isLValue(n);
+        }
+      },
+      BANNED_PROPERTY_NON_CONSTANT_WRITE() {
+        @Override
+        public boolean shouldCheck(Node n) {
+          if (!NodeUtil.isLValue(n)) {
+            return false;
+          }
+          if (NodeUtil.isLhsOfAssign(n)
+              && (NodeUtil.isLiteralValue(n.getNext(), false /* includeFunctions */)
+                  || NodeUtil.isSomeCompileTimeConstStringValue(n.getNext()))) {
+            return false;
+          }
+          return true;
+        }
+      },
+      BANNED_PROPERTY_READ() {
+        @Override
+        public boolean shouldCheck(Node n) {
+          return !NodeUtil.isLValue(n) && NodeUtil.isExpressionResultUsed(n);
+        }
+      },
+      BANNED_PROPERTY_CALL() {
+        @Override
+        public boolean shouldCheck(Node n) {
+          return ConformanceUtil.isCallTarget(n);
+        }
+      },
     }
 
     private final JSTypeRegistry registry;
-    private final ImmutableList<Property> props;
-    private final Requirement.Type requirementType;
+    private final ImmutableSetMultimap<String, JSType> props;
+    private final RequirementPrecondition requirementPrecondition;
 
     BannedProperty(AbstractCompiler compiler, Requirement requirement)
         throws InvalidRequirementSpec {
@@ -642,21 +712,28 @@ public final class ConformanceRules {
 
       switch (requirement.getType()) {
         case BANNED_PROPERTY:
+          this.requirementPrecondition = RequirementPrecondition.BANNED_PROPERTY;
+          break;
         case BANNED_PROPERTY_READ:
+          this.requirementPrecondition = RequirementPrecondition.BANNED_PROPERTY_READ;
+          break;
         case BANNED_PROPERTY_WRITE:
+          this.requirementPrecondition = RequirementPrecondition.BANNED_PROPERTY_WRITE;
+          break;
         case BANNED_PROPERTY_NON_CONSTANT_WRITE:
+          this.requirementPrecondition = RequirementPrecondition.BANNED_PROPERTY_NON_CONSTANT_WRITE;
+          break;
         case BANNED_PROPERTY_CALL:
+          this.requirementPrecondition = RequirementPrecondition.BANNED_PROPERTY_CALL;
           break;
         default:
           throw new AssertionError(requirement.getType());
       }
 
-      this.requirementType = requirement.getType();
       this.registry = compiler.getTypeRegistry();
 
-      ImmutableList.Builder<Property> builder = ImmutableList.builder();
-      List<String> values = requirement.getValueList();
-      for (String value : values) {
+      ImmutableSetMultimap.Builder<String, JSType> builder = ImmutableSetMultimap.builder();
+      for (String value : requirement.getValueList()) {
         String typename = ConformanceUtil.getClassFromDeclarationName(value);
         String property = ConformanceUtil.getPropertyFromDeclarationName(value);
         if (typename == null || property == null) {
@@ -669,25 +746,36 @@ public final class ConformanceRules {
           continue;
         }
 
-        builder.add(new Property(type, property));
+        builder.put(property, type);
       }
-
       this.props = builder.build();
     }
 
     @Override
+    public final Precondition getPrecondition() {
+      return this.requirementPrecondition;
+    }
+
+    @Override
     protected ConformanceResult checkConformance(NodeTraversal t, Node n) {
-      if (!this.isCandidatePropAccess(n)) {
+      ImmutableSet<JSType> checkTypes = this.props.get(this.extractName(n));
+      if (checkTypes.isEmpty()) {
         return ConformanceResult.CONFORMANCE;
       }
 
-      Property srcProp = this.createSrcProperty(n);
-      if (srcProp == null) {
+      /**
+       * Avoid type operations when possible.
+       *
+       * <p>checkTypes is almost always empty, and operations on unions can be expensive.
+       */
+      JSType foundType = this.extractType(n);
+      if (foundType == null) {
         return ConformanceResult.CONFORMANCE;
       }
+      foundType = foundType.restrictByNotNullOrUndefined();
 
-      for (Property checkProp : this.props) {
-        ConformanceResult result = this.matchProps(srcProp, checkProp);
+      for (JSType checkType : checkTypes) {
+        ConformanceResult result = this.matchTypes(foundType, checkType);
         if (result.level != ConformanceLevel.CONFORMANCE) {
           return result;
         }
@@ -696,12 +784,7 @@ public final class ConformanceRules {
       return ConformanceResult.CONFORMANCE;
     }
 
-    private ConformanceResult matchProps(Property srcProp, Property checkProp) {
-      if (!Objects.equals(srcProp.property, checkProp.property)) {
-        return ConformanceResult.CONFORMANCE;
-      }
-
-      JSType foundType = srcProp.type.restrictByNotNullOrUndefined();
+    private ConformanceResult matchTypes(JSType foundType, JSType checkType) {
       ObjectType foundObj = foundType.toMaybeObjectType();
       if (foundObj != null) {
         if (foundObj.isFunctionPrototypeType()) {
@@ -722,10 +805,10 @@ public final class ConformanceRules {
         if (reportLooseTypeViolations) {
           return ConformanceResult.POSSIBLE_VIOLATION_DUE_TO_LOOSE_TYPES;
         }
-      } else if (foundType.isSubtypeOf(checkProp.type)) {
+      } else if (foundType.isSubtypeOf(checkType)) {
         return ConformanceResult.VIOLATION;
-      } else if (checkProp.type.isSubtypeWithoutStructuralTyping(foundType)) {
-        if (matchesPrototype(checkProp.type, foundType)) {
+      } else if (checkType.isSubtypeWithoutStructuralTyping(foundType)) {
+        if (matchesPrototype(checkType, foundType)) {
           return ConformanceResult.VIOLATION;
         } else if (reportLooseTypeViolations) {
           // Access of a banned property through a super class may be a violation
@@ -746,46 +829,11 @@ public final class ConformanceRules {
       return false;
     }
 
-    /**
-     * Determines if {@code n} is a potentially banned use of {@code prop}.
-     *
-     * <p>Specifically if the conformance requirement under consideration only bans assignment to
-     * the property, {@code n} is only a candidate if it is an l-value.
-     */
-    private boolean isCandidatePropAccess(Node propAccess) {
-      switch (this.requirementType) {
-        case BANNED_PROPERTY_WRITE:
-          return NodeUtil.isLValue(propAccess);
-
-        case BANNED_PROPERTY_NON_CONSTANT_WRITE:
-          if (!NodeUtil.isLValue(propAccess)) {
-            return false;
-          }
-          if (NodeUtil.isLhsOfAssign(propAccess)
-              && (NodeUtil.isLiteralValue(propAccess.getNext(), false /* includeFunctions */)
-                  || NodeUtil.isSomeCompileTimeConstStringValue(propAccess.getNext()))) {
-            return false;
-          }
-          return true;
-
-        case BANNED_PROPERTY_READ:
-          return !NodeUtil.isLValue(propAccess) && NodeUtil.isExpressionResultUsed(propAccess);
-
-        case BANNED_PROPERTY_CALL:
-          return ConformanceUtil.isCallTarget(propAccess);
-
-        default:
-          return true;
-      }
-    }
-
-    private Property createSrcProperty(Node n) {
-      final JSType receiverType;
+    private JSType extractType(Node n) {
       switch (n.getToken()) {
         case GETELEM:
         case GETPROP:
-          receiverType = n.getFirstChild().getJSType();
-          break;
+          return n.getFirstChild().getJSType();
 
         case STRING_KEY:
         case COMPUTED_PROP:
@@ -793,55 +841,44 @@ public final class ConformanceRules {
             Node parent = n.getParent();
             switch (parent.getToken()) {
               case OBJECT_PATTERN:
-                receiverType = parent.getJSType();
-                break;
+                return parent.getJSType();
 
               case OBJECTLIT:
               case CLASS_MEMBERS:
-                receiverType = null;
-                break;
+                return null;
 
               default:
                 throw new AssertionError();
             }
           }
-          break;
 
         default:
-          receiverType = null;
-          break;
+          return null;
       }
+    }
 
-      final String name;
+    private String extractName(Node n) {
+
       switch (n.getToken()) {
-        case STRING_KEY:
-          name = n.getString();
-          break;
-
         case GETPROP:
-          name = n.getString();
-          break;
+        case STRING_KEY:
+          return n.getString();
 
         case GETELEM:
           {
             Node string = n.getSecondChild();
-            name = string.isStringLit() ? string.getString() : null;
+            return string.isStringLit() ? string.getString() : null;
           }
-          break;
 
         case COMPUTED_PROP:
           {
             Node string = n.getFirstChild();
-            name = string.isStringLit() ? string.getString() : null;
+            return string.isStringLit() ? string.getString() : null;
           }
-          break;
 
         default:
-          name = null;
-          break;
+          return null;
       }
-
-      return (receiverType == null || name == null) ? null : new Property(receiverType, name);
     }
   }
 
@@ -1747,6 +1784,50 @@ public final class ConformanceRules {
     }
   }
 
+  /** Checks that file does not include an @enhance annotation for a banned namespace. */
+  public static final class BannedEnhance extends AbstractRule {
+    private final ImmutableSet<String> bannedEnhancedNamespaces;
+
+    public BannedEnhance(AbstractCompiler compiler, Requirement requirement)
+        throws InvalidRequirementSpec {
+      super(compiler, requirement);
+      if (requirement.getValueCount() == 0) {
+        throw new InvalidRequirementSpec("missing value");
+      }
+      this.bannedEnhancedNamespaces = ImmutableSet.copyOf(requirement.getValueList());
+    }
+
+    @Override
+    protected ConformanceResult checkConformance(NodeTraversal t, Node n) {
+      JSDocInfo docInfo = n.getJSDocInfo();
+
+      if (docInfo == null || !docInfo.hasEnhance()) {
+        return ConformanceResult.CONFORMANCE;
+      }
+
+      for (String banned : this.bannedEnhancedNamespaces) {
+        if (docInfo.getEnhance().equals(banned)) {
+          return new ConformanceResult(
+              ConformanceLevel.VIOLATION, "The enhanced namespace \"" + banned + "\"");
+        }
+      }
+      return ConformanceResult.CONFORMANCE;
+    }
+
+    private static final Precondition IS_SCRIPT_NODE =
+        new Precondition() {
+          @Override
+          public boolean shouldCheck(Node n) {
+            return n.isScript();
+          }
+        };
+
+    @Override
+    public final Precondition getPrecondition() {
+      return IS_SCRIPT_NODE;
+    }
+  }
+
   /**
    * Bans {@code document.createElement} and similar methods with string literal parameter specified
    * in {@code value}, e.g. {@code value: 'script'}. The purpose of banning these is that they don't
@@ -1920,7 +2001,7 @@ public final class ConformanceRules {
           if (attr.isComputedProp()) {
             // We don't know if the computed property matches 'src' or not
             return reportLooseTypeViolations
-                ? ConformanceResult.POSSIBLE_VIOLATION
+                ? ConformanceResult.POSSIBLE_VIOLATION_DUE_TO_LOOSE_TYPES
                 : ConformanceResult.CONFORMANCE;
           }
         }
@@ -2059,6 +2140,11 @@ public final class ConformanceRules {
   /**
    * Ban {@code Element#setAttribute} with attribute names specified in {@code value} or any dynamic
    * string.
+   *
+   * <p>Using the element access syntax to set properties of {@code Element} is considered to be
+   * equivalent to calling {@code Element#setAttribute}. E.g., {@code element[prop] = value} is
+   * treated as {@code element.setAttribute(prop, value)} when {@code element} has the type {@code
+   * Element}.
    */
   public static final class BanSetAttribute extends AbstractRule {
     private final ImmutableList<String> bannedAttrs;
@@ -2086,6 +2172,15 @@ public final class ConformanceRules {
 
     @Override
     protected ConformanceResult checkConformance(NodeTraversal traversal, Node node) {
+      if (node.isCall()) {
+        return checkConformanceOnPropertyCall(node);
+      } else if (node.isGetElem() && NodeUtil.isLValue(node)) {
+        return checkConformanceOnGetElement(node);
+      }
+      return ConformanceResult.CONFORMANCE;
+    }
+
+    private ConformanceResult checkConformanceOnPropertyCall(Node node) {
       Optional<String> calledProperty = getBannedPropertyName(node);
       if (!calledProperty.isPresent()) {
         return ConformanceResult.CONFORMANCE;
@@ -2114,9 +2209,6 @@ public final class ConformanceRules {
     }
 
     private Optional<String> getBannedPropertyName(Node node) {
-      if (!node.isCall()) {
-        return Optional.absent();
-      }
       Node target = node.getFirstChild();
       if (!target.isGetProp()) {
         return Optional.absent();
@@ -2134,6 +2226,129 @@ public final class ConformanceRules {
         return Optional.of(propertyName);
       }
       return Optional.absent();
+    }
+
+    private ConformanceResult checkConformanceOnGetElement(Node node) {
+      Node key = node.getSecondChild();
+      if (key.isStringLit()) {
+        String keyName = key.getString();
+        if (!bannedAttrs.contains(keyName.toLowerCase(Locale.ROOT))) {
+          return ConformanceResult.CONFORMANCE;
+        } else if (hasElementType(node)) {
+          return ConformanceResult.VIOLATION;
+        }
+      } else if (hasElementType(node)) { // key is not a string literal.
+        JSType keyType = key.getJSType();
+        if (keyType == null) {
+          return ConformanceResult.CONFORMANCE;
+        }
+
+        // We have seen code using other types of keys (e.g., numbers) for element access. Only
+        // report
+        // violations if the key is explicitly typed as string or the union of string and other
+        // types.
+        if (keyType.isString()) {
+          return ConformanceResult.VIOLATION;
+        }
+        if (keyType.isUnionType()) {
+          for (JSType alternate : keyType.toMaybeUnionType().getAlternates()) {
+            if (alternate.isString()) {
+              return ConformanceResult.VIOLATION;
+            }
+          }
+        }
+      }
+
+      return ConformanceResult.CONFORMANCE;
+    }
+
+    private boolean hasElementType(Node node) {
+      JSType objType = node.getFirstChild().getJSType();
+      JSType elementType = compiler.getTypeRegistry().getGlobalType("Element");
+
+      // Do not further check the node if there's no type information available.
+      if (objType == null || elementType == null) {
+        return false;
+      }
+      // If the type of the object is not known to be a subtype of Element, the code is not
+      // evquivlanet to setAttribute. Without this check, we will get overwhelmed by false
+      // positives.
+      if (objType.isUnknownType() || !objType.isSubtypeOf(elementType)) {
+        return false;
+      }
+
+      return true;
+    }
+  }
+
+  /**
+   * Ban {@code Document#execCommand} with command names specified in {@code value} or any dynamic
+   * string.
+   */
+  public static final class BanExecCommand extends AbstractRule {
+    private final ImmutableList<String> bannedAttrs;
+
+    /**
+     * Creates a custom checker to ban {@code Document#execCommand} based on a conformance
+     * requirement spec. Names in {@code value} fields indicate the attribute names that should be
+     * blocked.
+     *
+     * @throws InvalidRequirementSpec if the requirement is malformed
+     */
+    public BanExecCommand(AbstractCompiler compiler, Requirement requirement)
+        throws InvalidRequirementSpec {
+      super(compiler, requirement);
+      bannedAttrs =
+          requirement.getValueList().stream()
+              .map(v -> v.toLowerCase(Locale.ROOT))
+              .collect(toImmutableList());
+    }
+
+    @Override
+    protected ConformanceResult checkConformance(NodeTraversal traversal, Node node) {
+      if (!isBannedProperty(node)) {
+        return ConformanceResult.CONFORMANCE;
+      }
+
+      // If the function is called without arguments then it's either a false positive or
+      // uncompilable code.
+      if (node.getChildCount() < 2) {
+        return ConformanceResult.CONFORMANCE;
+      }
+
+      Node attr = node.getSecondChild();
+      if (!attr.isStringLit()) {
+        return ConformanceResult.VIOLATION;
+      }
+
+      String attrName = attr.getString();
+      if (bannedAttrs.contains(attrName.toLowerCase(Locale.ROOT))) {
+        return ConformanceResult.VIOLATION;
+      }
+      return ConformanceResult.CONFORMANCE;
+    }
+
+    private boolean isBannedProperty(Node node) {
+      if (!node.isCall()) {
+        return false;
+      }
+      Node target = node.getFirstChild();
+      if (!target.isGetProp()) {
+        return false;
+      }
+      String propertyName = target.getString();
+      if (!propertyName.equals("execCommand")) {
+        return false;
+      }
+      JSType type = target.getFirstChild().getJSType();
+      if (type == null) {
+        return false;
+      }
+      JSType documentType = compiler.getTypeRegistry().getGlobalType("Document");
+      if (documentType == null || !type.isSubtypeOf(documentType)) {
+        return false;
+      }
+      return true;
     }
   }
 

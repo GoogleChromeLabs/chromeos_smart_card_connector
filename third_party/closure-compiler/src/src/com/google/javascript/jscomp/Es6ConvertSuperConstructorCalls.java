@@ -18,13 +18,16 @@ package com.google.javascript.jscomp;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.javascript.jscomp.AstFactory.type;
 
 import com.google.common.collect.Iterables;
 import com.google.javascript.jscomp.GlobalNamespace.Name;
 import com.google.javascript.jscomp.GlobalNamespace.Ref;
+import com.google.javascript.jscomp.colors.Color;
+import com.google.javascript.jscomp.colors.StandardColors;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.jstype.JSType;
+import com.google.javascript.rhino.StaticScope;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -49,11 +52,15 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
   private final AbstractCompiler compiler;
   private final Deque<ConstructorData> constructorDataStack;
   private final AstFactory astFactory;
+  // Note: this GlobalNamespace needs to be the namespace we get after the transpilation passes run.
+  // meaning compiler.getTranspilationNamespace() does not work.
   private GlobalNamespace globalNamespace;
+  private final StaticScope transpilationNamespace;
 
   public Es6ConvertSuperConstructorCalls(AbstractCompiler compiler) {
     this.compiler = compiler;
     this.astFactory = compiler.createAstFactory();
+    this.transpilationNamespace = compiler.getTranspilationNamespace();
     this.constructorDataStack = new ArrayDeque<>();
   }
 
@@ -115,7 +122,7 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
       Node superClassNameNode = getSuperClassQNameNode(constructor);
 
       String superClassQName = superClassNameNode.getQualifiedName();
-      JSType thisType = getTypeOfThisForConstructor(constructorData.constructor);
+      AstFactory.Type thisType = getTypeOfThisForConstructor(constructorData.constructor);
       if (isNativeObjectClass(t, superClassQName)) {
         // There's no need to call Object as a super constructor, so just replace the call with
         // `this`, which is its correct return value.
@@ -132,18 +139,21 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
         // To correctly extend them with the ES5 classes we're generating here, we must use
         // `$jscomp.construct`, which is our wrapper around `Reflect.construct`.
         convertSuperCallsToJsCompConstructCalls(
-            t, constructor, superCalls, superClassNameNode, thisType);
+            constructor, superCalls, superClassNameNode, thisType);
       } else if (isNativeErrorClass(t, superClassQName)) {
         // TODO(bradfordcsmith): It might be better to use $jscomp.construct() for these instead
         // of our custom-made, Error-specific workaround.
         for (Node superCall : superCalls) {
-          Node newSuperCall = createNewSuperCall(superClassNameNode, superCall, thisType);
+          Node newSuperCall =
+              createNewSuperCall(superClassNameNode, superCall, thisType, type(superCall));
           replaceNativeErrorSuperCall(superCall, newSuperCall);
         }
       } else if (isKnownToReturnOnlyUndefined(superClassQName)) {
         // super() will not change the value of `this`.
         for (Node superCall : superCalls) {
-          Node newSuperCall = createNewSuperCall(superClassNameNode, superCall, thisType);
+          Node newSuperCall =
+              createNewSuperCall(
+                  superClassNameNode, superCall, thisType, type(StandardColors.NULL_OR_VOID));
           Node superCallParent = superCall.getParent();
           if (superCallParent.hasOneChild() && NodeUtil.isStatement(superCallParent)) {
             // super() is a statement unto itself
@@ -184,11 +194,14 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
           Node newReturn =
               astFactory.createOr(
                   createNewSuperCall(
-                      superClassNameNode, superCalls.get(0), superCalls.get(0).getJSType()),
+                      superClassNameNode,
+                      superCalls.get(0),
+                      type(superCalls.get(0)),
+                      type(StandardColors.UNKNOWN)),
                   astFactory.createThis(thisType));
           firstStatement.replaceWith(IR.returnNode(newReturn).srcrefTreeIfMissing(firstStatement));
         } else {
-          final JSType typeOfThis = getTypeOfThisForConstructor(constructor);
+          final AstFactory.Type typeOfThis = getTypeOfThisForConstructor(constructor);
           // `this` -> `$jscomp$super$this` throughout the constructor body,
           // except for super() calls.
           updateThisToSuperThis(typeOfThis, constructorBody, superCalls);
@@ -201,7 +214,9 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
                   .srcrefTree(constructorBody));
           // Replace each super() call with `($jscomp$super$this = <newSuperCall> || this)`
           for (Node superCall : superCalls) {
-            Node newSuperCall = createNewSuperCall(superClassNameNode, superCall, typeOfThis);
+            Node newSuperCall =
+                createNewSuperCall(
+                    superClassNameNode, superCall, typeOfThis, type(StandardColors.UNKNOWN));
             superCall.replaceWith(
                 astFactory
                     .createAssign(
@@ -237,11 +252,7 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
    * </code></pre>
    */
   private void convertSuperCallsToJsCompConstructCalls(
-      NodeTraversal t,
-      Node constructor,
-      List<Node> superCalls,
-      Node superClassNameNode,
-      JSType thisType) {
+      Node constructor, List<Node> superCalls, Node superClassNameNode, AstFactory.Type thisType) {
     Node constructorBody = checkNotNull(constructor.getChildAtIndex(2));
     Node firstStatement = constructorBody.getFirstChild();
     // A constructor body with no call to `super()` is a syntax error for a class that has an
@@ -259,10 +270,9 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
       // `return $jscomp.construct(SuperClassName, [args], this.constructor);`
       firstStatement.replaceWith(
           astFactory.createReturn(
-              createJSCompConstructorCall(
-                  t.getScope(), superClassNameNode, firstSuperCall, thisType)));
+              createJSCompConstructorCall(superClassNameNode, firstSuperCall, thisType)));
     } else {
-      final JSType typeOfThis = getTypeOfThisForConstructor(constructor);
+      final AstFactory.Type typeOfThis = getTypeOfThisForConstructor(constructor);
       // `this` -> `$jscomp$super$this` throughout the constructor body,
       // except for super() calls.
       updateThisToSuperThis(typeOfThis, constructorBody, superCalls);
@@ -280,8 +290,7 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
             astFactory
                 .createAssign(
                     astFactory.createName(SUPER_THIS, typeOfThis).srcref(superCall),
-                    createJSCompConstructorCall(
-                        t.getScope(), superClassNameNode, superCall, thisType))
+                    createJSCompConstructorCall(superClassNameNode, superCall, thisType))
                 .srcref(superCall));
       }
     }
@@ -326,18 +335,26 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
       }
     } else if (declaration.isAssign() && declaration.getFirstChild() == declaredVarOrProp) {
       declaredValue = checkNotNull(declaration.getSecondChild());
-    } else if (declaration.isObjectLit() && declaredVarOrProp.hasOneChild()){
+    } else if (declaration.isObjectLit() && declaredVarOrProp.hasOneChild()) {
       declaredValue = checkNotNull(declaredVarOrProp.getFirstChild());
     } else {
       throw new IllegalStateException(
           "Unexpected declaration format:\n" + declaration.toStringTree());
     }
+    return isNodeKnownToOnlyReturnUndefined(declaredValue);
+  }
 
-    if (declaredValue.isFunction()) {
-      Node functionBody = checkNotNull(declaredValue.getChildAtIndex(2));
-      return !(new UndefinedReturnValueCheck().mayReturnDefinedValue(functionBody));
-    } else if (declaredValue.isQualifiedName()) {
-      return isKnownToReturnOnlyUndefined(declaredValue.getQualifiedName());
+  private boolean isNodeKnownToOnlyReturnUndefined(Node node) {
+    if (node.isFunction()) {
+      Node functionBody = checkNotNull(node.getChildAtIndex(2));
+      return !new UndefinedReturnValueCheck().mayReturnDefinedValue(functionBody);
+    } else if (node.isQualifiedName()) {
+      return isKnownToReturnOnlyUndefined(node.getQualifiedName());
+    } else if (node.isHook()) {
+      // cond ? left : right;
+      Node left = node.getSecondChild();
+      Node right = node.getLastChild();
+      return isNodeKnownToOnlyReturnUndefined(left) && isNodeKnownToOnlyReturnUndefined(right);
     } else {
       // TODO(bradfordcsmith): What cases are these? Can we do better?
       return false;
@@ -375,7 +392,11 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
    * existing call itself is not replaced in the AST yet. The returned node is not yet attached to
    * the AST.
    */
-  private Node createNewSuperCall(Node superClassQNameNode, Node superCall, JSType thisType) {
+  private Node createNewSuperCall(
+      Node superClassQNameNode,
+      Node superCall,
+      AstFactory.Type thisType,
+      AstFactory.Type resultType) {
     checkArgument(superClassQNameNode.isQualifiedName(), superClassQNameNode);
     checkArgument(superCall.isCall(), superCall);
 
@@ -406,9 +427,11 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
       //
       // Foo.call.apply(Foo, [this, x, $jscomp.arrayFromIterable(params), y])
       Node superClassDotApply =
-          astFactory.createGetProp(superClassQNameNode.cloneTree(), "apply").srcrefTree(callee);
+          astFactory
+              .createGetPropWithUnknownType(superClassQNameNode.cloneTree(), "apply")
+              .srcrefTree(callee);
       // Create `SuperClass.call(this)`
-      Node newSuperCall = astFactory.createCall(superClassDotApply).srcref(superCall);
+      Node newSuperCall = astFactory.createCall(superClassDotApply, resultType).srcref(superCall);
       newSuperCall.addChildToBack(astFactory.createThis(thisType).srcref(callee));
       newSuperCall.putBooleanProp(Node.FREE_CALL, false); // callee is now a getprop
       // It's very common to just have `super(...arguments)`, because we generate constructors
@@ -431,8 +454,11 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
       //
       // Using `call` is shorter than using `apply`.
       Node superClassDotCall =
-          astFactory.createGetProp(superClassQNameNode.cloneTree(), "call").srcrefTree(callee);
-      Node newSuperCall = astFactory.createCall(superClassDotCall).srcref(superCall);
+          astFactory
+              .createGetProp(
+                  superClassQNameNode.cloneTree(), "call", type(StandardColors.TOP_OBJECT))
+              .srcrefTree(callee);
+      Node newSuperCall = astFactory.createCall(superClassDotCall, resultType).srcref(superCall);
       newSuperCall.addChildToBack(astFactory.createThis(thisType).srcref(callee));
       newSuperCall.putBooleanProp(Node.FREE_CALL, false); // callee is now a getprop
       for (Node arg : args) {
@@ -450,7 +476,7 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
    * the AST.
    */
   private Node createJSCompConstructorCall(
-      Scope scope, Node superClassQNameNode, Node superCall, JSType thisType) {
+      Node superClassQNameNode, Node superCall, AstFactory.Type thisType) {
     checkArgument(superClassQNameNode.isQualifiedName(), superClassQNameNode);
     checkArgument(superCall.isCall(), superCall);
 
@@ -459,7 +485,7 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
 
     // `$jscomp.construct`
     final Node jscompDotConstruct =
-        astFactory.createQName(scope, "$jscomp", "construct").srcrefTree(callee);
+        astFactory.createQName(this.transpilationNamespace, "$jscomp.construct").srcrefTree(callee);
 
     final Node superClassQName = superClassQNameNode.cloneTree();
 
@@ -484,14 +510,16 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
     // `this.constructor`
     final Node thisDotConstructor =
         astFactory
-            .createGetProp(astFactory.createThis(thisType), "constructor")
+            .createGetProp(
+                astFactory.createThis(thisType), "constructor", type(superClassQNameNode))
             .srcrefTree(superCall);
 
     // `super(arg1, arg2)`
     // becomes
     // `$jscomp.construct(SuperClassName, [arg1, arg2], this.constructor)`
     return astFactory
-        .createCall(jscompDotConstruct, superClassQName, superArgs, thisDotConstructor)
+        .createCall(
+            jscompDotConstruct, type(superCall), superClassQName, superArgs, thisDotConstructor)
         .srcref(superCall);
   }
 
@@ -510,7 +538,7 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
     Node body = superStatement.getParent();
     checkState(body.isBlock(), body);
 
-    JSType thisType = newSuperCall.getJSType();
+    AstFactory.Type thisType = type(newSuperCall);
 
     // var $jscomp$tmp$error;
     Node getError =
@@ -525,8 +553,12 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
     // this.message = $jscomp$tmp$error.message,
     Node copyMessage =
         astFactory.createAssign(
-            astFactory.createGetProp(astFactory.createThis(thisType), "message"),
-            astFactory.createGetProp(astFactory.createName(TMP_ERROR, thisType), "message"));
+            astFactory.createGetProp(
+                astFactory.createThis(thisType), "message", type(StandardColors.STRING)),
+            astFactory.createGetProp(
+                astFactory.createName(TMP_ERROR, thisType),
+                "message",
+                type(StandardColors.STRING)));
 
     // Old versions of IE Don't set stack until the object is thrown, and won't set it then
     // if it already exists on the object.
@@ -536,8 +568,12 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
             astFactory.createIn(
                 astFactory.createString("stack"), astFactory.createName(TMP_ERROR, thisType)),
             astFactory.createAssign(
-                astFactory.createGetProp(astFactory.createThis(thisType), "stack"),
-                astFactory.createGetProp(astFactory.createName(TMP_ERROR, thisType), "stack")));
+                astFactory.createGetProp(
+                    astFactory.createThis(thisType), "stack", type(StandardColors.STRING)),
+                astFactory.createGetProp(
+                    astFactory.createName(TMP_ERROR, thisType),
+                    "stack",
+                    type(StandardColors.STRING))));
     Node superErrorExpr =
         astFactory
             .createCommas(getTmpError, copyMessage, setStack, astFactory.createThis(thisType))
@@ -553,6 +589,7 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
   private boolean isNativeErrorClass(NodeTraversal t, String superClassName) {
     switch (superClassName) {
         // All Error classes listed in the ECMAScript spec as of 2016
+      case "AggregateError":
       case "Error":
       case "EvalError":
       case "RangeError":
@@ -628,7 +665,7 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
   }
 
   private void updateThisToSuperThis(
-      final JSType typeOfThis, Node constructorBody, final List<Node> superCalls) {
+      final AstFactory.Type typeOfThis, Node constructorBody, final List<Node> superCalls) {
     NodeTraversal.Callback replaceThisWithSuperThis =
         new NodeTraversal.Callback() {
           @Override
@@ -646,7 +683,7 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
           @Override
           public void visit(NodeTraversal t, Node n, Node parent) {
             if (n.isThis()) {
-              Node superThis = astFactory.createName(SUPER_THIS, n.getJSType()).srcref(n);
+              Node superThis = astFactory.createName(SUPER_THIS, type(n)).srcref(n);
               n.replaceWith(superThis);
             } else if (n.isReturn() && !n.hasChildren()) {
               // An empty return needs to be changed to return $jscomp$super$this
@@ -657,18 +694,12 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
     NodeTraversal.traverse(compiler, constructorBody, replaceThisWithSuperThis);
   }
 
-  private JSType getTypeOfThisForConstructor(Node constructor) {
+  private AstFactory.Type getTypeOfThisForConstructor(Node constructor) {
     checkArgument(constructor.isFunction(), constructor);
-    // If typechecking has run, all function nodes should have a JSType. Nodes that were in a CAST
-    // will also have the TYPE_BEFORE_CAST property, which is null for other nodes.
-    final JSType constructorTypeBeforeCast = constructor.getJSTypeBeforeCast();
-    final JSType constructorType =
-        constructorTypeBeforeCast != null ? constructorTypeBeforeCast : constructor.getJSType();
-    if (constructorType == null) {
-      return null; // Type checking passes must not have run.
-    }
-    checkState(constructorType.isFunctionType());
-    return constructorType.toMaybeFunctionType().getTypeOfThis();
+    final Color constructorType = constructor.getColor();
+    return constructorType != null && !constructorType.getInstanceColors().isEmpty()
+        ? type(Color.createUnion(constructorType.getInstanceColors()))
+        : type(StandardColors.UNKNOWN);
   }
 
   private Node getSuperClassQNameNode(Node constructor) {

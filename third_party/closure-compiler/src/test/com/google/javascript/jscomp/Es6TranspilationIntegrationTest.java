@@ -16,14 +16,17 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.javascript.jscomp.Es6RewriteClass.DYNAMIC_EXTENDS_TYPE;
 import static com.google.javascript.jscomp.Es6ToEs3Util.CANNOT_CONVERT;
 import static com.google.javascript.jscomp.Es6ToEs3Util.CANNOT_CONVERT_YET;
 import static com.google.javascript.jscomp.TypeCheck.INSTANTIATE_ABSTRACT_CLASS;
 import static com.google.javascript.jscomp.parsing.parser.FeatureSet.ES2016_MODULES;
 
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
+import com.google.javascript.jscomp.serialization.ConvertTypesToColors;
+import com.google.javascript.jscomp.serialization.SerializationOptions;
 import com.google.javascript.jscomp.testing.NoninjectingCompiler;
+import com.google.javascript.jscomp.testing.TestExternsBuilder;
+import java.util.ArrayList;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,55 +41,12 @@ import org.junit.runners.JUnit4;
 public final class Es6TranspilationIntegrationTest extends CompilerTestCase {
 
   private static final String EXTERNS_BASE =
-      lines(
-          MINIMAL_EXTERNS,
-          "/** @constructor @template T */",
-          "function Arguments() {}",
-          "",
-          "Array.prototype.concat = function(var_args) {};",
-          "",
-          "/**",
-          " * @param {...*} var_args",
-          " * @return {*}",
-          " */",
-          "Function.prototype.apply = function(var_args) {};",
-          "",
-          "/**",
-          " * @param {...*} var_args",
-          " * @return {*}",
-          " */",
-          "Function.prototype.call = function(var_args) {};",
-          "",
-          // Stub out just enough of ES6 runtime libraries to satisfy the typechecker.
-          // In a real compilation, the needed parts of the library are loaded automatically.
-          "/**",
-          " * @param {function(new: ?)} subclass",
-          " * @param {function(new: ?)} superclass",
-          " */",
-          "$jscomp.inherits = function(subclass, superclass) {};",
-          "",
-          "/**",
-          " * @param {string|!Array<T>|!Iterable<T>|!Iterator<T>|!Arguments<T>} iterable",
-          " * @return {!Iterator<T>}",
-          " * @template T",
-          " */",
-          "$jscomp.makeIterator = function(iterable) {};",
-          "",
-          "/**",
-          " * @param {string|!Array<T>|!Iterable<T>|!Iterator<T>|!Arguments<T>} iterable",
-          " * @return {!Array<T>}",
-          " * @template T",
-          " */",
-          "$jscomp.arrayFromIterable = function(iterable) {};",
-          "",
-          "$jscomp.global.Object = function() {};",
-          "",
-          "/**",
-          "* @param {!Object} obj",
-          "* @param {!Object} props",
-          "* @return {!Object}",
-          "*/",
-          "$jscomp.global.Object.defineProperties = function(obj, props) {};");
+      new TestExternsBuilder()
+          .addArguments()
+          .addFunction()
+          .addJSCompLibraries()
+          .addObject()
+          .build();
 
   public Es6TranspilationIntegrationTest() {
     super(EXTERNS_BASE);
@@ -99,42 +59,33 @@ public final class Es6TranspilationIntegrationTest extends CompilerTestCase {
     setAcceptedLanguage(LanguageMode.ECMASCRIPT_2016);
     setLanguageOut(LanguageMode.ECMASCRIPT3);
     disableTypeCheck();
-  }
-
-  protected final PassFactory makePassFactory(
-      String name, final CompilerPass pass) {
-    return PassFactory.builder()
-        .setName(name)
-        .setInternalFactory((compiler) -> pass)
-        .setFeatureSet(ES2016_MODULES)
-        .build();
+    disableCompareJsDoc(); // optimization passes see simplified JSDoc.
   }
 
   @Override
   protected CompilerPass getProcessor(final Compiler compiler) {
-    // TODO(lharker): we should just use TranspilationPasses.addPreTypecheck/PostCheckPasses
-    // instead of re-enumerating all these passes.
     PhaseOptimizer optimizer = new PhaseOptimizer(compiler, null);
-    optimizer.addOneTimePass(
-        makePassFactory(
-            "es6InjectRuntimeLibraries", new InjectTranspilationRuntimeLibraries(compiler)));
-    optimizer.addOneTimePass(
-        makePassFactory(
-            "Es6RenameVariablesInParamLists", new Es6RenameVariablesInParamLists(compiler)));
-    optimizer.addOneTimePass(
-        makePassFactory("es6ConvertSuper", new Es6ConvertSuper(compiler)));
-    optimizer.addOneTimePass(
-        makePassFactory("rewriteNewDotTarget", new RewriteNewDotTarget(compiler)));
-    optimizer.addOneTimePass(makePassFactory("es6ExtractClasses", new Es6ExtractClasses(compiler)));
-    optimizer.addOneTimePass(makePassFactory("es6RewriteClass", new Es6RewriteClass(compiler)));
-    optimizer.addOneTimePass(
-        makePassFactory("es6RewriteRestAndSpread", new Es6RewriteRestAndSpread(compiler)));
-    optimizer.addOneTimePass(
-        makePassFactory("convertEs6Late", new LateEs6ToEs3Converter(compiler)));
-    optimizer.addOneTimePass(makePassFactory("es6ForOf", new Es6ForOfConverter(compiler)));
-    optimizer.addOneTimePass(
-        makePassFactory(
-            "Es6RewriteBlockScopedDeclaration", new Es6RewriteBlockScopedDeclaration(compiler)));
+
+    ArrayList<PassFactory> passes = new ArrayList<>();
+
+    passes.add(
+        PassFactory.builder()
+            .setName("es6InjectRuntimeLibraries")
+            .setInternalFactory(InjectTranspilationRuntimeLibraries::new)
+            .setFeatureSet(ES2016_MODULES)
+            .build());
+
+    passes.add(
+        PassFactory.builder()
+            .setName("convertTypesToColors")
+            .setInternalFactory(
+                (c) -> new ConvertTypesToColors(c, SerializationOptions.INCLUDE_DEBUG_INFO))
+            .setFeatureSet(ES2016_MODULES)
+            .build());
+
+    TranspilationPasses.addEarlyOptimizationTranspilationPasses(passes, compiler.getOptions());
+    optimizer.consume(passes);
+
     return optimizer;
   }
 
@@ -571,10 +522,26 @@ public final class Es6TranspilationIntegrationTest extends CompilerTestCase {
   }
 
   @Test
-  public void testInvalidExtends() {
-    testError("class C extends foo() {}", DYNAMIC_EXTENDS_TYPE);
-    testError("class C extends function(){} {}", DYNAMIC_EXTENDS_TYPE);
-    testError("class A {}; class B {}; class C extends (foo ? A : B) {}", DYNAMIC_EXTENDS_TYPE);
+  public void testDynamicExtends() {
+    test(
+        "class C extends foo() {}",
+        lines(
+            "/** @const */ var testcode$classextends$var0 = foo();",
+            "/** @constructor @extends {testcode$classextends$var0} */",
+            "var C = function() {",
+            "  return testcode$classextends$var0.apply(this, arguments) || this;",
+            "};",
+            "$jscomp.inherits(C, testcode$classextends$var0);"));
+
+    test(
+        "class C extends function(){} {}",
+        lines(
+            "/** @const */ var testcode$classextends$var0 = function(){};",
+            "/** @constructor @extends {testcode$classextends$var0} */",
+            "var C = function() {",
+            "  testcode$classextends$var0.apply(this, arguments);",
+            "};",
+            "$jscomp.inherits(C, testcode$classextends$var0);"));
   }
 
   @Test
@@ -1858,8 +1825,7 @@ public final class Es6TranspilationIntegrationTest extends CompilerTestCase {
             "}"));
     // No $jscomp.initSymbol in externs
     testExternChanges(
-        "alert(Symbol.thimble);", "",
-        "alert(Symbol.thimble)");
+        externs("alert(Symbol.thimble);"), srcs(""), expected("alert(Symbol.thimble)"));
   }
 
   @Test
@@ -2161,7 +2127,8 @@ public final class Es6TranspilationIntegrationTest extends CompilerTestCase {
             "}"),
         lines(
             "function f(a) {",
-            "  var {x: x} = a;",
+            "  var $jscomp$destructuring$var0 = a;",
+            "  var x = $jscomp$destructuring$var0.x;",
             "  if (a) {",
             "    var x$0 = 2;",
             "    return x$0;",

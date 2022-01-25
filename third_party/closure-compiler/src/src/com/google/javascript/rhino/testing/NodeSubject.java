@@ -41,12 +41,15 @@ package com.google.javascript.rhino.testing;
 
 import static com.google.common.truth.Fact.simpleFact;
 import static com.google.common.truth.Truth.assertAbout;
+import static com.google.javascript.jscomp.testing.ColorSubject.colors;
+import static com.google.javascript.rhino.testing.TypeSubject.types;
 
 import com.google.common.truth.Fact;
 import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.StringSubject;
 import com.google.common.truth.Subject;
 import com.google.errorprone.annotations.CheckReturnValue;
+import com.google.javascript.jscomp.testing.ColorSubject;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
@@ -149,8 +152,8 @@ public final class NodeSubject extends Subject {
       // are different.
       facts.addAll(
           new TextDiffFactsBuilder("AST diff")
-              .expectedText(expected.toStringTree())
-              .actualText(actual.toStringTree())
+              .expectedText(mismatch.expected.toStringTree())
+              .actualText(mismatch.actual.toStringTree())
               .build());
     } else {
       facts.addAll(
@@ -184,7 +187,11 @@ public final class NodeSubject extends Subject {
   }
 
   public TypeSubject hasJSTypeThat() {
-    return TypeSubject.assertType(actual.getJSTypeRequired());
+    return check("getJSType()").about(types()).that(actual.getJSTypeRequired());
+  }
+
+  public ColorSubject hasColorThat() {
+    return check("getColor()").about(colors()).that(actual.getColor());
   }
 
   public void hasType(Token type) {
@@ -249,6 +256,11 @@ public final class NodeSubject extends Subject {
     return this;
   }
 
+  public NodeSubject isStatic() {
+    check("isStatic()").that(actual.isStaticMember()).isTrue();
+    return this;
+  }
+
   public NodeSubject hasTrailingComma() {
     check("hasTrailingComma()").that(actual.hasTrailingComma()).isTrue();
     return this;
@@ -279,6 +291,19 @@ public final class NodeSubject extends Subject {
 
   public NodeSubject isCall() {
     check("isCall()").that(actual.isCall()).isTrue();
+    return this;
+  }
+
+  public NodeSubject isFreeCall() {
+    check("callable")
+        .that(actual.isCall() || actual.isOptChainCall() || actual.isTaggedTemplateLit())
+        .isTrue();
+    check("getBooleanProp(Node.FREE_CALL)").that(actual.getBooleanProp(Node.FREE_CALL)).isTrue();
+    return this;
+  }
+
+  public NodeSubject isNotFreeCall() {
+    check("getBooleanProp(Node.FREE_CALL)").that(actual.getBooleanProp(Node.FREE_CALL)).isFalse();
     return this;
   }
 

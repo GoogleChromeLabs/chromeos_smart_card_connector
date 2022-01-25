@@ -25,7 +25,9 @@
 'require es6/string/matchall';
 'require es6/string/padend';
 'require es6/string/padstart';
+'require es6/string/raw';
 'require es6/string/repeat';
+'require es6/string/replaceall';
 'require es6/string/startswith';
 'require es6/string/trimend';
 'require es6/string/trimstart';

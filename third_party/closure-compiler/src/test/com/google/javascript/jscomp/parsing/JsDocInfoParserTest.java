@@ -66,14 +66,13 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
   private Set<String> extraAnnotations;
   private Set<String> extraSuppressions;
   private Set<String> extraPrimitives;
-  private JSDocInfo.Builder fileLevelJsDocBuilder = null;
+  private String prevLicense;
 
   private static final String MISSING_TYPE_DECL_WARNING_TEXT = "Missing type declaration.";
   private static final MapBasedScope EMPTY_SCOPE = MapBasedScope.emptyScope();
 
   @Before
   public void setUp() throws Exception {
-    fileLevelJsDocBuilder = null;
     extraAnnotations =
         new HashSet<>(
             ParserRunner.createConfig(LanguageMode.ECMASCRIPT3, null, StrictMode.SLOPPY)
@@ -1259,16 +1258,17 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
 
   @Test
   public void testParseThrows1() {
-    JSDocInfo info = parse("@throws {number} Some number */");
-    assertThat(info.getThrownTypes()).hasSize(1);
-    assertTypeEquals(NUMBER_TYPE, info.getThrownTypes().get(0));
+    JSDocInfo info = parse("@throws {number} Some number */", true);
+    assertThat(info.getThrowsAnnotations()).containsExactly("{number} Some number");
   }
 
   @Test
   public void testParseThrows2() {
-    JSDocInfo info = parse("@throws {number} Some number\n " + "*@throws {String} A string */");
-    assertThat(info.getThrownTypes()).hasSize(2);
-    assertTypeEquals(NUMBER_TYPE, info.getThrownTypes().get(0));
+    JSDocInfo info =
+        parse("@throws {not a type}\n *     Bla\n " + "*@throws {String} A string */", true);
+    assertThat(info.getThrowsAnnotations())
+        .containsExactly("{not a type} Bla", "{String} A string")
+        .inOrder();
   }
 
   @Test
@@ -1936,8 +1936,9 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
   @Test
   public void testStackedAnnotation8() {
     JSDocInfo info = parse("@throws {number} @constructor */", true);
-    assertThat(info.getThrownTypes()).isNotEmpty();
-    assertThat(info.isConstructor()).isTrue();
+    assertThat(info.getThrowsAnnotations()).isNotEmpty();
+    // The @constructor annotation gets swallowed as part of the throws annotation.
+    assertThat(info.isConstructor()).isFalse();
 
     info = parse("@return {number} @constructor */", false);
     assertThat(info.hasReturnType()).isTrue();
@@ -1993,38 +1994,37 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
 
   @Test
   public void testParsePreserve() {
-    this.fileLevelJsDocBuilder = JSDocInfo.builder();
     String comment = "@preserve Foo\nBar\n\nBaz*/";
     parse(comment);
-    JSDocInfo info = this.fileLevelJsDocBuilder.build(true);
-    assertThat(info.getLicense()).isEqualTo(" Foo\nBar\n\nBaz");
+    assertThat(this.prevLicense).isEqualTo(" Foo\nBar\n\nBaz");
   }
 
   @Test
   public void testParseLicense() {
-    this.fileLevelJsDocBuilder = JSDocInfo.builder();
     String comment = "@license Foo\nBar\n\nBaz*/";
     parse(comment);
-    JSDocInfo info = this.fileLevelJsDocBuilder.build(true);
-    assertThat(info.getLicense()).isEqualTo(" Foo\nBar\n\nBaz");
+    assertThat(this.prevLicense).isEqualTo(" Foo\nBar\n\nBaz");
   }
 
   @Test
   public void testParseLicenseAscii() {
-    this.fileLevelJsDocBuilder = JSDocInfo.builder();
     String comment = "@license Foo\n *   Bar\n\n  Baz*/";
     parse(comment);
-    JSDocInfo info = this.fileLevelJsDocBuilder.build(true);
-    assertThat(info.getLicense()).isEqualTo(" Foo\n   Bar\n\n  Baz");
+    assertThat(this.prevLicense).isEqualTo(" Foo\n   Bar\n\n  Baz");
   }
 
   @Test
   public void testParseLicenseWithAnnotation() {
-    this.fileLevelJsDocBuilder = JSDocInfo.builder();
     String comment = "@license Foo \n * @author Charlie Brown */";
     parse(comment);
-    JSDocInfo info = this.fileLevelJsDocBuilder.build(true);
-    assertThat(info.getLicense()).isEqualTo(" Foo \n @author Charlie Brown ");
+    assertThat(this.prevLicense).isEqualTo(" Foo \n @author Charlie Brown ");
+  }
+
+  @Test
+  public void testParseLicenseMultiple() {
+    String comment = "@license Foo @license Bar */";
+    parse(comment);
+    assertThat(this.prevLicense).isEqualTo(" Foo @license Bar ");
   }
 
   @Test
@@ -2840,15 +2840,90 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
     assertThat(authors).isNotNull();
     assertThat(authors).hasSize(3);
 
-    assertContains(authors, "a@google.com (A Person)");
-    assertContains(authors, "b@google.com (B Person)");
-    assertContains(authors, "c@google.com (C Person)");
+    assertThat(authors).contains("a@google.com (A Person)");
+    assertThat(authors).contains("b@google.com (B Person)");
+    assertThat(authors).contains("c@google.com (C Person)");
   }
 
   @Test
   public void testSuppress1() {
     JSDocInfo info = parse("@suppress {x} */");
     assertThat(info.getSuppressions()).isEqualTo(ImmutableSet.of("x"));
+  }
+
+  @Test
+  public void testSuppressWithDescription() {
+    String jsDocComment =
+        lines(
+            "@suppress {x,y} Some description.",
+            " * @suppress {z}", // no description
+            "*/");
+    JSDocInfo info = parse(jsDocComment, true /* parseDocumentation */);
+    assertThat(info.getSuppressions()).isEqualTo(ImmutableSet.of("x", "y", "z"));
+    assertThat(info.getSuppressionsAndTheirDescription())
+        .containsEntry(ImmutableSet.of("x", "y"), "Some description.");
+    assertThat(info.getSuppressionsAndTheirDescription()).containsEntry(ImmutableSet.of("z"), "");
+  }
+
+  @Test
+  public void testSuppressWithDescription_multipleLines() {
+    String jsDocComment =
+        lines(
+            "@suppress {x,y} Some description.",
+            " * Spans across lines.",
+            " * @suppress {z}", // no description
+            "*/");
+    JSDocInfo info = parse(jsDocComment, true /* parseDocumentation */);
+    assertThat(info.getSuppressions()).isEqualTo(ImmutableSet.of("x", "y", "z"));
+    assertThat(info.getSuppressionsAndTheirDescription())
+        .containsEntry(ImmutableSet.of("x", "y"), "Some description. Spans across lines.");
+    assertThat(info.getSuppressionsAndTheirDescription()).containsEntry(ImmutableSet.of("z"), "");
+  }
+
+  @Test
+  public void testSuppressWithDescription_multipleLines_withOtherAnnotations() {
+    String jsDocComment =
+        lines(
+            "@author XYZ",
+            " * @suppress {x,y} Some description.",
+            " * Spans across lines.",
+            " * @override",
+            " * @suppress {z}", // no description
+            "*/");
+    JSDocInfo info = parse(jsDocComment, true /* parseDocumentation */);
+    assertThat(info.getAuthors()).contains("XYZ");
+    assertThat(info.isOverride()).isTrue();
+    assertThat(info.getSuppressions()).isEqualTo(ImmutableSet.of("x", "y", "z"));
+    assertThat(info.getSuppressionsAndTheirDescription())
+        .containsEntry(ImmutableSet.of("x", "y"), "Some description. Spans across lines.");
+    assertThat(info.getSuppressionsAndTheirDescription()).containsEntry(ImmutableSet.of("z"), "");
+  }
+
+  // When exact warning is repeated in another @suppress annotation, JSDocInfoParser does not save
+  // the second annotation.
+  @Test
+  public void testSuppressWithDescription_repeatedWarnings1() {
+    String jsDocComment =
+        lines("@suppress {x} Some description.", " * @suppress {x} Another description.", "*/");
+    JSDocInfo info = parse(jsDocComment, true /* parseDocumentation */);
+    assertThat(info.getSuppressions()).isEqualTo(ImmutableSet.of("x"));
+    assertThat(info.getSuppressionsAndTheirDescription()).hasSize(1);
+    assertThat(info.getSuppressionsAndTheirDescription())
+        .containsEntry(ImmutableSet.of("x"), "Some description.");
+  }
+
+  // A different @suppress annotation containing a non-repeated warning, we store both annotations.
+  @Test
+  public void testSuppressWithDescription_repeatedWarnings2() {
+    String jsDocComment =
+        lines("@suppress {x} Some description.", " * @suppress {x, y} Another description.", "*/");
+    JSDocInfo info = parse(jsDocComment, true /* parseDocumentation */);
+    assertThat(info.getSuppressions()).isEqualTo(ImmutableSet.of("x", "y"));
+    assertThat(info.getSuppressionsAndTheirDescription()).hasSize(2);
+    assertThat(info.getSuppressionsAndTheirDescription())
+        .containsEntry(ImmutableSet.of("x"), "Some description.");
+    assertThat(info.getSuppressionsAndTheirDescription())
+        .containsEntry(ImmutableSet.of("x", "y"), "Another description.");
   }
 
   @Test
@@ -3058,10 +3133,10 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
     assertThat(references).isNotNull();
     assertThat(references).hasSize(4);
 
-    assertContains(references, "A cool place!");
-    assertContains(references, "The world.");
-    assertContains(references, "SomeClass#SomeMember");
-    assertContains(references, "A boring test case");
+    assertThat(references).contains("A cool place!");
+    assertThat(references).contains("The world.");
+    assertThat(references).contains("SomeClass#SomeMember");
+    assertThat(references).contains("A boring test case");
   }
 
   @Test
@@ -3569,9 +3644,9 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
   public void testMixedVisibility() {
     parse("@public @private */", "extra visibility tag");
     parse("@public @protected */", "extra visibility tag");
-    parse("@export @protected */", "extra visibility tag");
-    parse("@export {string}\n * @private */", "extra visibility tag");
-    parse("@export {string}\n * @public */", "extra visibility tag");
+    parse("@export @protected */");
+    parse("@export {string}\n * @private */");
+    parse("@export {string}\n * @public */");
   }
 
   @Test
@@ -5081,7 +5156,6 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
             + "* @static \n"
             + "* @supported\n"
             + "* @wizaction \n"
-            + "* @wizmodule \n"
             + "*/");
   }
 
@@ -5208,6 +5282,30 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
   }
 
   @Test
+  public void testParseLocaleFile() {
+    JSDocInfo jsDocInfo = parse("@localeFile */");
+    assertThat(jsDocInfo.isLocaleFile()).isTrue();
+  }
+
+  @Test
+  public void testParseLocaleObject() {
+    JSDocInfo jsDocInfo = parse("@localeObject */");
+    assertThat(jsDocInfo.isLocaleObject()).isTrue();
+  }
+
+  @Test
+  public void testParseLocaleSelect() {
+    JSDocInfo jsDocInfo = parse("@localeSelect */");
+    assertThat(jsDocInfo.isLocaleSelect()).isTrue();
+  }
+
+  @Test
+  public void testParseLocaleValue() {
+    JSDocInfo jsDocInfo = parse("@localeValue */");
+    assertThat(jsDocInfo.isLocaleValue()).isTrue();
+  }
+
+  @Test
   public void testParseCollapsibleOrBreakMyCode() {
     JSDocInfo jsDocInfo = parse("@collapsibleOrBreakMyCode */");
     assertThat(jsDocInfo.isCollapsibleOrBreakMyCode()).isTrue();
@@ -5289,7 +5387,7 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
 
     assertThat(jsdoc.getMarkers().iterator().next().getDescription().getItem())
         .isEqualTo(
-            "this is a nice comment\n that spans multiple lines\n"
+            "{string} this is a nice comment\n that spans multiple lines\n"
                 + "     with custom\n"
                 + "     formatting\n"
                 + " ");
@@ -5701,10 +5799,6 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
     return null;
   }
 
-  private static <T> void assertContains(Collection<T> collection, T item) {
-    assertThat(collection).contains(item);
-  }
-
   private Node parseFull(String code, String... warnings) {
     TestErrorReporter testErrorReporter = new TestErrorReporter().expectAllWarnings(warnings);
     Config config =
@@ -5781,11 +5875,8 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
     JsDocInfoParser jsdocParser =
         new JsDocInfoParser(stream(comment), comment, 0, templateNode, config, errorReporter);
 
-    if (fileLevelJsDocBuilder != null) {
-      jsdocParser.setFileLevelJsDocBuilder(fileLevelJsDocBuilder);
-    }
-
     jsdocParser.parse();
+    this.prevLicense = jsdocParser.getLicenseText();
 
     errorReporter.verifyHasEncounteredAllWarningsAndErrors();
 

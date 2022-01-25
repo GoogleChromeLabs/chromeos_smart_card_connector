@@ -16,6 +16,7 @@
 
 package com.google.javascript.jscomp;
 
+import com.google.javascript.jscomp.lint.CheckUnusedPrivateProperties;
 import com.google.javascript.rhino.Node;
 import org.junit.Before;
 import org.junit.Test;
@@ -111,53 +112,51 @@ public final class CheckUnusedPrivatePropertiesInPolymerElementTest extends Comp
   public void testBehaviorPropertyUsedAsObserver() {
     allowExternsChanges();
     test(
-        new String[] {
-          lines(
-              "/** @polymerBehavior */",
-              "var Behavior = {",
-              "  properties: {",
-              "    foo: {",
-              "      type: Boolean,",
-              "      observer: 'fooChanged_',",
-              "    },",
-              "  },",
-              "",
-              "  /** @private */",
-              "  fooChanged_: function() {},",
-              "};"),
-          lines("Polymer({", "  is: 'example-elem',", "  behaviors: [Behavior],", "});"),
-        },
-        new String[] {
-          lines(
-              "/** @polymerBehavior @nocollapse */",
-              "var Behavior = {",
-              "  properties: {",
-              "    foo: {",
-              "      type: Boolean,",
-              "      observer: 'fooChanged_',",
-              "    },",
-              "  },",
-              "",
-              "  /** @suppress {checkTypes|globalThis|visibility} */",
-              "  fooChanged_: function() {},",
-              "};"),
-          lines(
-              "/**",
-              " * @constructor",
-              " * @extends {PolymerElement}",
-              " * @implements {PolymerExampleElemElementInterface0}",
-              " */",
-              "var ExampleElemElement = function() {};",
-              "",
-              "/** @type {boolean} */",
-              "ExampleElemElement.prototype.foo;",
-              "",
-              "/** @private @suppress {unusedPrivateMembers} */",
-              "ExampleElemElement.prototype.fooChanged_ = function() {};",
-              "Polymer(/** @lends {ExampleElemElement.prototype} */ {",
-              "  is: 'example-elem',",
-              "  behaviors: [Behavior],",
-              "});"),
-        });
+        srcs(
+            lines(
+                "/** @polymerBehavior */",
+                "var Behavior = {",
+                "  properties: {",
+                "    foo: {",
+                "      type: Boolean,",
+                "      observer: 'fooChanged_',",
+                "    },",
+                "  },",
+                "",
+                "  /** @private */",
+                "  fooChanged_: function() {},",
+                "};"),
+            lines("Polymer({", "  is: 'example-elem',", "  behaviors: [Behavior],", "});")),
+        expected(
+            lines(
+                "/** @polymerBehavior @nocollapse */",
+                "var Behavior = {",
+                "  properties: {",
+                "    foo: {",
+                "      type: Boolean,",
+                "      observer: 'fooChanged_',",
+                "    },",
+                "  },",
+                "",
+                "  /** @suppress {checkTypes|globalThis|visibility} */",
+                "  fooChanged_: function() {},",
+                "};"),
+            lines(
+                "/**",
+                " * @constructor",
+                " * @extends {PolymerElement}",
+                " * @implements {PolymerExampleElemElementInterface0}",
+                " */",
+                "var ExampleElemElement = function() {};",
+                "",
+                "/** @type {boolean} */",
+                "ExampleElemElement.prototype.foo;",
+                "",
+                "/** @private @suppress {unusedPrivateMembers} */",
+                "ExampleElemElement.prototype.fooChanged_ = function() {};",
+                "Polymer(/** @lends {ExampleElemElement.prototype} */ {",
+                "  is: 'example-elem',",
+                "  behaviors: [Behavior],",
+                "});")));
   }
 }

@@ -19,21 +19,14 @@ package com.google.javascript.jscomp;
 import static com.google.javascript.jscomp.parsing.parser.FeatureSet.ES2015;
 import static com.google.javascript.jscomp.parsing.parser.FeatureSet.ES2016;
 import static com.google.javascript.jscomp.parsing.parser.FeatureSet.ES2017;
-import static com.google.javascript.jscomp.parsing.parser.FeatureSet.ES2018;
-import static com.google.javascript.jscomp.parsing.parser.FeatureSet.ES2020;
-import static com.google.javascript.jscomp.parsing.parser.FeatureSet.ES_NEXT;
-import static com.google.javascript.jscomp.parsing.parser.FeatureSet.ES_NEXT_IN;
 
 import com.google.javascript.jscomp.Es6RewriteDestructuring.ObjectDestructuringRewriteMode;
-import com.google.javascript.jscomp.NodeTraversal.Callback;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
 import com.google.javascript.rhino.Node;
 import java.util.List;
 
-/**
- * Provides a single place to manage transpilation passes.
- */
+/** Provides a single place to manage transpilation passes. */
 public class TranspilationPasses {
   private TranspilationPasses() {}
 
@@ -53,7 +46,7 @@ public class TranspilationPasses {
                       preprocessorTableFactory.getInstanceOrNull(),
                       compiler.getTopScope());
                 })
-            .setFeatureSet(ES_NEXT_IN)
+            .setFeatureSetForChecks()
             .build());
   }
 
@@ -72,17 +65,30 @@ public class TranspilationPasses {
     passes.add(es6RelativizeImportPaths);
   }
 
-  /** Adds transpilation passes that should run after all checks are done. */
-  public static void addPostCheckTranspilationPasses(
+  /** Adds transpilation passes that should run at the beginning of the optimization phase */
+  public static void addEarlyOptimizationTranspilationPasses(
       List<PassFactory> passes, CompilerOptions options) {
+
     // Note that, for features >ES2017 we detect feature by feature rather than by yearly languages
     // in order to handle FeatureSet.BROWSER_2020, which is ES2019 without the new RegExp features.
+    // However, RegExp features are not transpiled, and this does not imply that we allow arbitrary
+    // selection of features to transpile.  They still must be done in chronological order based on.
+    // This greatly simplifies testing and the requirements for the transpilation passes.
+
+    if (options.needsTranspilationOf(Feature.PUBLIC_CLASS_FIELDS)) {
+      passes.add(rewriteClassFields);
+    }
+
     if (options.needsTranspilationOf(Feature.NUMERIC_SEPARATOR)) {
       // Numeric separators are flagged as present by the parser,
       // but never actually represented in the AST.
       // The only thing we need to do is mark them as not present in the AST.
       passes.add(
           createFeatureRemovalPass("markNumericSeparatorsRemoved", Feature.NUMERIC_SEPARATOR));
+    }
+
+    if (options.needsTranspilationOf(Feature.LOGICAL_ASSIGNMENT)) {
+      passes.add(rewriteLogicalAssignmentOperatorsPass);
     }
 
     if (options.needsTranspilationOf(Feature.OPTIONAL_CHAINING)) {
@@ -109,6 +115,16 @@ public class TranspilationPasses {
     if (options.needsTranspilationOf(Feature.OBJECT_LITERALS_WITH_SPREAD)
         || options.needsTranspilationOf(Feature.OBJECT_PATTERN_REST)) {
       passes.add(rewriteObjectSpread);
+      if (!options.needsTranspilationFrom(ES2015)
+          && options.needsTranspilationOf(Feature.OBJECT_PATTERN_REST)) {
+        // We only need to transpile away object destructuring that uses `...`, rather than
+        // all destructuring.
+        // For this to work correctly for object destructuring in parameter lists and variable
+        // declarations, we need to normalize them a bit first.
+        passes.add(es6RenameVariablesInParamLists);
+        passes.add(es6SplitVariableDeclarations);
+        passes.add(getEs6RewriteDestructuring(ObjectDestructuringRewriteMode.REWRITE_OBJECT_REST));
+      }
     }
 
     if (options.needsTranspilationFrom(ES2017)) {
@@ -121,9 +137,6 @@ public class TranspilationPasses {
     }
 
     if (options.needsTranspilationFrom(ES2015)) {
-      // TODO(b/73387406): Move passes here as typechecking & other check passes are updated to cope
-      // with the features they transpile and as the passes themselves are updated to propagate type
-      // information to the transpiled code.
       // Binary and octal literals are effectively transpiled by the parser.
       // There's no transpilation we can do for the new regexp flags.
       passes.add(
@@ -151,10 +164,6 @@ public class TranspilationPasses {
       passes.add(rewriteBlockScopedFunctionDeclaration);
       passes.add(rewriteBlockScopedDeclaration);
       passes.add(rewriteGenerators);
-    } else if (options.needsTranspilationOf(Feature.OBJECT_PATTERN_REST)) {
-      passes.add(es6RenameVariablesInParamLists);
-      passes.add(es6SplitVariableDeclarations);
-      passes.add(getEs6RewriteDestructuring(ObjectDestructuringRewriteMode.REWRITE_OBJECT_REST));
     }
   }
 
@@ -182,101 +191,92 @@ public class TranspilationPasses {
   private static final PassFactory rewriteAsyncFunctions =
       PassFactory.builder()
           .setName("rewriteAsyncFunctions")
-          .setInternalFactory(
-              (compiler) ->
-                  new RewriteAsyncFunctions.Builder(compiler)
-                      // If ES2015 classes will not be transpiled away later,
-                      // transpile away property references that use `super` in async functions.
-                      // See explanation in RewriteAsyncFunctions.
-                      .rewriteSuperPropertyReferencesWithoutSuper(
-                          !compiler.getOptions().needsTranspilationFrom(FeatureSet.ES2015))
-                      .build())
-          .setFeatureSet(ES_NEXT)
+          .setInternalFactory(RewriteAsyncFunctions::create)
+          .setFeatureSetForChecks()
           .build();
 
   private static final PassFactory rewriteAsyncIteration =
       PassFactory.builder()
           .setName("rewriteAsyncIteration")
-          .setInternalFactory(
-              (compiler) ->
-                  new RewriteAsyncIteration.Builder(compiler)
-                      // If ES2015 classes will not be transpiled away later,
-                      // transpile away property references that use `super` in async iteration.
-                      // See explanation in RewriteAsyncIteration.
-                      .rewriteSuperPropertyReferencesWithoutSuper(
-                          !compiler.getOptions().needsTranspilationFrom(FeatureSet.ES2015))
-                      .build())
-          .setFeatureSet(ES_NEXT)
+          .setInternalFactory(RewriteAsyncIteration::create)
+          .setFeatureSetForChecks()
           .build();
 
   private static final PassFactory rewriteObjectSpread =
       PassFactory.builder()
           .setName("rewriteObjectSpread")
           .setInternalFactory(RewriteObjectSpread::new)
-          .setFeatureSet(ES_NEXT)
+          .setFeatureSetForChecks()
           .build();
 
   private static final PassFactory rewriteCatchWithNoBinding =
       PassFactory.builder()
           .setName("rewriteCatchWithNoBinding")
           .setInternalFactory(RewriteCatchWithNoBinding::new)
-          .setFeatureSet(ES_NEXT)
+          .setFeatureSetForChecks()
           .build();
 
   private static final PassFactory rewriteNewDotTarget =
       PassFactory.builder()
           .setName("rewriteNewDotTarget")
           .setInternalFactory(RewriteNewDotTarget::new)
-          .setFeatureSet(ES_NEXT)
+          .setFeatureSetForChecks()
           .build();
 
   private static final PassFactory removeTrailingCommaFromParamList =
       PassFactory.builder()
           .setName("removeTrailingCommaFromParamList")
           .setInternalFactory(RemoveTrailingCommaFromParamList::new)
-          .setFeatureSet(ES_NEXT)
+          .setFeatureSetForChecks()
           .build();
 
   private static final PassFactory reportBigIntLiteralTranspilationUnsupported =
       PassFactory.builder()
           .setName("reportBigIntTranspilationUnsupported")
           .setInternalFactory(ReportBigIntLiteralTranspilationUnsupported::new)
-          .setFeatureSet(ES2020)
+          .setFeatureSetForChecks()
           .build();
 
   private static final PassFactory rewriteExponentialOperator =
       PassFactory.builder()
           .setName("rewriteExponentialOperator")
           .setInternalFactory(Es7RewriteExponentialOperator::new)
-          .setFeatureSet(ES2018)
+          .setFeatureSetForChecks()
           .build();
 
   private static final PassFactory es6NormalizeShorthandProperties =
       PassFactory.builder()
           .setName("es6NormalizeShorthandProperties")
           .setInternalFactory(Es6NormalizeShorthandProperties::new)
-          .setFeatureSet(ES2018)
+          .setFeatureSetForChecks()
           .build();
 
   static final PassFactory es6RewriteClassExtends =
       PassFactory.builder()
           .setName(PassNames.ES6_REWRITE_CLASS_EXTENDS)
           .setInternalFactory(Es6RewriteClassExtendsExpressions::new)
-          .setFeatureSet(ES2018)
+          .setFeatureSetForChecks()
           .build();
 
   static final PassFactory es6ExtractClasses =
       PassFactory.builder()
           .setName(PassNames.ES6_EXTRACT_CLASSES)
           .setInternalFactory(Es6ExtractClasses::new)
-          .setFeatureSet(ES2017)
+          .setFeatureSetForChecks()
+          .build();
+
+  static final PassFactory rewriteClassFields =
+      PassFactory.builder()
+          .setName("RewriteClassFields")
+          .setInternalFactory(RewriteClassFields::new)
+          .setFeatureSetForChecks()
           .build();
 
   static final PassFactory es6RewriteClass =
       PassFactory.builder()
           .setName("Es6RewriteClass")
           .setInternalFactory(Es6RewriteClass::new)
-          .setFeatureSet(ES2017)
+          .setFeatureSetForChecks()
           .build();
 
   static final PassFactory getEs6RewriteDestructuring(ObjectDestructuringRewriteMode rewriteMode) {
@@ -287,7 +287,7 @@ public class TranspilationPasses {
                 new Es6RewriteDestructuring.Builder(compiler)
                     .setDestructuringRewriteMode(rewriteMode)
                     .build())
-        .setFeatureSet(ES2018)
+        .setFeatureSetForChecks()
         .build();
   }
 
@@ -295,14 +295,14 @@ public class TranspilationPasses {
       PassFactory.builder()
           .setName("Es6RenameVariablesInParamLists")
           .setInternalFactory(Es6RenameVariablesInParamLists::new)
-          .setFeatureSet(ES2018)
+          .setFeatureSetForChecks()
           .build();
 
   static final PassFactory es6RewriteArrowFunction =
       PassFactory.builder()
           .setName("Es6RewriteArrowFunction")
           .setInternalFactory(Es6RewriteArrowFunction::new)
-          .setFeatureSet(ES2017)
+          .setFeatureSetForChecks()
           .build();
 
   static final PassFactory rewritePolyfills =
@@ -328,7 +328,7 @@ public class TranspilationPasses {
       PassFactory.builder()
           .setName("es6ConvertSuper")
           .setInternalFactory(Es6ConvertSuper::new)
-          .setFeatureSet(ES2018)
+          .setFeatureSetForChecks()
           .build();
 
   /** Injects runtime library code needed for transpiled ES2015+ code. */
@@ -336,7 +336,7 @@ public class TranspilationPasses {
       PassFactory.builder()
           .setName("es6InjectRuntimeLibraries")
           .setInternalFactory(InjectTranspilationRuntimeLibraries::new)
-          .setFeatureSet(ES_NEXT_IN)
+          .setFeatureSetForChecks()
           .build();
 
   /** Transpiles REST parameters and SPREAD in both array literals and function calls. */
@@ -349,7 +349,7 @@ public class TranspilationPasses {
 
   /**
    * Does the main ES2015 to ES3 conversion. There are a few other passes which run before this one,
-   * to convert constructs which are not converted by this pass. This pass can run after NTI
+   * to convert constructs which are not converted by this pass.
    */
   static final PassFactory lateConvertEs6ToEs3 =
       PassFactory.builder()
@@ -362,53 +362,50 @@ public class TranspilationPasses {
       PassFactory.builder()
           .setName("es6ForOf")
           .setInternalFactory(Es6ForOfConverter::new)
-          .setFeatureSet(ES2017)
+          .setFeatureSetForChecks()
           .build();
 
   static final PassFactory rewriteBlockScopedFunctionDeclaration =
       PassFactory.builder()
           .setName("Es6RewriteBlockScopedFunctionDeclaration")
           .setInternalFactory(Es6RewriteBlockScopedFunctionDeclaration::new)
-          .setFeatureSet(ES2017)
+          .setFeatureSetForChecks()
           .build();
 
   static final PassFactory rewriteBlockScopedDeclaration =
       PassFactory.builder()
           .setName("Es6RewriteBlockScopedDeclaration")
           .setInternalFactory(Es6RewriteBlockScopedDeclaration::new)
-          .setFeatureSet(ES2017)
+          .setFeatureSetForChecks()
           .build();
 
   static final PassFactory rewriteGenerators =
       PassFactory.builder()
           .setName("rewriteGenerators")
           .setInternalFactory(Es6RewriteGenerators::new)
-          .setFeatureSet(ES2017)
+          .setFeatureSetForChecks()
+          .build();
+
+  static final PassFactory rewriteLogicalAssignmentOperatorsPass =
+      PassFactory.builder()
+          .setName("rewriteLogicalAssignmentOperatorsPass")
+          .setInternalFactory(RewriteLogicalAssignmentOperatorsPass::new)
+          .setFeatureSetForChecks()
           .build();
 
   static final PassFactory rewriteOptionalChainingOperator =
       PassFactory.builder()
           .setName("rewriteOptionalChainingOperator")
           .setInternalFactory(RewriteOptionalChainingOperator::new)
-          // TODO(b/161166856) change to ES2020 when optional chaining moves there.
-          .setFeatureSet(ES_NEXT_IN)
+          .setFeatureSetForChecks()
           .build();
 
   static final PassFactory rewriteNullishCoalesceOperator =
       PassFactory.builder()
           .setName("rewriteNullishCoalesceOperator")
           .setInternalFactory(RewriteNullishCoalesceOperator::new)
-          .setFeatureSet(ES2020)
+          .setFeatureSetForChecks()
           .build();
-
-  /**
-   * @param script The SCRIPT node representing a JS file
-   * @return If the file has any features which are part of ES2015 or higher but not part of ES5.
-   */
-  static boolean isScriptEs6OrHigher(Node script) {
-    FeatureSet features = NodeUtil.getFeatureSetOfScript(script);
-    return features != null && !FeatureSet.ES5.contains(features);
-  }
 
   /**
    * @param script The SCRIPT node representing a JS file
@@ -427,9 +424,15 @@ public class TranspilationPasses {
    * @param combinedRoot The combined root for all JS files.
    * @param featureSet Ignored
    * @param callbacks The callbacks that should be invoked if a file has ES2015 features.
+   * @deprecated Please use a regular NodeTraversal object directly, using `shouldTraverse` to skip
+   *     SCRIPT node if desired.
    */
+  @Deprecated
   static void processTranspile(
-      AbstractCompiler compiler, Node combinedRoot, FeatureSet featureSet, Callback... callbacks) {
+      AbstractCompiler compiler,
+      Node combinedRoot,
+      FeatureSet featureSet,
+      NodeTraversal.Callback... callbacks) {
     FeatureSet languageOutFeatures = compiler.getOptions().getOutputFeatureSet();
     for (Node singleRoot = combinedRoot.getFirstChild();
         singleRoot != null;
@@ -443,30 +446,10 @@ public class TranspilationPasses {
       // Right now we know what features were in a file at parse time, but not what features were
       // added to that file by other transpilation passes.
       if (doesScriptHaveUnsupportedFeatures(singleRoot, languageOutFeatures)) {
-        for (Callback callback : callbacks) {
+        for (NodeTraversal.Callback callback : callbacks) {
           singleRoot.putBooleanProp(Node.TRANSPILED, true);
           NodeTraversal.traverse(compiler, singleRoot, callback);
         }
-      }
-    }
-  }
-
-  /**
-   * Hot-swap ES6+ transpilations if the input language needs transpilation from certain features,
-   * on any JS file that has features not present in the compiler's output language mode.
-   *
-   * @param compiler An AbstractCompiler
-   * @param scriptRoot The SCRIPT root for the JS file.
-   * @param featureSet Ignored
-   * @param callbacks The callbacks that should be invoked if the file has ES2015 features.
-   */
-  static void hotSwapTranspile(
-      AbstractCompiler compiler, Node scriptRoot, FeatureSet featureSet, Callback... callbacks) {
-    FeatureSet languageOutFeatures = compiler.getOptions().getOutputFeatureSet();
-    if (doesScriptHaveUnsupportedFeatures(scriptRoot, languageOutFeatures)) {
-      for (Callback callback : callbacks) {
-        scriptRoot.putBooleanProp(Node.TRANSPILED, true);
-        NodeTraversal.traverse(compiler, scriptRoot, callback);
       }
     }
   }
@@ -503,7 +486,7 @@ public class TranspilationPasses {
                 ((Node externs, Node root) ->
                     maybeMarkFeaturesAsTranspiledAway(
                         compiler, featureToRemove, moreFeaturesToRemove)))
-        .setFeatureSet(FeatureSet.ES_NEXT_IN)
+        .setFeatureSetForChecks()
         .build();
   }
 }

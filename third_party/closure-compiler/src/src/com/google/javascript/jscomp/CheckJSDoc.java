@@ -55,6 +55,11 @@ final class CheckJSDoc extends AbstractPostOrderCallback implements CompilerPass
       "JSC_ARROW_FUNCTION_AS_CONSTRUCTOR",
       "Arrow functions cannot be used as constructors");
 
+  static final DiagnosticType BAD_REST_PARAMETER_ANNOTATION =
+      DiagnosticType.warning(
+          "BAD_REST_PARAMETER_ANNOTATION",
+          "Missing \"...\" in type annotation for rest parameter.");
+
   static final DiagnosticType DEFAULT_PARAM_MUST_BE_MARKED_OPTIONAL = DiagnosticType.error(
       "JSC_DEFAULT_PARAM_MUST_BE_MARKED_OPTIONAL",
       "Inline JSDoc on default parameters must be marked as optional");
@@ -142,6 +147,7 @@ final class CheckJSDoc extends AbstractPostOrderCallback implements CompilerPass
     validateNoCollapse(n, info);
     validateClassLevelJsDoc(n, info);
     validateArrowFunction(n);
+    validateRestParameter(n);
     validateDefaultValue(n);
     validateTemplates(n, info);
     validateTypedefs(n, info);
@@ -152,6 +158,17 @@ final class CheckJSDoc extends AbstractPostOrderCallback implements CompilerPass
     validateImplicitCast(n, info);
     validateClosurePrimitive(n, info);
     validateReturnJsDoc(n, info);
+    validateLocaleFile(n, info);
+  }
+
+  private void validateLocaleFile(Node n, JSDocInfo info) {
+    if (info == null || !info.isLocaleFile()) {
+      return;
+    }
+
+    if (!n.isScript()) {
+      reportMisplaced(n, "localeFile", "localeFile must be in the fileoverview");
+    }
   }
 
   private void validateSuppress(Node n, JSDocInfo info) {
@@ -168,6 +185,8 @@ final class CheckJSDoc extends AbstractPostOrderCallback implements CompilerPass
       case MEMBER_FUNCTION_DEF:
       case GETTER_DEF:
       case SETTER_DEF:
+      case MEMBER_FIELD_DEF:
+      case COMPUTED_FIELD_DEF:
         // Suppressions are always valid here.
         return;
 
@@ -474,6 +493,8 @@ final class CheckJSDoc extends AbstractPostOrderCallback implements CompilerPass
       case STRING_KEY:
       case COMPUTED_PROP:
       case EXPORT:
+      case MEMBER_FIELD_DEF:
+      case COMPUTED_FIELD_DEF:
         return true;
       case GETELEM:
       case GETPROP:
@@ -583,6 +604,8 @@ final class CheckJSDoc extends AbstractPostOrderCallback implements CompilerPass
         case STRING_KEY:
         case GETTER_DEF:
         case SETTER_DEF:
+        case MEMBER_FIELD_DEF:
+        case COMPUTED_FIELD_DEF:
           valid = true;
           break;
         // Declarations are valid iff they only contain simple names
@@ -649,6 +672,39 @@ final class CheckJSDoc extends AbstractPostOrderCallback implements CompilerPass
       if (info != null && info.isConstructorOrInterface()) {
         report(n, ARROW_FUNCTION_AS_CONSTRUCTOR);
       }
+    }
+  }
+
+  /** Check that a rest parameter has JSDoc marked as variadic. */
+  private void validateRestParameter(Node restParam) {
+    if (!restParam.isRest() || !restParam.getParent().isParamList()) {
+      return;
+    }
+    Node paramList = restParam.getParent();
+    JSDocInfo inlineInfo = restParam.getFirstChild().getJSDocInfo();
+    JSDocInfo functionInfo = NodeUtil.getBestJSDocInfo(paramList.getParent());
+    final JSTypeExpression paramTypeAnnotation;
+    if (inlineInfo != null) {
+      paramTypeAnnotation = inlineInfo.getType();
+    } else if (functionInfo != null) {
+      if (restParam.getFirstChild().isName()) {
+        String paramName = restParam.getFirstChild().getString();
+        paramTypeAnnotation = functionInfo.getParameterType(paramName);
+      } else {
+        // destructuring rest param. use the nth JSDoc parameter if present. the name will not match
+        int indexOfRest = paramList.getIndexOfChild(restParam);
+        paramTypeAnnotation =
+            functionInfo.getParameterCount() >= indexOfRest
+                ? functionInfo.getParameterType(functionInfo.getParameterNameAt(indexOfRest))
+                : null;
+      }
+    } else {
+      paramTypeAnnotation = null;
+    }
+
+    if (paramTypeAnnotation != null
+        && paramTypeAnnotation.getRoot().getToken() != Token.ITER_REST) {
+      compiler.report(JSError.make(restParam, BAD_REST_PARAMETER_ANNOTATION));
     }
   }
 

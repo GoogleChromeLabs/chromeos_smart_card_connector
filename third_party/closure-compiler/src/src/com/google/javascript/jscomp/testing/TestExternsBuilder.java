@@ -68,6 +68,66 @@ public class TestExternsBuilder {
           "  childCtor.superClass_ = parentCtor.prototype;",
           "};");
 
+  /**
+   * There are some rare cases where we want to use the closure externs defined above as if they
+   * were sources.
+   *
+   * <p>Using this method avoids the automatic addition of the `@fileoverview` comment containing
+   * `@externs`, which forces the compiler to treat the code as externs definitions.
+   */
+  public static String getClosureExternsAsSource() {
+    return CLOSURE_EXTERNS;
+  }
+
+  // Runtime library stubs that are not technically externs but serve a similar purpose.
+  private static final String JSCOMP_LIBRARIES =
+      lines(
+          "/** @const */",
+          "var $jscomp = {};",
+          "/**",
+          " * @param {function(new: ?)} subclass",
+          " * @param {function(new: ?)} superclass",
+          " */",
+          "$jscomp.inherits = function(subclass, superclass) {};",
+          "/**",
+          " * @param {!Iterable<T>} iterable",
+          " * @return {!Array<T>}",
+          " * @template T",
+          " */",
+          "$jscomp.arrayFromIterable = function(iterable) {};",
+          "/**",
+          " * @param {string|!Iterable<T>|!Iterator<T>|!Arguments<T>} iterable",
+          " * @return {!Iterator<T>}",
+          " * @template T",
+          " */",
+          "$jscomp.makeIterator = function(iterable) {};",
+          "$jscomp.makeAsyncIterator = function(asyncIterable) {};",
+          "/**",
+          " * @param {!Iterator<T>} iterator",
+          " * @return {!Array<T>}",
+          " * @template T",
+          " */",
+          "$jscomp.arrayFromIterator = function(iterator) {};",
+          "/**",
+          " * @param {function(): !Generator<?>} generatorFunction",
+          " * @return {!Promise<?>}",
+          " */",
+          "$jscomp.asyncExecutePromiseGeneratorFunction = function(generatorFunction) {};",
+          "/** @type {!Global} */",
+          "$jscomp.global = globalThis;",
+          "/** @const {typeof Reflect.construct} */",
+          "$jscomp.construct = Reflect.construct;",
+          "/** @constructor */",
+          "$jscomp.AsyncGeneratorWrapper = function(generator) {};",
+          "/** @constructor */",
+          "$jscomp.AsyncGeneratorWrapper$ActionRecord = function(action, value) {};",
+          "/** @enum {number} */",
+          "$jscomp.AsyncGeneratorWrapper$ActionEnum = {",
+          "  YIELD_VALUE: 0,",
+          "  YIELD_STAR: 1,",
+          "  AWAIT_VALUE: 2,",
+          "};");
+
   private static final String BIGINT_EXTERNS =
       lines(
           "/** ",
@@ -507,9 +567,8 @@ public class TestExternsBuilder {
       lines(
           "/**",
           " * @constructor",
-          " * @implements {IArrayLike<T>}",
+          " * @implements {IArrayLike<?>}",
           " * @implements {Iterable<?>}",
-          " * @template T",
           " */",
           "function Arguments() {}",
           "",
@@ -775,6 +834,14 @@ public class TestExternsBuilder {
           " * @nosideeffects",
           " */",
           "Math.min = function(a, b) {};",
+          "",
+          "/**",
+          " * @param {number} a",
+          " * @param {number} b",
+          " * @return {number}",
+          " * @nosideeffects",
+          " */",
+          "Math.pow = function(a, b) {};",
           "");
 
   private boolean includeBigIntExterns = false;
@@ -791,6 +858,7 @@ public class TestExternsBuilder {
   private boolean includeEs6ClassTranspilationExterns = false;
   private boolean includeReflectExterns = false;
   private boolean includeClosureExterns = false;
+  private boolean includeJSCompLibraries = false;
   private boolean includeMathExterns = false;
   private final List<String> extraExterns = new ArrayList<>();
 
@@ -883,6 +951,14 @@ public class TestExternsBuilder {
     return this;
   }
 
+  public TestExternsBuilder addJSCompLibraries() {
+    includeJSCompLibraries = true;
+    addArguments(); // need definition of Arguments
+    addIterable(); // need definition of Iterable and Array
+    addReflect(); // need Reflect.construct
+    return this;
+  }
+
   public TestExternsBuilder addMath() {
     includeMathExterns = true;
     return this;
@@ -895,6 +971,13 @@ public class TestExternsBuilder {
 
   public String build() {
     List<String> externSections = new ArrayList<>();
+    externSections.add(
+        lines(
+            "/**", //
+            " * @fileoverview",
+            " * @externs",
+            " */",
+            ""));
     if (includeBigIntExterns) {
       externSections.add(BIGINT_EXTERNS);
     }
@@ -939,6 +1022,9 @@ public class TestExternsBuilder {
     }
     if (includeClosureExterns) {
       externSections.add(CLOSURE_EXTERNS);
+    }
+    if (includeJSCompLibraries) {
+      externSections.add(JSCOMP_LIBRARIES);
     }
     externSections.addAll(extraExterns);
     return LINE_JOINER.join(externSections);

@@ -41,6 +41,7 @@ import static com.google.javascript.rhino.Token.OPTCHAIN_GETELEM;
 import static com.google.javascript.rhino.Token.OPTCHAIN_GETPROP;
 import static com.google.javascript.rhino.Token.SCRIPT;
 import static com.google.javascript.rhino.Token.SETTER_DEF;
+import static com.google.javascript.rhino.Token.STRINGLIT;
 import static com.google.javascript.rhino.Token.SUPER;
 import static com.google.javascript.rhino.Token.YIELD;
 import static com.google.javascript.rhino.testing.Asserts.assertThrows;
@@ -53,6 +54,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.AbstractCompiler.LifeCycleStage;
+import com.google.javascript.jscomp.NodeUtil.AllVarsDeclaredInFunction;
 import com.google.javascript.jscomp.NodeUtil.GoogRequire;
 import com.google.javascript.jscomp.base.Tri;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
@@ -68,7 +70,6 @@ import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -109,6 +110,8 @@ public final class NodeUtilTest {
       // To allow octal literals such as 0123 to be parsed.
       options.setStrictModeInput(false);
       options.setWarningLevel(ES5_STRICT, CheckLevel.OFF);
+
+      options.setLanguageIn(CompilerOptions.LanguageMode.UNSUPPORTED);
 
       compiler = new Compiler();
       compiler.initOptions(options);
@@ -322,6 +325,20 @@ public final class NodeUtilTest {
             {"false||false", Tri.FALSE},
             {"true&&true", Tri.TRUE},
             {"true&&false", Tri.FALSE},
+
+            // Logical assignments
+            {"a||(a=true)", Tri.TRUE},
+            {"a||(a=false)", Tri.UNKNOWN},
+            {"a||=true", Tri.TRUE},
+            {"a||=false", Tri.UNKNOWN},
+            {"a&&(a=true)", Tri.UNKNOWN},
+            {"a&&(a=false)", Tri.FALSE},
+            {"a&&=true", Tri.UNKNOWN},
+            {"a&&=false", Tri.FALSE},
+            {"a??(a=true)", Tri.UNKNOWN},
+            {"a??=true", Tri.UNKNOWN},
+            {"a??(a=false)", Tri.UNKNOWN},
+            {"a??=false", Tri.UNKNOWN},
 
             // Assignment ops other than ASSIGN are unknown.
             {"a *= 2", Tri.UNKNOWN},
@@ -2630,6 +2647,21 @@ public final class NodeUtilTest {
       assertIsConstantDeclaration(false, getNameNodeFrom("var FOO = 1;", "FOO"));
 
       assertIsConstantDeclaration(true, constructInferredConstantDeclaration());
+
+      assertIsConstantDeclaration(
+          false, parse("class C {x = 2;}").getFirstChild().getLastChild().getFirstChild());
+      assertIsConstantDeclaration(
+          true,
+          parse("class C {/** @const */ x = 2;}").getFirstChild().getLastChild().getFirstChild());
+
+      assertIsConstantDeclaration(
+          false, parse("class C { [x] = 2;}").getFirstChild().getLastChild().getFirstChild());
+      assertIsConstantDeclaration(
+          true,
+          parse("class C { /** @const */ [x] = 2;}")
+              .getFirstChild()
+              .getLastChild()
+              .getFirstChild());
     }
 
     @Test
@@ -3845,10 +3877,9 @@ public final class NodeUtilTest {
       Scope globalScope = Scope.createGlobalScope(ast);
       Scope functionScope = scopeCreator.createScope(functionNode, globalScope);
 
-      Map<String, Var> allVariables = new HashMap<>();
-      List<Var> orderedVars = new ArrayList<>();
-      NodeUtil.getAllVarsDeclaredInFunction(
-          allVariables, orderedVars, compiler, scopeCreator, functionScope);
+      AllVarsDeclaredInFunction allVarsDeclaredInFunction =
+          NodeUtil.getAllVarsDeclaredInFunction(compiler, scopeCreator, functionScope);
+      Map<String, Var> allVariables = allVarsDeclaredInFunction.getAllVariables();
 
       assertThat(allVariables.keySet()).containsExactly("a", "b", "c", "z", "x", "y");
     }
@@ -3873,10 +3904,9 @@ public final class NodeUtilTest {
       Scope globalScope = Scope.createGlobalScope(ast);
       Scope functionScope = scopeCreator.createScope(functionNode, globalScope);
 
-      Map<String, Var> allVariables = new HashMap<>();
-      List<Var> orderedVars = new ArrayList<>();
-      NodeUtil.getAllVarsDeclaredInFunction(
-          allVariables, orderedVars, compiler, scopeCreator, functionScope);
+      AllVarsDeclaredInFunction allVarsDeclaredInFunction =
+          NodeUtil.getAllVarsDeclaredInFunction(compiler, scopeCreator, functionScope);
+      Map<String, Var> allVariables = allVarsDeclaredInFunction.getAllVariables();
 
       assertThat(allVariables.keySet()).containsExactly("x", "y", "z", "a", "b", "c");
     }
@@ -3935,6 +3965,13 @@ public final class NodeUtilTest {
 
       assertThat(NodeUtil.isExpressionResultUsed(getNameNodeFrom("y()", "y"))).isTrue();
       assertThat(NodeUtil.isExpressionResultUsed(getNameNodeFrom("y``", "y"))).isTrue();
+
+      // We're using string literals instead of numbers here, because IRFactory will automatically
+      // remove a number in an indirect call like `(0, some.callee)()` after applying FREE_CALL
+      // to the `CALL` node.
+      assertThat(NodeUtil.isExpressionResultUsed(getStringLitNodeFrom("('',eval)()", ""))).isTrue();
+      assertThat(NodeUtil.isExpressionResultUsed(getStringLitNodeFrom("('',x.y)()", ""))).isTrue();
+      assertThat(NodeUtil.isExpressionResultUsed(getStringLitNodeFrom("('',x.y)``", ""))).isTrue();
     }
 
     @Test
@@ -4239,7 +4276,7 @@ public final class NodeUtilTest {
     @Test
     public void test() {
       // setup a simple compilation job
-      testExternChanges("", "", "var TEST_NAME");
+      testExternChanges(externs(""), srcs(""), expected("var TEST_NAME"));
     }
   }
 
@@ -4413,6 +4450,8 @@ public final class NodeUtilTest {
   public static final class ReferencesReceiverTest {
     @Parameters(name = "\"{0}\"")
     public static Iterable<Object[]> cases() {
+      //
+      //
       ImmutableMap<String, Boolean> templateToDefinesOwnReceiver =
           ImmutableMap.<String, Boolean>builder()
               //
@@ -4444,9 +4483,10 @@ public final class NodeUtilTest {
               .put("({              *f(x = (%s)) {       } })", true)
               .put("({        async  f(x = (%s)) {       } })", true)
               .put("({        async *f(x = (%s)) {       } })", true)
-              //
-              .build();
+              .buildOrThrow();
 
+      //
+      //
       ImmutableMap<String, Boolean> exprToUsesReceiver =
           ImmutableMap.<String, Boolean>builder()
               //
@@ -4454,8 +4494,7 @@ public final class NodeUtilTest {
               .put("1 || this", true)
               .put("{ x: this, }", true)
               .put("1", false)
-              //
-              .build();
+              .buildOrThrow();
 
       ImmutableList.Builder<Object[]> cases = ImmutableList.builder();
       templateToDefinesOwnReceiver.forEach(
@@ -4756,6 +4795,29 @@ public final class NodeUtilTest {
     }
     for (Node c = n.getFirstChild(); c != null; c = c.getNext()) {
       Node result = getStringNode(c, name, nodeType);
+      if (result != null) {
+        return result;
+      }
+    }
+    return null;
+  }
+
+  private static Node getStringLitNode(Node n, String str) {
+    return getStringNode(n, str, STRINGLIT);
+  }
+
+  private static Node getStringLitNodeFrom(String code, String str) {
+    Node ast = parse(code);
+    return getStringLitNode(ast, str);
+  }
+
+  private static Node getNumberNode(Node n, double number) {
+    if (n.isNumber()
+        && Double.valueOf(n.getDouble()).equals(number)) { // equals allow checks for -0 and NaN
+      return n;
+    }
+    for (Node c = n.getFirstChild(); c != null; c = c.getNext()) {
+      Node result = getNumberNode(c, number);
       if (result != null) {
         return result;
       }

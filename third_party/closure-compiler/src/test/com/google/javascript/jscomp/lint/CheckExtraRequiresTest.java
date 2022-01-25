@@ -26,7 +26,6 @@ import com.google.javascript.jscomp.CompilerPass;
 import com.google.javascript.jscomp.CompilerTestCase;
 import com.google.javascript.jscomp.DiagnosticGroups;
 import com.google.javascript.jscomp.SourceFile;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -39,12 +38,6 @@ public final class CheckExtraRequiresTest extends CompilerTestCase {
   }
 
   @Override
-  @Before
-  public void setUp() throws Exception {
-    super.setUp();
-  }
-
-  @Override
   protected CompilerOptions getOptions() {
     CompilerOptions options = super.getOptions();
     options.setWarningLevel(DiagnosticGroups.EXTRA_REQUIRE, CheckLevel.ERROR);
@@ -54,7 +47,7 @@ public final class CheckExtraRequiresTest extends CompilerTestCase {
 
   @Override
   protected CompilerPass getProcessor(Compiler compiler) {
-    return new CheckExtraRequires(compiler);
+    return new CheckExtraRequires(compiler, null);
   }
 
   @Test
@@ -210,15 +203,13 @@ public final class CheckExtraRequiresTest extends CompilerTestCase {
   public void testWarning_require() {
     testError("goog.require('foo.bar');", EXTRA_REQUIRE_WARNING);
 
-    testError(lines(
-        "goog.require('Bar');",
-        "function func( {a} ){}",
-        "func( {a: 1} );"), EXTRA_REQUIRE_WARNING);
+    testError(
+        lines("goog.require('Bar');", "function func( {a} ){}", "func( {a: 1} );"),
+        EXTRA_REQUIRE_WARNING);
 
-    testError(lines(
-        "goog.require('Bar');",
-        "function func( a = 1 ){}",
-        "func(42);"), EXTRA_REQUIRE_WARNING);
+    testError(
+        lines("goog.require('Bar');", "function func( a = 1 ){}", "func(42);"),
+        EXTRA_REQUIRE_WARNING);
   }
 
   @Test
@@ -235,9 +226,9 @@ public final class CheckExtraRequiresTest extends CompilerTestCase {
   @Test
   public void testNoWarningMultipleFiles() {
     testSame(
-        new String[] {
-          "goog.require('Foo'); var foo = new Foo();", "goog.require('Bar'); var bar = new Bar();"
-        });
+        srcs(
+            "goog.require('Foo'); var foo = new Foo();",
+            "goog.require('Bar'); var bar = new Bar();"));
   }
 
   @Test

@@ -84,13 +84,69 @@ google.maps.BicyclingLayer.prototype.getMap = function() {};
 google.maps.BicyclingLayer.prototype.setMap = function(map) {};
 
 /**
+ * Available only in the v=beta channel: https://goo.gle/3oAthT3.
+ * Used for setting the map&#39;s camera options.
+ * @record
+ */
+google.maps.CameraOptions = function() {};
+
+/**
+ * @type {!google.maps.LatLngLiteral|!google.maps.LatLng|undefined}
+ */
+google.maps.CameraOptions.prototype.center;
+
+/**
+ * @type {number|undefined}
+ */
+google.maps.CameraOptions.prototype.heading;
+
+/**
+ * @type {number|undefined}
+ */
+google.maps.CameraOptions.prototype.tilt;
+
+/**
+ * @type {number|undefined}
+ */
+google.maps.CameraOptions.prototype.zoom;
+
+/**
+ * Available only in the v=beta channel: https://goo.gle/3oAthT3.
+ * Used for getting the map&#39;s camera options.
+ * @record
+ */
+google.maps.CameraParams = function() {};
+
+/**
+ * @type {!google.maps.LatLng}
+ */
+google.maps.CameraParams.prototype.center;
+
+/**
+ * @type {number}
+ */
+google.maps.CameraParams.prototype.heading;
+
+/**
+ * @type {number}
+ */
+google.maps.CameraParams.prototype.tilt;
+
+/**
+ * @type {number}
+ */
+google.maps.CameraParams.prototype.zoom;
+
+
+/**
  * A circle on the Earth&#39;s surface; also known as a &quot;spherical
  * cap&quot;.
- * @param {google.maps.CircleOptions=} opts
+ * @param {(?google.maps.Circle|?google.maps.CircleLiteral|?google.maps.CircleOptions)=}
+ *     circleOrCircleOptions
  * @extends {google.maps.MVCObject}
  * @constructor
  */
-google.maps.Circle = function(opts) {};
+google.maps.Circle = function(circleOrCircleOptions) {};
 
 /**
  * Gets the <code>LatLngBounds</code> of this Circle.
@@ -303,6 +359,31 @@ google.maps.CircleOptions.prototype.visible;
 google.maps.CircleOptions.prototype.zIndex;
 
 /**
+ * Available only in the v=beta channel: https://goo.gle/3oAthT3.
+ * @enum {string}
+ */
+google.maps.CollisionBehavior = {
+  /**
+   * Display the marker only if it does not overlap with other markers. If two
+   * markers of this type would overlap, the one with the higher zIndex is
+   * shown. If they have the same zIndex, the one with the lower vertical screen
+   * position is shown.
+   */
+  OPTIONAL_AND_HIDES_LOWER_PRIORITY: 'OPTIONAL_AND_HIDES_LOWER_PRIORITY',
+  /**
+   * Always display the marker regardless of collision. This is the default
+   * behavior.
+   */
+  REQUIRED: 'REQUIRED',
+  /**
+   * Always display the marker regardless of collision, and hide any
+   * OPTIONAL_AND_HIDES_LOWER_PRIORITY markers or labels that would overlap with
+   * the marker.
+   */
+  REQUIRED_AND_HIDES_OPTIONAL: 'REQUIRED_AND_HIDES_OPTIONAL',
+};
+
+/**
  * Identifiers used to specify the placement of controls on the map. Controls
  * are positioned relative to other controls in the same layout position.
  * Controls that are added first are positioned closer to the edge of the map.
@@ -379,6 +460,32 @@ google.maps.ControlPosition = {
    */
   TOP_RIGHT: 11,
 };
+
+/**
+ * Available only in the v=beta channel: https://goo.gle/3oAthT3.
+ * This class provides convenience methods for generating matrices to use for
+ * rendering WebGL scenes on top of the Google base map. <br><br>Note: A
+ * reference to this object should <b>not</b> be held outside of the scope of
+ * the encapsulating {@link google.maps.WebGLOverlayView.onDraw} call.
+ * @record
+ */
+google.maps.CoordinateTransformer = function() {};
+
+/**
+ * @param {!google.maps.LatLng|!google.maps.LatLngLiteral} latLng
+ * @param {number} altitude in meters
+ * @param {!Float32Array=} rotations Array that contains euler rotation angles
+ *     specified in degrees.
+ * @param {!Float32Array=} scale Array of scalars to apply to the cardinal axis.
+ * @return {!Float64Array} MVP matrix to use with WebGL.
+ */
+google.maps.CoordinateTransformer.prototype.fromLatLngAltitude = function(
+    latLng, altitude, rotations, scale) {};
+
+/**
+ * @return {!google.maps.CameraParams} camera parameters
+ */
+google.maps.CoordinateTransformer.prototype.getCameraParams = function() {};
 
 /**
  * A layer for displaying geospatial data. Points, line-strings and polygons can
@@ -1227,6 +1334,13 @@ google.maps.Data.SetPropertyEvent.prototype.oldValue;
 google.maps.Data.StyleOptions = function() {};
 
 /**
+ * The animation to play when marker is added to a map. Only applies to point
+ * geometries.
+ * @type {!google.maps.Animation|undefined}
+ */
+google.maps.Data.StyleOptions.prototype.animation;
+
+/**
  * If <code>true</code>, the marker receives mouse and touch events. Default
  * value is <code>true</code>.
  * @type {boolean|undefined}
@@ -1275,6 +1389,26 @@ google.maps.Data.StyleOptions.prototype.fillOpacity;
  * @type {string|!google.maps.Icon|!google.maps.Symbol|undefined}
  */
 google.maps.Data.StyleOptions.prototype.icon;
+
+/**
+ * The icons to be rendered along a polyline. Only applies to line geometries.
+ * @type {!Array<!google.maps.IconSequence>|undefined}
+ */
+google.maps.Data.StyleOptions.prototype.icons;
+
+/**
+ * Adds a label to the marker. The label can either be a string, or a
+ * <code>MarkerLabel</code> object. Only applies to point geometries.
+ * @type {string|!google.maps.MarkerLabel|undefined}
+ */
+google.maps.Data.StyleOptions.prototype.label;
+
+/**
+ * The marker&#39;s opacity between 0.0 and 1.0. Only applies to point
+ * geometries.
+ * @type {number|undefined}
+ */
+google.maps.Data.StyleOptions.prototype.opacity;
 
 /**
  * Defines the image map used for hit detection. Only applies to point
@@ -1400,15 +1534,14 @@ google.maps.DirectionsLeg.prototype.duration;
 /**
  * The total duration of this leg, taking into account the traffic conditions
  * indicated by the <code>trafficModel</code> property. This property may be
- * <code>undefined</code> as the duration may be unknown. Only available to
- * Premium Plan customers when <code>drivingOptions</code> is defined when
- * making the request.
+ * <code>undefined</code> as the duration may be unknown.
  * @type {!google.maps.Duration|undefined}
  */
 google.maps.DirectionsLeg.prototype.duration_in_traffic;
 
 /**
- * The address of the destination of this leg.
+ * The address of the destination of this leg. This content is meant to be read
+ * as-is. Do not programmatically parse the formatted address.
  * @type {string}
  */
 google.maps.DirectionsLeg.prototype.end_address;
@@ -1424,7 +1557,8 @@ google.maps.DirectionsLeg.prototype.end_address;
 google.maps.DirectionsLeg.prototype.end_location;
 
 /**
- * The address of the origin of this leg.
+ * The address of the origin of this leg. This content is meant to be read
+ * as-is. Do not programmatically parse the formatted address.
  * @type {string}
  */
 google.maps.DirectionsLeg.prototype.start_address;
@@ -1447,6 +1581,13 @@ google.maps.DirectionsLeg.prototype.start_location;
 google.maps.DirectionsLeg.prototype.steps;
 
 /**
+ * Information about traffic speed along the leg.
+ * @type {!Array<?>}
+ * @deprecated This array will always be empty.
+ */
+google.maps.DirectionsLeg.prototype.traffic_speed_entry;
+
+/**
  * An array of non-stopover waypoints along this leg, which were specified in
  * the original request. <p> <strong>Deprecated in alternative routes</strong>.
  * Version 3.27 will be the last version of the API that adds extra
@@ -1458,6 +1599,21 @@ google.maps.DirectionsLeg.prototype.steps;
  * @type {!Array<!google.maps.LatLng>}
  */
 google.maps.DirectionsLeg.prototype.via_waypoints;
+
+/**
+ * An object containing a <code>points</code> property to describe the polyline
+ * of a {@link google.maps.DirectionsStep}.
+ * @record
+ */
+google.maps.DirectionsPolyline = function() {};
+
+/**
+ * An <a
+ * href="https://developers.google.com/maps/documentation/utilities/polylinealgorithm">encoded
+ * polyline</a>.
+ * @type {string}
+ */
+google.maps.DirectionsPolyline.prototype.points;
 
 /**
  * Renders directions obtained from the <code><a
@@ -1483,7 +1639,7 @@ google.maps.DirectionsRenderer.prototype.getMap = function() {};
 /**
  * Returns the panel <code>&lt;div&gt;</code> in which the
  * <code>DirectionsResult</code> is rendered.
- * @return {Node}
+ * @return {?HTMLElement}
  */
 google.maps.DirectionsRenderer.prototype.getPanel = function() {};
 
@@ -1523,7 +1679,7 @@ google.maps.DirectionsRenderer.prototype.setOptions = function(options) {};
 /**
  * This method renders the directions in a <code>&lt;div&gt;</code>. Pass
  * <code>null</code> to remove the content from the panel.
- * @param {Node} panel
+ * @param {?HTMLElement} panel
  * @return {undefined}
  */
 google.maps.DirectionsRenderer.prototype.setPanel = function(panel) {};
@@ -1594,7 +1750,7 @@ google.maps.DirectionsRendererOptions.prototype.markerOptions;
 
 /**
  * The <code>&lt;div&gt;</code> in which to display the directions steps.
- * @type {?Node|undefined}
+ * @type {?HTMLElement|undefined}
  */
 google.maps.DirectionsRendererOptions.prototype.panel;
 
@@ -1759,6 +1915,16 @@ google.maps.DirectionsRequest.prototype.waypoints;
 google.maps.DirectionsResult = function() {};
 
 /**
+ * Contains an array of available travel modes. This field is returned when a
+ * request specifies a travel mode and gets no results. The array contains the
+ * available travel modes in the countries of the given set of waypoints. This
+ * field is not returned if one or more of the waypoints are &#39;via
+ * waypoints&#39;.
+ * @type {!Array<!google.maps.TravelMode>|undefined}
+ */
+google.maps.DirectionsResult.prototype.available_travel_modes;
+
+/**
  * An array of <code>DirectionsGeocodedWaypoint</code>s, each of which contains
  * information about the geocoding of origin, destination and waypoints.
  * @type {!Array<!google.maps.DirectionsGeocodedWaypoint>|undefined}
@@ -1830,6 +1996,13 @@ google.maps.DirectionsRoute.prototype.overview_path;
 google.maps.DirectionsRoute.prototype.overview_polyline;
 
 /**
+ * Contains a short textual description for the route, suitable for naming and
+ * disambiguating the route from alternatives.
+ * @type {string}
+ */
+google.maps.DirectionsRoute.prototype.summary;
+
+/**
  * Warnings to be displayed when showing these directions.
  * @type {!Array<string>}
  */
@@ -1858,15 +2031,11 @@ google.maps.DirectionsRoute.prototype.waypoint_order;
 google.maps.DirectionsService = function() {};
 
 /**
- * Issue a directions search request. <aside class="note">Note: <strong>For the
- * beta release, <code>v=beta</code>, the callback is optional and a Promise is
- * returned</strong>. More information is available in the <a
- * href="https://developers.google.com/maps/documentation/javascript/promises">Promises
- * guide</a>.</aside>
+ * Issue a directions search request.
  * @param {!google.maps.DirectionsRequest} request
  * @param {(function(?google.maps.DirectionsResult,
  *     !google.maps.DirectionsStatus): void)=} callback
- * @return {?Promise<!google.maps.DirectionsResult>}
+ * @return {!Promise<!google.maps.DirectionsResult>}
  */
 google.maps.DirectionsService.prototype.route = function(request, callback) {};
 
@@ -1941,10 +2110,26 @@ google.maps.DirectionsStep.prototype.distance;
 google.maps.DirectionsStep.prototype.duration;
 
 /**
+ * An <a
+ * href="https://developers.google.com/maps/documentation/utilities/polylinealgorithm">encoded
+ * polyline representation</a> of the step. This is an approximate (smoothed)
+ * path of the step.
+ * @type {string}
+ */
+google.maps.DirectionsStep.prototype.encoded_lat_lngs;
+
+/**
  * The ending location of this step.
  * @type {!google.maps.LatLng}
  */
 google.maps.DirectionsStep.prototype.end_location;
+
+/**
+ * The ending location of this step.
+ * @type {!google.maps.LatLng}
+ * @deprecated Please use {@link google.maps.DirectionsStep.end_location}.
+ */
+google.maps.DirectionsStep.prototype.end_point;
 
 /**
  * Instructions for this step.
@@ -1953,16 +2138,50 @@ google.maps.DirectionsStep.prototype.end_location;
 google.maps.DirectionsStep.prototype.instructions;
 
 /**
- * A sequence of <code>LatLng</code>s describing the course of this step.
+ * A sequence of <code>LatLng</code>s describing the course of this step. This
+ * is an approximate (smoothed) path of the step.
+ * @type {!Array<!google.maps.LatLng>}
+ * @deprecated Please use {@link google.maps.DirectionsStep.path}.
+ */
+google.maps.DirectionsStep.prototype.lat_lngs;
+
+/**
+ * Contains the action to take for the current step (<code>turn-left</code>,
+ * <code>merge</code>, <code>straight</code>, etc.). Values are subject to
+ * change, and new values may be introduced without prior notice.
+ * @type {string}
+ */
+google.maps.DirectionsStep.prototype.maneuver;
+
+/**
+ * A sequence of <code>LatLng</code>s describing the course of this step. This
+ * is an approximate (smoothed) path of the step.
  * @type {!Array<!google.maps.LatLng>}
  */
 google.maps.DirectionsStep.prototype.path;
+
+/**
+ * Contains an object with a single property, &#39;points&#39;, that holds an <a
+ * href="https://developers.google.com/maps/documentation/utilities/polylinealgorithm">encoded
+ * polyline</a> representation of the step. This polyline is an approximate
+ * (smoothed) path of the step.
+ * @type {!Array<!google.maps.DirectionsStep>|undefined}
+ * @deprecated Please use {@link google.maps.DirectionsStep.encoded_lat_lngs}.
+ */
+google.maps.DirectionsStep.prototype.polyline;
 
 /**
  * The starting location of this step.
  * @type {!google.maps.LatLng}
  */
 google.maps.DirectionsStep.prototype.start_location;
+
+/**
+ * The starting location of this step.
+ * @type {!google.maps.LatLng}
+ * @deprecated Please use {@link google.maps.DirectionsStep.start_location}.
+ */
+google.maps.DirectionsStep.prototype.start_point;
 
 /**
  * Sub-steps of this step. Specified for non-transit sections of transit routes.
@@ -1976,6 +2195,12 @@ google.maps.DirectionsStep.prototype.steps;
  * @type {!google.maps.TransitDetails|undefined}
  */
 google.maps.DirectionsStep.prototype.transit;
+
+/**
+ * Details pertaining to this step if the travel mode is <code>TRANSIT</code>.
+ * @type {!google.maps.TransitDetails|undefined}
+ */
+google.maps.DirectionsStep.prototype.transit_details;
 
 /**
  * The mode of travel used in this step.
@@ -2220,15 +2445,11 @@ google.maps.DistanceMatrixResponseRow.prototype.elements;
 google.maps.DistanceMatrixService = function() {};
 
 /**
- * Issues a distance matrix request. <aside class="note">Note: <strong>For the
- * beta release, <code>v=beta</code>, the callback is optional and a Promise is
- * returned</strong>. More information is available in the <a
- * href="https://developers.google.com/maps/documentation/javascript/promises">Promises
- * guide</a>.</aside>
+ * Issues a distance matrix request.
  * @param {!google.maps.DistanceMatrixRequest} request
  * @param {(function(?google.maps.DistanceMatrixResponse,
  *     !google.maps.DistanceMatrixStatus): void)=} callback
- * @return {?Promise<!google.maps.DistanceMatrixResponse>}
+ * @return {!Promise<!google.maps.DistanceMatrixResponse>}
  */
 google.maps.DistanceMatrixService.prototype.getDistanceMatrix = function(
     request, callback) {};
@@ -2356,30 +2577,21 @@ google.maps.ElevationService = function() {};
 
 /**
  * Makes an elevation request along a path, where the elevation data are
- * returned as distance-based samples along that path. <aside class="note">Note:
- * <strong>A Promise is only returned for the beta release,
- * <code>v=beta</code></strong>. More information is available in the <a
- * href="https://developers.google.com/maps/documentation/javascript/promises">Promises
- * guide</a>.</aside>
+ * returned as distance-based samples along that path.
  * @param {!google.maps.PathElevationRequest} request
  * @param {(function(?Array<!google.maps.ElevationResult>,
  *     !google.maps.ElevationStatus): void)=} callback
- * @return {?Promise<!google.maps.PathElevationResponse>}
+ * @return {!Promise<!google.maps.PathElevationResponse>}
  */
 google.maps.ElevationService.prototype.getElevationAlongPath = function(
     request, callback) {};
 
 /**
- * Makes an elevation request for a list of discrete locations. <aside
- * class="note">Note: <strong>For the beta release, <code>v=beta</code>, the
- * callback is optional and a Promise is returned</strong>. More information is
- * available in the <a
- * href="https://developers.google.com/maps/documentation/javascript/promises">Promises
- * guide</a>.</aside>
+ * Makes an elevation request for a list of discrete locations.
  * @param {!google.maps.LocationElevationRequest} request
  * @param {(function(?Array<!google.maps.ElevationResult>,
  *     !google.maps.ElevationStatus): void)=} callback
- * @return {?Promise<!google.maps.LocationElevationResponse>}
+ * @return {!Promise<!google.maps.LocationElevationResponse>}
  */
 google.maps.ElevationService.prototype.getElevationForLocations = function(
     request, callback) {};
@@ -2447,15 +2659,11 @@ google.maps.FullscreenControlOptions.prototype.position;
 google.maps.Geocoder = function() {};
 
 /**
- * Geocode a request. <aside class="note">Note: <strong>A Promise is only
- * returned for the beta release, <code>v=beta</code></strong>. More information
- * is available in the <a
- * href="https://developers.google.com/maps/documentation/javascript/promises">Promises
- * guide</a>.</aside>
+ * Geocode a request.
  * @param {!google.maps.GeocoderRequest} request
  * @param {?(function(?Array<!google.maps.GeocoderResult>,
- *     !google.maps.GeocoderStatus): void)} callback
- * @return {?Promise<!google.maps.GeocoderResponse>}
+ *     !google.maps.GeocoderStatus): void)=} callback
+ * @return {!Promise<!google.maps.GeocoderResponse>}
  */
 google.maps.Geocoder.prototype.geocode = function(request, callback) {};
 
@@ -2707,6 +2915,12 @@ google.maps.GeocoderResult.prototype.partial_match;
  * @type {string}
  */
 google.maps.GeocoderResult.prototype.place_id;
+
+/**
+ * The plus code associated with the location.
+ * @type {!google.maps.places.PlacePlusCode|undefined}
+ */
+google.maps.GeocoderResult.prototype.plus_code;
 
 /**
  * An array of strings denoting all the localities contained in a postal code.
@@ -3001,22 +3215,22 @@ google.maps.ImageMapType.prototype.tileSize;
 /**
  * Returns the opacity level (<code>0</code> (transparent) to <code>1.0</code>)
  * of the <code>ImageMapType</code> tiles.
- * @return {number}
+ * @return {number} opacity The current opacity.
  */
 google.maps.ImageMapType.prototype.getOpacity = function() {};
 
 /**
- * @param {google.maps.Point} tileCoord
- * @param {number} zoom
- * @param {Document} ownerDocument
- * @return {Node}
+ * @param {google.maps.Point} tileCoord Tile coordinates.
+ * @param {number} zoom Tile zoom.
+ * @param {Document} ownerDocument The document which owns this tile.
+ * @return {?Element} Resulting tile.
  * @override
  */
 google.maps.ImageMapType.prototype.getTile = function(
     tileCoord, zoom, ownerDocument) {};
 
 /**
- * @param {Node} tileDiv
+ * @param {?Element} tileDiv Tile to release.
  * @return {undefined}
  * @override
  */
@@ -3025,7 +3239,7 @@ google.maps.ImageMapType.prototype.releaseTile = function(tileDiv) {};
 /**
  * Sets the opacity level (<code>0</code> (transparent) to <code>1.0</code>) of
  * the <code>ImageMapType</code> tiles.
- * @param {number} opacity
+ * @param {number} opacity The new opacity.
  * @return {undefined}
  */
 google.maps.ImageMapType.prototype.setOpacity = function(opacity) {};
@@ -3082,7 +3296,7 @@ google.maps.ImageMapTypeOptions.prototype.tileSize;
 
 /**
  * An overlay that looks like a bubble and is often connected to a marker.
- * @param {google.maps.InfoWindowOptions=} opts
+ * @param {?google.maps.InfoWindowOptions=} opts
  * @extends {google.maps.MVCObject}
  * @constructor
  */
@@ -3095,17 +3309,19 @@ google.maps.InfoWindow = function(opts) {};
 google.maps.InfoWindow.prototype.close = function() {};
 
 /**
- * @return {string|Node}
+ * @return {string|?Element|?Text|undefined} The content of this InfoWindow. The
+ *     same as what was previously set as the content.
  */
 google.maps.InfoWindow.prototype.getContent = function() {};
 
 /**
- * @return {google.maps.LatLng}
+ * @return {?google.maps.LatLng|undefined} The LatLng position of this
+ *     InfoWindow.
  */
 google.maps.InfoWindow.prototype.getPosition = function() {};
 
 /**
- * @return {number}
+ * @return {number} The zIndex of this InfoWindow.
  */
 google.maps.InfoWindow.prototype.getZIndex = function() {};
 
@@ -3117,36 +3333,81 @@ google.maps.InfoWindow.prototype.getZIndex = function() {};
  * <code>anchorPoint</code> property for calculating the
  * <code>pixelOffset</code> (see InfoWindowOptions). The
  * <code>anchorPoint</code> is the offset from the anchor&#39;s position to the
- * tip of the InfoWindow.
- * @param {(?google.maps.Map|?google.maps.StreetViewPanorama)=} map
- * @param {?google.maps.MVCObject=} anchor
+ * tip of the InfoWindow. It is recommended to use the {@link
+ * google.maps.InfoWindowOpenOptions} interface as the single argument for this
+ * method. To prevent changing browser focus on open, set {@link
+ * google.maps.InfoWindowOpenOptions.shouldFocus} to <code>false</code>.
+ * @param {(?google.maps.InfoWindowOpenOptions|?google.maps.Map|?google.maps.StreetViewPanorama)=}
+ *     options Either an InfoWindowOpenOptions object (recommended) or the
+ *     map|panorama on which to render this InfoWindow.
+ * @param {?google.maps.MVCObject=} anchor The anchor to which this InfoWindow
+ *     will be positioned. If the anchor is non-null, the InfoWindow will be
+ *     positioned at the top-center of the anchor. The InfoWindow will be
+ *     rendered on the same map or panorama as the anchor <strong>(when
+ *     available)</strong>.
  * @return {undefined}
  */
-google.maps.InfoWindow.prototype.open = function(map, anchor) {};
+google.maps.InfoWindow.prototype.open = function(options, anchor) {};
 
 /**
- * @param {string|Node} content
+ * @param {(string|?Element|?Text)=} content The content to be displayed by this
+ *     InfoWindow.
  * @return {undefined}
  */
 google.maps.InfoWindow.prototype.setContent = function(content) {};
 
 /**
- * @param {google.maps.InfoWindowOptions} options
+ * @param {?google.maps.InfoWindowOptions=} options
  * @return {undefined}
  */
 google.maps.InfoWindow.prototype.setOptions = function(options) {};
 
 /**
- * @param {google.maps.LatLng|google.maps.LatLngLiteral} position
+ * @param {(?google.maps.LatLng|?google.maps.LatLngLiteral)=} position The
+ *     LatLng position at which to display this InfoWindow.
  * @return {undefined}
  */
 google.maps.InfoWindow.prototype.setPosition = function(position) {};
 
 /**
- * @param {number} zIndex
+ * @param {number} zIndex The z-index for this InfoWindow. An InfoWindow with a
+ *     greater z-index will be displayed in front of all other InfoWindows with
+ *     a lower z-index.
  * @return {undefined}
  */
 google.maps.InfoWindow.prototype.setZIndex = function(zIndex) {};
+
+/**
+ * Options for opening an InfoWindow
+ * @record
+ */
+google.maps.InfoWindowOpenOptions = function() {};
+
+/**
+ * The anchor to which this InfoWindow will be positioned. If the anchor is
+ * non-null, the InfoWindow will be positioned at the top-center of the anchor.
+ * The InfoWindow will be rendered on the same map or panorama as the anchor
+ * <strong>(when available)</strong>.
+ * @type {?google.maps.MVCObject|undefined}
+ */
+google.maps.InfoWindowOpenOptions.prototype.anchor;
+
+/**
+ * The map or panorama on which to render this InfoWindow.
+ * @type {?google.maps.Map|?google.maps.StreetViewPanorama|undefined}
+ */
+google.maps.InfoWindowOpenOptions.prototype.map;
+
+/**
+ * Whether or not focus should be moved inside the InfoWindow when it is opened.
+ * When this property is unset or when it is set to <code>null</code> or
+ * <code>undefined</code>, a heuristic is used to decide whether or not focus
+ * should be moved. It is recommended to explicitly set this property to fit
+ * your needs as the heuristic is subject to change and may not work well for
+ * all use cases.
+ * @type {?boolean|undefined}
+ */
+google.maps.InfoWindowOpenOptions.prototype.shouldFocus;
 
 /**
  * InfoWindowOptions object used to define the properties that can be set on a
@@ -3160,7 +3421,7 @@ google.maps.InfoWindowOptions = function() {};
  * plain-text string, or a string containing HTML. The InfoWindow will be sized
  * according to the content. To set an explicit size for the content, set
  * content to be a HTML element with that size.
- * @type {?string|?Node|undefined}
+ * @type {?string|?Element|?Text|undefined}
  */
 google.maps.InfoWindowOptions.prototype.content;
 
@@ -3295,7 +3556,7 @@ google.maps.KmlFeatureData.prototype.snippet;
  * A <code>KmlLayer</code> adds geographic markup to the map from a KML, KMZ or
  * GeoRSS file that is hosted on a publicly accessible web server. A
  * <code>KmlFeatureData</code> object is provided for each feature when clicked.
- * @param {google.maps.KmlLayerOptions=} opts
+ * @param {google.maps.KmlLayerOptions=} opts Options for this layer.
  * @extends {google.maps.MVCObject}
  * @constructor
  */
@@ -3328,13 +3589,13 @@ google.maps.KmlLayer.prototype.getStatus = function() {};
 
 /**
  * Gets the URL of the KML file being displayed.
- * @return {string}
+ * @return {string} URL
  */
 google.maps.KmlLayer.prototype.getUrl = function() {};
 
 /**
  * Gets the z-index of the KML Layer.
- * @return {number}
+ * @return {number} The z-index.
  */
 google.maps.KmlLayer.prototype.getZIndex = function() {};
 
@@ -3361,7 +3622,7 @@ google.maps.KmlLayer.prototype.setUrl = function(url) {};
 
 /**
  * Sets the z-index of the KML Layer.
- * @param {number} zIndex
+ * @param {number} zIndex The z-index to set.
  * @return {undefined}
  */
 google.maps.KmlLayer.prototype.setZIndex = function(zIndex) {};
@@ -3544,21 +3805,28 @@ google.maps.KmlMouseEvent.prototype.pixelOffset;
  * followed by the longitude.<br> Notice that you cannot modify the coordinates
  * of a <code>LatLng</code>. If you want to compute another point, you have to
  * create a new one.<br> <p> Most methods that accept <code>LatLng</code>
- * objects also accept a <code><a href="#LatLngLiteral">LatLngLiteral</a></code>
- * object, so that the following are equivalent: <pre> map.setCenter(new
+ * objects also accept a <code>{@link google.maps.LatLngLiteral}</code> object,
+ * so that the following are equivalent: <pre> map.setCenter(new
  * google.maps.LatLng(-34, 151));<br> map.setCenter({lat: -34, lng: 151});
- * </pre> <p> The constructor also accepts literal objects, and converts them to
- * instances of <code>LatLng</code>. The possible calls to the constructor are
- * below: <pre> new google.maps.LatLng(-34, 151);<br> new
- * google.maps.LatLng(-34, 151, true);<br> new google.maps.LatLng({lat: -34,
- * lng: 151});<br> new google.maps.LatLng({lat: -34, lng: 151}, true);<br> new
- * google.maps.LatLng({lat: -34, lng: 151}, null, true); </pre>
- * @param {number|!google.maps.LatLngLiteral} latOrLatLngLiteral
+ * </pre> <p> The constructor also accepts <code>{@link
+ * google.maps.LatLngLiteral}</code> and <code>LatLng</code> objects. If a
+ * <code>LatLng</code> instance is passed to the constructor, a copy is created.
+ * <p> The possible calls to the constructor are below: <pre> new
+ * google.maps.LatLng(-34, 151);<br> new google.maps.LatLng(-34, 151, true);<br>
+ * new google.maps.LatLng({lat: -34, lng: 151});<br> new
+ * google.maps.LatLng({lat: -34, lng: 151}, true);<br> new
+ * google.maps.LatLng({lat: -34, lng: 151}, null, true);<br> new
+ * google.maps.LatLng(new google.maps.LatLng(-34, 151));<br> new
+ * google.maps.LatLng(new google.maps.LatLng(-34, 151), true);<br> new
+ * google.maps.LatLng(new google.maps.LatLng(-34, 151), null, true); </pre>
+ * @param {number|!google.maps.LatLngLiteral|!google.maps.LatLng}
+ *     latOrLatLngOrLatLngLiteral
  * @param {?(number|boolean)=} lngOrNoWrap
  * @param {boolean=} noWrap
  * @constructor
  */
-google.maps.LatLng = function(latOrLatLngLiteral, lngOrNoWrap, noWrap) {};
+google.maps.LatLng = function(
+    latOrLatLngOrLatLngLiteral, lngOrNoWrap, noWrap) {};
 
 /**
  * Comparison function.
@@ -3606,11 +3874,12 @@ google.maps.LatLng.prototype.toUrlValue = function(precision) {};
  * A <code><a href="#LatLngBounds">LatLngBounds</a></code> instance represents a
  * rectangle in geographical coordinates, including one that crosses the 180
  * degrees longitudinal meridian.
- * @param {(?google.maps.LatLng|?google.maps.LatLngLiteral)=} sw
+ * @param {(?google.maps.LatLng|?google.maps.LatLngLiteral|?google.maps.LatLngBounds)=}
+ *     swOrLatLngBounds
  * @param {(?google.maps.LatLng|?google.maps.LatLngLiteral)=} ne
  * @constructor
  */
-google.maps.LatLngBounds = function(sw, ne) {};
+google.maps.LatLngBounds = function(swOrLatLngBounds, ne) {};
 
 /**
  * Returns <code>true</code> if the given lat/lng is in this bounds.
@@ -3963,7 +4232,7 @@ google.maps.MVCObject.prototype.unbind = function(key) {};
 google.maps.MVCObject.prototype.unbindAll = function() {};
 
 /**
- * @param {!Element} mapDiv The map will render to fill this element.
+ * @param {!HTMLElement} mapDiv The map will render to fill this element.
  * @param {!google.maps.MapOptions=} opts Options
  * @extends {google.maps.MVCObject}
  * @constructor
@@ -3975,7 +4244,7 @@ google.maps.Map = function(mapDiv, opts) {};
  * the control&#39;s <code>&lt;div&gt;</code> to the <code>MVCArray</code>
  * corresponding to the <code>ControlPosition</code> where it should be
  * rendered.
- * @type {!Array<!google.maps.MVCArray<!Node>>}
+ * @type {!Array<!google.maps.MVCArray<!HTMLElement>>}
  */
 google.maps.Map.prototype.controls;
 
@@ -4007,7 +4276,8 @@ google.maps.Map.prototype.overlayMapTypes;
  * function reads the map&#39;s size as 0x0, and therefore does not do anything.
  * To change the viewport while the map is hidden, set the map to
  * <code>visibility: hidden</code>, thereby ensuring the map div has an actual
- * size.
+ * size. For vector maps, this method sets the map&#39;s tilt and heading to
+ * their default zero values.
  * @param {!google.maps.LatLngBounds|!google.maps.LatLngBoundsLiteral} bounds
  *     Bounds to show.
  * @param {(number|!google.maps.Padding)=} padding Padding in pixels. The bounds
@@ -4022,14 +4292,19 @@ google.maps.Map.prototype.fitBounds = function(bounds, padding) {};
  * Returns the lat/lng bounds of the current viewport. If more than one copy of
  * the world is visible, the bounds range in longitude from -180 to 180 degrees
  * inclusive. If the map is not yet initialized or center and zoom have not been
- * set then the result is <code>undefined</code>.
- * @return {!google.maps.LatLngBounds|undefined}
+ * set then the result is <code>undefined</code>. For vector maps with non-zero
+ * tilt or heading, the returned lat/lng bounds represents the smallest bounding
+ * box that includes the visible region of the map&#39;s viewport. See {@link
+ * google.maps.MapCanvasProjection.getVisibleRegion} for getting the exact
+ * visible region of the map&#39;s viewport.
+ * @return {!google.maps.LatLngBounds|undefined} The lat/lng bounds of the
+ *     current viewport.
  */
 google.maps.Map.prototype.getBounds = function() {};
 
 /**
- * Returns the position displayed at the center of the map. Note that this
- * <code>LatLng</code> object is <em>not</em> wrapped. See <code><a
+ * Returns the position displayed at the center of the map. Note that
+ * this {@link google.maps.LatLng} object is <em>not</em> wrapped. See <code><a
  * href="#LatLng">LatLng</a></code> for more information. If the center or
  * bounds have not been set then the result is <code>undefined</code>.
  * @return {!google.maps.LatLng|undefined}
@@ -4045,13 +4320,13 @@ google.maps.Map.prototype.getCenter = function() {};
 google.maps.Map.prototype.getClickableIcons = function() {};
 
 /**
- * @return {!Element} The mapDiv of the map.
+ * @return {!HTMLElement} The mapDiv of the map.
  */
 google.maps.Map.prototype.getDiv = function() {};
 
 /**
- * Returns the compass heading of aerial imagery. The heading value is measured
- * in degrees (clockwise) from cardinal direction North. If the map is not yet
+ * Returns the compass heading of the map. The heading value is measured in
+ * degrees (clockwise) from cardinal direction North. If the map is not yet
  * initialized then the result is <code>undefined</code>.
  * @return {number|undefined}
  */
@@ -4072,6 +4347,12 @@ google.maps.Map.prototype.getMapTypeId = function() {};
 google.maps.Map.prototype.getProjection = function() {};
 
 /**
+ * Returns the current RenderingType of the map.
+ * @return {!google.maps.RenderingType}
+ */
+google.maps.Map.prototype.getRenderingType = function() {};
+
+/**
  * Returns the default <code>StreetViewPanorama</code> bound to the map, which
  * may be a default panorama embedded within the map, or the panorama set using
  * <code>setStreetView()</code>. Changes to the map&#39;s
@@ -4083,11 +4364,9 @@ google.maps.Map.prototype.getStreetView = function() {};
 
 /**
  * Returns the current angle of incidence of the map, in degrees from the
- * viewport plane to the map plane. The result will be <code>0</code> for
- * imagery taken directly overhead or <code>45</code> for 45&deg; imagery.
- * 45&deg; imagery is only available for <code>satellite</code> and
- * <code>hybrid</code> map types, within some locations, and at some zoom
- * levels. <b>Note:</b> This method does not return the value set by
+ * viewport plane to the map plane. For raster maps, the result will be
+ * <code>0</code> for imagery taken directly overhead or <code>45</code> for
+ * 45&deg; imagery. This method does not return the value set by
  * <code>setTilt</code>. See <code>setTilt</code> for details.
  * @return {number|undefined}
  */
@@ -4099,6 +4378,15 @@ google.maps.Map.prototype.getTilt = function() {};
  * @return {number|undefined}
  */
 google.maps.Map.prototype.getZoom = function() {};
+
+/**
+ * Available only in the v=beta channel: https://goo.gle/3oAthT3.
+ * Immediately sets the map&#39;s camera to the target camera options, without
+ * animation.
+ * @param {!google.maps.CameraOptions} cameraOptions
+ * @return {undefined}
+ */
+google.maps.Map.prototype.moveCamera = function(cameraOptions) {};
 
 /**
  * Changes the center of the map by the given distance in pixels. If the
@@ -4125,7 +4413,9 @@ google.maps.Map.prototype.panTo = function(latLng) {};
  * Pans the map by the minimum amount necessary to contain the given
  * <code>LatLngBounds</code>. It makes no guarantee where on the map the bounds
  * will be, except that the map will be panned to show as much of the bounds as
- * possible inside <code>{currentMapSizeInPx} - {padding}</code>.
+ * possible inside <code>{currentMapSizeInPx} - {padding}</code>. For both
+ * raster and vector maps, the map&#39;s zoom, tilt, and heading will not be
+ * changed.
  * @param {!google.maps.LatLngBounds|!google.maps.LatLngBoundsLiteral}
  *     latLngBounds The bounds to pan the map to.
  * @param {(number|!google.maps.Padding)=} padding Padding in pixels. A number
@@ -4150,8 +4440,8 @@ google.maps.Map.prototype.setCenter = function(latlng) {};
 google.maps.Map.prototype.setClickableIcons = function(value) {};
 
 /**
- * Sets the compass heading for aerial imagery measured in degrees from cardinal
- * direction North.
+ * Sets the compass heading for map measured in degrees from cardinal direction
+ * North. For raster maps, this method only applies to aerial imagery.
  * @param {number} heading
  * @return {undefined}
  */
@@ -4181,7 +4471,9 @@ google.maps.Map.prototype.setOptions = function(options) {};
 google.maps.Map.prototype.setStreetView = function(panorama) {};
 
 /**
- * Controls the automatic switching behavior for the angle of incidence of the
+ * For vector maps, sets the angle of incidence of the map. The allowed values
+ * are restricted depending on the zoom level of the map. For raster maps,
+ * controls the automatic switching behavior for the angle of incidence of the
  * map. The only allowed values are <code>0</code> and <code>45</code>.
  * <code>setTilt(0)</code> causes the map to always use a 0&deg; overhead view
  * regardless of the zoom level and viewport. <code>setTilt(45)</code> causes
@@ -4200,7 +4492,8 @@ google.maps.Map.prototype.setStreetView = function(panorama) {};
 google.maps.Map.prototype.setTilt = function(tilt) {};
 
 /**
- * @param {number} zoom
+ * Sets the zoom of the map.
+ * @param {number} zoom Larger zoom values correspond to a higher resolution.
  * @return {undefined}
  */
 google.maps.Map.prototype.setZoom = function(zoom) {};
@@ -4235,7 +4528,7 @@ google.maps.MapCanvasProjection.prototype.fromDivPixelToLatLng = function(
 /**
  * Computes the pixel coordinates of the given geographical location in the
  * map&#39;s container element.
- * @param {?google.maps.LatLng} latLng
+ * @param {!google.maps.LatLng|!google.maps.LatLngLiteral} latLng
  * @return {?google.maps.Point}
  */
 google.maps.MapCanvasProjection.prototype.fromLatLngToContainerPixel = function(
@@ -4244,11 +4537,20 @@ google.maps.MapCanvasProjection.prototype.fromLatLngToContainerPixel = function(
 /**
  * Computes the pixel coordinates of the given geographical location in the DOM
  * element that holds the draggable map.
- * @param {?google.maps.LatLng} latLng
+ * @param {?google.maps.LatLng|?google.maps.LatLngLiteral} latLng
  * @return {?google.maps.Point}
  */
 google.maps.MapCanvasProjection.prototype.fromLatLngToDivPixel = function(
     latLng) {};
+
+/**
+ * Available only in the v=beta channel: https://goo.gle/3oAthT3.
+ * The visible region of the map. Returns <code>null</code> if the map has no
+ * size. Returns <code>null</code> if the OverlayView is on a
+ * StreetViewPanorama.
+ * @return {?google.maps.VisibleRegion}
+ */
+google.maps.MapCanvasProjection.prototype.getVisibleRegion = function() {};
 
 /**
  * The width of the world in pixels in the current zoom level. For projections
@@ -4414,11 +4716,33 @@ google.maps.MapOptions.prototype.gestureHandling;
 google.maps.MapOptions.prototype.heading;
 
 /**
+ * Available only in the v=beta channel: https://goo.gle/3oAthT3.
+ * Whether the map should allow fractional zoom levels. If not explicitly set to
+ * <code>true</code> or <code>false</code>, by default vector maps will allow
+ * fractional zoom and raster maps will not. Listen to
+ * <code>isfractionalzoomenabled_changed</code> to know when the default has
+ * been set.
+ * @type {?boolean|undefined}
+ */
+google.maps.MapOptions.prototype.isFractionalZoomEnabled;
+
+/**
  * If <code>false</code>, prevents the map from being controlled by the
  * keyboard. Keyboard shortcuts are enabled by default.
  * @type {?boolean|undefined}
  */
 google.maps.MapOptions.prototype.keyboardShortcuts;
+
+/**
+ * The unique identifier that represents a single instance of a Google Map. You
+ * can create Map IDs and update a style associated with a Map ID at any time in
+ * the Google Cloud Console <a
+ * href="https://console.cloud.google.com/google/maps-apis/studio/maps">Maps
+ * Management page</a> without changing embedded JSON styling in your
+ * application code.
+ * @type {?string|undefined}
+ */
+google.maps.MapOptions.prototype.mapId;
 
 /**
  * The initial enabled/disabled state of the Map type control.
@@ -4441,7 +4765,7 @@ google.maps.MapOptions.prototype.mapTypeId;
 /**
  * The maximum zoom level which will be displayed on the map. If omitted, or set
  * to <code>null</code>, the maximum zoom from the current map type is used
- * instead. Valid values: Integers between zero, and up to the supported <a
+ * instead. Valid zoom values are numbers from zero up to the supported <a
  * href="https://developers.google.com/maps/documentation/javascript/maxzoom">maximum
  * zoom level</a>.
  * @type {?number|undefined}
@@ -4451,7 +4775,7 @@ google.maps.MapOptions.prototype.maxZoom;
 /**
  * The minimum zoom level which will be displayed on the map. If omitted, or set
  * to <code>null</code>, the minimum zoom from the current map type is used
- * instead. Valid values: Integers between zero, and up to the supported <a
+ * instead. Valid zoom values are numbers from zero up to the supported <a
  * href="https://developers.google.com/maps/documentation/javascript/maxzoom">maximum
  * zoom level</a>.
  * @type {?number|undefined}
@@ -4563,7 +4887,9 @@ google.maps.MapOptions.prototype.streetViewControlOptions;
 google.maps.MapOptions.prototype.styles;
 
 /**
- * Controls the automatic switching behavior for the angle of incidence of the
+ * For vector maps, sets the angle of incidence of the map. The allowed values
+ * are restricted depending on the zoom level of the map. For raster maps,
+ * controls the automatic switching behavior for the angle of incidence of the
  * map. The only allowed values are <code>0</code> and <code>45</code>. The
  * value <code>0</code> causes the map to always use a 0&deg; overhead view
  * regardless of the zoom level and viewport. The value <code>45</code> causes
@@ -4581,10 +4907,10 @@ google.maps.MapOptions.prototype.styles;
 google.maps.MapOptions.prototype.tilt;
 
 /**
- * The initial Map zoom level. Valid values: Integers between zero, and up to
- * the supported <a
+ * The initial Map zoom level. Valid zoom values are numbers from zero up to the
+ * supported <a
  * href="https://developers.google.com/maps/documentation/javascript/maxzoom">maximum
- * zoom level</a>.
+ * zoom level</a>. Larger zoom values correspond to a higher resolution.
  * @type {?number|undefined}
  */
 google.maps.MapOptions.prototype.zoom;
@@ -4722,10 +5048,10 @@ google.maps.MapType.prototype.tileSize;
  * Returns a tile for the given tile coordinate (x, y) and zoom level. This tile
  * will be appended to the given ownerDocument. Not available for base map
  * types.
- * @param {google.maps.Point} tileCoord
- * @param {number} zoom
- * @param {Document} ownerDocument
- * @return {Node}
+ * @param {google.maps.Point} tileCoord Tile coordinates.
+ * @param {number} zoom Tile zoom.
+ * @param {Document} ownerDocument The document which owns this tile.
+ * @return {?Element} Resulting tile.
  */
 google.maps.MapType.prototype.getTile = function(
     tileCoord, zoom, ownerDocument) {};
@@ -4733,7 +5059,7 @@ google.maps.MapType.prototype.getTile = function(
 /**
  * Releases the given tile, performing any necessary cleanup. The provided tile
  * will have already been removed from the document. Optional.
- * @param {Node} tile
+ * @param {?Element} tile Tile to release.
  * @return {undefined}
  */
 google.maps.MapType.prototype.releaseTile = function(tile) {};
@@ -4795,20 +5121,20 @@ google.maps.MapTypeId = {
    * This map type displays a transparent layer of major streets on satellite
    * images.
    */
-  HYBRID: 'HYBRID',
+  HYBRID: 'hybrid',
   /**
    * This map type displays a normal street map.
    */
-  ROADMAP: 'ROADMAP',
+  ROADMAP: 'roadmap',
   /**
    * This map type displays satellite images.
    */
-  SATELLITE: 'SATELLITE',
+  SATELLITE: 'satellite',
   /**
    * This map type displays maps with physical features such as terrain and
    * vegetation.
    */
-  TERRAIN: 'TERRAIN',
+  TERRAIN: 'terrain',
 };
 
 /**
@@ -4821,8 +5147,8 @@ google.maps.MapTypeRegistry = function() {};
 /**
  * Sets the registry to associate the passed string identifier with the passed
  * MapType.
- * @param {string} id
- * @param {google.maps.MapType|*} mapType
+ * @param {string} id Identifier of the MapType to add to the registry.
+ * @param {google.maps.MapType|*} mapType MapType object to add to the registry.
  * @return {undefined}
  * @override
  */
@@ -4894,7 +5220,7 @@ google.maps.Marker = function(opts) {};
 
 /**
  * Get the currently running animation.
- * @return {?google.maps.Animation}
+ * @return {?google.maps.Animation|undefined}
  */
 google.maps.Marker.prototype.getAnimation = function() {};
 
@@ -4906,7 +5232,7 @@ google.maps.Marker.prototype.getClickable = function() {};
 
 /**
  * Get the mouse cursor type shown on hover.
- * @return {string}
+ * @return {?string|undefined}
  */
 google.maps.Marker.prototype.getCursor = function() {};
 
@@ -4919,14 +5245,14 @@ google.maps.Marker.prototype.getDraggable = function() {};
 /**
  * Get the icon of the {@link google.maps.Marker}. See {@link
  * google.maps.MarkerOptions.icon}.
- * @return {string|google.maps.Icon|google.maps.Symbol}
+ * @return {string|?google.maps.Icon|?google.maps.Symbol|undefined}
  */
 google.maps.Marker.prototype.getIcon = function() {};
 
 /**
  * Get the label of the {@link google.maps.Marker}. See {@link
  * google.maps.MarkerOptions.label}.
- * @return {google.maps.MarkerLabel}
+ * @return {?google.maps.MarkerLabel|undefined}
  */
 google.maps.Marker.prototype.getLabel = function() {};
 
@@ -4938,7 +5264,7 @@ google.maps.Marker.prototype.getMap = function() {};
 
 /**
  * Get the opacity of the {@link google.maps.Marker}.
- * @return {number} A number between 0.0 and 1.0.
+ * @return {?number|undefined} A number between 0.0 and 1.0.
  */
 google.maps.Marker.prototype.getOpacity = function() {};
 
@@ -4952,14 +5278,14 @@ google.maps.Marker.prototype.getPosition = function() {};
  * Get the shape of the {@link google.maps.Marker} used for interaction.
  * See {@link google.maps.MarkerOptions.shape} and {@link
  * google.maps.MarkerShape}.
- * @return {google.maps.MarkerShape}
+ * @return {?google.maps.MarkerShape|undefined}
  */
 google.maps.Marker.prototype.getShape = function() {};
 
 /**
  * Get the title of the {@link google.maps.Marker} tooltip. See {@link
  * google.maps.MarkerOptions.title}.
- * @return {string}
+ * @return {?string|undefined}
  */
 google.maps.Marker.prototype.getTitle = function() {};
 
@@ -4972,7 +5298,7 @@ google.maps.Marker.prototype.getVisible = function() {};
 /**
  * Get the zIndex of the {@link google.maps.Marker}. See {@link
  * google.maps.MarkerOptions.zIndex}.
- * @return {number} zIndex of the Marker.
+ * @return {?number|undefined} zIndex of the Marker.
  */
 google.maps.Marker.prototype.getZIndex = function() {};
 
@@ -4981,7 +5307,7 @@ google.maps.Marker.prototype.getZIndex = function() {};
  * supported animations are: {@link google.maps.Animation.BOUNCE}, {@link
  * google.maps.Animation.DROP}. Passing in <code>null</code> will cause any
  * animation to stop.
- * @param {?google.maps.Animation} animation The animation to play.
+ * @param {?google.maps.Animation=} animation The animation to play.
  * @return {undefined}
  */
 google.maps.Marker.prototype.setAnimation = function(animation) {};
@@ -4995,7 +5321,7 @@ google.maps.Marker.prototype.setClickable = function(flag) {};
 
 /**
  * Set the mouse cursor type shown on hover.
- * @param {string} cursor Mouse cursor type.
+ * @param {?string=} cursor Mouse cursor type.
  * @return {undefined}
  */
 google.maps.Marker.prototype.setCursor = function(cursor) {};
@@ -5010,7 +5336,7 @@ google.maps.Marker.prototype.setDraggable = function(flag) {};
 /**
  * Set the icon for the {@link google.maps.Marker}. See {@link
  * google.maps.MarkerOptions.icon}.
- * @param {string|google.maps.Icon|google.maps.Symbol} icon
+ * @param {(string|?google.maps.Icon|?google.maps.Symbol)=} icon
  * @return {undefined}
  */
 google.maps.Marker.prototype.setIcon = function(icon) {};
@@ -5018,7 +5344,7 @@ google.maps.Marker.prototype.setIcon = function(icon) {};
 /**
  * Set the label for the {@link google.maps.Marker}. See {@link
  * google.maps.MarkerOptions.label}.
- * @param {string|google.maps.MarkerLabel} label The label can either be a
+ * @param {(string|?google.maps.MarkerLabel)=} label The label can either be a
  *     character string or a {@link google.maps.MarkerLabel} object.
  * @return {undefined}
  */
@@ -5034,7 +5360,7 @@ google.maps.Marker.prototype.setMap = function(map) {};
 
 /**
  * Set the opacity of the {@link google.maps.Marker}.
- * @param {number} opacity A number between 0.0, transparent, and 1.0, opaque.
+ * @param {?number=} opacity A number between 0.0, transparent, and 1.0, opaque.
  * @return {undefined}
  */
 google.maps.Marker.prototype.setOpacity = function(opacity) {};
@@ -5048,8 +5374,8 @@ google.maps.Marker.prototype.setOptions = function(options) {};
 
 /**
  * Set the postition for the {@link google.maps.Marker}.
- * @param {?google.maps.LatLng|?google.maps.LatLngLiteral|undefined} latlng The
- *     new position.
+ * @param {(?google.maps.LatLng|?google.maps.LatLngLiteral)=} latlng The new
+ *     position.
  * @return {undefined}
  */
 google.maps.Marker.prototype.setPosition = function(latlng) {};
@@ -5058,7 +5384,7 @@ google.maps.Marker.prototype.setPosition = function(latlng) {};
  * Set the shape of the {@link google.maps.Marker} used for interaction.
  * See {@link google.maps.MarkerOptions.shape} and {@link
  * google.maps.MarkerShape}.
- * @param {google.maps.MarkerShape} shape
+ * @param {?google.maps.MarkerShape=} shape
  * @return {undefined}
  */
 google.maps.Marker.prototype.setShape = function(shape) {};
@@ -5066,7 +5392,7 @@ google.maps.Marker.prototype.setShape = function(shape) {};
 /**
  * Set the title of the {@link google.maps.Marker} tooltip. See {@link
  * google.maps.MarkerOptions.title}.
- * @param {string} title
+ * @param {?string=} title
  * @return {undefined}
  */
 google.maps.Marker.prototype.setTitle = function(title) {};
@@ -5081,7 +5407,7 @@ google.maps.Marker.prototype.setVisible = function(visible) {};
 /**
  * Set the zIndex of the {@link google.maps.Marker}. See {@link
  * google.maps.MarkerOptions.zIndex}.
- * @param {number} zIndex
+ * @param {?number=} zIndex
  * @return {undefined}
  */
 google.maps.Marker.prototype.setZIndex = function(zIndex) {};
@@ -5090,7 +5416,7 @@ google.maps.Marker.prototype.setZIndex = function(zIndex) {};
  * The maximum default z-index that the API will assign to a marker. You may set
  * a higher z-index to bring a marker to the front.
  * @const
- * @type {number|string}
+ * @type {number}
  */
 google.maps.Marker.MAX_ZINDEX;
 
@@ -5178,6 +5504,13 @@ google.maps.MarkerOptions.prototype.animation;
 google.maps.MarkerOptions.prototype.clickable;
 
 /**
+ * Available only in the v=beta channel: https://goo.gle/3oAthT3.
+ * Set a collision behavior for markers on vector maps.
+ * @type {?string|?google.maps.CollisionBehavior|undefined}
+ */
+google.maps.MarkerOptions.prototype.collisionBehavior;
+
+/**
  * If <code>false</code>, disables cross that appears beneath the marker when
  * dragging. This option is <code>true</code> by default.
  * @type {?boolean|undefined}
@@ -5241,9 +5574,10 @@ google.maps.MarkerOptions.prototype.opacity;
 google.maps.MarkerOptions.prototype.optimized;
 
 /**
- * Marker position. The position is required to display the marker and can be
- * provided with {@link google.maps.Marker.setPosition} if not provided at
- * marker construction.
+ * Sets the marker position. A marker may be constructed but not displayed until
+ * its position is provided - for example, by a user&#39;s actions or choices. A
+ * marker position can be provided with {@link google.maps.Marker.setPosition}
+ * if not provided at marker construction.
  * @type {?google.maps.LatLng|?google.maps.LatLngLiteral|undefined}
  */
 google.maps.MarkerOptions.prototype.position;
@@ -5345,14 +5679,10 @@ google.maps.MaxZoomService = function() {};
  * particular <code>LatLng</code> for the <code>satellite</code> map type. As
  * this request is asynchronous, you must pass a <code>callback</code> function
  * which will be executed upon completion of the request, being passed a
- * <code>MaxZoomResult</code>.<aside class="note">Note: <strong>For the beta
- * release, <code>v=beta</code>, the callback is optional and a Promise is
- * returned</strong>. More information is available in the <a
- * href="https://developers.google.com/maps/documentation/javascript/promises">Promises
- * guide</a>.</aside>
+ * <code>MaxZoomResult</code>.
  * @param {google.maps.LatLng|google.maps.LatLngLiteral} latlng
  * @param {(function(!google.maps.MaxZoomResult): void)=} callback
- * @return {?Promise<!google.maps.MaxZoomResult>}
+ * @return {!Promise<!google.maps.MaxZoomResult>}
  */
 google.maps.MaxZoomService.prototype.getMaxZoomAtLatLng = function(
     latlng, callback) {};
@@ -5476,7 +5806,8 @@ google.maps.OverlayView.prototype.onRemove = function() {};
 
 /**
  * Adds the overlay to the map or panorama.
- * @param {google.maps.Map|google.maps.StreetViewPanorama} map
+ * @param {?google.maps.Map|?google.maps.StreetViewPanorama} map The map or
+ *     panorama. If <code>null</code>, the layer will be removed.
  * @return {undefined}
  */
 google.maps.OverlayView.prototype.setMap = function(map) {};
@@ -5880,8 +6211,7 @@ google.maps.PolygonOptions.prototype.strokeColor;
 google.maps.PolygonOptions.prototype.strokeOpacity;
 
 /**
- * The stroke position. Defaults to CENTER. This property is not supported on
- * Internet Explorer 8 and earlier.
+ * The stroke position. Defaults to <code>CENTER</code>.
  * @type {?google.maps.StrokePosition|undefined}
  */
 google.maps.PolygonOptions.prototype.strokePosition;
@@ -6095,7 +6425,7 @@ google.maps.Projection = function() {};
  * Maps API calls this method when it needs to plot locations on screen.
  * <code>Projection</code> objects must implement this method, but may return
  * <code>null</code> if the projection cannot calculate the <code>Point</code>.
- * @param {!google.maps.LatLng} latLng
+ * @param {!google.maps.LatLng|!google.maps.LatLngLiteral} latLng
  * @param {!google.maps.Point=} point
  * @return {?google.maps.Point}
  */
@@ -6286,6 +6616,25 @@ google.maps.RectangleOptions.prototype.visible;
  * @type {?number|undefined}
  */
 google.maps.RectangleOptions.prototype.zIndex;
+
+/**
+ * @enum {string}
+ */
+google.maps.RenderingType = {
+  /**
+   * Indicates that the map is a raster map.
+   */
+  RASTER: 'RASTER',
+  /**
+   * Indicates that it is unknown yet whether the map is vector or raster,
+   * because the map has not finished initializing yet.
+   */
+  UNINITIALIZED: 'UNINITIALIZED',
+  /**
+   * Indicates that the map is a vector map.
+   */
+  VECTOR: 'VECTOR',
+};
 
 /**
  * Options for the rendering of the rotate control.
@@ -6519,7 +6868,7 @@ google.maps.StreetViewPanoRequest.prototype.pano;
  * <code>StreetViewPanorama</code> object provides a Street View
  * &quot;viewer&quot; which can be stand-alone within a separate
  * <code>&lt;div&gt;</code> or bound to a <code>Map</code>.
- * @param {!Element} container
+ * @param {!HTMLElement} container
  * @param {google.maps.StreetViewPanoramaOptions=} opts
  * @extends {google.maps.MVCObject}
  * @constructor
@@ -6531,7 +6880,7 @@ google.maps.StreetViewPanorama = function(container, opts) {};
  * panorama, add the control&#39;s <code>&lt;div&gt;</code> to the
  * <code>MVCArray</code> corresponding to the <code>ControlPosition</code> where
  * it should be rendered.
- * @type {!Array<google.maps.MVCArray<Node>>}
+ * @type {!Array<!google.maps.MVCArray<!HTMLElement>>}
  */
 google.maps.StreetViewPanorama.prototype.controls;
 
@@ -6924,13 +7273,13 @@ google.maps.StreetViewPreference = {
    * user research and parameters such as recognised points of interest, image
    * quality, and distance from the given location.
    */
-  BEST: 'BEST',
+  BEST: 'best',
   /**
    * Return the Street View panorama that is the shortest distance from the
    * provided location. This works well only within a limited radius. The
    * recommended radius is 1km or less.
    */
-  NEAREST: 'NEAREST',
+  NEAREST: 'nearest',
 };
 
 /**
@@ -6957,16 +7306,11 @@ google.maps.StreetViewService = function() {};
  * Retrieves the <code>StreetViewPanoramaData</code> for a panorama that matches
  * the supplied Street View query request. The
  * <code>StreetViewPanoramaData</code> is passed to the provided callback.
- * <aside class="note">Note: <strong>For the beta release, <code>v=beta</code>,
- * the callback is optional and a Promise is returned</strong>. More information
- * is available in the <a
- * href="https://developers.google.com/maps/documentation/javascript/promises">Promises
- * guide</a>.</aside>
  * @param {!google.maps.StreetViewLocationRequest|!google.maps.StreetViewPanoRequest}
  *     request
  * @param {(function(?google.maps.StreetViewPanoramaData,
  *     !google.maps.StreetViewStatus): void)=} callback
- * @return {?Promise<!google.maps.StreetViewResponse>}
+ * @return {!Promise<!google.maps.StreetViewResponse>}
  */
 google.maps.StreetViewService.prototype.getPanorama = function(
     request, callback) {};
@@ -6981,7 +7325,7 @@ google.maps.StreetViewSource = {
    * Uses the default sources of Street View, searches will not be limited to
    * specific sources.
    */
-  DEFAULT: 'DEFAULT',
+  DEFAULT: 'default',
   /**
    * Limits Street View searches to outdoor collections. Indoor collections are
    * not included in search results. Note also that the search only returns
@@ -6989,7 +7333,7 @@ google.maps.StreetViewSource = {
    * or outdoors. For example, PhotoSpheres are not returned because it&#39;s
    * unknown whether they are indoors or outdoors.
    */
-  OUTDOOR: 'OUTDOOR',
+  OUTDOOR: 'outdoor',
 };
 
 /**
@@ -7122,17 +7466,17 @@ google.maps.StyledMapType.prototype.radius;
 google.maps.StyledMapType.prototype.tileSize;
 
 /**
- * @param {google.maps.Point} tileCoord
- * @param {number} zoom
- * @param {Document} ownerDocument
- * @return {Node}
+ * @param {google.maps.Point} tileCoord Tile coordinates.
+ * @param {number} zoom Tile zoom.
+ * @param {Document} ownerDocument The document which owns this tile.
+ * @return {?Element} Resulting tile.
  * @override
  */
 google.maps.StyledMapType.prototype.getTile = function(
     tileCoord, zoom, ownerDocument) {};
 
 /**
- * @param {Node} tile
+ * @param {?Element} tile Tile to release.
  * @return {undefined}
  * @override
  */
@@ -7377,17 +7721,17 @@ google.maps.TrafficModel = {
   /**
    * Use historical traffic data to best estimate the time spent in traffic.
    */
-  BEST_GUESS: 'BEST_GUESS',
+  BEST_GUESS: 'bestguess',
   /**
    * Use historical traffic data to make an optimistic estimate of what the
    * duration in traffic will be.
    */
-  OPTIMISTIC: 'OPTIMISTIC',
+  OPTIMISTIC: 'optimistic',
   /**
    * Use historical traffic data to make a pessimistic estimate of what the
    * duration in traffic will be.
    */
-  PESSIMISTIC: 'PESSIMISTIC',
+  PESSIMISTIC: 'pessimistic',
 };
 
 /**
@@ -7840,6 +8184,381 @@ google.maps.VehicleType = {
 };
 
 /**
+ * Available only in the v=beta channel: https://goo.gle/3oAthT3.
+ * Contains the four points defining the four-sided polygon that is the visible
+ * region of the map. On a vector map this polygon can be a trapezoid instead of
+ * a rectangle, when a vector map has tilt.
+ * @record
+ */
+google.maps.VisibleRegion = function() {};
+
+/**
+ * @type {!google.maps.LatLng}
+ */
+google.maps.VisibleRegion.prototype.farLeft;
+
+/**
+ * @type {!google.maps.LatLng}
+ */
+google.maps.VisibleRegion.prototype.farRight;
+
+/**
+ * The smallest bounding box that includes the visible region.
+ * @type {!google.maps.LatLngBounds}
+ */
+google.maps.VisibleRegion.prototype.latLngBounds;
+
+/**
+ * @type {!google.maps.LatLng}
+ */
+google.maps.VisibleRegion.prototype.nearLeft;
+
+/**
+ * @type {!google.maps.LatLng}
+ */
+google.maps.VisibleRegion.prototype.nearRight;
+
+/**
+ * Available only in the v=beta channel: https://goo.gle/3oAthT3.
+ * A <code>WebglCameraParams</code> is a snapshot of camera properties used to
+ * render the current frame.
+ * @record
+ * @deprecated This method will be going away in January 2022. Please use {@link
+ *     google.maps.WebGLCameraParams} instead.
+ */
+google.maps.WebglCameraParams = function() {};
+
+/**
+ * Heading of the camera in degrees.
+ * @type {number}
+ * @deprecated This will be going away in January 2022. Please use {@link
+ *     google.maps.CameraParams.heading} instead.
+ */
+google.maps.WebglCameraParams.prototype.heading;
+
+/**
+ * Latitude and longitudes of the camera in degrees.
+ * @type {!google.maps.LatLngLiteral|!google.maps.LatLng}
+ */
+google.maps.WebglCameraParams.prototype.center;
+
+/**
+ * Latitude in degrees.
+ * @type {number}
+ * @deprecated This will be going away in January 2022. Please use {@link
+ *     google.maps.CameraParams.center} instead.
+ */
+google.maps.WebglCameraParams.prototype.lat;
+
+/**
+ * Longitude in degrees.
+ * @type {number}
+ * @deprecated This will be going away in January 2022. Please use {@link
+ *     google.maps.CameraParams.center} instead.
+ */
+google.maps.WebglCameraParams.prototype.lng;
+
+/**
+ * Angle of incidence of the camera, in degrees.
+ * @type {number}
+ * @deprecated This will be going away in January 2022. Please use {@link
+ *     google.maps.WebGLCameraParams.tilt} instead.
+ */
+google.maps.WebglCameraParams.prototype.tilt;
+
+/**
+ * Zoom level of the camera.
+ * @type {number}
+ * @deprecated This will be going away in January 2022. Please use {@link
+ *     google.maps.WebGLCameraParams.zoom} instead.
+ */
+google.maps.WebglCameraParams.prototype.zoom;
+
+/**
+ * Available only in the v=beta channel: https://goo.gle/3oAthT3.
+ * GL state options for a WebGLOverlayView.
+ * @record
+ */
+google.maps.WebGLStateOptions = function() {};
+
+/**
+ * WebGL rendering context for state management.
+ * @type {!WebGLRenderingContext}
+ */
+google.maps.WebGLStateOptions.gl;
+
+/**
+ * Available only in the v=beta channel: https://goo.gle/3oAthT3.
+ * GL drawing options for a WebGLOverlayView.
+ * @record
+ */
+google.maps.WebGLDrawOptions = function() {};
+
+/**
+ * WebGL rendering context for drawing.
+ * @type {!WebGLRenderingContext}
+ */
+google.maps.WebGLDrawOptions.gl;
+
+/**
+ * The transformer for providing camera transforms to center objects at
+ * latitude/longitude coordinates.
+ * @type {!google.maps.CoordinateTransformer}
+ */
+google.maps.WebGLDrawOptions.transformer;
+
+/**
+ * Available only in the v=beta channel: https://goo.gle/3oAthT3.
+ * The WebGL Overlay View provides direct access to the same WebGL rendering
+ * context Google Maps Platform uses to render the vector basemap. This use of a
+ * shared rendering context provides benefits such as depth occlusion with 3D
+ * building geometry, and the ability to sync 2D/3D content with basemap
+ * rendering. <br><br>With WebGL Overlay View you can add content to your maps
+ * using WebGL directly, or popular Graphics libraries like Three.js or deck.gl.
+ * To use the overlay, you can extend <code>google.maps.WebGLOverlayView</code>
+ * and provide an implementation for each of the following lifecycle
+ * hooks: {@link google.maps.WebGLOverlayView.onAdd}, {@link
+ * google.maps.WebGLOverlayView.onContextRestored}, {@link
+ * google.maps.WebGLOverlayView.onDraw}, {@link
+ * google.maps.WebGLOverlayView.onContextLost} and {@link
+ * google.maps.WebGLOverlayView.onRemove}. <br><br>You must call {@link
+ * google.maps.WebGLOverlayView.setMap} with a valid {@link google.maps.Map}
+ * object to trigger the call to the <code>onAdd()</code> method and
+ * <code>setMap(null)</code> in order to trigger the <code>onRemove()</code>
+ * method. The <code>setMap()</code> method can be called at the time of
+ * construction or at any point afterward when the overlay should be re-shown
+ * after removing. The <code>onDraw()</code> method will then be called whenever
+ * a map property changes that could change the position of the element, such as
+ * zoom, center, or map type. WebGLOverlayView may only be added to a vector map
+ * having a {@link google.maps.MapOptions.mapId}.
+ * @extends {google.maps.MVCObject}
+ * @constructor
+ */
+google.maps.WebGLOverlayView = function() {};
+
+/**
+ * @return {?google.maps.Map|undefined}
+ */
+google.maps.WebGLOverlayView.prototype.getMap = function() {};
+
+/**
+ * Implement this method to fetch or create intermediate data structures before
+ * the overlay is drawn that don’t require immediate access to the WebGL
+ * rendering context.
+ * @return {undefined}
+ */
+google.maps.WebGLOverlayView.prototype.onAdd = function() {};
+
+/**
+ * This method is called when the rendering context is lost for any reason, and
+ * is where you should clean up any pre-existing GL state, since it is no longer
+ * needed.
+ * @return {undefined}
+ */
+google.maps.WebGLOverlayView.prototype.onContextLost = function() {};
+
+/**
+ * This method is called once the rendering context is available. Use it to
+ * initialize or bind any WebGL state such as shaders or buffer objects.
+ * @param {!google.maps.WebGLStateOptions} options that contain the GL rendering
+ *     context for for developers to access WebGL.
+ * @return {undefined}
+ */
+google.maps.WebGLOverlayView.prototype.onContextRestored = function(options) {};
+
+/**
+ * Implement this method to draw WebGL content directly on the map. Note that if
+ * the overlay needs a new frame drawn then call {@link
+ * google.maps.WebGLOverlayView.requestRedraw}.
+ * @param {!google.maps.WebGLDrawOptions} options that contain the GL rendering
+ *     context for developers to access WebGL and matrix transforms from camera
+ *     space to objects centered at latitude/longitude coordinates.
+ * @return {undefined}
+ */
+google.maps.WebGLOverlayView.prototype.onDraw = function(options) {};
+
+/**
+ * Implement this method to handle any GL state updates outside of the render
+ * animation frame.
+ * @param {!google.maps.WebGLStateOptions} options that contain the GL rendering
+ *     context for developers to access WebGL.
+ * @return {undefined}
+ */
+google.maps.WebGLOverlayView.prototype.onStateUpdate = function(options) {};
+
+/**
+ * This method is called when the overlay is removed from the map with
+ * <code>WebGLOverlayView.setMap(null)</code>, and is where you should remove
+ * all intermediate objects.
+ * @return {undefined}
+ */
+google.maps.WebGLOverlayView.prototype.onRemove = function() {};
+
+/**
+ * Triggers the map to update GL state.
+ * @return {undefined}
+ */
+google.maps.WebGLOverlayView.prototype.requestStateUpdate = function() {};
+
+/**
+ * Triggers the map to redraw a frame.
+ * @return {undefined}
+ */
+google.maps.WebGLOverlayView.prototype.requestRedraw = function() {};
+
+/**
+ * Adds the overlay to the map.
+ * @param {?google.maps.Map=} map The map to access the div, model and view
+ *     state.
+ * @return {undefined}
+ */
+google.maps.WebGLOverlayView.prototype.setMap = function(map) {};
+
+
+
+/**
+ * Available only in the v=beta channel: https://goo.gle/3oAthT3.
+ * The WebGL Overlay View provides direct access to the same WebGL rendering
+ * context Google Maps Platform uses to render the vector basemap. This use of a
+ * shared rendering context provides benefits such as depth occlusion with 3D
+ * building geometry, and the ability to sync 2D/3D content with basemap
+ * rendering. <br><br>With WebGL Overlay View you can add content to your maps
+ * using WebGL directly, or popular Graphics libraries like Three.js or deck.gl.
+ * To use the overlay, you can extend <code>google.maps.WebglOverlayView</code>
+ * and provide an implementation for each of the following lifecycle
+ * hooks: {@link google.maps.WebglOverlayView.onAdd}, {@link
+ * google.maps.WebglOverlayView.onContextRestored}, {@link
+ * google.maps.WebglOverlayView.onDraw}, {@link
+ * google.maps.WebglOverlayView.onContextLost} and {@link
+ * google.maps.WebglOverlayView.onRemove}. <br><br>You must call {@link
+ * google.maps.WebglOverlayView.setMap} with a valid {@link google.maps.Map}
+ * object to trigger the call to the <code>onAdd()</code> method and
+ * <code>setMap(null)</code> in order to trigger the <code>onRemove()</code>
+ * method. The <code>setMap()</code> method can be called at the time of
+ * construction or at any point afterward when the overlay should be re-shown
+ * after removing. The <code>onDraw()</code> method will then be called whenever
+ * a map property changes that could change the position of the element, such as
+ * zoom, center, or map type. WebglOverlayView may only be added to a vector map
+ * having a {@link google.maps.MapOptions.mapId}.
+ * @extends {google.maps.MVCObject}
+ * @constructor
+ * @deprecated Deprecated in 2021 (WebGL Overlay View Beta). This will be going
+ *     away in January 2022. Please use
+ * {@link google.maps.WebGLOverlayView} instead.
+ */
+google.maps.WebglOverlayView = function() {};
+
+/**
+ * @return {?google.maps.Map|undefined}
+ * @deprecated Deprecated in 2021 (WebGL Overlay View Beta). This will be going
+ *     away in January 2022. Please use
+ * {@link google.maps.WebGLOverlayView.getMap} instead.
+ */
+google.maps.WebglOverlayView.prototype.getMap = function() {};
+
+/**
+ * Implement this method to fetch or create intermediate data structures before
+ * the overlay is drawn that don’t require immediate access to the WebGL
+ * rendering context.
+ * @return {undefined}
+ * @deprecated Deprecated in 2021 (WebGL Overlay View Beta). This will be going
+ *     away in January 2022. Please use
+ * {@link google.maps.WebGLOverlayView.onAdd} instead.
+ */
+google.maps.WebglOverlayView.prototype.onAdd = function() {};
+
+/**
+ * This method is called when the rendering context is lost for any reason, and
+ * is where you should clean up any pre-existing GL state, since it is no longer
+ * needed.
+ * @return {undefined}
+ * @deprecated Deprecated in 2021 (WebGL Overlay View Beta). This will be going
+ *     away in January 2022. Please use
+ * {@link google.maps.WebGLOverlayView.onContextLost} instead.
+ */
+google.maps.WebglOverlayView.prototype.onContextLost = function() {};
+
+/**
+ * This method is called once the rendering context is available. Use it to
+ * initialize or bind any WebGL state such as shaders or buffer objects.
+ * @param {!WebGLRenderingContext} gl rendering context for developers to access
+ *     WebGL.
+ * @return {undefined}
+ * @deprecated Deprecated in 2021 (WebGL Overlay View Beta). This will be going
+ *     away in January 2022. Please use
+ * {@link google.maps.WebGLOverlayView.onContextRestored} instead.
+ */
+google.maps.WebglOverlayView.prototype.onContextRestored = function(gl) {};
+
+/**
+ * Implement this method to draw WebGL content directly on the map. Note that if
+ * the overlay needs a new frame drawn then call {@link
+ * google.maps.WebglOverlayView.requestRedraw}.
+ * @param {!WebGLRenderingContext} gl rendering context for developers to access
+ *     WebGL.
+ * @param {!google.maps.CoordinateTransformer} transformer convenience class for
+ *     providing camera transforms to center objects at latitude/longitude
+ *     coordinates.
+ * @return {undefined}
+ * @deprecated Deprecated in 2021 (WebGL Overlay View Beta). This will be going
+ *     away in January 2022. Please use
+ * {@link google.maps.WebGLOverlayView.onDraw} instead.
+ */
+google.maps.WebglOverlayView.prototype.onDraw = function(gl, transformer) {};
+
+/**
+ * Implement this method to handle any GL state updates outside of the render
+ * animation frame.
+ * @param {!WebGLRenderingContext} gl rendering context for developers to access
+ *     WebGL.
+ * @return {undefined}
+ * @deprecated Deprecated in 2021 (WebGL Overlay View Beta). This will be going
+ *     away in January 2022. Please use
+ * {@link google.maps.WebGLOverlayView.onStateUpdate} instead.
+ */
+google.maps.WebglOverlayView.prototype.onGlStateUpdate = function(gl) {};
+
+/**
+ * This method is called when the overlay is removed from the map with
+ * <code>WebglOverlayView.setMap(null)</code>, and is where you should remove
+ * all intermediate objects.
+ * @return {undefined}
+ * @deprecated Deprecated in 2021 (WebGL Overlay View Beta). This will be going
+ *     away in January 2022. Please use
+ * {@link google.maps.WebGLOverlayView.onRemove} instead.
+ */
+google.maps.WebglOverlayView.prototype.onRemove = function() {};
+
+/**
+ * Triggers the map to update GL state.
+ * @return {undefined}
+ * @deprecated Deprecated in 2021 (WebGL Overlay View Beta). This will be going
+ *     away in January 2022. Please use
+ * {@link google.maps.WebGLOverlayView.requestStateUpdate} instead.
+ */
+google.maps.WebglOverlayView.prototype.requestGlStateUpdate = function() {};
+
+/**
+ * Triggers the map to redraw a frame.
+ * @return {undefined}
+ * @deprecated Deprecated in 2021 (WebGL Overlay View Beta). This will be going
+ *     away in January 2022. Please use
+ * {@link google.maps.WebGLOverlayView.requestRedraw} instead.
+ */
+google.maps.WebglOverlayView.prototype.requestRedraw = function() {};
+
+/**
+ * Adds the overlay to the map.
+ * @param {?google.maps.Map=} map The map to access the div, model and view
+ *     state.
+ * @return {undefined}
+ * @deprecated Deprecated in 2021 (WebGL Overlay View Beta). This will be going
+ *     away in January 2022. Please use
+ * {@link google.maps.WebGLOverlayView.setMap} instead.
+ */
+google.maps.WebglOverlayView.prototype.setMap = function(map) {};
+
+/**
  * Options for the rendering of the zoom control.
  * @record
  */
@@ -8045,27 +8764,27 @@ google.maps.drawing.OverlayType = {
    * Specifies that the <code>DrawingManager</code> creates circles, and that
    * the overlay given in the <code>overlaycomplete</code> event is a circle.
    */
-  CIRCLE: 'CIRCLE',
+  CIRCLE: 'circle',
   /**
    * Specifies that the <code>DrawingManager</code> creates markers, and that
    * the overlay given in the <code>overlaycomplete</code> event is a marker.
    */
-  MARKER: 'MARKER',
+  MARKER: 'marker',
   /**
    * Specifies that the <code>DrawingManager</code> creates polygons, and that
    * the overlay given in the <code>overlaycomplete</code> event is a polygon.
    */
-  POLYGON: 'POLYGON',
+  POLYGON: 'polygon',
   /**
    * Specifies that the <code>DrawingManager</code> creates polylines, and that
    * the overlay given in the <code>overlaycomplete</code> event is a polyline.
    */
-  POLYLINE: 'POLYLINE',
+  POLYLINE: 'polyline',
   /**
    * Specifies that the <code>DrawingManager</code> creates rectangles, and that
    * the overlay given in the <code>overlaycomplete</code> event is a rectangle.
    */
-  RECTANGLE: 'RECTANGLE',
+  RECTANGLE: 'rectangle',
 };
 
 /**
@@ -8134,6 +8853,15 @@ google.maps.event.clearInstanceListeners = function(instance) {};
 google.maps.event.clearListeners = function(instance, eventName) {};
 
 /**
+ * Returns if there are listeners for the given event on the given instance. Can
+ * be used to to save the computation of expensive event details.
+ * @param {!Object} instance
+ * @param {string} eventName
+ * @return {boolean}
+ */
+google.maps.event.hasListeners = function(instance, eventName) {};
+
+/**
  * Removes the given listener, which should have been returned by addListener
  * above. Equivalent to calling <code>listener.remove()</code>.
  * @param {!google.maps.MapsEventListener} listener
@@ -8171,7 +8899,7 @@ google.maps.geometry.encoding.decodePath = function(encodedPath) {};
 
 /**
  * Encodes a sequence of LatLngs into an encoded path string.
- * @param {!Array<!google.maps.LatLng>|!google.maps.MVCArray<!google.maps.LatLng>}
+ * @param {!Array<!google.maps.LatLng|!google.maps.LatLngLiteral>|!google.maps.MVCArray<!google.maps.LatLng|!google.maps.LatLngLiteral>}
  *     path
  * @return {string}
  */
@@ -8185,8 +8913,8 @@ google.maps.geometry.poly = {};
 
 /**
  * Computes whether the given point lies inside the specified polygon.
- * @param {google.maps.LatLng} point
- * @param {google.maps.Polygon} polygon
+ * @param {!google.maps.LatLng|!google.maps.LatLngLiteral} point
+ * @param {!google.maps.Polygon} polygon
  * @return {boolean}
  */
 google.maps.geometry.poly.containsLocation = function(point, polygon) {};
@@ -8197,8 +8925,8 @@ google.maps.geometry.poly.containsLocation = function(point, polygon) {};
  * the difference between the latitude and longitude of the supplied point, and
  * the closest point on the edge, is less than the tolerance. The tolerance
  * defaults to 10<sup>-9</sup> degrees.
- * @param {google.maps.LatLng} point
- * @param {google.maps.Polygon|google.maps.Polyline} poly
+ * @param {!google.maps.LatLng|!google.maps.LatLngLiteral} point
+ * @param {!google.maps.Polygon|!google.maps.Polyline} poly
  * @param {number=} tolerance
  * @return {boolean}
  */
@@ -8216,7 +8944,7 @@ google.maps.geometry.spherical = {};
  * Returns the area of a closed path. The computed area uses the same units as
  * the radius. The radius defaults to the Earth&#39;s radius in meters, in which
  * case the area is in square meters.
- * @param {!Array<!google.maps.LatLng>|!google.maps.MVCArray<!google.maps.LatLng>}
+ * @param {!Array<!google.maps.LatLng|!google.maps.LatLngLiteral>|!google.maps.MVCArray<!google.maps.LatLng|!google.maps.LatLngLiteral>}
  *     path
  * @param {number=} radius
  * @return {number}
@@ -8226,8 +8954,8 @@ google.maps.geometry.spherical.computeArea = function(path, radius) {};
 /**
  * Returns the distance, in meters, between two LatLngs. You can optionally
  * specify a custom radius. The radius defaults to the radius of the Earth.
- * @param {!google.maps.LatLng} from
- * @param {!google.maps.LatLng} to
+ * @param {!google.maps.LatLng|!google.maps.LatLngLiteral} from
+ * @param {!google.maps.LatLng|!google.maps.LatLngLiteral} to
  * @param {number=} radius
  * @return {number}
  */
@@ -8237,15 +8965,15 @@ google.maps.geometry.spherical.computeDistanceBetween = function(
 /**
  * Returns the heading from one LatLng to another LatLng. Headings are expressed
  * in degrees clockwise from North within the range [-180,180).
- * @param {!google.maps.LatLng} from
- * @param {!google.maps.LatLng} to
+ * @param {!google.maps.LatLng|!google.maps.LatLngLiteral} from
+ * @param {!google.maps.LatLng|!google.maps.LatLngLiteral} to
  * @return {number}
  */
 google.maps.geometry.spherical.computeHeading = function(from, to) {};
 
 /**
  * Returns the length of the given path.
- * @param {!Array<!google.maps.LatLng>|!google.maps.MVCArray<!google.maps.LatLng>}
+ * @param {!Array<!google.maps.LatLng|!google.maps.LatLngLiteral>|!google.maps.MVCArray<!google.maps.LatLng|!google.maps.LatLngLiteral>}
  *     path
  * @param {number=} radius
  * @return {number}
@@ -8255,7 +8983,7 @@ google.maps.geometry.spherical.computeLength = function(path, radius) {};
 /**
  * Returns the LatLng resulting from moving a distance from an origin in the
  * specified heading (expressed in degrees clockwise from north).
- * @param {!google.maps.LatLng} from
+ * @param {!google.maps.LatLng|!google.maps.LatLngLiteral} from
  * @param {number} distance
  * @param {number} heading
  * @param {number=} radius
@@ -8269,7 +8997,7 @@ google.maps.geometry.spherical.computeOffset = function(
  * meters travelled and original heading. Headings are expressed in degrees
  * clockwise from North. This function returns <code>null</code> when no
  * solution is available.
- * @param {!google.maps.LatLng} to
+ * @param {!google.maps.LatLng|!google.maps.LatLngLiteral} to
  * @param {number} distance
  * @param {number} heading
  * @param {number=} radius
@@ -8283,7 +9011,7 @@ google.maps.geometry.spherical.computeOffsetOrigin = function(
  * determine the orientation of the path. The computed area uses the same units
  * as the radius. The radius defaults to the Earth&#39;s radius in meters, in
  * which case the area is in square meters.
- * @param {!Array<!google.maps.LatLng>|!google.maps.MVCArray<!google.maps.LatLng>}
+ * @param {!Array<!google.maps.LatLng|!google.maps.LatLngLiteral>|!google.maps.MVCArray<!google.maps.LatLng|!google.maps.LatLngLiteral>}
  *     loop
  * @param {number=} radius
  * @return {number}
@@ -8293,8 +9021,8 @@ google.maps.geometry.spherical.computeSignedArea = function(loop, radius) {};
 /**
  * Returns the LatLng which lies the given fraction of the way between the
  * origin LatLng and the destination LatLng.
- * @param {!google.maps.LatLng} from
- * @param {!google.maps.LatLng} to
+ * @param {!google.maps.LatLng|!google.maps.LatLngLiteral} from
+ * @param {!google.maps.LatLng|!google.maps.LatLngLiteral} to
  * @param {number} fraction
  * @return {!google.maps.LatLng}
  */
@@ -8689,8 +9417,9 @@ google.maps.places = {};
  * attaches to an input element of type <code>text</code>, and listens for text
  * entry in that field. The list of predictions is presented as a drop-down
  * list, and is updated as text is entered.
- * @param {!HTMLInputElement} inputField
- * @param {?google.maps.places.AutocompleteOptions=} opts
+ * @param {!HTMLInputElement} inputField The <code>&lt;input&gt;</code> text
+ *     field to which the <code>Autocomplete</code> should be attached.
+ * @param {?google.maps.places.AutocompleteOptions=} opts Options.
  * @extends {google.maps.MVCObject}
  * @constructor
  */
@@ -8698,7 +9427,7 @@ google.maps.places.Autocomplete = function(inputField, opts) {};
 
 /**
  * Returns the bounds to which predictions are biased.
- * @return {!google.maps.LatLngBounds|undefined}
+ * @return {!google.maps.LatLngBounds|undefined} The biasing bounds.
  */
 google.maps.places.Autocomplete.prototype.getBounds = function() {};
 
@@ -8714,7 +9443,7 @@ google.maps.places.Autocomplete.prototype.getFields = function() {};
  * Returns the details of the Place selected by user if the details were
  * successfully retrieved. Otherwise returns a stub Place object, with the
  * <code>name</code> property set to the current value of the input field.
- * @return {!google.maps.places.PlaceResult}
+ * @return {!google.maps.places.PlaceResult} The Place selected by the user.
  */
 google.maps.places.Autocomplete.prototype.getPlace = function() {};
 
@@ -8722,7 +9451,7 @@ google.maps.places.Autocomplete.prototype.getPlace = function() {};
  * Sets the preferred area within which to return Place results. Results are
  * biased towards, but not restricted to, this area.
  * @param {!google.maps.LatLngBounds|!google.maps.LatLngBoundsLiteral|undefined}
- *     bounds
+ *     bounds The biasing bounds.
  * @return {undefined}
  */
 google.maps.places.Autocomplete.prototype.setBounds = function(bounds) {};
@@ -8731,7 +9460,8 @@ google.maps.places.Autocomplete.prototype.setBounds = function(bounds) {};
  * Sets the component restrictions. Component restrictions are used to restrict
  * predictions to only those within the parent component. For example, the
  * country.
- * @param {?google.maps.places.ComponentRestrictions} restrictions
+ * @param {?google.maps.places.ComponentRestrictions} restrictions The
+ *     restrictions to use.
  * @return {undefined}
  */
 google.maps.places.Autocomplete.prototype.setComponentRestrictions = function(
@@ -8758,7 +9488,7 @@ google.maps.places.Autocomplete.prototype.setOptions = function(options) {};
  * href="https://developers.google.com/maps/documentation/places/web-service/supported_types#table3">
  * developer&#39;s guide</a>. If no type is specified, all types will be
  * returned. The <code>setTypes</code> method accepts a single element array.
- * @param {?Array<string>} types
+ * @param {?Array<string>} types The types of predictions to be included.
  * @return {undefined}
  */
 google.maps.places.Autocomplete.prototype.setTypes = function(types) {};
@@ -8791,7 +9521,8 @@ google.maps.places.AutocompleteOptions.prototype.componentRestrictions;
  * available fields will be returned and billed for (this is not recommended for
  * production deployments). For a list of fields see {@link
  * google.maps.places.PlaceResult}. Nested fields can be specified with
- * dot-paths (for example, <code>"geometry.location"</code>).
+ * dot-paths (for example, <code>"geometry.location"</code>). The default is
+ * <code>[&#39;ALL&#39;]</code>.
  * @type {!Array<string>|undefined}
  */
 google.maps.places.AutocompleteOptions.prototype.fields;
@@ -8913,15 +9644,14 @@ google.maps.places.AutocompleteService = function() {};
 
 /**
  * Retrieves place autocomplete predictions based on the supplied autocomplete
- * request. <aside class="note">Note: <strong>For the beta release,
- * <code>v=beta</code>, the callback is optional and a Promise is
- * returned</strong>. More information is available in the <a
- * href="https://developers.google.com/maps/documentation/javascript/promises">Promises
- * guide</a>.</aside>
- * @param {!google.maps.places.AutocompletionRequest} request
+ * request.
+ * @param {!google.maps.places.AutocompletionRequest} request The autocompletion
+ *     request.
  * @param {(function(?Array<!google.maps.places.AutocompletePrediction>,
- *     !google.maps.places.PlacesServiceStatus): void)=} callback
- * @return {?Promise<!google.maps.places.AutocompleteResponse>}
+ *     !google.maps.places.PlacesServiceStatus): void)=} callback A callback
+ *     accepting an array of AutocompletePrediction objects and a
+ *     PlacesServiceStatus value as argument.
+ * @return {!Promise<!google.maps.places.AutocompleteResponse>}
  */
 google.maps.places.AutocompleteService.prototype.getPlacePredictions = function(
     request, callback) {};
@@ -8929,9 +9659,12 @@ google.maps.places.AutocompleteService.prototype.getPlacePredictions = function(
 /**
  * Retrieves query autocomplete predictions based on the supplied query
  * autocomplete request.
- * @param {!google.maps.places.QueryAutocompletionRequest} request
+ * @param {!google.maps.places.QueryAutocompletionRequest} request The query
+ *     autocompletion request.
  * @param {function(?Array<!google.maps.places.QueryAutocompletePrediction>,
- *     !google.maps.places.PlacesServiceStatus): void} callback
+ *     !google.maps.places.PlacesServiceStatus): void} callback A callback
+ *     accepting an array of QueryAutocompletePrediction objects and a
+ *     PlacesServiceStatus value as argument.
  * @return {undefined}
  */
 google.maps.places.AutocompleteService.prototype.getQueryPredictions = function(
@@ -9160,6 +9893,7 @@ google.maps.places.PhotoOptions.prototype.maxWidth;
 /**
  * Defines information about an aspect of the place that users have reviewed.
  * @record
+ * @deprecated This interface is no longer used.
  */
 google.maps.places.PlaceAspectRating = function() {};
 
@@ -9482,6 +10216,20 @@ google.maps.places.PlaceResult.prototype.html_attributions;
 google.maps.places.PlaceResult.prototype.icon;
 
 /**
+ * Background color for use with a Place&#39;s icon. See also {@link
+ * google.maps.places.PlaceResult.icon_mask_base_uri}.
+ * @type {string|undefined}
+ */
+google.maps.places.PlaceResult.prototype.icon_background_color;
+
+/**
+ * A truncated URL to an icon mask. Access different icon types by appending a
+ * file extension to the end (i.e. <code>.svg</code> or <code>.png</code>).
+ * @type {string|undefined}
+ */
+google.maps.places.PlaceResult.prototype.icon_mask_base_uri;
+
+/**
  * The Place’s phone number in international format. International format
  * includes the country code, and is prefixed with the plus (+) sign. Only
  * available with {@link google.maps.places.PlacesService.getDetails}.
@@ -9636,6 +10384,7 @@ google.maps.places.PlaceReview = function() {};
 /**
  * The aspects rated by the review. The ratings on a scale of 0 to 3.
  * @type {!Array<!google.maps.places.PlaceAspectRating>|undefined}
+ * @deprecated This field is no longer available.
  */
 google.maps.places.PlaceReview.prototype.aspects;
 
@@ -9667,6 +10416,12 @@ google.maps.places.PlaceReview.prototype.language;
  * @type {string}
  */
 google.maps.places.PlaceReview.prototype.profile_photo_url;
+
+/**
+ * The rating of this review, a number between 1.0 and 5.0 (inclusive).
+ * @type {number|undefined}
+ */
+google.maps.places.PlaceReview.prototype.rating;
 
 /**
  * A string of formatted recent time, expressing the review time relative to the

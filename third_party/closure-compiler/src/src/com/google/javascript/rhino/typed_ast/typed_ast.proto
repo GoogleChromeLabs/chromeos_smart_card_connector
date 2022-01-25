@@ -16,10 +16,51 @@ message TypedAst {
   // required
   StringPoolProto string_pool = 2;
 
-  repeated AstNode extern_file = 3;
-  repeated AstNode code_file = 4;
+  repeated LazyAst extern_ast = 3;
+  repeated LazyAst code_ast = 4;
 
   SourceFilePool source_file_pool = 5;
+  ExternsSummary externs_summary = 6;
+
+  message List {
+    repeated TypedAst typed_asts = 1;
+  }
+}
+
+message LazyAst {
+  // Binary representation of an AstNode. They are encoded as 'bytes' to
+  // decrease memory usage during serialization and deserialization and allow
+  // lazy parsing of each AstNode.
+  bytes script = 1;
+  // 1-based index into TypedAst::source_file_pool
+  uint32 source_file = 2;
+}
+
+// Keep this in sync with the TypedAst proto.
+// This is only used for debugging as proto printing
+// tools produce unreadable bytecode for a LazyAst.
+message NonLazyTypedAst {
+  // required
+  TypePool type_pool = 1;
+  // required
+  StringPoolProto string_pool = 2;
+
+  repeated NonLazyAst extern_ast = 3;
+  repeated NonLazyAst code_ast = 4;
+
+  SourceFilePool source_file_pool = 5;
+  ExternsSummary externs_summary = 6;
+
+  message List {
+    repeated NonLazyTypedAst typed_asts = 1;
+  }
+}
+
+// Keep this in sync with the LazyAst proto
+message NonLazyAst {
+  AstNode script = 1;
+  // 1-based index into TypedAst::source_file_pool
+  uint32 source_file = 2;
 }
 
 message StringPoolProto {
@@ -29,6 +70,10 @@ message StringPoolProto {
 
   // The number of codepoints in the longest pool entry.
   int32 max_length = 2;
+}
+
+message ExternsSummary {
+  repeated int32 prop_name_ptr = 1;
 }
 
 message AstNode {
@@ -65,7 +110,11 @@ message AstNode {
 
 message TemplateStringValue {
   uint32 raw_string_pointer = 1;
-  uint32 cooked_string_pointer = 2;
+  /**
+   * -1 if the raw string contains an uncookable escape sequence.
+   * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals#es2018_revision_of_illegal_escape_sequences
+   */
+  int32 cooked_string_pointer = 2;
 }
 
 enum NodeKind {
@@ -159,7 +208,10 @@ enum NodeKind {
   OPTCHAIN_ELEMENT_ACCESS = 278;
   COALESCE = 279;
   DYNAMIC_IMPORT = 280;
-  // Next expression: 281
+  ASSIGN_OR = 281;
+  ASSIGN_AND = 282;
+  ASSIGN_COALESCE = 283;
+  // Next expression: 284
 
   // Statements
   BREAK_STATEMENT = 400;
@@ -226,9 +278,10 @@ enum NodeKind {
   QUOTED_SETTER_DEF = 631;
 
   MODULE_BODY = 632;
-  // Next other: 633
+  FIELD_DECLARATION = 633;
+  COMPUTED_PROP_FIELD = 634;
 
-  CAST = 800;
+  // Next other: 635
 }
 
 // Rename to `BooleanNodeProperty` if/when we also need non-boolean properties
@@ -242,16 +295,12 @@ enum NodeProperty {
   SYNTHETIC = 3;
   // Used to indicate BLOCK that is added
   ADDED_BLOCK = 4;
-  // Function or constructor call side effect flags.
-  SIDE_EFFECT_FLAGS = 5;
   // The variable or property is constant.
   // TODO(lukes): either document the differences or otherwise reconcile with
   // CONSTANT_VAR_FLAGS
   IS_CONSTANT_NAME = 6;
   // The variable creates a namespace.
   IS_NAMESPACE = 7;
-  // The ES5 directives on this node.
-  DIRECTIVES = 8;
   // ES5 distinguishes between direct and indirect calls to eval.
   DIRECT_EVAL = 9;
   // A CALL without an explicit "this" value.
@@ -294,9 +343,6 @@ enum NodeProperty {
   COMPUTED_PROP_SETTER = 25;
   // A computed property that's a variable, e.g. [prop]: string;
   COMPUTED_PROP_VARIABLE = 26;
-  // Used to attach TypeDeclarationNode ASTs to Nodes which represent a typed
-  // NAME or FUNCTION.
-  DECLARED_TYPE_EXPR = 27;
   // Indicates that this epxression was casted but we don't necessarily know to
   // which type
   COLOR_FROM_CAST = 28;
@@ -305,8 +351,6 @@ enum NodeProperty {
   // Indicates that a SCRIPT node is a goog.module. Remains set after the
   // goog.module is desugared.
   GOOG_MODULE = 30;
-  // Attaches a FeatureSet to SCRIPT nodes.
-  FEATURE_SET = 32;
   // Indicates that a SCRIPT represents a transpiled file
   TRANSPILED = 34;
   // For passes that work only on deleted funs.
@@ -340,4 +384,7 @@ enum NodeProperty {
   // TODO(b/183734515): it probably doesn't make sense to serialize this at the
   // library level. delete it.
   IS_DECLARED_CONSTANT = 44;
+  // Indicates that an externs name declaration was synthesized by the compiler
+  // because the name was referenced without being declared
+  SYNTHESIZED_UNFULFILLED_NAME_DECLARATION = 45;
 }

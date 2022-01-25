@@ -1039,7 +1039,6 @@ var ConstrainLong;
 /**
  * @see https://w3c.github.io/mediacapture-main/getusermedia.html#dom-mediatrackconstraintset
  * @record
- * @private
  */
 function MediaTrackConstraintSet() {}
 
@@ -1320,6 +1319,40 @@ MediaRecorder.prototype.requestData = function() {};
 MediaRecorder.isTypeSupported = function(type) {};
 
 /**
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorderErrorEvent
+ * @interface
+ */
+function MediaRecorderErrorEvent() {}
+
+/**
+ * @type {DOMException} type
+ */
+MediaRecorderErrorEvent.prototype.error;
+
+/**
+ * @interface
+ */
+function MediaRecorderEventMap() {}
+
+/** @type {BlobEvent} */
+MediaRecorderEventMap.prototype.dataavailable;
+
+/** @type {Event} */
+MediaRecorderEventMap.prototype.error;
+
+/** @type {Event} */
+MediaRecorderEventMap.prototype.pause;
+
+/** @type {Event} */
+MediaRecorderEventMap.prototype.resume;
+
+/** @type {Event} */
+MediaRecorderEventMap.prototype.start;
+
+/** @type {Event} */
+MediaRecorderEventMap.prototype.stop;
+
+/**
  * @constructor
  * @extends {Event}
  * @param {string} type
@@ -1474,6 +1507,17 @@ MediaDeviceInfo.prototype.label;
 
 /** @const {string} */
 MediaDeviceInfo.prototype.groupId;
+
+/**
+ * @interface
+ * @extends {MediaDeviceInfo}
+ * @see https://www.w3.org/TR/mediacapture-streams/#input-specific-device-info
+ */
+function InputDeviceInfo() {
+}
+
+/** @return {!MediaTrackCapabilities} */
+InputDeviceInfo.prototype.getCapabilities = function() {};
 
 /**
  * @interface
@@ -2620,7 +2664,7 @@ RTCPeerConnection.prototype.dispatchEvent = function(evt) {};
  *    successCallbackOrConstraints
  * @param {!RTCPeerConnectionErrorCallback=} errorCallback
  * @param {!MediaConstraints=} constraints
- * @return {!Promise<!RTCSessionDescription>|undefined}
+ * @return {!Promise<!RTCSessionDescription>}
  */
 RTCPeerConnection.prototype.createOffer = function(successCallbackOrConstraints,
     errorCallback, constraints) {};

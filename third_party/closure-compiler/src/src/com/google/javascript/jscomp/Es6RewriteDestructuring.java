@@ -17,16 +17,18 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.javascript.jscomp.AstFactory.type;
 import static com.google.javascript.jscomp.DiagnosticType.error;
 
+import com.google.javascript.jscomp.colors.StandardColors;
+import com.google.javascript.jscomp.parsing.ParsingUtil;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.StaticScope;
 import com.google.javascript.rhino.Token;
-import com.google.javascript.rhino.jstype.JSType;
-import com.google.javascript.rhino.jstype.JSTypeNative;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -64,6 +66,7 @@ public final class Es6RewriteDestructuring implements NodeTraversal.Callback, Co
   private final AbstractCompiler compiler;
   private final ObjectDestructuringRewriteMode rewriteMode;
   private final AstFactory astFactory;
+  private final StaticScope namespace;
 
   private final FeatureSet featuresToTriggerRunningPass;
   private final FeatureSet featuresToMarkAsRemoved;
@@ -78,6 +81,7 @@ public final class Es6RewriteDestructuring implements NodeTraversal.Callback, Co
     this.compiler = builder.compiler;
     this.rewriteMode = builder.rewriteMode;
     this.astFactory = compiler.createAstFactory();
+    this.namespace = compiler.getTranspilationNamespace();
 
     switch (this.rewriteMode) {
       case REWRITE_ALL_OBJECT_PATTERNS:
@@ -141,13 +145,17 @@ public final class Es6RewriteDestructuring implements NodeTraversal.Callback, Co
   @Override
   public void process(Node externs, Node root) {
     checkState(patternNestingStack.isEmpty());
-    TranspilationPasses.processTranspile(compiler, root, featuresToTriggerRunningPass, this);
+    NodeTraversal.traverse(compiler, root, this);
     TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, featuresToMarkAsRemoved);
     checkState(patternNestingStack.isEmpty());
   }
 
   @Override
   public boolean shouldTraverse(NodeTraversal t, Node n, Node parent) {
+    if (n.isScript()) {
+      FeatureSet scriptFeatures = NodeUtil.getFeatureSetOfScript(n);
+      return scriptFeatures.containsAtLeastOneOf(featuresToTriggerRunningPass);
+    }
     switch (n.getToken()) {
       case FUNCTION:
         ensureArrowFunctionsHaveBlockBodies(t, n);
@@ -179,13 +187,10 @@ public final class Es6RewriteDestructuring implements NodeTraversal.Callback, Co
 
   @Override
   public void visit(NodeTraversal t, Node n, Node parent) {
-    if (parent != null && parent.isDestructuringLhs()) {
-      parent = parent.getParent();
-    }
     switch (n.getToken()) {
       case ARRAY_PATTERN:
       case OBJECT_PATTERN:
-        visitPattern(t, n, parent);
+        visitPattern(t, n);
         if (n == this.patternNestingStack.getLast().pattern) {
           this.patternNestingStack.removeLast();
         }
@@ -247,7 +252,7 @@ public final class Es6RewriteDestructuring implements NodeTraversal.Callback, Co
           newParam =
               nameOrPattern.isName()
                   ? nameOrPattern
-                  : astFactory.createName(getTempVariableName(), nameOrPattern.getJSType());
+                  : astFactory.createName(getTempVariableName(), type(nameOrPattern));
           Node lhs = nameOrPattern.cloneTree();
           Node rhs = defaultValueHook(newParam.cloneTree(), defaultValue);
           Node newStatement =
@@ -295,7 +300,7 @@ public final class Es6RewriteDestructuring implements NodeTraversal.Callback, Co
   private Node replacePatternParamWithTempVar(
       Node function, Node insertSpot, Node patternParam, String tempVarName) {
     // Convert `function f([a, b]) {}` to `function f(tempVar) { var [a, b] = tempVar; }`
-    JSType paramType = patternParam.getJSType();
+    AstFactory.Type paramType = type(patternParam);
     Node newParam = astFactory.createName(tempVarName, paramType);
     newParam.setJSDocInfo(patternParam.getJSDocInfo());
     patternParam.replaceWith(newParam);
@@ -311,30 +316,56 @@ public final class Es6RewriteDestructuring implements NodeTraversal.Callback, Co
 
   /** Creates a new unique name to use for a pattern we need to rewrite. */
   private String getTempVariableName() {
-    return DESTRUCTURING_TEMP_VAR + (destructuringVarCounter++);
+    return DESTRUCTURING_TEMP_VAR + destructuringVarCounter++;
   }
 
-  private void visitPattern(NodeTraversal t, Node pattern, Node parent) {
-    if (NodeUtil.isNameDeclaration(parent) && !NodeUtil.isEnhancedFor(parent.getParent())) {
-      replacePattern(t, pattern, pattern.getNext(), parent, parent);
-    } else if (parent.isAssign()) {
-      if (parent.getParent().isExprResult()) {
-        replacePattern(t, pattern, pattern.getNext(), parent, parent.getParent());
-      } else {
-        wrapAssignmentInCallToArrow(t, parent);
-      }
-    } else if (parent.isRest()
-        || parent.isStringKey()
-        || parent.isArrayPattern()
-        || parent.isDefaultValue()
-        || parent.isComputedProp()) {
-      // Nested pattern; do nothing. We will visit it after rewriting the parent.
-    } else if (NodeUtil.isEnhancedFor(parent) || NodeUtil.isEnhancedFor(parent.getParent())) {
-      visitDestructuringPatternInEnhancedFor(pattern);
-    } else if (parent.isCatch()) {
-      visitDestructuringPatternInCatch(t, pattern);
-    } else {
-      throw new IllegalStateException("unexpected parent");
+  private void visitPattern(NodeTraversal t, Node pattern) {
+    Node parent = pattern.getParent();
+
+    switch (parent.getToken()) {
+      case DESTRUCTURING_LHS:
+        {
+          Node declaration = parent.getParent();
+          Node declarationParent = declaration.getParent();
+          if (declarationParent.isVanillaFor()) {
+            visitDestructuringPatternInVanillaForInnerVars(t, pattern);
+          } else if (NodeUtil.isEnhancedFor(declarationParent)) {
+            visitDestructuringPatternInEnhancedForInnerVars(pattern);
+          } else {
+            replacePattern(t, pattern, pattern.getNext(), declaration, declaration);
+          }
+        }
+        break;
+
+      case ASSIGN:
+        if (parent.getParent().isExprResult()) {
+          replacePattern(t, pattern, pattern.getNext(), parent, parent.getParent());
+        } else {
+          wrapAssignOrDestructuringInCallToArrow(t, parent);
+        }
+        break;
+
+      case OBJECT_REST:
+      case ITER_REST:
+      case STRING_KEY:
+      case ARRAY_PATTERN:
+      case DEFAULT_VALUE:
+      case COMPUTED_PROP:
+        // Nested pattern; do nothing. We will visit it after rewriting the parent.
+        break;
+
+      case FOR_OF:
+      case FOR_IN:
+      case FOR_AWAIT_OF:
+        visitDestructuringPatternInEnhancedForWithOuterVars(pattern);
+        break;
+
+      case CATCH:
+        visitDestructuringPatternInCatch(t, pattern);
+        break;
+
+      default:
+        throw new IllegalStateException("unexpected parent");
     }
   }
 
@@ -366,9 +397,8 @@ public final class Es6RewriteDestructuring implements NodeTraversal.Callback, Co
    */
   private void replaceObjectPattern(
       NodeTraversal t, Node objectPattern, Node rhs, Node parent, Node nodeToDetach) {
-    final Scope scope = t.getScope(); // get scope here, AST may be in temporary invalid state later
     String tempVarName = getTempVariableName();
-    final JSType tempVarType = objectPattern.getJSType();
+    final AstFactory.Type tempVarType = type(objectPattern);
 
     String restTempVarName = null;
     // If the last child is a rest node we will want a list of the stated properties so we can
@@ -412,7 +442,7 @@ public final class Es6RewriteDestructuring implements NodeTraversal.Callback, Co
             child.isQuotedString()
                 ? astFactory.createGetElem(
                     tempVarNameNode, astFactory.createString(child.getString()))
-                : astFactory.createGetProp(tempVarNameNode, child.getString());
+                : astFactory.createGetProp(tempVarNameNode, child.getString(), tempVarType);
 
         Node value = child.removeFirstChild();
         if (!value.isDefaultValue()) {
@@ -443,7 +473,7 @@ public final class Es6RewriteDestructuring implements NodeTraversal.Callback, Co
           // A "...rest" variable is present and result of computation must be cached
           String exprEvalTempVarName = getTempVariableName();
           Node exprEvalTempVarModel =
-              astFactory.createName(exprEvalTempVarName, propExpr.getJSType()); // clone this node
+              astFactory.createName(exprEvalTempVarName, type(propExpr)); // clone this node
           Node exprEvalDecl = IR.var(exprEvalTempVarModel.cloneNode(), propExpr);
           exprEvalDecl.srcrefTreeIfMissing(child);
           exprEvalDecl.insertBefore(nodeToDetach);
@@ -458,26 +488,27 @@ public final class Es6RewriteDestructuring implements NodeTraversal.Callback, Co
           // var tempVarName2 = tempVarName1[propExpr]
           String intermediateTempVarName = getTempVariableName();
           Node intermediateDecl =
-              IR.var(astFactory.createName(intermediateTempVarName, getelem.getJSType()), getelem);
+              IR.var(astFactory.createName(intermediateTempVarName, type(getelem)), getelem);
           intermediateDecl.srcrefTreeIfMissing(child);
           intermediateDecl.insertBefore(nodeToDetach);
 
           // tempVarName2 === undefined ? defaultValue : tempVarName2
           newRHS =
               defaultValueHook(
-                  astFactory.createName(intermediateTempVarName, getelem.getJSType()),
-                  defaultValue);
+                  astFactory.createName(intermediateTempVarName, type(getelem)), defaultValue);
         } else {
           newRHS =
-              astFactory.createGetElem(
-                  astFactory.createName(tempVarName, newLHS.getJSType()), propExpr);
+              astFactory.createGetElem(astFactory.createName(tempVarName, type(newLHS)), propExpr);
         }
       } else if (child.isRest()) {
         if (next != null) {
           throw new IllegalStateException("object rest may not be followed by any properties");
         }
         // TODO(b/116532470): see if casting this to a more specific type fixes disambiguation
-        Node assignCall = astFactory.createCall(astFactory.createQName(scope, "Object.assign"));
+        Node assignCall =
+            astFactory.createCall(
+                astFactory.createQName(this.namespace, "Object.assign"),
+                type(StandardColors.TOP_OBJECT));
         assignCall.addChildToBack(astFactory.createObjectLit());
         assignCall.addChildToBack(astFactory.createName(tempVarName, tempVarType));
 
@@ -486,7 +517,7 @@ public final class Es6RewriteDestructuring implements NodeTraversal.Callback, Co
         restTempDecl.insertAfter(tempDecl);
 
         Node restName = child.getOnlyChild(); // e.g. get `rest` from `const {...rest} = {};`
-        newLHS = astFactory.createName(restName.getString(), restName.getJSType());
+        newLHS = astFactory.createName(restName.getString(), type(restName));
         newRHS = objectPatternRestRHS(objectPattern, child, restTempVarName, propsToDeleteForRest);
       } else {
         throw new IllegalStateException("unexpected child");
@@ -538,7 +569,7 @@ public final class Es6RewriteDestructuring implements NodeTraversal.Callback, Co
   private Node objectPatternRestRHS(
       Node objectPattern, Node rest, String restTempVarName, ArrayList<Node> statedProperties) {
     checkArgument(objectPattern.getLastChild() == rest);
-    Node restTempVarModel = astFactory.createName(restTempVarName, objectPattern.getJSType());
+    Node restTempVarModel = astFactory.createName(restTempVarName, type(objectPattern));
     Node result = restTempVarModel.cloneNode();
     if (!statedProperties.isEmpty()) {
       Iterator<Node> propItr = statedProperties.iterator();
@@ -562,7 +593,8 @@ public final class Es6RewriteDestructuring implements NodeTraversal.Callback, Co
             property.isQuotedString()
                 ? astFactory.createGetElem(
                     restTempVarNameNode, astFactory.createString(property.getString()))
-                : astFactory.createGetProp(restTempVarNameNode, property.getString());
+                : astFactory.createGetPropWithUnknownType(
+                    restTempVarNameNode, property.getString());
         break;
 
       case NAME:
@@ -595,9 +627,9 @@ public final class Es6RewriteDestructuring implements NodeTraversal.Callback, Co
     }
 
     String tempVarName = getTempVariableName();
-    Node makeIteratorCall = astFactory.createJSCompMakeIteratorCall(rhs.detach(), t.getScope());
-    Node tempVarModel = astFactory.createName(tempVarName, makeIteratorCall.getJSType());
-    Node tempDecl = IR.var(tempVarModel.cloneNode(), makeIteratorCall);
+    Node makeIteratorCall = astFactory.createJSCompMakeIteratorCall(rhs.detach(), this.namespace);
+    Node tempDecl = astFactory.createSingleVarNameDeclaration(tempVarName, makeIteratorCall);
+    Node tempVarModel = tempDecl.getFirstChild();
     tempDecl.srcrefTreeIfMissing(arrayPattern);
     tempDecl.insertBefore(nodeToDetach);
 
@@ -607,7 +639,9 @@ public final class Es6RewriteDestructuring implements NodeTraversal.Callback, Co
         // Just call the next() method to advance the iterator, but throw away the value.
         Node nextCall =
             IR.exprResult(
-                astFactory.createCall(astFactory.createGetProp(tempVarModel.cloneNode(), "next")));
+                astFactory.createCallWithUnknownType(
+                    astFactory.createGetProp(
+                        tempVarModel.cloneNode(), "next", type(StandardColors.TOP_OBJECT))));
         nextCall.srcrefTreeIfMissing(child);
         nextCall.insertBefore(nodeToDetach);
         continue;
@@ -624,10 +658,11 @@ public final class Es6RewriteDestructuring implements NodeTraversal.Callback, Co
         String nextVarName = getTempVariableName();
         // `temp.next().value`
         Node nextCallDotValue =
-            astFactory.createGetProp(
-                astFactory.createCall(astFactory.createGetProp(tempVarModel.cloneNode(), "next")),
+            astFactory.createGetPropWithUnknownType(
+                astFactory.createCallWithUnknownType(
+                    astFactory.createGetPropWithUnknownType(tempVarModel.cloneNode(), "next")),
                 "value");
-        JSType nextVarType = nextCallDotValue.getJSType();
+        AstFactory.Type nextVarType = type(nextCallDotValue);
         // `var temp1 = temp.next().value`
         Node var = IR.var(astFactory.createName(nextVarName, nextVarType), nextCallDotValue);
         var.srcrefTreeIfMissing(child);
@@ -645,8 +680,7 @@ public final class Es6RewriteDestructuring implements NodeTraversal.Callback, Co
         //   var temp = $jscomp.makeIterator(rhs);
         //   x = $jscomp.arrayFromIterator(temp);
         newLHS = child.removeFirstChild();
-        newRHS =
-            astFactory.createJscompArrayFromIteratorCall(tempVarModel.cloneNode(), t.getScope());
+        newRHS = astFactory.createJscompArrayFromIteratorCall(tempVarModel.cloneNode(), namespace);
       } else {
         // LHS is just a name (or a nested pattern).
         //   var [x] = rhs;
@@ -656,8 +690,10 @@ public final class Es6RewriteDestructuring implements NodeTraversal.Callback, Co
         newLHS = child.detach();
         newRHS =
             astFactory.createGetProp(
-                astFactory.createCall(astFactory.createGetProp(tempVarModel.cloneNode(), "next")),
-                "value");
+                astFactory.createCallWithUnknownType(
+                    astFactory.createGetPropWithUnknownType(tempVarModel.cloneNode(), "next")),
+                "value",
+                type(child));
       }
       Node newNode;
       if (parent.isAssign()) {
@@ -679,16 +715,37 @@ public final class Es6RewriteDestructuring implements NodeTraversal.Callback, Co
   }
 
   /**
-   * Convert the assignment '[x, y] = rhs' that is used as an expression and not an expr result to:
-   * (() => let temp0 = rhs; var temp1 = $jscomp.makeIterator(temp0); var x = temp0.next().value;
-   * var y = temp0.next().value; return temp0; }) And the assignment '{x: a, y: b} = rhs' used as an
-   * expression and not an expr result to: (() => let temp0 = rhs; var temp1 = temp0; var a =
-   * temp0.x; var b = temp0.y; return temp0; })
+   * Replace ASSIGN or DESTRUCTURING_LHS with a IIFE that contains the transpiled destructuring.
+   *
+   * <pre>
+   * Transform
+   *   [x, y] = rhs
+   * into
+   *   {@code (() => {
+   *     let temp0 = rhs;
+   *     var temp1 = $jscomp.makeIterator(temp0);
+   *     var x = temp0.next().value;
+   *     var y = temp0.next().value;
+   *     return temp0;
+   *   })()}
+   *
+   * Transform
+   *   {x: a, y: b} = rhs
+   * into
+   *   {@code (() => {
+   *     let temp0 = rhs;
+   *     var temp1 = temp0;
+   *     var a = temp0.x;
+   *     var b = temp0.y;
+   *     return temp0;
+   *   })()}
+   * </pre>
    */
-  private void wrapAssignmentInCallToArrow(NodeTraversal t, Node assignment) {
+  private void wrapAssignOrDestructuringInCallToArrow(NodeTraversal t, Node assignment) {
     String tempVarName = getTempVariableName();
-    Node tempVarModel = astFactory.createName(tempVarName, assignment.getJSType());
     Node rhs = assignment.getLastChild().detach();
+
+    Node tempVarModel = astFactory.createName(tempVarName, type(rhs));
     // let temp0 = rhs;
     Node newAssignment = IR.let(tempVarModel.cloneNode(), rhs);
     NodeUtil.addFeatureToScript(t.getCurrentScript(), Feature.LET_DECLARATIONS, compiler);
@@ -701,11 +758,11 @@ public final class Es6RewriteDestructuring implements NodeTraversal.Callback, Co
 
     // Create a function to hold these assignments:
     Node block = IR.block(newAssignment, exprResult, returnNode);
-    Node arrowFn = astFactory.createZeroArgFunction(/* name= */ "", block, assignment.getJSType());
+    Node arrowFn = astFactory.createZeroArgFunction(/* name= */ "", block, /* returnType= */ null);
     arrowFn.setIsArrowFunction(true);
 
     // Create a call to the function, and replace the pattern with the call.
-    Node call = astFactory.createCall(arrowFn);
+    Node call = astFactory.createCall(arrowFn, type(rhs));
     NodeUtil.addFeatureToScript(t.getCurrentScript(), Feature.ARROW_FUNCTIONS, compiler);
     call.srcrefTreeIfMissing(assignment);
     call.putBooleanProp(Node.FREE_CALL, true);
@@ -719,64 +776,134 @@ public final class Es6RewriteDestructuring implements NodeTraversal.Callback, Co
         exprResult);
   }
 
-  private void visitDestructuringPatternInEnhancedFor(Node pattern) {
+  /** for (let [a, b, c] = arr; a < b; a++) */
+  private void visitDestructuringPatternInVanillaForInnerVars(NodeTraversal t, Node pattern) {
+    checkArgument(pattern.isDestructuringPattern());
+    Node destructuringLhs = pattern.getParent();
+    Node declaration = destructuringLhs.getParent();
+
+    Node insertionPoint = declaration.getParent();
+    while (insertionPoint.getParent().isLabel()) {
+      insertionPoint = insertionPoint.getParent();
+    }
+
+    switch (declaration.getToken()) {
+      case CONST:
+        {
+          Node block = IR.block().srcref(insertionPoint);
+          insertionPoint.replaceWith(block);
+          block.addChildToBack(insertionPoint);
+        }
+        // Fall through
+
+      case VAR:
+        {
+          // Move any earlier variables out of the loop initializer
+          for (Node c = declaration.getFirstChild();
+              c != destructuringLhs;
+              c = declaration.getFirstChild()) {
+            Node newDeclaration = declaration.cloneNode();
+            newDeclaration.addChildToBack(c.detach());
+            newDeclaration.insertBefore(insertionPoint);
+          }
+
+          // Move the pattern out of the initializer and transpile it
+          Node newDeclaration = declaration.cloneNode();
+          newDeclaration.addChildToBack(destructuringLhs.detach());
+          newDeclaration.insertBefore(insertionPoint);
+          this.replacePattern(t, pattern, pattern.getNext(), newDeclaration, newDeclaration);
+
+          if (!declaration.hasChildren()) {
+            declaration.replaceWith(IR.empty());
+          }
+        }
+        break;
+
+      case LET:
+        // See https://tc39.es/ecma262/#sec-createperiterationenvironment
+        // for (let a, b, c, unusedTmp = (() => [a, b, c] = arr); a < b; a++)
+        {
+          ParsingUtil.getParamOrPatternNames(
+              pattern, (name) -> name.cloneNode().insertBefore(destructuringLhs));
+
+          Node unusedVar =
+              this.astFactory
+                  .createNameWithUnknownType(getTempVariableName() + "$unused")
+                  .srcref(destructuringLhs);
+          destructuringLhs.replaceWith(unusedVar);
+          unusedVar.addChildToBack(destructuringLhs);
+          this.wrapAssignOrDestructuringInCallToArrow(t, destructuringLhs);
+        }
+        break;
+
+      default:
+        throw new IllegalStateException(declaration.toString());
+    }
+
+    this.compiler.reportChangeToEnclosingScope(insertionPoint);
+    NodeUtil.markNewScopesChanged(insertionPoint, compiler);
+  }
+
+  /** for (const [a, b, c] of arr) */
+  private void visitDestructuringPatternInEnhancedForInnerVars(Node pattern) {
     checkArgument(pattern.isDestructuringPattern());
     String tempVarName = getTempVariableName();
-    if (NodeUtil.isEnhancedFor(pattern.getParent())) {
-      // for ([a, b, c] of arr) {
-      Node forNode = pattern.getParent();
-      Node block = forNode.getLastChild();
-      Node decl = IR.var(astFactory.createName(tempVarName, pattern.getJSType()));
-      decl.srcrefTreeIfMissing(pattern);
-      pattern.replaceWith(decl);
-      Node exprResult =
-          IR.exprResult(
-              astFactory.createAssign(
-                  pattern, astFactory.createName(tempVarName, pattern.getJSType())));
-      exprResult.srcrefTreeIfMissing(pattern);
-      block.addChildToFront(exprResult);
-    } else {
-      // for (const [a, b, c] of arr) {
-      Node destructuringLhs = pattern.getParent();
-      checkState(destructuringLhs.isDestructuringLhs());
-      Node declarationNode = destructuringLhs.getParent();
-      Node forNode = declarationNode.getParent();
-      checkState(NodeUtil.isEnhancedFor(forNode));
-      Node block = forNode.getLastChild();
-      destructuringLhs.replaceWith(
-          astFactory.createName(tempVarName, pattern.getJSType()).srcref(pattern));
-      Token declarationType = declarationNode.getToken();
-      Node decl =
-          IR.declaration(
-              pattern.detach(),
-              astFactory.createName(tempVarName, pattern.getJSType()),
-              declarationType);
-      decl.srcrefTreeIfMissing(pattern);
-      // Move the body into an inner block to handle cases where declared variables in the for
-      // loop initializer are shadowed by variables in the for loop body. e.g.
-      //   for (const [value] of []) { const value = 1; }
-      Node newBlock = IR.block(decl);
-      block.replaceWith(newBlock);
-      newBlock.addChildToBack(block);
-    }
+
+    Node destructuringLhs = pattern.getParent();
+    checkState(destructuringLhs.isDestructuringLhs());
+    Node declarationNode = destructuringLhs.getParent();
+    Node forNode = declarationNode.getParent();
+    checkState(NodeUtil.isEnhancedFor(forNode));
+    Node block = forNode.getLastChild();
+
+    destructuringLhs.replaceWith(astFactory.createName(tempVarName, type(pattern)).srcref(pattern));
+    Token declarationType = declarationNode.getToken();
+    Node decl =
+        IR.declaration(
+            pattern.detach(), astFactory.createName(tempVarName, type(pattern)), declarationType);
+    decl.srcrefTreeIfMissing(pattern);
+    // Move the body into an inner block to handle cases where declared variables in the for
+    // loop initializer are shadowed by variables in the for loop body. e.g.
+    //   for (const [value] of []) { const value = 1; }
+    Node newBlock = IR.block(decl);
+    block.replaceWith(newBlock);
+    newBlock.addChildToBack(block);
+  }
+
+  /** for ([a, b, c] of arr) */
+  private void visitDestructuringPatternInEnhancedForWithOuterVars(Node pattern) {
+    checkArgument(pattern.isDestructuringPattern());
+    String tempVarName = getTempVariableName();
+
+    Node forNode = pattern.getParent();
+    Node block = forNode.getLastChild();
+
+    Node decl = IR.var(astFactory.createName(tempVarName, type(pattern)));
+    decl.srcrefTreeIfMissing(pattern);
+    pattern.replaceWith(decl);
+    Node exprResult =
+        IR.exprResult(
+            astFactory.createAssign(pattern, astFactory.createName(tempVarName, type(pattern))));
+    exprResult.srcrefTreeIfMissing(pattern);
+    block.addChildToFront(exprResult);
   }
 
   private void visitDestructuringPatternInCatch(NodeTraversal t, Node pattern) {
     String tempVarName = getTempVariableName();
     Node catchBlock = pattern.getNext();
+    AstFactory.Type patternType = type(pattern);
 
-    pattern.replaceWith(astFactory.createName(tempVarName, pattern.getJSType()));
+    pattern.replaceWith(astFactory.createName(tempVarName, patternType));
     catchBlock.addChildToFront(
-        IR.declaration(
-            pattern, astFactory.createName(tempVarName, pattern.getJSType()), Token.LET));
+        IR.declaration(pattern, astFactory.createName(tempVarName, patternType), Token.LET));
     NodeUtil.addFeatureToScript(t.getCurrentScript(), Feature.LET_DECLARATIONS, compiler);
   }
 
   /** Helper for transpiling DEFAULT_VALUE trees. */
   private Node defaultValueHook(Node getprop, Node defaultValue) {
-    Node undefined = astFactory.createName("undefined", JSTypeNative.VOID_TYPE);
+    Node undefined = astFactory.createUndefinedValue();
     undefined.makeNonIndexable();
-    Node getpropClone = getprop.cloneTree().setJSType(getprop.getJSType());
+    Node getpropClone = getprop.cloneTree().setColor(getprop.getColor());
     return astFactory.createHook(
         astFactory.createSheq(getprop, undefined), defaultValue, getpropClone);
   }

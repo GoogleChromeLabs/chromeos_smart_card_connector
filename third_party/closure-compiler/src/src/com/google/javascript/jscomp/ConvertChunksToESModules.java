@@ -23,7 +23,6 @@ import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
-import com.google.javascript.rhino.jstype.JSTypeNative;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -109,7 +108,7 @@ final class ConvertChunksToESModules implements CompilerPass {
     // Force every output chunk to parse as an ES Module. If a chunk has no imports and
     // no exports, add an empty export list to generate an empty export statement:
     // example: export {};
-    for (JSChunk chunk : compiler.getModuleGraph().getAllModules()) {
+    for (JSChunk chunk : compiler.getModuleGraph().getAllChunks()) {
       if (!crossChunkExports.containsKey(chunk)
           && !crossChunkImports.containsKey(chunk)
           && !chunk.getInputs().isEmpty()) {
@@ -121,6 +120,8 @@ final class ConvertChunksToESModules implements CompilerPass {
     addExportStatements();
     addImportStatements();
     rewriteDynamicImportCallbacks();
+
+    compiler.setFeatureSet(compiler.getFeatureSet().with(FeatureSet.Feature.MODULES));
   }
 
   /**
@@ -128,7 +129,7 @@ final class ConvertChunksToESModules implements CompilerPass {
    * compilation, all input files should be scripts.
    */
   private void convertChunkSourcesToModules() {
-    for (JSChunk chunk : compiler.getModuleGraph().getAllModules()) {
+    for (JSChunk chunk : compiler.getModuleGraph().getAllChunks()) {
       if (chunk.getInputs().isEmpty()) {
         continue;
       }
@@ -310,14 +311,13 @@ final class ConvertChunksToESModules implements CompilerPass {
       }
       Node callbackFn = NodeUtil.getArgumentForCallOrNew(dynamicImportCallback, 0);
       Node callbackParamList = NodeUtil.getFunctionParameters(callbackFn);
-      Node importNamespaceParam =
-          astFactory.createName("$", JSTypeNative.UNKNOWN_TYPE).srcref(moduleNamespace);
+      Node importNamespaceParam = astFactory.createNameWithUnknownType("$").srcref(moduleNamespace);
       callbackParamList.addChildToFront(importNamespaceParam);
       compiler.reportChangeToEnclosingScope(importNamespaceParam);
 
       Node namespaceGetprop =
-          astFactory.createGetProp(
-              astFactory.createName("$", JSTypeNative.UNKNOWN_TYPE).srcref(moduleNamespace),
+          astFactory.createGetPropWithUnknownType(
+              astFactory.createNameWithUnknownType("$").srcref(moduleNamespace),
               moduleNamespace.getString());
 
       moduleNamespace.replaceWith(namespaceGetprop);

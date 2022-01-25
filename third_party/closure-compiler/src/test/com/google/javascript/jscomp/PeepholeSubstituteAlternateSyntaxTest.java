@@ -16,9 +16,7 @@
 
 package com.google.javascript.jscomp;
 
-import static com.google.common.truth.Truth.assertThat;
 
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -72,78 +70,9 @@ public final class PeepholeSubstituteAlternateSyntaxTest extends CompilerTestCas
 
     // Cannot fold all the way to a literal because there are too few arguments.
     test("x = new RegExp", "x = RegExp()");
-    // Empty regexp should not fold to // since that is a line comment
-    test("x = new RegExp(\"\")", "x = RegExp(\"\")");
-    test("x = new RegExp(\"\", \"i\")", "x = RegExp(\"\",\"i\")");
-
-    // Regexp starting with * should not fold to /* since that is the start of a comment
-    test("x = new RegExp('*')", "x = RegExp('*')");
-    test("x = new RegExp('*', 'i')", "x = RegExp('*', 'i')");
-
-    // Bogus flags should not fold
-    testSame("x = RegExp(\"foobar\", \"bogus\")",
-         PeepholeSubstituteAlternateSyntax.INVALID_REGULAR_EXPRESSION_FLAGS);
-    // Don't fold if the argument is not a string. See issue 1260.
-    testSame("x = new RegExp(y)");
-    // Can Fold
-    test("x = new RegExp(\"foobar\")", "x = /foobar/");
-    test("x = RegExp(\"foobar\")", "x = /foobar/");
-    test("x = new RegExp(\"foobar\", \"i\")", "x = /foobar/i");
-    // Make sure that escaping works
-    test("x = new RegExp(\"\\\\.\", \"i\")", "x = /\\./i");
-    test("x = new RegExp(\"/\", \"\")", "x = /\\//");
-    test("x = new RegExp(\"[/]\", \"\")", "x = /[/]/");
-    test("x = new RegExp(\"///\", \"\")", "x = /\\/\\/\\//");
-    test("x = new RegExp(\"\\\\\\/\", \"\")", "x = /\\//");
-    test("x = new RegExp(\"\\n\")", "x = /\\n/");
-    test("x = new RegExp('\\\\\\r')", "x = /\\r/");
-
-    // Shouldn't fold RegExp unnormalized because
-    // we can't be sure that RegExp hasn't been redefined
-    disableNormalize();
-
-    testSame("x = new RegExp(\"foobar\")");
-  }
-
-  @Test
-  public void testVersionSpecificRegExpQuirks() {
-    enableNormalize();
-
-    // Don't fold if the flags contain 'g'
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT3);
-    test("x = new RegExp(\"foobar\", \"g\")", "x = RegExp(\"foobar\",\"g\")");
-    test("x = new RegExp(\"foobar\", \"ig\")", "x = RegExp(\"foobar\",\"ig\")");
-    // ... unless in ECMAScript 5 mode per section 7.8.5 of ECMAScript 5.
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT5);
-    test("x = new RegExp(\"foobar\", \"ig\")", "x = /foobar/ig");
-    // Don't fold things that crash older versions of Safari and that don't work
-    // as regex literals on other old versions of Safari
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT3);
-    test("x = new RegExp(\"\\u2028\")", "x = RegExp(\"\\u2028\")");
-    test("x = new RegExp(\"\\\\\\\\u2028\")", "x = /\\\\u2028/");
-    // Sunset Safari exclusions for ECMAScript 5 and later.
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT5);
-    test("x = new RegExp(\"\\u2028\\u2029\")", "x = /\\u2028\\u2029/");
-    test("x = new RegExp(\"\\\\u2028\")", "x = /\\u2028/");
-    test("x = new RegExp(\"\\\\\\\\u2028\")", "x = /\\\\u2028/");
-  }
-
-  @Test
-  public void testFoldRegExpConstructorStringCompare() {
-    enableNormalize();
-    test("x = new RegExp(\"\\n\", \"i\")", "x = /\\n/i");
-  }
-
-  @Test
-  public void testContainsUnicodeEscape() {
-    assertThat(PeepholeSubstituteAlternateSyntax.containsUnicodeEscape("")).isFalse();
-    assertThat(PeepholeSubstituteAlternateSyntax.containsUnicodeEscape("foo")).isFalse();
-    assertThat(PeepholeSubstituteAlternateSyntax.containsUnicodeEscape("\u2028")).isTrue();
-    assertThat(PeepholeSubstituteAlternateSyntax.containsUnicodeEscape("\\u2028")).isTrue();
-    assertThat(PeepholeSubstituteAlternateSyntax.containsUnicodeEscape("foo\\u2028")).isTrue();
-    assertThat(PeepholeSubstituteAlternateSyntax.containsUnicodeEscape("foo\\\\u2028")).isFalse();
-    assertThat(PeepholeSubstituteAlternateSyntax.containsUnicodeEscape("foo\\\\u2028bar\\u2028"))
-        .isTrue();
+    // Could fold all the way to /foobar/, but the complexity of that optimization wasn't worth the
+    // code size improvements, mainly because there are a lot special cases to check.
+    test("x = new RegExp(\"foobar\")", "x = RegExp(\"foobar\")");
   }
 
   @Test
@@ -407,10 +336,13 @@ public final class PeepholeSubstituteAlternateSyntaxTest extends CompilerTestCas
 
     // Don't try to split COMMA under LABELs.
     testSame("a:a(),b()");
-
+    test("1, 2, 3, 4", "1; 2; 3; 4");
+    test("x = 1, 2, 3", "x = 1; 2; 3");
+    testSame("x = (1, 2, 3)");
+    test("1, (2, 3), 4", "1; 2; 3; 4");
     test("(x=2), foo()", "x=2; foo()");
     test("foo(), boo();", "foo(); boo()");
-    test("(a(), b()), (c(), d());", "a(), b(); c(), d()");
+    test("(a(), b()), (c(), d());", "a(); b(); c(); d()");
     test("a(); b(); (c(), d());", "a(); b(); c(); d();");
     test("foo(), true", "foo();true");
     testSame("foo();true");
@@ -440,8 +372,8 @@ public final class PeepholeSubstituteAlternateSyntaxTest extends CompilerTestCas
   @Test
   public void testComma3() {
     late = false;
-    test("1, a(), b()", "1, a(); b()");
-    test("1, a?.(), b?.()", "1, a?.(); b?.()");
+    test("1, a(), b()", "1; a(); b()");
+    test("1, a?.(), b?.()", "1; a?.(); b?.()");
 
     late = true;
     testSame("1, a(), b()");
@@ -462,8 +394,8 @@ public final class PeepholeSubstituteAlternateSyntaxTest extends CompilerTestCas
   @Test
   public void testComma5() {
     late = false;
-    test("a(), b(), 1", "a(), b(); 1");
-    test("a?.(), b?.(), 1", "a?.(), b?.(); 1");
+    test("a(), b(), 1", "a(); b(); 1");
+    test("a?.(), b?.(), 1", "a?.(); b?.(); 1");
 
     late = true;
     testSame("a(), b(), 1");

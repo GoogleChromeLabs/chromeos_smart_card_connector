@@ -26,6 +26,7 @@ import static com.google.javascript.rhino.testing.TypeSubject.assertType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.GlobalNamespace.AstChange;
 import com.google.javascript.jscomp.GlobalNamespace.Inlinability;
 import com.google.javascript.jscomp.GlobalNamespace.Name;
@@ -76,8 +77,8 @@ public final class GlobalNamespaceTest {
   public void firstGlobalAssignmentIsConsideredDeclaration() {
     GlobalNamespace namespace = parse("");
     Name n = namespace.createNameForTesting("a");
-    Ref set1 = n.addSingleRefForTesting(Ref.Type.SET_FROM_GLOBAL, 0);
-    Ref set2 = n.addSingleRefForTesting(Ref.Type.SET_FROM_GLOBAL, 1);
+    Ref set1 = n.addSingleRefForTesting(Ref.Type.SET_FROM_GLOBAL);
+    Ref set2 = n.addSingleRefForTesting(Ref.Type.SET_FROM_GLOBAL);
 
     assertThat(n.getRefs()).containsExactly(set1, set2).inOrder();
 
@@ -111,6 +112,96 @@ public final class GlobalNamespaceTest {
   }
 
   @Test
+  public void logicalAssignment1() {
+    GlobalNamespace namespace = parse("var a = a ||= {};");
+    Name a = namespace.getSlot("a");
+
+    assertThat(a).isNotNull();
+    assertThat(a.getRefs()).hasSize(2);
+    assertThat(a.getLocalSets()).isEqualTo(0);
+    assertThat(a.getGlobalSets()).isEqualTo(2);
+  }
+
+  @Test
+  public void logicalAssignment2() {
+    GlobalNamespace namespace = parse("var a = a || (a = {});");
+    Name a = namespace.getSlot("a");
+
+    assertThat(a).isNotNull();
+    assertThat(a.getRefs()).hasSize(4);
+    assertThat(a.getLocalSets()).isEqualTo(0);
+    assertThat(a.getGlobalSets()).isEqualTo(2);
+  }
+
+  @Test
+  public void testlogicalAssignmentGets1() {
+    GlobalNamespace namespace =
+        parse(
+            lines(
+                "const ns = {};", //
+                "ns.n1 = 1;",
+                "ns.n2 = 2;",
+                "ns.n1 ??= ns.n2;",
+                "ns.n1 &&= ns.n2;"));
+
+    Name bar = namespace.getSlot("ns");
+    assertThat(bar.getGlobalSets()).isEqualTo(1);
+    assertThat(bar.getAliasingGets()).isEqualTo(0);
+    assertThat(bar.getTotalGets()).isEqualTo(0);
+
+    Name n1 = namespace.getSlot("ns.n1");
+    assertThat(n1.getGlobalSets()).isEqualTo(3);
+    assertThat(n1.getAliasingGets()).isEqualTo(0);
+    assertThat(n1.getTotalGets()).isEqualTo(0);
+
+    Name n2 = namespace.getSlot("ns.n2");
+    assertThat(n2.getGlobalSets()).isEqualTo(1);
+    assertThat(n2.getAliasingGets()).isEqualTo(2);
+    assertThat(n2.getTotalGets()).isEqualTo(2);
+  }
+
+  @Test
+  public void testlogicalAssignmentGets2() {
+    GlobalNamespace namespace =
+        parse(
+            lines(
+                "const ns = {};", //
+                "ns.n1 = 1;",
+                "ns.n2 = 2;",
+                "ns.n1 ?? (ns.n1 = ns.n2);",
+                "ns.n1 && (ns.n1 = ns.n2);"));
+
+    Name bar = namespace.getSlot("ns");
+    assertThat(bar.getGlobalSets()).isEqualTo(1);
+    assertThat(bar.getAliasingGets()).isEqualTo(0);
+    assertThat(bar.getTotalGets()).isEqualTo(0);
+
+    Name n1 = namespace.getSlot("ns.n1");
+    assertThat(n1.getGlobalSets()).isEqualTo(3);
+    assertThat(n1.getAliasingGets()).isEqualTo(2);
+    assertThat(n1.getTotalGets()).isEqualTo(4);
+
+    Name n2 = namespace.getSlot("ns.n2");
+    assertThat(n2.getGlobalSets()).isEqualTo(1);
+    assertThat(n2.getAliasingGets()).isEqualTo(2);
+    assertThat(n2.getTotalGets()).isEqualTo(2);
+  }
+
+  @Test
+  public void detectsPropertySetsInLogicalAssignmentOperators1() {
+    GlobalNamespace namespace = parse("const a = {b: 0}; a.b ||= 1; a.b = 2;");
+
+    assertThat(namespace.getSlot("a.b").getGlobalSets()).isEqualTo(3);
+  }
+
+  @Test
+  public void detectsPropertySetsInLogicalAssignmentOperators2() {
+    GlobalNamespace namespace = parse("const a = {b: 0}; a.b || (a.b = 1); a.b = 2;");
+
+    assertThat(namespace.getSlot("a.b").getGlobalSets()).isEqualTo(3);
+  }
+
+  @Test
   public void hook() {
     GlobalNamespace namespace = parse("var a = a ? a : {}");
     Name a = namespace.getSlot("a");
@@ -125,8 +216,8 @@ public final class GlobalNamespaceTest {
   public void localAssignmentWillNotBeConsideredADeclaration() {
     GlobalNamespace namespace = parse("");
     Name n = namespace.createNameForTesting("a");
-    Ref set1 = n.addSingleRefForTesting(Ref.Type.SET_FROM_GLOBAL, 0);
-    Ref localSet = n.addSingleRefForTesting(Ref.Type.SET_FROM_LOCAL, 1);
+    Ref set1 = n.addSingleRefForTesting(Ref.Type.SET_FROM_GLOBAL);
+    Ref localSet = n.addSingleRefForTesting(Ref.Type.SET_FROM_LOCAL);
 
     assertThat(n.getRefs()).containsExactly(set1, localSet).inOrder();
 
@@ -526,8 +617,7 @@ public final class GlobalNamespaceTest {
             .getLastChild() // EXPR_RESULT `y.hasOwnProperty('bar');`
             .getFirstFirstChild(); // `y.hasOwnProperty`
     Node yNode = yDotHasOwnProperty.getFirstChild(); // `y`
-    checkState(
-        yDotHasOwnProperty.getQualifiedName().equals("y.hasOwnProperty"), yDotHasOwnProperty);
+    assertNode(yDotHasOwnProperty).matchesQualifiedName("y.hasOwnProperty");
     Node xNode = IR.name("x");
     yNode.replaceWith(xNode);
 
@@ -542,7 +632,7 @@ public final class GlobalNamespaceTest {
     // This only creates a global scope, so don't use this with local nodes
     Scope globalScope = new SyntacticScopeCreator(lastCompiler).createScope(jsRoot, null);
     // I don't know if lastCompiler.getModules() is correct but it works
-    return new AstChange(Iterables.getFirst(lastCompiler.getModules(), null), globalScope, n);
+    return new AstChange(globalScope, n);
   }
 
   @Test
@@ -559,7 +649,7 @@ public final class GlobalNamespaceTest {
 
   @Test
   public void testCollapsing_forEscapedConstructor_consideringStaticInheritance() {
-    this.assumeStaticInheritanceRequired = true;
+    this.assumeStaticInheritanceIsNotUsed = false;
     GlobalNamespace namespace =
         parse(lines("/** @constructor */", "function Bar() {}", "use(Bar);"));
 
@@ -603,7 +693,7 @@ public final class GlobalNamespaceTest {
   @Test
   public void
       testInlinability_forAliasingPropertyOnEscapedConstructor_consideringStaticInheritance() {
-    this.assumeStaticInheritanceRequired = true;
+    this.assumeStaticInheritanceIsNotUsed = false;
     GlobalNamespace namespace =
         parse(
             lines(
@@ -1055,7 +1145,7 @@ public final class GlobalNamespaceTest {
 
   @Test
   public void testCannotCollapseAliasedConstructorProperty_consideringStaticInheritance() {
-    this.assumeStaticInheritanceRequired = true;
+    this.assumeStaticInheritanceIsNotUsed = false;
     GlobalNamespace namespace =
         parse(
             lines(
@@ -1090,7 +1180,7 @@ public final class GlobalNamespaceTest {
 
   @Test
   public void testCannotCollapseAliasedInterfaceProperty_consideringStaticInheritance() {
-    this.assumeStaticInheritanceRequired = true;
+    this.assumeStaticInheritanceIsNotUsed = false;
     GlobalNamespace namespace =
         parse(
             lines(
@@ -1117,7 +1207,7 @@ public final class GlobalNamespaceTest {
 
   @Test
   public void testCanCollapseAliasedClassProperty_consideringStaticInheritance() {
-    this.assumeStaticInheritanceRequired = true;
+    this.assumeStaticInheritanceIsNotUsed = false;
     GlobalNamespace namespace = parse(lines("class Foo {} Foo.prop = prop; use(Foo);"));
 
     Name fooProp = namespace.getSlot("Foo.prop");
@@ -1357,7 +1447,7 @@ public final class GlobalNamespaceTest {
     assertThat(x.getDeclaration()).isNotNull();
   }
 
-  private boolean assumeStaticInheritanceRequired = false;
+  private boolean assumeStaticInheritanceIsNotUsed = true;
 
   // This method exists for testing module metadata lookups.
   private GlobalNamespace parseAndGatherModuleData(String js) {
@@ -1369,7 +1459,7 @@ public final class GlobalNamespaceTest {
     options.setWrapGoogModulesForWhitespaceOnly(false);
     // Test the latest features supported for input and don't transpile, because we want to test how
     // GlobalNamespace deals with the language features actually present in `js`.
-    options.setAssumeStaticInheritanceRequired(assumeStaticInheritanceRequired);
+    options.setAssumeStaticInheritanceIsNotUsed(assumeStaticInheritanceIsNotUsed);
     compiler.compile(SourceFile.fromCode("ex.js", ""), SourceFile.fromCode("test.js", js), options);
     // Disabling transpilation also disables these passes that we need to have run when
     // testing behavior related to module metadata.
@@ -1387,12 +1477,13 @@ public final class GlobalNamespaceTest {
   private GlobalNamespace parse(String js) {
     Compiler compiler = new Compiler();
     CompilerOptions options = new CompilerOptions();
+    options.setLanguage(LanguageMode.UNSUPPORTED);
     // Don't optimize, because we want to know how GlobalNamespace responds to the original code
     // in `js`.
     options.setSkipNonTranspilationPasses(true);
     // Test the latest features supported for input and don't transpile, because we want to test how
     // GlobalNamespace deals with the language features actually present in `js`.
-    options.setAssumeStaticInheritanceRequired(assumeStaticInheritanceRequired);
+    options.setAssumeStaticInheritanceIsNotUsed(assumeStaticInheritanceIsNotUsed);
     compiler.compile(SourceFile.fromCode("ex.js", ""), SourceFile.fromCode("test.js", js), options);
     assertThat(compiler.getErrors()).isEmpty();
     this.lastCompiler = compiler;

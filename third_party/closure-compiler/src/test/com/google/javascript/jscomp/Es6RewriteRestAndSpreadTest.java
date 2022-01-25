@@ -20,6 +20,7 @@ import static com.google.javascript.rhino.testing.Asserts.assertThrows;
 
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.testing.NoninjectingCompiler;
+import com.google.javascript.jscomp.testing.TestExternsBuilder;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -27,9 +28,10 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
+  private static final String EXTERNS_BASE = new TestExternsBuilder().addJSCompLibraries().build();
 
   public Es6RewriteRestAndSpreadTest() {
-    super(MINIMAL_EXTERNS);
+    super(EXTERNS_BASE);
   }
 
   @Override
@@ -56,6 +58,8 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
     setLanguageOut(LanguageMode.ECMASCRIPT3);
     enableTypeInfoValidation();
     enableTypeCheck();
+    replaceTypesWithColors();
+    enableMultistageCompilation();
   }
 
   // Spreading into array literals.
@@ -187,6 +191,7 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
     test(
         externs(
             lines(
+                EXTERNS_BASE,
                 "/**",
                 " * @constructor",
                 // Skipping @struct here to allow for string access.
@@ -216,6 +221,7 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
     test(
         externs(
             lines(
+                EXTERNS_BASE,
                 "/**",
                 " * @constructor",
                 // Skipping @struct here to allow for string access.
@@ -246,7 +252,7 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
   public void testSpreadVariableIntoDeepMethodParameterList() {
     test(
         externs(
-            MINIMAL_EXTERNS
+            EXTERNS_BASE
                 + lines(
                     "/** @param {...number} args */ function numberVarargFn(args) { }",
                     "",
@@ -264,6 +270,7 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
     test(
         externs(
             lines(
+                EXTERNS_BASE,
                 "/**",
                 " * @constructor",
                 // Skipping @struct here to allow for string access.
@@ -285,8 +292,8 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
         expected(
             lines(
                 "var obj = new TestClass();",
-                "(0, obj.testMethod).apply(null, $jscomp.arrayFromIterable(arr));",
-                "(0, obj[\"testMethod\"]).apply(null, $jscomp.arrayFromIterable(arr));")));
+                "obj.testMethod.apply(null, $jscomp.arrayFromIterable(arr));",
+                "obj[\"testMethod\"].apply(null, $jscomp.arrayFromIterable(arr));")));
     assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/arrayfromiterable");
   }
 
@@ -303,7 +310,7 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
   public void testSpreadMultipleVariablesIntoParameterList() {
     test(
         externs(
-            MINIMAL_EXTERNS
+            EXTERNS_BASE
                 + lines(
                     "/** @param {...number} args */ function numberVarargFn(args) { }",
                     "/** @type {!Iterable<number>} */ var numberIterable;")),
@@ -323,7 +330,7 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
   public void testSpreadVariableIntoMethodParameterListOnAnonymousRecieverWithSideEffects() {
     test(
         externs(
-            MINIMAL_EXTERNS
+            EXTERNS_BASE
                 + lines(
                     "/**",
                     " * @constructor",
@@ -351,7 +358,7 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
     test(
         externs(
             lines(
-                MINIMAL_EXTERNS,
+                EXTERNS_BASE,
                 "/**",
                 " * @constructor",
                 // Skip @struct to allow for bracket access
@@ -373,9 +380,9 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
                 "(0, testClassFactory()['testMethod'])(...stringIterable);")),
         expected(
             lines(
-                "(0, testClassFactory().testMethod).apply(",
+                "testClassFactory().testMethod.apply(",
                 "    null, $jscomp.arrayFromIterable(stringIterable));",
-                "(0, testClassFactory()[\"testMethod\"]).apply(",
+                "testClassFactory()[\"testMethod\"].apply(",
                 "    null, $jscomp.arrayFromIterable(stringIterable));")));
     assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/arrayfromiterable");
   }
@@ -384,7 +391,7 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
   public void testSpreadVariableIntoMethodParameterListOnConditionalRecieverWithSideEffects() {
     test(
         externs(
-            MINIMAL_EXTERNS
+            EXTERNS_BASE
                 + lines(
                     "/**",
                     " * @constructor",
@@ -413,7 +420,7 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
       testSpreadVariableIntoMethodParameterListOnConditionalRecieverWithSideEffectsInCast() {
     test(
         externs(
-            MINIMAL_EXTERNS
+            EXTERNS_BASE
                 + lines(
                     "/**",
                     " * @constructor",
@@ -446,7 +453,7 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
       testSpreadVariableIntoMethodParameterListOnRecieversWithSideEffectsMultipleTimesInOneScope() {
     test(
         externs(
-            MINIMAL_EXTERNS
+            EXTERNS_BASE
                 + lines(
                     "/**",
                     " * @constructor",
@@ -510,14 +517,6 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
     setLanguageOut(LanguageMode.ECMASCRIPT5);
 
     test(
-        externs(
-            lines(
-                "/**",
-                " * @param {?Object|undefined} selfObj",
-                " * @param {...*} var_args",
-                " * @return {!Function}",
-                " */",
-                "Function.prototype.bind = function(selfObj, var_args) {};")),
         srcs("new F(...args);"),
         expected(
             "new (Function.prototype.bind.apply(F,"
@@ -530,17 +529,17 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
 
   @Test
   public void testUnusedRestParameterAtPositionZero() {
-    test("function f(...zero) {}", "function f(zero) {}");
+    test("function f(...zero) {}", "function f() {}");
   }
 
   @Test
   public void testUnusedRestParameterAtPositionOne() {
-    test("function f(zero, ...one) {}", "function f(zero, one) {}");
+    test("function f(zero, ...one) {}", "function f(zero) {}");
   }
 
   @Test
   public void testUnusedRestParameterAtPositionTwo() {
-    test("function f(zero, one, ...two) {}", "function f(zero, one, two) {}");
+    test("function f(zero, one, ...two) {}", "function f(zero, one) {}");
   }
 
   @Test
@@ -548,17 +547,11 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
     test(
         "function f(...zero) { return zero; }",
         lines(
-            "function f(zero) {",
-            "  var $jscomp$restParams = [];",
-            "  for (var $jscomp$restIndex = 0; $jscomp$restIndex < arguments.length;",
-            "      ++$jscomp$restIndex) {",
-            "    $jscomp$restParams[$jscomp$restIndex - 0] = arguments[$jscomp$restIndex];",
-            "  }",
-            "  {",
-            "    let zero = $jscomp$restParams;",
-            "    return zero;",
-            "  }",
+            "function f() {",
+            "  let zero = $jscomp.getRestArguments.apply(0, arguments)",
+            "  return zero;",
             "}"));
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/restarguments");
   }
 
   @Test
@@ -566,29 +559,21 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
     test(
         "function f(zero, one, ...two) { return two; }",
         lines(
-            "function f(zero, one, two) {",
-            "  var $jscomp$restParams = [];",
-            "  for (var $jscomp$restIndex = 2; $jscomp$restIndex < arguments.length;",
-            "      ++$jscomp$restIndex) {",
-            "    $jscomp$restParams[$jscomp$restIndex - 2] = arguments[$jscomp$restIndex];",
-            "  }",
-            "  {",
-            "    let two = $jscomp$restParams;",
-            "    return two;",
-            "  }",
+            "function f(zero, one) {",
+            "  let two = $jscomp.getRestArguments.apply(2, arguments);",
+            "  return two;",
             "}"));
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/restarguments");
   }
 
   @Test
   public void testUnusedRestParameterAtPositionZeroWithTypingOnFunction() {
-    test(
-        "/** @param {...number} zero */ function f(...zero) {}",
-        "/** @param {...number} zero */ function f(zero) {}");
+    test("/** @param {...number} zero */ function f(...zero) {}", "function f() {}");
   }
 
   @Test
   public void testUnusedRestParameterAtPositionZeroWithInlineTyping() {
-    test("function f(/** ...number */ ...zero) {}", "function f(/** ...number */ zero) {}");
+    test("function f(/** ...number */ ...zero) {}", "function f() {}");
   }
 
   @Test
@@ -596,18 +581,11 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
     test(
         "/** @param {...number} two */ function f(zero, one, ...two) { return two; }",
         lines(
-            "/** @param {...number} two */",
-            "function f(zero, one, two) {",
-            "  var $jscomp$restParams = [];",
-            "  for (var $jscomp$restIndex = 2; $jscomp$restIndex < arguments.length;",
-            "      ++$jscomp$restIndex) {",
-            "    $jscomp$restParams[$jscomp$restIndex - 2] = arguments[$jscomp$restIndex];",
-            "  }",
-            "  {",
-            "    let two = $jscomp$restParams;",
-            "    return two;",
-            "  }",
+            "function f(zero, one) {",
+            " let two = $jscomp.getRestArguments.apply(2, arguments);",
+            " return two;",
             "}"));
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/restarguments");
   }
 
   @Test
@@ -615,17 +593,11 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
     test(
         "/** @param {...number} two */ var f = function(zero, one, ...two) { return two; }",
         lines(
-            "/** @param {...number} two */ var f = function(zero, one, two) {",
-            "  var $jscomp$restParams = [];",
-            "  for (var $jscomp$restIndex = 2; $jscomp$restIndex < arguments.length;",
-            "      ++$jscomp$restIndex) {",
-            "    $jscomp$restParams[$jscomp$restIndex - 2] = arguments[$jscomp$restIndex];",
-            "  }",
-            "  {",
-            "    let two = $jscomp$restParams;",
-            "    return two;",
-            "  }",
+            "var f = function(zero, one) {",
+            "  let two = $jscomp.getRestArguments.apply(2, arguments);",
+            "  return two;",
             "}"));
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/restarguments");
   }
 
   @Test
@@ -633,32 +605,10 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
     test(
         "/** @param {...number} two */ ns.f = function(zero, one, ...two) { return two; }",
         lines(
-            "/** @param {...number} two */ ns.f = function(zero, one, two) {",
-            "  var $jscomp$restParams = [];",
-            "  for (var $jscomp$restIndex = 2; $jscomp$restIndex < arguments.length;",
-            "      ++$jscomp$restIndex) {",
-            "    $jscomp$restParams[$jscomp$restIndex - 2] = arguments[$jscomp$restIndex];",
-            "  }",
-            "  {",
-            "    let two = $jscomp$restParams;",
-            "    return two;",
-            "  }",
+            "ns.f = function(zero, one) {",
+            "  let two = $jscomp.getRestArguments.apply(2, arguments);",
+            "  return two;",
             "}"));
-  }
-
-  @Test
-  public void testWarningAboutRestParameterMissingInlineVarArgTyping() {
-    // Warn on /** number */
-    testWarning(
-        "function f(/** number */ ...zero) {}",
-        Es6RewriteRestAndSpread.BAD_REST_PARAMETER_ANNOTATION);
-  }
-
-  @Test
-  public void testWarningAboutRestParameterMissingVarArgTypingOnFunction() {
-    testWarning(
-        "/** @param {number} zero */ function f(...zero) {}",
-        Es6RewriteRestAndSpread.BAD_REST_PARAMETER_ANNOTATION);
   }
 
   @Test
@@ -666,16 +616,10 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
     test(
         "function f(zero, one, ...two) {one = (one === undefined) ? 1 : one;}",
         lines(
-            "function f(zero, one, two) {",
-            "  var $jscomp$restParams = [];",
-            "  for (var $jscomp$restIndex = 2; $jscomp$restIndex < arguments.length;",
-            "      ++$jscomp$restIndex) {",
-            "    $jscomp$restParams[$jscomp$restIndex - 2] = arguments[$jscomp$restIndex];",
-            "  }",
-            "  {",
-            "    let two = $jscomp$restParams;",
-            "    one = (one === undefined) ? 1 : one;",
-            "  }",
+            "function f(zero, one) {",
+            "  let two = $jscomp.getRestArguments.apply(2, arguments);",
+            "  one = (one === undefined) ? 1 : one;",
             "}"));
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/restarguments");
   }
 }

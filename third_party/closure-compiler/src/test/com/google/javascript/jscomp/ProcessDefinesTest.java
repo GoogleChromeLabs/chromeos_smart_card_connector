@@ -95,6 +95,12 @@ public final class ProcessDefinesTest extends CompilerTestCase {
   }
 
   @Test
+  public void testDefineBadType_nullishCoalesce() {
+    test(srcs("/** @define {string} */ var DEF = 'a' ?? 'b'"));
+    testError("/** @define {string} */ var DEF = 'a' ?? null", ProcessDefines.INVALID_DEFINE_VALUE);
+  }
+
+  @Test
   public void testChecksOnlyProducesErrors() {
     mode = ProcessDefines.Mode.CHECK;
     test(
@@ -104,8 +110,8 @@ public final class ProcessDefinesTest extends CompilerTestCase {
   }
 
   @Test
-  public void testChecksOnlyProducesUnknownDefineWarning() {
-    mode = ProcessDefines.Mode.CHECK;
+  public void testUnknownDefineWarning() {
+    mode = ProcessDefines.Mode.OPTIMIZE;
     overrides.put("a.B", new Node(Token.TRUE));
     test("var a = {};", "var a = {};", warning(ProcessDefines.UNKNOWN_DEFINE_WARNING));
   }
@@ -658,7 +664,7 @@ public final class ProcessDefinesTest extends CompilerTestCase {
 
   @Test
   public void testConstProducesUnknownDefineWarning() {
-    mode = ProcessDefines.Mode.CHECK;
+    mode = ProcessDefines.Mode.OPTIMIZE;
     overrides.put("a.B", new Node(Token.TRUE));
     test("const a = {};", "const a = {};", warning(ProcessDefines.UNKNOWN_DEFINE_WARNING));
   }
@@ -826,7 +832,7 @@ public final class ProcessDefinesTest extends CompilerTestCase {
 
   @Test
   public void testClosureDefines_unknownDefineErrors() {
-    mode = ProcessDefines.Mode.CHECK;
+    mode = ProcessDefines.Mode.OPTIMIZE;
     test(srcs("var CLOSURE_DEFINES = {'FOO': 0};"), warning(ProcessDefines.UNKNOWN_DEFINE_WARNING));
   }
 

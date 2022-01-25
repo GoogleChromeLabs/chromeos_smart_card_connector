@@ -16,6 +16,7 @@
 package com.google.javascript.jscomp;
 
 import com.google.common.collect.ImmutableList;
+import com.google.javascript.jscomp.lint.CheckConstPrivateProperties;
 import com.google.javascript.jscomp.lint.CheckConstantCaseNames;
 import com.google.javascript.jscomp.lint.CheckDefaultExportOfGoogModule;
 import com.google.javascript.jscomp.lint.CheckDuplicateCase;
@@ -32,6 +33,7 @@ import com.google.javascript.jscomp.lint.CheckPrototypeProperties;
 import com.google.javascript.jscomp.lint.CheckProvidesSorted;
 import com.google.javascript.jscomp.lint.CheckRequiresSorted;
 import com.google.javascript.jscomp.lint.CheckUnusedLabels;
+import com.google.javascript.jscomp.lint.CheckUnusedPrivateProperties;
 import com.google.javascript.jscomp.lint.CheckUselessBlocks;
 import com.google.javascript.jscomp.lint.CheckVar;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
@@ -63,6 +65,11 @@ class LintPassConfig extends PassConfig.PassConfigDelegate {
     return ImmutableList.of();
   }
 
+  @Override
+  protected List<PassFactory> getFinalizations() {
+    return ImmutableList.of();
+  }
+
   private final PassFactory gatherModuleMetadataPass =
       PassFactory.builder()
           .setName(PassNames.GATHER_MODULE_METADATA)
@@ -83,12 +90,13 @@ class LintPassConfig extends PassConfig.PassConfigDelegate {
                   new CombinedCompilerPass(
                       compiler,
                       ImmutableList.of(
+                          new CheckConstPrivateProperties(compiler),
                           new CheckConstantCaseNames(compiler),
                           new CheckDefaultExportOfGoogModule(compiler),
                           new CheckDuplicateCase(compiler),
                           new CheckEmptyStatements(compiler),
                           new CheckEnums(compiler),
-                          new CheckExtraRequires(compiler),
+                          new CheckExtraRequires(compiler, options.getUnusedImportsToRemove()),
                           new CheckGoogModuleTypeScriptName(compiler),
                           new CheckJSDocStyle(compiler),
                           new CheckJSDoc(compiler),
@@ -103,6 +111,7 @@ class LintPassConfig extends PassConfig.PassConfigDelegate {
                               compiler, /* report */ true, /* protectSideEffectFreeCode */ false),
                           new CheckTypeImportCodeReferences(compiler),
                           new CheckUnusedLabels(compiler),
+                          new CheckUnusedPrivateProperties(compiler),
                           new CheckUselessBlocks(compiler),
                           new CheckVar(compiler))))
           .setFeatureSet(FeatureSet.latest())

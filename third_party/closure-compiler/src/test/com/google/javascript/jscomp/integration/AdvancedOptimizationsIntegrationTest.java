@@ -56,6 +56,199 @@ import org.junit.runners.JUnit4;
 public final class AdvancedOptimizationsIntegrationTest extends IntegrationTestCase {
 
   @Test
+  public void testBug123583793() {
+    // Avoid including the transpilation library
+    useNoninjectingCompiler = true;
+    CompilerOptions options = createCompilerOptions();
+    CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
+    CompilationLevel.ADVANCED_OPTIMIZATIONS.setTypeBasedOptimizationOptions(options);
+    options.setLanguageIn(LanguageMode.ECMASCRIPT_NEXT);
+    options.setLanguageOut(LanguageMode.ECMASCRIPT5);
+    options.setRewritePolyfills(true);
+    options.setPrettyPrint(true);
+
+    externs =
+        ImmutableList.of(
+            new TestExternsBuilder().addObject().addConsole().buildExternsFile("externs.js"));
+    test(
+        options,
+        lines(
+            "function foo() {",
+            "  const {a, ...rest} = {a: 1, b: 2, c: 3};",
+            "  return {a, rest};",
+            "};",
+            "console.log(foo());",
+            ""),
+        lines(
+            "var a = console,",
+            "    b = a.log,",
+            "    c = {a:1, b:2, c:3},",
+            "    d = Object.assign({}, c),",
+            "    e = c.a,",
+            "    f = (delete d.a, d);",
+            "b.call(a, {a:e, d:f});",
+            ""));
+    assertThat(((NoninjectingCompiler) lastCompiler).getInjected()).contains("es6/object/assign");
+  }
+
+  @Test
+  public void testBug173319540() {
+    // Avoid including the transpilation library
+    useNoninjectingCompiler = true;
+    CompilerOptions options = createCompilerOptions();
+    CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
+    CompilationLevel.ADVANCED_OPTIMIZATIONS.setTypeBasedOptimizationOptions(options);
+    options.setLanguageIn(LanguageMode.ECMASCRIPT_NEXT);
+    options.setLanguageOut(LanguageMode.ECMASCRIPT_2017);
+    options.setPrettyPrint(true);
+    options.setGeneratePseudoNames(true);
+
+    externs =
+        ImmutableList.of(
+            new TestExternsBuilder()
+                .addAsyncIterable()
+                .addConsole()
+                .addExtra(
+                    // fake async iterator to use in the test code
+                    "/** @type {!AsyncIterator<Array<String>>} */",
+                    "var asyncIterator;",
+                    "",
+                    // Externs to take the place of the injected library code
+                    "const $jscomp = {};",
+                    "",
+                    "/**",
+                    " * @param {",
+                    " *     string|!AsyncIterable<T>|!Iterable<T>|!Iterator<T>|!Arguments",
+                    " *   } iterable",
+                    " * @return {!AsyncIteratorIterable<T>}",
+                    " * @template T",
+                    " * @suppress {reportUnknownTypes}",
+                    " */",
+                    "$jscomp.makeAsyncIterator = function(iterable) {};",
+                    "")
+                .buildExternsFile("externs.js"));
+    test(
+        options,
+        lines(
+            "", //
+            "async function foo() {",
+            "  for await (const [key, value] of asyncIterator) {",
+            "    console.log(key,value);",
+            "  }",
+            "}",
+            "foo();"),
+        lines(
+            "", //
+            "(async function() {",
+            "  for (const $$jscomp$forAwait$tempIterator0$$ =",
+            "           $jscomp.makeAsyncIterator(asyncIterator);;) {",
+            "    const $$jscomp$forAwait$tempResult0$$ =",
+            "        await $$jscomp$forAwait$tempIterator0$$.next();",
+            "    if ($$jscomp$forAwait$tempResult0$$.done) {",
+            "      break;",
+            "    }",
+            "    const [$key$$, $value$jscomp$2$$] = $$jscomp$forAwait$tempResult0$$.value;",
+            "    console.log($key$$, $value$jscomp$2$$);",
+            "  }",
+            "})();",
+            ""));
+  }
+
+  @Test
+  public void testBug196083761() {
+    CompilerOptions options = createCompilerOptions();
+    CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
+    CompilationLevel.ADVANCED_OPTIMIZATIONS.setTypeBasedOptimizationOptions(options);
+    options.setLanguage(LanguageMode.ECMASCRIPT_2020);
+    options.setPrettyPrint(true);
+    options.setGeneratePseudoNames(true);
+
+    externs =
+        ImmutableList.of(
+            new TestExternsBuilder()
+                .addConsole()
+                .addClosureExterns()
+                .buildExternsFile("externs.js"));
+    test(
+        options,
+        new String[] {
+          lines(
+              "goog.module('base');", //
+              "class Base {", //
+              "  constructor({paramProblemFunc = problemFunc} = {}) {",
+              "    /** @public */",
+              "    this.prop = paramProblemFunc();",
+              "  }",
+              "}",
+              "",
+              "const problemFunc = () => 1;",
+              "Base.problemFunc = problemFunc;",
+              "",
+              "exports = {Base};",
+              ""),
+          lines(
+              "goog.module('child');", //
+              "",
+              "const {Base} = goog.require('base');",
+              "",
+              "class Child extends Base {",
+              "  constructor({paramProblemFunc = Base.problemFunc} = {}) {",
+              "    super({paramProblemFunc});",
+              "  }",
+              "}",
+              "",
+              "exports = {Child};",
+              ""),
+          lines(
+              "goog.module('grandchild');",
+              "",
+              "const {Child} = goog.require('child');",
+              "",
+              "class GrandChild extends Child {",
+              "  constructor() {",
+              "    super({paramProblemFunc: () => GrandChild.problemFunc() + 1});",
+              "  }",
+              "}",
+              "",
+              "console.log(new GrandChild().prop);",
+              ""),
+        },
+        new String[] {
+          "",
+          "",
+          lines(
+              "const $module$contents$base_problemFunc$$ = () => 1;",
+              "var $module$exports$base$Base$$ = class {",
+              "  constructor(",
+              "      {",
+              "        $paramProblemFunc$:$paramProblemFunc$$ =",
+              "            $module$contents$base_problemFunc$$",
+              "      } = {}) {",
+              "    this.$a$ = $paramProblemFunc$$();",
+              "  }",
+              "}, $module$exports$child$Child$$ = class extends $module$exports$base$Base$$ {",
+              "  constructor(",
+              "      {",
+              "        $paramProblemFunc$:$paramProblemFunc$jscomp$1$$ =",
+              "            $module$contents$base_problemFunc$$",
+              "      } = {}) {",
+              "    super({$paramProblemFunc$:$paramProblemFunc$jscomp$1$$});",
+              "  }",
+              "};",
+              "class $module$contents$grandchild_GrandChild$$",
+              "    extends $module$exports$child$Child$$ {",
+              "  constructor() {",
+              // TODO(b/196083761): Fix this!
+              // NOTE the call to `null()` here!
+              "    super({$paramProblemFunc$:() => null() + 1});",
+              "  }",
+              "}",
+              "console.log((new $module$contents$grandchild_GrandChild$$).$a$);",
+              "")
+        });
+  }
+
+  @Test
   public void testDisambiguationOfForwardReferencedAliasedInterface() {
     CompilerOptions options = createCompilerOptions();
     CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
@@ -464,7 +657,7 @@ public final class AdvancedOptimizationsIntegrationTest extends IntegrationTestC
     test(
         options,
         new String[] {
-          new TestExternsBuilder().addClosureExterns().build(),
+          TestExternsBuilder.getClosureExternsAsSource(),
           lines(
               "goog.module('a.b.c');",
               "exports = class Foo {",
@@ -792,7 +985,7 @@ public final class AdvancedOptimizationsIntegrationTest extends IntegrationTestC
                 .buildExternsFile("externs.js")); // add Closure base.js as srcs
     String source =
         lines(
-            new TestExternsBuilder().addClosureExterns().build(),
+            TestExternsBuilder.getClosureExternsAsSource(),
             "/** @constructor */",
             "var Foo = function() {};",
             "goog.addSingletonGetter = function(o) {",
@@ -987,7 +1180,7 @@ public final class AdvancedOptimizationsIntegrationTest extends IntegrationTestC
     externs = ImmutableList.of();
     test(
         options,
-        new TestExternsBuilder().addClosureExterns().build()
+        TestExternsBuilder.getClosureExternsAsSource()
             + "goog.addSingletonGetter = function(ctor) {\n"
             + "  ctor.getInstance = function() {\n"
             + "    return ctor.instance_ || (ctor.instance_ = new ctor());\n"
@@ -1347,7 +1540,7 @@ public final class AdvancedOptimizationsIntegrationTest extends IntegrationTestC
     test(
         options,
         lines(
-            new TestExternsBuilder().addClosureExterns().build(),
+            TestExternsBuilder.getClosureExternsAsSource(),
             "/** @constructor */",
             "var Foo = function() {}",
             "/**",
@@ -1401,8 +1594,13 @@ public final class AdvancedOptimizationsIntegrationTest extends IntegrationTestC
 
     // include externs definitions for the stuff that would have been injected
     ImmutableList.Builder<SourceFile> externsList = ImmutableList.builder();
-    externsList.addAll(externs);
-    externsList.add(SourceFile.fromCode("extraExterns", "var $jscomp = {};"));
+    externsList.add(
+        SourceFile.fromCode(
+            "extraExterns",
+            new TestExternsBuilder()
+                .addExtra("/** @type {!Global} */ var globalThis;")
+                .addJSCompLibraries()
+                .build()));
     externs = externsList.build();
 
     test(
@@ -1475,6 +1673,25 @@ public final class AdvancedOptimizationsIntegrationTest extends IntegrationTestC
     CompilerOptions options = createCompilerOptions();
     options.setLanguageOut(LanguageMode.ECMASCRIPT5);
     CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
+
+    useNoninjectingCompiler = true;
+    externs =
+        ImmutableList.of(
+            new TestExternsBuilder()
+                .addAlert()
+                .addFunction()
+                .addExtra(
+                    // Externs to take the place of the injected library code
+                    "const $jscomp = {};",
+                    "",
+                    "/**",
+                    " * @this {number}",
+                    " * @noinline",
+                    " */",
+                    "$jscomp.getRestArguments = function() {};",
+                    "")
+                .buildExternsFile("externs.js"));
+
     test(
         options,
         lines(
@@ -1483,8 +1700,10 @@ public final class AdvancedOptimizationsIntegrationTest extends IntegrationTestC
             "  return f(8);",
             "}",
             "alert(foo());"),
-        "alert(function(c){for(var b=[],a=0;a<arguments.length;++a)"
-            + "b[a-0]=arguments[a];return b[0]}(8))");
+        lines(
+            "alert(function() {",
+            "  return $jscomp.getRestArguments.apply(0, arguments)[0];",
+            "}(8))"));
   }
 
   @Test
@@ -1540,7 +1759,25 @@ public final class AdvancedOptimizationsIntegrationTest extends IntegrationTestC
     CompilerOptions options = createCompilerOptions();
     CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
     options.setLanguageOut(LanguageMode.ECMASCRIPT5);
-    externs = DEFAULT_EXTERNS;
+
+    useNoninjectingCompiler = true;
+    externs =
+        ImmutableList.of(
+            new TestExternsBuilder()
+                .addAlert()
+                .addArray()
+                .addFunction()
+                .addExtra(
+                    // Externs to take the place of the injected library code
+                    "const $jscomp = {};",
+                    "",
+                    "/**",
+                    " * @this {number}",
+                    " * @noinline",
+                    " */",
+                    "$jscomp.getRestArguments = function() {};",
+                    "")
+                .buildExternsFile("externs.js"));
 
     test(
         options,
@@ -1550,10 +1787,8 @@ public final class AdvancedOptimizationsIntegrationTest extends IntegrationTestC
             "}",
             "alert(countArgs(1, 1, 1, 1, 1));"),
         lines(
-            "alert(function (c,d) {",
-            "  for(var b=[], a=1; a < arguments.length; ++a)",
-            "    b[a-1] = arguments[a];",
-            "    return b.length ",
+            "alert(function (a) {",
+            "  return $jscomp.getRestArguments.apply(1, arguments).length;",
             "}(1,1,1,1,1))"));
   }
 
@@ -1642,7 +1877,6 @@ public final class AdvancedOptimizationsIntegrationTest extends IntegrationTestC
   }
 
   /** Creates a CompilerOptions object with google coding conventions. */
-  @Override
   public CompilerOptions createCompilerOptions() {
     CompilerOptions options = new CompilerOptions();
     options.setLanguageOut(LanguageMode.ECMASCRIPT3);
@@ -1673,6 +1907,7 @@ public final class AdvancedOptimizationsIntegrationTest extends IntegrationTestC
 
   @Test
   public void testRestDoesntBlockPropertyDisambiguation() {
+    useNoninjectingCompiler = true;
     CompilerOptions options = createCompilerOptions();
     CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
 
@@ -2210,5 +2445,49 @@ public final class AdvancedOptimizationsIntegrationTest extends IntegrationTestC
         lines(
             // Compiler calls SpeakerImpl.prototype.speak even though it's called off SpeakerChild.
             "alert('Speaker'); alert('other');"));
+  }
+
+  @Test
+  public void testNameReferencedInExternsDefinedInCodeNotRenamedButIsInlined() {
+    // NOTE(lharker): I added this test as a regression test for existing compiler behavior. I'm
+    // not sure it makes sense conceptually to have 'foobar' be unrenamable but still optimized away
+    // below.
+    CompilerOptions options = createCompilerOptions();
+
+    externs =
+        ImmutableList.of(
+            new TestExternsBuilder()
+                .addAlert()
+                .addExtra("/** @fileoverview @suppress {externsValidation} */ foobar")
+                .buildExternsFile("externs.js"));
+
+    // with just variable renaming on, the code is unchanged becasue of the 'foobar' externs ref.
+    options.setVariableRenaming(VariableRenamingPolicy.ALL);
+    test(options, "var foobar = {x: 1}; alert(foobar.x);", "var foobar = {x:1}; alert(foobar.x);");
+
+    // with inlining + other advanced optimizations, foobar is still deleted
+    CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
+    test(options, "var foobar = {x: 1}; alert(foobar.x);", "alert(1);");
+  }
+
+  @Test
+  public void testUndefinedNameReferencedInCodeAndExterns() {
+    // NOTE(lharker): I added this test as a regression test for existing compiler behavior.
+    CompilerOptions options = createCompilerOptions();
+
+    externs =
+        ImmutableList.of(
+            new TestExternsBuilder()
+                .addAlert()
+                .addExtra("/** @fileoverview @suppress {externsValidation} */ foobar")
+                .buildExternsFile("externs.js"));
+
+    // with just variable renaming on, the code is unchanged becasue of the 'foobar' externs ref.
+    options.setVariableRenaming(VariableRenamingPolicy.ALL);
+    test(options, "foobar = {x: 1}; alert(foobar.x);", "foobar = {x:1}; alert(foobar.x);");
+
+    // with inlining + other advanced optimizations, foobar.x is renamed
+    CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
+    test(options, "foobar = {x: 1}; alert(foobar.x);", "foobar = {a: 1}; alert(foobar.a);");
   }
 }

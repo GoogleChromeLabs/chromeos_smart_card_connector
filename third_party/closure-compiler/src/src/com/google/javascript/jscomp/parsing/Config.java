@@ -53,6 +53,7 @@ public abstract class Config {
     ECMASCRIPT_2018(FeatureSet.ES2018_MODULES),
     ECMASCRIPT_2019(FeatureSet.ES2019_MODULES),
     ECMASCRIPT_2020(FeatureSet.ES2020_MODULES),
+    ECMASCRIPT_2021(FeatureSet.ES2021_MODULES),
     ES_NEXT(FeatureSet.ES_NEXT),
     ES_NEXT_IN(FeatureSet.ES_NEXT_IN),
     UNSUPPORTED(FeatureSet.ES_UNSUPPORTED);
@@ -194,6 +195,6 @@ public abstract class Config {
         annotationsBuilder.put(unrecognizedAnnotation, Annotation.NOT_IMPLEMENTED);
       }
     }
-    return annotationsBuilder.build();
+    return annotationsBuilder.buildOrThrow();
   }
 }

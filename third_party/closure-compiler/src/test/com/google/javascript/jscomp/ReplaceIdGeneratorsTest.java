@@ -49,17 +49,18 @@ public final class ReplaceIdGeneratorsTest extends CompilerTestCase {
       }
     };
     RenamingMap gen = new UniqueRenamingToken();
-    lastPass = new ReplaceIdGenerators(
-        compiler,
-        new ImmutableMap.Builder<String, RenamingMap>()
-            .put("goog.events.getUniqueId", gen)
-            .put("goog.place.getUniqueId", gen)
-            .put("id", idTestMap)
-            .put("get.id", idTestMap)
-            .build(),
-        generatePseudoNames,
-        previousMappings,
-        null /* xidHashFunction */);
+    lastPass =
+        new ReplaceIdGenerators(
+            compiler,
+            new ImmutableMap.Builder<String, RenamingMap>()
+                .put("goog.events.getUniqueId", gen)
+                .put("goog.place.getUniqueId", gen)
+                .put("id", idTestMap)
+                .put("get.id", idTestMap)
+                .buildOrThrow(),
+            generatePseudoNames,
+            previousMappings,
+            null /* xidHashFunction */);
     return lastPass;
   }
 
@@ -214,6 +215,31 @@ public final class ReplaceIdGeneratorsTest extends CompilerTestCase {
             "/** @idGenerator */ goog.events.getUniqueId = function() {};",
             "foo1 = 'foo1$0';",
             "foo1 = 'foo1$1';"));
+  }
+
+  @Test
+  public void testIndirectCall() {
+    testWithPseudo(
+        lines(
+            "/** @idGenerator */ foo.getUniqueId = function() {};", //
+            "foo.bar = (0, foo.getUniqueId)('foo_bar')"),
+        lines(
+            "/** @idGenerator */ foo.getUniqueId = function() {};", //
+            "foo.bar = 'a'"),
+        lines(
+            "/** @idGenerator */ foo.getUniqueId = function() {};", //
+            "foo.bar = 'foo_bar$0'"));
+    // JSCompiler inserts JSCOMPILER_PRESERVE(...) in the "UselessCode" analysis.
+    testWithPseudo(
+        lines(
+            "/** @idGenerator */ foo.getUniqueId = function() {};", //
+            "foo.bar = (JSCOMPILER_PRESERVE(0), foo.getUniqueId)('foo_bar')"),
+        lines(
+            "/** @idGenerator */ foo.getUniqueId = function() {};", //
+            "foo.bar = 'a'"),
+        lines(
+            "/** @idGenerator */ foo.getUniqueId = function() {};", //
+            "foo.bar = 'foo_bar$0'"));
   }
 
   @Test
@@ -605,7 +631,7 @@ public final class ReplaceIdGeneratorsTest extends CompilerTestCase {
 
   @Test
   public void testConflictingIdGenerator() {
-    setExpectParseWarningsThisTest();
+    setExpectParseWarningsInThisTest();
     testSame("/** @idGenerator \n @idGenerator {consistent} \n*/ var id = function() {}; ");
 
     testSame("/** @idGenerator {stable} \n @idGenerator \n*/ var id = function() {}; ");

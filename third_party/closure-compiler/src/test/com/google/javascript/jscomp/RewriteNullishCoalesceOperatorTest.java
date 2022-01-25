@@ -15,7 +15,6 @@
  */
 package com.google.javascript.jscomp;
 
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -29,12 +28,10 @@ public final class RewriteNullishCoalesceOperatorTest extends CompilerTestCase {
   @Before
   public void setUp() throws Exception {
     super.setUp();
-
-    setAcceptedLanguage(LanguageMode.UNSUPPORTED);
-    setLanguageOut(LanguageMode.ECMASCRIPT_2019);
-
-    enableTypeInfoValidation();
     enableTypeCheck();
+    enableTypeInfoValidation();
+    replaceTypesWithColors();
+    enableMultistageCompilation();
   }
 
   @Override
@@ -58,6 +55,15 @@ public final class RewriteNullishCoalesceOperatorTest extends CompilerTestCase {
         expected(
             "let $jscomp$nullish$tmp0; ($jscomp$nullish$tmp0 = x + y) != null ?"
                 + " $jscomp$nullish$tmp0 : (a && b)"));
+  }
+
+  @Test
+  public void insideArrowFunctionBody() {
+    test(
+        srcs("() => (x + y) ?? (a && b)"),
+        expected(
+            "() => { let $jscomp$nullish$tmp0; return ($jscomp$nullish$tmp0 = x + y) != null ?"
+                + " $jscomp$nullish$tmp0 : (a && b) }"));
   }
 
   @Test

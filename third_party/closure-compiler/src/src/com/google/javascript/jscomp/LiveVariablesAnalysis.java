@@ -19,10 +19,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.javascript.jscomp.ControlFlowGraph.Branch;
+import com.google.javascript.jscomp.NodeUtil.AllVarsDeclaredInFunction;
 import com.google.javascript.jscomp.graph.DiGraph.DiGraphEdge;
 import com.google.javascript.jscomp.graph.LatticeElement;
 import com.google.javascript.rhino.Node;
-import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -49,13 +49,16 @@ class LiveVariablesAnalysis
 
   static final int MAX_VARIABLES_TO_ANALYZE = 100;
 
-  private static class LiveVariableJoinOp implements JoinOp<LiveVariableLattice> {
+  private final class LiveVariableJoinOp implements FlowJoiner<LiveVariableLattice> {
+    final LiveVariableLattice result = new LiveVariableLattice(orderedVars.size());
+
     @Override
-    public LiveVariableLattice apply(List<LiveVariableLattice> in) {
-      LiveVariableLattice result = new LiveVariableLattice(in.get(0));
-      for (int i = 1; i < in.size(); i++) {
-        result.liveSet.or(in.get(i).liveSet);
-      }
+    public void joinFlow(LiveVariableLattice x) {
+      this.result.liveSet.or(x.liveSet);
+    }
+
+    @Override
+    public LiveVariableLattice finish() {
       return result;
     }
   }
@@ -97,6 +100,12 @@ class LiveVariablesAnalysis
       return liveSet.toString();
     }
 
+    // Returns the index of the first bit that is set to true that occurs
+    // on or after the specified starting index.
+    public int nextSetBit(int fromIndex) {
+      return liveSet.nextSetBit(fromIndex);
+    }
+
     @Override
     public int hashCode() {
       return liveSet.hashCode();
@@ -134,25 +143,24 @@ class LiveVariablesAnalysis
    * @param jsScopeChild null or function block scope
    * @param compiler
    * @param scopeCreator Es6 Scope creator
+   * @param allVarsDeclaredInFunction mapping of names to vars of everything reachable in a function
    */
   LiveVariablesAnalysis(
       ControlFlowGraph<Node> cfg,
       Scope jsScope,
       @Nullable Scope jsScopeChild,
       AbstractCompiler compiler,
-      SyntacticScopeCreator scopeCreator) {
-    super(cfg, new LiveVariableJoinOp());
+      ScopeCreator scopeCreator,
+      AllVarsDeclaredInFunction allVarsDeclaredInFunction) {
+    super(cfg);
     checkState(jsScope.isFunctionScope(), jsScope);
 
     this.jsScope = jsScope;
     this.jsScopeChild = jsScopeChild;
     this.escaped = new HashSet<>();
     this.scopeVariables = new HashMap<>();
-    this.allVarsInFn = new HashMap<>();
-    this.orderedVars = new ArrayList<>();
-
-    NodeUtil.getAllVarsDeclaredInFunction(
-        allVarsInFn, orderedVars, compiler, scopeCreator, jsScope);
+    this.orderedVars = allVarsDeclaredInFunction.getAllVariablesInOrder();
+    this.allVarsInFn = allVarsDeclaredInFunction.getAllVariables();
 
     computeEscaped(jsScope, escaped, compiler, scopeCreator, allVarsInFn);
 
@@ -201,6 +209,11 @@ class LiveVariablesAnalysis
   @Override
   LiveVariableLattice createInitialEstimateLattice() {
     return new LiveVariableLattice(orderedVars.size());
+  }
+
+  @Override
+  FlowJoiner<LiveVariableLattice> createFlowJoiner() {
+    return new LiveVariableJoinOp();
   }
 
   @Override

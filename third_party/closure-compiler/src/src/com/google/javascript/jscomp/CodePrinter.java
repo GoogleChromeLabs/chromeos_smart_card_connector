@@ -407,6 +407,12 @@ public final class CodePrinter {
     }
 
     @Override
+    void optionalListSeparator() {
+      add(",");
+      maybeLineBreak();
+    }
+
+    @Override
     void endFunction(boolean statementContext) {
       super.endFunction(statementContext);
       if (statementContext) {
@@ -439,15 +445,44 @@ public final class CodePrinter {
     }
 
     /**
-     * If the body of a for loop or the then clause of an if statement has
-     * a single statement, should it be wrapped in a block?
-     * {@inheritDoc}
+     * If the body of a for loop or the then clause of an if statement has a single statement,
+     * should it be wrapped in a block? And similar. {@inheritDoc}
      */
     @Override
-    boolean shouldPreserveExtraBlocks() {
-      // When pretty-printing, always place the statement in its own block
-      // so it is printed on a separate line.  This allows breakpoints to be
-      // placed on the statement.
+    boolean shouldPreserveExtras(Node n) {
+      // When pretty-printing, always place the statement in its own block so it is printed on a
+      // separate line. This allows breakpoints to be placed on the statement.
+      //
+      // The only exception is an added block around an else-if statement. Example code:
+      //   if (0) {
+      //     0;
+      //   } else if (1) {
+      //     1;
+      //   }
+      // Resulting node tree:
+      //   IF
+      //     NUMBER
+      //     BLOCK
+      //       EXPR_RESULT
+      //         NUMBER
+      //     BLOCK [added_block: 1] <-- we don't want to print this block
+      //       IF
+      //         NUMBER
+      //         BLOCK
+      //           EXPR_RESULT
+      //             NUMBER
+
+      if (!n.isBlock() || !n.isAddedBlock() || !n.hasParent()) {
+        return true;
+      }
+
+      Node parent = n.getParent();
+      boolean isElse = parent.isIf() && parent.hasXChildren(3) && n == parent.getLastChild();
+      boolean onlyChildIsIf = n.hasOneChild() && n.getFirstChild().isIf();
+      if (isElse && onlyChildIsIf) {
+        return false;
+      }
+
       return true;
     }
 

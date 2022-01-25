@@ -19,7 +19,6 @@ package com.google.javascript.jscomp;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
-import com.google.javascript.jscomp.NodeTraversal.Callback;
 import com.google.javascript.rhino.Node;
 import java.util.HashSet;
 import java.util.Set;
@@ -77,10 +76,10 @@ abstract class MethodCompilerPass implements CompilerPass {
   }
 
   /**
-   * Subclasses should return a callback that does the actual work they
-   * want to perform given the computed list of method signatures
+   * Subclasses should return a callback that does the actual work they want to perform given the
+   * computed list of method signatures
    */
-  abstract Callback getActingCallback();
+  abstract NodeTraversal.Callback getActingCallback();
 
   /**
    * Subclasses should return a SignatureStore for storing discovered
@@ -93,7 +92,7 @@ abstract class MethodCompilerPass implements CompilerPass {
    * itself or the name of a function).
    */
   private void addPossibleSignature(String name, Node node, NodeTraversal t) {
-    if (node.isFunction()) {
+    if (node != null && node.isFunction()) {
       // The node we're looking at is a function, so we can add it directly
       addSignature(name, node, t.getSourceName());
     } else {
@@ -202,6 +201,7 @@ abstract class MethodCompilerPass implements CompilerPass {
           for (Node key = n.getFirstChild(); key != null; key = key.getNext()) {
             switch (key.getToken()) {
               case MEMBER_FUNCTION_DEF:
+              case MEMBER_FIELD_DEF:
               case STRING_KEY:
                 addPossibleSignature(key.getString(), key.getFirstChild(), t);
                 break;
@@ -211,6 +211,7 @@ abstract class MethodCompilerPass implements CompilerPass {
                 break;
               case COMPUTED_PROP: // complicated
               case OBJECT_SPREAD:
+              case COMPUTED_FIELD_DEF:
                 break;
               default:
                 throw new IllegalStateException("Unexpected " + n.getToken() + " key: " + key);

@@ -23,7 +23,6 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.javascript.jscomp.AbstractCompiler.LifeCycleStage;
 import com.google.javascript.jscomp.NodeTraversal.ScopedCallback;
 import com.google.javascript.rhino.Node;
 import java.util.ArrayList;
@@ -110,7 +109,7 @@ class OptimizeCalls implements CompilerPass {
   @Override
   public void process(Node externs, Node root) {
     // Only global names are collected, which is insufficient if names have not been normalized.
-    checkState(compiler.getLifeCycleStage() == LifeCycleStage.NORMALIZED);
+    checkState(compiler.getLifeCycleStage().isNormalized());
 
     if (passes.isEmpty()) {
       return;
@@ -243,8 +242,15 @@ class OptimizeCalls implements CompilerPass {
           break;
 
         case CLASS_MEMBERS:
-          checkArgument(definitionSite.isMemberFunctionDef(), definitionSite);
-          fns.add(definitionSite.getLastChild());
+          if (definitionSite.isMemberFunctionDef()) {
+            fns.add(definitionSite.getLastChild());
+          } else {
+            checkArgument(definitionSite.isMemberFieldDef(), definitionSite);
+            Node value = definitionSite.getFirstChild();
+            if (value != null) {
+              addValueFunctionNodes(fns, value);
+            }
+          }
           break;
 
         case OBJECTLIT:
@@ -457,6 +463,7 @@ class OptimizeCalls implements CompilerPass {
         case GETTER_DEF:
         case SETTER_DEF:
         case MEMBER_FUNCTION_DEF:
+        case MEMBER_FIELD_DEF:
           // ignore quoted keys.
           if (!n.isQuotedString()) {
             maybeAddPropReference(n.getString(), n);
@@ -468,6 +475,7 @@ class OptimizeCalls implements CompilerPass {
           break;
 
         case COMPUTED_PROP:
+        case COMPUTED_FIELD_DEF:
         case OPTCHAIN_GETELEM:
         case GETELEM:
           // Ignore quoted keys.

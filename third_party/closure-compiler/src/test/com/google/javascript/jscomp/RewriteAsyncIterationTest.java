@@ -15,15 +15,17 @@
  */
 package com.google.javascript.jscomp;
 
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.javascript.rhino.testing.TypeSubject.assertType;
+import static com.google.javascript.jscomp.testing.CodeSubTree.findFirstNode;
+import static com.google.javascript.jscomp.testing.CodeSubTree.findFunctionDefinition;
+import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 
-import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
-import com.google.javascript.jscomp.NodeUtil.Visitor;
+import com.google.javascript.jscomp.colors.Color;
+import com.google.javascript.jscomp.colors.ColorId;
+import com.google.javascript.jscomp.colors.StandardColors;
+import com.google.javascript.jscomp.testing.CodeSubTree;
 import com.google.javascript.jscomp.testing.TestExternsBuilder;
 import com.google.javascript.rhino.Node;
-import java.util.function.Predicate;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,79 +42,17 @@ public class RewriteAsyncIterationTest extends CompilerTestCase {
             .addMath()
             .addArguments()
             .addObject()
+            .addJSCompLibraries()
             .build());
-  }
-
-  // TODO(johnplaisted): This is copy and pasted from RewriteAsyncFunctionsTest. We should have
-  // a more formal AST matcher.
-  /** Represents a subtree of the output from a compilation. */
-  private static class CodeSubTree {
-    private final Node rootNode;
-
-    private CodeSubTree(Node rootNode) {
-      this.rootNode = rootNode;
-    }
-
-    /** Finds every instance of a given qualified name. */
-    private ImmutableList<Node> findMatchingQNameReferences(final String wantedQName) {
-      return findNodesAllowEmpty(rootNode, (node) -> node.matchesQualifiedName(wantedQName));
-    }
-  }
-
-  /** Returns the first function method definition found with the given name. */
-  private CodeSubTree findFunctionDefinition(String wantedMethodName) {
-    Node functionDefinitionNode =
-        findFirstNode(
-            getLastCompiler().getJsRoot(),
-            (node) ->
-                node.isFunction()
-                    && node.getFirstChild().isName()
-                    && wantedMethodName.equals(node.getFirstChild().getString()));
-
-    return new CodeSubTree(functionDefinitionNode);
-  }
-
-  /** Return a list of all Nodes matching the given predicate starting at the given root. */
-  private static ImmutableList<Node> findNodesAllowEmpty(Node rootNode, Predicate<Node> predicate) {
-    ImmutableList.Builder<Node> listBuilder = ImmutableList.builder();
-    NodeUtil.visitPreOrder(
-        rootNode,
-        new Visitor() {
-          @Override
-          public void visit(Node node) {
-            if (predicate.test(node)) {
-              listBuilder.add(node);
-            }
-          }
-        });
-    return listBuilder.build();
-  }
-
-  /** Return a list of all Nodes matching the given predicate starting at the given root. */
-  private static ImmutableList<Node> findNodesNonEmpty(Node rootNode, Predicate<Node> predicate) {
-    ImmutableList<Node> results = findNodesAllowEmpty(rootNode, predicate);
-    checkState(!results.isEmpty(), "no nodes found");
-    return results;
-  }
-
-  /**
-   * Return the shallowest and earliest of all Nodes matching the given predicate starting at the
-   * given root.
-   *
-   * <p>Throws an exception if none found.
-   */
-  private static Node findFirstNode(Node rootNode, Predicate<Node> predicate) {
-    ImmutableList<Node> allMatchingNodes = findNodesNonEmpty(rootNode, predicate);
-    return allMatchingNodes.get(0);
   }
 
   @Before
   public void enableTypeCheckBeforePass() {
     enableTypeCheck();
     enableTypeInfoValidation();
-    disableCompareSyntheticCode();
     allowExternsChanges();
-    ensureLibraryInjected("es6/async_generator_wrapper");
+    replaceTypesWithColors();
+    enableMultistageCompilation();
   }
 
   @Override
@@ -124,9 +64,86 @@ public class RewriteAsyncIterationTest extends CompilerTestCase {
 
   @Override
   protected CompilerPass getProcessor(Compiler compiler) {
-    return new RewriteAsyncIteration.Builder(compiler)
-        .rewriteSuperPropertyReferencesWithoutSuper(true)
-        .build();
+    return RewriteAsyncIteration.create(compiler);
+  }
+
+  private final Color getGlobalColor(ColorId colorId) {
+    return getLastCompiler().getColorRegistry().get(colorId);
+  }
+
+  private Color getJSCompAsyncGeneratorWrapperClassColor() {
+    return findFirstNode(
+            getLastCompiler().getExternsRoot(),
+            (n) -> n.matchesQualifiedName("$jscomp.AsyncGeneratorWrapper"))
+        .getNext()
+        .getColor();
+  }
+
+  private Color getJSCompAsyncGeneratorWrapperInstanceColor() {
+    return Color.createUnion(getJSCompAsyncGeneratorWrapperClassColor().getInstanceColors());
+  }
+
+  @Test
+  public void testBug173319540() {
+    test(
+        srcs(
+            lines(
+                "", //
+                "let key, value;",
+                "window.onload = async function() {",
+                "  for await ([key,value] of window[\"unknownAsyncIterable\"]) {",
+                "    alert(key,value);",
+                "  }",
+                "}",
+                "")),
+        expected(
+            lines(
+                "", //
+                "let key, value;",
+                "window.onload = async function() {",
+                "  for (const $jscomp$forAwait$tempIterator0 =",
+                "      $jscomp.makeAsyncIterator(window[\"unknownAsyncIterable\"]);;) {",
+                "        const $jscomp$forAwait$tempResult0 =",
+                "            await $jscomp$forAwait$tempIterator0.next();",
+                "    if ($jscomp$forAwait$tempResult0.done) {",
+                "      break;",
+                "    }",
+                "    [key, value] = $jscomp$forAwait$tempResult0.value;",
+                "    {",
+                "      alert(key, value);",
+                "    }",
+                "  }",
+                "};",
+                "")));
+
+    test(
+        srcs(
+            lines(
+                "", //
+                "window.onload = async function() {",
+                "  for await (const [key,value] of window[\"unknownAsyncIterable\"]) {",
+                "    alert(key,value);",
+                "  }",
+                "}",
+                "")),
+        expected(
+            lines(
+                "", //
+                "window.onload = async function() {",
+                "  for (const $jscomp$forAwait$tempIterator0 =",
+                "      $jscomp.makeAsyncIterator(window[\"unknownAsyncIterable\"]);;) {",
+                "        const $jscomp$forAwait$tempResult0 =",
+                "            await $jscomp$forAwait$tempIterator0.next();",
+                "    if ($jscomp$forAwait$tempResult0.done) {",
+                "      break;",
+                "    }",
+                "    const [key, value] = $jscomp$forAwait$tempResult0.value;",
+                "    {",
+                "      alert(key, value);",
+                "    }",
+                "  }",
+                "};",
+                "")));
   }
 
   @Test
@@ -140,17 +157,16 @@ public class RewriteAsyncIterationTest extends CompilerTestCase {
             "  })());",
             "}"));
 
-    CodeSubTree bazSubTree = findFunctionDefinition("baz");
-    Node baz = bazSubTree.rootNode;
+    CodeSubTree bazSubTree = findFunctionDefinition(getLastCompiler(), "baz");
     Node wrapper = bazSubTree.findMatchingQNameReferences("$jscomp.AsyncGeneratorWrapper").get(0);
     Node newExpr = wrapper.getParent();
     Node innerGeneratorCall = newExpr.getSecondChild();
 
-    assertType(baz.getJSType()).toStringIsEqualTo("function(): AsyncGenerator<?,?,?>");
-    assertType(wrapper.getJSType()).toStringIsEqualTo("(typeof $jscomp.AsyncGeneratorWrapper)");
-    assertType(newExpr.getJSType()).toStringIsEqualTo("$jscomp.AsyncGeneratorWrapper");
-    assertType(innerGeneratorCall.getJSType())
-        .toStringIsEqualTo("Generator<($jscomp.AsyncGeneratorWrapper$ActionRecord<?>|null),?,?>");
+    assertNode(wrapper).hasColorThat().isEqualTo(getJSCompAsyncGeneratorWrapperClassColor());
+    assertNode(newExpr).hasColorThat().isEqualTo(getJSCompAsyncGeneratorWrapperInstanceColor());
+    assertNode(innerGeneratorCall)
+        .hasColorThat()
+        .isEqualTo(getGlobalColor(StandardColors.GENERATOR_ID));
   }
 
   @Test
@@ -161,8 +177,7 @@ public class RewriteAsyncIterationTest extends CompilerTestCase {
             "/** @return {!AsyncGenerator<undefined>} */",
             "async function* baz() { await foo() }"),
         lines(
-            "let /** function(): !Promise<number> */ foo;",
-            "/** @return {!AsyncGenerator<undefined>} */",
+            "let foo;",
             "function baz() {",
             "  return new $jscomp.AsyncGeneratorWrapper((function*() {",
             "    yield new $jscomp.AsyncGeneratorWrapper$ActionRecord(",
@@ -170,25 +185,23 @@ public class RewriteAsyncIterationTest extends CompilerTestCase {
             "  })());",
             "}"));
 
-    CodeSubTree bazSubTree = findFunctionDefinition("baz");
-    Node baz = bazSubTree.rootNode;
+    CodeSubTree bazSubTree = findFunctionDefinition(getLastCompiler(), "baz");
     Node wrapper = bazSubTree.findMatchingQNameReferences("$jscomp.AsyncGeneratorWrapper").get(0);
     Node newExpr = wrapper.getParent();
     Node innerGeneratorCall = newExpr.getSecondChild();
 
-    assertType(baz.getJSType()).toStringIsEqualTo("function(): AsyncGenerator<undefined,?,?>");
-    assertType(wrapper.getJSType()).toStringIsEqualTo("(typeof $jscomp.AsyncGeneratorWrapper)");
-    assertType(newExpr.getJSType()).toStringIsEqualTo("$jscomp.AsyncGeneratorWrapper");
-    assertType(innerGeneratorCall.getJSType())
-        .toStringIsEqualTo(
-            "Generator" + "<($jscomp.AsyncGeneratorWrapper$ActionRecord<undefined>|null),?,?>");
+    assertNode(wrapper).hasColorThat().isEqualTo(getJSCompAsyncGeneratorWrapperClassColor());
+    assertNode(newExpr).hasColorThat().isEqualTo(getJSCompAsyncGeneratorWrapperInstanceColor());
+    assertNode(innerGeneratorCall)
+        .hasColorThat()
+        .isEqualTo(getGlobalColor(StandardColors.GENERATOR_ID));
 
     test(
         lines(
             "let /** function(): !Promise<number> */ foo;",
             "async function* baz() { bar = await foo() }"),
         lines(
-            "let /** function(): !Promise<number> */ foo;",
+            "let foo;",
             "function baz() {",
             "  return new $jscomp.AsyncGeneratorWrapper((function*() {",
             "    bar = yield new $jscomp.AsyncGeneratorWrapper$ActionRecord(",
@@ -196,9 +209,10 @@ public class RewriteAsyncIterationTest extends CompilerTestCase {
             "  })());",
             "}"));
 
-    Node bar = findFunctionDefinition("baz").findMatchingQNameReferences("bar").get(0);
+    Node bar =
+        findFunctionDefinition(getLastCompiler(), "baz").findMatchingQNameReferences("bar").get(0);
 
-    assertType(bar.getJSType()).toStringIsEqualTo("number");
+    assertNode(bar).hasColorThat().isEqualTo(StandardColors.NUMBER);
   }
 
   @Test
@@ -208,7 +222,6 @@ public class RewriteAsyncIterationTest extends CompilerTestCase {
             "/** @return {!AsyncGenerator<number>} */", //
             "async function* baz() { yield 2+2 }"),
         lines(
-            "/** @return {!AsyncGenerator<number>} */",
             "function baz() {",
             "  return new $jscomp.AsyncGeneratorWrapper((function*() {",
             "    yield new $jscomp.AsyncGeneratorWrapper$ActionRecord(",
@@ -216,36 +229,34 @@ public class RewriteAsyncIterationTest extends CompilerTestCase {
             "  })());",
             "}"));
 
-    CodeSubTree bazSubTree = findFunctionDefinition("baz");
-    Node baz = bazSubTree.rootNode;
+    CodeSubTree bazSubTree = findFunctionDefinition(getLastCompiler(), "baz");
     Node wrapper = bazSubTree.findMatchingQNameReferences("$jscomp.AsyncGeneratorWrapper").get(0);
     Node newExpr = wrapper.getParent();
     Node innerGeneratorCall = newExpr.getSecondChild();
 
-    assertType(baz.getJSType()).toStringIsEqualTo("function(): AsyncGenerator<number,?,?>");
-    assertType(wrapper.getJSType()).toStringIsEqualTo("(typeof $jscomp.AsyncGeneratorWrapper)");
-    assertType(newExpr.getJSType()).toStringIsEqualTo("$jscomp.AsyncGeneratorWrapper");
-    assertType(innerGeneratorCall.getJSType())
-        .toStringIsEqualTo(
-            "Generator" + "<($jscomp.AsyncGeneratorWrapper$ActionRecord<number>|null),?,?>");
+    assertNode(wrapper).hasColorThat().isEqualTo(getJSCompAsyncGeneratorWrapperClassColor());
+    assertNode(newExpr).hasColorThat().isEqualTo(getJSCompAsyncGeneratorWrapperInstanceColor());
+    assertNode(innerGeneratorCall)
+        .hasColorThat()
+        .isEqualTo(getGlobalColor(StandardColors.GENERATOR_ID));
 
     test(
         lines(
             "/** @return {!AsyncGenerator<number>} */", //
             "async function* baz() { bar = yield 2+2 }"),
         lines(
-            "/** @return {!AsyncGenerator<number>} */", //
-            "function baz() {",
+            "function baz() {", //
             "  return new $jscomp.AsyncGeneratorWrapper((function*() {",
             "    bar = yield new $jscomp.AsyncGeneratorWrapper$ActionRecord(",
             "      $jscomp.AsyncGeneratorWrapper$ActionEnum.YIELD_VALUE, 2+2);",
             "  })());",
             "}"));
 
-    Node bar = findFunctionDefinition("baz").findMatchingQNameReferences("bar").get(0);
+    Node bar =
+        findFunctionDefinition(getLastCompiler(), "baz").findMatchingQNameReferences("bar").get(0);
 
     // The generator yields numbers but yield expressions should always be "?" as next accepts "?"
-    assertType(bar.getJSType()).toStringIsEqualTo("?");
+    assertNode(bar).hasColorThat().isEqualTo(StandardColors.UNKNOWN);
   }
 
   @Test
@@ -393,11 +404,44 @@ public class RewriteAsyncIterationTest extends CompilerTestCase {
             "class X extends A {",
             "  m() {",
             "    const $jscomp$asyncIter$super$get$m =",
-            "        () => Object.getPrototypeOf(Object.getPrototypeOf(this)).m;",
+            "        () => super.m;",
             "    return new $jscomp.AsyncGeneratorWrapper(",
             "        function* () {",
             "          const tmp = $jscomp$asyncIter$super$get$m();",
             "          return tmp.call(null);",
+            "        }());",
+            "  }",
+            "}"));
+  }
+
+  @Test
+  public void testInnerSuperCallInAsyncGenerator() {
+    test(
+        lines(
+            "class A {",
+            "  m() {",
+            "    return this;",
+            "  }",
+            "}",
+            "class X extends A {",
+            "  async *m() {",
+            "    return super.m();",
+            "  }",
+            "}"),
+        lines(
+            "class A {",
+            "  m() {",
+            "    return this;",
+            "  }",
+            "}",
+            "class X extends A {",
+            "  m() {",
+            "    const $jscomp$asyncIter$this = this;",
+            "    const $jscomp$asyncIter$super$get$m =",
+            "        () => super.m;",
+            "    return new $jscomp.AsyncGeneratorWrapper(",
+            "        function* () {",
+            "          return $jscomp$asyncIter$super$get$m().call($jscomp$asyncIter$this);",
             "        }());",
             "  }",
             "}"));
@@ -456,10 +500,13 @@ public class RewriteAsyncIterationTest extends CompilerTestCase {
   public void testForAwaitOfDeclarations() {
     test(
         lines(
+            "/** @type {number|undefined} */",
+            "let a;",
             "async function abc() { for await (a of foo()) { bar(); } }",
             "/** @return {!AsyncGenerator<number>} */",
             "function foo() {}"),
         lines(
+            "let a;",
             "async function abc() {",
             "  for (const $jscomp$forAwait$tempIterator0 = $jscomp.makeAsyncIterator(foo());;) {",
             "    const $jscomp$forAwait$tempResult0 = await $jscomp$forAwait$tempIterator0.next();",
@@ -472,12 +519,11 @@ public class RewriteAsyncIterationTest extends CompilerTestCase {
             "    }",
             "  }",
             "}",
-            "/** @return {!AsyncGenerator<number>} */",
             "function foo() {}"));
 
     Node forNode =
-        findFunctionDefinition("abc")
-            .rootNode
+        findFunctionDefinition(getLastCompiler(), "abc")
+            .getRootNode()
             .getLastChild() // block
             .getFirstChild(); // for
     Node tempIterator0 = forNode.getFirstFirstChild();
@@ -496,14 +542,17 @@ public class RewriteAsyncIterationTest extends CompilerTestCase {
             .getFirstChild() // assign
             .getLastChild(); // getprop
 
-    assertType(tempIterator0.getJSType()).toStringIsEqualTo("AsyncIteratorIterable<number>");
-    assertType(makeAsyncIteratorCall.getJSType())
-        .toStringIsEqualTo("AsyncIteratorIterable<number>");
-    assertType(tempResult0.getJSType()).toStringIsEqualTo("IIterableResult<number>");
-    assertType(await.getJSType()).toStringIsEqualTo("IIterableResult<number>");
-    assertType(nextCall.getJSType()).toStringIsEqualTo("Promise<IIterableResult<number>>");
-    assertType(done.getJSType()).toStringIsEqualTo("boolean");
-    assertType(value.getJSType()).toStringIsEqualTo("number");
+    assertNode(tempIterator0)
+        .hasColorThat()
+        .isEqualTo(getGlobalColor(StandardColors.ASYNC_ITERATOR_ITERABLE_ID));
+    assertNode(makeAsyncIteratorCall)
+        .hasColorThat()
+        .isEqualTo(getGlobalColor(StandardColors.ASYNC_ITERATOR_ITERABLE_ID));
+    assertNode(tempResult0).hasColorThat().isEqualTo(StandardColors.TOP_OBJECT); // IIterableResult
+    assertNode(await).hasColorThat().isEqualTo(StandardColors.TOP_OBJECT); // IIterableResult
+    assertNode(nextCall).hasColorThat().isEqualTo(getGlobalColor(StandardColors.PROMISE_ID));
+    assertNode(done).hasColorThat().isEqualTo(StandardColors.BOOLEAN);
+    assertNode(value).hasColorThat().isEqualTo(StandardColors.NUMBER);
 
     test(
         lines("async function abc() { for await (var a of foo()) { bar(); } }"),

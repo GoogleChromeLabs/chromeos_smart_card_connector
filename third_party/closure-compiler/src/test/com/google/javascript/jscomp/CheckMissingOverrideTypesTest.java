@@ -17,10 +17,9 @@
 package com.google.javascript.jscomp;
 
 import static com.google.javascript.jscomp.CheckMissingOverrideTypes.OVERRIDE_WITHOUT_ALL_TYPES;
+import static com.google.javascript.jscomp.TypeCheck.INEXISTENT_PROPERTY;
+import static com.google.javascript.jscomp.TypeValidator.TYPE_MISMATCH_WARNING;
 
-import com.google.javascript.jscomp.deps.ModuleLoader.ResolutionMode;
-import com.google.javascript.jscomp.modules.ModuleMapCreator;
-import com.google.javascript.rhino.Node;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
@@ -35,26 +34,20 @@ public final class CheckMissingOverrideTypesTest {
   @RunWith(JUnit4.class)
   public static final class CheckGeneratedTypes extends CompilerTestCase {
 
-    private static final ResolutionMode MODULE_RESOLUTION_MODE = ResolutionMode.BROWSER;
-
     @Override
     @Before
     public void setUp() throws Exception {
       super.setUp();
+      enableTypeCheck();
+      enableParseTypeInfo();
       enableTypeInfoValidation();
       enableFixMissingOverrideTypes();
+      enableCreateModuleMap();
     }
 
     @Override
     protected CompilerPass getProcessor(Compiler compiler) {
-      return (Node externs, Node root) -> {
-        new GatherModuleMetadata(compiler, false, MODULE_RESOLUTION_MODE).process(externs, root);
-        new ModuleMapCreator(compiler, compiler.getModuleMetadataMap()).process(externs, root);
-        TypedScopeCreator scopeCreator = new TypedScopeCreator(compiler);
-        new TypeInferencePass(compiler, compiler.getReverseAbstractInterpreter(), scopeCreator)
-            .inferAllScopes(root.getParent());
-        new CheckMissingOverrideTypes(compiler).process(externs, root);
-      };
+      return new CheckMissingOverrideTypes(compiler);
     }
 
     // Test missing `*` param type in JSDoc
@@ -625,6 +618,97 @@ public final class CheckMissingOverrideTypesTest {
     }
 
     @Test
+    public void testClassTypeParam_acrossModuleImportChain_nullableUnionType() {
+      test(
+          srcs(
+              lines("goog.module('a');", "class objT {}", "exports.objT = objT;"),
+              lines(
+                  "goog.module('b');",
+                  "const {objT} = goog.require('a');",
+                  "class Foo {",
+                  "  /** @param {?objT} arg */",
+                  "  method(arg) {}",
+                  "}",
+                  "exports.Foo = Foo;"),
+              lines(
+                  "goog.module('c');",
+                  "const {Foo} = goog.require('b')",
+                  "class Bar extends Foo {",
+                  "  /** @override */",
+                  "  method(arg) {",
+                  "  }",
+                  "}")),
+          error(OVERRIDE_WITHOUT_ALL_TYPES)
+              .withMessageContaining(
+                  lines(
+                      "/**",
+                      " * @param {?a.objT} arg", // reports fully qualified type `a.objT`
+                      " * @override",
+                      " */")));
+    }
+
+    @Test
+    public void testClassTypeParam_acrossModuleImportChain_nonNullableUnionType() {
+      test(
+          srcs(
+              lines(
+                  "goog.module('a');", "class A {}", "class B {}", "exports.A = A; exports.B = B;"),
+              lines(
+                  "goog.module('b');",
+                  "const {A, B} = goog.require('a');",
+                  "class Foo {",
+                  "  /** @param {(!A|!B)} arg */",
+                  "  method(arg) {}",
+                  "}",
+                  "exports.Foo = Foo;"),
+              lines(
+                  "goog.module('c');",
+                  "const {Foo} = goog.require('b')",
+                  "class Bar extends Foo {",
+                  "  /** @override */",
+                  "  method(arg) {",
+                  "  }",
+                  "}")),
+          error(OVERRIDE_WITHOUT_ALL_TYPES)
+              .withMessageContaining(
+                  lines(
+                      "/**",
+                      " * @param {(!a.A|!a.B)} arg", // reports fully qualified type `a.A` and `a.B`
+                      " * @override",
+                      " */")));
+    }
+
+    @Test
+    public void testInterfaceTypeParam_acrossModuleImportChain() {
+      test(
+          srcs(
+              lines("goog.module('a');", "/** @interface */ let intf;", "exports.intf = intf;"),
+              lines(
+                  "goog.module('b');",
+                  "const {intf} = goog.require('a');",
+                  "class Foo {",
+                  "  /** @param {!intf} arg */",
+                  "  method(arg) {}",
+                  "}",
+                  "exports.Foo = Foo;"),
+              lines(
+                  "goog.module('c');",
+                  "const {Foo} = goog.require('b')",
+                  "class Bar extends Foo {",
+                  "  /** @override */",
+                  "  method(arg) {",
+                  "  }",
+                  "}")),
+          error(OVERRIDE_WITHOUT_ALL_TYPES)
+              .withMessageContaining(
+                  lines(
+                      "/**",
+                      " * @param {!a.intf} arg", // reports fully qualified type `a.intf`
+                      " * @override",
+                      " */")));
+    }
+
+    @Test
     public void testEnumTypeParam_acrossModuleImportChain() {
       test(
           srcs(
@@ -773,7 +857,7 @@ public final class CheckMissingOverrideTypesTest {
     }
 
     @Test
-    public void testOverridenProperty_regular() {
+    public void testOverridenInstanceProperty_skipped() {
       test(
           srcs(
               lines(
@@ -789,13 +873,11 @@ public final class CheckMissingOverrideTypesTest {
                   "      /** @override */", // inferred as string type
                   "      this.x = '';",
                   "  }",
-                  "}")),
-          error(OVERRIDE_WITHOUT_ALL_TYPES)
-              .withMessageContaining(lines("/** @override @type {string} */")));
+                  "}")));
     }
 
     @Test
-    public void testOverridenProperty_inferredAsEmptyObjectLiteralType() {
+    public void testOverridenInstanceProperty_inferredAsEmptyObjectLiteralType_skipped() {
       test(
           srcs(
               lines(
@@ -803,22 +885,22 @@ public final class CheckMissingOverrideTypesTest {
                   "class Foo {",
                   "   constructor() {",
                   "    /** @type {!enumT} */",
-                  "    this.x = {};",
+                  "    this.x = {};", // type mismatch warning
                   "  }",
                   "}",
                   "class Bar extends Foo {",
                   "   constructor() {",
                   "      super();",
-                  "      /** @override */", // `this.x` gets inferred as the `{}` type
-                  "      this.x = {};",
+                  "      /** @override */", // instance property skipped fixing
+                  "      this.x = {};", // type mismatch warning
                   "  }",
                   "}")),
-          error(OVERRIDE_WITHOUT_ALL_TYPES)
-              .withMessageContaining(lines("/** @override @type {!Object} */")));
+          warning(TYPE_MISMATCH_WARNING),
+          warning(TYPE_MISMATCH_WARNING));
     }
 
     @Test
-    public void testOverridenProperty_objectLiteralTypeWithOwnProperty() {
+    public void testOverridenInstanceProperty_objectLiteralTypeWithOwnProperty_skipped() {
       test(
           srcs(
               lines(
@@ -826,22 +908,47 @@ public final class CheckMissingOverrideTypesTest {
                   "class Foo {",
                   "   constructor() {",
                   "    /** @type {!enumT} */",
-                  "    this.x = {};",
+                  "    this.x = {};", // type mismatch
                   "  }",
                   "}",
                   "class Bar extends Foo {",
                   "   constructor() {",
                   "      super();",
-                  "      /** @override */", // `this.x` gets inferred as the `{b:number}` type
-                  "      this.x = {b:3};",
+                  "      /** @override */", // instance property skipped fixing
+                  "      this.x = {b:3};", // type mismatch
                   "  }",
                   "}")),
-          error(OVERRIDE_WITHOUT_ALL_TYPES)
-              .withMessageContaining(lines("/** @override @type {{b:number}} */")));
+          warning(TYPE_MISMATCH_WARNING),
+          warning(TYPE_MISMATCH_WARNING));
     }
 
     @Test
-    public void testOverridenProperty_inferredAsEmptyObjectLiteralType2() {
+    public void testOverridenInstanceProperty_reassigned_skipped() {
+      test(
+          srcs(
+              lines(
+                  "/** @interface */",
+                  "let Foo = function() {}",
+                  "/** @type {null| function(?):?} */",
+                  "Foo.prototype.x;",
+                  "",
+                  "/** ",
+                  " * @constructor",
+                  " * @param {function(?): ?} someX",
+                  " * @implements Foo",
+                  " */",
+                  "let Bar = function(someX) {",
+                  "  /** @override */", // instance property skipped fixing
+                  "  this.x = someX",
+                  "}",
+                  "",
+                  "Bar.prototype.clear = function() {",
+                  "    this.x = null;",
+                  "}")));
+    }
+
+    @Test
+    public void testOverridenProperty_inferredAsEmptyObjectLiteralType2_skipped() {
       test(
           srcs(
               lines(
@@ -855,15 +962,17 @@ public final class CheckMissingOverrideTypesTest {
                   "   constructor() {",
                   "      super();",
                   "      /** @override */",
-                  "      this.x = {};", // `this.x` gets inferred as the `{}` object literal type
+                  "      this.x = {};", // warning
                   "  }",
                   "}")),
-          error(OVERRIDE_WITHOUT_ALL_TYPES)
-              .withMessageContaining(lines("/** @override @type {!Object} */")));
+          warning(TYPE_MISMATCH_WARNING));
     }
 
+    // Note: typedef does not propagate through override (even when instance properties will get
+    // handled).
     @Test
-    public void testOverridenProperty_typedef() {
+    public void testOverridenInstanceProperty_typedef_skipped() {
+      ignoreWarnings(INEXISTENT_PROPERTY); // this.x not defined on Foo and Bar
       test(
           srcs(
               lines(
@@ -879,37 +988,28 @@ public final class CheckMissingOverrideTypesTest {
                   "      /** @override */",
                   "      this.x;",
                   "  }",
-                  "}")),
-          error(OVERRIDE_WITHOUT_ALL_TYPES)
-              .withMessageContaining(
-                  lines("/** @override @type {?} */"))); // typedef does not propagate through
-      // override
+                  "}")));
     }
   }
 
   /** Tests the syntax of the generated replacement JSDoc comment. */
   @RunWith(JUnit4.class)
   public static final class CheckGeneratedSyntax extends CompilerTestCase {
-    private static final ResolutionMode MODULE_RESOLUTION_MODE = ResolutionMode.BROWSER;
 
     @Override
     @Before
     public void setUp() throws Exception {
       super.setUp();
+      enableTypeCheck();
+      enableParseTypeInfo();
       enableTypeInfoValidation();
       enableFixMissingOverrideTypes();
+      enableCreateModuleMap();
     }
 
     @Override
     protected CompilerPass getProcessor(Compiler compiler) {
-      return (Node externs, Node root) -> {
-        new GatherModuleMetadata(compiler, false, MODULE_RESOLUTION_MODE).process(externs, root);
-        new ModuleMapCreator(compiler, compiler.getModuleMetadataMap()).process(externs, root);
-        TypedScopeCreator scopeCreator = new TypedScopeCreator(compiler);
-        new TypeInferencePass(compiler, compiler.getReverseAbstractInterpreter(), scopeCreator)
-            .inferAllScopes(root.getParent());
-        new CheckMissingOverrideTypes(compiler).process(externs, root);
-      };
+      return new CheckMissingOverrideTypes(compiler);
     }
 
     @Test

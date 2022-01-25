@@ -39,6 +39,7 @@ import com.google.javascript.jscomp.GenerateExports;
 import com.google.javascript.jscomp.GoogleCodingConvention;
 import com.google.javascript.jscomp.JSChunk;
 import com.google.javascript.jscomp.ModuleIdentifier;
+import com.google.javascript.jscomp.PropertyRenamingPolicy;
 import com.google.javascript.jscomp.SourceFile;
 import com.google.javascript.jscomp.VariableRenamingPolicy;
 import com.google.javascript.jscomp.WarningLevel;
@@ -276,7 +277,7 @@ public final class ClosureIntegrationTest extends IntegrationTestCase {
       "",
       lines(
           CLOSURE_BOILERPLATE_UNCOMPILED,
-          "var foo = {};",
+          "goog.provide('foo.bar');",
           "/** @define {foo.bar} */ foo.bar = {};"),
     };
     test(options, input, output, warnings);
@@ -519,6 +520,7 @@ public final class ClosureIntegrationTest extends IntegrationTestCase {
   public void testTypedefBeforeOwner1() {
     CompilerOptions options = createCompilerOptions();
     options.setClosurePass(true);
+
     test(
         options,
         lines(
@@ -528,25 +530,50 @@ public final class ClosureIntegrationTest extends IntegrationTestCase {
             "foo.Bar = function() {};"),
         lines(
             "var foo = {};", //
+            "foo.Bar.Type = {};",
             "foo.Bar.Type;",
             "foo.Bar = function() {};"));
   }
 
   @Test
-  public void testTypedefBeforeOwner2() {
+  public void testTypedefChildProvide_noTypechecking_brokenCode() {
     CompilerOptions options = createCompilerOptions();
     options.setClosurePass(true);
-    options.setCollapsePropertiesLevel(PropertyCollapseLevel.ALL);
     test(
         options,
         lines(
-            "goog.provide('foo.Bar.Type');",
             "goog.provide('foo.Bar');",
-            "/** @typedef {number} */ foo.Bar.Type;",
-            "foo.Bar = function() {};"),
+            "goog.provide('foo.Bar.Type');",
+            "",
+            "foo.Bar = function() {};",
+            "/** @typedef {number} */ foo.Bar.Type;"),
         lines(
-            "var foo$Bar$Type;", //
-            "var foo$Bar = function() {};"));
+            "/** @const */ var foo = {};",
+            // This output will cause a NPE at runtime. This test is meant to demonstrate that
+            // edge case. Note that when typechecking is enabled, the compiler will emit an error
+            // rather than produce broken output, which should cover most use cases.
+            "foo.Bar.Type = {};",
+            "foo.Bar = function() {};",
+            "foo.Bar.Type;"));
+  }
+
+  @Test
+  public void testTypedefChildProvide_withTypechecking() {
+    CompilerOptions options = createCompilerOptions();
+    options.setClosurePass(true);
+    options.setCheckTypes(true);
+
+    compile(
+        options,
+        lines(
+            "goog.provide('foo.Bar');",
+            "goog.provide('foo.Bar.Type');",
+            "",
+            "foo.Bar = function() {};",
+            "/** @typedef {number} */ foo.Bar.Type;"));
+
+    assertThat(lastCompiler.getErrors()).hasSize(1);
+    assertThat(lastCompiler.getErrors().get(0).getDescription()).contains("provide foo.Bar.Type");
   }
 
   @Test
@@ -632,7 +659,6 @@ public final class ClosureIntegrationTest extends IntegrationTestCase {
     options.setDefineToBooleanLiteral("ns.FLAG_XYZ", false);
     test(options, code, CLOSURE_COLLAPSED + "var ns$FLAG = false;");
   }
-
 
   @Test
   public void testI18nMessageValidation_throughModuleExport() {
@@ -926,10 +952,7 @@ public final class ClosureIntegrationTest extends IntegrationTestCase {
     CompilerOptions options = createCompilerOptions();
     options.setDependencyOptions(DependencyOptions.sortOnly());
     options.setClosurePass(true);
-    test(
-        options,
-        "goog.provide('x'); goog.require('x');",
-        "var x = {};");
+    test(options, "goog.provide('x'); goog.require('x');", "var x = {};");
   }
 
   @Test
@@ -939,8 +962,7 @@ public final class ClosureIntegrationTest extends IntegrationTestCase {
     test(
         options,
         new String[] {
-          "goog.require('x');",
-          "goog.provide('x');",
+          "goog.require('x');", "goog.provide('x');",
         },
         new String[] {
           "goog.provide('x');",
@@ -960,24 +982,26 @@ public final class ClosureIntegrationTest extends IntegrationTestCase {
     WarningLevel warnings = WarningLevel.DEFAULT;
     warnings.setOptionsForWarningLevel(options);
 
-    String code = "" +
-        "var CLOSURE_DEFINES = {\n" +
-        "  'FOO': 1,\n" +
-        "  'BAR': true\n" +
-        "};\n" +
-        "\n" +
-        "/** @define {number} */ var FOO = 0;\n" +
-        "/** @define {boolean} */ var BAR = false;\n" +
-        "";
+    String code =
+        lines(
+            "var CLOSURE_DEFINES = {", //
+            "  'FOO': 1,",
+            "  'BAR': true",
+            "};",
+            "",
+            "/** @define {number} */ var FOO = 0;",
+            "/** @define {boolean} */ var BAR = false;",
+            "");
 
-    String result = "" +
-        "var CLOSURE_DEFINES = {\n" +
-        "  FOO: 1,\n" +
-        "  BAR: !0\n" +
-        "}," +
-        "FOO = 1," +
-        "BAR = !0" +
-        "";
+    String result =
+        lines(
+            "var CLOSURE_DEFINES = {", //
+            "  FOO: 1,",
+            "  BAR: !0",
+            "},",
+            "FOO = 1,",
+            "BAR = !0",
+            "");
 
     test(options, code, result);
   }
@@ -1005,6 +1029,7 @@ public final class ClosureIntegrationTest extends IntegrationTestCase {
     CompilerOptions options = createCompilerOptions();
     options.setClosurePass(true);
     options.setCheckTypes(true);
+    options.setChecksOnly(true);
 
     test(
         options,
@@ -1017,7 +1042,11 @@ public final class ClosureIntegrationTest extends IntegrationTestCase {
               "foo.baz = function() { return foo.bar[0]; }"),
         },
         new String[] {
-          "/** @return {number} */ foo.baz = function() { return foo.bar[0]; }",
+          lines(
+              "goog.provide('foo.baz');",
+              "",
+              "/** @return {number} */",
+              "foo.baz = function() { return foo.bar[0]; }"),
         });
   }
 
@@ -1026,6 +1055,7 @@ public final class ClosureIntegrationTest extends IntegrationTestCase {
     CompilerOptions options = createCompilerOptions();
     options.setClosurePass(true);
     options.setCheckTypes(true);
+    options.setChecksOnly(true);
 
     test(
         options,
@@ -1071,7 +1101,6 @@ public final class ClosureIntegrationTest extends IntegrationTestCase {
   }
 
   /** Creates a CompilerOptions object with google coding conventions. */
-  @Override
   public CompilerOptions createCompilerOptions() {
     CompilerOptions options = new CompilerOptions();
     options.setLanguageOut(LanguageMode.ECMASCRIPT3);
@@ -1257,6 +1286,52 @@ public final class ClosureIntegrationTest extends IntegrationTestCase {
   }
 
   @Test
+  public void testGoogReflectObjectPropertyCall_returnsRenamedProperty() {
+    CompilerOptions options = createCompilerOptions();
+    options.setClosurePass(true);
+    options.setPropertyRenaming(PropertyRenamingPolicy.ALL_UNQUOTED);
+    options.setGeneratePseudoNames(true);
+
+    test(
+        options,
+        new String[] {
+          lines(
+              "goog.provide('goog.reflect');",
+              "goog.reflect.objectProperty = function(prop, obj) { return prop; };"),
+          "alert(goog.reflect.objectProperty('prop', {prop: 0}));"
+        },
+        new String[] {lines("goog.$reflect$ = {};"), "alert('$prop$');"});
+  }
+
+  @Test
+  public void
+      testGoogReflectObjectPropertyCall_inModule_withoutPropertyCollapsing_returnsRenamedProperty() {
+    CompilerOptions options = createCompilerOptions();
+    options.setClosurePass(true);
+    options.setPropertyRenaming(PropertyRenamingPolicy.ALL_UNQUOTED);
+    options.setGeneratePseudoNames(true);
+    options.setCollapsePropertiesLevel(PropertyCollapseLevel.NONE);
+    // forces the SourceInformationAnnotator to run
+    // TODO(b/193048186): remove this once SourceInformationAnnotator always runs
+    options.setReplaceStringsFunctionDescriptions(ImmutableList.of("\"Error(?)\""));
+
+    test(
+        options,
+        new String[] {
+          lines(
+              "goog.provide('goog.reflect');",
+              "goog.reflect.objectProperty = function(prop, obj) { return prop; };"),
+          lines(
+              "goog.module('m');",
+              "const reflect = goog.require('goog.reflect');",
+              "alert(reflect.objectProperty('prop', {prop: 0}));")
+        },
+        new String[] {
+          "goog.$reflect$ = {};", lines("var module$exports$m = {};", "alert('$prop$');")
+        });
+  }
+
+  @Test
   public void testGoogForwardDeclareInExterns_doesNotBlockVariableRenaming() {
     CompilerOptions options = createCompilerOptions();
     options.setClosurePass(true);
@@ -1384,5 +1459,32 @@ public final class ClosureIntegrationTest extends IntegrationTestCase {
         options,
         "/** @export */ function Foo() { alert('hi'); }",
         DiagnosticGroup.forType(GenerateExports.MISSING_GOOG_FOR_EXPORT));
+  }
+
+  @Test
+  public void testTypecheckClass_assignedInNestedAssignInGoogModule() {
+    CompilerOptions options = createCompilerOptions();
+    options.setCheckTypes(true);
+    options.setClosurePass(true);
+    options.setChecksOnly(true);
+    options.setBadRewriteModulesBeforeTypecheckingThatWeWantToGetRidOf(true);
+
+    compile(
+        options,
+        lines(
+            "goog.module('main');",
+            "",
+            "var TestEl_1;",
+            "let TestEl = TestEl_1 = class TestEl {",
+            "  constructor() {",
+            "      this.someVal = false;",
+            "  }",
+            "}",
+            // pattern that may be generated from TypeScript decorators
+            "TestEl = TestEl_1 = (0, decorate)(TestEl);",
+            "exports.TestEl = TestEl;",
+            "/** @type {!TestEl} */ const t = new TestEl();"));
+
+    checkUnexpectedErrorsOrWarnings(lastCompiler, 0);
   }
 }

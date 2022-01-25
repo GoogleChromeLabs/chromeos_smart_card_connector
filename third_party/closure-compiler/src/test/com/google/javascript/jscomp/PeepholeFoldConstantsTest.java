@@ -2040,6 +2040,19 @@ public final class PeepholeFoldConstantsTest extends CompilerTestCase {
         "function foo() {return `${false}`}");
   }
 
+  @Test
+  public void testClassField() {
+    test(
+        lines(
+            "class Foo {", //
+            "  x = null <= null;",
+            "}"),
+        lines(
+            "class Foo {", //
+            "  x = true;",
+            "}"));
+  }
+
   private static final ImmutableList<String> LITERAL_OPERANDS =
       ImmutableList.of(
           "null",
@@ -2068,16 +2081,17 @@ public final class PeepholeFoldConstantsTest extends CompilerTestCase {
 
   @Test
   public void testInvertibleOperators() {
-    Map<String, String> inverses = ImmutableMap.<String, String>builder()
-        .put("==", "!=")
-        .put("===", "!==")
-        .put("<=", ">")
-        .put("<", ">=")
-        .put(">=", "<")
-        .put(">", "<=")
-        .put("!=", "==")
-        .put("!==", "===")
-        .build();
+    Map<String, String> inverses =
+        ImmutableMap.<String, String>builder()
+            .put("==", "!=")
+            .put("===", "!==")
+            .put("<=", ">")
+            .put("<", ">=")
+            .put(">=", "<")
+            .put(">", "<=")
+            .put("!=", "==")
+            .put("!==", "===")
+            .buildOrThrow();
     Set<String> comparators = ImmutableSet.of("<=", "<", ">=", ">");
     Set<String> equalitors = ImmutableSet.of("==", "===");
     Set<String> uncomparables = ImmutableSet.of("undefined", "void 0");

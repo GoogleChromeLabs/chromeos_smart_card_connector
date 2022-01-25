@@ -46,13 +46,6 @@ public class Scanner {
   public Scanner(
       ErrorReporter errorReporter,
       CommentRecorder commentRecorder,
-      SourceFile source) {
-    this(errorReporter, commentRecorder, source, 0);
-  }
-
-  public Scanner(
-      ErrorReporter errorReporter,
-      CommentRecorder commentRecorder,
       SourceFile file,
       int offset) {
     this.errorReporter = errorReporter;
@@ -460,6 +453,10 @@ public class Scanner {
       case '?':
         if (peek('?')) { // see ??
           nextChar();
+          if (peek('=')) {
+            nextChar();
+            return createToken(TokenType.QUESTION_QUESTION_EQUAL, beginToken);
+          }
           return createToken(TokenType.QUESTION_QUESTION, beginToken);
         }
         if (peek('.')) { // see ?.
@@ -598,6 +595,10 @@ public class Scanner {
         switch (peekChar()) {
           case '&':
             nextChar();
+            if (peek('=')) {
+              nextChar();
+              return createToken(TokenType.AND_EQUAL, beginToken);
+            }
             return createToken(TokenType.AND, beginToken);
           case '=':
             nextChar();
@@ -609,6 +610,10 @@ public class Scanner {
         switch (peekChar()) {
           case '|':
             nextChar();
+            if (peek('=')) {
+              nextChar();
+              return createToken(TokenType.OR_EQUAL, beginToken);
+            }
             return createToken(TokenType.OR, beginToken);
           case '=':
             nextChar();
@@ -905,6 +910,8 @@ public class Scanner {
   private TemplateLiteralToken nextTemplateLiteralTokenShared(
       TokenType endType, TokenType middleType) {
     int beginIndex = index;
+    // Save the starting position to use with the multi-line safe version of getTokenRange().
+    SourcePosition startingPosition = getPosition(beginIndex);
     SkipTemplateCharactersResult skipTemplateCharactersResult = skipTemplateCharacters();
     if (isAtEnd()) {
       reportError(getPosition(beginIndex), "Unterminated template literal");
@@ -919,7 +926,7 @@ public class Scanner {
             value,
             skipTemplateCharactersResult.getErrorMessage(),
             skipTemplateCharactersResult.getPosition(),
-            getTokenRange(beginIndex - 1));
+            getTokenRange(startingPosition));
       case '$':
         nextChar(); // $
         nextChar(); // {
