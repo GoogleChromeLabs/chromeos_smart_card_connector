@@ -2016,8 +2016,8 @@ goog.testing.TestCase.Test = function(name, ref, scope, objChain) {
       if (typeof objChain[i]['setUp'] === 'function') {
         this.setUps.push(goog.bind(objChain[i]['setUp'], objChain[i]));
       }
-      if (typeof objChain[i].tearDown === 'function') {
-        this.tearDowns.push(goog.bind(objChain[i].tearDown, objChain[i]));
+      if (typeof objChain[i]['tearDown'] === 'function') {
+        this.tearDowns.push(goog.bind(objChain[i]['tearDown'], objChain[i]));
       }
     }
     this.tearDowns.reverse();
