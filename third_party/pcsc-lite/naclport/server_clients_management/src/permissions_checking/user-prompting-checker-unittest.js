@@ -63,7 +63,7 @@ const MockedDialogBehavior = {
 };
 
 /**
- * A fake implementtion of `TrustedClientsRegistry`.
+ * A fake implementation of `TrustedClientsRegistry`.
  *
  * It's only aware of `FAKE_CLIENT_1_ORIGIN`.
  * @implements {TrustedClientsRegistry}
