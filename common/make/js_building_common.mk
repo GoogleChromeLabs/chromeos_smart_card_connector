@@ -166,15 +166,11 @@ endif
 # compiling JavaScript files with tests.
 #
 # Explanation:
-# compilation_level: only do simple transformations (even in Release builds);
-#   without this, mocking will be broken in tests due to class/function
-#   renaming.
 # dependency_mode=PRUNE_LEGACY: In addition to the standard PRUNE behavior (see
 #   above), also include all JS files that don't have a goog.provide. This
 #   allows unit test files to be picked up and compiled automatically.
 JS_BUILD_TESTING_ADDITIONAL_COMPILATION_FLAGS := \
 	$(CLOSURE_LIBRARY_TESTING_ADDITIONAL_COMPILER_FLAGS) \
-	--compilation_level=SIMPLE \
 	--dependency_mode=PRUNE_LEGACY \
 
 
