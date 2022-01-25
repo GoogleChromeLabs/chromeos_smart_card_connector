@@ -125,25 +125,13 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
 /**
  * Creates a new modal dialog and returns a promise of the data it returns.
  * @param {string} url
- * @param {!chrome.app.window.CreateWindowOptions=}
- * opt_createWindowOptionsOverrides Overrides to the default window options.
- * Note that the 'id' option is disallowed.
+ * @param {!WindowOptions=} opt_windowOptions
  * @param {!Object=} opt_data Optional data to be passed to the created dialog.
  * @return {!goog.Promise}
  */
-GSC.PopupOpener.runModalDialog = function(
-    url, opt_createWindowOptionsOverrides, opt_data) {
+GSC.PopupOpener.runModalDialog = function(url, opt_windowOptions, opt_data) {
   const createWindowOptions =
       goog.object.clone(DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS);
-
-  if (opt_createWindowOptionsOverrides) {
-    GSC.Logging.checkWithLogger(
-        logger,
-        !goog.object.containsKey(opt_createWindowOptionsOverrides, 'id'),
-        '"id" window option is disallowed for the modal dialogs (as this ' +
-            'option may result in not creating the new modal dialog)');
-    Object.assign(createWindowOptions, opt_createWindowOptionsOverrides);
-  }
 
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION)
     lastUsedPopupId++;
