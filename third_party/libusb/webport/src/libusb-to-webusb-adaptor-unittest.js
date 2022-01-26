@@ -389,10 +389,10 @@ goog.exportSymbol('testLibusbToWebusbAdaptor', {
     // Arrange:
     const device = deepClone(SCM_SCR_3310_DEVICE);
     device['open'] = goog.testing.createFunctionMock();
-    device['open']().$do(async () => {});
+    device['open']().$does(async () => {});
     device['open'].$replay();
     device['close'] = goog.testing.createFunctionMock();
-    device['close']().$do(async () => {});
+    device['close']().$does(async () => {});
     device['close'].$replay();
     device['controlTransferIn'] = goog.testing.createFunctionMock();
     device['controlTransferIn'](
