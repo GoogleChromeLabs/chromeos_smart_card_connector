@@ -17,6 +17,7 @@
 
 goog.require('GoogleSmartCard.LibusbToWebusbAdaptor');
 goog.require('goog.object');
+goog.require('goog.testing');
 goog.require('goog.testing.PropertyReplacer');
 
 goog.setTestOnly();
@@ -101,6 +102,67 @@ const FAKE_WEBUSB_OTHER_DEVICE = {
   'open': FAILING_ASYNC_METHOD,
   'close': FAILING_ASYNC_METHOD,
 };
+
+// Parameters for a real SCM SCR 3310 device.
+const SCM_SCR_3310_CONFIGURATION = {
+  'configurationValue': 1,
+  'interfaces': [{
+    'interfaceNumber': 0,
+    'alternates': [{
+      'interfaceClass': 0x0B,
+      'interfaceSubclass': 0,
+      'interfaceProtocol': 0,
+      'endpoints': [
+        {
+          'endpointNumber': 0x1,
+          'direction': 'out',
+          'type': 'bulk',
+          'packetSize': 64,
+        },
+        {
+          'endpointNumber': 0x2,
+          'direction': 'in',
+          'type': 'bulk',
+          'packetSize': 64,
+        },
+        {
+          'endpointNumber': 0x3,
+          'direction': 'in',
+          'type': 'interrupt',
+          'packetSize': 16,
+        },
+      ]
+    }]
+  }],
+};
+const SCM_SCR_3310_DEVICE = {
+  'vendorId': 0x04e6,
+  'productId': 0x5116,
+  'deviceVersionMajor': 5,
+  'deviceVersionMinor': 1,
+  'deviceVersionSubminor': 8,
+  'configuration': deepClone(
+      SCM_SCR_3310_CONFIGURATION),  // this follows Chrome's WebUSB behavior,
+                                    // which gives different objects in
+                                    // configuration and configurations
+  'configurations': [SCM_SCR_3310_CONFIGURATION],
+  'open': FAILING_ASYNC_METHOD,
+  'close': FAILING_ASYNC_METHOD,
+};
+const SCM_SCR_3310_EXTRA_DATA_TRANSFER_1 =
+    new Uint8Array([0x09, 0x02, 0x5d, 0x00, 0x01, 0x01, 0x03, 0xa0, 0x32]);
+
+const SCM_SCR_3310_EXTRA_DATA_TRANSFER_2 = new Uint8Array([
+  0x09, 0x02, 0x5d, 0x00, 0x01, 0x01, 0x03, 0xa0, 0x32, 0x09, 0x04, 0x00,
+  0x00, 0x03, 0x0b, 0x00, 0x00, 0x04, 0x36, 0x21, 0x00, 0x01, 0x00, 0x01,
+  0x03, 0x00, 0x00, 0x00, 0xa0, 0x0f, 0x00, 0x00, 0xe0, 0x2e, 0x00, 0x00,
+  0x00, 0x80, 0x25, 0x00, 0x00, 0x00, 0xb0, 0x04, 0x00, 0x00, 0xfc, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xba, 0x00,
+  0x01, 0x00, 0x07, 0x01, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0x00, 0x01,
+  0x07, 0x05, 0x01, 0x02, 0x40, 0x00, 0x00, 0x07, 0x05, 0x82, 0x02, 0x40,
+  0x00, 0x00, 0x07, 0x05, 0x83, 0x03, 0x10, 0x00, 0x10
+]);
+
 
 goog.exportSymbol('testLibusbToWebusbAdaptor', {
   'setUp': function() {
@@ -311,6 +373,96 @@ goog.exportSymbol('testLibusbToWebusbAdaptor', {
               }]
             }
           ]
+        }],
+        configurations);
+  },
+
+  // Test the `getConfigurations()` method against the data obtained from a real
+  // SCM SCR 3310 device.
+  'testGetConfigurations_scmScr3310': async function() {
+    const EXTRA_DATA_TRANSFER_PARAMS = {
+      'requestType': 'standard',
+      'recipient': 'device',
+      'request': 0x06,
+      'value': 0x200,
+      'index': 0
+    };
+
+    // Arrange:
+    const device = deepClone(SCM_SCR_3310_DEVICE);
+    device['open'] = goog.testing.createFunctionMock();
+    device['open']().$do(async () => {});
+    device['open'].$replay();
+    device['close'] = goog.testing.createFunctionMock();
+    device['close']().$do(async () => {});
+    device['close'].$replay();
+    device['controlTransferIn'] = goog.testing.createFunctionMock();
+    device['controlTransferIn'](
+        EXTRA_DATA_TRANSFER_PARAMS, SCM_SCR_3310_EXTRA_DATA_TRANSFER_1.length)
+        .$does(async () => {
+          return {
+            'status': 'ok',
+            'data': new DataView(SCM_SCR_3310_EXTRA_DATA_TRANSFER_1.buffer),
+          };
+        });
+    device['controlTransferIn'](
+        EXTRA_DATA_TRANSFER_PARAMS, SCM_SCR_3310_EXTRA_DATA_TRANSFER_2.length)
+        .$does(async () => {
+          return {
+            'status': 'ok',
+            'data': new DataView(SCM_SCR_3310_EXTRA_DATA_TRANSFER_2.buffer),
+          };
+        });
+    device['controlTransferIn'].$replay();
+    propertyReplacer.set(navigator['usb'], 'getDevices', async () => {
+      return [device];
+    });
+
+    // Act:
+    await libusbToWebusbAdaptor.listDevices();
+    const configurations =
+        await libusbToWebusbAdaptor.getConfigurations(/*deviceId=*/ 1);
+
+    // Assert:
+    assertObjectEquals(
+        [{
+          'active': true,
+          'configurationValue': 1,
+          'interfaces': [{
+            'interfaceNumber': 0,
+            'interfaceClass': 11,
+            'interfaceSubclass': 0,
+            'interfaceProtocol': 0,
+            'extraData':
+                (new Uint8Array([
+                  0x36, 0x21, 0x00, 0x01, 0x00, 0x01, 0x03, 0x00, 0x00,
+                  0x00, 0xa0, 0x0f, 0x00, 0x00, 0xe0, 0x2e, 0x00, 0x00,
+                  0x00, 0x80, 0x25, 0x00, 0x00, 0x00, 0xb0, 0x04, 0x00,
+                  0x00, 0xfc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                  0x00, 0x00, 0x00, 0x00, 0xba, 0x00, 0x01, 0x00, 0x07,
+                  0x01, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0x00, 0x01
+                ])).buffer,
+            'endpoints': [
+              {
+                'endpointAddress': 1,
+                'direction': 'out',
+                'type': 'bulk',
+                'maxPacketSize': 64
+              },
+              {
+                'endpointAddress': 130,
+                'direction': 'in',
+                'type': 'bulk',
+                'maxPacketSize': 64
+              },
+              {
+                'endpointAddress': 131,
+                'direction': 'in',
+                'type': 'interrupt',
+                'maxPacketSize': 16
+              }
+            ]
+          }]
         }],
         configurations);
   },
