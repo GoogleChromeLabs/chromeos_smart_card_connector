@@ -150,8 +150,8 @@ function getDialogMock(mockControl, mockedBehavior) {
 
 /**
  * Returns a negation of the given promise.
- * @param {!goog.Promise} promise
- * @return {!goog.Promise.<undefined>} A promise which is rejected when
+ * @param {!Promise} promise
+ * @return {!Promise.<undefined>} A promise which is rejected when
  * |promise| gets resolved, and resolved (with no data) when |promise| is
  * rejected.
  */
@@ -176,7 +176,7 @@ function negatePromise(promise) {
  * @param {!MockedDialogBehavior} mockedDialogBehavior If |NOT_RUN|, then the
  * GSC.PopupOpener.runModalDialog method is not expected to be called;
  * otherwise, the called method will return the corresponding result.
- * @param {function(!UserPromptingChecker):!goog.Promise} testCallback The test
+ * @param {function(!UserPromptingChecker):!Promise} testCallback The test
  * function to be run after the needed setup; must return a promise of the test
  * result.
  * @return {function():!goog.Promise} The wrapped test function, which returns a
@@ -300,7 +300,7 @@ goog.exportSymbol(
         null /* expectedStorageDataToBeWritten */,
         MockedDialogBehavior.NOT_RUN /* mockedDialogBehavior */,
         function(userPromptingChecker) {
-          return goog.Promise.all([
+          return Promise.all([
             userPromptingChecker.check(FAKE_CLIENT_1_ORIGIN),
             userPromptingChecker.check(FAKE_CLIENT_2_ORIGIN)
           ]);
@@ -318,7 +318,7 @@ goog.exportSymbol(
         null /* expectedStorageDataToBeWritten */,
         MockedDialogBehavior.NOT_RUN /* mockedDialogBehavior */,
         function(userPromptingChecker) {
-          return goog.Promise.all([
+          return Promise.all([
             userPromptingChecker.check(FAKE_CLIENT_1_ORIGIN),
             userPromptingChecker.check(FAKE_CLIENT_2_ORIGIN)
           ]);

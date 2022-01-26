@@ -38,12 +38,10 @@ goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientInfo');
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistry');
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistryImpl');
 goog.require('GoogleSmartCard.PopupOpener');
-goog.require('goog.Promise');
 goog.require('goog.iter');
 goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.object');
-goog.require('goog.promise.Resolver');
 
 goog.scope(function() {
 
@@ -79,11 +77,12 @@ PermissionsChecking.UserPromptingChecker = function() {
       trustedClientsRegistryOverrideForTesting :
       new GSC.PcscLiteServer.TrustedClientsRegistryImpl();
 
-  /** @type {!goog.promise.Resolver.<!Map.<string,boolean>>} @private @const */
-  this.localStoragePromiseResolver_ = goog.Promise.withResolver();
-  this.loadLocalStorage_();
+  // Start asynchronously loading the previous user approvals stored in the
+  // local storage.
+  /** @type {!Promise<!Map<string,boolean>>} @private @const */
+  this.localStoragePromise_ = this.loadLocalStorage_();
 
-  /** @type {!Map.<string, !goog.Promise>} @private @const */
+  /** @type {!Map.<string, !Promise<void>>} @private @const */
   this.checkPromiseMap_ = new Map;
 };
 
@@ -121,15 +120,21 @@ UserPromptingChecker.prototype.logger = GSC.Logging.getScopedLogger(
  * The result is returned asynchronously as a promise (which will eventually be
  * resolved if the permission is granted or rejected otherwise).
  * @param {string} clientOrigin
- * @return {!goog.Promise}
+ * @return {!Promise<void>}
  */
 UserPromptingChecker.prototype.check = function(clientOrigin) {
   goog.log.log(
       this.logger, goog.log.Level.FINEST,
       'Checking permissions for client App ' + clientOrigin + '...');
 
+  // Avoid concurrent checks for the same origin, as they might trigger
+  // duplicate user prompts. Hence check against `checkPromiseMap_` whether this
+  // origin is/was already processed.
   const existingPromise = this.checkPromiseMap_.get(clientOrigin);
   if (existingPromise !== undefined) {
+    // Found a previously started request, so attach to its promise: it'll make
+    // the caller wait for its completion, and additionally serves as a cache in
+    // case the check already completed.
     goog.log.log(
         this.logger, goog.log.Level.FINEST,
         'Found the existing promise for the permission checking of the ' +
@@ -137,68 +142,64 @@ UserPromptingChecker.prototype.check = function(clientOrigin) {
     return existingPromise;
   }
 
+  // Start a new asynchronous operation. Track it in `checkPromiseMap_` to let
+  // all subsequent requests wait for our completion and reuse our result.
   goog.log.fine(
       this.logger,
       'Checking permissions for client ' + clientOrigin + ': no ' +
           'existing promise was found, performing the actual check...');
-
-  const promiseResolver = goog.Promise.withResolver();
-  this.checkPromiseMap_.set(clientOrigin, promiseResolver.promise);
-
-  this.localStoragePromiseResolver_.promise.then(
-      function(storedUserSelections) {
-        if (storedUserSelections.has(clientOrigin)) {
-          const userSelection = storedUserSelections.get(clientOrigin);
-          if (userSelection) {
-            goog.log.info(
-                this.logger,
-                'Granted permission to client ' + clientOrigin +
-                    ' due to the stored user selection');
-            promiseResolver.resolve();
-          } else {
-            goog.log.info(
-                this.logger,
-                'Rejected permission to client ' + clientOrigin +
-                    ' due to the stored user selection');
-            promiseResolver.reject(new Error(
-                'Rejected permission due to the stored user selection'));
-          }
-        } else {
-          goog.log.fine(
-              this.logger,
-              'No stored user selection was found for the client ' +
-                  clientOrigin + ', going to show the user prompt...');
-          this.promptUser_(clientOrigin, promiseResolver);
-        }
-      },
-      function() {
-        promiseResolver.reject('Failed to load the local storage data');
-      },
-      this);
-
-  return promiseResolver.promise;
-};
-
-/** @private */
-UserPromptingChecker.prototype.loadLocalStorage_ = function() {
-  goog.log.fine(
-      this.logger,
-      'Loading local storage data with the stored user selections (the key ' +
-          'is "' + LOCAL_STORAGE_KEY + '")...');
-  chrome.storage.local.get(
-      LOCAL_STORAGE_KEY, this.localStorageLoadedCallback_.bind(this));
+  const promise = this.doCheck(clientOrigin);
+  this.checkPromiseMap_.set(clientOrigin, promise);
+  return promise;
 };
 
 /**
- * @param {!Object} items
+ * @param {string} clientOrigin
+ * @return {!Promise<void>}
+ */
+UserPromptingChecker.prototype.doCheck = async function(clientOrigin) {
+  const storedUserSelections = await this.localStoragePromise_;
+
+  if (!storedUserSelections.has(clientOrigin)) {
+    goog.log.fine(
+        this.logger,
+        'No stored user selection was found for the client ' + clientOrigin +
+            ', going to show the user prompt...');
+    return await this.promptUser_(clientOrigin);
+  }
+
+  const userSelection = storedUserSelections.get(clientOrigin);
+  if (userSelection) {
+    goog.log.info(
+        this.logger,
+        'Granted permission to client ' + clientOrigin +
+            ' due to the stored user selection');
+    return;
+  }
+
+  goog.log.info(
+      this.logger,
+      'Rejected permission to client ' + clientOrigin +
+          ' due to the stored user selection');
+  // Note: Not using "throw" here, to avoid confusing the JavaScript debugger.
+  return Promise.reject(
+      new Error('Rejected permission due to the stored user selection'));
+};
+
+/**
+ * @return {!Promise<!Map<string, boolean>>}
  * @private
  */
-UserPromptingChecker.prototype.localStorageLoadedCallback_ = function(items) {
+UserPromptingChecker.prototype.loadLocalStorage_ = async function() {
+  /** @type {!Object} */
+  const rawData = await this.getLocalStorageRawData_();
   goog.log.log(
       this.logger, goog.log.Level.FINER,
       'Loaded the following data from the local storage: ' +
-          GSC.DebugDump.dump(items));
-  const storedUserSelections = this.parseLocalStorageUserSelections_(items);
+          GSC.DebugDump.dump(rawData));
+
+  const storedUserSelections = this.parseLocalStorageUserSelections_(rawData);
+
   const itemsForLog = [];
   storedUserSelections.forEach(function(userSelection, clientOrigin) {
     itemsForLog.push(
@@ -209,7 +210,32 @@ UserPromptingChecker.prototype.localStorageLoadedCallback_ = function(items) {
       'Loaded local storage data with the stored user selections: ' +
           (itemsForLog.length ? goog.iter.join(itemsForLog, ', ') : 'no data'));
 
-  this.localStoragePromiseResolver_.resolve(storedUserSelections);
+  return storedUserSelections;
+};
+
+/**
+ * @private
+ * @return {!Promise<!Object>}
+ */
+UserPromptingChecker.prototype.getLocalStorageRawData_ = async function() {
+  return new Promise((resolve, reject) => {
+    goog.log.fine(
+        this.logger,
+        'Loading local storage data with the stored user selections (the key ' +
+            'is "' + LOCAL_STORAGE_KEY + '")...');
+    chrome.storage.local.get(LOCAL_STORAGE_KEY, rawData => {
+      if (!chrome || !chrome.runtime || !chrome.runtime.lastError) {
+        resolve(rawData);
+        return;
+      }
+      let errorMessage = 'chrome.storage.local.get failed';
+      if (chrome && chrome.runtime && chrome.runtime.lastError &&
+          chrome.runtime.lastError.message) {
+        errorMessage += ': ' + chrome.runtime.lastError.message;
+      }
+      reject(new Error(errorMessage));
+    });
+  });
 };
 
 /**
@@ -227,17 +253,17 @@ function fixupLegacyStoredIdentifier(identifier) {
 }
 
 /**
- * @param {!Object} localStorageItems
+ * @param {!Object} rawData
  * @return {!Map.<string, boolean>}
  * @private
  */
 UserPromptingChecker.prototype.parseLocalStorageUserSelections_ = function(
-    localStorageItems) {
+    rawData) {
   /** @type {!Map.<string, boolean>} */
   const storedUserSelections = new Map;
-  if (!localStorageItems[LOCAL_STORAGE_KEY])
+  if (!rawData[LOCAL_STORAGE_KEY])
     return storedUserSelections;
-  const contents = localStorageItems[LOCAL_STORAGE_KEY];
+  const contents = rawData[LOCAL_STORAGE_KEY];
   if (!goog.isObject(contents)) {
     goog.log.warning(
         this.logger,
@@ -261,21 +287,17 @@ UserPromptingChecker.prototype.parseLocalStorageUserSelections_ = function(
 
 /**
  * @param {string} clientOrigin
- * @param {!goog.promise.Resolver} promiseResolver
  * @private
  */
-UserPromptingChecker.prototype.promptUser_ = function(
-    clientOrigin, promiseResolver) {
-  this.trustedClientsRegistry_.getByOrigin(clientOrigin)
-      .then(
-          function(trustedClient) {
-            this.promptUserForTrustedClient_(
-                clientOrigin, trustedClient, promiseResolver);
-          },
-          function() {
-            this.promptUserForUntrustedClient_(clientOrigin, promiseResolver);
-          },
-          this);
+UserPromptingChecker.prototype.promptUser_ = async function(clientOrigin) {
+  let trustedClient;
+  try {
+    trustedClient =
+        await this.trustedClientsRegistry_.getByOrigin(clientOrigin);
+  } catch (exc) {
+    return this.promptUserForUntrustedClient_(clientOrigin);
+  }
+  return this.promptUserForTrustedClient_(clientOrigin, trustedClient);
 };
 
 /**
@@ -313,123 +335,112 @@ function getNameToShowForUnknownClient(clientOrigin) {
 /**
  * @param {string} clientOrigin
  * @param {!GSC.PcscLiteServer.TrustedClientInfo} trustedClientInfo
- * @param {!goog.promise.Resolver} promiseResolver
+ * @return {!Promise<void>}
  * @private
  */
-UserPromptingChecker.prototype.promptUserForTrustedClient_ = function(
-    clientOrigin, trustedClientInfo, promiseResolver) {
+UserPromptingChecker.prototype.promptUserForTrustedClient_ =
+    async function(clientOrigin, trustedClientInfo) {
   goog.log.info(
       this.logger,
       'Showing the user prompt for the known client ' + clientOrigin +
           ' named "' + trustedClientInfo.name + '"...');
-  this.runPromptDialog_(
-      clientOrigin, {
-        'is_client_known': true,
-        'client_info_link': getClientInfoLink(clientOrigin),
-        'client_name': trustedClientInfo.name
-      },
-      promiseResolver);
+  return this.runPromptDialog_(clientOrigin, {
+    'is_client_known': true,
+    'client_info_link': getClientInfoLink(clientOrigin),
+    'client_name': trustedClientInfo.name
+  });
 };
 
 /**
  * @param {string} clientOrigin
- * @param {!goog.promise.Resolver} promiseResolver
+ * @return {!Promise<void>}
  * @private
  */
-UserPromptingChecker.prototype.promptUserForUntrustedClient_ = function(
-    clientOrigin, promiseResolver) {
+UserPromptingChecker.prototype.promptUserForUntrustedClient_ =
+    async function(clientOrigin) {
   goog.log.info(
       this.logger,
       'Showing the warning user prompt for the unknown client ' + clientOrigin +
           '...');
-  this.runPromptDialog_(
-      clientOrigin, {
-        'is_client_known': false,
-        'client_info_link': getClientInfoLink(clientOrigin),
-        'client_name': getNameToShowForUnknownClient(clientOrigin)
-      },
-      promiseResolver);
+  return this.runPromptDialog_(clientOrigin, {
+    'is_client_known': false,
+    'client_info_link': getClientInfoLink(clientOrigin),
+    'client_name': getNameToShowForUnknownClient(clientOrigin)
+  });
 };
 
 /**
  * @param {string} clientOrigin
  * @param {!Object} userPromptDialogData
- * @param {!goog.promise.Resolver} promiseResolver
+ * @return {!Promise<void>}
  * @private
  */
-UserPromptingChecker.prototype.runPromptDialog_ = function(
-    clientOrigin, userPromptDialogData, promiseResolver) {
+UserPromptingChecker.prototype.runPromptDialog_ =
+    async function(clientOrigin, userPromptDialogData) {
   const modalDialogRunner = modalDialogRunnerOverrideForTesting !== null ?
       modalDialogRunnerOverrideForTesting :
       GSC.PopupOpener.runModalDialog;
-  const dialogPromise = modalDialogRunner(
-      USER_PROMPT_DIALOG_URL, USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES,
-      userPromptDialogData);
-  dialogPromise.then(
-      function(dialogResult) {
-        if (dialogResult) {
-          goog.log.info(
-              this.logger,
-              'Granted permission to client ' + clientOrigin +
-                  ' based on the "grant" user selection');
-          this.storeUserSelection_(clientOrigin, true);
-          promiseResolver.resolve();
-        } else {
-          goog.log.info(
-              this.logger,
-              'Rejected permission to client ' + clientOrigin +
-                  ' based on the "reject" user selection');
-          this.storeUserSelection_(clientOrigin, false);
-          promiseResolver.reject(new Error(
-              'Reject permission based on the "reject" user selection'));
-        }
-      },
-      function() {
-        goog.log.info(
-            this.logger,
-            'Rejected permission to client ' + clientOrigin +
-                ' because of the user cancellation of the prompt dialog');
-        this.storeUserSelection_(clientOrigin, false);
-        promiseResolver.reject(new Error(
-            'Rejected permission because of the user cancellation of the ' +
-            'prompt dialog'));
-      },
-      this);
+  let dialogResult;
+  try {
+    dialogResult = await modalDialogRunner(
+        USER_PROMPT_DIALOG_URL, USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES,
+        userPromptDialogData);
+  } catch (exc) {
+    // Note that we don't remember negative user selections persistently.
+    goog.log.info(
+        this.logger,
+        'Rejected permission to client ' + clientOrigin +
+            ' because of the user cancellation of the prompt dialog');
+    // Note: Not using "throw" here, to avoid confusing the JavaScript debugger.
+    return Promise.reject(new Error(
+        'Rejected permission because of the user cancellation of the ' +
+        'prompt dialog'));
+  }
+  if (!dialogResult) {
+    // Note that we don't remember negative user selections persistently.
+    goog.log.info(
+        this.logger,
+        'Rejected permission to client ' + clientOrigin +
+            ' based on the "reject" user selection');
+    // Note: Not using "throw" here, to avoid confusing the JavaScript debugger.
+    return Promise.reject(
+        new Error('Reject permission based on the "reject" user selection'));
+  }
+  goog.log.info(
+      this.logger,
+      'Granted permission to client ' + clientOrigin +
+          ' based on the "grant" user selection');
+  // No need to wait for the persisting completion here - hence no "await".
+  this.storeUserApproval_(clientOrigin);
 };
 
 /**
  * @param {string} clientOrigin
- * @param {boolean} userSelection
+ * @return {!Promise<void>}
  */
-UserPromptingChecker.prototype.storeUserSelection_ = function(
-    clientOrigin, userSelection) {
-  // Don't remember negative user selections persistently.
-  if (!userSelection)
-    return;
-
+UserPromptingChecker.prototype.storeUserApproval_ =
+    async function(clientOrigin) {
   goog.log.info(
       this.logger,
-      'Storing user selection of the ' +
-          (userSelection ? 'granted' : 'rejected') + ' permission to client ' +
+      'Storing user selection of the granted permission to client ' +
           clientOrigin);
 
-  this.localStoragePromiseResolver_.promise.then(
-      function(/** !Map */ storedUserSelections) {
-        storedUserSelections.set(clientOrigin, userSelection);
-        const dumpedValue =
-            GSC.ContainerHelpers.buildObjectFromMap(storedUserSelections);
-        goog.log.log(
-            this.logger, goog.log.Level.FINER,
-            'Storing the following data in the local storage: ' +
-                GSC.DebugDump.dump(dumpedValue));
-        chrome.storage.local.set(
-            goog.object.create(LOCAL_STORAGE_KEY, dumpedValue));
-      },
-      function() {
-        goog.log.warning(
-            this.logger,
-            'Failed to store the user selection in the local storage');
-      },
-      this);
+  let storedUserSelections;
+  try {
+    storedUserSelections = await this.localStoragePromise_;
+  } catch (exc) {
+    goog.log.warning(
+        this.logger, 'Failed to store the user selection in the local storage');
+    // The caller doesn't care whether we succeed or failed, so just return.
+    return;
+  }
+  storedUserSelections.set(clientOrigin, true);
+  const dumpedValue =
+      GSC.ContainerHelpers.buildObjectFromMap(storedUserSelections);
+  goog.log.log(
+      this.logger, goog.log.Level.FINER,
+      'Storing the following data in the local storage: ' +
+          GSC.DebugDump.dump(dumpedValue));
+  chrome.storage.local.set(goog.object.create(LOCAL_STORAGE_KEY, dumpedValue));
 };
 });  // goog.scope
