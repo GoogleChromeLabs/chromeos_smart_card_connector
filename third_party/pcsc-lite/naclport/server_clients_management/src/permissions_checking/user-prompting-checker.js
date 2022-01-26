@@ -82,7 +82,7 @@ PermissionsChecking.UserPromptingChecker = function() {
   /** @type {!Promise<!Map<string,boolean>>} @private @const */
   this.localStoragePromise_ = this.loadLocalStorage_();
 
-  /** @type {!Map.<string, !Promise>} @private @const */
+  /** @type {!Map.<string, !Promise<void>>} @private @const */
   this.checkPromiseMap_ = new Map;
 };
 
@@ -120,7 +120,7 @@ UserPromptingChecker.prototype.logger = GSC.Logging.getScopedLogger(
  * The result is returned asynchronously as a promise (which will eventually be
  * resolved if the permission is granted or rejected otherwise).
  * @param {string} clientOrigin
- * @return {!Promise}
+ * @return {!Promise<void>}
  */
 UserPromptingChecker.prototype.check = function(clientOrigin) {
   goog.log.log(
@@ -155,7 +155,7 @@ UserPromptingChecker.prototype.check = function(clientOrigin) {
 
 /**
  * @param {string} clientOrigin
- * @return {!Promise}
+ * @return {!Promise<void>}
  */
 UserPromptingChecker.prototype.doCheck = async function(clientOrigin) {
   const storedUserSelections = await this.localStoragePromise_;
