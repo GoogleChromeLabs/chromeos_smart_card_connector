@@ -133,7 +133,7 @@ UserPromptingChecker.prototype.check = function(clientOrigin) {
   const existingPromise = this.checkPromiseMap_.get(clientOrigin);
   if (existingPromise !== undefined) {
     // Found a previously started request, so attach to its promise: it'll make
-    // the caller wait for its completion, and additionally suit as a cache in
+    // the caller wait for its completion, and additionally serves as a cache in
     // case the check already completed.
     goog.log.log(
         this.logger, goog.log.Level.FINEST,
