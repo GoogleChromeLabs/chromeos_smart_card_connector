@@ -113,8 +113,8 @@ if (logBufferForwarderToNaclModule) {
   }, () => {});
 }
 
-const libusbProxyReceiver = new GSC.LibusbProxyReceiver(
-    executableModule.getMessageChannel());
+const libusbProxyReceiver =
+    new GSC.LibusbProxyReceiver(executableModule.getMessageChannel());
 libusbProxyReceiver.addHook(new GSC.LibusbLoginStateHook());
 
 const pcscLiteReadinessTracker =
@@ -316,6 +316,8 @@ function createClientHandler(clientMessageChannel, clientOrigin) {
 function exposeGlobalsForMainWindow() {
   goog.global['googleSmartCard_clientAppListUpdateSubscriber'] =
       messageChannelPool.addOnUpdateListener.bind(messageChannelPool);
+  goog.global['googleSmartCard_clientAppListUpdateUnsubscriber'] =
+      messageChannelPool.removeOnUpdateListener.bind(messageChannelPool);
   goog.global['googleSmartCard_readerTrackerSubscriber'] =
       readerTracker.addOnUpdateListener.bind(readerTracker);
   goog.global['googleSmartCard_readerTrackerUnsubscriber'] =

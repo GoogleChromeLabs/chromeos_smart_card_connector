@@ -119,12 +119,37 @@ function initializeWithBackgroundPage(backgroundPage) {
   goog.asserts.assert(backgroundPage);
 
   goog.log.fine(logger, 'Registering listener on connected clients update');
-  // FIXME(emaxx): Do unsubscription too.
-  const subscriber =
+
+  /**
+   * Points to the "addOnUpdateListener" method of the AppList instance
+   * that is owned by the background page.
+   */
+  const appListSubscriber =
       /** @type {function(function(!Array.<string>))} */
       (GSC.ObjectHelpers.extractKey(
           backgroundPage, 'googleSmartCard_clientAppListUpdateSubscriber'));
-  subscriber(onUpdateListener);
+  // Start tracking the current list of apps.
+  appListSubscriber(onUpdateListener);
+
+  /**
+   * Points to the "removeOnUpdateListener" method of the AppList instance
+   * that is owned by the background page.
+   */
+  const appListUnsubscriber =
+      /** @type {function(function(!Array.<string>))} */
+      (GSC.ObjectHelpers.extractKey(
+          backgroundPage, 'googleSmartCard_clientAppListUpdateUnsubscriber'));
+
+  // Stop tracking the current list of apps when our window gets closed.
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
+    chrome.app.window.current().onClosed.addListener(function() {
+      appListUnsubscriber(onUpdateListener);
+    });
+  } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    window.addEventListener('unload', function() {
+      appListUnsubscriber(onUpdateListener);
+    });
+  }
 }
 
 GSC.ConnectorApp.Window.AppsDisplaying.initialize = function() {
