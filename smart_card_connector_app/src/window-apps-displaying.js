@@ -25,6 +25,8 @@ goog.provide('GoogleSmartCard.ConnectorApp.Window.AppsDisplaying');
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.MessagingOrigin');
+goog.require('GoogleSmartCard.ObjectHelpers');
+goog.require('GoogleSmartCard.Packaging');
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientInfo');
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistryImpl');
 goog.require('goog.Promise');
@@ -121,8 +123,8 @@ function initializeWithBackgroundPage(backgroundPage) {
   goog.log.fine(logger, 'Registering listener on connected clients update');
 
   /**
-   * Points to the "addOnUpdateListener" method of the AppList instance
-   * that is owned by the background page.
+   * Points to the "addOnUpdateListener" method of the MessageChannelPool
+   * instance that is owned by the background page.
    */
   const appListSubscriber =
       /** @type {function(function(!Array.<string>))} */
@@ -132,8 +134,8 @@ function initializeWithBackgroundPage(backgroundPage) {
   appListSubscriber(onUpdateListener);
 
   /**
-   * Points to the "removeOnUpdateListener" method of the AppList instance
-   * that is owned by the background page.
+   * Points to the "removeOnUpdateListener" method of the MessageChannelPool
+   * instance that is owned by the background page.
    */
   const appListUnsubscriber =
       /** @type {function(function(!Array.<string>))} */
