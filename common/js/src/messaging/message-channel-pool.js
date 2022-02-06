@@ -24,6 +24,7 @@
 goog.provide('GoogleSmartCard.MessageChannelPool');
 
 goog.require('GoogleSmartCard.Logging');
+goog.require('goog.array');
 goog.require('goog.labs.structs.Multimap');
 goog.require('goog.log');
 goog.require('goog.log.Logger');
@@ -97,16 +98,34 @@ MessageChannelPool.prototype.addChannel = function(
 };
 
 /**
+ * Adds a listener that will be called with the list of app information
+ * objects each time it gets updated.
  * @param {function(!Array.<string>)} listener
  * @param {!Object=} opt_scope
  */
 MessageChannelPool.prototype.addOnUpdateListener = function(
     listener, opt_scope) {
-  goog.log.fine(this.logger, 'Added an OnUpdateListener');
   this.onUpdateListeners_.push(
       opt_scope !== undefined ? goog.bind(listener, opt_scope) : listener);
+  goog.log.fine(this.logger, 'Added an OnUpdateListener');
+
   // Fire it once immediately to update.
   this.fireOnUpdateListeners_();
+};
+
+/**
+ * Removes a previously added listener function.
+ * @param {function(!Array.<string>)} listener
+ */
+MessageChannelPool.prototype.removeOnUpdateListener = function(listener) {
+  if (goog.array.remove(this.onUpdateListeners_, listener)) {
+    goog.log.fine(this.logger, 'Removed an update listener');
+  } else {
+    goog.log.warning(
+        this.logger,
+        'Failed to remove an update listener: the passed ' +
+            'function was not found');
+  }
 };
 
 /**
