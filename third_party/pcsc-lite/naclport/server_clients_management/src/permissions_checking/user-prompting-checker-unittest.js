@@ -41,15 +41,24 @@ const UserPromptingChecker = GSC.PcscLiteServerClientsManagement
                                  .PermissionsChecking.UserPromptingChecker;
 const ignoreArgument = goog.testing.mockmatchers.ignoreArgument;
 
+// Fake client #1: trusted.
 const FAKE_CLIENT_1_ORIGIN =
     'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const FAKE_CLIENT_1_LEGACY_STORAGE_ID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const FAKE_CLIENT_1_NAME = 'Application 1';
-const FAKE_TRUSTED_CLIENT_INFO_1 =
-    new TrustedClientInfo(FAKE_CLIENT_1_ORIGIN, FAKE_CLIENT_1_NAME);
+const FAKE_TRUSTED_CLIENT_INFO_1 = new TrustedClientInfo(
+    FAKE_CLIENT_1_ORIGIN, FAKE_CLIENT_1_NAME, /* autoapprove= */ false);
+// Fake client #2: untrusted.
 const FAKE_CLIENT_2_ORIGIN =
     'chrome-extension://bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
 const FAKE_CLIENT_2_LEGACY_STORAGE_ID = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+// Fake client #3: trusted and autoapproved.
+const FAKE_CLIENT_3_ORIGIN =
+    'chrome-extension://autoapprovediiiiiiiiiiiiiiiiiiii';
+const FAKE_CLIENT_3_NAME = 'Application 3';
+const FAKE_TRUSTED_CLIENT_INFO_3 = new TrustedClientInfo(
+    FAKE_CLIENT_3_ORIGIN, FAKE_CLIENT_3_NAME, /* autoapprove= */ true);
+
 const STORAGE_KEY = 'pcsc_lite_clients_user_selections';
 
 /**
@@ -73,8 +82,11 @@ function FakeTrustedClientsRegistry() {}
 
 /** @override */
 FakeTrustedClientsRegistry.prototype.getByOrigin = function(origin) {
+  // Only fake clients ##1 and 3 are trusted.
   if (origin === FAKE_CLIENT_1_ORIGIN)
     return goog.Promise.resolve(FAKE_TRUSTED_CLIENT_INFO_1);
+  if (origin === FAKE_CLIENT_3_ORIGIN)
+    return goog.Promise.resolve(FAKE_TRUSTED_CLIENT_INFO_3);
   return goog.Promise.reject();
 };
 
@@ -264,6 +276,18 @@ goog.exportSymbol(
         function(userPromptingChecker) {
           return negatePromise(
               userPromptingChecker.check(FAKE_CLIENT_1_ORIGIN));
+        }));
+
+// Test that for an autoapproved client the check completes without any prompts
+// or previously stored decisions.
+goog.exportSymbol(
+    'test_UserPromptingChecker_EmptyStorage_AutoApproved',
+    makeTest(
+        {} /* fakeInitialStorageData */,
+        null /* expectedStorageDataToBeWritten */,
+        MockedDialogBehavior.NOT_RUN /* mockedDialogBehavior */,
+        function(userPromptingChecker) {
+          return userPromptingChecker.check(FAKE_CLIENT_3_ORIGIN);
         }));
 
 goog.exportSymbol(

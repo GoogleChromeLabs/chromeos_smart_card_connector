@@ -67,5 +67,21 @@
   },
   "chrome-extension://ppkfnjlimknmjoaemnpidmdlfchhehel": {
     "name": "VMware Horizon Client"
+  },
+  "chrome-extension://cigmkcbeahhminphhnfaokgaofanldgj": {
+    "name": "Google TDS PC/SC test",
+    "autoapprove": true
+  },
+  "chrome-extension://gbecpjnejcnafnkgfciepngjcndodann": {
+    "name": "Guest@Google Kiosk App",
+    "autoapprove": true
+  },
+  "chrome-extension://kdffphekpginklcnoefcelkjclbjnbmi": {
+    "name": "Guest@Google Kiosk App DEV",
+    "autoapprove": true
+  },
+  "chrome-extension://hhbmmipodfklmbmiaegcbmbfmmfbngnf": {
+    "name": "Guest@Google Kiosk App UAT",
+    "autoapprove": true
   }
 }

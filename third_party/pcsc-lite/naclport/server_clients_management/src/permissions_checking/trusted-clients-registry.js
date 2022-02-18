@@ -48,6 +48,7 @@ const JSON_CONFIG_URL =
     'pcsc_lite_server_clients_management/known_client_apps.json';
 
 const CLIENT_NAME_FIELD = 'name';
+const AUTOAPPROVE_FIELD = 'autoapprove';
 
 const GSC = GoogleSmartCard;
 
@@ -55,13 +56,16 @@ const GSC = GoogleSmartCard;
  * This structure holds the information about a trusted client.
  * @param {string} origin
  * @param {string} name
+ * @param {boolean} autoapprove
  * @constructor
  */
-GSC.PcscLiteServer.TrustedClientInfo = function(origin, name) {
+GSC.PcscLiteServer.TrustedClientInfo = function(origin, name, autoapprove) {
   /** @const */
   this.origin = origin;
   /** @const */
   this.name = name;
+  /** @const */
+  this.autoapprove = autoapprove;
 };
 
 const TrustedClientInfo = GSC.PcscLiteServer.TrustedClientInfo;
@@ -272,6 +276,12 @@ TrustedClientsRegistryImpl.prototype.tryParseTrustedClientInfo_ = function(
   if (typeof nameField !== 'string')
     return null;
 
-  return new TrustedClientInfo(key, nameField);
+  let autoapproveField = value[AUTOAPPROVE_FIELD];
+  if (typeof autoapproveField === 'undefined')
+    autoapproveField = false;
+  else if (typeof autoapproveField !== 'boolean')
+    return null;
+
+  return new TrustedClientInfo(key, nameField, autoapproveField);
 };
 });  // goog.scope
