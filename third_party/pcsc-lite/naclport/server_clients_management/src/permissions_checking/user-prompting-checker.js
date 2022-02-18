@@ -158,6 +158,20 @@ UserPromptingChecker.prototype.check = function(clientOrigin) {
  * @return {!Promise<void>}
  */
 UserPromptingChecker.prototype.doCheck = async function(clientOrigin) {
+  /** @type {!GSC.PcscLiteServer.TrustedClientInfo|null} */
+  let trustedClient = null;
+  try {
+    trustedClient =
+        await this.trustedClientsRegistry_.getByOrigin(clientOrigin);
+  } catch (exc) {
+    // The client is untrusted, so leave `trustedClient` null.
+  }
+
+  if (trustedClient && trustedClient.autoapprove) {
+    // The permission is auto-approved for this origin according to the config.
+    return;
+  }
+
   const storedUserSelections = await this.localStoragePromise_;
 
   if (!storedUserSelections.has(clientOrigin)) {
@@ -165,7 +179,9 @@ UserPromptingChecker.prototype.doCheck = async function(clientOrigin) {
         this.logger,
         'No stored user selection was found for the client ' + clientOrigin +
             ', going to show the user prompt...');
-    return await this.promptUser_(clientOrigin);
+    if (!trustedClient)
+      return await this.promptUserForUntrustedClient_(clientOrigin);
+    return await this.promptUserForTrustedClient_(clientOrigin, trustedClient);
   }
 
   const userSelection = storedUserSelections.get(clientOrigin);
@@ -283,21 +299,6 @@ UserPromptingChecker.prototype.parseLocalStorageUserSelections_ = function(
     storedUserSelections.set(clientOrigin, userSelection);
   }, this);
   return storedUserSelections;
-};
-
-/**
- * @param {string} clientOrigin
- * @private
- */
-UserPromptingChecker.prototype.promptUser_ = async function(clientOrigin) {
-  let trustedClient;
-  try {
-    trustedClient =
-        await this.trustedClientsRegistry_.getByOrigin(clientOrigin);
-  } catch (exc) {
-    return this.promptUserForUntrustedClient_(clientOrigin);
-  }
-  return this.promptUserForTrustedClient_(clientOrigin, trustedClient);
 };
 
 /**
