@@ -27,6 +27,7 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('goog.Timer');
 goog.require('goog.dom');
 goog.require('goog.events');
+goog.require('goog.events.BrowserEvent');
 goog.require('goog.events.EventType');
 goog.require('goog.log');
 goog.require('goog.log.Logger');
@@ -51,7 +52,7 @@ const exportLogsElement =
 let isExportLogsAvailable = true;
 
 /**
- * @param {!Event} e
+ * @param {!goog.events.BrowserEvent} e
  */
 function exportLogsClickListener(e) {
   e.preventDefault();

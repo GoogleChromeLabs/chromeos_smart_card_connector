@@ -25,6 +25,7 @@ goog.provide('GoogleSmartCard.ConnectorApp.Window.HelpShowing');
 goog.require('GoogleSmartCard.Packaging');
 goog.require('goog.dom');
 goog.require('goog.events');
+goog.require('goog.events.BrowserEvent');
 goog.require('goog.events.EventType');
 
 goog.scope(function() {
@@ -37,7 +38,7 @@ const openHelpElement =
     /** @type {!Element} */ (goog.dom.getElement('open-help'));
 
 /**
- * @param {!Event} event
+ * @param {!goog.events.BrowserEvent} event
  */
 function openHelpClickListener(event) {
   event.preventDefault();
