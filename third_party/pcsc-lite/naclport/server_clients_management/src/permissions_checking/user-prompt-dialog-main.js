@@ -48,6 +48,7 @@ goog.require('goog.asserts');
 goog.require('goog.dom');
 goog.require('goog.dom.classlist');
 goog.require('goog.events');
+goog.require('goog.events.BrowserEvent');
 goog.require('goog.log.Logger');
 goog.require('goog.string');
 
@@ -95,11 +96,13 @@ function prepareMessage() {
   }
 }
 
+/** @param {!goog.events.BrowserEvent} event */
 function allowClickListener(event) {
   event.preventDefault();
   GSC.InPopupMainScript.resolveModalDialog(true);
 }
 
+/** @param {!goog.events.BrowserEvent} event */
 function denyClickListener(event) {
   event.preventDefault();
   GSC.InPopupMainScript.resolveModalDialog(false);

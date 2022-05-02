@@ -25,6 +25,7 @@ goog.provide('GoogleSmartCard.ConnectorApp.Window.AboutShowing');
 goog.require('GoogleSmartCard.Packaging');
 goog.require('goog.dom');
 goog.require('goog.events');
+goog.require('goog.events.BrowserEvent');
 goog.require('goog.events.EventType');
 
 goog.scope(function() {
@@ -53,7 +54,7 @@ const openAboutElement =
     /** @type {!Element} */ (goog.dom.getElement('open-about'));
 
 /**
- * @param {!Event} e
+ * @param {!goog.events.BrowserEvent} e
  */
 function openAboutClickListener(e) {
   e.preventDefault();

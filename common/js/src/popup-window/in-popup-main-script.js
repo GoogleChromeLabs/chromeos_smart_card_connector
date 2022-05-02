@@ -30,6 +30,7 @@ goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.Packaging');
 goog.require('goog.events');
+goog.require('goog.events.BrowserEvent');
 goog.require('goog.events.EventType');
 goog.require('goog.events.KeyCodes');
 goog.require('goog.log');
@@ -196,6 +197,7 @@ function closeWindow() {
   window.close();
 }
 
+/** @param {!goog.events.BrowserEvent} event */
 function documentClosingOnEscapeKeyDownListener(event) {
   if (event.keyCode == goog.events.KeyCodes.ESC) {
     goog.log.fine(logger, 'ESC key press received, the window will be closed');
