@@ -16,6 +16,7 @@ jobs:
     
     - name: Setup Python
       uses: actions/setup-python@v3.1.2
+      run: pip install six
 
     - name: Initialize env
       run: env/initialize.sh
