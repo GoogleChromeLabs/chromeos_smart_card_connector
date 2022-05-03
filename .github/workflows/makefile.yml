@@ -14,11 +14,13 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
-    - name: Setup Python
+    - name: Setup Python 2
       uses: actions/setup-python@v3.1.2
-
-    - name: Configure Python
-      run: pip install six
+      with:
+        python-version: 2.7
+    
+    - name: Setup Python 3
+      uses: actions/setup-python@v3.1.2
 
     - name: Initialize env
       run: env/initialize.sh
