@@ -27,7 +27,6 @@ jobs:
       with:
         python-version: 3.9
         cache: pip
-    - run: pip3 install setuptools --upgrade
 
     - name: Initialize env
       run: env/initialize.sh
