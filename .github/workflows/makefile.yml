@@ -20,13 +20,14 @@ jobs:
         python-version: 2.7
         cache: pip
     - run: pip2 install six
-    - run: sudo apt install -y python-is-python2
     
     - name: Setup Python 3
       uses: actions/setup-python@v3.1.2
       with:
         python-version: 3.9
         cache: pip
+
+    - run: sudo apt install -y python-is-python2
 
     - name: Initialize env
       run: env/initialize.sh
