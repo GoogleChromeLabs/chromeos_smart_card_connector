@@ -14,6 +14,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
+    - name: Setup Python
+      uses: actions/setup-python@v3.1.2
+
     - name: Initialize env
       run: env/initialize.sh
       
