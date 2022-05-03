@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Copyright 2016 Google Inc. All Rights Reserved.
 #
@@ -96,10 +96,9 @@ def load_usb_devices(ccid_supported_readers_file):
   if not usb_devices:
     raise RuntimeError('No supported USB devices were extracted from the CCID '
                        'supported readers config')
-  print >>sys.stderr, ('Extracted {0} supported USB devices from the CCID '
-                       'supported readers config, and ignored {1} '
-                       'items.'.format(
-                           len(usb_devices), ignored_usb_device_count))
+  sys.stderr.write('Extracted {0} supported USB devices from the CCID '
+                   'supported readers config, and ignored {1} items.'.format(
+                       len(usb_devices), ignored_usb_device_count))
 
   return usb_devices
 

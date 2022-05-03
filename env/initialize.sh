@@ -73,7 +73,7 @@ initialize_nacl_sdk() {
   log_message "Installing Native Client SDK (version ${NACL_SDK_VERSION})..."
   rm -rf nacl_sdk
   cp -r ../third_party/nacl_sdk/nacl_sdk .
-  python nacl_sdk/sdk_tools/sdk_update_main.py install pepper_${NACL_SDK_VERSION}
+  python2 nacl_sdk/sdk_tools/sdk_update_main.py install pepper_${NACL_SDK_VERSION}
   log_message "Native Client SDK was installed successfully."
 }
 
