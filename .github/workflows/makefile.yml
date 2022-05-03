@@ -14,12 +14,13 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
-    - name: Setup Python 2
+    - name: Setup Python 2  # needed for old NaCl builds
       uses: actions/setup-python@v3.1.2
       with:
         python-version: 2.7
         cache: pip
     - run: pip2 install six
+    - run: sudo apt install -y python-is-python2
     
     - name: Setup Python 3
       uses: actions/setup-python@v3.1.2
