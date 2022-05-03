@@ -8,3 +8,5 @@ rednose==0.4.1
 termcolor==1.1.0
 yapf==0.1.8
 astroid<2.0
+logilab-common<1.5.0
+lazy-object-proxy<1.7.0
