@@ -16,7 +16,7 @@ jobs:
     
     # Python 2 needed for legacy NaCl builds.
     - run: sudo apt remove -y python3
-    - name: Setup Python 2
+    - name: Set up Python 2
       uses: actions/setup-python@v3.1.2
       with:
         python-version: 2.7
@@ -26,20 +26,11 @@ jobs:
     - name: Initialize env
       run: env/initialize.sh
     
-    - name: Setup Python 3
+    - name: Set up Python 3
       uses: actions/setup-python@v3.1.2
       with:
         python-version: 3.9
         cache: pip
 
-    # Python 2 default needed for legacy NaCl build scripts.
-    - run: sudo apt install -y python-is-python2
-
-    - name: Test Py
-      run: python --version
-
-    - name: Test Py
-      run: source env/activate && python --version
-
     - name: Build
-      run: source env/activate && make
+      run: source env/activate && TOOLCHAIN=emscripten make
