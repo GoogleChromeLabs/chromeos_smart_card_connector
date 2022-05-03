@@ -33,4 +33,4 @@ jobs:
         cache: pip
       
     - name: Build
-      run: make
+      run: source env/activate && make
