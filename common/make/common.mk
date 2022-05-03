@@ -47,8 +47,12 @@ PACKAGING ?= app
 #    $1: Path to be normalized.
 #
 
-NORMALIZE_PATH = \
-	$(shell python -c 'import os.path, sys; print os.path.normpath(sys.argv[1])' "$(1)")
+NORMALIZE_PATH_COMMAND = \
+	python3 \
+		-c 'import os.path, sys; print(os.path.normpath(sys.argv[1]))' \
+		"$(1)"
+
+NORMALIZE_PATH = $(shell $(call NORMALIZE_PATH_COMMAND,$(1)))
 
 
 #
@@ -60,8 +64,8 @@ NORMALIZE_PATH = \
 #
 
 RELATIVE_PATH_COMMAND = \
-	python \
-		-c 'import os.path, sys; print os.path.relpath(sys.argv[1],sys.argv[2])' \
+	python3 \
+		-c 'import os.path, sys; print(os.path.relpath(sys.argv[1],sys.argv[2]))' \
 		"$(1)" \
 		"$(2)"
 
