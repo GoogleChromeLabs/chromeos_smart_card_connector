@@ -35,5 +35,11 @@ jobs:
     # Python 2 default needed for legacy NaCl build scripts.
     - run: sudo apt install -y python-is-python2
 
+    - name: Test Py
+      run: python --version
+
+    - name: Test Py
+      run: source env/activate && python --version
+
     - name: Build
       run: source env/activate && make
