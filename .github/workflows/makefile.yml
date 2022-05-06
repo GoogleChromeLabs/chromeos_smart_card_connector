@@ -13,18 +13,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    
-    # Python 2 needed for setting up legacy NaCl toolchain.
-    - run: sudo apt remove -y python3
-    - name: Set up Python 2
-      uses: actions/setup-python@v3.1.2
-      with:
-        python-version: 2.7
-        cache: pip
-    - run: pip2 install six
-
-    - name: Initialize env
-      run: env/initialize.sh
 
     - name: Set up Python 3
       uses: actions/setup-python@v3.1.2
@@ -32,5 +20,9 @@ jobs:
         python-version: 3.9
         cache: pip
 
+    - name: Initialize env
+      run: env/initialize.sh
+
     - name: Compile
       run: source env/activate && TOOLCHAIN=emscripten make
+      run: source env/activate && source env/python2_venv/bin/activate && TOOLCHAIN=pnacl make
