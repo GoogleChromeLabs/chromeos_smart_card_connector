@@ -13,7 +13,14 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    
+
+    # By default, Github's Ubuntu version comes with a too old Make.
+    - name: Install Make 4.3
+      run: |
+        wget http://archive.ubuntu.com/ubuntu/pool/main/m/make-dfsg/make_4.3-4ubuntu1_amd64.deb
+        sudo apt-get install ./make_4.3-4ubuntu1_amd64.deb
+        rm ./make_4.3-4ubuntu1_amd64.deb
+
     # Python 2 needed for setting up legacy NaCl toolchain.
     - run: sudo apt remove -y python3
     - name: Set up Python 2
