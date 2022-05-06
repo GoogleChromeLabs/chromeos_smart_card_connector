@@ -106,10 +106,9 @@ def main():
       sys.stderr.write('Waiting for the test completion...\n')
       wait_for_test_completion(driver, args.timeout)
       print(get_js_test_report(driver))
-      succeeded = is_js_test_successful(driver)
       if args.print_js_logs:
         print(get_js_logs(driver))
-      if not succeeded:
+      if not is_js_test_successful(driver):
         return 1
   return 0
 
