@@ -25,4 +25,4 @@ jobs:
 
     - name: Compile
       run: source env/activate && TOOLCHAIN=emscripten make
-      run: source env/activate && source env/python2_venv/bin/activate && TOOLCHAIN=pnacl make
+    - run: source env/activate && source env/python2_venv/bin/activate && TOOLCHAIN=pnacl make
