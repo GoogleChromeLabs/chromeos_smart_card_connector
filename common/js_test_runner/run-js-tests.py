@@ -19,7 +19,6 @@ Integration).
 import argparse
 import math
 import os.path
-import pathlib
 import pyvirtualdisplay
 from selenium import webdriver
 from selenium.webdriver.support import ui as webdriver_ui
