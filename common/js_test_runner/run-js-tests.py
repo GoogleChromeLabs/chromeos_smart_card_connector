@@ -21,14 +21,16 @@ import math
 import os.path
 import pathlib
 import pyvirtualdisplay
-import sys
 from selenium import webdriver
 from selenium.webdriver.support import ui as webdriver_ui
+import sys
 
 def create_virtual_display(show_ui):
+  """Returns a virtual display context manager."""
   return pyvirtualdisplay.Display(visible=show_ui)
 
 def create_driver(chromedriver_path):
+  """Launches Chrome (Chromedriver) and returns the Selenium driver object."""
   service = webdriver.chrome.service.Service(executable_path=chromedriver_path)
   options = webdriver.chrome.options.Options()
   capabilities = \
@@ -39,11 +41,13 @@ def create_driver(chromedriver_path):
                           desired_capabilities=capabilities)
 
 def load_test_page(driver, test_html_page_path):
+  """Navigates the Chromedriver to the given page."""
   # An absolute path should be used to construct a file:// URL.
   abs_path = os.path.abspath(test_html_page_path)
   driver.get("file://%s" % abs_path)
 
 def wait_for_test_completion(driver, timeout_seconds):
+  """Waits until the Jsunit tests finish in the page opened in Chromedriver."""
   webdriver_ui.WebDriverWait(
       driver, timeout_seconds if timeout_seconds else math.inf).until(
           lambda driver: is_js_test_finished(driver) or
@@ -52,29 +56,35 @@ def wait_for_test_completion(driver, timeout_seconds):
     raise RuntimeError(f'Failed to load the page: {get_page_text(driver)}')
 
 def is_page_load_failed(driver):
+  """Returns whether the page loading failed in Chromedriver (e.g., 404)."""
   # Note that `driver.current_url` wouldn't work here, as it returns the
   # attempted page's URL, and never Chrome internal URLs.
   page_url = driver.execute_script('return document.location.href')
   return page_url.startswith('chrome-error://')
 
 def get_page_text(driver):
+  """Returns the page's full text - useful for debugging purposes."""
   return driver.find_element(
       by=webdriver.common.by.By.TAG_NAME, value='body').text
 
 def is_js_test_finished(driver):
-  # Inspect the Jsunit (Closure Library's test framework that we use to write JS
-  # tests) state to check whether it finished the test runner.
+  """Returns whether the Jsunit tests finished in the page in Chromedriver."""
+  # Inspect the Jsunit state to check it initialized and finished.
   return driver.execute_script(
       'return window.G_testRunner && window.G_testRunner.isFinished()')
 
 def is_js_test_successful(driver):
-  # Inspect the Jsunit state to check whether the JavaScript tests passed.
+  """Returns whether the Jsunit tests passed in the page in Chromedriver."""
+  # Inspect the Jsunit state.
   return driver.execute_script('return window.G_testRunner.isSuccess()')
 
 def get_js_test_report(driver):
+  """Returns the Jsunit human-readable summary from the page in Chromedriver."""
+  # Inspect the Jsunit state.
   return driver.execute_script('return window.G_testRunner.getReport()')
 
 def get_js_logs(driver):
+  """Returns all JavaScript logs from the page in Chromedriver."""
   return '\n'.join(f'{log["level"]}: {log["message"]}'
                    for log in driver.get_log('browser'))
 
