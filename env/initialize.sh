@@ -103,6 +103,25 @@ initialize_webports() {
   fi
 }
 
+initialize_chromedriver() {
+  if [ -f ./chromedriver -a "${force_reinitialization}" -eq "0" ]; then
+    log_message "chromedriver already present, skipping."
+    return
+  fi
+  log_message "Installing chromedriver..."
+  rm -rf ./chromedriver
+  # Determine the currently installed version of Chrome. Leave only the
+  # major-minor-build triple, e.g., 72.0.3626.
+  local chrome_version=$(google-chrome --version | cut -f 3 -d ' ' | cut -d '.' -f 1-3)
+  # Obtain the matching Chromedriver version.
+  local chromedriver_version=$(curl http://chromedriver.storage.googleapis.com/LATEST_RELEASE_${chrome_version})
+  # Download Chromedriver.
+  wget https://chromedriver.storage.googleapis.com/${chromedriver_version}/chromedriver_linux64.zip
+  unzip -q chromedriver_linux64.zip
+  rm -rf chromedriver_linux64.zip
+  log_message "chromedriver was installed successfully."
+}
+
 create_activate_script() {
   log_message "Creating \"activate\" script..."
   echo > activate
@@ -137,5 +156,7 @@ initialize_emscripten
 initialize_nacl_sdk
 # Depends on nacl_sdk.
 initialize_webports
+
+initialize_chromedriver
 
 create_activate_script

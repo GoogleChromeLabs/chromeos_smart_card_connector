@@ -1,4 +1,5 @@
 /activate
+/chromedriver
 /depot_tools/
 /emsdk/
 /nacl_sdk/
