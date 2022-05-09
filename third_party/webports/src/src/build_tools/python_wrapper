@@ -10,13 +10,5 @@
 SCRIPT_DIR=$(cd $(dirname "$BASH_SOURCE") && pwd)
 
 export PYTHONPATH="${PYTHONPATH}:${SCRIPT_DIR}:$(dirname ${SCRIPT_DIR})/lib"
-export PYTHONUSERBASE="$(dirname $SCRIPT_DIR)/out/pip"
-
-if [ ! -d "${PYTHONUSERBASE}" ]; then
-  echo "error: pip installation not found (${PYTHONUSERBASE})"
-  echo "Did you use gclient to fetch the naclports repo?"
-  echo "(See https://code.google.com/p/naclports/wiki/HowTo_Checkout)"
-  exit 1
-fi
 
 exec python $*

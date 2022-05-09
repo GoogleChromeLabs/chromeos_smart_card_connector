@@ -84,6 +84,44 @@ initialize_depot_tools() {
   log_message "depot_tools were installed successfully."
 }
 
+# Creates a complete installation of Python 2 locally, instead of relying on
+# system-wide Python 2 installations that become increasingly cumbersome due to
+# sunset of Python 2. We need Python 2 as long as we keep using NaCl.
+initialize_python2() {
+  if [ -d ./python2_venv -a "${force_reinitialization}" -eq "0" ]; then
+    log_message "Python 2 already present, skipping."
+    return
+  fi
+  log_message "Installing Python 2..."
+  rm -rf ./python2 python2_venv
+  mkdir ./python2
+  # Download Python 2 sources.
+  wget https://www.python.org/ftp/python/2.7.18/Python-2.7.18.tgz
+  tar -zxf Python-2.7.18.tgz
+  rm -rf Python-2.7.18.tgz
+  # Build Python 2.
+  cd Python-2.7.18
+  ./configure --prefix=$(realpath ../python2/)
+  make -j30 -s
+  make install -s
+  cd ..
+  # Clean up Python 2 sources.
+  rm -rf ./Python-2.7.18
+  # Install Pip 2.
+  curl https://bootstrap.pypa.io/pip/2.7/get-pip.py | python2/bin/python
+  # Install Virtualenv.
+  python2/bin/pip install virtualenv
+  # Create virtual environment.
+  python2/bin/virtualenv -p python2/bin/python ./python2_venv
+  source ./python2_venv/bin/activate
+  # Install needed Pip packages.
+  pip2 install -r pip2_requirements.txt
+  # Exit Python 2 virtual environment: it should only be used in steps that
+  # actually need Python 2.
+  deactivate
+  log_message "Python 2 was installed successfully."
+}
+
 initialize_nacl_sdk() {
   export NACL_SDK_ROOT="${SCRIPTPATH}/nacl_sdk/pepper_${NACL_SDK_VERSION}"
   if [ -d ./nacl_sdk -a "${force_reinitialization}" -eq "0" ]; then
@@ -91,9 +129,16 @@ initialize_nacl_sdk() {
     return
   fi
   log_message "Installing Native Client SDK (version ${NACL_SDK_VERSION})..."
+  # Prepare NaCl SDK installation scripts.
   rm -rf nacl_sdk
   cp -r ../third_party/nacl_sdk/nacl_sdk .
+  # Enter the virtual environment - the NaCl SDK scripts still use Python 2.
+  source ./python2_venv/bin/activate
+  # Set up the complete SDK with the given version.
   python2 nacl_sdk/sdk_tools/sdk_update_main.py install pepper_${NACL_SDK_VERSION}
+  # Exit the Python 2 virtual environment, to avoid affecting steps that don't
+  # need it.
+  deactivate
   log_message "Native Client SDK was installed successfully."
 }
 
@@ -103,8 +148,13 @@ initialize_webports() {
     return
   fi
   log_message "Installing webports (with building the following libraries: ${WEBPORTS_TARGETS})..."
+  # Prepare the webports installation scripts.
   rm -rf webports
   cp -r ../third_party/webports/src webports
+  # Enter the virtual environment - the webports scripts still use Python 2 (as
+  # they are based on NaCl).
+  source ./python2_venv/bin/activate
+  # Install and build the needed webports libraries.
   cd webports
   tar -zxf git.tar.gz
   gclient runhooks
@@ -116,6 +166,9 @@ initialize_webports() {
     fi
   done
   cd ${SCRIPTPATH}
+  # Exit the Python 2 virtual environment, to avoid affecting steps that don't
+  # need it.
+  deactivate
   if [[ ${failed_targets} ]]; then
     log_error_message "webports were installed, but the following libraries failed to build:${failed_targets}. You have to fix them manually. Continuing the initialization script..."
   else
@@ -157,9 +210,10 @@ initialize_depot_tools
 
 initialize_emscripten
 
-# Depends on depot_tools.
+initialize_python2
+# Depends on depot_tools and python2.
 initialize_nacl_sdk
-# Depends on nacl_sdk.
+# Depends on nacl_sdk and python2.
 initialize_webports
 
 create_activate_script
