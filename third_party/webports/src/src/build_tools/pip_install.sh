@@ -9,30 +9,11 @@
 # for pip inself vary between versions.
 
 SCRIPT_DIR="$(cd $(dirname $0) && pwd)"
-ARGS="--user --no-compile"
+ARGS="--no-compile"
 
 cd "${SCRIPT_DIR}/.."
 
-export PYTHONUSERBASE=$PWD/out/pip
-pip_bin_dir=$PYTHONUSERBASE/bin
-pip_bin=$pip_bin_dir/pip
-export PATH=$pip_bin_dir:$PATH
-unset PYTHONNOUSERSITE
-
-if [ ! -f "$pip_bin" ]; then
-  # On first run install pip directly from the network
-  echo "Installing pip.."
-  # Use local file rather than pipeline so we can detect failure of the curl
-  # command.
-  curl --silent --show-error https://bootstrap.pypa.io/pip/2.7/get-pip.py > get-pip.py
-  python get-pip.py --force-reinstall --user
-  rm -f get-pip.py
-  hash -r
-fi
-
-set -x
-# Pin locally install pip to a specific version
-pip install --user "pip==6.0.6"
+source ../../python2_venv/bin/activate
 
 # At this point we know we have good pip install in $PATH and we can use
 # it to install the requirements.

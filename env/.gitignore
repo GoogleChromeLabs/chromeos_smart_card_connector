@@ -2,4 +2,6 @@
 /depot_tools/
 /emsdk/
 /nacl_sdk/
+/python2/
+/python2_venv/
 /webports/

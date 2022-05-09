@@ -40,8 +40,18 @@ clean_dir_with_toolchain_and_config() {
 	local toolchain=${1}
 	local config=${2}
 
+	if [ "${toolchain}" = pnacl ]; then
+		# NaCl build scripts still use Python 2, so enter the virtual environment.
+		source env/python2_venv/bin/activate
+	fi
+
 	log_message "Cleaning \"${toolchain}\" \"${config}\"..."
 	TOOLCHAIN=${toolchain} CONFIG=${config} make clean -j10 || true
+
+	if [ "${toolchain}" = pnacl ]; then
+		# Exit the virtual environment to avoid using Python 2 when it's not needed.
+		deactivate
+	fi
 }
 
 clean_built_app_packages() {

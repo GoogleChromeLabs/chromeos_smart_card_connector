@@ -47,7 +47,13 @@ run_make_test_with_config() {
   local build_dir=${1}
   local config=${2-}
 
+  # NaCl build scripts still use Python 2, so enter the virtual environment.
+  source env/python2_venv/bin/activate
+
   CONFIG=${config} make -C ${build_dir} test -j20
+
+  # Exit the virtual environment to avoid using Python 2 when it's not needed.
+  deactivate
 }
 
 
