@@ -116,7 +116,7 @@ Checker.prototype.checkByManagedRegistry_ = function(
       'Checking permissions for the client ' + clientOrigin +
           ' through the managed registry...');
 
-  this.managedRegistry_.getById(clientOrigin)
+  this.managedRegistry_.getByOrigin(clientOrigin)
       .then(
           function() {
             goog.log.log(
