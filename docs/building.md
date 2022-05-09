@@ -11,9 +11,8 @@ Connector App and examples of how programs can communicate with the app.
   Building under a different \*nix system, Mac OS or Windows should be possible
   too, though most probably will require more efforts.
 
-* The following tools should be present in the system: **bash**, **make**
-  (version 4.3+ is recommended), **curl**, **sed**, **mktemp**, **realpath**,
-  **xxd**.
+* The following tools should be present in the system: **bash**, **make**,
+  **curl**, **sed**, **mktemp**, **realpath**, **xxd**.
 
 * **Python 2.7**, including the dev package and the **python-six** module.
 

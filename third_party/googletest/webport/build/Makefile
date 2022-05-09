@@ -40,6 +40,19 @@ TARGET_LIBS := \
 	$(LIB_DIR)/libgtest.a \
 	$(LIB_DIR)/libgtest_main.a \
 
+# A make pattern for TARGET_LIBS.
+#
+# We use this pattern below for writing a rule that builds all these files at
+# once, instead of the regular make behavior that'll call the build script 4
+# times (once for each file). Note: in Make >=4.3 there's a more intuitive
+# alternative (the "&:" rules), but at the moment Make 4.3 isn't widespread
+# enough.
+TARGET_LIBS_PATTERN := \
+	$(LIB_DIR)/libgmock% \
+	$(LIB_DIR)/libgmock_main% \
+	$(LIB_DIR)/libgtest% \
+	$(LIB_DIR)/libgtest_main% \
+
 # Make the target library files be built by default, even when no target is
 # explicitly specified when running "make".
 all: $(TARGET_LIBS)
@@ -64,11 +77,23 @@ ARTIFACTS_LIBS := \
 
 endif
 
+# A make pattern for the temporary library files. In this pattern, "%" denotes
+# an arbitrary sequence of characters, which evaluates to ".a" in Release builds
+# and "d.a" in Debug ones.
+#
+# The reason we use pattern rules is that it avoids executing a rule multiple
+# times - see the doc on TARGET_LIBS_PATTERN above.
+ARTIFACTS_LIBS_PATTERN := \
+	out-artifacts/lib/libgmock% \
+	out-artifacts/lib/libgmock_main% \
+	out-artifacts/lib/libgtest% \
+	out-artifacts/lib/libgtest_main% \
+
 # Rule for building temporary library files, including compiling GoogleTest.
 #
 # Notes:
-# * The "&" character after the list of targets denotes that all of them are
-#   built together by a single invocation of the recipe.
+# * We use a pattern rule (note the "%" character) in order to tell Make trigger
+#   this rule only once to produce all 4 files.
 # * The build is performed in a temporary "out-artifacts" directory, separately
 #   from source files and this Makefle.
 # * Emscripten's wrapper "emcmake" is used for running "cmake", which allows to
@@ -89,7 +114,7 @@ endif
 # GTEST_HAS_PTHREAD: Make GoogleTest/GoogleMock thread-safe via pthreads. Note
 #   that the same definition must be passed when compiling test files - see
 #   //common/cpp_unit_test_runner/src/build_emscripten.mk.
-$(ARTIFACTS_LIBS) &:
+$(ARTIFACTS_LIBS_PATTERN):
 	rm -rf out-artifacts
 	mkdir out-artifacts
 	emcmake \
@@ -110,13 +135,13 @@ $(ARTIFACTS_LIBS) &:
 # * Debug and Release configurations are handled separately, since GoogleTest
 #   adds the "d" suffix to the temporary library file names in Debug builds.
 ifeq ($(CONFIG),Debug)
-$(TARGET_LIBS) &: $(ARTIFACTS_LIBS)
+$(TARGET_LIBS_PATTERN): $(ARTIFACTS_LIBS)
 	cp out-artifacts/lib/libgmockd.a $(LIB_DIR)/libgmock.a
 	cp out-artifacts/lib/libgmock_maind.a $(LIB_DIR)/libgmock_main.a
 	cp out-artifacts/lib/libgtestd.a $(LIB_DIR)/libgtest.a
 	cp out-artifacts/lib/libgtest_maind.a $(LIB_DIR)/libgtest_main.a
 else
-$(TARGET_LIBS) &: $(ARTIFACTS_LIBS)
+$(TARGET_LIBS_PATTERN): $(ARTIFACTS_LIBS)
 	cp out-artifacts/lib/libgmock.a $(LIB_DIR)/libgmock.a
 	cp out-artifacts/lib/libgmock_main.a $(LIB_DIR)/libgmock_main.a
 	cp out-artifacts/lib/libgtest.a $(LIB_DIR)/libgtest.a
