@@ -31,7 +31,6 @@ Integration).
 """
 
 import argparse
-import math
 import os.path
 import pyvirtualdisplay
 from selenium import webdriver
@@ -61,10 +60,8 @@ def load_test_page(driver, test_html_page_path):
 
 def wait_for_test_completion(driver, timeout_seconds):
   """Waits until the Jsunit tests finish in the page opened in Chromedriver."""
-  webdriver_ui.WebDriverWait(
-      driver, timeout_seconds if timeout_seconds else math.inf).until(
-          lambda driver: is_js_test_finished(driver) or
-                         is_page_load_failed(driver))
+  webdriver_ui.WebDriverWait(driver, timeout_seconds).until(
+      lambda driver: is_js_test_finished(driver) or is_page_load_failed(driver))
   if is_page_load_failed(driver):
     raise RuntimeError(f'Failed to load the page: {get_page_text(driver)}')
 
@@ -110,8 +107,7 @@ def parse_command_line_args():
   parser.add_argument('--chromedriver-path', type=str, required=True,
                       help='path to chromedriver to be used by Selenium')
   parser.add_argument('--timeout', type=int, default=60,
-                      help='timeout, in seconds, for the tests to run; pass 0 '
-                           'for infinite timeout')
+                      help='timeout, in seconds, for the tests to run')
   parser.add_argument('--print-js-logs', action='store_true',
                       help='use to get all JavaScript logs dumped')
   parser.add_argument('--show-ui', action='store_true',
