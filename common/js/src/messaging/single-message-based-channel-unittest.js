@@ -71,7 +71,7 @@ const isPingMessageMatcher =
       return typedMessage && typedMessage.type == Pinger.SERVICE_NAME;
     }, 'isPingMessage');
 
-const propertyReplacer = new goog.testing.PropertyReplacer;
+const propertyReplacer = new goog.testing.PropertyReplacer();
 /** @type {!goog.testing.MockControl|undefined} */
 let mockControl;
 /** @type {!GSC.SingleMessageBasedChannel|undefined} */
@@ -125,6 +125,7 @@ goog.exportSymbol('testSingleMessageBasedChannel', {
       testChannel.dispose();
       testChannel = undefined;
     }
+    propertyReplacer.reset();
     // Restore pinger's default timeouts.
     Pinger.overrideTimeoutForTesting(null);
     Pinger.overrideIntervalForTesting(null);
