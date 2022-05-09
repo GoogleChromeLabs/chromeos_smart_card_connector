@@ -40,7 +40,8 @@ TARGET_LIBS := \
 	$(LIB_DIR)/libgtest.a \
 	$(LIB_DIR)/libgtest_main.a \
 
-# A make pattern for TARGET_LIBS.
+# A make pattern for TARGET_LIBS. In this pattern, "%" denotes an arbitrary
+# sequence of characters, which evaluates to ".a" in this case.
 #
 # We use this pattern below for writing a rule that builds all these files at
 # once, instead of the regular make behavior that'll call the build script 4
@@ -132,6 +133,8 @@ $(ARTIFACTS_LIBS_PATTERN):
 # Rule for creating target library files, as copies of the temporary libraries.
 #
 # Notes:
+# * We use a pattern rule (note the "%" character) in order to tell Make trigger
+#   this rule only once to produce all 4 files.
 # * Debug and Release configurations are handled separately, since GoogleTest
 #   adds the "d" suffix to the temporary library file names in Debug builds.
 ifeq ($(CONFIG),Debug)
