@@ -50,7 +50,17 @@ make_with_toolchain_and_config() {
 	local toolchain=${3-}
 	local config=${4-}
 
+	if [ "${toolchain}" = pnacl ]; then
+		# NaCl build scripts still use Python 2, so enter the virtual environment.
+		source env/python2_venv/bin/activate
+	fi
+
 	TOOLCHAIN=${toolchain} CONFIG=${config} make -C ${build_dir} ${targets} -j10
+
+	if [ "${toolchain}" = pnacl ]; then
+		# Exit the virtual environment to avoid using Python 2 when it's not needed.
+		deactivate
+	fi
 }
 
 prepare_built_app_packages_dir() {
