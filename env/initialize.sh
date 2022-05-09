@@ -39,6 +39,26 @@ log_error_message() {
   echo -e "\033[33;31m${message}\033[0m"
 }
 
+initialize_python3_venv() {
+  if [ -d ./python3_venv -a "${force_reinitialization}" -eq "0" ]; then
+    log_message "python3_venv already present, skipping."
+    return
+  fi
+  log_message "Creating python3_venv..."
+  rm -rf ./python3_venv
+  # Skip default Pip installation, since it breaks with mysterious errors.
+  python3 -m venv --without-pip ./python3_venv
+  # Install Pip.
+  source ./python3_venv/bin/activate
+  curl https://bootstrap.pypa.io/get-pip.py | python3
+  # Install Pip modules we need.
+  python3 -m pip install -r ./pip3_requirements.txt
+  # Exit venv - we can't have it on by default as NaCl-related steps need
+  # Python 2.
+  deactivate
+  log_message "python3_venv was created successfully."
+}
+
 initialize_emscripten() {
   if [ -d ./emsdk -a "${force_reinitialization}" -eq "0" ]; then
     log_message "Emscripten already present, skipping."
@@ -157,6 +177,8 @@ initialize_webports() {
 }
 
 create_activate_script() {
+  # Note we don't put python3_venv activation here, since legacy NaCl build
+  # scripts still use Python 2.
   log_message "Creating \"activate\" script..."
   echo > activate
   echo "export NACL_SDK_ROOT=${NACL_SDK_ROOT}" >> activate
@@ -181,6 +203,8 @@ while getopts ":f" opt; do
       ;;
   esac
 done
+
+initialize_python3_venv
 
 initialize_depot_tools
 
