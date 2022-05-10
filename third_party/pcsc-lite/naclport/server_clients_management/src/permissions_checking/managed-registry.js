@@ -28,7 +28,9 @@
 
 goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.ManagedRegistry');
 
+goog.require('GoogleSmartCard.ExtensionId');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.MessagingOrigin');
 goog.require('goog.Promise');
 goog.require('goog.array');
 goog.require('goog.log');
@@ -56,7 +58,7 @@ PermissionsChecking.ManagedRegistry = function() {
    * @type {!Set.<string>}
    * @private
    */
-  this.allowedClientAppIds_ = new Set;
+  this.allowedClientOrigins_ = new Set;
 
   this.loadManagedStorage_();
   this.listenForStorageChanging_();
@@ -77,25 +79,25 @@ ManagedRegistry.prototype.logger = GSC.Logging.getScopedLogger(
  *
  * The result is returned asynchronously as a promise (which will eventually be
  * resolved if the permission is granted or rejected otherwise).
- * @param {string} clientAppId
+ * @param {string} clientOrigin Origin of the client application
  * @return {!goog.Promise}
  */
-ManagedRegistry.prototype.getById = function(clientAppId) {
+ManagedRegistry.prototype.getByOrigin = function(clientOrigin) {
   const promiseResolver = goog.Promise.withResolver();
 
   this.managedStoragePromiseResolver_.promise.then(
       function() {
-        if (this.allowedClientAppIds_.has(clientAppId)) {
+        if (this.allowedClientOrigins_.has(clientOrigin)) {
           promiseResolver.resolve();
         } else {
           promiseResolver.reject(new Error(
-              'The specified client App id is not listed in the managed ' +
+              'The specified client origin is not listed in the managed ' +
               'registry'));
         }
       },
       function() {
         promiseResolver.reject(new Error(
-            'Failed to load the allowed client App ids registry from the ' +
+            'Failed to load the allowed client origins registry from the ' +
             'managed storage'));
       },
       this);
@@ -107,7 +109,7 @@ ManagedRegistry.prototype.getById = function(clientAppId) {
 ManagedRegistry.prototype.loadManagedStorage_ = function() {
   goog.log.fine(
       this.logger,
-      'Loading managed storage data with the allowed client App ids (the key ' +
+      'Loading managed storage data with the allowed client origins (the key ' +
           'is "' + MANAGED_STORAGE_KEY + '")...');
   chrome.storage.managed.get(
       MANAGED_STORAGE_KEY, this.managedStorageLoadedCallback_.bind(this));
@@ -123,16 +125,16 @@ ManagedRegistry.prototype.managedStorageLoadedCallback_ = function(items) {
       'Loaded the following data from the managed storage: ' +
           GSC.DebugDump.dump(items));
 
-  if (this.setAllowedClientAppIdsFromStorageData_(
+  if (this.setAllowedClientOriginsFromStorageData_(
           goog.object.get(items, MANAGED_STORAGE_KEY, []))) {
     goog.log.info(
         this.logger,
-        'Loaded managed storage data with the allowed client App ids: ' +
-            GSC.DebugDump.dump(this.allowedClientAppIds_));
+        'Loaded managed storage data with the allowed client origins: ' +
+            GSC.DebugDump.dump(this.allowedClientOrigins_));
     this.managedStoragePromiseResolver_.resolve();
   } else {
     this.managedStoragePromiseResolver_.reject(new Error(
-        'Failed to load the allowed client App ids data from the managed ' +
+        'Failed to load the allowed client origins data from the managed ' +
         'storage'));
   }
 };
@@ -157,12 +159,12 @@ ManagedRegistry.prototype.storageChangedListener_ = function(
           GSC.DebugDump.dump(changes));
 
   if (changes[MANAGED_STORAGE_KEY]) {
-    if (this.setAllowedClientAppIdsFromStorageData_(
+    if (this.setAllowedClientOriginsFromStorageData_(
             goog.object.get(changes[MANAGED_STORAGE_KEY], 'newValue', []))) {
       goog.log.info(
           this.logger,
           'Loaded the updated managed storage data with the allowed client ' +
-              'App ids: ' + GSC.DebugDump.dump(this.allowedClientAppIds_));
+              'origins: ' + GSC.DebugDump.dump(this.allowedClientOrigins_));
     }
   }
 };
@@ -172,35 +174,53 @@ ManagedRegistry.prototype.storageChangedListener_ = function(
  * @return {boolean}
  * @private
  */
-ManagedRegistry.prototype.setAllowedClientAppIdsFromStorageData_ = function(
+ManagedRegistry.prototype.setAllowedClientOriginsFromStorageData_ = function(
     storageData) {
   if (!Array.isArray(storageData)) {
     goog.log.warning(
         this.logger,
-        'Failed to load the allowed client App ids data from the managed ' +
+        'Failed to load the allowed client origins data from the managed ' +
             'storage: expected an array, instead got: ' +
             GSC.DebugDump.dump(storageData));
     return false;
   }
 
-  const newAllowedClientAppIds = new Set;
+  const newAllowedClientOrigins = new Set;
   let success = true;
   goog.array.forEach(/** @type {!Array} */ (storageData), function(item) {
     if (typeof item !== 'string') {
       goog.log.warning(
           this.logger,
-          'Failed to load the allowed client App id from the managed ' +
+          'Failed to load the allowed client origin from the managed ' +
               'storage item: expected a string, instead got: ' +
               GSC.DebugDump.dump(item));
       success = false;
       return;
     }
-    newAllowedClientAppIds.add(item);
+    const clientOrigin = getClientOriginFromPolicyValue(item);
+    newAllowedClientOrigins.add(clientOrigin);
   });
 
   if (!success)
     return false;
-  this.allowedClientAppIds_ = newAllowedClientAppIds;
+  this.allowedClientOrigins_ = newAllowedClientOrigins;
   return true;
 };
+
+/**
+ * Returns a client origin from the given policy-configured string.
+ *
+ * Policies use one of the following two formats: either an app/extension ID or
+ * a full origin like "chrome-extension://something".
+ * @param {string} stringFromPolicy
+ * @return {string}
+ */
+function getClientOriginFromPolicyValue(stringFromPolicy) {
+  if (GSC.ExtensionId.looksLikeExtensionId(stringFromPolicy)) {
+    // Construct the "chrome-extension://..." origin.
+    return GSC.MessagingOrigin.getFromExtensionId(stringFromPolicy);
+  }
+  // Assume the policy specifies an origin. TODO: Perform a sanity check.
+  return stringFromPolicy;
+}
 });  // goog.scope

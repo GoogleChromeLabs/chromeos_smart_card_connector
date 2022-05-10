@@ -43,7 +43,9 @@ const ManagedRegistry =
     GSC.PcscLiteServerClientsManagement.PermissionsChecking.ManagedRegistry;
 
 const FIRST_EXTENSION_ID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+const FIRST_ORIGIN = `chrome-extension://${FIRST_EXTENSION_ID}`;
 const SECOND_EXTENSION_ID = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+const SECOND_ORIGIN = `chrome-extension://${SECOND_EXTENSION_ID}`;
 
 const propertyReplacer = new goog.testing.PropertyReplacer();
 /** @type {!goog.testing.MockControl|undefined} */
@@ -100,13 +102,14 @@ function notifyOnChanged(changes, namespace) {
 }
 
 /**
- * Calls `ManagedStorage.getById()` and returns whether it succeeded or failed.
- * @param {string} appId
+ * Calls `ManagedStorage.getByOrigin()` and returns whether it succeeded or
+ * failed.
+ * @param {string} origin
  * @returns {!Promise<boolean>}
  */
-async function booleanizedGetById(appId) {
+async function booleanizedGetByOrigin(origin) {
   try {
-    await managedRegistry.getById(appId);
+    await managedRegistry.getByOrigin(origin);
     return true;
   } catch (exc) {
     return false;
@@ -148,9 +151,9 @@ goog.exportSymbol('testPcscClientManagedRegistry', {
     // Create the registry (has to happen after the function mocks are set up).
     managedRegistry = new ManagedRegistry();
 
-    // Assert: failures for both IDs.
-    assertFalse(await booleanizedGetById(FIRST_EXTENSION_ID));
-    assertFalse(await booleanizedGetById(SECOND_EXTENSION_ID));
+    // Assert: failures for both origins.
+    assertFalse(await booleanizedGetByOrigin(FIRST_ORIGIN));
+    assertFalse(await booleanizedGetByOrigin(SECOND_ORIGIN));
   },
 
   // Test the case when the policy contains the first extension ID.
@@ -162,9 +165,23 @@ goog.exportSymbol('testPcscClientManagedRegistry', {
     // Create the registry (has to happen after the function mocks are set up).
     managedRegistry = new ManagedRegistry();
 
-    // Assert: success for the first ID.
-    assertTrue(await booleanizedGetById(FIRST_EXTENSION_ID));
-    assertFalse(await booleanizedGetById(SECOND_EXTENSION_ID));
+    // Assert: success for the first origin.
+    assertTrue(await booleanizedGetByOrigin(FIRST_ORIGIN));
+    assertFalse(await booleanizedGetByOrigin(SECOND_ORIGIN));
+  },
+
+  // Test the case when the policy contains the first extension's origin.
+  'testFirstOrigin': async function() {
+    // Arrange: set up the mock expectation that chrome.storage.managed.get() is
+    // called and returns the origin that points to the test extension.
+    willReturnPolicies([FIRST_ORIGIN]);
+    mockControl.$replayAll();
+    // Create the registry (has to happen after the function mocks are set up).
+    managedRegistry = new ManagedRegistry();
+
+    // Assert: success for the first origin.
+    assertTrue(await booleanizedGetByOrigin(FIRST_ORIGIN));
+    assertFalse(await booleanizedGetByOrigin(SECOND_ORIGIN));
   },
 
   // Test the case when the policy contains both extensions' IDs.
@@ -176,9 +193,23 @@ goog.exportSymbol('testPcscClientManagedRegistry', {
     // Create the registry (has to happen after the function mocks are set up).
     managedRegistry = new ManagedRegistry();
 
-    // Assert: success for both IDs.
-    assertTrue(await booleanizedGetById(FIRST_EXTENSION_ID));
-    assertTrue(await booleanizedGetById(SECOND_EXTENSION_ID));
+    // Assert: success for both origins.
+    assertTrue(await booleanizedGetByOrigin(FIRST_ORIGIN));
+    assertTrue(await booleanizedGetByOrigin(SECOND_ORIGIN));
+  },
+
+  // Test the case when the policy contains both extensions' origins.
+  'testTwoOrigins': async function() {
+    // Arrange: set up the mock expectation that chrome.storage.managed.get() is
+    // called and returns both extension's origins.
+    willReturnPolicies([FIRST_ORIGIN, SECOND_ORIGIN]);
+    mockControl.$replayAll();
+    // Create the registry (has to happen after the function mocks are set up).
+    managedRegistry = new ManagedRegistry();
+
+    // Assert: success for both origins.
+    assertTrue(await booleanizedGetByOrigin(FIRST_ORIGIN));
+    assertTrue(await booleanizedGetByOrigin(SECOND_ORIGIN));
   },
 
   // Test the scenario of dynamically changing the policy from an empty state to
@@ -190,9 +221,9 @@ goog.exportSymbol('testPcscClientManagedRegistry', {
     mockControl.$replayAll();
     // Create the registry (has to happen after the function mocks are set up).
     managedRegistry = new ManagedRegistry();
-    // Verify failure for both IDs initially.
-    assertFalse(await booleanizedGetById(FIRST_EXTENSION_ID));
-    assertFalse(await booleanizedGetById(SECOND_EXTENSION_ID));
+    // Verify failure for both origins initially.
+    assertFalse(await booleanizedGetByOrigin(FIRST_ORIGIN));
+    assertFalse(await booleanizedGetByOrigin(SECOND_ORIGIN));
 
     // Notify the policy is changed to have the first extension ID.
     notifyOnChanged(
@@ -202,9 +233,9 @@ goog.exportSymbol('testPcscClientManagedRegistry', {
         },
         'managed');
 
-    // Assert: success for the first ID.
-    assertTrue(await booleanizedGetById(FIRST_EXTENSION_ID));
-    assertFalse(await booleanizedGetById(SECOND_EXTENSION_ID));
+    // Assert: success for the first origin.
+    assertTrue(await booleanizedGetByOrigin(FIRST_ORIGIN));
+    assertFalse(await booleanizedGetByOrigin(SECOND_ORIGIN));
   },
 
   // Test the scenario of dynamically changing the policy from listing both
@@ -216,9 +247,9 @@ goog.exportSymbol('testPcscClientManagedRegistry', {
     mockControl.$replayAll();
     // Create the registry (has to happen after the function mocks are set up).
     managedRegistry = new ManagedRegistry();
-    // Verify success for both IDs initially.
-    assertTrue(await booleanizedGetById(FIRST_EXTENSION_ID));
-    assertTrue(await booleanizedGetById(SECOND_EXTENSION_ID));
+    // Verify success for both origins initially.
+    assertTrue(await booleanizedGetByOrigin(FIRST_ORIGIN));
+    assertTrue(await booleanizedGetByOrigin(SECOND_ORIGIN));
 
     // Act: Notify the policy is changed to have only the second extension ID.
     notifyOnChanged(
@@ -230,9 +261,9 @@ goog.exportSymbol('testPcscClientManagedRegistry', {
         },
         'managed');
 
-    // Assert: success for the second ID.
-    assertFalse(await booleanizedGetById(FIRST_EXTENSION_ID));
-    assertTrue(await booleanizedGetById(SECOND_EXTENSION_ID));
+    // Assert: success for the second origin.
+    assertFalse(await booleanizedGetByOrigin(FIRST_ORIGIN));
+    assertTrue(await booleanizedGetByOrigin(SECOND_ORIGIN));
   },
 });
 });  // goog.scope
