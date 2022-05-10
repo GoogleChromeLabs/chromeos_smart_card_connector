@@ -89,7 +89,7 @@ function stubAddStorageListener(listener) {
 }
 
 /**
- * Notifies all observes of chrome.storage.onChanged.addListener() about the
+ * Notifies all observers of chrome.storage.onChanged.addListener() about the
  * given changes.
  * @param {!Object} changes
  * @param {string} namespace
