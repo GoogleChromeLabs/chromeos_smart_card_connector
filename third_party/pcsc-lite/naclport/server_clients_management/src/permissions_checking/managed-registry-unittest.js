@@ -275,16 +275,16 @@ goog.exportSymbol('testPcscClientManagedRegistry', {
     mockControl.$replayAll();
     // Create the registry (has to happen after the function mocks are set up).
     managedRegistry = new ManagedRegistry();
-    // Verify success for the first ID initially.
-    assertTrue(await booleanizedGetById(FIRST_EXTENSION_ID));
-    assertFalse(await booleanizedGetById(SECOND_EXTENSION_ID));
+    // Verify success for the first origin initially.
+    assertTrue(await booleanizedGetByOrigin(FIRST_ORIGIN));
+    assertFalse(await booleanizedGetByOrigin(SECOND_ORIGIN));
 
     // Act: Notify some unrelated policy is changed.
     notifyOnChanged({'foo': {'oldValue': ['bar'], 'newValue': []}}, 'managed');
 
-    // Assert: still success for the first ID.
-    assertTrue(await booleanizedGetById(FIRST_EXTENSION_ID));
-    assertFalse(await booleanizedGetById(SECOND_EXTENSION_ID));
+    // Assert: still success for the first origin.
+    assertTrue(await booleanizedGetByOrigin(FIRST_ORIGIN));
+    assertFalse(await booleanizedGetByOrigin(SECOND_ORIGIN));
   },
 
   // Test that changes of (unrelated) keys in the local storage doesn't affect
@@ -296,16 +296,16 @@ goog.exportSymbol('testPcscClientManagedRegistry', {
     mockControl.$replayAll();
     // Create the registry (has to happen after the function mocks are set up).
     managedRegistry = new ManagedRegistry();
-    // Verify success for the second ID initially.
-    assertFalse(await booleanizedGetById(FIRST_EXTENSION_ID));
-    assertTrue(await booleanizedGetById(SECOND_EXTENSION_ID));
+    // Verify success for the second origin initially.
+    assertFalse(await booleanizedGetByOrigin(FIRST_ORIGIN));
+    assertTrue(await booleanizedGetByOrigin(SECOND_ORIGIN));
 
     // Act: Notify some key in the local storage is changed.
     notifyOnChanged({'foo': {'oldValue': ['bar'], 'newValue': []}}, 'local');
 
-    // Assert: still success for the second ID.
-    assertFalse(await booleanizedGetById(FIRST_EXTENSION_ID));
-    assertTrue(await booleanizedGetById(SECOND_EXTENSION_ID));
+    // Assert: still success for the second origin.
+    assertFalse(await booleanizedGetByOrigin(FIRST_ORIGIN));
+    assertTrue(await booleanizedGetByOrigin(SECOND_ORIGIN));
   },
 });
 });  // goog.scope
