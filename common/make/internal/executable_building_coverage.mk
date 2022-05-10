@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 #
 # This file contains the implementation of the ../executable_building.mk
 # interface that builds using stock Clang, for the purpose of instrumentation:
@@ -59,7 +58,11 @@ endef
 
 # Flags passed to both compiler and linker.
 COVERAGE_COMMON_FLAGS := \
+	-fcoverage-mapping \
+	-fprofile-instr-generate \
+	-fsanitize=address \
 	-g \
+	-m32 \
 
 # Flags passed to the compiler, in addition to COVERAGE_COMMON_FLAGS.
 COVERAGE_COMPILER_FLAGS :=

@@ -90,6 +90,13 @@ DEPS += \
 
 $(eval $(call DEPEND_RULE,nacl_io))
 
+else ifeq ($(TOOLCHAIN),coverage)
+
+# Coverage-specific build definitions:
+
+SOURCES += \
+	$(ROOT_PATH)/common/cpp/src/empty_main.cc \
+
 endif
 
 

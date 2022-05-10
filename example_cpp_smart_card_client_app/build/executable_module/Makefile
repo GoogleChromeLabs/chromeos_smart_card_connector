@@ -51,6 +51,11 @@ else ifeq ($(TOOLCHAIN),pnacl)
 SOURCES += \
 	$(SOURCES_DIR)/entry_point_nacl.cc \
 
+else ifeq ($(TOOLCHAIN),coverage)
+
+SOURCES += \
+	$(ROOT_PATH)/common/cpp/src/empty_main.cc \
+
 endif
 
 LIBS := \

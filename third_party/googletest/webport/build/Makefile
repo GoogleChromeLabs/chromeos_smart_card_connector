@@ -139,6 +139,8 @@ endif
 # E env: Wraps the succeeding cmake call into the "env" tool that allows to
 #   specify environment variables.
 # B: Build directory.
+ifeq ($(TOOLCHAIN),emscripten)
+
 $(ARTIFACTS_LIBS_PATTERN):
 	rm -rf out-artifacts
 	mkdir out-artifacts
@@ -148,6 +150,26 @@ $(ARTIFACTS_LIBS_PATTERN):
 		$(CMAKE_ARGS)
 	+$(MAKE) -C out-artifacts
 
+else ifeq ($(TOOLCHAIN),coverage)
+
+$(ARTIFACTS_LIBS_PATTERN):
+	rm -rf out-artifacts
+	mkdir out-artifacts
+	cmake \
+		../../src \
+		-B out-artifacts \
+		-DCMAKE_BUILD_TYPE=$(CONFIG) \
+		-DCMAKE_CXX_COMPILER="clang++" \
+		-DCMAKE_CXX_FLAGS="-m32 -pthread" \
+		-DGTEST_HAS_PTHREAD=1
+	+$(MAKE) -C out-artifacts
+
+else
+
+$(error Unsupported toolchain $(TOOLCHAIN).)
+
+endif
+
 # Rule for creating target library files, as copies of the temporary libraries.
 #
 # Notes:
@@ -156,17 +178,21 @@ $(ARTIFACTS_LIBS_PATTERN):
 # * Debug and Release configurations are handled separately, since GoogleTest
 #   adds the "d" suffix to the temporary library file names in Debug builds.
 ifeq ($(CONFIG),Debug)
+
 $(TARGET_LIBS_PATTERN): $(ARTIFACTS_LIBS)
 	cp out-artifacts/lib/libgmockd.a $(LIB_DIR)/libgmock.a
 	cp out-artifacts/lib/libgmock_maind.a $(LIB_DIR)/libgmock_main.a
 	cp out-artifacts/lib/libgtestd.a $(LIB_DIR)/libgtest.a
 	cp out-artifacts/lib/libgtest_maind.a $(LIB_DIR)/libgtest_main.a
+
 else
+
 $(TARGET_LIBS_PATTERN): $(ARTIFACTS_LIBS)
 	cp out-artifacts/lib/libgmock.a $(LIB_DIR)/libgmock.a
 	cp out-artifacts/lib/libgmock_main.a $(LIB_DIR)/libgmock_main.a
 	cp out-artifacts/lib/libgtest.a $(LIB_DIR)/libgtest.a
 	cp out-artifacts/lib/libgtest_main.a $(LIB_DIR)/libgtest_main.a
+
 endif
 
 # Make sure LIB_DIR is created before we copy .a files into it (using an
