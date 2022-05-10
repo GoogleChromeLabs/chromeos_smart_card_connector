@@ -235,8 +235,12 @@ endef
 # * The target consists of three resulting files: .wasm, .js, .worker.js. The
 #   first one is the actual binary, the second one is a JavaScript code that
 #   loads it, and the third one is used for the Pthreads multi-threading
-#   support. The "&" character denotes that all three files are produced by a
-#   single invocation of the recipe.
+#   support.
+# * The "%" character is used as a trick to tell Make run the recipe only once
+#   in order to produce all three files (technically, "%" means it's a pattern
+#   rule, and in this case it's matching to a single dot "."). Note: in
+#   Make >=4.3 there's a more intuitive alternative (the "&:" rules), but at the
+#   moment Make 4.3 isn't widespread enough.
 # * The target depends on the input .o object files and .a static library files,
 #   so that recompilation of those triggers re-linking.
 # * The target also has an order-only dependency on the dir.stamp file, in order
@@ -263,7 +267,7 @@ $(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).wor
 # Order-only dependency on the destination directory stamp:
 $(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js: | $(BUILD_DIR)/dir.stamp
 # The recipe that performs the linking and creates the resulting files:
-$(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js &:
+$(BUILD_DIR)/$(TARGET)%js $(BUILD_DIR)/$(TARGET)%wasm $(BUILD_DIR)/$(TARGET).worker%js:
 	emcc \
 		-o $(BUILD_DIR)/$(TARGET).js \
 		-L$(LIB_DIR) \
