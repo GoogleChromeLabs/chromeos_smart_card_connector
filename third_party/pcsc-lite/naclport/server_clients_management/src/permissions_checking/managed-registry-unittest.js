@@ -145,9 +145,10 @@ goog.exportSymbol('testPcscClientManagedRegistry', {
     // called and returns empty results.
     willReturnPolicies(null);
     mockControl.$replayAll();
+    // Create the registry (has to happen after the function mocks are set up).
+    managedRegistry = new ManagedRegistry();
 
     // Assert: failures for both IDs.
-    managedRegistry = new ManagedRegistry();
     assertFalse(await booleanizedGetById(FIRST_EXTENSION_ID));
     assertFalse(await booleanizedGetById(SECOND_EXTENSION_ID));
   },
@@ -158,9 +159,10 @@ goog.exportSymbol('testPcscClientManagedRegistry', {
     // called and returns the first extension ID.
     willReturnPolicies([FIRST_EXTENSION_ID]);
     mockControl.$replayAll();
+    // Create the registry (has to happen after the function mocks are set up).
+    managedRegistry = new ManagedRegistry();
 
     // Assert: success for the first ID.
-    managedRegistry = new ManagedRegistry();
     assertTrue(await booleanizedGetById(FIRST_EXTENSION_ID));
     assertFalse(await booleanizedGetById(SECOND_EXTENSION_ID));
   },
@@ -171,6 +173,7 @@ goog.exportSymbol('testPcscClientManagedRegistry', {
     // called and returns two extension IDs.
     willReturnPolicies([FIRST_EXTENSION_ID, SECOND_EXTENSION_ID]);
     mockControl.$replayAll();
+    // Create the registry (has to happen after the function mocks are set up).
     managedRegistry = new ManagedRegistry();
 
     // Assert: success for both IDs.
@@ -185,6 +188,7 @@ goog.exportSymbol('testPcscClientManagedRegistry', {
     // called and returns empty results.
     willReturnPolicies([]);
     mockControl.$replayAll();
+    // Create the registry (has to happen after the function mocks are set up).
     managedRegistry = new ManagedRegistry();
     // Verify failure for both IDs initially.
     assertFalse(await booleanizedGetById(FIRST_EXTENSION_ID));
@@ -210,12 +214,13 @@ goog.exportSymbol('testPcscClientManagedRegistry', {
     // called and returns two extension IDs.
     willReturnPolicies([SECOND_EXTENSION_ID, FIRST_EXTENSION_ID]);
     mockControl.$replayAll();
+    // Create the registry (has to happen after the function mocks are set up).
     managedRegistry = new ManagedRegistry();
     // Verify success for both IDs initially.
     assertTrue(await booleanizedGetById(FIRST_EXTENSION_ID));
     assertTrue(await booleanizedGetById(SECOND_EXTENSION_ID));
 
-    // Notify the policy is changed to have only the second extension ID.
+    // Act: Notify the policy is changed to have only the second extension ID.
     notifyOnChanged(
         {
           'force_allowed_client_app_ids': {
