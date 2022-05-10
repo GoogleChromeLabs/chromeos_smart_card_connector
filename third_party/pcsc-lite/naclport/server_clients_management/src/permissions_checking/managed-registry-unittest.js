@@ -280,14 +280,7 @@ goog.exportSymbol('testPcscClientManagedRegistry', {
     assertFalse(await booleanizedGetById(SECOND_EXTENSION_ID));
 
     // Act: Notify some unrelated policy is changed.
-    notifyOnChanged(
-        {
-          'foo': {
-            'oldValue': ['bar'],
-            'newValue': []
-          }
-        },
-        'managed');
+    notifyOnChanged({'foo': {'oldValue': ['bar'], 'newValue': []}}, 'managed');
 
     // Assert: still success for the first ID.
     assertTrue(await booleanizedGetById(FIRST_EXTENSION_ID));
@@ -308,14 +301,7 @@ goog.exportSymbol('testPcscClientManagedRegistry', {
     assertTrue(await booleanizedGetById(SECOND_EXTENSION_ID));
 
     // Act: Notify some key in the local storage is changed.
-    notifyOnChanged(
-        {
-          'foo': {
-            'oldValue': ['bar'],
-            'newValue': []
-          }
-        },
-        'managed');
+    notifyOnChanged({'foo': {'oldValue': ['bar'], 'newValue': []}}, 'local');
 
     // Assert: still success for the second ID.
     assertFalse(await booleanizedGetById(FIRST_EXTENSION_ID));
