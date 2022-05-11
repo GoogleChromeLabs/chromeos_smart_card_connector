@@ -61,14 +61,20 @@ TEST_RUNNER_LIBS := \
 TEST_RUNNER_DEPS := \
 
 # Rules for building GoogleTest static libraries.
+#
+# Note that we're using a pattern rule (the "%" character matches the ".a"
+# common substring). It's done in order to tell Make execute the recipe only
+# once in order to produce all four files. A more intuitive approach would be
+# using the "&:" syntax, but it's only introduced in Make 4.3, which isn't
+# widespread enough yet.
 
-GOOGLETEST_LIBS := \
-	$(LIB_DIR)/libgmock.a \
-	$(LIB_DIR)/libgmock_main.a \
-	$(LIB_DIR)/libgtest.a \
-	$(LIB_DIR)/libgtest_main.a \
+GOOGLETEST_LIBS_PATTERN := \
+	$(LIB_DIR)/libgmock% \
+	$(LIB_DIR)/libgmock_main% \
+	$(LIB_DIR)/libgtest% \
+	$(LIB_DIR)/libgtest_main% \
 
-$(GOOGLETEST_LIBS) &:
+$(GOOGLETEST_LIBS_PATTERN):
 	$(MAKE) -C $(ROOT_PATH)/third_party/googletest/webport/build
 
 # Documented in ../include.mk.
