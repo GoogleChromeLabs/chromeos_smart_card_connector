@@ -59,14 +59,10 @@ CPPFLAGS := \
 	-Wextra \
 	-Wno-sign-compare \
 
-# * "xc": Use the "C" language.
-CFLAGS := \
-	-xc \
-
 CXXFLAGS := \
 	-std=$(CXX_DIALECT) \
 
-$(foreach src,$(C_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CPPFLAGS) $(CFLAGS))))
+$(foreach src,$(C_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CPPFLAGS))))
 
 $(foreach src,$(CXX_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CPPFLAGS) $(CXXFLAGS))))
 
