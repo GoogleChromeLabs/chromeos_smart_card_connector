@@ -1,5 +1,6 @@
 /activate
 /chromedriver
+/coverage-artifacts/
 /depot_tools/
 /emsdk/
 /nacl_sdk/

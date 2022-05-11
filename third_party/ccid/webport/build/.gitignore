@@ -2,5 +2,6 @@
 /app_manifest_usb_devices.json
 /headers_installed.stamp
 /out/
+/out-artifacts-coverage/
 /out-artifacts-emscripten/
 /pnacl/
