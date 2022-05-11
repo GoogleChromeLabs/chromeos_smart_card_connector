@@ -151,5 +151,9 @@ $(TARGET_LIBS_PATTERN): $(ARTIFACTS_LIBS)
 	cp out-artifacts/lib/libgtest_main.a $(LIB_DIR)/libgtest_main.a
 endif
 
+# Make sure LIB_DIR is created before we copy .a files into it (using an
+# order-only dependency).
+$(TARGET_LIBS): | $(LIB_DIR)/dir.stamp
+
 # Add the temporary build directory for deletion when running "make clean".
 $(eval $(call CLEAN_RULE,out-artifacts))

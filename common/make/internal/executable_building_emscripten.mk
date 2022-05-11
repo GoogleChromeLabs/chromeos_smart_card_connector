@@ -212,8 +212,11 @@ endef
 # s: Write an object-index into the archive, in order to speed subsequent
 #    link operations.
 define LIB_RULE
+# Make sure LIB_DIR is created (using an order-only dependency).
+$(LIB_DIR)/lib$(1).a: | $(LIB_DIR)/dir.stamp
+
+# Library build rule
 $(LIB_DIR)/lib$(1).a: $(foreach src,$(2),$(call OBJ_FILE_NAME,$(src)))
-	@mkdir -p $(LIB_DIR)
 	@rm -f $(LIB_DIR)/lib$(1).a
 	emar \
 		crs \
