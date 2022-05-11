@@ -285,7 +285,15 @@ $(OUT_DIR_PATH)/index.html: $(OUT_DIR_PATH)
 
 generate_out: $(OUT_DIR_PATH)/index.html
 
+.PHONY: run_test run_test_manually
+
 run_test: all
+	source $(ROOT_PATH)/env/python3_venv/bin/activate && \
+		$(ROOT_PATH)/common/js_test_runner/run-js-tests.py \
+			$(OUT_DIR_PATH)/index.html \
+			--chromedriver-path=$(ROOT_PATH)/env/chromedriver
+
+run_test_manually: all
 	$(CHROME_ENV) $(CHROME_PATH) $(OUT_DIR_PATH)/index.html $(CHROME_ARGS) \
 		--user-data-dir=$(OUT_DIR_ROOT_PATH)/temp_chrome_profile
 
