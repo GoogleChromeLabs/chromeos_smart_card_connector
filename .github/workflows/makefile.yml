@@ -25,5 +25,12 @@ jobs:
 
     - name: Compile in WebAssembly mode
       run: source env/activate && TOOLCHAIN=emscripten make
+
+    - name: Tests in WebAssembly mode
+      run: source env/activate && TOOLCHAIN=emscripten make test
+
     - name: Compile in NaCl mode
       run: source env/activate && source env/python2_venv/bin/activate && TOOLCHAIN=pnacl make
+
+    - name: Tests in NaCl mode
+      run: source env/activate && source env/python2_venv/bin/activate && TOOLCHAIN=pnacl make test
