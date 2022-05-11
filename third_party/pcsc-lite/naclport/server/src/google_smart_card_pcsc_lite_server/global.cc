@@ -33,6 +33,17 @@
 #include <thread>
 #include <utility>
 
+#include <google_smart_card_common/ipc_emulation.h>
+#include <google_smart_card_common/logging/logging.h>
+#include <google_smart_card_common/messaging/typed_message.h>
+#include <google_smart_card_common/value.h>
+#include <google_smart_card_common/value_conversion.h>
+
+#include "server_sockets_manager.h"
+
+// Include the C headers after all other includes, because the preprocessor
+// definitions from them interfere with the symbols from the standard C++
+// library.
 extern "C" {
 #include "winscard.h"
 #include "debuglog.h"
@@ -41,14 +52,6 @@ extern "C" {
 #include "sys_generic.h"
 #include "winscard_svc.h"
 }
-
-#include <google_smart_card_common/ipc_emulation.h>
-#include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/messaging/typed_message.h>
-#include <google_smart_card_common/value.h>
-#include <google_smart_card_common/value_conversion.h>
-
-#include "server_sockets_manager.h"
 
 // Old versions of Emscripten have buggy multi-threading - so bail out if the
 // developer still hasn't updated their local Emscripten version.
