@@ -265,5 +265,47 @@ goog.exportSymbol('testPcscClientManagedRegistry', {
     assertFalse(await booleanizedGetByOrigin(FIRST_ORIGIN));
     assertTrue(await booleanizedGetByOrigin(SECOND_ORIGIN));
   },
+
+  // Test that changes of unrelated keys in the managed storage doesn't affect
+  // the result.
+  'testUnrelatedPolicyChange': async function() {
+    // Arrange: set up the mock expectation that chrome.storage.managed.get() is
+    // called and returns the first extension ID.
+    willReturnPolicies([FIRST_EXTENSION_ID]);
+    mockControl.$replayAll();
+    // Create the registry (has to happen after the function mocks are set up).
+    managedRegistry = new ManagedRegistry();
+    // Verify success for the first origin initially.
+    assertTrue(await booleanizedGetByOrigin(FIRST_ORIGIN));
+    assertFalse(await booleanizedGetByOrigin(SECOND_ORIGIN));
+
+    // Act: Notify some unrelated policy is changed.
+    notifyOnChanged({'foo': {'oldValue': ['bar'], 'newValue': []}}, 'managed');
+
+    // Assert: still success for the first origin.
+    assertTrue(await booleanizedGetByOrigin(FIRST_ORIGIN));
+    assertFalse(await booleanizedGetByOrigin(SECOND_ORIGIN));
+  },
+
+  // Test that changes of (unrelated) keys in the local storage doesn't affect
+  // the result.
+  'testUnrelatedNamespaceChange': async function() {
+    // Arrange: set up the mock expectation that chrome.storage.managed.get() is
+    // called and returns the second extension ID.
+    willReturnPolicies([SECOND_EXTENSION_ID]);
+    mockControl.$replayAll();
+    // Create the registry (has to happen after the function mocks are set up).
+    managedRegistry = new ManagedRegistry();
+    // Verify success for the second origin initially.
+    assertFalse(await booleanizedGetByOrigin(FIRST_ORIGIN));
+    assertTrue(await booleanizedGetByOrigin(SECOND_ORIGIN));
+
+    // Act: Notify some key in the local storage is changed.
+    notifyOnChanged({'foo': {'oldValue': ['bar'], 'newValue': []}}, 'local');
+
+    // Assert: still success for the second origin.
+    assertFalse(await booleanizedGetByOrigin(FIRST_ORIGIN));
+    assertTrue(await booleanizedGetByOrigin(SECOND_ORIGIN));
+  },
 });
 });  // goog.scope
