@@ -23,8 +23,14 @@ jobs:
     - name: Initialize env
       run: env/initialize.sh
 
+    - name: Dbg
+      run: ls -lh env/python3_venv/bin/activate
+
     - name: Compile in WebAssembly mode
       run: source env/activate && TOOLCHAIN=emscripten make
+
+    - name: Dbg
+      run: ls -lh env/python3_venv/bin/activate
 
     - name: Tests in WebAssembly mode
       run: source env/activate && TOOLCHAIN=emscripten make test
