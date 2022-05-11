@@ -1,4 +1,5 @@
 /out/
+/out-artifacts-coverage/
 /out-artifacts-emscripten/
 /pnacl/
 /user-data-dir/
