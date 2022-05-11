@@ -76,7 +76,6 @@ CCID_SOURCES := \
 #   under Linux (but are actually provided by the NaCl SDK too);
 # * The "macro-redefined" warning diagnostic is disabled because of some
 #   non-clean code;
-# * "xc": Use the "C" language.
 CCID_CPPFLAGS := \
 	$(COMMON_CPPFLAGS) \
 	-DBUNDLE='"ifd-ccid.bundle"' \
@@ -88,7 +87,6 @@ CCID_CPPFLAGS := \
 	-I$(ROOT_PATH)/common/cpp/src/google_smart_card_common/logging/syslog \
 	-I$(ROOT_PATH)/third_party/libusb/src/libusb \
 	-Wno-macro-redefined \
-	-xc \
 
 $(foreach src,$(CCID_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CCID_CPPFLAGS))))
 
@@ -97,12 +95,10 @@ CCID_OPENCT_SOURCES := \
 	$(CCID_SOURCES_PATH)/openct/checksum.c \
 	$(CCID_SOURCES_PATH)/openct/proto-t1.c \
 
-# * "xc": Use the "C" language.
 CCID_OPENCT_CPPFLAGS := \
 	$(COMMON_CPPFLAGS) \
 	-I$(CCID_NACL_SOURCES_PATH) \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
-	-xc \
 
 $(foreach src,$(CCID_OPENCT_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CCID_OPENCT_CPPFLAGS))))
 
@@ -115,14 +111,12 @@ CCID_SIMCLIST_SOURCES := \
 #   simclist library which are not compiling under the NaCl SDK environment;
 # * The "macro-redefined" warning diagnostic is disabled because of some
 #   non-clean code;
-# * "xc": Use the "C" language.
 CCID_SIMCLIST_CPPFLAGS := \
 	$(COMMON_CPPFLAGS) \
 	-Dlog_msg=ccid_log_msg \
 	-Dlog_xxd=ccid_log_xxd \
 	-DSIMCLIST_NO_DUMPRESTORE \
 	-Wno-macro-redefined \
-	-xc \
 
 $(foreach src,$(CCID_SIMCLIST_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CCID_SIMCLIST_CPPFLAGS))))
 
@@ -130,13 +124,11 @@ CCID_TOWITOKO_SOURCES := \
 	$(CCID_SOURCES_PATH)/towitoko/atr.c \
 	$(CCID_SOURCES_PATH)/towitoko/pps.c \
 
-# * "xc": Use the "C" language.
 CCID_TOWITOKO_CPPFLAGS := \
 	$(COMMON_CPPFLAGS) \
 	-I$(CCID_NACL_SOURCES_PATH) \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 	-I$(ROOT_PATH)/third_party/libusb/src/libusb \
-	-xc \
 
 $(foreach src,$(CCID_TOWITOKO_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CCID_TOWITOKO_CPPFLAGS))))
 

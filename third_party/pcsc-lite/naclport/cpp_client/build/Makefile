@@ -58,10 +58,8 @@ $(foreach src,$(CXX_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 C_SOURCES := \
 	$(SOURCES_PATH)/error.c \
 
-# * "xc": Use the "C" language.
 CFLAGS := \
 	$(COMMON_CPPFLAGS) \
-	-xc \
 
 $(foreach src,$(C_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CFLAGS))))
 
