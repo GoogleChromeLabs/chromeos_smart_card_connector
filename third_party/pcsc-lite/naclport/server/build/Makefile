@@ -107,6 +107,7 @@ PCSC_LITE_SERVER_SOURCES := \
 #   required for compiling the original PC/SC-Lite daemon source files.
 # * SCard* functions are redefined in order to not collide with the symbols
 #   from the PC/SC-Lite server-side libraries
+# * "xc": Use the "C" language.
 PCSC_LITE_SERVER_CPPFLAGS := \
 	$(PCSC_LITE_COMMON_CPPFLAGS) \
 	-DPCSCD \
@@ -122,6 +123,7 @@ PCSC_LITE_SERVER_CPPFLAGS := \
 	-DSCardSetAttrib=SCardSetAttribServer \
 	-DSCardStatus=SCardStatusServer \
 	-DSCardTransmit=SCardTransmitServer \
+	-xc \
 
 $(foreach src,$(PCSC_LITE_SERVER_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_CPPFLAGS))))
 
@@ -138,10 +140,12 @@ PCSC_LITE_SERVER_SVC_SOURCES := \
 # * no-return-type suppresses spurious compiler errors in cases when it doesn't
 #   recognize calls to library functions that terminate the thread or the
 #   program and bypass returning from a non-void function.
+# * "xc": Use the "C" language.
 PCSC_LITE_SERVER_SVC_CPPFLAGS := \
 	$(PCSC_LITE_SERVER_CPPFLAGS) \
 	-Dclose=ServerCloseSession \
 	-Wno-return-type \
+	-xc \
 
 $(foreach src,$(PCSC_LITE_SERVER_SVC_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_SVC_CPPFLAGS))))
 
@@ -151,9 +155,11 @@ PCSC_LITE_SERVER_DEBUGLOG_SOURCES := \
 
 # * suppress spurious compiler errors due to usage of non-portable in printf
 #   formats.
+# * "xc": Use the "C" language.
 PCSC_LITE_SERVER_DEBUGLOG_CPPFLAGS := \
 	$(PCSC_LITE_SERVER_CPPFLAGS) \
 	-Wno-format \
+	-xc \
 
 $(foreach src,$(PCSC_LITE_SERVER_DEBUGLOG_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_DEBUGLOG_CPPFLAGS))))
 
@@ -161,12 +167,14 @@ $(foreach src,$(PCSC_LITE_SERVER_DEBUGLOG_SOURCES),$(eval $(call COMPILE_RULE,$(
 PCSC_LITE_SERVER_READERFACTORY_SOURCES := \
 	$(PCSC_LITE_SOURCES_PATH)/readerfactory.c \
 
-# Calls to RFAddReader and RFRemoveReader (readerfactory.c) are hooked to get
-# better information on reader status.
+# * Calls to RFAddReader and RFRemoveReader (readerfactory.c) are hooked to get
+#   better information on reader status.
+# * "xc": Use the "C" language.
 PCSC_LITE_SERVER_READERFACTORY_CPPFLAGS := \
 	$(PCSC_LITE_SERVER_CPPFLAGS) \
 	-DRFAddReader=RFAddReaderOriginal \
 	-DRFRemoveReader=RFRemoveReaderOriginal \
+	-xc \
 
 $(foreach src,$(PCSC_LITE_SERVER_READERFACTORY_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_READERFACTORY_CPPFLAGS))))
 
@@ -180,12 +188,14 @@ PCSC_LITE_SERVER_HOTPLUG_LIBUSB_SOURCES := \
 #   O_NONBLOCK flag specified); read() and close() need to be mocked out, since
 #   our fake pipe() implementation returns fake file descriptors (based on
 #   simple counters).
+# * "xc": Use the "C" language.
 PCSC_LITE_SERVER_HOTPLUG_LIBUSB_CPPFLAGS := \
 	$(PCSC_LITE_SERVER_CPPFLAGS) \
 	-Dclose=GoogleSmartCardIpcEmulationClose \
 	-Dpipe=GoogleSmartCardIpcEmulationPipe \
 	-Dread=GoogleSmartCardIpcEmulationRead \
 	-Dwrite=GoogleSmartCardIpcEmulationWrite \
+	-xc \
 
 $(foreach src,$(PCSC_LITE_SERVER_HOTPLUG_LIBUSB_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_HOTPLUG_LIBUSB_CPPFLAGS))))
 
@@ -193,8 +203,10 @@ $(foreach src,$(PCSC_LITE_SERVER_HOTPLUG_LIBUSB_SOURCES),$(eval $(call COMPILE_R
 PCSC_LITE_CLIENT_SOURCES := \
 	$(PCSC_LITE_SOURCES_PATH)/winscard_clnt.c \
 
+# * "xc": Use the "C" language.
 PCSC_LITE_SERVER_CLIENT_CPPFLAGS := \
 	$(PCSC_LITE_COMMON_CPPFLAGS) \
+	-xc \
 
 $(foreach src,$(PCSC_LITE_CLIENT_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_CLIENT_CPPFLAGS))))
 
