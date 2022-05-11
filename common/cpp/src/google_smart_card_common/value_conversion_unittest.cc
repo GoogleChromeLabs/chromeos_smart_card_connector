@@ -578,14 +578,14 @@ TEST(ValueConversion, UnsignedLongToValue) {
     EXPECT_TRUE(ConvertToValue(kZero, &value, &error_message));
     EXPECT_TRUE(error_message.empty());
     ASSERT_TRUE(value.is_integer());
-    EXPECT_EQ(value.GetInteger(), kZero);
+    EXPECT_EQ(value.GetInteger(), 0);
   }
 
   {
     Value value;
     EXPECT_TRUE(ConvertToValue(kNumber, &value));
     ASSERT_TRUE(value.is_integer());
-    EXPECT_EQ(value.GetInteger(), kNumber);
+    EXPECT_EQ(value.GetInteger(), static_cast<int64_t>(kNumber));
   }
 }
 
@@ -600,13 +600,13 @@ TEST(ValueConversion, ValueToUnsignedLong) {
     unsigned long converted = 0;
     EXPECT_TRUE(ConvertFromValue(Value(kZero), &converted, &error_message));
     EXPECT_TRUE(error_message.empty());
-    EXPECT_EQ(converted, kZero);
+    EXPECT_EQ(converted, 0U);
   }
 
   {
     unsigned long converted = 0;
     EXPECT_TRUE(ConvertFromValue(Value(kNumber), &converted));
-    EXPECT_EQ(converted, kNumber);
+    EXPECT_EQ(static_cast<int64_t>(converted), kNumber);
   }
 }
 
@@ -628,7 +628,7 @@ TEST(ValueConversion, FloatValueToUnsignedLong) {
     EXPECT_TRUE(ConvertFromValue(Value(static_cast<double>(kNumber)),
                                  &converted, &error_message));
     EXPECT_TRUE(error_message.empty());
-    EXPECT_EQ(converted, kNumber);
+    EXPECT_EQ(static_cast<int64_t>(converted), kNumber);
   }
 
   {
