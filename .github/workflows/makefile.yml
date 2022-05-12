@@ -23,7 +23,7 @@ jobs:
     - name: Set up coverage toolchain
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential llvm clang libstdc++-12-dev lib64stdc++-10-dev-i386-cross
+        sudo apt-get install -y build-essential llvm clang libstdc++-10-dev lib64stdc++-10-dev-i386-cross
 
     - name: Initialize env
       run: env/initialize.sh
