@@ -21,7 +21,9 @@ jobs:
         cache: pip
 
     - name: Set up coverage toolchain
-      run: sudo apt-get install llvm clang lib64stdc++-10-dev-i386-cross
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y llvm clang lib64stdc++-10-dev-i386-cross
 
     - name: Initialize env
       run: env/initialize.sh
