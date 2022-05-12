@@ -107,6 +107,7 @@ CXX_DIALECT := c++11
 define COMPILE_RULE
 $(call OBJ_FILE_NAME,$(1)): $(1) | $(dir $(call OBJ_FILE_NAME,$(1)))dir.stamp
 	clang \
+		-v \
 		-o $(call OBJ_FILE_NAME,$(1)) \
 		-c \
 		-MMD \
