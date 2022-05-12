@@ -58,8 +58,13 @@ $(BUILD_DIR)/$(basename $(subst ..,__,$(1))).d
 endef
 
 # Flags passed to both compiler and linker.
+#
+# * "g": Enable debug symbols.
+# * "m32": Build in 32-bit mode (this is also what Emscripten and NaCl
+#   toolchains use).
 COVERAGE_COMMON_FLAGS := \
 	-g \
+	-m32 \
 
 # Flags passed to the compiler, in addition to COVERAGE_COMMON_FLAGS.
 COVERAGE_COMPILER_FLAGS :=
