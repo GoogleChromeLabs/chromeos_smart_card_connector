@@ -31,4 +31,4 @@ jobs:
       run: >
         source env/activate &&
           source env/python2_venv/bin/activate &&
-          TOOLCHAIN=pnacl make -j30
+          TOOLCHAIN=pnacl make
