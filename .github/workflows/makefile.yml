@@ -24,6 +24,11 @@ jobs:
       run: env/initialize.sh
 
     - name: Compile in WebAssembly mode
-      run: source env/activate && TOOLCHAIN=emscripten make
+      run: >
+        source env/activate &&
+          TOOLCHAIN=emscripten make -j30
     - name: Compile in NaCl mode
-      run: source env/activate && source env/python2_venv/bin/activate && TOOLCHAIN=pnacl make
+      run: >
+        source env/activate &&
+          source env/python2_venv/bin/activate &&
+          TOOLCHAIN=pnacl make
