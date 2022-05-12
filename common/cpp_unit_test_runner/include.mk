@@ -52,6 +52,8 @@ ifeq ($(TOOLCHAIN),emscripten)
 include $(ROOT_PATH)/common/cpp_unit_test_runner/src/build_emscripten.mk
 else ifeq ($(TOOLCHAIN),pnacl)
 include $(ROOT_PATH)/common/cpp_unit_test_runner/src/build_nacl.mk
+else ifeq ($(TOOLCHAIN),coverage)
+include $(ROOT_PATH)/common/cpp_unit_test_runner/src/build_coverage.mk
 else
 $(error Unknown TOOLCHAIN "$(TOOLCHAIN)".)
 endif
