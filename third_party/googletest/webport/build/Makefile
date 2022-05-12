@@ -120,8 +120,13 @@ CMAKE_ARGS := \
 
 ifeq ($(TOOLCHAIN),coverage)
 
+# Arguments specific to Coverage builds:
+# * "clang++": Use clang (and not try to use gcc).
+# * "m32": build in 32-bit mode (which is also what Emscripten toolchain uses by
+#   default).
 CMAKE_ARGS += \
 	-DCMAKE_CXX_COMPILER="clang++" \
+	-DCMAKE_CXX_FLAGS="-m32" \
 
 endif
 
