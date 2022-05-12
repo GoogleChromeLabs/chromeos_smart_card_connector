@@ -29,11 +29,11 @@ jobs:
       run: env/initialize.sh
 
     - name: Compile in Coverage-Debug mode
-      run: source env/activate && TOOLCHAIN=coverage CONFIG=Debug make -j30
+      run: source env/activate && TOOLCHAIN=coverage CONFIG=Debug make
     - name: Test in Coverage-Debug mode
-      run: source env/activate && TOOLCHAIN=coverage CONFIG=Debug make -j30 test
+      run: source env/activate && TOOLCHAIN=coverage CONFIG=Debug make test
 
     - name: Compile in Coverage-Release mode
-      run: source env/activate && TOOLCHAIN=coverage CONFIG=Release make -j30
+      run: source env/activate && TOOLCHAIN=coverage CONFIG=Release make
     - name: Test in Coverage-Release mode
-      run: source env/activate && TOOLCHAIN=coverage CONFIG=Release make -j30 test
+      run: source env/activate && TOOLCHAIN=coverage CONFIG=Release make test
