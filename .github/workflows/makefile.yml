@@ -20,6 +20,9 @@ jobs:
         python-version: 3.9
         cache: pip
 
+    - name: Debug
+      run: apt-cache search "libstdc++*"
+
     - name: Set up coverage toolchain
       run: sudo apt-get install llvm clang libstdc++-12-dev-i386-cross
 
