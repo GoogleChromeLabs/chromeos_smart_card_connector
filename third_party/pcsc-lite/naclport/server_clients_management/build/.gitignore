@@ -3,5 +3,6 @@
 /js_unittests/js_build/
 /js_unittests/out/
 /out/
+/out-artifacts-coverage/
 /out-artifacts-emscripten/
 /pnacl/

@@ -1,4 +1,5 @@
 /headers_installed.stamp
 /out/
+/out-artifacts-coverage/
 /out-artifacts-emscripten/
 /pnacl/

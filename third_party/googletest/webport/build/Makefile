@@ -23,10 +23,6 @@ TARGET := googletest
 include ../../../../common/make/common.mk
 include $(ROOT_PATH)/common/make/executable_building.mk
 
-ifneq ($(TOOLCHAIN),emscripten)
-$(error This Makefile is only supported in Emscripten builds.)
-endif
-
 # Library files that are created by this Makefile.
 #
 # Comments for the libraries:
@@ -90,6 +86,50 @@ ARTIFACTS_LIBS_PATTERN := \
 	out-artifacts/lib/libgtest% \
 	out-artifacts/lib/libgtest_main% \
 
+# The command to invoke CMake.
+#
+# In the Emscripten mode, use the "emcmake" wrapper, which allows to reuse the
+# GoogleTest's standard CMake scripts as-is.
+ifeq ($(TOOLCHAIN),emscripten)
+CMAKE_TOOL := emcmake cmake
+else ifeq ($(TOOLCHAIN),coverage)
+CMAKE_TOOL := cmake
+else
+$(error Unsupported toolchain $(TOOLCHAIN).)
+endif
+
+# Environment variables to set when running CMake.
+#
+# In the Emscripten mode, we have to pass "-pthread" explicitly, both as
+# compiler and linker flags.
+ifeq ($(TOOLCHAIN),emscripten)
+CMAKE_ENV := CXXFLAGS="-pthread" LDFLAGS="-pthread"
+else ifeq ($(TOOLCHAIN),coverage)
+CMAKE_ENV :=
+endif
+
+# Arguments passed to CMake.
+#
+# * CMAKE_BUILD_TYPE: Specify debug/release build.
+# * GTEST_HAS_PTHREAD: Make GoogleTest/GoogleMock thread-safe via pthreads. Note
+#   that the same definition must be passed when compiling test files - see
+#   //common/cpp_unit_test_runner/src/build_emscripten.mk.
+CMAKE_ARGS := \
+	-DCMAKE_BUILD_TYPE=$(CONFIG) \
+	-DGTEST_HAS_PTHREAD=1 \
+
+ifeq ($(TOOLCHAIN),coverage)
+
+# Arguments specific to Coverage builds:
+# * "clang++": Use clang (and not try to use gcc).
+# * "m32": build in 32-bit mode (which is also what Emscripten toolchain uses by
+#   default).
+CMAKE_ARGS += \
+	-DCMAKE_CXX_COMPILER="clang++" \
+	-DCMAKE_CXX_FLAGS="-m32" \
+
+endif
+
 # Rule for building temporary library files, including compiling GoogleTest.
 #
 # Notes:
@@ -97,37 +137,20 @@ ARTIFACTS_LIBS_PATTERN := \
 #   this rule only once to produce all 4 files.
 # * The build is performed in a temporary "out-artifacts" directory, separately
 #   from source files and this Makefle.
-# * Emscripten's wrapper "emcmake" is used for running "cmake", which allows to
-#   reuse the GoogleTest's standard CMake scripts as-is, but with some runtime
-#   fixes in order to use Emscripten toolchain instead of the system compiler.
 # * After "cmake" completes, a regular "make" is used in order to actually run
 #   the compilation according to prepared scripts.
 #
 # Explanation of parameters to cmake:
 # E env: Wraps the succeeding cmake call into the "env" tool that allows to
 #   specify environment variables.
-# CXXFLAGS: Enables Emscripten Pthreads support (despite that it's not used by
-#   GoogleTest itself due to the other parameter below, Emscripten requires this
-#   flag to be set if a library is linked later with other files that have it).
-# LDFLAGS: Enables Emscripten Pthreads support.
 # B: Build directory.
-# CMAKE_BUILD_TYPE: Specify debug/release build.
-# GTEST_HAS_PTHREAD: Make GoogleTest/GoogleMock thread-safe via pthreads. Note
-#   that the same definition must be passed when compiling test files - see
-#   //common/cpp_unit_test_runner/src/build_emscripten.mk.
 $(ARTIFACTS_LIBS_PATTERN):
 	rm -rf out-artifacts
 	mkdir out-artifacts
-	emcmake \
-		cmake \
-		-E env \
-		CXXFLAGS="-pthread" \
-		LDFLAGS="-pthread" \
-		cmake \
+	$(CMAKE_ENV) $(CMAKE_TOOL) \
 		../../src \
 		-B out-artifacts \
-		-DCMAKE_BUILD_TYPE=$(CONFIG) \
-		-DGTEST_HAS_PTHREAD=1
+		$(CMAKE_ARGS)
 	+$(MAKE) -C out-artifacts
 
 # Rule for creating target library files, as copies of the temporary libraries.

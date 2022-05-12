@@ -89,6 +89,16 @@ example_cpp_smart_card_client_app/build/integration_tests: common/cpp/build
 example_cpp_smart_card_client_app/build/integration_tests: common/integration_testing/build
 example_cpp_smart_card_client_app/build/integration_tests: example_cpp_smart_card_client_app/build
 
+else ifeq ($(TOOLCHAIN),coverage)
+
+# Coverage-specific definitions #################
+
+TARGETS += \
+	third_party/googletest/webport/build \
+
+common/cpp/build/tests: third_party/googletest/webport/build
+third_party/libusb/webport/build/tests: third_party/googletest/webport/build
+
 else
 
 $(error Unknown TOOLCHAIN "$(TOOLCHAIN)".)

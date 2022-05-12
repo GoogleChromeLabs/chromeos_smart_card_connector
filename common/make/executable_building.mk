@@ -53,6 +53,8 @@ ifeq ($(TOOLCHAIN),emscripten)
 include $(COMMON_DIR_PATH)/make/internal/executable_building_emscripten.mk
 else ifeq ($(TOOLCHAIN),pnacl)
 include $(COMMON_DIR_PATH)/make/internal/executable_building_nacl.mk
+else ifeq ($(TOOLCHAIN),coverage)
+include $(COMMON_DIR_PATH)/make/internal/executable_building_coverage.mk
 else
 $(error Unknown TOOLCHAIN "$(TOOLCHAIN)".)
 endif
