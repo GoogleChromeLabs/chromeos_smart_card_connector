@@ -200,8 +200,8 @@ create_activate_script() {
   # scripts still use Python 2.
   log_message "Creating \"activate\" script..."
   echo > activate
-  # echo "export NACL_SDK_ROOT=${NACL_SDK_ROOT}" >> activate
-  # echo "source ${SCRIPTPATH}/emsdk/emsdk_env.sh" >> activate
+  echo "export NACL_SDK_ROOT=${NACL_SDK_ROOT}" >> activate
+  echo "source ${SCRIPTPATH}/emsdk/emsdk_env.sh" >> activate
   log_message "\"activate\" script was created successfully. Run \"source $(dirname ${0})/activate\" in order to trigger all necessary environment definitions."
 }
 
@@ -225,16 +225,16 @@ done
 
 initialize_python3_venv
 
-# initialize_depot_tools
+initialize_depot_tools
 
-# initialize_emscripten
+initialize_emscripten
 
-# initialize_python2
-# # Depends on depot_tools and python2.
-# initialize_nacl_sdk
-# # Depends on nacl_sdk and python2.
-# initialize_webports
+initialize_python2
+# Depends on depot_tools and python2.
+initialize_nacl_sdk
+# Depends on nacl_sdk and python2.
+initialize_webports
 
-# initialize_chromedriver
+initialize_chromedriver
 
 create_activate_script

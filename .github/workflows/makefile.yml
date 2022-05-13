@@ -23,12 +23,20 @@ jobs:
     - name: Set up coverage toolchain
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential llvm clang libstdc++-10-dev-i386-cross libc6-dev-i386
-
-      # sudo apt-get install -y build-essential llvm clang libc6-dev-i386-cross libstdc++-10-dev-i386-cross libc6-dev libc6-dev-i386 libc6-dev-i386-amd64-cross libc6-dev-amd64-cross libc6-dev-amd64-i386-cross
+        sudo apt-get install -y build-essential llvm clang libc6-dev-i386 libstdc++-10-dev-i386-cross
 
     - name: Initialize env
       run: env/initialize.sh
+
+    - name: Compile in WebAssembly mode
+      run: >
+        source env/activate &&
+          TOOLCHAIN=emscripten make -j30
+    - name: Compile in NaCl mode
+      run: >
+        source env/activate &&
+          source env/python2_venv/bin/activate &&
+          TOOLCHAIN=pnacl make
 
     - name: Compile in Coverage-Debug mode
       run: source env/activate && TOOLCHAIN=coverage CONFIG=Debug CPLUS_INCLUDE_PATH=/usr/i686-linux-gnu/include/c++/10/i686-linux-gnu/ make
