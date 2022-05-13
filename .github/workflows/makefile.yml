@@ -29,11 +29,11 @@ jobs:
     - name: Install coverage toolchain
       run: >
         sudo apt-get install -y
-          build-essentials
-          llvm
-          clang
-          libc6-dev-i386
-          libstdc++-10-dev-i386-cross
+        build-essentials
+        llvm
+        clang
+        libc6-dev-i386
+        libstdc++-10-dev-i386-cross
 
     - name: Initialize env
       run: env/initialize.sh
