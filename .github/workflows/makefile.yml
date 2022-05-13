@@ -14,11 +14,26 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Apt update
+      run: sudo apt-get update
+
     - name: Set up Python 3
       uses: actions/setup-python@v3.1.2
       with:
         python-version: 3.9
         cache: pip
+
+    # Building in the coverage mode requires LLVM and Clang, as well as 32-bit
+    # cross-compile versions of standard C and C++ libraries (needed as we're
+    # building code in 32-bit mode on the 64-bit host).
+    - name: Install coverage toolchain
+      run: >
+        sudo apt-get install -y
+          build-essential
+          llvm
+          clang
+          libc6-dev-i386
+          libstdc++-10-dev-i386-cross
 
     - name: Initialize env
       run: env/initialize.sh
