@@ -16,8 +16,8 @@
 
 # This script performs the building of the Apps provided by this project,
 # including the building of all of their dependencies. The built Apps packages
-# (both .CRX files and .ZIP archives suitable for uploading at Chrome WebStore
-# - see <https://developer.chrome.com/webstore/publish>) are put into the
+# (the .ZIP archives suitable for uploading at Chrome WebStore - see
+# <https://developer.chrome.com/webstore/publish>) are put into the
 # built_app_packages/ directory.
 #
 # Note: the env must be initialized and the env/activate script must be source'd
@@ -29,11 +29,6 @@
 set -eu
 
 
-APP_DIRS="
-	smart_card_connector_app/build
-	example_js_smart_card_client_app/build
-	example_cpp_smart_card_client_app/build"
-BUILT_APP_PACKAGES_DIR="built_app_packages"
 CONFIGS="Release Debug"
 TOOLCHAINS="emscripten pnacl"
 
@@ -63,32 +58,6 @@ make_with_toolchain_and_config() {
 	fi
 }
 
-prepare_built_app_packages_dir() {
-	rm -rf ${BUILT_APP_PACKAGES_DIR}
-	mkdir -p ${BUILT_APP_PACKAGES_DIR} \
-		${BUILT_APP_PACKAGES_DIR}/Release \
-		${BUILT_APP_PACKAGES_DIR}/Debug
-}
-
-copy_app_packages() {
-	local dir=${1}
-	local config=${2}
-
-	cp -p ${dir}/*.crx ${BUILT_APP_PACKAGES_DIR}/${config}/
-	cp -p ${dir}/*.zip ${BUILT_APP_PACKAGES_DIR}/${config}/
-}
-
-build_app_package() {
-	local dir=${1}
-	# TODO(#177): Build app packages in Emscripten mode as well.
-	local toolchain=pnacl
-
-	for config in ${CONFIGS}; do
-		make_with_toolchain_and_config ${dir} package ${toolchain} ${config}
-		copy_app_packages ${dir} ${config}
-	done
-}
-
 
 SCRIPTPATH=$(dirname $(realpath ${0}))
 cd ${SCRIPTPATH}
@@ -100,10 +69,3 @@ for toolchain in ${TOOLCHAINS}; do
 		log_message "Successfully built in mode \"${toolchain}\" \"${config}\"."
 	done
 done
-
-log_message "Building app packages..."
-prepare_built_app_packages_dir
-for dir in ${APP_DIRS}; do
-	build_app_package ${dir}
-done
-log_message "Successfully built app packages."
