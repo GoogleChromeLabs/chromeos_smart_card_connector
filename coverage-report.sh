@@ -31,6 +31,8 @@ IGNORE_FILENAME_REGEX="
 log_message() {
   local message=${1}
 
+  # Create a colored log ("\033[33;32m" switches to the green color, and
+  # "\033[0m" switches back).
   echo -e "\033[33;32m******* ${message} *******\033[0m"
 }
 
