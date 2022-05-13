@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  # The version of libstdc++ to install for coverage builds.
+  COVERAGE_LIBSTDCPP_VERSION: 10
+
 jobs:
   build:
 
@@ -14,19 +18,26 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Apt update
+      run: sudo apt-get update
+
     - name: Set up Python 3
       uses: actions/setup-python@v3.1.2
       with:
         python-version: 3.9
         cache: pip
 
-    - name: Set up coverage toolchain
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential llvm clang libc6-dev-i386 libstdc++-10-dev-i386-cross
-
-    - name: Debug
-      run: gcc -Wp,-v -xc++ -m32 /dev/null -fsyntax-only
+    # Building in the coverage mode requires LLVM and Clang, as well as 32-bit
+    # cross-compile versions of standard C and C++ libraries (needed as we're
+    # building code in 32-bit mode on the 64-bit host).
+    - name: Install coverage toolchain
+      run: >
+        sudo apt-get install -y
+        build-essential
+        llvm
+        clang
+        libc6-dev-i386
+        libstdc++-${COVERAGE_LIBSTDCPP_VERSION}-dev-i386-cross
 
     - name: Initialize env
       run: env/initialize.sh
@@ -43,9 +54,8 @@ jobs:
 
     # When building for coverage, explicitly tell Clang to use the right include
     # path, because Clang's heuristics often fail to deduce it automatically.
-    # The version number ("10") should match the version of libstdc++ we install
-    # above.
     - name: Build coverage report
-      run: >
-        CPLUS_INCLUDE_PATH=/usr/i686-linux-gnu/include/c++/10/i686-linux-gnu/
+      env:
+        CPLUS_INCLUDE_PATH: /usr/i686-linux-gnu/include/c++/${COVERAGE_LIBSTDCPP_VERSION}/i686-linux-gnu/
+      run:
         ./coverage-report.sh
