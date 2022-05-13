@@ -97,7 +97,7 @@ def load_usb_devices(ccid_supported_readers_file):
     raise RuntimeError('No supported USB devices were extracted from the CCID '
                        'supported readers config')
   sys.stderr.write('Extracted {0} supported USB devices from the CCID '
-                   'supported readers config, and ignored {1} items.'.format(
+                   'supported readers config, and ignored {1} items.\n'.format(
                        len(usb_devices), ignored_usb_device_count))
 
   return usb_devices
