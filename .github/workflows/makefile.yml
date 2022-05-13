@@ -25,6 +25,9 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y build-essential llvm clang libc6-dev-i386 libstdc++-10-dev-i386-cross
 
+    - name: Debug
+      run: gcc -Wp,-v -xc++ -m32 /dev/null -fsyntax-only
+
     - name: Initialize env
       run: env/initialize.sh
 
