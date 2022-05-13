@@ -23,7 +23,7 @@ jobs:
     - name: Set up coverage toolchain
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential llvm clang libc6-dev-i386-cross libstdc++-10-dev-i386-cross libc6-dev libc6-dev-i386 libc6-dev-i386-amd64-cross
+        sudo apt-get install -y build-essential llvm clang libc6-dev-i386-cross libstdc++-10-dev-i386-cross libc6-dev libc6-dev-i386
 
       # sudo apt-get install -y build-essential llvm clang libc6-dev-i386-cross libstdc++-10-dev-i386-cross libc6-dev libc6-dev-i386 libc6-dev-i386-amd64-cross libc6-dev-amd64-cross libc6-dev-amd64-i386-cross
 
