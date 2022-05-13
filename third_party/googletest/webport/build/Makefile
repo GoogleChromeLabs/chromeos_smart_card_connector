@@ -54,23 +54,25 @@ TARGET_LIBS_PATTERN := \
 # explicitly specified when running "make".
 all: $(TARGET_LIBS)
 
+ARTIFACTS_DIR := out-artifacts-$(TOOLCHAIN)-$(CONFIG)
+
 # Temporary library files. Note the "d" suffix in file names in Debug builds -
 # that's due to configuration inside the Googletest's CMake scripts.
 ifeq ($(CONFIG),Debug)
 
 ARTIFACTS_LIBS := \
-	out-artifacts/lib/libgmockd.a \
-	out-artifacts/lib/libgmock_maind.a \
-	out-artifacts/lib/libgtestd.a \
-	out-artifacts/lib/libgtest_maind.a \
+	$(ARTIFACTS_DIR)/lib/libgmockd.a \
+	$(ARTIFACTS_DIR)/lib/libgmock_maind.a \
+	$(ARTIFACTS_DIR)/lib/libgtestd.a \
+	$(ARTIFACTS_DIR)/lib/libgtest_maind.a \
 
 else
 
 ARTIFACTS_LIBS := \
-	out-artifacts/lib/libgmock.a \
-	out-artifacts/lib/libgmock_main.a \
-	out-artifacts/lib/libgtest.a \
-	out-artifacts/lib/libgtest_main.a \
+	$(ARTIFACTS_DIR)/lib/libgmock.a \
+	$(ARTIFACTS_DIR)/lib/libgmock_main.a \
+	$(ARTIFACTS_DIR)/lib/libgtest.a \
+	$(ARTIFACTS_DIR)/lib/libgtest_main.a \
 
 endif
 
@@ -81,10 +83,10 @@ endif
 # The reason we use pattern rules is that it avoids executing a rule multiple
 # times - see the doc on TARGET_LIBS_PATTERN above.
 ARTIFACTS_LIBS_PATTERN := \
-	out-artifacts/lib/libgmock% \
-	out-artifacts/lib/libgmock_main% \
-	out-artifacts/lib/libgtest% \
-	out-artifacts/lib/libgtest_main% \
+	$(ARTIFACTS_DIR)/lib/libgmock% \
+	$(ARTIFACTS_DIR)/lib/libgmock_main% \
+	$(ARTIFACTS_DIR)/lib/libgtest% \
+	$(ARTIFACTS_DIR)/lib/libgtest_main% \
 
 # The command to invoke CMake.
 #
@@ -144,14 +146,12 @@ endif
 # E env: Wraps the succeeding cmake call into the "env" tool that allows to
 #   specify environment variables.
 # B: Build directory.
-$(ARTIFACTS_LIBS_PATTERN):
-	rm -rf out-artifacts
-	mkdir out-artifacts
+$(ARTIFACTS_LIBS_PATTERN): | $(ARTIFACTS_DIR)/dir.stamp
 	$(CMAKE_ENV) $(CMAKE_TOOL) \
 		../../src \
-		-B out-artifacts \
+		-B $(ARTIFACTS_DIR) \
 		$(CMAKE_ARGS)
-	+$(MAKE) -C out-artifacts
+	+$(MAKE) -C $(ARTIFACTS_DIR)
 
 # Rule for creating target library files, as copies of the temporary libraries.
 #
@@ -162,16 +162,16 @@ $(ARTIFACTS_LIBS_PATTERN):
 #   adds the "d" suffix to the temporary library file names in Debug builds.
 ifeq ($(CONFIG),Debug)
 $(TARGET_LIBS_PATTERN): $(ARTIFACTS_LIBS)
-	cp out-artifacts/lib/libgmockd.a $(LIB_DIR)/libgmock.a
-	cp out-artifacts/lib/libgmock_maind.a $(LIB_DIR)/libgmock_main.a
-	cp out-artifacts/lib/libgtestd.a $(LIB_DIR)/libgtest.a
-	cp out-artifacts/lib/libgtest_maind.a $(LIB_DIR)/libgtest_main.a
+	cp $(ARTIFACTS_DIR)/lib/libgmockd.a $(LIB_DIR)/libgmock.a
+	cp $(ARTIFACTS_DIR)/lib/libgmock_maind.a $(LIB_DIR)/libgmock_main.a
+	cp $(ARTIFACTS_DIR)/lib/libgtestd.a $(LIB_DIR)/libgtest.a
+	cp $(ARTIFACTS_DIR)/lib/libgtest_maind.a $(LIB_DIR)/libgtest_main.a
 else
 $(TARGET_LIBS_PATTERN): $(ARTIFACTS_LIBS)
-	cp out-artifacts/lib/libgmock.a $(LIB_DIR)/libgmock.a
-	cp out-artifacts/lib/libgmock_main.a $(LIB_DIR)/libgmock_main.a
-	cp out-artifacts/lib/libgtest.a $(LIB_DIR)/libgtest.a
-	cp out-artifacts/lib/libgtest_main.a $(LIB_DIR)/libgtest_main.a
+	cp $(ARTIFACTS_DIR)/lib/libgmock.a $(LIB_DIR)/libgmock.a
+	cp $(ARTIFACTS_DIR)/lib/libgmock_main.a $(LIB_DIR)/libgmock_main.a
+	cp $(ARTIFACTS_DIR)/lib/libgtest.a $(LIB_DIR)/libgtest.a
+	cp $(ARTIFACTS_DIR)/lib/libgtest_main.a $(LIB_DIR)/libgtest_main.a
 endif
 
 # Make sure LIB_DIR is created before we copy .a files into it (using an
@@ -179,4 +179,4 @@ endif
 $(TARGET_LIBS): | $(LIB_DIR)/dir.stamp
 
 # Add the temporary build directory for deletion when running "make clean".
-$(eval $(call CLEAN_RULE,out-artifacts))
+$(eval $(call CLEAN_RULE,$(ARTIFACTS_DIR)))
