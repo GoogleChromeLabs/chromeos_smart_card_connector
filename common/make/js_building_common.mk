@@ -288,7 +288,7 @@ generate_out: $(OUT_DIR_PATH)/index.html
 .PHONY: run_test run_test_manually
 
 run_test: all
-	source $(ROOT_PATH)/env/python3_venv/bin/activate && \
+	. $(ROOT_PATH)/env/python3_venv/bin/activate && \
 		$(ROOT_PATH)/common/js_test_runner/run-js-tests.py \
 			$(OUT_DIR_PATH)/index.html \
 			--chromedriver-path=$(ROOT_PATH)/env/chromedriver
