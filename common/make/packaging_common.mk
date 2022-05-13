@@ -54,22 +54,28 @@ run-nobuild:
 $(eval $(call CLEAN_RULE,$(APP_RUN_USER_DATA_DIR_PATH)))
 
 
-#
-# Special "package" target that creates a packaged App/Extension .CRX file and a
-# .ZIP archive suitable for uploading at Chrome WebStore (see
-# <https://developer.chrome.com/webstore/publish>).
+# A "package" target that creates a .ZIP archive suitable for uploading at
+# Chrome WebStore (see <https://developer.chrome.com/webstore/publish>).
+
+.PHONY: package
+
+$(TARGET)__webstore.zip: all
+	@rm -f "$(TARGET)__webstore.zip"
+	cd "$(OUT_DIR_PATH)" && zip -qr -9 -X "$(CURDIR)/$(TARGET)__webstore.zip" .
+
+package: $(TARGET)__webstore.zip
+
+$(eval $(call CLEAN_RULE,$(TARGET)__webstore.zip))
+
+
+# A "package_crx" target that creates a packaged App/Extension .CRX file.
 #
 # The ID of the generated App/Extension packaged in the .CRX file is controlled
 # by the private key .P8 file. The P8 file, if missing, is automatically
 # generated with some random contents - so, in order to keep ID the same, the P8
 # file should be preserved.
-#
-# The .ZIP archive intended for WebStore, in contrast, has no signature, as
-# WebStore stores the private key internally and signs the App/Extension package
-# itself.
-#
 
-.PHONY: package
+.PHONY: package_crx
 
 $(TARGET).p8:
 	@rm -f $(TARGET).p8
@@ -83,11 +89,6 @@ $(TARGET).crx: all $(TARGET).p8
 		--pack-extension-key="$(TARGET).p8"
 	@mv $(OUT_DIR_PATH).crx $(TARGET).crx
 
-$(TARGET)__webstore.zip: all
-	@rm -f "$(TARGET)__webstore.zip"
-	cd "$(OUT_DIR_PATH)" && zip -qr -9 -X "$(CURDIR)/$(TARGET)__webstore.zip" .
-
-package: $(TARGET).crx $(TARGET)__webstore.zip
+package_crx: $(TARGET).crx
 
 $(eval $(call CLEAN_RULE,$(TARGET).crx))
-$(eval $(call CLEAN_RULE,$(TARGET)__webstore.zip))
