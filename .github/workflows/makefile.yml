@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  # The version of libstdc++ to install for coverage builds.
+  COVERAGE_LIBSTDCPP_VERSION: 10
+
 jobs:
   build:
 
@@ -35,7 +39,7 @@ jobs:
         llvm
         clang
         libc6-dev-i386
-        libstdc++-10-dev-i386-cross
+        libstdc++-${COVERAGE_LIBSTDCPP_VERSION}-dev-i386-cross
 
     - name: Initialize env
       run: env/initialize.sh
