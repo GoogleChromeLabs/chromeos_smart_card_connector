@@ -38,12 +38,5 @@ jobs:
           source env/python2_venv/bin/activate &&
           TOOLCHAIN=pnacl make
 
-    - name: Compile in Coverage-Debug mode
-      run: source env/activate && TOOLCHAIN=coverage CONFIG=Debug CPLUS_INCLUDE_PATH=/usr/i686-linux-gnu/include/c++/10/i686-linux-gnu/ make
-    - name: Test in Coverage-Debug mode
-      run: source env/activate && TOOLCHAIN=coverage CONFIG=Debug CPLUS_INCLUDE_PATH=/usr/i686-linux-gnu/include/c++/10/i686-linux-gnu/ make test
-
-    - name: Compile in Coverage-Release mode
-      run: source env/activate && TOOLCHAIN=coverage CONFIG=Release CPLUS_INCLUDE_PATH=/usr/i686-linux-gnu/include/c++/10/i686-linux-gnu/ make
-    - name: Test in Coverage-Release mode
-      run: source env/activate && TOOLCHAIN=coverage CONFIG=Release CPLUS_INCLUDE_PATH=/usr/i686-linux-gnu/include/c++/10/i686-linux-gnu/ make test
+    - name: Build coverage report
+      run: ./coverage-report.sh
