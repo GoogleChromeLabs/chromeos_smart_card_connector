@@ -41,5 +41,11 @@ jobs:
           source env/python2_venv/bin/activate &&
           TOOLCHAIN=pnacl make
 
+    # When building for coverage, explicitly tell Clang to use the right include
+    # path, because Clang's heuristics often fail to deduce it automatically.
+    # The version number ("10") should match the version of libstdc++ we install
+    # above.
     - name: Build coverage report
-      run: ./coverage-report.sh
+      run: >
+        CPLUS_INCLUDE_PATH=/usr/i686-linux-gnu/include/c++/10/i686-linux-gnu/
+        ./coverage-report.sh

@@ -86,7 +86,6 @@ COVERAGE_COMMON_FLAGS += \
 # NDEBUG: Disable debug-only functionality (assertions, etc.).
 COVERAGE_COMPILER_FLAGS += \
   -DNDEBUG \
-  -I/usr/i686-linux-gnu/include/c++/10/i686-linux-gnu/ \
 
 else ifeq ($(CONFIG),Debug)
 
