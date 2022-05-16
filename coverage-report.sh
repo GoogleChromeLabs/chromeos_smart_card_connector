@@ -36,6 +36,8 @@ log_message() {
   echo -e "\033[33;32m******* ${message} *******\033[0m"
 }
 
+echo "CPLUS_INCLUDE_PATH=${CPLUS_INCLUDE_PATH}"
+
 for config in ${CONFIGS}; do
   log_message "Building in mode \"${config}\"..."
   TOOLCHAIN=coverage CONFIG=${config} make -j30
