@@ -27,7 +27,7 @@ set -eu
 
 BUILT_APP_PACKAGES_DIR="built_app_packages"
 CONFIGS="Release Debug"
-TOOLCHAINS="emscripten pnacl"
+TOOLCHAINS="emscripten pnacl coverage"
 
 
 log_message() {
