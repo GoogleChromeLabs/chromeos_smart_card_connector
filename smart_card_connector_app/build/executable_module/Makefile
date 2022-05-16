@@ -90,6 +90,15 @@ DEPS += \
 
 $(eval $(call DEPEND_RULE,nacl_io))
 
+else ifeq ($(TOOLCHAIN),coverage)
+
+# Coverage-specific build definitions:
+
+# * "empty_main": Provides an empty main() function, to avoid linking errors as
+#   NaCl/Emscripten builds don't need main().
+SOURCES += \
+	$(ROOT_PATH)/common/cpp/src/empty_main.cc \
+
 endif
 
 

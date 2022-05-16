@@ -34,6 +34,7 @@ include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/cpp_demo/dependency.mk
 
 SOURCES_DIR := ../../src
 
+# List of sources to compile:
 SOURCES := \
 	$(SOURCES_DIR)/application.cc \
 	$(SOURCES_DIR)/built_in_pin_dialog/built_in_pin_dialog_server.cc \
@@ -43,13 +44,24 @@ SOURCES := \
 
 ifeq ($(TOOLCHAIN),emscripten)
 
+# Sources specific to Emscripten builds:
 SOURCES += \
 	$(SOURCES_DIR)/entry_point_emscripten.cc \
 
 else ifeq ($(TOOLCHAIN),pnacl)
 
+# Sources specific to NaCl builds:
 SOURCES += \
 	$(SOURCES_DIR)/entry_point_nacl.cc \
+
+else ifeq ($(TOOLCHAIN),coverage)
+
+# Sources specific to Coverage builds:
+#
+# * "empty_main": Provides an empty main() function, to avoid linking errors as
+#   NaCl/Emscripten builds don't need main().
+SOURCES += \
+	$(ROOT_PATH)/common/cpp/src/empty_main.cc \
 
 endif
 
