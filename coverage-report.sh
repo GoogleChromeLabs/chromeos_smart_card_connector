@@ -40,9 +40,9 @@ echo "CPLUS_INCLUDE_PATH=${CPLUS_INCLUDE_PATH}"
 
 for config in ${CONFIGS}; do
   log_message "Building in mode \"${config}\"..."
-  TOOLCHAIN=coverage CONFIG=${config} make -j30
+  TOOLCHAIN=coverage CONFIG=${config} make
   log_message "Running tests in mode \"${config}\"..."
-  TOOLCHAIN=coverage CONFIG=${config} make -j30 test
+  TOOLCHAIN=coverage CONFIG=${config} make test
 done
 
 log_message "Merging coverage profiles..."
