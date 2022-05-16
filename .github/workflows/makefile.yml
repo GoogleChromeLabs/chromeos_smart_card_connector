@@ -64,6 +64,6 @@ jobs:
     # path, because Clang's heuristics often fail to deduce it automatically.
     - name: Build coverage report
       env:
-        CPLUS_INCLUDE_PATH: /usr/i686-linux-gnu/include/c++/${COVERAGE_LIBSTDCPP_VERSION}/i686-linux-gnu/
+        CPLUS_INCLUDE_PATH: /usr/i686-linux-gnu/include/c++/$COVERAGE_LIBSTDCPP_VERSION/i686-linux-gnu/
       run:
         ./coverage-report.sh
