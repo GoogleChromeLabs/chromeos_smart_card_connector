@@ -43,6 +43,9 @@ GOOGLETEST_LIBS_PATTERN := \
 $(GOOGLETEST_LIBS_PATTERN):
 	$(MAKE) -C $(ROOT_PATH)/third_party/googletest/webport/build
 
-# Execute the test binary.
+# Execute the test binary. Write the collected coverage profile into
+# ./{Debug|Release}.profraw, so that we can later merge these profiles from all
+# runs and build a summarized report.
 run_test: all
-	$(OUT_DIR_PATH)/$(TARGET)
+	LLVM_PROFILE_FILE="./$(CONFIG).profraw" \
+		$(OUT_DIR_PATH)/$(TARGET)
