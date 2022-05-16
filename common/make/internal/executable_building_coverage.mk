@@ -59,20 +59,19 @@ endef
 
 # Flags passed to both compiler and linker.
 #
+# * "fcoverage-mapping", "fprofile-instr-generate": Enable Clang's source-based
+#   coverage.
 # * "g": Enable debug symbols.
 # * "m32": Build in 32-bit mode (this is also what Emscripten and NaCl
 #   toolchains use).
 COVERAGE_COMMON_FLAGS := \
+	-fcoverage-mapping \
+	-fprofile-instr-generate \
 	-g \
 	-m32 \
 
 # Flags passed to the compiler, in addition to COVERAGE_COMMON_FLAGS.
-#
-# * "fcoverage-mapping", "fprofile-instr-generate": Enable Clang's source-based
-#   coverage.
-COVERAGE_COMPILER_FLAGS := \
-	-fcoverage-mapping \
-	-fprofile-instr-generate \
+COVERAGE_COMPILER_FLAGS :=
 
 # Flags passed to the linker, in addition to COVERAGE_COMMON_FLAGS.
 COVERAGE_LINKER_FLAGS :=
