@@ -67,7 +67,12 @@ COVERAGE_COMMON_FLAGS := \
 	-m32 \
 
 # Flags passed to the compiler, in addition to COVERAGE_COMMON_FLAGS.
-COVERAGE_COMPILER_FLAGS :=
+#
+# * "fcoverage-mapping", "fprofile-instr-generate": Enable Clang's source-based
+#   coverage.
+COVERAGE_COMPILER_FLAGS := \
+	-fcoverage-mapping \
+	-fprofile-instr-generate \
 
 # Flags passed to the linker, in addition to COVERAGE_COMMON_FLAGS.
 COVERAGE_LINKER_FLAGS :=
