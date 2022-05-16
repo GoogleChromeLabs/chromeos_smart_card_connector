@@ -27,6 +27,12 @@ jobs:
       run: >
         source env/activate &&
           TOOLCHAIN=emscripten make -j30
+
+    - name: Test in WebAssembly mode
+      run: >
+        source env/activate &&
+          TOOLCHAIN=emscripten make test
+
     - name: Compile in NaCl mode
       run: >
         source env/activate &&
