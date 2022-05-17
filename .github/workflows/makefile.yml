@@ -23,7 +23,11 @@ jobs:
     - name: Apt update
       run: sudo apt-get update
 
+    - run: echo "${{ github.event }}"
     - run: echo "${{ github.event.issue.pull_request }}"
+    - run: echo "${{ github.event.issue.pull_request.number }}"
+    - run: echo "${{ github.event.pull_request }}"
+    - run: echo "${{ github.event.pull_request.number }}"
 
     - name: Set up Python 3
       uses: actions/setup-python@v3.1.2
