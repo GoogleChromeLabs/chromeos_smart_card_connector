@@ -80,5 +80,5 @@ jobs:
       with:
         issue-number: ${{ github.event.pull_request.number }}
         body: |
-          \<Continuous Integration\>: All tests passed.
+          __Continuous Integration__: All tests passed.
           C/C++ test coverage: ${{ steps.build-coverage.outputs.LINE_COVERAGE_PERCENT }} lines.
