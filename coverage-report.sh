@@ -31,16 +31,18 @@ IGNORE_FILENAME_REGEX="
 log_message() {
   local message=${1}
 
-  # Create a colored log ("\033[33;32m" switches to the green color, and
+  # Create a colored stderr log ("\033[33;32m" switches to the green color, and
   # "\033[0m" switches back).
-  echo -e "\033[33;32m******* ${message} *******\033[0m"
+  echo -e "\033[33;32m******* ${message} *******\033[0m" >&2
 }
 
+# Build all code and run tests. Make sure the output is redirected to stderr, so
+# that stdout stays non-littered.
 for config in ${CONFIGS}; do
   log_message "Building in mode \"${config}\"..."
-  TOOLCHAIN=coverage CONFIG=${config} make -j30
+  TOOLCHAIN=coverage CONFIG=${config} make -j30 >&2
   log_message "Running tests in mode \"${config}\"..."
-  TOOLCHAIN=coverage CONFIG=${config} make -j30 test
+  TOOLCHAIN=coverage CONFIG=${config} make -j30 test >&2
 done
 
 log_message "Merging coverage profiles..."
@@ -71,6 +73,8 @@ done
 # Insert "-object" before each path, except for the first one (that's the
 # weirdness of llvm-cov's CLI).
 llvm_cov_args=$(echo "${executables}" | tr ' ' ' -object ')
+# Print the coverage report table to stdout, so that the report can be parsed by
+# the next steps of the pipeline. (Everything above was logged to stderr.)
 llvm-cov report \
   ${llvm_cov_args} \
   -instr-profile=env/coverage-artifacts/all.profdata \
