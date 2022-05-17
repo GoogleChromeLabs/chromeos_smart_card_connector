@@ -58,7 +58,6 @@ make_with_toolchain_and_config() {
 	fi
 }
 
-
 SCRIPTPATH=$(dirname $(realpath ${0}))
 cd ${SCRIPTPATH}
 
