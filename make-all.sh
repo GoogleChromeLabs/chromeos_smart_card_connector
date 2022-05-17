@@ -74,7 +74,6 @@ copy_app_packages() {
 	local dir=${1}
 	local config=${2}
 
-	cp -p ${dir}/*.crx ${BUILT_APP_PACKAGES_DIR}/${config}/
 	cp -p ${dir}/*.zip ${BUILT_APP_PACKAGES_DIR}/${config}/
 }
 
