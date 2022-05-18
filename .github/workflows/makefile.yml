@@ -33,7 +33,7 @@ jobs:
     - run: touch dir/foo.txt
     - run: touch dir/bar.txt
     - name: upl
-      uses: kittaakos/upload-artifact-as-is@v1
+      uses: kittaakos/upload-artifact-as-is@v0
       with:
         path: dir
 
