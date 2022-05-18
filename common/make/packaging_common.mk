@@ -66,7 +66,7 @@ $(TARGET)__webstore.zip: all
 	@mkdir -p "$(ROOT_PATH)/built_app_packages/$(TOOLCHAIN)-$(CONFIG)"
 	cp \
 		"$(CURDIR)/$(TARGET)__webstore.zip" \
-		"$(ROOT_PATH)/built_app_packages/$(TARGET)-$(TOOLCHAIN)-$(CONFIG).zip"
+		"$(ROOT_PATH)/built_app_packages/$(TARGET)-$(TOOLCHAIN)-$(CONFIG)-$(PACKAGING).zip"
 
 package: $(TARGET)__webstore.zip
 
