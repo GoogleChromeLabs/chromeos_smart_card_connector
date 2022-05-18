@@ -60,6 +60,11 @@ jobs:
           source env/python2_venv/bin/activate &&
           TOOLCHAIN=pnacl make
 
+    - name: Upload built app packages
+      uses: kittaakos/upload-artifact-as-is@v0
+      with:
+        path: built_app_packages
+
     # When building for coverage, explicitly tell Clang to use the right include
     # path, because Clang's heuristics often fail to deduce it automatically.
     - name: Build coverage report
