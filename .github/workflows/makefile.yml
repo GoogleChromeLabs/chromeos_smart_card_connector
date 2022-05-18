@@ -29,55 +29,46 @@ jobs:
         python-version: 3.9
         cache: pip
 
-    - run: mkdir dir
-    - run: touch dir/foo.txt
-    - run: touch dir/bar.txt
-    - name: upl
+    # Building in the coverage mode requires LLVM and Clang, as well as 32-bit
+    # cross-compile versions of standard C and C++ libraries (needed as we're
+    # building code in 32-bit mode on the 64-bit host).
+    - name: Install coverage toolchain
+      run: >
+        sudo apt-get install -y
+        build-essential
+        llvm
+        clang
+        libc6-dev-i386
+        libstdc++-${COVERAGE_LIBSTDCPP_VERSION}-dev-i386-cross
+
+    - name: Initialize env
+      run: env/initialize.sh
+
+    - name: Compile in WebAssembly mode
+      run: >
+        source env/activate &&
+          TOOLCHAIN=emscripten make -j30
+
+    - name: Test in WebAssembly mode
+      run: >
+        source env/activate &&
+          TOOLCHAIN=emscripten make test
+
+    - name: Compile in NaCl mode
+      run: >
+        source env/activate &&
+          source env/python2_venv/bin/activate &&
+          TOOLCHAIN=pnacl make
+
+    - name: Upload built app packages
       uses: kittaakos/upload-artifact-as-is@v0
       with:
-        path: dir
+        path: built_app_packages
 
-    # # Building in the coverage mode requires LLVM and Clang, as well as 32-bit
-    # # cross-compile versions of standard C and C++ libraries (needed as we're
-    # # building code in 32-bit mode on the 64-bit host).
-    # - name: Install coverage toolchain
-    #   run: >
-    #     sudo apt-get install -y
-    #     build-essential
-    #     llvm
-    #     clang
-    #     libc6-dev-i386
-    #     libstdc++-${COVERAGE_LIBSTDCPP_VERSION}-dev-i386-cross
-
-    # - name: Initialize env
-    #   run: env/initialize.sh
-
-    # - name: Compile in WebAssembly mode
-    #   run: >
-    #     source env/activate &&
-    #       TOOLCHAIN=emscripten make -j30
-
-    # - name: Test in WebAssembly mode
-    #   run: >
-    #     source env/activate &&
-    #       TOOLCHAIN=emscripten make test
-
-    # - name: Compile in NaCl mode
-    #   run: >
-    #     source env/activate &&
-    #       source env/python2_venv/bin/activate &&
-    #       TOOLCHAIN=pnacl make
-
-    # # When building for coverage, explicitly tell Clang to use the right include
-    # # path, because Clang's heuristics often fail to deduce it automatically.
-    # - name: Build coverage report
-    #   env:
-    #     CPLUS_INCLUDE_PATH: /usr/i686-linux-gnu/include/c++/${{ env.COVERAGE_LIBSTDCPP_VERSION }}/i686-linux-gnu/
-    #   run:
-    #     ./coverage-report.sh
-
-    # - name: Archive code coverage results
-    #   uses: actions/upload-artifact@v3
-    #   with:
-    #     name: Built app packages
-    #     path: built_app_packages/*
+    # When building for coverage, explicitly tell Clang to use the right include
+    # path, because Clang's heuristics often fail to deduce it automatically.
+    - name: Build coverage report
+      env:
+        CPLUS_INCLUDE_PATH: /usr/i686-linux-gnu/include/c++/${{ env.COVERAGE_LIBSTDCPP_VERSION }}/i686-linux-gnu/
+      run:
+        ./coverage-report.sh
