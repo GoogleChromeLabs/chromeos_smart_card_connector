@@ -29,18 +29,13 @@ jobs:
         python-version: 3.9
         cache: pip
 
-    - run: touch foo.txt
-    - run: touch bar.txt
-    - name: upl1
-      uses: actions/upload-artifact@v3
+    - run: mkdir dir
+    - run: touch dir/foo.txt
+    - run: touch dir/bar.txt
+    - name: upl
+      uses: kittaakos/upload-artifact-as-is@v1
       with:
-        name: foo
-        path: foo.txt
-    - name: upl2
-      uses: actions/upload-artifact@v3
-      with:
-        name: bar
-        path: bar.txt
+        path: dir
 
     # # Building in the coverage mode requires LLVM and Clang, as well as 32-bit
     # # cross-compile versions of standard C and C++ libraries (needed as we're
