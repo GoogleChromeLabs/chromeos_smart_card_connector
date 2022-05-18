@@ -55,17 +55,23 @@ $(eval $(call CLEAN_RULE,$(APP_RUN_USER_DATA_DIR_PATH)))
 
 
 # A "package" target that creates a .ZIP archive suitable for uploading at
-# Chrome WebStore (see <https://developer.chrome.com/webstore/publish>).
+# Chrome WebStore (see <https://developer.chrome.com/webstore/publish>). The
+# file is also copied into the //built_app_packages/ directory.
 
 .PHONY: package
 
 $(TARGET)__webstore.zip: all
 	@rm -f "$(TARGET)__webstore.zip"
 	cd "$(OUT_DIR_PATH)" && zip -qr -9 -X "$(CURDIR)/$(TARGET)__webstore.zip" .
+	@mkdir -p "$(ROOT_PATH)/built_app_packages/$(TOOLCHAIN)-$(CONFIG)"
+	cp \
+		"$(CURDIR)/$(TARGET)__webstore.zip" \
+		"$(ROOT_PATH)/built_app_packages/$(TOOLCHAIN)-$(CONFIG)/$(TARGET).zip"
 
 package: $(TARGET)__webstore.zip
 
 $(eval $(call CLEAN_RULE,$(TARGET)__webstore.zip))
+$(eval $(call CLEAN_RULE,$(ROOT_PATH)/built_app_packages/$(TOOLCHAIN)-$(CONFIG)/$(TARGET).zip))
 
 
 # A "package_crx" target that creates a packaged App/Extension .CRX file.

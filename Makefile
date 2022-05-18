@@ -27,12 +27,14 @@ all:
 
 # Toolchain-independent targets ####################
 
-TARGETS := \
-	common/cpp/build \
+APPLICATION_TARGETS := \
 	example_cpp_smart_card_client_app/build \
 	example_js_smart_card_client_app/build \
-	example_js_standalone_smart_card_client_library \
 	smart_card_connector_app/build \
+
+LIBRARY_TARGETS := \
+	common/cpp/build \
+	example_js_standalone_smart_card_client_library \
 	third_party/ccid/webport/build \
 	third_party/libusb/webport/build \
 	third_party/pcsc-lite/naclport/common/build \
@@ -71,7 +73,7 @@ ifeq ($(TOOLCHAIN),emscripten)
 
 # Emscripten-specific definitions ###############
 
-TARGETS += \
+LIBRARY_TARGETS += \
 	third_party/googletest/webport/build \
 
 common/cpp/build/tests: third_party/googletest/webport/build
@@ -81,8 +83,10 @@ else ifeq ($(TOOLCHAIN),pnacl)
 
 # Native Client specific definitions ############
 
-TEST_TARGETS += \
+LIBRARY_TARGETS += \
 	common/integration_testing/build \
+
+TEST_TARGETS += \
 	example_cpp_smart_card_client_app/build/integration_tests \
 
 example_cpp_smart_card_client_app/build/integration_tests: common/cpp/build
@@ -93,7 +97,7 @@ else ifeq ($(TOOLCHAIN),coverage)
 
 # Coverage-specific definitions #################
 
-TARGETS += \
+LIBRARY_TARGETS += \
 	third_party/googletest/webport/build \
 
 common/cpp/build/tests: third_party/googletest/webport/build
@@ -109,10 +113,15 @@ endif
 # Combined "all" targets ########################
 
 # "make" or "make all" will recursively compile all targets.
-.PHONY: $(TARGETS) $(TEST_TARGETS)
-$(TARGETS) $(TEST_TARGETS):
+.PHONY: $(APPLICATION_TARGETS) $(LIBRARY_TARGETS) $(TEST_TARGETS)
+all: $(APPLICATION_TARGETS) $(LIBRARY_TARGETS) $(TEST_TARGETS)
+
+# Compile applications via "make package".
+$(APPLICATION_TARGETS):
+	+$(MAKE) --directory=$@ package
+# Compile libraries and tests via "make".
+$(LIBRARY_TARGETS) $(TEST_TARGETS):
 	+$(MAKE) --directory=$@
-all: $(TARGETS) $(TEST_TARGETS)
 
 define CLEAN_RULE
 .PHONY: clean_$(1)
@@ -123,7 +132,8 @@ endef
 
 # "make clean" will recursively clean all files produced by other targets.
 .PHONY: clean
-$(foreach target,$(TARGETS) $(TEST_TARGETS),$(eval $(call CLEAN_RULE,$(target))))
+$(foreach target,$(APPLICATION_TARGETS) $(LIBRARY_TARGETS) $(TEST_TARGETS), \
+                 $(eval $(call CLEAN_RULE,$(target))))
 
 
 # Test targets ##################################
