@@ -71,4 +71,4 @@ jobs:
     - name: Archive code coverage results
       uses: actions/upload-artifact@v3
       with:
-        path: built_app_packages/
+        path: built_app_packages/*
