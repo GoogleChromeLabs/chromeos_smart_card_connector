@@ -29,6 +29,19 @@ jobs:
         python-version: 3.9
         cache: pip
 
+    - run: touch foo.txt
+    - run: touch bar.txt
+    - name: upl1
+      uses: actions/upload-artifact@v3
+      with:
+        name: foo
+        path: foo.txt
+    - name: upl2
+      uses: actions/upload-artifact@v3
+      with:
+        name: bar
+        path: bar.txt
+
     # # Building in the coverage mode requires LLVM and Clang, as well as 32-bit
     # # cross-compile versions of standard C and C++ libraries (needed as we're
     # # building code in 32-bit mode on the 64-bit host).
@@ -41,13 +54,13 @@ jobs:
     #     libc6-dev-i386
     #     libstdc++-${COVERAGE_LIBSTDCPP_VERSION}-dev-i386-cross
 
-    - name: Initialize env
-      run: env/initialize.sh
+    # - name: Initialize env
+    #   run: env/initialize.sh
 
-    - name: Compile in WebAssembly mode
-      run: >
-        source env/activate &&
-          TOOLCHAIN=emscripten make -j30
+    # - name: Compile in WebAssembly mode
+    #   run: >
+    #     source env/activate &&
+    #       TOOLCHAIN=emscripten make -j30
 
     # - name: Test in WebAssembly mode
     #   run: >
@@ -68,7 +81,8 @@ jobs:
     #   run:
     #     ./coverage-report.sh
 
-    - name: Archive code coverage results
-      uses: actions/upload-artifact@v3
-      with:
-        path: built_app_packages/*
+    # - name: Archive code coverage results
+    #   uses: actions/upload-artifact@v3
+    #   with:
+    #     name: Built app packages
+    #     path: built_app_packages/*
