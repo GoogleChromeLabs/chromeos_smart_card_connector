@@ -229,12 +229,12 @@ initialize_depot_tools
 
 initialize_emscripten
 
-# initialize_python2
+initialize_python2
 # Depends on depot_tools and python2.
-# initialize_nacl_sdk
+initialize_nacl_sdk
 # Depends on nacl_sdk and python2.
-# initialize_webports
+initialize_webports
 
-# initialize_chromedriver
+initialize_chromedriver
 
 create_activate_script
