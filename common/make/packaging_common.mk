@@ -66,12 +66,12 @@ $(TARGET)__webstore.zip: all
 	@mkdir -p "$(ROOT_PATH)/built_app_packages/$(TOOLCHAIN)-$(CONFIG)"
 	cp \
 		"$(CURDIR)/$(TARGET)__webstore.zip" \
-		"$(ROOT_PATH)/built_app_packages/$(TOOLCHAIN)-$(CONFIG)/$(TARGET).zip"
+		"$(ROOT_PATH)/built_app_packages/$(TARGET)-$(TOOLCHAIN)-$(CONFIG)-$(PACKAGING).zip"
 
 package: $(TARGET)__webstore.zip
 
 $(eval $(call CLEAN_RULE,$(TARGET)__webstore.zip))
-$(eval $(call CLEAN_RULE,$(ROOT_PATH)/built_app_packages/$(TOOLCHAIN)-$(CONFIG)/$(TARGET).zip))
+$(eval $(call CLEAN_RULE,$(ROOT_PATH)/built_app_packages/$(TARGET)-$(TOOLCHAIN)-$(CONFIG)-$(PACKAGING).zip))
 
 
 # A "package_crx" target that creates a packaged App/Extension .CRX file.
