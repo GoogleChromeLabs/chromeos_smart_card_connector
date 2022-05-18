@@ -201,7 +201,7 @@ create_activate_script() {
   log_message "Creating \"activate\" script..."
   echo > activate
   # echo "export NACL_SDK_ROOT=${NACL_SDK_ROOT}" >> activate
-  # echo "source ${SCRIPTPATH}/emsdk/emsdk_env.sh" >> activate
+  echo "source ${SCRIPTPATH}/emsdk/emsdk_env.sh" >> activate
   log_message "\"activate\" script was created successfully. Run \"source $(dirname ${0})/activate\" in order to trigger all necessary environment definitions."
 }
 
