@@ -53,7 +53,7 @@ def parse_llvm_cov_report_from_stdin():
 def get_total_line_coverage(column_names, rows):
   lines_coverage_column = column_names.index('Lines') + 2
   if column_names[lines_coverage_column] != 'Cover':
-    raise RuntimeError(f'Failed to find line coverage column')
+    raise RuntimeError(f'Failed to find line coverage column: ${column_names}')
   if rows[-1][0] != 'TOTAL':
     raise RuntimeError(f'Could not find totals row: ${rows[-1]}')
   return rows[-1][lines_coverage_column]
