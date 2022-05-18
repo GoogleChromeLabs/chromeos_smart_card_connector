@@ -51,6 +51,7 @@ def parse_llvm_cov_report_from_stdin():
   return column_names, rows
 
 def get_total_line_coverage(column_names, rows):
+  # Look for a triple of columns named "Lines", "Missed Lines" and "Cover".
   lines_coverage_column = column_names.index('Lines') + 2
   if column_names[lines_coverage_column] != 'Cover':
     raise RuntimeError(f'Failed to find line coverage column: ${column_names}')
