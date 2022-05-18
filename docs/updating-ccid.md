@@ -75,12 +75,7 @@ somewhat outdated version of the driver.
     some other correction was needed, you can force the CCID recompilation by
     repeating the step #2.
 
-11. Generate a new version of the
-    `//smart_card_connector_app/build/human_readable_supported_readers.txt` file
-    (by running `make package` in the `//smart_card_connector/build/`
-    directory).
-
-12. If everything is OK, prepare a commit / a Pull Request with all these
+11. If everything is OK, prepare a commit / a Pull Request with all these
     changes.
 
 Additional tasks to be performed later, when rolling out a new version of the
