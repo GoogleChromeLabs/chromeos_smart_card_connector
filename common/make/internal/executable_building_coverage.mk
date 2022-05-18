@@ -61,12 +61,15 @@ endef
 #
 # * "fcoverage-mapping", "fprofile-instr-generate": Enable Clang's source-based
 #   coverage.
+# * "fsanitize=address": Use Address Sanitizer (not strictly necessary for
+#   coverage builds, but having unit tests verified by it is useful).
 # * "g": Enable debug symbols.
 # * "m32": Build in 32-bit mode (this is also what Emscripten and NaCl
 #   toolchains use).
 COVERAGE_COMMON_FLAGS := \
 	-fcoverage-mapping \
 	-fprofile-instr-generate \
+	-fsanitize=address \
 	-g \
 	-m32 \
 
