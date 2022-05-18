@@ -44,21 +44,21 @@ jobs:
     - name: Initialize env
       run: env/initialize.sh
 
-    - name: Compile in WebAssembly mode
-      run: >
-        source env/activate &&
-          TOOLCHAIN=emscripten make -j30
+    # - name: Compile in WebAssembly mode
+    #   run: >
+    #     source env/activate &&
+    #       TOOLCHAIN=emscripten make -j30
 
-    - name: Test in WebAssembly mode
-      run: >
-        source env/activate &&
-          TOOLCHAIN=emscripten make test
+    # - name: Test in WebAssembly mode
+    #   run: >
+    #     source env/activate &&
+    #       TOOLCHAIN=emscripten make test
 
-    - name: Compile in NaCl mode
-      run: >
-        source env/activate &&
-          source env/python2_venv/bin/activate &&
-          TOOLCHAIN=pnacl make
+    # - name: Compile in NaCl mode
+    #   run: >
+    #     source env/activate &&
+    #       source env/python2_venv/bin/activate &&
+    #       TOOLCHAIN=pnacl make
 
     # When building for coverage, explicitly tell Clang to use the right include
     # path, because Clang's heuristics often fail to deduce it automatically.
@@ -66,8 +66,8 @@ jobs:
       id: build-coverage
       env:
         CPLUS_INCLUDE_PATH: /usr/i686-linux-gnu/include/c++/${{ env.COVERAGE_LIBSTDCPP_VERSION }}/i686-linux-gnu/
-      run: |
-        ./coverage-report.sh | tee coverage-output.txt
+      run: >
+        (./coverage-report.sh | tee coverage-output.txt) &&
         echo "::set-output name=LINE_COVERAGE_PERCENT::$(
           scripts/parse-coverage-output.py < coverage-output.txt
         )"

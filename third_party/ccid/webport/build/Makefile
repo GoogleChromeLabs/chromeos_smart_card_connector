@@ -51,7 +51,7 @@ COMMON_CPPFLAGS := \
 	-DHAVE_PTHREAD=1 \
 	-Dlog_msg=ccid_log_msg \
 	-Dlog_xxd=ccid_log_xxd \
-	-DPCSCLITE_HP_DROPDIR='"/executable-module-filesystem/pcsc/drivers"' \
+	-DPCSCLITE_HP_DROPDIR='"executable-module-filesystem/pcsc/drivers"' \
 	-I$(CCID_SOURCES_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src \
 	-Wall \

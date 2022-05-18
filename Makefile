@@ -82,6 +82,7 @@ LIBRARY_TARGETS += \
 
 common/cpp/build/tests: third_party/googletest/webport/build
 third_party/libusb/webport/build/tests: third_party/googletest/webport/build
+third_party/pcsc-lite/naclport/server/build/tests: third_party/googletest/webport/build
 
 else ifeq ($(TOOLCHAIN),pnacl)
 
@@ -106,6 +107,7 @@ LIBRARY_TARGETS += \
 
 common/cpp/build/tests: third_party/googletest/webport/build
 third_party/libusb/webport/build/tests: third_party/googletest/webport/build
+third_party/pcsc-lite/naclport/server/build/tests: third_party/googletest/webport/build
 
 else
 

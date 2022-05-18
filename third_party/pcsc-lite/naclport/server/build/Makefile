@@ -84,7 +84,7 @@ PCSC_LITE_COMMON_CPPFLAGS := \
 	-DHAVE_LIBUSB \
 	-DHAVE_SYSLOG_H \
 	-DPCSC_ARCH='"Linux"' \
-	-DPCSCLITE_HP_DROPDIR='"/executable-module-filesystem/pcsc/drivers"' \
+	-DPCSCLITE_HP_DROPDIR='"executable-module-filesystem/pcsc/drivers"' \
 	-DUSE_IPCDIR='"IPCDIR_is_not_expected_to_be_used"' \
 	-DUSE_USB \
 	-I$(ROOT_PATH)/common/cpp/src/google_smart_card_common/logging/syslog \

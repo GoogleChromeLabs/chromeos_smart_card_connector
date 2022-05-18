@@ -107,10 +107,12 @@ void PcscLiteServerDaemonThreadMain() {
   while (true) {
     GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "[daemon thread] "
                                 << "Waiting for the new connected clients...";
-    optional<int> server_socket_file_descriptor = PcscLiteServerSocketsManager::GetInstance()->WaitAndPop();
+    optional<int> server_socket_file_descriptor =
+        PcscLiteServerSocketsManager::GetInstance()->WaitAndPop();
     if (!server_socket_file_descriptor) {
       // A shutdown signal received.
-      GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "[daemon thread] Shutting down...";
+      GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix
+                                  << "[daemon thread] Shutting down...";
       break;
     }
 
@@ -120,7 +122,8 @@ void PcscLiteServerDaemonThreadMain() {
     // Note: even though the CreateContextThread function accepts its
     // server_socket_file_descriptor argument by pointer, it doesn't store the
     // pointer itself anywhere - so it's safe to use a local variable here.
-    uint32_t server_socket_file_descriptor_unsigned = static_cast<uint32_t>(server_socket_file_descriptor.value());
+    uint32_t server_socket_file_descriptor_unsigned =
+        static_cast<uint32_t>(server_socket_file_descriptor.value());
     // FIXME(emaxx): Deal with cases when CreateContextThread returns errors.
     // Looks like it may happen legitimately when the abusive client(s) request
     // to establish too many requests. Probably, some limitation should be
@@ -272,11 +275,13 @@ void PcscLiteServerGlobal::InitializeAndRunDaemonThread() {
 }
 
 void PcscLiteServerGlobal::StopDaemonThreadAndWait() {
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Shutting down the PC/SC-Lite daemon thread...";
+  GOOGLE_SMART_CARD_LOG_DEBUG
+      << kLoggingPrefix << "Shutting down the PC/SC-Lite daemon thread...";
   // This notifies the daemon thread to shut down.
   PcscLiteServerSocketsManager::GetInstance()->ShutDown();
   daemon_thread_.join();
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "The PC/SC-Lite daemon thread shut down.";
+  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix
+                              << "The PC/SC-Lite daemon thread shut down.";
 
   // Shut down the global state created in `InitializeAndRunDaemonThread()`.
   PcscLiteServerSocketsManager::DestroyGlobalInstance();

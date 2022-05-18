@@ -47,5 +47,5 @@ $(GOOGLETEST_LIBS_PATTERN):
 # ./{Debug|Release}.profraw, so that we can later merge these profiles from all
 # runs and build a summarized report.
 run_test: all
-	LLVM_PROFILE_FILE="./$(CONFIG).profraw" \
+	LLVM_PROFILE_FILE="$(CURDIR)/$(CONFIG).profraw" \
 		$(OUT_DIR_PATH)/$(TARGET)
