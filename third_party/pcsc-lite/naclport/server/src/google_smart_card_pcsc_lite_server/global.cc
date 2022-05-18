@@ -36,6 +36,7 @@
 #include <google_smart_card_common/ipc_emulation.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message.h>
+#include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_conversion.h>
 
@@ -47,6 +48,7 @@
 extern "C" {
 #include "winscard.h"
 #include "debuglog.h"
+#include "eventhandler.h"
 #include "hotplug.h"
 #include "readerfactory.h"
 #include "sys_generic.h"
@@ -102,12 +104,15 @@ struct ReaderRemoveMessageData {
 };
 
 void PcscLiteServerDaemonThreadMain() {
-  // TODO(emaxx): Stop the event loop during pp::Instance destruction.
   while (true) {
     GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "[daemon thread] "
                                 << "Waiting for the new connected clients...";
-    uint32_t server_socket_file_descriptor = static_cast<uint32_t>(
-        PcscLiteServerSocketsManager::GetInstance()->WaitAndPop());
+    optional<int> server_socket_file_descriptor = PcscLiteServerSocketsManager::GetInstance()->WaitAndPop();
+    if (!server_socket_file_descriptor) {
+      // A shutdown signal received.
+      GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "[daemon thread] Shutting down...";
+      break;
+    }
 
     GOOGLE_SMART_CARD_LOG_DEBUG
         << kLoggingPrefix << "[daemon thread] A new "
@@ -115,14 +120,22 @@ void PcscLiteServerDaemonThreadMain() {
     // Note: even though the CreateContextThread function accepts its
     // server_socket_file_descriptor argument by pointer, it doesn't store the
     // pointer itself anywhere - so it's safe to use a local variable here.
+    uint32_t server_socket_file_descriptor_unsigned = static_cast<uint32_t>(server_socket_file_descriptor.value());
     // FIXME(emaxx): Deal with cases when CreateContextThread returns errors.
     // Looks like it may happen legitimately when the abusive client(s) request
     // to establish too many requests. Probably, some limitation should be
     // applied to all clients.
     GOOGLE_SMART_CARD_CHECK(
-        ::CreateContextThread(&server_socket_file_descriptor) ==
+        ::CreateContextThread(&server_socket_file_descriptor_unsigned) ==
         SCARD_S_SUCCESS);
   }
+
+  // Cleanup:
+  HPStopHotPluggables();
+  SYS_Sleep(1);
+  RFCleanupReaders();
+  EHDeinitializeEventStructures();
+  ContextsDeinitialize();
 }
 
 }  // namespace
@@ -250,13 +263,24 @@ void PcscLiteServerGlobal::InitializeAndRunDaemonThread() {
 
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Starting PC/SC-Lite "
                               << "daemon thread...";
-  std::thread daemon_thread(PcscLiteServerDaemonThreadMain);
-  daemon_thread.detach();
+  daemon_thread_ = std::thread(PcscLiteServerDaemonThreadMain);
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "PC/SC-Lite daemon "
                               << "thread has started.";
 
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Initialization "
                               << "successfully finished.";
+}
+
+void PcscLiteServerGlobal::StopDaemonThreadAndWait() {
+  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Shutting down the PC/SC-Lite daemon thread...";
+  // This notifies the daemon thread to shut down.
+  PcscLiteServerSocketsManager::GetInstance()->ShutDown();
+  daemon_thread_.join();
+  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "The PC/SC-Lite daemon thread shut down.";
+
+  // Shut down the global state created in `InitializeAndRunDaemonThread()`.
+  PcscLiteServerSocketsManager::DestroyGlobalInstance();
+  IpcEmulation::DestroyGlobalInstance();
 }
 
 void PcscLiteServerGlobal::PostReaderInitAddMessage(const char* reader_name,

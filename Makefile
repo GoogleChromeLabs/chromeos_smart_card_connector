@@ -59,11 +59,15 @@ TEST_TARGETS := \
 	common/js/build/unittests \
 	third_party/libusb/webport/build/js_unittests \
 	third_party/libusb/webport/build/tests \
+	third_party/pcsc-lite/naclport/server/build/tests \
 	third_party/pcsc-lite/naclport/server_clients_management/build/js_unittests \
 
 common/cpp/build/tests: common/cpp/build
 third_party/libusb/webport/build/tests: common/cpp/build
 third_party/libusb/webport/build/tests: third_party/libusb/webport/build
+third_party/pcsc-lite/naclport/server/build/tests: common/cpp/build
+third_party/pcsc-lite/naclport/server/build/tests: third_party/ccid/webport/build
+third_party/pcsc-lite/naclport/server/build/tests: third_party/libusb/webport/build
 
 # Toolchain related definitions #################
 

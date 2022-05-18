@@ -30,6 +30,8 @@
 #include <mutex>
 #include <queue>
 
+#include <google_smart_card_common/optional.h>
+
 namespace google_smart_card {
 
 // Holder of a queue of server-side sockets for the socket pairs created at the
@@ -42,11 +44,18 @@ class PcscLiteServerSocketsManager final {
   // Note: This function is not thread-safe!
   static void CreateGlobalInstance();
   // Note: This function is not thread-safe!
+  static void DestroyGlobalInstance();
+  // Note: This function is not thread-safe!
   static PcscLiteServerSocketsManager* GetInstance();
 
   void Push(int server_socket_file_descriptor);
 
-  int WaitAndPop();
+  // Returns a null optional on shutdown.
+  optional<int> WaitAndPop();
+
+  // Switches into the "shutting down" state. This makes all ongoing and future
+  // `WaitAndPop()` calls return a null optional.
+  void ShutDown();
 
  private:
   PcscLiteServerSocketsManager();
@@ -57,6 +66,7 @@ class PcscLiteServerSocketsManager final {
 
   std::mutex mutex_;
   std::condition_variable condition_;
+  bool shutting_down_ = false;
   std::queue<int> server_socket_file_descriptors_queue_;
 };
 

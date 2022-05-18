@@ -63,7 +63,7 @@ class IpcEmulation final {
   static void CreateGlobalInstance();
   // Destroys the singleton instance created by `CreateGlobalInstance()`.
   // Non-thread-safe.
-  static void DestroyGlobalInstanceForTesting();
+  static void DestroyGlobalInstance();
   // Returns a previously created singleton instance of this class.
   //
   // Note: This function is not thread-safe!

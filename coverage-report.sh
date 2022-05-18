@@ -24,7 +24,8 @@ EXECUTABLE_MODULE_DIRS="
   smart_card_connector_app/build/executable_module"
 UNIT_TEST_EXECUTABLE_DIRS="
   common/cpp/build/tests
-  third_party/libusb/webport/build/tests"
+  third_party/libusb/webport/build/tests
+  third_party/pcsc-lite/naclport/server/build/tests"
 IGNORE_FILENAME_REGEX="
   third_party/googletest"
 

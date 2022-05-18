@@ -239,3 +239,13 @@ SOURCES := \
 # static library into the NaCl SDK libraries directory
 
 $(eval $(call LIB_RULE,$(TARGET),$(SOURCES)))
+
+# Rules for running the unit tests.
+
+test:: all
+	+$(MAKE) --directory tests run_test
+
+tests_clean::
+	+$(MAKE) --directory tests clean
+
+clean: tests_clean
