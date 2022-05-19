@@ -65,7 +65,7 @@ class PcscLiteServerGlobal final {
   // Shuts down the daemon thread; waits for the shutdown completion in a
   // blocking way.
   //
-  // Must be called after InitializeAndRunDaemonThread().
+  // Must be called after `InitializeAndRunDaemonThread()`.
   void ShutDownAndWait();
 
   void PostReaderInitAddMessage(const char* reader_name,
