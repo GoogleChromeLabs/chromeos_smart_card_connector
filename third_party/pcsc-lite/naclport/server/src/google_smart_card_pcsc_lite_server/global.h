@@ -66,7 +66,7 @@ class PcscLiteServerGlobal final {
   // blocking way.
   //
   // Must be called after InitializeAndRunDaemonThread().
-  void StopDaemonThreadAndWait();
+  void ShutDownAndWait();
 
   void PostReaderInitAddMessage(const char* reader_name,
                                 int port,

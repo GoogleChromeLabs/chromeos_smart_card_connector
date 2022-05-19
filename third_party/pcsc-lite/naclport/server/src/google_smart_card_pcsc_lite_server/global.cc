@@ -133,7 +133,9 @@ void PcscLiteServerDaemonThreadMain() {
         SCARD_S_SUCCESS);
   }
 
-  // Cleanup:
+  // Clean up the structures and threads owned by the third-party PC/SC-Lite
+  // code. This follows the code in the "if (AraKiri)" block in the
+  // `SVCServiceRunLoop()` function in pcsc-lite/src/src/pcscdaemon.c.
   HPStopHotPluggables();
   SYS_Sleep(1);
   RFCleanupReaders();
@@ -183,6 +185,10 @@ PcscLiteServerGlobal::PcscLiteServerGlobal(GlobalContext* global_context)
 }
 
 PcscLiteServerGlobal::~PcscLiteServerGlobal() {
+  // If the daemon thread is joinable, it means `ShutDownAndWait()` wasn't
+  // called, which is a violation of the contract.
+  GOOGLE_SMART_CARD_CHECK(!daemon_thread_.joinable());
+
   GOOGLE_SMART_CARD_CHECK(g_pcsc_lite_server == this);
   g_pcsc_lite_server = nullptr;
 }
@@ -274,7 +280,7 @@ void PcscLiteServerGlobal::InitializeAndRunDaemonThread() {
                               << "successfully finished.";
 }
 
-void PcscLiteServerGlobal::StopDaemonThreadAndWait() {
+void PcscLiteServerGlobal::ShutDownAndWait() {
   GOOGLE_SMART_CARD_LOG_DEBUG
       << kLoggingPrefix << "Shutting down the PC/SC-Lite daemon thread...";
   // This notifies the daemon thread to shut down.
