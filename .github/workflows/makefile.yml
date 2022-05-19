@@ -71,8 +71,8 @@ jobs:
       id: build-coverage
       env:
         CPLUS_INCLUDE_PATH: /usr/i686-linux-gnu/include/c++/${{ env.COVERAGE_LIBSTDCPP_VERSION }}/i686-linux-gnu/
-      run: |
-        ./coverage-report.sh | tee coverage-output.txt
+      run: >
+        (./coverage-report.sh | tee coverage-output.txt) &&
         echo "::set-output name=LINE_COVERAGE_PERCENT::$(
           scripts/parse-coverage-output.py < coverage-output.txt
         )"
