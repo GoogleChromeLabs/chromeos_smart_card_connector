@@ -23,8 +23,8 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 // THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#ifndef GOOGLE_SMART_CARD_PCSC_LITE_SERVER_GLOBAL_H_
-#define GOOGLE_SMART_CARD_PCSC_LITE_SERVER_GLOBAL_H_
+#ifndef GOOGLE_SMART_CARD_PCSC_LITE_SERVER_WEB_PORT_SERVICE_H_
+#define GOOGLE_SMART_CARD_PCSC_LITE_SERVER_WEB_PORT_SERVICE_H_
 
 #include <thread>
 
@@ -42,14 +42,15 @@ namespace google_smart_card {
 //
 // Note: All methods except GetInstance are thread safe. Calls to GetInstance
 //       concurrent to class construction or destruction are not thread safe.
-class PcscLiteServerGlobal final {
+class PcscLiteServerWebPortService final {
  public:
-  explicit PcscLiteServerGlobal(GlobalContext* global_context);
-  PcscLiteServerGlobal(const PcscLiteServerGlobal&) = delete;
-  PcscLiteServerGlobal& operator=(const PcscLiteServerGlobal&) = delete;
-  ~PcscLiteServerGlobal();
+  explicit PcscLiteServerWebPortService(GlobalContext* global_context);
+  PcscLiteServerWebPortService(const PcscLiteServerWebPortService&) = delete;
+  PcscLiteServerWebPortService& operator=(const PcscLiteServerWebPortService&) =
+      delete;
+  ~PcscLiteServerWebPortService();
 
-  static const PcscLiteServerGlobal* GetInstance();
+  static const PcscLiteServerWebPortService* GetInstance();
 
   // Performs all necessary PC/SC-Lite daemon initialization steps and starts
   // the daemon.
@@ -86,4 +87,4 @@ class PcscLiteServerGlobal final {
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_PCSC_LITE_SERVER_GLOBAL_H_
+#endif  // GOOGLE_SMART_CARD_PCSC_LITE_SERVER_WEB_PORT_SERVICE_H_

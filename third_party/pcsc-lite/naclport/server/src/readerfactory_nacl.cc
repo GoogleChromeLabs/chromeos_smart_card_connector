@@ -26,7 +26,7 @@
 // This file contains replacement functions for the original readerfactory.c
 // PC/SC-Lite internal implementation.
 
-#include <google_smart_card_pcsc_lite_server/global.h>
+#include "third_party/pcsc-lite/naclport/server/src/public/pcsc_lite_server_web_port_service.h"
 
 #include <wintypes.h>
 
@@ -46,12 +46,12 @@ LONG RFAddReader(const char* reader_name,
                  int port,
                  const char* library,
                  const char* device) {
-  google_smart_card::PcscLiteServerGlobal::GetInstance()
+  google_smart_card::PcscLiteServerWebPortService::GetInstance()
       ->PostReaderInitAddMessage(reader_name, port, device);
 
   LONG return_code = RFAddReaderOriginal(reader_name, port, library, device);
 
-  google_smart_card::PcscLiteServerGlobal::GetInstance()
+  google_smart_card::PcscLiteServerWebPortService::GetInstance()
       ->PostReaderFinishAddMessage(reader_name, port, device, return_code);
 
   return return_code;
@@ -63,7 +63,7 @@ LONG RFAddReader(const char* reader_name,
 // it is defined, but not from inside (readerfactory). Sometimes it may get
 // called from the inside, and that call won't be intercepted, but that is fine.
 LONG RFRemoveReader(const char* reader_name, int port) {
-  google_smart_card::PcscLiteServerGlobal::GetInstance()
+  google_smart_card::PcscLiteServerWebPortService::GetInstance()
       ->PostReaderRemoveMessage(reader_name, port);
 
   return RFRemoveReaderOriginal(reader_name, port);
