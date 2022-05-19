@@ -194,7 +194,7 @@ void IpcEmulation::CreateGlobalInstance() {
 }
 
 // static
-void IpcEmulation::DestroyGlobalInstanceForTesting() {
+void IpcEmulation::DestroyGlobalInstance() {
   delete g_ipc_emulation;
   g_ipc_emulation = nullptr;
 }

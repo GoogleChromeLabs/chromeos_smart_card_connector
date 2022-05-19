@@ -23,9 +23,7 @@ namespace google_smart_card {
 class IpcEmulationTest : public testing::Test {
  protected:
   IpcEmulationTest() { IpcEmulation::CreateGlobalInstance(); }
-  ~IpcEmulationTest() override {
-    IpcEmulation::DestroyGlobalInstanceForTesting();
-  }
+  ~IpcEmulationTest() override { IpcEmulation::DestroyGlobalInstance(); }
 
   IpcEmulation* ipc_emulation() { return IpcEmulation::GetInstance(); }
 };

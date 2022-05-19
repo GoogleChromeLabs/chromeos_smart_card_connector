@@ -26,6 +26,8 @@
 #ifndef GOOGLE_SMART_CARD_PCSC_LITE_SERVER_GLOBAL_H_
 #define GOOGLE_SMART_CARD_PCSC_LITE_SERVER_GLOBAL_H_
 
+#include <thread>
+
 #include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/value.h>
 
@@ -60,6 +62,12 @@ class PcscLiteServerGlobal final {
   // initialized.
   void InitializeAndRunDaemonThread();
 
+  // Shuts down the daemon thread; waits for the shutdown completion in a
+  // blocking way.
+  //
+  // Must be called after `InitializeAndRunDaemonThread()`.
+  void ShutDownAndWait();
+
   void PostReaderInitAddMessage(const char* reader_name,
                                 int port,
                                 const char* device) const;
@@ -73,6 +81,7 @@ class PcscLiteServerGlobal final {
   void PostMessage(const char* type, Value message_data) const;
 
   GlobalContext* const global_context_;
+  std::thread daemon_thread_;
 };
 
 }  // namespace google_smart_card
