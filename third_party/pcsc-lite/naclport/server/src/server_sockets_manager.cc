@@ -26,6 +26,7 @@
 #include "server_sockets_manager.h"
 
 #include <google_smart_card_common/logging/logging.h>
+#include <google_smart_card_common/optional.h>
 
 namespace google_smart_card {
 
@@ -42,6 +43,13 @@ void PcscLiteServerSocketsManager::CreateGlobalInstance() {
 }
 
 // static
+void PcscLiteServerSocketsManager::DestroyGlobalInstance() {
+  // Does nothing if it wasn't created.
+  delete g_pcsc_lite_server_sockets_manager;
+  g_pcsc_lite_server_sockets_manager = nullptr;
+}
+
+// static
 PcscLiteServerSocketsManager* PcscLiteServerSocketsManager::GetInstance() {
   GOOGLE_SMART_CARD_CHECK(g_pcsc_lite_server_sockets_manager);
   return g_pcsc_lite_server_sockets_manager;
@@ -53,14 +61,22 @@ void PcscLiteServerSocketsManager::Push(int server_socket_file_descriptor) {
   condition_.notify_all();
 }
 
-int PcscLiteServerSocketsManager::WaitAndPop() {
+optional<int> PcscLiteServerSocketsManager::WaitAndPop() {
   std::unique_lock<std::mutex> lock(mutex_);
   condition_.wait(lock, [this]() {
-    return !server_socket_file_descriptors_queue_.empty();
+    return shutting_down_ || !server_socket_file_descriptors_queue_.empty();
   });
+  if (shutting_down_)
+    return {};
   int result = server_socket_file_descriptors_queue_.front();
   server_socket_file_descriptors_queue_.pop();
   return result;
+}
+
+void PcscLiteServerSocketsManager::ShutDown() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  shutting_down_ = true;
+  condition_.notify_all();
 }
 
 PcscLiteServerSocketsManager::PcscLiteServerSocketsManager() = default;
