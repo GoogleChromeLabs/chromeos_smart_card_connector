@@ -61,6 +61,7 @@ COMMON_CPPFLAGS := \
 	-I$(SOURCES_PATH) \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 	-I$(PCSC_LITE_SOURCES_PATH) \
+	-I$(ROOT_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src \
 
 # * DEBUG_HOTPLUG definition enables debug logging for the reader drivers
@@ -207,8 +208,8 @@ PCSC_LITE_SERVER_NACL_SOURCES := \
 	$(SOURCES_PATH)/auth_nacl.cc \
 	$(SOURCES_PATH)/cmath.cc \
 	$(SOURCES_PATH)/dyn_nacl.cc \
-	$(SOURCES_PATH)/google_smart_card_pcsc_lite_server/global.cc \
 	$(SOURCES_PATH)/pcscdaemon_nacl.cc \
+	$(SOURCES_PATH)/public/pcsc_lite_server_web_port_service.cc \
 	$(SOURCES_PATH)/readerfactory_nacl.cc \
 	$(SOURCES_PATH)/server_sockets_manager.cc \
 	$(SOURCES_PATH)/sys_nacl.cc \

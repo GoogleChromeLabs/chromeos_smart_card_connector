@@ -23,7 +23,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 // THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <google_smart_card_pcsc_lite_server/global.h>
+#include "third_party/pcsc-lite/naclport/server/src/public/pcsc_lite_server_web_port_service.h"
 
 #include <stdint.h>
 #include <sys/stat.h>
@@ -69,7 +69,7 @@ namespace google_smart_card {
 
 namespace {
 
-PcscLiteServerGlobal* g_pcsc_lite_server = nullptr;
+PcscLiteServerWebPortService* g_pcsc_lite_server = nullptr;
 
 constexpr char kLoggingPrefix[] = "[PC/SC-Lite NaCl port] ";
 
@@ -178,13 +178,14 @@ StructValueDescriptor<ReaderRemoveMessageData>::GetDescription() {
       .WithField(&ReaderRemoveMessageData::port, "port");
 }
 
-PcscLiteServerGlobal::PcscLiteServerGlobal(GlobalContext* global_context)
+PcscLiteServerWebPortService::PcscLiteServerWebPortService(
+    GlobalContext* global_context)
     : global_context_(global_context) {
   GOOGLE_SMART_CARD_CHECK(!g_pcsc_lite_server);
   g_pcsc_lite_server = this;
 }
 
-PcscLiteServerGlobal::~PcscLiteServerGlobal() {
+PcscLiteServerWebPortService::~PcscLiteServerWebPortService() {
   // If the daemon thread is joinable, it means `ShutDownAndWait()` wasn't
   // called, which is a violation of the contract.
   GOOGLE_SMART_CARD_CHECK(!daemon_thread_.joinable());
@@ -194,12 +195,13 @@ PcscLiteServerGlobal::~PcscLiteServerGlobal() {
 }
 
 // static
-const PcscLiteServerGlobal* PcscLiteServerGlobal::GetInstance() {
+const PcscLiteServerWebPortService*
+PcscLiteServerWebPortService::GetInstance() {
   GOOGLE_SMART_CARD_CHECK(g_pcsc_lite_server);
   return g_pcsc_lite_server;
 }
 
-void PcscLiteServerGlobal::InitializeAndRunDaemonThread() {
+void PcscLiteServerWebPortService::InitializeAndRunDaemonThread() {
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Initialization...";
 
   IpcEmulation::CreateGlobalInstance();
@@ -280,7 +282,7 @@ void PcscLiteServerGlobal::InitializeAndRunDaemonThread() {
                               << "successfully finished.";
 }
 
-void PcscLiteServerGlobal::ShutDownAndWait() {
+void PcscLiteServerWebPortService::ShutDownAndWait() {
   GOOGLE_SMART_CARD_LOG_DEBUG
       << kLoggingPrefix << "Shutting down the PC/SC-Lite daemon thread...";
   // This notifies the daemon thread to shut down.
@@ -294,9 +296,10 @@ void PcscLiteServerGlobal::ShutDownAndWait() {
   IpcEmulation::DestroyGlobalInstance();
 }
 
-void PcscLiteServerGlobal::PostReaderInitAddMessage(const char* reader_name,
-                                                    int port,
-                                                    const char* device) const {
+void PcscLiteServerWebPortService::PostReaderInitAddMessage(
+    const char* reader_name,
+    int port,
+    const char* device) const {
   ReaderInitAddMessageData message_data;
   message_data.reader_name = reader_name;
   message_data.port = port;
@@ -305,10 +308,11 @@ void PcscLiteServerGlobal::PostReaderInitAddMessage(const char* reader_name,
               ConvertToValueOrDie(std::move(message_data)));
 }
 
-void PcscLiteServerGlobal::PostReaderFinishAddMessage(const char* reader_name,
-                                                      int port,
-                                                      const char* device,
-                                                      long return_code) const {
+void PcscLiteServerWebPortService::PostReaderFinishAddMessage(
+    const char* reader_name,
+    int port,
+    const char* device,
+    long return_code) const {
   ReaderFinishAddMessageData message_data;
   message_data.reader_name = reader_name;
   message_data.port = port;
@@ -318,8 +322,9 @@ void PcscLiteServerGlobal::PostReaderFinishAddMessage(const char* reader_name,
               ConvertToValueOrDie(std::move(message_data)));
 }
 
-void PcscLiteServerGlobal::PostReaderRemoveMessage(const char* reader_name,
-                                                   int port) const {
+void PcscLiteServerWebPortService::PostReaderRemoveMessage(
+    const char* reader_name,
+    int port) const {
   ReaderRemoveMessageData message_data;
   message_data.reader_name = reader_name;
   message_data.port = port;
@@ -327,8 +332,8 @@ void PcscLiteServerGlobal::PostReaderRemoveMessage(const char* reader_name,
               ConvertToValueOrDie(std::move(message_data)));
 }
 
-void PcscLiteServerGlobal::PostMessage(const char* type,
-                                       Value message_data) const {
+void PcscLiteServerWebPortService::PostMessage(const char* type,
+                                               Value message_data) const {
   TypedMessage typed_message;
   typed_message.type = type;
   typed_message.data = std::move(message_data);

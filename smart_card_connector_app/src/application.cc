@@ -25,11 +25,11 @@
 #include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_conversion.h>
-#include <google_smart_card_pcsc_lite_server/global.h>
 #include <google_smart_card_pcsc_lite_server_clients_management/backend.h>
 #include <google_smart_card_pcsc_lite_server_clients_management/ready_message.h>
 
 #include "third_party/libusb/webport/src/public/libusb_web_port_service.h"
+#include "third_party/pcsc-lite/naclport/server/src/public/pcsc_lite_server_web_port_service.h"
 
 namespace google_smart_card {
 
@@ -43,8 +43,8 @@ Application::Application(
       libusb_web_port_service_(
           MakeUnique<LibusbWebPortService>(global_context_,
                                            typed_message_router_)),
-      pcsc_lite_server_global_(
-          MakeUnique<PcscLiteServerGlobal>(global_context_)) {
+      pcsc_lite_server_web_port_service_(
+          MakeUnique<PcscLiteServerWebPortService>(global_context_)) {
   ScheduleServicesInitialization();
 }
 
@@ -54,7 +54,7 @@ Application::~Application() {
   // sending requests to the JavaScript side).
   libusb_web_port_service_->ShutDown();
   (void)libusb_web_port_service_.release();
-  (void)pcsc_lite_server_global_.release();
+  (void)pcsc_lite_server_web_port_service_.release();
 }
 
 void Application::ScheduleServicesInitialization() {
@@ -68,7 +68,7 @@ void Application::InitializeServicesOnBackgroundThread() {
 
   if (background_initialization_callback_)
     background_initialization_callback_();
-  pcsc_lite_server_global_->InitializeAndRunDaemonThread();
+  pcsc_lite_server_web_port_service_->InitializeAndRunDaemonThread();
 
   pcsc_lite_server_clients_management_backend_ =
       MakeUnique<PcscLiteServerClientsManagementBackend>(global_context_,

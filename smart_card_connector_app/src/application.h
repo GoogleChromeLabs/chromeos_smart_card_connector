@@ -20,10 +20,10 @@
 
 #include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
-#include <google_smart_card_pcsc_lite_server/global.h>
 #include <google_smart_card_pcsc_lite_server_clients_management/backend.h>
 
 #include "third_party/libusb/webport/src/public/libusb_web_port_service.h"
+#include "third_party/pcsc-lite/naclport/server/src/public/pcsc_lite_server_web_port_service.h"
 
 namespace google_smart_card {
 
@@ -63,7 +63,8 @@ class Application final {
   std::unique_ptr<LibusbWebPortService> libusb_web_port_service_;
   std::unique_ptr<PcscLiteServerClientsManagementBackend>
       pcsc_lite_server_clients_management_backend_;
-  std::unique_ptr<PcscLiteServerGlobal> pcsc_lite_server_global_;
+  std::unique_ptr<PcscLiteServerWebPortService>
+      pcsc_lite_server_web_port_service_;
 };
 
 }  // namespace google_smart_card
