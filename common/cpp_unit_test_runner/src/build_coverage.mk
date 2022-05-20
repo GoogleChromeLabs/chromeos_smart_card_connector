@@ -45,7 +45,8 @@ $(GOOGLETEST_LIBS_PATTERN):
 
 # Execute the test binary. Write the collected coverage profile into
 # ./{Debug|Release}.profraw, so that we can later merge these profiles from all
-# runs and build a summarized report.
+# runs and build a summarized report. Use "CURDIR" instead of ".", so that the
+# location isn't affected if the test does chdir.
 run_test: all
-	LLVM_PROFILE_FILE="./$(CONFIG).profraw" \
+	LLVM_PROFILE_FILE="$(CURDIR)/$(CONFIG).profraw" \
 		$(OUT_DIR_PATH)/$(TARGET)
