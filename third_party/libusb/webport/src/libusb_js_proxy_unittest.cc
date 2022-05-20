@@ -60,6 +60,47 @@ using testing::WithArgs;
 
 namespace google_smart_card {
 
+namespace {
+
+class FakeGlobalContext final : public GlobalContext {
+ public:
+  void PostMessageToJs(Value /*message*/) override {}
+  bool IsMainEventLoopThread() const override { return true; }
+  void ShutDown() override {}
+};
+
+class LibusbJsProxyTest : public ::testing::Test {
+ protected:
+  LibusbJsProxyTest() = default;
+  ~LibusbJsProxyTest() override = default;
+
+  FakeGlobalContext global_context_;
+  TypedMessageRouter typed_message_router_;
+  LibusbJsProxy libusb_js_proxy_{&global_context_, &typed_message_router_};
+};
+
+}  // namespace
+
+TEST_F(LibusbJsProxyTest, ContextsCreation) {
+  ASSERT_EQ(LIBUSB_SUCCESS, libusb_js_proxy_.LibusbInit(nullptr));
+
+  // Initializing a default context for the second time doesn't do anything
+  ASSERT_EQ(LIBUSB_SUCCESS, libusb_js_proxy_.LibusbInit(nullptr));
+
+  libusb_context* context_1 = nullptr;
+  ASSERT_EQ(LIBUSB_SUCCESS, libusb_js_proxy_.LibusbInit(&context_1));
+  EXPECT_TRUE(context_1);
+
+  libusb_context* context_2 = nullptr;
+  ASSERT_EQ(LIBUSB_SUCCESS, libusb_js_proxy_.LibusbInit(&context_2));
+  EXPECT_TRUE(context_2);
+  EXPECT_NE(context_1, context_2);
+
+  libusb_js_proxy_.LibusbExit(context_1);
+  libusb_js_proxy_.LibusbExit(context_2);
+  libusb_js_proxy_.LibusbExit(nullptr);
+}
+
 // TODO(#429): Resurrect the tests by reimplementing them on top of the
 // libusb-to-JS adaptor instead of the chrome_usb::ApiBridge.
 #if 0
@@ -133,57 +174,7 @@ class MockChromeUsbApiBridge final : public chrome_usb::ApiBridgeInterface {
                    const chrome_usb::ConnectionHandle& connection_handle));
 };
 
-class FakeGlobalContext final : public GlobalContext {
- public:
-  void PostMessageToJs(Value /*message*/) override {}
-  bool IsMainEventLoopThread() const override { return true; }
-  void ShutDown() override {}
-};
-
 }  // namespace
-
-class LibusbJsProxyTest : public ::testing::Test {
- protected:
-  void SetUp() override {
-    ::testing::Test::SetUp();
-
-    chrome_usb_api_bridge.reset(new MockChromeUsbApiBridge);
-    libusb_js_proxy.reset(new LibusbJsProxy(
-        &global_context_, &typed_message_router_, chrome_usb_api_bridge.get()));
-  }
-
-  void TearDown() override {
-    libusb_js_proxy.reset();
-    chrome_usb_api_bridge.reset();
-
-    ::testing::Test::TearDown();
-  }
-
-  FakeGlobalContext global_context_;
-  TypedMessageRouter typed_message_router_;
-  std::unique_ptr<MockChromeUsbApiBridge> chrome_usb_api_bridge;
-  std::unique_ptr<LibusbJsProxy> libusb_js_proxy;
-};
-
-TEST_F(LibusbJsProxyTest, ContextsCreation) {
-  ASSERT_EQ(LIBUSB_SUCCESS, libusb_js_proxy->LibusbInit(nullptr));
-
-  // Initializing a default context for the second time doesn't do anything
-  ASSERT_EQ(LIBUSB_SUCCESS, libusb_js_proxy->LibusbInit(nullptr));
-
-  libusb_context* context_1;
-  ASSERT_EQ(LIBUSB_SUCCESS, libusb_js_proxy->LibusbInit(&context_1));
-  EXPECT_TRUE(context_1);
-
-  libusb_context* context_2;
-  ASSERT_EQ(LIBUSB_SUCCESS, libusb_js_proxy->LibusbInit(&context_2));
-  EXPECT_TRUE(context_2);
-  EXPECT_NE(context_1, context_2);
-
-  libusb_js_proxy->LibusbExit(context_1);
-  libusb_js_proxy->LibusbExit(context_2);
-  libusb_js_proxy->LibusbExit(nullptr);
-}
 
 TEST_F(LibusbJsProxyTest, DevicesListingWithFailure) {
   EXPECT_CALL(*chrome_usb_api_bridge, GetDevices(_))
