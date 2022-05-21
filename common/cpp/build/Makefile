@@ -50,6 +50,7 @@ SOURCES := \
 	$(SOURCES_PATH)/value.cc \
 	$(SOURCES_PATH)/value_conversion.cc \
 	$(SOURCES_PATH)/value_debug_dumping.cc \
+	../src/public/testing_global_context.cc \
 	../src/public/value_builder.cc \
 
 ifeq ($(TOOLCHAIN),pnacl)
