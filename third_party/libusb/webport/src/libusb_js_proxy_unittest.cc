@@ -186,6 +186,111 @@ TEST_F(LibusbJsProxyTest, DevicesListingWithTwoItems) {
   FreeLibusbDevices(devices);
 }
 
+// Test `LibusbOpen()` successful scenario.
+TEST_F(LibusbJsProxyTest, DeviceOpening) {
+  // Arrange.
+  global_context_.WillReplyToRequestWith(
+      "libusb", "listDevices",
+      /*arguments=*/Value(Value::Type::kArray),
+      /*result_to_reply_with=*/
+      ArrayValueBuilder()
+          .Add(DictValueBuilder()
+                   .Add("deviceId", 123)
+                   .Add("vendorId", 1)
+                   .Add("productId", 2)
+                   .Get())
+          .Get());
+  global_context_.WillReplyToRequestWith(
+      "libusb", "openDeviceHandle",
+      /*arguments=*/ArrayValueBuilder().Add(123).Get(),
+      /*result_to_reply_with=*/Value(456));
+  global_context_.WillReplyToRequestWith(
+      "libusb", "closeDeviceHandle",
+      /*arguments=*/ArrayValueBuilder().Add(123).Add(456).Get(),
+      /*result_to_reply_with=*/Value());
+
+  // Act. Obtain the device from the device list.
+  std::vector<libusb_device*> devices = GetLibusbDevices();
+  ASSERT_EQ(devices.size(), 1U);
+  // Connect to the device.
+  libusb_device_handle* device_handle = nullptr;
+  ASSERT_EQ(libusb_js_proxy_.LibusbOpen(devices[0], &device_handle),
+            LIBUSB_SUCCESS);
+  ASSERT_TRUE(device_handle);
+  // Disconnect from the device.
+  libusb_js_proxy_.LibusbClose(device_handle);
+
+  FreeLibusbDevices(devices);
+}
+
+// Test `LibusbOpen()` failure when the JS side returns an error.
+TEST_F(LibusbJsProxyTest, DeviceOpeningFailure) {
+  // Arrange.
+  global_context_.WillReplyToRequestWith(
+      "libusb", "listDevices",
+      /*arguments=*/Value(Value::Type::kArray),
+      /*result_to_reply_with=*/
+      ArrayValueBuilder()
+          .Add(DictValueBuilder()
+                   .Add("deviceId", 123)
+                   .Add("vendorId", 1)
+                   .Add("productId", 2)
+                   .Get())
+          .Get());
+  global_context_.WillReplyToRequestWithError(
+      "libusb", "openDeviceHandle",
+      /*arguments=*/ArrayValueBuilder().Add(123).Get(),
+      /*error_to_reply_with=*/"fake error");
+
+  // Act. Obtain the device from the device list.
+  std::vector<libusb_device*> devices = GetLibusbDevices();
+  ASSERT_EQ(devices.size(), 1U);
+  // Connect to the device.
+  libusb_device_handle* device_handle = nullptr;
+  EXPECT_EQ(libusb_js_proxy_.LibusbOpen(devices[0], &device_handle),
+            LIBUSB_ERROR_OTHER);
+
+  FreeLibusbDevices(devices);
+}
+
+// Test `LibusbClose()` doesn't crash when the JavaScript side reports an error.
+TEST_F(LibusbJsProxyTest, DeviceClosingFailure) {
+  // Arrange.
+  global_context_.WillReplyToRequestWith(
+      "libusb", "listDevices",
+      /*arguments=*/Value(Value::Type::kArray),
+      /*result_to_reply_with=*/
+      ArrayValueBuilder()
+          .Add(DictValueBuilder()
+                   .Add("deviceId", 123)
+                   .Add("vendorId", 1)
+                   .Add("productId", 2)
+                   .Get())
+          .Get());
+  global_context_.WillReplyToRequestWith(
+      "libusb", "openDeviceHandle",
+      /*arguments=*/ArrayValueBuilder().Add(123).Get(),
+      /*result_to_reply_with=*/Value(456));
+  global_context_.WillReplyToRequestWithError(
+      "libusb", "closeDeviceHandle",
+      /*arguments=*/ArrayValueBuilder().Add(123).Add(456).Get(),
+      /*error_to_reply_with=*/"fake error");
+
+  // Act. Obtain the device from the device list.
+  std::vector<libusb_device*> devices = GetLibusbDevices();
+  ASSERT_EQ(devices.size(), 1U);
+  // Connect to the device.
+  libusb_device_handle* device_handle = nullptr;
+  ASSERT_EQ(libusb_js_proxy_.LibusbOpen(devices[0], &device_handle),
+            LIBUSB_SUCCESS);
+  ASSERT_TRUE(device_handle);
+  // Disconnect from the device. The `LibusbClose()` function is void, and we
+  // expect it to not crash despite the error simulated on the JS side.
+  libusb_js_proxy_.LibusbClose(device_handle);
+
+  FreeLibusbDevices(devices);
+}
+
 // TODO(#429): Resurrect the tests by reimplementing them on top of the
 // libusb-to-JS adaptor instead of the chrome_usb::ApiBridge.
 #if 0
