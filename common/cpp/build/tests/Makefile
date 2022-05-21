@@ -35,6 +35,7 @@ SOURCES := \
 	$(SOURCES_PATH)/value_conversion_unittest.cc \
 	$(SOURCES_PATH)/value_debug_dumping_unittest.cc \
 	$(SOURCES_PATH)/value_unittest.cc \
+	../../src/public/value_builder_unittest.cc \
 
 ifeq ($(TOOLCHAIN),emscripten)
 
@@ -49,6 +50,7 @@ SOURCES += \
 endif
 
 CXXFLAGS := \
+	-I$(ROOT_PATH) \
 	-I$(ROOT_SOURCES_PATH)/ \
 	-pedantic \
 	-Wall \
