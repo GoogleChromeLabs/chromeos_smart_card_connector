@@ -29,6 +29,16 @@ jobs:
         python-version: 3.9
         cache: pip
 
+    - name: Install dependencies
+      run: >
+        sudo apt-get install -y
+        autoconf
+        autoconf-archive
+        flex
+        libsystemd-dev
+        libudev-dev
+        pkg-config
+
     # Building in the coverage mode requires LLVM and Clang, as well as 32-bit
     # cross-compile versions of standard C and C++ libraries (needed as we're
     # building code in 32-bit mode on the 64-bit host).
