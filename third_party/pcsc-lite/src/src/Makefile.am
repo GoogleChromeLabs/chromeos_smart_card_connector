@@ -16,7 +16,6 @@ if ENABLE_USB
 USB_CONFIG = tokenparser.l \
 	hotplug_libudev.c \
 	hotplug_libusb.c \
-	hotplug_linux.c \
 	hotplug_macosx.c
 endif
 
@@ -53,10 +52,10 @@ pcscd_SOURCES = \
 	misc.h \
 	parser.h \
 	pcscdaemon.c \
-	pcscd.h \
+	pcscd.h.in \
 	PCSC/debuglog.h \
 	PCSC/ifdhandler.h \
-	PCSC/pcsclite.h \
+	PCSC/pcsclite.h.in \
 	PCSC/winscard.h \
 	PCSC/wintypes.h \
 	prothandler.c \

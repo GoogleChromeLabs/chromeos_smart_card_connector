@@ -432,14 +432,18 @@ static void * ContextThread(LPVOID newContext)
 					.timeOut = 0,
 					.rv = 0
 				};
+				LONG rv;
 
 				/* remove the client fd from the list */
-				waStr.rv = EHUnregisterClientForEvent(filedes);
+				rv = EHUnregisterClientForEvent(filedes);
 
 				/* send the response only if the client was still in the
 				 * list */
-				if (waStr.rv != SCARD_F_INTERNAL_ERROR)
+				if (rv != SCARD_F_INTERNAL_ERROR)
+				{
+					waStr.rv = rv;
 					WRITE_BODY(waStr);
+				}
 			}
 			break;
 
@@ -523,7 +527,7 @@ static void * ContextThread(LPVOID newContext)
 			case SCARD_RECONNECT:
 			{
 				struct reconnect_struct rcStr;
-				DWORD dwActiveProtocol;
+				DWORD dwActiveProtocol = SCARD_PROTOCOL_UNDEFINED;
 
 				READ_BODY(rcStr);
 

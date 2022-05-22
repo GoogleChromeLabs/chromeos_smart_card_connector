@@ -1916,10 +1916,12 @@ LONG SCardGetStatusChange(SCARDCONTEXT hContext, DWORD dwTimeout,
 				/* Check for card presence in the reader */
 				if (readerState & SCARD_PRESENT)
 				{
+#ifndef DISABLE_AUTO_POWER_ON
 					/* card present but not yet powered up */
 					if (0 == rContext->cardAtrLength)
 						/* Allow the status thread to convey information */
 						(void)SYS_USleep(PCSCLITE_STATUS_POLL_RATE + 10);
+#endif
 
 					currReader->cbAtr = rContext->cardAtrLength;
 					memcpy(currReader->rgbAtr, rContext->cardAtr,
@@ -2269,6 +2271,14 @@ LONG SCardControl(SCARDHANDLE hCard, DWORD dwControlCode, LPCVOID pbSendBuffer,
 
 	if (SCARD_S_SUCCESS == scControlStruct.rv)
 	{
+		if (scControlStruct.dwBytesReturned > cbRecvLength)
+		{
+			if (NULL != lpBytesReturned)
+				*lpBytesReturned = scControlStruct.dwBytesReturned;
+			rv = SCARD_E_INSUFFICIENT_BUFFER;
+			goto end;
+		}
+
 		/* read the received buffer */
 		rv = MessageReceive(pbRecvBuffer, scControlStruct.dwBytesReturned,
 			currentContextMap->dwClientID);
@@ -2728,6 +2738,13 @@ retry:
 
 	if (SCARD_S_SUCCESS == scTransmitStruct.rv)
 	{
+		if (scTransmitStruct.pcbRecvLength > *pcbRecvLength)
+		{
+			*pcbRecvLength = scTransmitStruct.pcbRecvLength;
+			rv = SCARD_E_INSUFFICIENT_BUFFER;
+			goto end;
+		}
+
 		/* read the received buffer */
 		rv = MessageReceive(pbRecvBuffer, scTransmitStruct.pcbRecvLength,
 			currentContextMap->dwClientID);

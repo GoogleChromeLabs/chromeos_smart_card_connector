@@ -98,7 +98,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 	struct RdrCliHandles
 	{
 		SCARDHANDLE hCard;		/**< hCard for this connection */
-		DWORD dwEventStatus;	/**< Recent event that must be sent */
+		_Atomic DWORD dwEventStatus;	/**< Recent event that must be sent */
 	};
 
 	typedef struct RdrCliHandles RDR_CLIHANDLES;
@@ -123,15 +123,14 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 		int version;			/**< IFD Handler version number */
 		int port;				/**< Port ID */
 		int slot;				/**< Current Reader Slot */
-		volatile SCARDHANDLE hLockId;	/**< Lock Id */
+		_Atomic SCARDHANDLE hLockId;	/**< Lock Id */
 		int LockCount;			/**< number of recursive locks */
-		int32_t contexts;		/**< Number of open contexts */
+		_Atomic int32_t contexts;		/**< Number of open contexts */
 		int * pFeeds;			/**< Number of shared client to lib */
 		int * pMutex;			/**< Number of client to mutex */
 		int powerState;			/**< auto power off state */
 		pthread_mutex_t powerState_lock;	/**< powerState mutex */
-		int reference;			/**< number of users of the structure */
-		pthread_mutex_t reference_lock;	 /**< reference mutex */
+		_Atomic int reference;			/**< number of users of the structure */
 
 		struct pubReaderStatesList *readerState; /**< link to the reader state */
 		/* we can't use READER_STATE * here since eventhandler.h can't be
@@ -148,7 +147,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 	LONG RFAllocateReaderSpace(unsigned int);
 	LONG RFAddReader(const char *, int, const char *, const char *);
-	LONG RFRemoveReader(const char *, int);
+	LONG RFRemoveReader(const char *, int, int);
 	LONG RFSetReaderName(READER_CONTEXT *, const char *, const char *, int);
 	LONG RFReaderInfo(const char *, /*@out@*/ struct ReaderContext **);
 	LONG RFReaderInfoById(SCARDHANDLE, /*@out@*/ struct ReaderContext **);
@@ -173,5 +172,10 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 	void RFWaitForReaderInit(void);
 	int RFStartSerialReaders(const char *readerconf);
 	void RFReCheckReaderConf(void);
+	int RFGetPowerState(READER_CONTEXT *);
+	void RFSetPowerState(READER_CONTEXT *, int value);
+
+#define REMOVE_READER_NO_FLAG 0
+#define REMOVE_READER_FLAG_REMOVED 1
 
 #endif
