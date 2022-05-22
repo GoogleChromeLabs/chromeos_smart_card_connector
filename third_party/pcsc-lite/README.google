@@ -1,5 +1,5 @@
-URL: https://pcsclite.apdu.fr/files/pcsc-lite-1.9.3.tar.bz2
-Version: 1.9.3
+URL: https://pcsclite.apdu.fr/files/pcsc-lite-1.9.7.tar.bz2
+Version: 1.9.7
 License: BSD, GPL v3, MIT, ISC
 License File: LICENSE
 Description:
@@ -8,5 +8,5 @@ Local Modifications:
 LICENSE file has been created for compliance purposes. Not included in original
 distribution.
 The server-side daemon and the client-side library were partially reimplemented
-under Google Native Client and for being based on the cross-extension
-communication between server and clients.
+for working in web environment (under Emscripten or Google Native Client) and
+for being based on the cross-extension communication between server and clients.
