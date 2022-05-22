@@ -9,9 +9,19 @@ runs:
   # Update the Apt cache, since the default state in Github Actions VM might be
   # stalled, causing 404 errors when trying to install packages later.
   - name: Apt update
-    if: ${{ inputs.toolchain == 'coverage' }}
     shell: bash
     run: sudo apt-get update
+
+  - name: Install dependencies
+    shell: bash
+    run: >
+      sudo apt-get install -y
+      autoconf
+      autoconf-archive
+      flex
+      libsystemd-dev
+      libudev-dev
+      pkg-config
 
   - name: Set up Python 3
     uses: actions/setup-python@v3.1.2
