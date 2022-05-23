@@ -209,7 +209,7 @@ TEST(ValueTest, StringDefault) {
   EXPECT_FALSE(value.is_array());
   EXPECT_EQ(value.GetString(), "");
 
-  // Test `StrictlyEquals()` against same/different string value.
+  // Test `StrictlyEquals()` against same/different string values.
   EXPECT_TRUE(value.StrictlyEquals(Value("")));
   EXPECT_FALSE(value.StrictlyEquals(Value("foo")));
 }

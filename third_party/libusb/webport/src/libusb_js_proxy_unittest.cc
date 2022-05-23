@@ -33,10 +33,11 @@
 #include <gtest/gtest.h>
 #include <libusb.h>
 
-#include <google_smart_card_common/global_context.h>
-#include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
-#include <google_smart_card_common/requesting/request_result.h>
+#include <google_smart_card_common/value.h>
+
+#include "common/cpp/src/public/testing_global_context.h"
+#include "common/cpp/src/public/value_builder.h"
 
 #ifdef __native_client__
 // Native Client's version of Google Test uses a different name of the macro for
@@ -60,45 +61,169 @@ using testing::WithArgs;
 
 namespace google_smart_card {
 
-namespace {
-
-class FakeGlobalContext final : public GlobalContext {
- public:
-  void PostMessageToJs(Value /*message*/) override {}
-  bool IsMainEventLoopThread() const override { return true; }
-  void ShutDown() override {}
-};
-
 class LibusbJsProxyTest : public ::testing::Test {
  protected:
-  LibusbJsProxyTest() = default;
+  LibusbJsProxyTest() {
+    // Bypass `LibusbJsProxy` asserts that it must not be called from the main
+    // thread. These asserts are to prevent deadlocks, because with the real
+    // JavaScript counterpart it's impossible to receive the JS response without
+    // letting the main thread's event loop pump. In the unit test, it's not a
+    // concern.
+    global_context_.set_creation_thread_is_event_loop(false);
+  }
   ~LibusbJsProxyTest() override = default;
 
-  FakeGlobalContext global_context_;
+  // A convenience wrapper around `LibusbJsProxy::LibusbGetDeviceList()`.
+  std::vector<libusb_device*> GetLibusbDevices() {
+    libusb_device** device_list = nullptr;
+    ssize_t ret_code =
+        libusb_js_proxy_.LibusbGetDeviceList(/*ctx=*/nullptr, &device_list);
+    if (ret_code < 0) {
+      ADD_FAILURE() << "LibusbGetDeviceList failed with " << ret_code;
+      return {};
+    }
+    std::vector<libusb_device*> devices(device_list, device_list + ret_code);
+    if (std::find(devices.begin(), devices.end(), nullptr) != devices.end()) {
+      ADD_FAILURE() << "LibusbGetDeviceList returned a null element";
+      return {};
+    }
+    if (device_list[ret_code]) {
+      ADD_FAILURE()
+          << "LibusbGetDeviceList returned non-null after last element";
+      return {};
+    }
+    libusb_js_proxy_.LibusbFreeDeviceList(device_list, /*unref_devices=*/false);
+    return devices;
+  }
+
+  void FreeLibusbDevices(const std::vector<libusb_device*>& devices) {
+    for (auto* device : devices)
+      libusb_js_proxy_.LibusbUnrefDevice(device);
+  }
+
   TypedMessageRouter typed_message_router_;
+  TestingGlobalContext global_context_{&typed_message_router_};
   LibusbJsProxy libusb_js_proxy_{&global_context_, &typed_message_router_};
 };
 
-}  // namespace
-
+// Test `LibusbInit()` and `LibusbExit()`.
 TEST_F(LibusbJsProxyTest, ContextsCreation) {
-  ASSERT_EQ(LIBUSB_SUCCESS, libusb_js_proxy_.LibusbInit(nullptr));
+  EXPECT_EQ(libusb_js_proxy_.LibusbInit(nullptr), LIBUSB_SUCCESS);
 
   // Initializing a default context for the second time doesn't do anything
-  ASSERT_EQ(LIBUSB_SUCCESS, libusb_js_proxy_.LibusbInit(nullptr));
+  EXPECT_EQ(libusb_js_proxy_.LibusbInit(nullptr), LIBUSB_SUCCESS);
 
   libusb_context* context_1 = nullptr;
-  ASSERT_EQ(LIBUSB_SUCCESS, libusb_js_proxy_.LibusbInit(&context_1));
+  EXPECT_EQ(libusb_js_proxy_.LibusbInit(&context_1), LIBUSB_SUCCESS);
   EXPECT_TRUE(context_1);
 
   libusb_context* context_2 = nullptr;
-  ASSERT_EQ(LIBUSB_SUCCESS, libusb_js_proxy_.LibusbInit(&context_2));
+  EXPECT_EQ(libusb_js_proxy_.LibusbInit(&context_2), LIBUSB_SUCCESS);
   EXPECT_TRUE(context_2);
   EXPECT_NE(context_1, context_2);
 
   libusb_js_proxy_.LibusbExit(context_1);
   libusb_js_proxy_.LibusbExit(context_2);
-  libusb_js_proxy_.LibusbExit(nullptr);
+  libusb_js_proxy_.LibusbExit(/*ctx=*/nullptr);
+}
+
+// Test `LibusbGetDeviceList()` failure when the JS side returns an error.
+TEST_F(LibusbJsProxyTest, DevicesListingWithFailure) {
+  // Arrange:
+  global_context_.WillReplyToRequestWithError(
+      "libusb", "listDevices",
+      /*arguments=*/Value(Value::Type::kArray), "fake failure");
+
+  // Act:
+  libusb_device** device_list;
+  EXPECT_EQ(libusb_js_proxy_.LibusbGetDeviceList(/*ctx=*/nullptr, &device_list),
+            LIBUSB_ERROR_OTHER);
+}
+
+// Test `LibusbGetDeviceList()` successful scenario with zero readers.
+TEST_F(LibusbJsProxyTest, DevicesListingWithNoItems) {
+  // Arrange.
+  global_context_.WillReplyToRequestWith(
+      "libusb", "listDevices", /*arguments=*/Value(Value::Type::kArray),
+      /*result_to_reply_with=*/Value(Value::Type::kArray));
+
+  // Act.
+  EXPECT_TRUE(GetLibusbDevices().empty());
+}
+
+// Test `LibusbGetDeviceList()` successful scenario with 2 readers.
+TEST_F(LibusbJsProxyTest, DevicesListingWithTwoItems) {
+  // Arrange.
+  Value fake_js_reply = ArrayValueBuilder()
+                            .Add(DictValueBuilder()
+                                     .Add("deviceId", 0)
+                                     .Add("vendorId", 0)
+                                     .Add("productId", 0)
+                                     .Get())
+                            .Add(DictValueBuilder()
+                                     .Add("deviceId", 1)
+                                     .Add("vendorId", 0)
+                                     .Add("productId", 0)
+                                     .Get())
+                            .Get();
+  global_context_.WillReplyToRequestWith(
+      "libusb", "listDevices",
+      /*arguments=*/Value(Value::Type::kArray),
+      /*result_to_reply_with=*/std::move(fake_js_reply));
+
+  // Act.
+  std::vector<libusb_device*> devices = GetLibusbDevices();
+  ASSERT_EQ(devices.size(), 2U);
+  EXPECT_NE(devices[0], devices[1]);
+
+  FreeLibusbDevices(devices);
+}
+
+// Test `LibusbFreeDeviceList()` correctly cleans up an empty device list when
+// called with `unref_devices`=true.
+TEST_F(LibusbJsProxyTest, DevicesListFreeingWithNoItems) {
+  // Arrange.
+  global_context_.WillReplyToRequestWith(
+      "libusb", "listDevices", /*arguments=*/Value(Value::Type::kArray),
+      /*result_to_reply_with=*/Value(Value::Type::kArray));
+
+  // Act.
+  libusb_device** device_list = nullptr;
+  EXPECT_EQ(libusb_js_proxy_.LibusbGetDeviceList(/*ctx=*/nullptr, &device_list),
+            0);
+  // The test can't really assert the readers were actually deallocated, but
+  // running it under ASan should guarantee catching mistakes.
+  libusb_js_proxy_.LibusbFreeDeviceList(device_list, /*unref_devices=*/true);
+}
+
+// Test `LibusbFreeDeviceList()` correctly cleans up a list with 2 readers when
+// called with `unref_devices`=true.
+TEST_F(LibusbJsProxyTest, DevicesListFreeingWithTwoItems) {
+  // Arrange.
+  Value fake_js_reply = ArrayValueBuilder()
+                            .Add(DictValueBuilder()
+                                     .Add("deviceId", 0)
+                                     .Add("vendorId", 0)
+                                     .Add("productId", 0)
+                                     .Get())
+                            .Add(DictValueBuilder()
+                                     .Add("deviceId", 1)
+                                     .Add("vendorId", 0)
+                                     .Add("productId", 0)
+                                     .Get())
+                            .Get();
+  global_context_.WillReplyToRequestWith(
+      "libusb", "listDevices",
+      /*arguments=*/Value(Value::Type::kArray),
+      /*result_to_reply_with=*/std::move(fake_js_reply));
+
+  // Act.
+  libusb_device** device_list = nullptr;
+  EXPECT_EQ(libusb_js_proxy_.LibusbGetDeviceList(/*ctx=*/nullptr, &device_list),
+            2);
+  // The test can't really assert the readers were actually deallocated, but
+  // running it under ASan should guarantee catching mistakes.
+  libusb_js_proxy_.LibusbFreeDeviceList(device_list, /*unref_devices=*/true);
 }
 
 // TODO(#429): Resurrect the tests by reimplementing them on top of the
@@ -175,61 +300,6 @@ class MockChromeUsbApiBridge final : public chrome_usb::ApiBridgeInterface {
 };
 
 }  // namespace
-
-TEST_F(LibusbJsProxyTest, DevicesListingWithFailure) {
-  EXPECT_CALL(*chrome_usb_api_bridge, GetDevices(_))
-      .WillOnce(InvokeWithoutArgs([]() {
-        return RequestResult<chrome_usb::GetDevicesResult>::CreateFailed(
-            "fake failure");
-      }));
-
-  libusb_device** device_list;
-  ASSERT_EQ(LIBUSB_ERROR_OTHER,
-            libusb_js_proxy->LibusbGetDeviceList(nullptr, &device_list));
-}
-
-TEST_F(LibusbJsProxyTest, DevicesListingWithNoItems) {
-  EXPECT_CALL(*chrome_usb_api_bridge, GetDevices(_))
-      .WillOnce(InvokeWithoutArgs([]() {
-        return RequestResult<chrome_usb::GetDevicesResult>::CreateSuccessful(
-            chrome_usb::GetDevicesResult());
-      }));
-
-  libusb_device** device_list = nullptr;
-  ASSERT_EQ(0, libusb_js_proxy->LibusbGetDeviceList(nullptr, &device_list));
-  ASSERT_TRUE(device_list);
-  ASSERT_FALSE(device_list[0]);
-
-  libusb_js_proxy->LibusbFreeDeviceList(device_list, true);
-}
-
-TEST_F(LibusbJsProxyTest, DevicesListingWithTwoItems) {
-  chrome_usb::GetDevicesResult chrome_usb_get_devices_result;
-  chrome_usb::Device chrome_usb_device_1;
-  chrome_usb_device_1.device = 0;
-  chrome_usb_device_1.vendor_id = 0;
-  chrome_usb_device_1.product_id = 0;
-  chrome_usb_get_devices_result.devices.push_back(chrome_usb_device_1);
-  chrome_usb::Device chrome_usb_device_2;
-  chrome_usb_device_2.device = 1;
-  chrome_usb_device_2.vendor_id = 0;
-  chrome_usb_device_2.product_id = 0;
-  chrome_usb_get_devices_result.devices.push_back(chrome_usb_device_2);
-  EXPECT_CALL(*chrome_usb_api_bridge, GetDevices(_))
-      .WillOnce(InvokeWithoutArgs([&]() {
-        return RequestResult<chrome_usb::GetDevicesResult>::CreateSuccessful(
-            chrome_usb_get_devices_result);
-      }));
-
-  libusb_device** device_list = nullptr;
-  ASSERT_EQ(2, libusb_js_proxy->LibusbGetDeviceList(nullptr, &device_list));
-  ASSERT_TRUE(device_list);
-  ASSERT_TRUE(device_list[0]);
-  ASSERT_TRUE(device_list[1]);
-  ASSERT_NE(device_list[0], device_list[1]);
-  ASSERT_FALSE(device_list[2]);
-  libusb_js_proxy->LibusbFreeDeviceList(device_list, true);
-}
 
 // TODO(emaxx): Add a test on referencing/unreferencing devices
 

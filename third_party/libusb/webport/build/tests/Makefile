@@ -27,6 +27,7 @@ SOURCES := \
 	$(SOURCES_PATH)/libusb_js_proxy_unittest.cc \
 
 CXXFLAGS := \
+	-I$(ROOT_PATH) \
 	-I$(SOURCES_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src \
 	-I$(ROOT_PATH)/third_party/libusb/src/libusb \
