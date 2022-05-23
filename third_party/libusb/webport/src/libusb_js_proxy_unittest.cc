@@ -384,7 +384,8 @@ class LibusbJsProxyWithDeviceTest : public LibusbJsProxyTest {
     global_context_.WillReplyToRequestWith(
         "libusb", "listDevices",
         /*arguments=*/Value(Value::Type::kArray),
-        /*result_to_reply_with=*/ArrayValueBuilder()
+        /*result_to_reply_with=*/
+        ArrayValueBuilder()
             .Add(DictValueBuilder()
                      .Add("deviceId", kJsDeviceId)
                      .Add("vendorId", 2)
