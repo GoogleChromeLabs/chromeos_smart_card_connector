@@ -384,7 +384,8 @@ class LibusbJsProxyWithDeviceTest : public LibusbJsProxyTest {
     global_context_.WillReplyToRequestWith(
         "libusb", "listDevices",
         /*arguments=*/Value(Value::Type::kArray),
-        /*result_to_reply_with=*/ArrayValueBuilder()
+        /*result_to_reply_with=*/
+        ArrayValueBuilder()
             .Add(DictValueBuilder()
                      .Add("deviceId", kJsDeviceId)
                      .Add("vendorId", 2)
@@ -409,7 +410,8 @@ class LibusbJsProxyWithDeviceTest : public LibusbJsProxyTest {
     // Close the libusb device handle, which triggers a call to JS.
     global_context_.WillReplyToRequestWith(
         "libusb", "closeDeviceHandle",
-        /*arguments=*/ArrayValueBuilder().Add(kJsDeviceId).Add(kJsDeviceHandle).Get(),
+        /*arguments=*/
+        ArrayValueBuilder().Add(kJsDeviceId).Add(kJsDeviceHandle).Get(),
         /*result_to_reply_with=*/Value());
     libusb_js_proxy_.LibusbClose(device_handle_);
     device_handle_ = nullptr;
