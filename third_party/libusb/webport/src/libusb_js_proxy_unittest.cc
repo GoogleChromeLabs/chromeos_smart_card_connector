@@ -147,15 +147,8 @@ TEST_F(LibusbJsProxyTest, DevicesListingWithNoItems) {
       "libusb", "listDevices", /*arguments=*/Value(Value::Type::kArray),
       /*result_to_reply_with=*/Value(Value::Type::kArray));
 
-  // Act. Not using `GetLibusbDevices()` here, in order to test
-  // `LibusbFreeDeviceList()` with `unref_devices`=true.
-  libusb_device** device_list = nullptr;
-  ASSERT_EQ(libusb_js_proxy_.LibusbGetDeviceList(/*ctx=*/nullptr, &device_list),
-            0);
-  ASSERT_TRUE(device_list);
-  EXPECT_FALSE(device_list[0]);
-
-  libusb_js_proxy_.LibusbFreeDeviceList(device_list, /*unref_devices=*/true);
+  // Act.
+  EXPECT_TRUE(GetLibusbDevices().empty());
 }
 
 // Test `LibusbGetDeviceList()` successful scenario with 2 readers.
@@ -184,6 +177,53 @@ TEST_F(LibusbJsProxyTest, DevicesListingWithTwoItems) {
   EXPECT_NE(devices[0], devices[1]);
 
   FreeLibusbDevices(devices);
+}
+
+// Test `LibusbFreeDeviceList()` correctly cleans up an empty device list when
+// called with `unref_devices`=true.
+TEST_F(LibusbJsProxyTest, DevicesListFreeingWithNoItems) {
+  // Arrange.
+  global_context_.WillReplyToRequestWith(
+      "libusb", "listDevices", /*arguments=*/Value(Value::Type::kArray),
+      /*result_to_reply_with=*/Value(Value::Type::kArray));
+
+  // Act.
+  libusb_device** device_list = nullptr;
+  EXPECT_EQ(libusb_js_proxy_.LibusbGetDeviceList(/*ctx=*/nullptr, &device_list),
+            0);
+  // The test can't really assert the readers were actually deallocated, but
+  // running it under ASan should guarantee catching mistakes.
+  libusb_js_proxy_.LibusbFreeDeviceList(device_list, /*unref_devices=*/true);
+}
+
+// Test `LibusbFreeDeviceList()` correctly cleans up a list with 2 readers when
+// called with `unref_devices`=true.
+TEST_F(LibusbJsProxyTest, DevicesListFreeingWithTwoItems) {
+  // Arrange.
+  Value fake_js_reply = ArrayValueBuilder()
+                            .Add(DictValueBuilder()
+                                     .Add("deviceId", 0)
+                                     .Add("vendorId", 0)
+                                     .Add("productId", 0)
+                                     .Get())
+                            .Add(DictValueBuilder()
+                                     .Add("deviceId", 1)
+                                     .Add("vendorId", 0)
+                                     .Add("productId", 0)
+                                     .Get())
+                            .Get();
+  global_context_.WillReplyToRequestWith(
+      "libusb", "listDevices",
+      /*arguments=*/Value(Value::Type::kArray),
+      /*result_to_reply_with=*/std::move(fake_js_reply));
+
+  // Act.
+  libusb_device** device_list = nullptr;
+  EXPECT_EQ(libusb_js_proxy_.LibusbGetDeviceList(/*ctx=*/nullptr, &device_list),
+            2);
+  // The test can't really assert the readers were actually deallocated, but
+  // running it under ASan should guarantee catching mistakes.
+  libusb_js_proxy_.LibusbFreeDeviceList(device_list, /*unref_devices=*/true);
 }
 
 // TODO(#429): Resurrect the tests by reimplementing them on top of the
