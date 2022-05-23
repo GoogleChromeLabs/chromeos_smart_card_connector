@@ -278,6 +278,7 @@ TEST(ValueTest, Dictionary) {
   std::map<std::string, std::unique_ptr<Value>> clone;
   clone["foo"] = MakeUnique<Value>();
   clone["bar"] = MakeUnique<Value>(123);
+  EXPECT_TRUE(value.StrictlyEquals(Value(std::move(clone))));
   std::map<std::string, std::unique_ptr<Value>> other;
   other["foo"] = MakeUnique<Value>();
   other["bar"] = MakeUnique<Value>(1234);

@@ -50,6 +50,7 @@ SOURCES := \
 	$(SOURCES_PATH)/value.cc \
 	$(SOURCES_PATH)/value_conversion.cc \
 	$(SOURCES_PATH)/value_debug_dumping.cc \
+	$(ROOT_SOURCES_PATH)/public/value_builder.cc \
 
 ifeq ($(TOOLCHAIN),pnacl)
 
@@ -71,6 +72,7 @@ SOURCES += \
 endif
 
 CXXFLAGS := \
+	-I$(ROOT_PATH) \
 	-I$(ROOT_SOURCES_PATH)/ \
 	-pedantic \
 	-Wall \
