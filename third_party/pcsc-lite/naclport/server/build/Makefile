@@ -74,7 +74,8 @@ COMMON_CPPFLAGS := \
 #   (actually, in the current NaCl port no functionality is influenced by this
 #   constant);
 # * PCSCLITE_HP_DROPDIR constant points to the directory containing the configs
-#   for all PC/SC-Lite server drivers;
+#   for all PC/SC-Lite server drivers; use a relative path, so that it works
+#   both inside the Smart Card Connector app and in unit tests;
 # * USE_IPCDIR constant is just a stub for making the original PC/SC-Lite code
 #   compiling;
 # * USE_USB definition enables the PC/SC-Lite support of USB readers (as
@@ -85,7 +86,7 @@ PCSC_LITE_COMMON_CPPFLAGS := \
 	-DHAVE_LIBUSB \
 	-DHAVE_SYSLOG_H \
 	-DPCSC_ARCH='"Linux"' \
-	-DPCSCLITE_HP_DROPDIR='"/executable-module-filesystem/pcsc/drivers"' \
+	-DPCSCLITE_HP_DROPDIR='"executable-module-filesystem/pcsc/drivers"' \
 	-DUSE_IPCDIR='"IPCDIR_is_not_expected_to_be_used"' \
 	-DUSE_USB \
 	-I$(ROOT_PATH)/common/cpp/src/google_smart_card_common/logging/syslog \
