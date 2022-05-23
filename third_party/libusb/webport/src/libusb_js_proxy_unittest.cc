@@ -331,6 +331,42 @@ TEST_F(LibusbJsProxyTest, DeviceClosingFailure) {
   FreeLibusbDevices(devices);
 }
 
+// Test `LibusbRefDevice()` and `LibusbUnrefDevice()` that increment and
+// decrement the libusb_device reference counter.
+TEST_F(LibusbJsProxyTest, DeviceRefUnref) {
+  constexpr int kIterationCount = 100;
+
+  // Arrange.
+  global_context_.WillReplyToRequestWith(
+      "libusb", "listDevices",
+      /*arguments=*/Value(Value::Type::kArray),
+      /*result_to_reply_with=*/
+      ArrayValueBuilder()
+          .Add(DictValueBuilder()
+                   .Add("deviceId", 1)
+                   .Add("vendorId", 2)
+                   .Add("productId", 3)
+                   .Get())
+          .Get());
+
+  // Act. Obtain the device from the device list.
+  std::vector<libusb_device*> devices = GetLibusbDevices();
+  ASSERT_EQ(devices.size(), 1U);
+  // Increment and decrement the device's reference counter. The device object
+  // should stay valid (note that the test can't assert this explicitly, but
+  // running it under ASan should ensure that).
+  EXPECT_EQ(libusb_js_proxy_.LibusbRefDevice(devices[0]), devices[0]);
+  libusb_js_proxy_.LibusbUnrefDevice(devices[0]);
+  // Increase and then decrease the reference counter by `kIterationCount`. Same
+  // as above, we can't assert anything explicitly here.
+  for (int i = 0; i < kIterationCount; ++i)
+    EXPECT_EQ(libusb_js_proxy_.LibusbRefDevice(devices[0]), devices[0]);
+  for (int i = 0; i < kIterationCount; ++i)
+    libusb_js_proxy_.LibusbUnrefDevice(devices[0]);
+
+  FreeLibusbDevices(devices);
+}
+
 // TODO(#429): Resurrect the tests by reimplementing them on top of the
 // libusb-to-JS adaptor instead of the chrome_usb::ApiBridge.
 #if 0
@@ -405,8 +441,6 @@ class MockChromeUsbApiBridge final : public chrome_usb::ApiBridgeInterface {
 };
 
 }  // namespace
-
-// TODO(emaxx): Add a test on referencing/unreferencing devices
 
 // TODO(emaxx): Add a test on obtaining device descriptors and attributes
 
