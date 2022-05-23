@@ -32,10 +32,10 @@ void ArrayValueBuilder::AddConverted(
     bool conversion_success,
     const std::string& conversion_error_message,
     Value converted) {
-  if (!succeeded_)
+  if (encountered_error_)
     return;
   if (!conversion_success) {
-    succeeded_ = false;
+    encountered_error_ = true;
     error_message_ = FormatPrintfTemplate("Failed to convert item#%d: %s",
                                           static_cast<int>(items_.size()),
                                           conversion_error_message.c_str());
@@ -45,7 +45,7 @@ void ArrayValueBuilder::AddConverted(
 }
 
 Value ArrayValueBuilder::Get() && {
-  if (!succeeded_)
+  if (encountered_error_)
     GOOGLE_SMART_CARD_LOG_FATAL << "Array building failed: " << error_message_;
   return Value(std::move(items_));
 }
@@ -58,17 +58,17 @@ void DictValueBuilder::AddConverted(bool conversion_success,
                                     const std::string& conversion_error_message,
                                     const std::string& key,
                                     Value converted_value) {
-  if (!succeeded_)
+  if (encountered_error_)
     return;
   if (!conversion_success) {
-    succeeded_ = false;
+    encountered_error_ = true;
     error_message_ =
         FormatPrintfTemplate(R"(Failed to convert key "%s": %s)", key.c_str(),
                              conversion_error_message.c_str());
     return;
   }
   if (items_.count(key)) {
-    succeeded_ = false;
+    encountered_error_ = true;
     error_message_ = FormatPrintfTemplate(R"(Duplicate key "%s")", key.c_str());
     return;
   }
@@ -76,7 +76,7 @@ void DictValueBuilder::AddConverted(bool conversion_success,
 }
 
 Value DictValueBuilder::Get() && {
-  if (!succeeded_) {
+  if (encountered_error_) {
     GOOGLE_SMART_CARD_LOG_FATAL << "Dictionary building failed: "
                                 << error_message_;
   }
