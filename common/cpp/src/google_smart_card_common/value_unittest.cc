@@ -37,6 +37,7 @@ TEST(ValueTest, DefaultConstructed) {
   EXPECT_FALSE(value.is_binary());
   EXPECT_FALSE(value.is_dictionary());
   EXPECT_FALSE(value.is_array());
+  EXPECT_TRUE(value.StrictlyEquals(Value()));
 }
 
 TEST(ValueTest, Null) {
@@ -49,6 +50,7 @@ TEST(ValueTest, Null) {
   EXPECT_FALSE(value.is_binary());
   EXPECT_FALSE(value.is_dictionary());
   EXPECT_FALSE(value.is_array());
+  EXPECT_TRUE(value.StrictlyEquals(Value()));
 }
 
 TEST(ValueTest, Integer) {
@@ -63,6 +65,10 @@ TEST(ValueTest, Integer) {
   EXPECT_FALSE(value.is_array());
   EXPECT_EQ(value.GetInteger(), 123);
   EXPECT_DOUBLE_EQ(value.GetFloat(), 123);
+
+  // Test `StrictlyEquals()` against same/different integer values.
+  EXPECT_TRUE(value.StrictlyEquals(Value(123)));
+  EXPECT_FALSE(value.StrictlyEquals(Value(1234)));
 }
 
 TEST(ValueTest, Integer64BitMax) {
@@ -78,6 +84,10 @@ TEST(ValueTest, Integer64BitMax) {
   EXPECT_FALSE(value.is_array());
   EXPECT_EQ(value.GetInteger(), integer_value);
   EXPECT_DOUBLE_EQ(value.GetFloat(), static_cast<double>(integer_value));
+
+  // Test `StrictlyEquals()` against same/different integer values.
+  EXPECT_TRUE(value.StrictlyEquals(Value(integer_value)));
+  EXPECT_FALSE(value.StrictlyEquals(Value(0)));
 }
 
 TEST(ValueTest, Integer64BitMin) {
@@ -93,6 +103,10 @@ TEST(ValueTest, Integer64BitMin) {
   EXPECT_FALSE(value.is_array());
   EXPECT_EQ(value.GetInteger(), integer_value);
   EXPECT_DOUBLE_EQ(value.GetFloat(), integer_value);
+
+  // Test `StrictlyEquals()` against same/different integer values.
+  EXPECT_TRUE(value.StrictlyEquals(Value(integer_value)));
+  EXPECT_FALSE(value.StrictlyEquals(Value(0)));
 }
 
 TEST(ValueTest, IntegerDefault) {
@@ -107,6 +121,10 @@ TEST(ValueTest, IntegerDefault) {
   EXPECT_FALSE(value.is_array());
   EXPECT_EQ(value.GetInteger(), 0);
   EXPECT_DOUBLE_EQ(value.GetFloat(), 0);
+
+  // Test `StrictlyEquals()` against same/different integer values.
+  EXPECT_TRUE(value.StrictlyEquals(Value(0)));
+  EXPECT_FALSE(value.StrictlyEquals(Value(123)));
 }
 
 TEST(ValueTest, Float) {
@@ -120,6 +138,10 @@ TEST(ValueTest, Float) {
   EXPECT_FALSE(value.is_dictionary());
   EXPECT_FALSE(value.is_array());
   EXPECT_DOUBLE_EQ(value.GetFloat(), 123.456);
+
+  // Test `StrictlyEquals()` against same/different float values.
+  EXPECT_TRUE(value.StrictlyEquals(Value(123.456)));
+  EXPECT_FALSE(value.StrictlyEquals(Value(123.4567)));
 }
 
 TEST(ValueTest, FloatDefault) {
@@ -133,6 +155,10 @@ TEST(ValueTest, FloatDefault) {
   EXPECT_FALSE(value.is_dictionary());
   EXPECT_FALSE(value.is_array());
   EXPECT_DOUBLE_EQ(value.GetFloat(), 0);
+
+  // Test `StrictlyEquals()` against same/different float values.
+  EXPECT_TRUE(value.StrictlyEquals(Value(0.0)));
+  EXPECT_FALSE(value.StrictlyEquals(Value(123.456)));
 }
 
 TEST(ValueTest, String) {
@@ -147,6 +173,10 @@ TEST(ValueTest, String) {
   EXPECT_FALSE(value.is_dictionary());
   EXPECT_FALSE(value.is_array());
   EXPECT_EQ(value.GetString(), kString);
+
+  // Test `StrictlyEquals()` against same/different string values.
+  EXPECT_TRUE(value.StrictlyEquals(Value(kString)));
+  EXPECT_FALSE(value.StrictlyEquals(Value("bar")));
 }
 
 TEST(ValueTest, StringFromChars) {
@@ -161,6 +191,10 @@ TEST(ValueTest, StringFromChars) {
   EXPECT_FALSE(value.is_dictionary());
   EXPECT_FALSE(value.is_array());
   EXPECT_EQ(value.GetString(), kString);
+
+  // Test `StrictlyEquals()` against same/different string values.
+  EXPECT_TRUE(value.StrictlyEquals(Value(kString)));
+  EXPECT_FALSE(value.StrictlyEquals(Value("bar")));
 }
 
 TEST(ValueTest, StringDefault) {
@@ -174,6 +208,10 @@ TEST(ValueTest, StringDefault) {
   EXPECT_FALSE(value.is_dictionary());
   EXPECT_FALSE(value.is_array());
   EXPECT_EQ(value.GetString(), "");
+
+  // Test `StrictlyEquals()` against same/different string value.
+  EXPECT_TRUE(value.StrictlyEquals(Value("")));
+  EXPECT_FALSE(value.StrictlyEquals(Value("foo")));
 }
 
 TEST(ValueTest, Binary) {
@@ -188,6 +226,10 @@ TEST(ValueTest, Binary) {
   EXPECT_FALSE(value.is_dictionary());
   EXPECT_FALSE(value.is_array());
   EXPECT_EQ(value.GetBinary(), bytes);
+
+  // Test `StrictlyEquals()` against same/different binary values.
+  EXPECT_TRUE(value.StrictlyEquals(Value(bytes)));
+  EXPECT_FALSE(value.StrictlyEquals(Value(std::vector<uint8_t>{1, 2, 3, 4})));
 }
 
 TEST(ValueTest, BinaryDefault) {
@@ -202,6 +244,10 @@ TEST(ValueTest, BinaryDefault) {
   EXPECT_FALSE(value.is_dictionary());
   EXPECT_FALSE(value.is_array());
   EXPECT_EQ(value.GetBinary(), bytes);
+
+  // Test `StrictlyEquals()` against same/different binary values.
+  EXPECT_TRUE(value.StrictlyEquals(Value(bytes)));
+  EXPECT_FALSE(value.StrictlyEquals(Value(std::vector<uint8_t>{1, 2, 3})));
 }
 
 TEST(ValueTest, Dictionary) {
@@ -227,6 +273,15 @@ TEST(ValueTest, Dictionary) {
   EXPECT_EQ(item_bar->GetInteger(), 123);
   const Value* const item_baz = value.GetDictionaryItem("baz");
   EXPECT_FALSE(item_baz);
+
+  // Test `StrictlyEquals()` against same/different dictionary values.
+  std::map<std::string, std::unique_ptr<Value>> clone;
+  clone["foo"] = MakeUnique<Value>();
+  clone["bar"] = MakeUnique<Value>(123);
+  std::map<std::string, std::unique_ptr<Value>> other;
+  other["foo"] = MakeUnique<Value>();
+  other["bar"] = MakeUnique<Value>(1234);
+  EXPECT_FALSE(value.StrictlyEquals(Value(std::move(other))));
 }
 
 TEST(ValueTest, DictionaryDefault) {
@@ -242,6 +297,13 @@ TEST(ValueTest, DictionaryDefault) {
   EXPECT_TRUE(value.GetDictionary().empty());
   const Value* const item_foo = value.GetDictionaryItem("foo");
   EXPECT_FALSE(item_foo);
+
+  // Test `StrictlyEquals()` against same/different dictionary values.
+  EXPECT_TRUE(value.StrictlyEquals(Value(Value::Type::kDictionary)));
+  std::map<std::string, std::unique_ptr<Value>> other;
+  other["foo"] = MakeUnique<Value>();
+  other["bar"] = MakeUnique<Value>(1234);
+  EXPECT_FALSE(value.StrictlyEquals(Value(std::move(other))));
 }
 
 TEST(ValueTest, Array) {
@@ -265,6 +327,16 @@ TEST(ValueTest, Array) {
   ASSERT_TRUE(item1);
   ASSERT_TRUE(item1->is_integer());
   EXPECT_EQ(item1->GetInteger(), 123);
+
+  // Test `StrictlyEquals()` against same/different array values.
+  std::vector<std::unique_ptr<Value>> clone;
+  clone.push_back(MakeUnique<Value>());
+  clone.push_back(MakeUnique<Value>(123));
+  EXPECT_TRUE(value.StrictlyEquals(Value(std::move(clone))));
+  std::vector<std::unique_ptr<Value>> other;
+  other.push_back(MakeUnique<Value>());
+  other.push_back(MakeUnique<Value>(1234));
+  EXPECT_FALSE(value.StrictlyEquals(Value(std::move(other))));
 }
 
 TEST(ValueTest, ArrayDefault) {
@@ -278,6 +350,63 @@ TEST(ValueTest, ArrayDefault) {
   EXPECT_FALSE(value.is_dictionary());
   EXPECT_TRUE(value.is_array());
   EXPECT_TRUE(value.GetArray().empty());
+
+  // Test `StrictlyEquals()` against same/different array values.
+  EXPECT_TRUE(value.StrictlyEquals(Value(Value::Type::kArray)));
+  std::vector<std::unique_ptr<Value>> other;
+  other.push_back(MakeUnique<Value>());
+  other.push_back(MakeUnique<Value>(123));
+  EXPECT_FALSE(value.StrictlyEquals(Value(std::move(other))));
+}
+
+// Test the `StrictlyEquals` method returns false for values of different types.
+TEST(ValueTest, DifferentTypesAreNotStrictlyEqual) {
+  const Value null_value;
+  const Value boolean_value(true);
+  const Value integer_value(123);
+  const Value float_value(123.0);
+  const Value string_value("123");
+  const Value binary_value(std::vector<uint8_t>{1, 2, 3});
+  const Value dictionary_value(Value::Type::kDictionary);
+  const Value array_value(Value::Type::kArray);
+
+  // Not using loops for saving typing, because when a test assertion fails in a
+  // loop it's unclear what exactly failed.
+
+  EXPECT_FALSE(null_value.StrictlyEquals(boolean_value));
+  EXPECT_FALSE(null_value.StrictlyEquals(integer_value));
+  EXPECT_FALSE(null_value.StrictlyEquals(float_value));
+  EXPECT_FALSE(null_value.StrictlyEquals(string_value));
+  EXPECT_FALSE(null_value.StrictlyEquals(binary_value));
+  EXPECT_FALSE(null_value.StrictlyEquals(dictionary_value));
+  EXPECT_FALSE(null_value.StrictlyEquals(array_value));
+
+  EXPECT_FALSE(boolean_value.StrictlyEquals(integer_value));
+  EXPECT_FALSE(boolean_value.StrictlyEquals(float_value));
+  EXPECT_FALSE(boolean_value.StrictlyEquals(string_value));
+  EXPECT_FALSE(boolean_value.StrictlyEquals(binary_value));
+  EXPECT_FALSE(boolean_value.StrictlyEquals(dictionary_value));
+  EXPECT_FALSE(boolean_value.StrictlyEquals(array_value));
+
+  EXPECT_FALSE(integer_value.StrictlyEquals(float_value));
+  EXPECT_FALSE(integer_value.StrictlyEquals(string_value));
+  EXPECT_FALSE(integer_value.StrictlyEquals(binary_value));
+  EXPECT_FALSE(integer_value.StrictlyEquals(dictionary_value));
+  EXPECT_FALSE(integer_value.StrictlyEquals(array_value));
+
+  EXPECT_FALSE(float_value.StrictlyEquals(string_value));
+  EXPECT_FALSE(float_value.StrictlyEquals(binary_value));
+  EXPECT_FALSE(float_value.StrictlyEquals(dictionary_value));
+  EXPECT_FALSE(float_value.StrictlyEquals(array_value));
+
+  EXPECT_FALSE(string_value.StrictlyEquals(binary_value));
+  EXPECT_FALSE(string_value.StrictlyEquals(dictionary_value));
+  EXPECT_FALSE(string_value.StrictlyEquals(array_value));
+
+  EXPECT_FALSE(binary_value.StrictlyEquals(dictionary_value));
+  EXPECT_FALSE(binary_value.StrictlyEquals(array_value));
+
+  EXPECT_FALSE(dictionary_value.StrictlyEquals(array_value));
 }
 
 TEST(ValueTest, MoveConstruction) {

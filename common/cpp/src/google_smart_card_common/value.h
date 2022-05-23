@@ -83,6 +83,11 @@ class Value final {
 
   ~Value();
 
+  // Returns whether the value has the exact same type and value. Note that
+  // false is returned when comparing an integer and a float, even when their
+  // numerical value is the same.
+  bool StrictlyEquals(const Value& other) const;
+
   Type type() const { return type_; }
   bool is_null() const { return type_ == Type::kNull; }
   bool is_boolean() const { return type_ == Type::kBoolean; }

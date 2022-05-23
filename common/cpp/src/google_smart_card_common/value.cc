@@ -108,6 +108,46 @@ Value::~Value() {
   Destroy();
 }
 
+bool Value::StrictlyEquals(const Value& other) const {
+  if (type_ != other.type_)
+    return false;
+  switch (type_) {
+    case Type::kNull:
+      return true;
+    case Type::kBoolean:
+      return boolean_value_ == other.boolean_value_;
+    case Type::kInteger:
+      return integer_value_ == other.integer_value_;
+    case Type::kFloat:
+      return float_value_ == other.float_value_;
+    case Type::kString:
+      return string_value_ == other.string_value_;
+    case Type::kBinary:
+      return binary_value_ == other.binary_value_;
+    case Type::kDictionary: {
+      if (dictionary_value_.size() != other.dictionary_value_.size())
+        return false;
+      for (const auto& pair : dictionary_value_) {
+        const auto iter = other.dictionary_value_.find(pair.first);
+        if (iter == other.dictionary_value_.end() ||
+            !pair.second->StrictlyEquals(*iter->second)) {
+          return false;
+        }
+      }
+      return true;
+    }
+    case Type::kArray: {
+      if (array_value_.size() != other.array_value_.size())
+        return false;
+      for (size_t i = 0; i < array_value_.size(); ++i) {
+        if (!array_value_[i]->StrictlyEquals(*other.array_value_[i]))
+          return false;
+      }
+      return true;
+    }
+  }
+}
+
 bool Value::GetBoolean() const {
   GOOGLE_SMART_CARD_CHECK(is_boolean());
   return boolean_value_;
