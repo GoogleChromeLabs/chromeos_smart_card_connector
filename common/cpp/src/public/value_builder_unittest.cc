@@ -28,7 +28,7 @@ namespace google_smart_card {
 TEST(ValueBuilderTest, ArrayEmpty) {
   ArrayValueBuilder builder;
 
-  ASSERT_TRUE(builder.succeeded());
+  ASSERT_FALSE(builder.encountered_error());
   Value result = std::move(builder).Get();
   ASSERT_TRUE(result.is_array());
   EXPECT_TRUE(result.GetArray().empty());
@@ -38,7 +38,7 @@ TEST(ValueBuilderTest, ArrayIntegerItem) {
   ArrayValueBuilder builder;
   std::move(builder).Add(123);
 
-  ASSERT_TRUE(builder.succeeded());
+  ASSERT_FALSE(builder.encountered_error());
   Value result = std::move(builder).Get();
   ASSERT_TRUE(result.is_array());
   ASSERT_EQ(result.GetArray().size(), 1U);
@@ -50,7 +50,7 @@ TEST(ValueBuilderTest, ArrayStringItem) {
   ArrayValueBuilder builder;
   std::move(builder).Add("foo");
 
-  ASSERT_TRUE(builder.succeeded());
+  ASSERT_FALSE(builder.encountered_error());
   Value result = std::move(builder).Get();
   ASSERT_TRUE(result.is_array());
   ASSERT_EQ(result.GetArray().size(), 1U);
@@ -62,7 +62,7 @@ TEST(ValueBuilderTest, ArrayMultipleItems) {
   ArrayValueBuilder builder;
   std::move(builder).Add(false).Add(Value());
 
-  ASSERT_TRUE(builder.succeeded());
+  ASSERT_FALSE(builder.encountered_error());
   Value result = std::move(builder).Get();
   ASSERT_TRUE(result.is_array());
   ASSERT_EQ(result.GetArray().size(), 2U);
@@ -74,7 +74,7 @@ TEST(ValueBuilderTest, ArrayMultipleItems) {
 TEST(ValueBuilderTest, DictEmpty) {
   DictValueBuilder builder;
 
-  ASSERT_TRUE(builder.succeeded());
+  ASSERT_FALSE(builder.encountered_error());
   Value result = std::move(builder).Get();
   ASSERT_TRUE(result.is_dictionary());
   EXPECT_TRUE(result.GetDictionary().empty());
@@ -84,7 +84,7 @@ TEST(ValueBuilderTest, DictFloatItem) {
   DictValueBuilder builder;
   std::move(builder).Add("foo", 123.456);
 
-  ASSERT_TRUE(builder.succeeded());
+  ASSERT_FALSE(builder.encountered_error());
   Value result = std::move(builder).Get();
   ASSERT_TRUE(result.is_dictionary());
   EXPECT_EQ(result.GetDictionary().size(), 1U);
@@ -98,7 +98,7 @@ TEST(ValueBuilderTest, DictBinaryItem) {
   DictValueBuilder builder;
   std::move(builder).Add("foo", kBytes);
 
-  ASSERT_TRUE(builder.succeeded());
+  ASSERT_FALSE(builder.encountered_error());
   Value result = std::move(builder).Get();
   ASSERT_TRUE(result.is_dictionary());
   EXPECT_EQ(result.GetDictionary().size(), 1U);
@@ -107,11 +107,27 @@ TEST(ValueBuilderTest, DictBinaryItem) {
   EXPECT_EQ(result.GetDictionaryItem("foo")->GetBinary(), kBytes);
 }
 
+TEST(ValueBuilderTest, DictMultipleItems) {
+  DictValueBuilder builder;
+  std::move(builder).Add("foo", false).Add("bar", 123);
+
+  ASSERT_FALSE(builder.encountered_error());
+  Value result = std::move(builder).Get();
+  ASSERT_TRUE(result.is_dictionary());
+  EXPECT_EQ(result.GetDictionary().size(), 2U);
+  ASSERT_TRUE(result.GetDictionaryItem("foo"));
+  ASSERT_TRUE(result.GetDictionaryItem("foo")->is_boolean());
+  EXPECT_EQ(result.GetDictionaryItem("foo")->GetBoolean(), false);
+  ASSERT_TRUE(result.GetDictionaryItem("bar"));
+  ASSERT_TRUE(result.GetDictionaryItem("bar")->is_integer());
+  EXPECT_EQ(result.GetDictionaryItem("bar")->GetInteger(), 123);
+}
+
 TEST(ValueBuilderTest, DictFailureDuplicate) {
   DictValueBuilder builder;
   std::move(builder).Add("foo", 1).Add("foo", 2);
 
-  EXPECT_FALSE(builder.succeeded());
+  EXPECT_TRUE(builder.encountered_error());
   EXPECT_EQ(builder.error_message(), R"(Duplicate key "foo")");
 }
 

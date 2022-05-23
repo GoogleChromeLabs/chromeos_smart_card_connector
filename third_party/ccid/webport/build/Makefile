@@ -46,12 +46,13 @@ CCID_NACL_SOURCES_PATH := ../src
 # * log_msg and log_xxd are redefined in order to not collide with the symbols
 #   from the PC/SC-Lite server-side libraries;
 # * PCSCLITE_HP_DROPDIR constant points to the directory containing the configs
-#   for all PC/SC-Lite server drivers;
+#   for all PC/SC-Lite server drivers; use a relative path, so that it works
+#   both inside the Smart Card Connector app and in unit tests;
 COMMON_CPPFLAGS := \
 	-DHAVE_PTHREAD=1 \
 	-Dlog_msg=ccid_log_msg \
 	-Dlog_xxd=ccid_log_xxd \
-	-DPCSCLITE_HP_DROPDIR='"/executable-module-filesystem/pcsc/drivers"' \
+	-DPCSCLITE_HP_DROPDIR='"executable-module-filesystem/pcsc/drivers"' \
 	-I$(CCID_SOURCES_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src \
 	-Wall \

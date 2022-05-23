@@ -49,10 +49,11 @@ class ArrayValueBuilder final {
     return std::move(*this);
   }
 
-  bool succeeded() const { return succeeded_; }
+  bool encountered_error() const { return encountered_error_; }
   const std::string& error_message() const { return error_message_; }
 
-  // Returns the built array value. Dies if a conversion failure happened.
+  // Returns the built array value. Dies if a conversion failure has been
+  // encountered.
   Value Get() &&;
 
  private:
@@ -60,7 +61,7 @@ class ArrayValueBuilder final {
                     const std::string& conversion_error_message,
                     Value converted);
 
-  bool succeeded_ = true;
+  bool encountered_error_ = false;
   std::string error_message_;
   Value::ArrayStorage items_;
 };
@@ -88,10 +89,11 @@ class DictValueBuilder final {
     return std::move(*this);
   }
 
-  bool succeeded() const { return succeeded_; }
+  bool encountered_error() const { return encountered_error_; }
   const std::string& error_message() const { return error_message_; }
 
-  // Returns the built dictionary value. Dies if a conversion failure happened.
+  // Returns the built dictionary value. Dies if a conversion failure has been
+  // encountered.
   Value Get() &&;
 
  private:
@@ -100,7 +102,7 @@ class DictValueBuilder final {
                     const std::string& key,
                     Value converted_value);
 
-  bool succeeded_ = true;
+  bool encountered_error_ = false;
   std::string error_message_;
   Value::DictionaryStorage items_;
 };

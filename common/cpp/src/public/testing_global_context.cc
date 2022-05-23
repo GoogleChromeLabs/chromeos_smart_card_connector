@@ -111,7 +111,7 @@ TestingGlobalContext::PopMatchingExpectation(const std::string& message_type,
   for (auto iter = expectations_.begin(); iter != expectations_.end(); ++iter) {
     if (message_type == GetRequestMessageType(iter->requester_name) &&
         request_payload.StrictlyEquals(iter->awaited_request_payload)) {
-      // A match found. The expectation is one-off, so remove it.
+      // A match found. The expectation is a one of, so remove it.
       Expectation match = std::move(*iter);
       expectations_.erase(iter);
       return std::move(match);
