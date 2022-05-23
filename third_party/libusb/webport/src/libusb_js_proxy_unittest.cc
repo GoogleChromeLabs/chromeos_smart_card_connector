@@ -367,6 +367,92 @@ TEST_F(LibusbJsProxyTest, DeviceRefUnref) {
   FreeLibusbDevices(devices);
 }
 
+// Test fixture that simulates a single USB device present, and automatically
+// connects to the device in SetUp.
+class LibusbJsProxyWithDeviceTest : public LibusbJsProxyTest {
+ protected:
+  static constexpr int kJsDeviceId = 123;
+  static constexpr int kJsDeviceHandle = 456;
+
+  LibusbJsProxyWithDeviceTest() = default;
+  ~LibusbJsProxyWithDeviceTest() = default;
+
+  void SetUp() override {
+    ASSERT_EQ(libusb_js_proxy_.LibusbInit(/*ctx=*/nullptr), LIBUSB_SUCCESS);
+
+    // Obtain the libusb device.
+    global_context_.WillReplyToRequestWith(
+        "libusb", "listDevices",
+        /*arguments=*/Value(Value::Type::kArray),
+        /*result_to_reply_with=*/ArrayValueBuilder()
+            .Add(DictValueBuilder()
+                     .Add("deviceId", kJsDeviceId)
+                     .Add("vendorId", 2)
+                     .Add("productId", 3)
+                     .Get())
+            .Get());
+    std::vector<libusb_device*> devices = GetLibusbDevices();
+    ASSERT_EQ(devices.size(), 1U);
+    device_ = devices[0];
+
+    // Connect to the device.
+    global_context_.WillReplyToRequestWith(
+        "libusb", "openDeviceHandle",
+        /*arguments=*/ArrayValueBuilder().Add(kJsDeviceId).Get(),
+        /*result_to_reply_with=*/Value(kJsDeviceHandle));
+    EXPECT_EQ(libusb_js_proxy_.LibusbOpen(device_, &device_handle_),
+              LIBUSB_SUCCESS);
+    EXPECT_TRUE(device_handle_);
+  }
+
+  void TearDown() override {
+    // Close the libusb device handle, which triggers a call to JS.
+    global_context_.WillReplyToRequestWith(
+        "libusb", "closeDeviceHandle",
+        /*arguments=*/ArrayValueBuilder().Add(kJsDeviceId).Add(kJsDeviceHandle).Get(),
+        /*result_to_reply_with=*/Value());
+    libusb_js_proxy_.LibusbClose(device_handle_);
+    device_handle_ = nullptr;
+
+    // Deallocate the libusb device.
+    libusb_js_proxy_.LibusbUnrefDevice(device_);
+    device_ = nullptr;
+
+    // Free the libusb global state.
+    libusb_js_proxy_.LibusbExit(/*ctx=*/nullptr);
+  }
+
+  libusb_device* device_ = nullptr;
+  libusb_device_handle* device_handle_ = nullptr;
+};
+
+// Test `LibusbResetDevice()` successful scenario.
+TEST_F(LibusbJsProxyWithDeviceTest, DeviceResetting) {
+  // Arrange.
+  global_context_.WillReplyToRequestWith(
+      "libusb", "resetDevice",
+      /*arguments=*/
+      ArrayValueBuilder().Add(kJsDeviceId).Add(kJsDeviceHandle).Get(),
+      /*result_to_reply_with=*/Value());
+
+  // Act.
+  EXPECT_EQ(libusb_js_proxy_.LibusbResetDevice(device_handle_), LIBUSB_SUCCESS);
+}
+
+// Test `LibusbResetDevice()` failure due to the JS call returning an error.
+TEST_F(LibusbJsProxyWithDeviceTest, DeviceResettingFailure) {
+  // Arrange.
+  global_context_.WillReplyToRequestWithError(
+      "libusb", "resetDevice",
+      /*arguments=*/
+      ArrayValueBuilder().Add(kJsDeviceId).Add(kJsDeviceHandle).Get(),
+      /*error_to_reply_with=*/"fake error");
+
+  // Act.
+  EXPECT_EQ(libusb_js_proxy_.LibusbResetDevice(device_handle_),
+            LIBUSB_ERROR_OTHER);
+}
+
 // TODO(#429): Resurrect the tests by reimplementing them on top of the
 // libusb-to-JS adaptor instead of the chrome_usb::ApiBridge.
 #if 0
@@ -444,96 +530,7 @@ class MockChromeUsbApiBridge final : public chrome_usb::ApiBridgeInterface {
 
 // TODO(emaxx): Add a test on obtaining device descriptors and attributes
 
-// TODO(emaxx): Add a test on resetting a device
-
 namespace {
-
-class LibusbJsProxyWithFakeDeviceTest : public LibusbJsProxyTest {
- public:
-  LibusbJsProxyWithFakeDeviceTest() : device(nullptr), device_handle(nullptr) {
-    chrome_usb_device.device = 1;
-    chrome_usb_device.vendor_id = 2;
-    chrome_usb_device.product_id = 3;
-    chrome_usb_device.version = 4;
-    chrome_usb_device.product_name = "product";
-    chrome_usb_device.manufacturer_name = "manufacturer";
-    chrome_usb_device.serial_number = "serial";
-
-    chrome_usb_connection_handle.handle = 1;
-    chrome_usb_connection_handle.vendor_id = chrome_usb_device.vendor_id;
-    chrome_usb_connection_handle.product_id = chrome_usb_device.product_id;
-  }
-
- protected:
-  void SetUp() override {
-    LibusbJsProxyTest::SetUp();
-
-    ASSERT_EQ(LIBUSB_SUCCESS, libusb_js_proxy->LibusbInit(nullptr));
-    SetUpMocksForFakeDevice();
-    ObtainLibusbDevice();
-    ObtainLibusbDeviceHandle();
-  }
-
-  void TearDown() override {
-    libusb_js_proxy->LibusbClose(device_handle);
-    device_handle = nullptr;
-    libusb_js_proxy->LibusbUnrefDevice(device);
-    device = nullptr;
-    libusb_js_proxy->LibusbExit(nullptr);
-
-    LibusbJsProxyTest::TearDown();
-  }
-
-  chrome_usb::Device chrome_usb_device;
-  chrome_usb::ConnectionHandle chrome_usb_connection_handle;
-  libusb_device* device;
-  libusb_device_handle* device_handle;
-
- private:
-  void SetUpMocksForFakeDevice() {
-    chrome_usb::GetDevicesResult chrome_usb_get_devices_result;
-    chrome_usb_get_devices_result.devices.push_back(chrome_usb_device);
-    // TODO(emaxx): Add testing of the GetDevices method arguments
-    EXPECT_CALL(*chrome_usb_api_bridge, GetDevices(_))
-        .WillRepeatedly(InvokeWithoutArgs([=]() {
-          return RequestResult<chrome_usb::GetDevicesResult>::CreateSuccessful(
-              chrome_usb_get_devices_result);
-        }));
-
-    chrome_usb::OpenDeviceResult chrome_usb_open_device_result;
-    chrome_usb_open_device_result.connection_handle =
-        chrome_usb_connection_handle;
-    EXPECT_CALL(*chrome_usb_api_bridge, OpenDevice(chrome_usb_device))
-        .WillOnce(InvokeWithoutArgs([=]() {
-          return RequestResult<chrome_usb::OpenDeviceResult>::CreateSuccessful(
-              chrome_usb_open_device_result);
-        }));
-
-    // TODO(emaxx): Add testing that calls of methods OpenDevice and CloseDevice
-    // form a valid bracket sequence
-    EXPECT_CALL(*chrome_usb_api_bridge,
-                CloseDevice(chrome_usb_connection_handle))
-        .WillOnce(InvokeWithoutArgs([]() {
-          return RequestResult<chrome_usb::CloseDeviceResult>::CreateSuccessful(
-              chrome_usb::CloseDeviceResult());
-        }));
-  }
-
-  void ObtainLibusbDevice() {
-    libusb_device** device_list = nullptr;
-    EXPECT_EQ(1, libusb_js_proxy->LibusbGetDeviceList(nullptr, &device_list));
-    EXPECT_TRUE(device_list);
-    EXPECT_TRUE(device_list[0]);
-    device = device_list[0];
-    libusb_js_proxy->LibusbFreeDeviceList(device_list, false);
-  }
-
-  void ObtainLibusbDeviceHandle() {
-    EXPECT_EQ(LIBUSB_SUCCESS,
-              libusb_js_proxy->LibusbOpen(device, &device_handle));
-    EXPECT_TRUE(device_handle);
-  }
-};
 
 class LibusbJsProxyTransfersTest : public LibusbJsProxyWithFakeDeviceTest {
  protected:
