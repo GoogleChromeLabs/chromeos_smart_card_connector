@@ -19,7 +19,7 @@ jobs:
 
     - uses: ./.github/actions/build-dependencies-installation
       with:
-        toolchain: pnacl
+        toolchain: emscripten
 
     - name: Compile
       run: >
