@@ -15,7 +15,10 @@
 #ifndef GOOGLE_SMART_CARD_COMMON_TESTING_GLOBAL_CONTEXT_H_
 #define GOOGLE_SMART_CARD_COMMON_TESTING_GLOBAL_CONTEXT_H_
 
+#include <condition_variable>
 #include <deque>
+#include <functional>
+#include <memory>
 #include <mutex>
 #include <string>
 
@@ -33,6 +36,34 @@ namespace google_smart_card {
 // the messages sent to the JavaScript side and to simulate responses from it.
 class TestingGlobalContext final : public GlobalContext {
  public:
+  // Helper returned by `Create...Waiter()` methods. Allows to wait until the
+  // specified C++-to-JS message is sent.
+  class Waiter final {
+   public:
+    Waiter(Waiter&&);
+    Waiter& operator=(Waiter&&);
+    ~Waiter();
+
+    void Wait();
+
+    const Value& GetValue() const;
+    Value TakeValue() &&;
+    optional<RequestId> GetRequestId() const;
+
+   private:
+    friend class TestingGlobalContext;
+
+    Waiter();
+
+    void Resolve(Value value, optional<RequestId> request_id);
+
+    std::unique_ptr<std::mutex> mutex_;
+    std::unique_ptr<std::condition_variable> condition_;
+    bool resolved_ = false;
+    Value value_;
+    optional<RequestId> request_id_;
+  };
+
   explicit TestingGlobalContext(TypedMessageRouter* typed_message_router);
   TestingGlobalContext(const TestingGlobalContext&) = delete;
   TestingGlobalContext& operator=(const TestingGlobalContext&) = delete;
@@ -47,6 +78,9 @@ class TestingGlobalContext final : public GlobalContext {
   void set_creation_thread_is_event_loop(bool creation_thread_is_event_loop) {
     creation_thread_is_event_loop_ = creation_thread_is_event_loop;
   }
+
+  // Returns a waiter for when a message with the specified type arrives.
+  Waiter CreateMessageWaiter(const std::string& awaited_message_type);
 
   // Sets an expectation that a request will be sent to JS for executing the
   // given function with specified arguments. After this happens, the given
@@ -63,13 +97,22 @@ class TestingGlobalContext final : public GlobalContext {
 
  private:
   struct Expectation {
-    std::string requester_name;
-    Value awaited_request_payload;
-    optional<Value> payload_to_reply_with;
-    optional<std::string> error_to_reply_with;
+    // Filter fields:
+    // * The expectation only matches messages with the given
+    //   `TypedMessage::type` value.
+    std::string awaited_message_type;
+    // * If set, the expectation only matches request messages with the given
+    //   `RequestMessageData::payload` value.
+    optional<Value> awaited_request_payload;
+
+    // The callback to trigger when the expectation is met. For request
+    // messages, will be called with `RequestMessageData::payload` and
+    // `RequestMessageData::request_id`. For other messages, will be called with
+    // `TypedMessage::data`.
+    std::function<void(Value, optional<RequestId>)> callback_to_run;
   };
 
-  static Expectation MakeRequestExpectation(
+  Expectation MakeRequestExpectation(
       const std::string& requester_name,
       const std::string& function_name,
       Value arguments,
@@ -77,12 +120,8 @@ class TestingGlobalContext final : public GlobalContext {
       const optional<std::string>& error_to_reply_with);
   void AddExpectation(Expectation expectation);
   optional<Expectation> PopMatchingExpectation(const std::string& message_type,
-                                               const Value& request_payload);
+                                               const Value* request_payload);
   bool HandleMessageToJs(Value message);
-  void PostFakeJsReply(RequestId request_id,
-                       const std::string& requester_name,
-                       optional<Value> payload_to_reply_with,
-                       const optional<std::string>& error_to_reply_with);
 
   TypedMessageRouter* const typed_message_router_;
   bool creation_thread_is_event_loop_ = true;
