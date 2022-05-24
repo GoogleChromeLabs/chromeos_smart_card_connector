@@ -15,9 +15,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Check out sources
+      uses: actions/checkout@v3
 
-    - uses: ./.github/actions/build-dependencies-installation
+    - name: Install build dependencies
+      uses: ./.github/actions/build-dependencies-installation
       with:
         toolchain: emscripten
 
@@ -41,9 +43,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Check out sources
+      uses: actions/checkout@v3
 
-    - uses: ./.github/actions/build-dependencies-installation
+    - name: Install build dependencies
+      uses: ./.github/actions/build-dependencies-installation
       with:
         toolchain: pnacl
 
@@ -64,9 +68,11 @@ jobs:
     outputs:
       LINE_COVERAGE_PERCENT: ${{ steps.build-coverage.outputs.LINE_COVERAGE_PERCENT }}
     steps:
-    - uses: actions/checkout@v3
+    - name: Check out sources
+      uses: actions/checkout@v3
 
-    - uses: ./.github/actions/build-dependencies-installation
+    - name: Install build dependencies
+      uses: ./.github/actions/build-dependencies-installation
       with:
         toolchain: coverage
 
