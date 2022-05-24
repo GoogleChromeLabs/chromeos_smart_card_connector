@@ -127,7 +127,7 @@ StructToValueConverterBase::~StructToValueConverterBase() = default;
 
 void StructToValueConverterBase::HandleFieldConversionError(
     const char* dictionary_key_name) {
-  succeeded_ = false;
+  error_encountered_ = true;
   inner_error_message_ =
       FormatPrintfTemplate("Error creating property %s: %s",
                            dictionary_key_name, inner_error_message_.c_str());
@@ -136,7 +136,7 @@ void StructToValueConverterBase::HandleFieldConversionError(
 bool StructToValueConverterBase::FinishConversion(
     const char* type_name,
     std::string* error_message) const {
-  if (succeeded_)
+  if (!error_encountered_)
     return true;
   FormatPrintfTemplateAndSet(error_message,
                              "Cannot convert struct %s to value: %s", type_name,
@@ -148,7 +148,7 @@ StructFromValueConverterBase::StructFromValueConverterBase(
     Value value_to_convert)
     : value_to_convert_(std::move(value_to_convert)) {
   if (!value_to_convert_.is_dictionary()) {
-    succeeded_ = false;
+    error_encountered_ = true;
     inner_error_message_ = "Value is not a dictionary";
   }
 }
@@ -158,7 +158,7 @@ StructFromValueConverterBase::~StructFromValueConverterBase() = default;
 bool StructFromValueConverterBase::ExtractKey(const char* dictionary_key_name,
                                               bool is_required,
                                               Value* item_value) {
-  if (!succeeded_)
+  if (error_encountered_)
     return false;
   Value::DictionaryStorage& dict = value_to_convert_.GetDictionary();
   auto iter = dict.find(dictionary_key_name);
@@ -171,7 +171,7 @@ bool StructFromValueConverterBase::ExtractKey(const char* dictionary_key_name,
     // The optional field is missing from the dictionary - just skip it.
     return false;
   }
-  succeeded_ = false;
+  error_encountered_ = true;
   inner_error_message_ =
       FormatPrintfTemplate("Missing key \"%s\"", dictionary_key_name);
   return false;
@@ -179,7 +179,7 @@ bool StructFromValueConverterBase::ExtractKey(const char* dictionary_key_name,
 
 void StructFromValueConverterBase::HandleFieldConversionError(
     const char* dictionary_key_name) {
-  succeeded_ = false;
+  error_encountered_ = true;
   inner_error_message_ =
       FormatPrintfTemplate("Error in property \"%s\": %s", dictionary_key_name,
                            inner_error_message_.c_str());
@@ -188,14 +188,14 @@ void StructFromValueConverterBase::HandleFieldConversionError(
 bool StructFromValueConverterBase::FinishConversion(
     const char* type_name,
     std::string* error_message) {
-  if (succeeded_ && !value_to_convert_.GetDictionary().empty()) {
-    succeeded_ = false;
+  if (!error_encountered_ && !value_to_convert_.GetDictionary().empty()) {
+    error_encountered_ = true;
     const std::string& first_unexpected_key =
         value_to_convert_.GetDictionary().begin()->first;
     inner_error_message_ = FormatPrintfTemplate("Unexpected key \"%s\"",
                                                 first_unexpected_key.c_str());
   }
-  if (succeeded_)
+  if (!error_encountered_)
     return true;
   FormatPrintfTemplateAndSet(error_message,
                              "Cannot convert value to struct %s: %s", type_name,

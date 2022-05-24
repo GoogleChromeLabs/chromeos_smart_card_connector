@@ -121,7 +121,7 @@ class StructToValueConverterBase {
   bool FinishConversion(const char* type_name,
                         std::string* error_message) const;
 
-  bool succeeded_ = true;
+  bool error_encountered_ = false;
   std::string inner_error_message_;
   Value converted_value_{Value::Type::kDictionary};
 };
@@ -189,7 +189,7 @@ class StructFromValueConverterBase {
                         std::string* error_message = nullptr);
 
   Value value_to_convert_;
-  bool succeeded_ = true;
+  bool error_encountered_ = false;
   std::string inner_error_message_;
 };
 
@@ -731,7 +731,7 @@ template <typename FieldT>
 void StructToValueConverter<T>::ConvertFieldToValue(
     FieldT field_value,
     const char* dictionary_key_name) {
-  if (!succeeded_)
+  if (error_encountered_)
     return;
   Value converted_field;
   if (ConvertToValue(std::move(field_value), &converted_field,
