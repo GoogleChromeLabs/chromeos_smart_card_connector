@@ -15,8 +15,9 @@
 #ifndef GOOGLE_SMART_CARD_COMMON_TESTING_GLOBAL_CONTEXT_H_
 #define GOOGLE_SMART_CARD_COMMON_TESTING_GLOBAL_CONTEXT_H_
 
+#include <deque>
+#include <mutex>
 #include <string>
-#include <vector>
 
 #include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message.h>
@@ -68,11 +69,13 @@ class TestingGlobalContext final : public GlobalContext {
     optional<std::string> error_to_reply_with;
   };
 
-  void AddExpectation(const std::string& requester_name,
-                      const std::string& function_name,
-                      Value arguments,
-                      optional<Value> payload_to_reply_with,
-                      const optional<std::string>& error_to_reply_with);
+  static Expectation MakeRequestExpectation(
+      const std::string& requester_name,
+      const std::string& function_name,
+      Value arguments,
+      optional<Value> payload_to_reply_with,
+      const optional<std::string>& error_to_reply_with);
+  void AddExpectation(Expectation expectation);
   optional<Expectation> PopMatchingExpectation(const std::string& message_type,
                                                const Value& request_payload);
   bool HandleMessageToJs(Value message);
@@ -83,7 +86,8 @@ class TestingGlobalContext final : public GlobalContext {
 
   TypedMessageRouter* const typed_message_router_;
   bool creation_thread_is_event_loop_ = true;
-  std::vector<Expectation> expectations_;
+  std::mutex mutex_;
+  std::deque<Expectation> expectations_;
 };
 
 }  // namespace google_smart_card
