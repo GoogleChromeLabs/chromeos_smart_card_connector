@@ -21,7 +21,7 @@ runs:
 
   - name: Initialize env
     shell: bash
-    run: env/initialize.sh
+    run: env/initialize.sh -t ${{ inputs.toolchain }}
 
   # Building in the coverage mode requires LLVM and Clang, as well as 32-bit
   # cross-compile versions of standard C and C++ libraries (needed as we're

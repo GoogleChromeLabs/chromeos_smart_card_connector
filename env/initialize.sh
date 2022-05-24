@@ -20,11 +20,16 @@
 # By default, existing directories and files are left intact (except the
 # "./activate" file), so it's safe to run this script multiple times. Add the
 # "-f" flag in order to enforce overwriting the existing state.
+#
+# Pass "-t <toolchain>" in order to initialize only dependencies needed for
+# building with the toolchain ("<toolchain>" can be one of "emscripten", "pnacl"
+# or "coverage").
 
 
 set -eu
 
 force_reinitialization=0
+toolchain=
 
 
 log_message() {
@@ -200,8 +205,12 @@ create_activate_script() {
   # scripts still use Python 2.
   log_message "Creating \"activate\" script..."
   echo > activate
-  echo "export NACL_SDK_ROOT=${NACL_SDK_ROOT}" >> activate
-  echo "source ${SCRIPTPATH}/emsdk/emsdk_env.sh" >> activate
+  if [[ "${toolchain}" == "" || "${toolchain}" == "pnacl" ]]; then
+    echo "export NACL_SDK_ROOT=${NACL_SDK_ROOT}" >> activate
+  fi
+  if [[ "${toolchain}" == "" || "${toolchain}" == "emscripten" ]]; then
+    echo "source ${SCRIPTPATH}/emsdk/emsdk_env.sh" >> activate
+  fi
   log_message "\"activate\" script was created successfully. Run \"source $(dirname ${0})/activate\" in order to trigger all necessary environment definitions."
 }
 
@@ -211,10 +220,13 @@ cd ${SCRIPTPATH}
 
 . ./constants.sh
 
-while getopts ":f" opt; do
+while getopts ":ft:" opt; do
   case $opt in
     f)
       force_reinitialization=1
+      ;;
+    t)
+      toolchain=$OPTARG
       ;;
     \?)
       echo "Invalid option: -$OPTARG" >&2
@@ -225,15 +237,18 @@ done
 
 initialize_python3_venv
 
-initialize_depot_tools
+if [[ "${toolchain}" == "" || "${toolchain}" == "emscripten" ]]; then
+  initialize_emscripten
+fi
 
-initialize_emscripten
-
-initialize_python2
-# Depends on depot_tools and python2.
-initialize_nacl_sdk
-# Depends on nacl_sdk and python2.
-initialize_webports
+if [[ "${toolchain}" == "" || "${toolchain}" == "pnacl" ]]; then
+  initialize_depot_tools
+  initialize_python2
+  # Depends on depot_tools and python2.
+  initialize_nacl_sdk
+  # Depends on nacl_sdk and python2.
+  initialize_webports
+fi
 
 initialize_chromedriver
 
