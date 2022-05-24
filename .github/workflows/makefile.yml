@@ -13,6 +13,9 @@ jobs:
   # Build and test in WebAssembly mode.
   build-emscripten:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        build-config: [Release, Debug]
 
     steps:
     - name: Check out sources
@@ -24,14 +27,18 @@ jobs:
         toolchain: emscripten
 
     - name: Compile
+      env:
+        TOOLCHAIN: emscripten
+        CONFIG: ${{ matrix.build-config }}
       run: >
-        source env/activate &&
-          TOOLCHAIN=emscripten make -j30
+        source env/activate && make -j30
 
     - name: Test
+      env:
+        TOOLCHAIN: emscripten
+        CONFIG: ${{ matrix.build-config }}
       run: >
-        source env/activate &&
-          TOOLCHAIN=emscripten make test
+        source env/activate && make test
 
     - name: Upload built app packages
       uses: kittaakos/upload-artifact-as-is@v0
@@ -41,6 +48,9 @@ jobs:
   # Build and test in Native Client mode.
   build-nacl:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        build-config: [Release, Debug]
 
     steps:
     - name: Check out sources
@@ -52,10 +62,13 @@ jobs:
         toolchain: pnacl
 
     - name: Compile
+      env:
+        TOOLCHAIN: pnacl
+        CONFIG: ${{ matrix.build-config }}
       run: >
         source env/activate &&
           source env/python2_venv/bin/activate &&
-          TOOLCHAIN=pnacl make
+          make
 
     - name: Upload built app packages
       uses: kittaakos/upload-artifact-as-is@v0
