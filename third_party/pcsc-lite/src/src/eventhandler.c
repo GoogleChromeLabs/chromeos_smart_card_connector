@@ -58,6 +58,8 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "winscard_svc.h"
 #include "simclist.h"
 
+#include <syslog.h>
+
 static list_t ClientsWaitingForEvent;	/**< list of client file descriptors */
 pthread_mutex_t ClientsWaitingForEvent_lock;	/**< lock for the above list */
 
@@ -161,9 +163,12 @@ void EHDestroyEventHandler(READER_CONTEXT * rContext)
 	DWORD dwGetSize;
 	UCHAR ucGetData[1];
 
+	syslog(LOG_ERR, "[EMAXX] EHDestroyEventHandler: BEGIN{");
+
 	if ('\0' == rContext->readerState->readerName[0])
 	{
 		Log1(PCSC_LOG_INFO, "Thread already stomped.");
+	syslog(LOG_ERR, "[EMAXX] EHDestroyEventHandler: }END: no-op");
 		return;
 	}
 
@@ -198,6 +203,7 @@ void EHDestroyEventHandler(READER_CONTEXT * rContext)
 		if ((IFD_SUCCESS == rv) && (dwGetSize == sizeof(fct)))
 		{
 			Log1(PCSC_LOG_INFO, "Request stopping of polling thread");
+			syslog(LOG_ERR, "[EMAXX] EHDestroyEventHandler: calling TAG_IFD_STOP_POLLING_THREAD");
 			fct(rContext->slot);
 		}
 		else
@@ -205,6 +211,7 @@ void EHDestroyEventHandler(READER_CONTEXT * rContext)
 	}
 
 	/* wait for the thread to finish */
+			syslog(LOG_ERR, "[EMAXX] EHDestroyEventHandler: waiting for thread");
 	rv = pthread_join(rContext->pthThread, NULL);
 	if (rv)
 		Log2(PCSC_LOG_ERROR, "pthread_join failed: %s", strerror(rv));
@@ -213,6 +220,7 @@ void EHDestroyEventHandler(READER_CONTEXT * rContext)
 	rContext->pthThread = 0;
 
 	Log1(PCSC_LOG_INFO, "Thread stomped.");
+			syslog(LOG_ERR, "[EMAXX] EHDestroyEventHandler: }END");
 
 	return;
 }

@@ -55,6 +55,8 @@
 #include <pthread.h>
 #endif
 
+#include <syslog.h>
+
 /* Array of structures to hold the ATR and other state value of each slot */
 static CcidDesc CcidSlots[CCID_DRIVER_MAX_READERS];
 
@@ -347,12 +349,15 @@ static RESPONSECODE IFDHStopPolling(DWORD Lun)
 {
 	int reader_index;
 
-	if (-1 == (reader_index = LunToReaderIndex(Lun)))
+	if (-1 == (reader_index = LunToReaderIndex(Lun))) {
+		syslog(LOG_ERR, "[EMAXX] IFDHStopPolling(Lun=%d): returning IFD_COMMUNICATION_ERROR", (int)Lun);
 		return IFD_COMMUNICATION_ERROR;
+	}
 
 	DEBUG_INFO3("%s (lun: " DWORD_X ")",
 		CcidSlots[reader_index].readerName, Lun);
 
+		syslog(LOG_ERR, "[EMAXX] IFDHStopPolling(Lun=%d): calling InterruptStop", (int)Lun);
 	(void)InterruptStop(reader_index);
 	return IFD_SUCCESS;
 }

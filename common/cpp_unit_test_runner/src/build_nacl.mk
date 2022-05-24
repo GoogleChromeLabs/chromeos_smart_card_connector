@@ -64,6 +64,16 @@ TEST_RUNNER_STATIC_FILES := \
 $(foreach static_file,$(TEST_RUNNER_STATIC_FILES),\
 	$(eval $(call COPY_TO_OUT_DIR_RULE,$(static_file))))
 
+# TODO
+$(OUT_DIR_PATH)/nacl_io_manifest.txt: generate_out
+	$(NACL_SDK_ROOT)/tools/genhttpfs.py \
+		--srcdir "$(OUT_DIR_PATH)" \
+		--recursive . \
+		> nacl_io_manifest.txt.build
+	@mv nacl_io_manifest.txt.build $(OUT_DIR_PATH)/nacl_io_manifest.txt
+$(eval $(call CLEAN_RULE,nacl_io_manifest.txt.build))
+all: $(OUT_DIR_PATH)/nacl_io_manifest.txt
+
 # Documented in ../include.mk.
 #
 # Implementation notes:

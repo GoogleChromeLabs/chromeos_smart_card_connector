@@ -66,6 +66,8 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "configfile.h"
 #include "utils.h"
 
+#include <syslog.h>
+
 #ifndef TRUE
 #define TRUE 1
 #define FALSE 0
@@ -635,17 +637,22 @@ LONG RFRemoveReader(const char *readerName, int port, int flags)
 
 LONG removeReader(READER_CONTEXT * sContext)
 {
+	syslog(LOG_ERR, "[EMAXX] removeReader: BEGIN{");
 	/* Try to destroy the thread */
-	if (sContext -> pthThread)
+	if (sContext -> pthThread) {
+		syslog(LOG_ERR, "[EMAXX] removeReader: calling EHDestroyEventHandler");
 		EHDestroyEventHandler(sContext);
+	}
 
 	if ((NULL == sContext->pMutex) || (NULL == sContext->pFeeds))
 	{
 		Log1(PCSC_LOG_ERROR,
 				"Trying to remove an already removed driver");
+		syslog(LOG_ERR, "[EMAXX] removeReader: }END: already removed");
 		return SCARD_E_INVALID_VALUE;
 	}
 
+	syslog(LOG_ERR, "[EMAXX] removeReader: calling RFUnInitializeReader");
 	RFUnInitializeReader(sContext);
 
 	*sContext->pMutex -= 1;
@@ -702,6 +709,7 @@ LONG removeReader(READER_CONTEXT * sContext)
 	/* signal an event to clients */
 	EHSignalEventToClients();
 
+	syslog(LOG_ERR, "[EMAXX] removeReader: }END");
 	return SCARD_S_SUCCESS;
 }
 
@@ -1396,11 +1404,11 @@ void RFCleanupReaders(void)
 
 			if (rv != SCARD_S_SUCCESS)
 				Log2(PCSC_LOG_ERROR, "RFRemoveReader error: 0x%08lX", rv);
-
-			free(sReadersContexts[i]);
-
-			sReadersContexts[i] = NULL;
 		}
+
+		free(sReadersContexts[i]);
+
+		sReadersContexts[i] = NULL;
 	}
 
 #ifdef USE_SERIAL

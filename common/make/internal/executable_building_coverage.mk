@@ -68,6 +68,8 @@ endef
 #   toolchains use).
 COVERAGE_COMMON_FLAGS := \
 	-fcoverage-mapping \
+	-fno-omit-frame-pointer \
+	-fno-optimize-sibling-calls \
 	-fprofile-instr-generate \
 	-fsanitize=address \
 	-g \

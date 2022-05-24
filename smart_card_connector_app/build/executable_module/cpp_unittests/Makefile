@@ -30,6 +30,7 @@ CXXFLAGS := \
 	-I$(ROOT_PATH)/common/cpp/src \
 	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src \
 	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/server_clients_management/src \
+	-I$(ROOT_PATH)/third_party/pcsc-lite/src/src/PCSC \
 	-pedantic \
 	-Wall \
 	-Werror \
@@ -52,3 +53,6 @@ LIBS := \
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 $(eval $(call LINK_EXECUTABLE_RULE,$(SOURCES) $(TEST_RUNNER_SOURCES),\
 	$(LIBS) $(TEST_RUNNER_LIBS),$(TEST_RUNNER_DEPS),$(TEST_ADDITIONAL_LDFLAGS)))
+
+$(eval $(call COPY_TO_OUT_DIR_RULE,$(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src/fake_socket_file,executable-module-filesystem/pcsc/))
+$(eval $(call COPY_TO_OUT_DIR_RULE,$(ROOT_PATH)/third_party/ccid/webport/build/Info.plist,executable-module-filesystem/pcsc/drivers/ifd-ccid.bundle/Contents/))

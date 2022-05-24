@@ -67,6 +67,8 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "hotplug.h"
 #include "utils.h"
 
+#include <syslog.h>
+
 #undef DEBUG_HOTPLUG
 
 /* format is "%d:%d:%d", bus_number, device_address, interface */
@@ -129,6 +131,7 @@ static LONG HPAddHotPluggable(struct libusb_device *dev,
 	struct _driverTracker *driver,
 	struct _driverTracker *classdriver);
 static LONG HPRemoveHotPluggable(int reader_index);
+static void HPCleanupHotPluggable(int reader_index);
 
 static LONG HPReadBundleValues(void)
 {
@@ -212,7 +215,7 @@ static LONG HPReadBundleValues(void)
 			if (rv)
 				CFBundleName = NULL;
 			else
-				CFBundleName = strdup(list_get_at(values, 0));
+				CFBundleName = list_get_at(values, 0);
 
 			/* while we find a nth ifdVendorID in Info.plist */
 			for (alias=0; alias<list_size(manuIDs); alias++)
@@ -232,7 +235,7 @@ static LONG HPReadBundleValues(void)
 				driverTracker[listCount].bundleName = strdup(currFP->d_name);
 				driverTracker[listCount].libraryPath = strdup(fullLibPath);
 				driverTracker[listCount].ifdCapabilities = ifdCapabilities;
-				driverTracker[listCount].CFBundleName = CFBundleName;
+				driverTracker[listCount].CFBundleName = strdup(CFBundleName);
 
 #ifdef DEBUG_HOTPLUG
 				Log2(PCSC_LOG_INFO, "Found driver for: %s",
@@ -339,10 +342,13 @@ static void HPRescanUsbBus(void)
 	libusb_device **devs, *dev;
 	ssize_t cnt;
 
+	syslog(LOG_ERR, "[EMAXX] HPRescanUsbBus: BEGIN{");
+
 	for (i=0; i < PCSCLITE_MAX_READERS_CONTEXTS; i++)
 		/* clear rollcall */
 		readerTracker[i].status = READER_ABSENT;
 
+	syslog(LOG_ERR, "[EMAXX] HPRescanUsbBus: libusb_get_device_list");
 	cnt = libusb_get_device_list(ctx, &devs);
 	if (cnt < 0)
 	{
@@ -362,6 +368,7 @@ static void HPRescanUsbBus(void)
 		struct _driverTracker *driver, *classdriver;
 		int interface;
 
+		syslog(LOG_ERR, "[EMAXX] HPRescanUsbBus: libusb_get_device_descriptor");
 		int r = libusb_get_device_descriptor(dev, &desc);
 		if (r < 0)
 		{
@@ -371,6 +378,7 @@ static void HPRescanUsbBus(void)
 			continue;
 		}
 
+		syslog(LOG_ERR, "[EMAXX] HPRescanUsbBus: libusb_get_active_config_descriptor");
 		r = libusb_get_active_config_descriptor(dev, &config_desc);
 		if (r < 0)
 		{
@@ -379,6 +387,7 @@ static void HPRescanUsbBus(void)
 			continue;
 		}
 
+		syslog(LOG_ERR, "[EMAXX] HPRescanUsbBus: get_driver");
 		driver = get_driver(desc.idVendor, desc.idProduct, &classdriver);
 		if (NULL == driver)
 		{
@@ -425,11 +434,14 @@ static void HPRescanUsbBus(void)
 			}
 
 			/* New reader found */
-			if (newreader)
+			if (newreader) {
+				syslog(LOG_ERR, "[EMAXX] HPRescanUsbBus: HPAddHotPluggable");
 				HPAddHotPluggable(dev, desc, bus_device,
 					&config_desc->interface[interface], driver, classdriver);
+			}
 		}
 
+		syslog(LOG_ERR, "[EMAXX] HPRescanUsbBus: libusb_free_config_descriptor");
 		libusb_free_config_descriptor(config_desc);
 	}
 
@@ -439,13 +451,27 @@ static void HPRescanUsbBus(void)
 	for (i=0; i<PCSCLITE_MAX_READERS_CONTEXTS; i++)
 	{
 		if ((readerTracker[i].status == READER_ABSENT) &&
-			(readerTracker[i].fullName != NULL))
+			(readerTracker[i].fullName != NULL)) {
+			syslog(LOG_ERR, "[EMAXX] HPRescanUsbBus: HPRemoveHotPluggable");
 			HPRemoveHotPluggable(i);
+		}
 	}
+
+	/* free the libusb allocated list & devices */
+	syslog(LOG_ERR, "[EMAXX] HPRescanUsbBus: libusb_free_device_list");
+	libusb_free_device_list(devs, 1);
 
 	if (AraKiriHotPlug)
 	{
 		int retval;
+
+		for (i=0; i<PCSCLITE_MAX_READERS_CONTEXTS; i++)
+		{
+			if (readerTracker[i].fullName != NULL) {
+				syslog(LOG_ERR, "[EMAXX] HPRescanUsbBus: HPRemoveHotPluggable");
+				HPCleanupHotPluggable(i);
+			}
+		}
 
 		for (i=0; i<driverSize; i++)
 		{
@@ -458,11 +484,10 @@ static void HPRescanUsbBus(void)
 		free(driverTracker);
 
 		Log1(PCSC_LOG_INFO, "Hotplug stopped");
+		syslog(LOG_ERR, "[EMAXX] HPRescanUsbBus: }END: pthread_exit");
 		pthread_exit(&retval);
 	}
-
-	/* free the libusb allocated list & devices */
-	libusb_free_device_list(devs, 1);
+		syslog(LOG_ERR, "[EMAXX] HPRescanUsbBus: }END");
 }
 
 static void * HPEstablishUSBNotifications(int pipefd[2])
@@ -471,6 +496,9 @@ static void * HPEstablishUSBNotifications(int pipefd[2])
 	int r;
 	char c = 42;	/* magic value */
 
+	syslog(LOG_ERR, "[EMAXX] HPEstablishUSBNotifications: BEGIN{");
+
+	syslog(LOG_ERR, "[EMAXX] HPEstablishUSBNotifications: libusb_init");
 	r = libusb_init(ctx);
 	if (r < 0)
 	{
@@ -481,9 +509,11 @@ static void * HPEstablishUSBNotifications(int pipefd[2])
 	}
 
 	/* scan the USB bus for devices at startup */
+	syslog(LOG_ERR, "[EMAXX] HPEstablishUSBNotifications: HPRescanUsbBus");
 	HPRescanUsbBus();
 
 	/* signal that the initially connected readers are now visible */
+	syslog(LOG_ERR, "[EMAXX] HPEstablishUSBNotifications: write");
 	if (write(pipefd[1], &c, 1) == -1)
 	{
 		Log2(PCSC_LOG_ERROR, "write: %s", strerror(errno));
@@ -513,9 +543,11 @@ static void * HPEstablishUSBNotifications(int pipefd[2])
 
 	if (do_polling)
 	{
+		syslog(LOG_ERR, "[EMAXX] HPEstablishUSBNotifications: loop");
 		while (!AraKiriHotPlug)
 		{
 			SYS_Sleep(HPForceReaderPolling);
+			syslog(LOG_ERR, "[EMAXX] HPEstablishUSBNotifications: HPRescanUsbBus");
 			HPRescanUsbBus();
 		}
 		libusb_exit(ctx);
@@ -542,6 +574,7 @@ static void * HPEstablishUSBNotifications(int pipefd[2])
 		rescan_pipe[0] = -1;
 	}
 
+			syslog(LOG_ERR, "[EMAXX] HPEstablishUSBNotifications: }END");
 	return NULL;
 }
 
@@ -549,6 +582,9 @@ LONG HPSearchHotPluggables(void)
 {
 	int i;
 
+	syslog(LOG_ERR, "[EMAXX] HPSearchHotPluggables: BEGIN{");
+
+	AraKiriHotPlug = FALSE;
 	for (i=0; i<PCSCLITE_MAX_READERS_CONTEXTS; i++)
 	{
 		readerTracker[i].status = READER_ABSENT;
@@ -556,6 +592,7 @@ LONG HPSearchHotPluggables(void)
 		readerTracker[i].fullName = NULL;
 	}
 
+	syslog(LOG_ERR, "[EMAXX] HPSearchHotPluggables: HPReadBundleValues");
 	if (HPReadBundleValues() > 0)
 	{
 		int pipefd[2];
@@ -567,10 +604,12 @@ LONG HPSearchHotPluggables(void)
 			return -1;
 		}
 
+		syslog(LOG_ERR, "[EMAXX] HPSearchHotPluggables: ThreadCreate");
 		ThreadCreate(&usbNotifyThread, THREAD_ATTR_DETACHED,
 			(PCSCLITE_THREAD_FUNCTION( )) HPEstablishUSBNotifications, pipefd);
 
 		/* Wait for initial readers to setup */
+		syslog(LOG_ERR, "[EMAXX] HPSearchHotPluggables: read");
 		if (read(pipefd[0], &c, 1) == -1)
 		{
 			Log2(PCSC_LOG_ERROR, "read: %s", strerror(errno));
@@ -581,6 +620,7 @@ LONG HPSearchHotPluggables(void)
 		close(pipefd[0]);
 		close(pipefd[1]);
 	}
+	syslog(LOG_ERR, "[EMAXX] HPSearchHotPluggables: }END");
 
 	return 0;
 }
@@ -726,6 +766,7 @@ static LONG HPAddHotPluggable(struct libusb_device *dev,
 	LONG ret;
 	ret = RFAddReader(readerTracker[i].fullName, PCSCLITE_HP_BASE_PORT + i,
 		driver->libraryPath, deviceName);
+	syslog(LOG_ERR, "[EMAXX] HPAddHotPluggable: RFAddReader ret=%d", (int)ret);
 	/* success by default */
 	readerTracker[i].status = READER_PRESENT;
 	if ((SCARD_S_SUCCESS != ret) && (SCARD_E_UNKNOWN_READER != ret))
@@ -739,6 +780,7 @@ static LONG HPAddHotPluggable(struct libusb_device *dev,
 			ret = RFAddReader(readerTracker[i].fullName,
 					PCSCLITE_HP_BASE_PORT + i,
 					classdriver->libraryPath, deviceName);
+			syslog(LOG_ERR, "[EMAXX] HPAddHotPluggable: RFAddReader ret=%d", (int)ret);
 			if ((SCARD_S_SUCCESS != ret) && (SCARD_E_UNKNOWN_READER != ret))
 			{
 				Log2(PCSC_LOG_ERROR, "Failed adding USB device: %s",
@@ -769,14 +811,19 @@ static LONG HPRemoveHotPluggable(int reader_index)
 
 	RFRemoveReader(readerTracker[reader_index].fullName,
 		PCSCLITE_HP_BASE_PORT + reader_index, REMOVE_READER_FLAG_REMOVED);
-	free(readerTracker[reader_index].fullName);
-	readerTracker[reader_index].status = READER_ABSENT;
-	readerTracker[reader_index].bus_device[0] = '\0';
-	readerTracker[reader_index].fullName = NULL;
+	HPCleanupHotPluggable(reader_index);
 
 	pthread_mutex_unlock(&usbNotifierMutex);
 
 	return 1;
+}	/* End of function */
+
+static void HPCleanupHotPluggable(int reader_index)
+{
+	free(readerTracker[reader_index].fullName);
+	readerTracker[reader_index].status = READER_ABSENT;
+	readerTracker[reader_index].bus_device[0] = '\0';
+	readerTracker[reader_index].fullName = NULL;
 }	/* End of function */
 
 /**
@@ -784,6 +831,7 @@ static LONG HPRemoveHotPluggable(int reader_index)
  */
 ULONG HPRegisterForHotplugEvents(void)
 {
+	syslog(LOG_ERR, "[EMAXX] HPRegisterForHotplugEvents");
 	(void)pthread_mutex_init(&usbNotifierMutex, NULL);
 	return 0;
 }

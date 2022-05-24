@@ -57,7 +57,7 @@ PCSC_LITE_SOURCES_PATH := $(PCSC_LITE_DIR_PATH)/src/src
 #   calls stat() for this file - for the details see file
 #   src/winscard_msg_nacl.cc).
 COMMON_CPPFLAGS := \
-	-DFAKE_PCSC_NACL_SOCKET_FILE_NAME='"/executable-module-filesystem/pcsc/fake_socket_file"' \
+	-DFAKE_PCSC_NACL_SOCKET_FILE_NAME='"executable-module-filesystem/pcsc/fake_socket_file"' \
 	-I$(SOURCES_PATH) \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 	-I$(PCSC_LITE_SOURCES_PATH) \

@@ -18,6 +18,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -122,7 +123,8 @@ void TestingGlobalContext::Waiter::Resolve(Value value,
 
 TestingGlobalContext::TestingGlobalContext(
     TypedMessageRouter* typed_message_router)
-    : typed_message_router_(typed_message_router) {
+    : typed_message_router_(typed_message_router),
+      main_thread_id_(std::this_thread::get_id()) {
   GOOGLE_SMART_CARD_CHECK(typed_message_router_);
 }
 
@@ -137,7 +139,8 @@ void TestingGlobalContext::PostMessageToJs(Value message) {
 }
 
 bool TestingGlobalContext::IsMainEventLoopThread() const {
-  return creation_thread_is_event_loop_;
+  return std::this_thread::get_id() == main_thread_id_ &&
+         creation_thread_is_event_loop_;
 }
 
 void TestingGlobalContext::ShutDown() {}

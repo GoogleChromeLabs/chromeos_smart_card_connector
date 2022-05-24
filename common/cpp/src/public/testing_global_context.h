@@ -21,6 +21,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 
 #include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message.h>
@@ -129,6 +130,7 @@ class TestingGlobalContext final : public GlobalContext {
   bool HandleMessageToJs(Value message);
 
   TypedMessageRouter* const typed_message_router_;
+  const std::thread::id main_thread_id_;
   bool creation_thread_is_event_loop_ = true;
   std::mutex mutex_;
   std::deque<Expectation> expectations_;

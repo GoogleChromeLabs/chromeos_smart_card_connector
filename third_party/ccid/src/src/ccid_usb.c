@@ -39,6 +39,8 @@
 #include "parser.h"
 #include "ccid_ifdhandler.h"
 
+#include <syslog.h>
+
 
 /* write timeout
  * we don't have to wait a long time since the card was doing nothing */
@@ -1338,6 +1340,7 @@ int InterruptRead(int reader_index, int timeout /* in ms */)
 		return Multi_InterruptRead(reader_index, timeout);
 
 	DEBUG_PERIODIC3("before (%d), timeout: %d ms", reader_index, timeout);
+		syslog(LOG_ERR, "[EMAXX] InterruptRead: BEGIN{: timeout=%d", timeout);
 
 	transfer = libusb_alloc_transfer(0);
 	if (NULL == transfer)
@@ -1349,11 +1352,14 @@ int InterruptRead(int reader_index, int timeout /* in ms */)
 		bulk_transfer_cb, &completed, timeout);
 	transfer->type = LIBUSB_TRANSFER_TYPE_INTERRUPT;
 
+		syslog(LOG_ERR, "[EMAXX] InterruptRead: libusb_submit_transfer: BEGIN{");
 	ret = libusb_submit_transfer(transfer);
+		syslog(LOG_ERR, "[EMAXX] InterruptRead: libusb_submit_transfer: }END");
 	if (ret < 0) {
 		libusb_free_transfer(transfer);
 		DEBUG_CRITICAL2("libusb_submit_transfer failed: %s",
 			libusb_error_name(ret));
+		syslog(LOG_ERR, "[EMAXX] InterruptRead: }END");
 		return IFD_COMMUNICATION_ERROR;
 	}
 
@@ -1361,7 +1367,9 @@ int InterruptRead(int reader_index, int timeout /* in ms */)
 
 	while (!completed)
 	{
+		syslog(LOG_ERR, "[EMAXX] InterruptRead: libusb_handle_events_completed: BEGIN{");
 		ret = libusb_handle_events_completed(ctx, &completed);
+		syslog(LOG_ERR, "[EMAXX] InterruptRead: libusb_handle_events_completed: }END");
 		if (ret < 0)
 		{
 			if (ret == LIBUSB_ERROR_INTERRUPTED)
@@ -1373,6 +1381,7 @@ int InterruptRead(int reader_index, int timeout /* in ms */)
 			libusb_free_transfer(transfer);
 			DEBUG_CRITICAL2("libusb_handle_events failed: %s",
 				libusb_error_name(ret));
+		syslog(LOG_ERR, "[EMAXX] InterruptRead: }END");
 			return IFD_COMMUNICATION_ERROR;
 		}
 	}
@@ -1401,6 +1410,7 @@ int InterruptRead(int reader_index, int timeout /* in ms */)
 				usbDevice[reader_index].device_address, ret);
 			return_value = IFD_COMMUNICATION_ERROR;
 	}
+		syslog(LOG_ERR, "[EMAXX] InterruptRead: }END");
 
 	return return_value;
 } /* InterruptRead */
@@ -1415,6 +1425,8 @@ void InterruptStop(int reader_index)
 {
 	struct libusb_transfer *transfer;
 
+	syslog(LOG_ERR, "[EMAXX] InterruptStop: BEGIN{: reader_index=%d", reader_index);
+
 	/* Multislot reader: redirect to Multi_InterrupStop */
 	if (usbDevice[reader_index].multislot_extension != NULL)
 	{
@@ -1426,6 +1438,7 @@ void InterruptStop(int reader_index)
 	usbDevice[reader_index].polling_transfer = NULL;
 	if (transfer)
 	{
+	syslog(LOG_ERR, "[EMAXX] InterruptStop: stopping %p", transfer);
 		int ret;
 
 		ret = libusb_cancel_transfer(transfer);
@@ -1433,6 +1446,7 @@ void InterruptStop(int reader_index)
 			DEBUG_CRITICAL2("libusb_cancel_transfer failed: %s",
 				libusb_error_name(ret));
 	}
+	syslog(LOG_ERR, "[EMAXX] InterruptStop: }END: reader_index=%d", reader_index);
 } /* InterruptStop */
 
 
@@ -1477,7 +1491,9 @@ static void *Multi_PollingProc(void *p_ext)
 
 		transfer->type = LIBUSB_TRANSFER_TYPE_INTERRUPT;
 
+		syslog(LOG_ERR, "[EMAXX] Multi_PollingProc: libusb_submit_transfer: BEGIN{");
 		rv = libusb_submit_transfer(transfer);
+		syslog(LOG_ERR, "[EMAXX] Multi_PollingProc: libusb_submit_transfer: }END");
 		if (rv)
 		{
 			libusb_free_transfer(transfer);
@@ -1491,7 +1507,9 @@ static void *Multi_PollingProc(void *p_ext)
 		completed = 0;
 		while (!completed && !msExt->terminated)
 		{
+		syslog(LOG_ERR, "[EMAXX] Multi_PollingProc: libusb_handle_events_completed: BEGIN{");
 			rv = libusb_handle_events_completed(ctx, &completed);
+		syslog(LOG_ERR, "[EMAXX] Multi_PollingProc: libusb_handle_events_completed: }END");
 			if (rv < 0)
 			{
 				DEBUG_COMM3("libusb_handle_events err %d %s", rv,

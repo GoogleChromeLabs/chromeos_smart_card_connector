@@ -136,9 +136,13 @@ void PcscLiteServerDaemonThreadMain() {
   // Clean up the structures and threads owned by the third-party PC/SC-Lite
   // code. This follows the code in the "if (AraKiri)" block in the
   // `SVCServiceRunLoop()` function in pcsc-lite/src/src/pcscdaemon.c.
+  GOOGLE_SMART_CARD_LOG_INFO << "[EMAXX] PcscLiteServerDaemonThreadMain: HPStopHotPluggables: BEGIN{";
   HPStopHotPluggables();
+  GOOGLE_SMART_CARD_LOG_INFO << "[EMAXX] PcscLiteServerDaemonThreadMain: HPStopHotPluggables: }END";
   SYS_Sleep(1);
+  GOOGLE_SMART_CARD_LOG_INFO << "[EMAXX] PcscLiteServerDaemonThreadMain: RFCleanupReaders: BEGIN{";
   RFCleanupReaders();
+  GOOGLE_SMART_CARD_LOG_INFO << "[EMAXX] PcscLiteServerDaemonThreadMain: RFCleanupReaders: }END";
   EHDeinitializeEventStructures();
   ContextsDeinitialize();
 }
@@ -202,6 +206,7 @@ PcscLiteServerWebPortService::GetInstance() {
 }
 
 void PcscLiteServerWebPortService::InitializeAndRunDaemonThread() {
+  GOOGLE_SMART_CARD_LOG_INFO << "[EMAXX] InitializeAndRunDaemonThread: BEGIN{";
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Initialization...";
 
   IpcEmulation::CreateGlobalInstance();
@@ -280,6 +285,7 @@ void PcscLiteServerWebPortService::InitializeAndRunDaemonThread() {
 
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Initialization "
                               << "successfully finished.";
+  GOOGLE_SMART_CARD_LOG_INFO << "[EMAXX] InitializeAndRunDaemonThread: }END";
 }
 
 void PcscLiteServerWebPortService::ShutDownAndWait() {

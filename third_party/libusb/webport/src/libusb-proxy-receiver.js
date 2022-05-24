@@ -102,7 +102,12 @@ GSC.LibusbProxyReceiver = class {
         logger,
         `Received a remote call request: ${
             remoteCallMessage.getDebugRepresentation()}`);
-    return await this.dispatchLibusbJsFunction_(remoteCallMessage);
+    const res = await this.dispatchLibusbJsFunction_(remoteCallMessage);
+    const dargs = GSC.DebugDump.dump(remoteCallMessage.functionArguments);
+    const d = GSC.DebugDump.dump(res);
+    console.log(
+        `[EMAXX] ${remoteCallMessage.functionName}(${dargs}): returning ${d}`);
+    return res;
   }
 
   /**
