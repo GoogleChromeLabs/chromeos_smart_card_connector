@@ -1,0 +1,38 @@
+name: 'Install build dependencies'
+inputs:
+  toolchain:
+    description: '"emscripten", "pnacl" or "coverage"'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+  # Update the Apt cache, since the default state in Github Actions VM might be
+  # stalled, causing 404 errors when trying to install packages later.
+  - name: Apt update
+    if: ${{ inputs.toolchain == 'coverage' }}
+    shell: bash
+    run: sudo apt-get update
+
+  - name: Set up Python 3
+    uses: actions/setup-python@v3.1.2
+    with:
+      python-version: 3.9
+      cache: pip
+
+  - name: Initialize env
+    shell: bash
+    run: env/initialize.sh
+
+  # Building in the coverage mode requires LLVM and Clang, as well as 32-bit
+  # cross-compile versions of standard C and C++ libraries (needed as we're
+  # building code in 32-bit mode on the 64-bit host).
+  - name: Install coverage toolchain
+    if: ${{ inputs.toolchain == 'coverage' }}
+    shell: bash
+    run: >
+      sudo apt-get install -y
+      build-essential
+      llvm
+      clang
+      libc6-dev-i386
+      libstdc++-${COVERAGE_LIBSTDCPP_VERSION}-dev-i386-cross
