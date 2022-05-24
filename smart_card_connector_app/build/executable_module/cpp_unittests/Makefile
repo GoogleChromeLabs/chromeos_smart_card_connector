@@ -19,6 +19,8 @@
 
 include ../../../../common/cpp_unit_test_runner/include.mk
 
+# TODO: application.cc is also compiled by ../Makefile; consider avoiding the
+# duplication.
 SOURCES := \
 	../../../src/application.cc \
 	../../../src/application_unittest.cc \
