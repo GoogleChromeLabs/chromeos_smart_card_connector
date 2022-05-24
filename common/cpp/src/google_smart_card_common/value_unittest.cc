@@ -31,6 +31,7 @@ TEST(ValueTest, DefaultConstructed) {
   const Value value;
   EXPECT_EQ(value.type(), Value::Type::kNull);
   EXPECT_TRUE(value.is_null());
+  EXPECT_FALSE(value.is_boolean());
   EXPECT_FALSE(value.is_integer());
   EXPECT_FALSE(value.is_float());
   EXPECT_FALSE(value.is_string());
@@ -44,6 +45,7 @@ TEST(ValueTest, Null) {
   const Value value(Value::Type::kNull);
   EXPECT_EQ(value.type(), Value::Type::kNull);
   EXPECT_TRUE(value.is_null());
+  EXPECT_FALSE(value.is_boolean());
   EXPECT_FALSE(value.is_integer());
   EXPECT_FALSE(value.is_float());
   EXPECT_FALSE(value.is_string());
@@ -53,10 +55,45 @@ TEST(ValueTest, Null) {
   EXPECT_TRUE(value.StrictlyEquals(Value()));
 }
 
+TEST(ValueTest, Boolean) {
+  const Value value(true);
+  EXPECT_EQ(value.type(), Value::Type::kBoolean);
+  EXPECT_FALSE(value.is_null());
+  EXPECT_TRUE(value.is_boolean());
+  EXPECT_FALSE(value.is_integer());
+  EXPECT_FALSE(value.is_float());
+  EXPECT_FALSE(value.is_string());
+  EXPECT_FALSE(value.is_binary());
+  EXPECT_FALSE(value.is_dictionary());
+  EXPECT_FALSE(value.is_array());
+
+  // Test `StrictlyEquals()` against same/different boolean values.
+  EXPECT_TRUE(value.StrictlyEquals(Value(true)));
+  EXPECT_FALSE(value.StrictlyEquals(Value(false)));
+}
+
+TEST(ValueTest, BooleanDefault) {
+  const Value value(Value::Type::kBoolean);
+  EXPECT_EQ(value.type(), Value::Type::kBoolean);
+  EXPECT_FALSE(value.is_null());
+  EXPECT_TRUE(value.is_boolean());
+  EXPECT_FALSE(value.is_integer());
+  EXPECT_FALSE(value.is_float());
+  EXPECT_FALSE(value.is_string());
+  EXPECT_FALSE(value.is_binary());
+  EXPECT_FALSE(value.is_dictionary());
+  EXPECT_FALSE(value.is_array());
+
+  // Test `StrictlyEquals()` against same/different boolean values.
+  EXPECT_TRUE(value.StrictlyEquals(Value(false)));
+  EXPECT_FALSE(value.StrictlyEquals(Value(true)));
+}
+
 TEST(ValueTest, Integer) {
   const Value value(123);
   EXPECT_EQ(value.type(), Value::Type::kInteger);
   EXPECT_FALSE(value.is_null());
+  EXPECT_FALSE(value.is_boolean());
   EXPECT_TRUE(value.is_integer());
   EXPECT_FALSE(value.is_float());
   EXPECT_FALSE(value.is_string());
@@ -76,6 +113,7 @@ TEST(ValueTest, Integer64BitMax) {
   const Value value(integer_value);
   EXPECT_EQ(value.type(), Value::Type::kInteger);
   EXPECT_FALSE(value.is_null());
+  EXPECT_FALSE(value.is_boolean());
   EXPECT_TRUE(value.is_integer());
   EXPECT_FALSE(value.is_float());
   EXPECT_FALSE(value.is_string());
@@ -95,6 +133,7 @@ TEST(ValueTest, Integer64BitMin) {
   const Value value(integer_value);
   EXPECT_EQ(value.type(), Value::Type::kInteger);
   EXPECT_FALSE(value.is_null());
+  EXPECT_FALSE(value.is_boolean());
   EXPECT_TRUE(value.is_integer());
   EXPECT_FALSE(value.is_float());
   EXPECT_FALSE(value.is_string());
@@ -113,6 +152,7 @@ TEST(ValueTest, IntegerDefault) {
   const Value value(Value::Type::kInteger);
   EXPECT_EQ(value.type(), Value::Type::kInteger);
   EXPECT_FALSE(value.is_null());
+  EXPECT_FALSE(value.is_boolean());
   EXPECT_TRUE(value.is_integer());
   EXPECT_FALSE(value.is_float());
   EXPECT_FALSE(value.is_string());
@@ -131,6 +171,7 @@ TEST(ValueTest, Float) {
   const Value value(123.456);
   EXPECT_EQ(value.type(), Value::Type::kFloat);
   EXPECT_FALSE(value.is_null());
+  EXPECT_FALSE(value.is_boolean());
   EXPECT_FALSE(value.is_integer());
   EXPECT_TRUE(value.is_float());
   EXPECT_FALSE(value.is_string());
@@ -148,6 +189,7 @@ TEST(ValueTest, FloatDefault) {
   const Value value(Value::Type::kFloat);
   EXPECT_EQ(value.type(), Value::Type::kFloat);
   EXPECT_FALSE(value.is_null());
+  EXPECT_FALSE(value.is_boolean());
   EXPECT_FALSE(value.is_integer());
   EXPECT_TRUE(value.is_float());
   EXPECT_FALSE(value.is_string());
@@ -166,6 +208,7 @@ TEST(ValueTest, String) {
   const Value value(kString);
   EXPECT_EQ(value.type(), Value::Type::kString);
   EXPECT_FALSE(value.is_null());
+  EXPECT_FALSE(value.is_boolean());
   EXPECT_FALSE(value.is_integer());
   EXPECT_FALSE(value.is_float());
   EXPECT_TRUE(value.is_string());
@@ -184,6 +227,7 @@ TEST(ValueTest, StringFromChars) {
   const Value value(kString);
   EXPECT_EQ(value.type(), Value::Type::kString);
   EXPECT_FALSE(value.is_null());
+  EXPECT_FALSE(value.is_boolean());
   EXPECT_FALSE(value.is_integer());
   EXPECT_FALSE(value.is_float());
   EXPECT_TRUE(value.is_string());
@@ -201,6 +245,7 @@ TEST(ValueTest, StringDefault) {
   const Value value(Value::Type::kString);
   EXPECT_EQ(value.type(), Value::Type::kString);
   EXPECT_FALSE(value.is_null());
+  EXPECT_FALSE(value.is_boolean());
   EXPECT_FALSE(value.is_integer());
   EXPECT_FALSE(value.is_float());
   EXPECT_TRUE(value.is_string());
@@ -219,6 +264,7 @@ TEST(ValueTest, Binary) {
   const Value value(bytes);
   EXPECT_EQ(value.type(), Value::Type::kBinary);
   EXPECT_FALSE(value.is_null());
+  EXPECT_FALSE(value.is_boolean());
   EXPECT_FALSE(value.is_integer());
   EXPECT_FALSE(value.is_float());
   EXPECT_FALSE(value.is_string());
@@ -237,6 +283,7 @@ TEST(ValueTest, BinaryDefault) {
   const Value value(bytes);
   EXPECT_EQ(value.type(), Value::Type::kBinary);
   EXPECT_FALSE(value.is_null());
+  EXPECT_FALSE(value.is_boolean());
   EXPECT_FALSE(value.is_integer());
   EXPECT_FALSE(value.is_float());
   EXPECT_FALSE(value.is_string());
@@ -257,6 +304,7 @@ TEST(ValueTest, Dictionary) {
   const Value value(std::move(items));
   EXPECT_EQ(value.type(), Value::Type::kDictionary);
   EXPECT_FALSE(value.is_null());
+  EXPECT_FALSE(value.is_boolean());
   EXPECT_FALSE(value.is_integer());
   EXPECT_FALSE(value.is_float());
   EXPECT_FALSE(value.is_string());
@@ -289,6 +337,7 @@ TEST(ValueTest, DictionaryDefault) {
   const Value value(Value::Type::kDictionary);
   EXPECT_EQ(value.type(), Value::Type::kDictionary);
   EXPECT_FALSE(value.is_null());
+  EXPECT_FALSE(value.is_boolean());
   EXPECT_FALSE(value.is_integer());
   EXPECT_FALSE(value.is_float());
   EXPECT_FALSE(value.is_string());
@@ -314,6 +363,7 @@ TEST(ValueTest, Array) {
   const Value value(std::move(items));
   EXPECT_EQ(value.type(), Value::Type::kArray);
   EXPECT_FALSE(value.is_null());
+  EXPECT_FALSE(value.is_boolean());
   EXPECT_FALSE(value.is_integer());
   EXPECT_FALSE(value.is_float());
   EXPECT_FALSE(value.is_string());
@@ -344,6 +394,7 @@ TEST(ValueTest, ArrayDefault) {
   const Value value(Value::Type::kArray);
   EXPECT_EQ(value.type(), Value::Type::kArray);
   EXPECT_FALSE(value.is_null());
+  EXPECT_FALSE(value.is_boolean());
   EXPECT_FALSE(value.is_integer());
   EXPECT_FALSE(value.is_float());
   EXPECT_FALSE(value.is_string());
