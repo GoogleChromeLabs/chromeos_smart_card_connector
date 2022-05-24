@@ -162,11 +162,19 @@ all: $(OUT_DIR_PATH)/nacl_io_manifest.txt
 endif
 
 
-# Common build rules:
-
+# Rules for compiling source files and linking them into an executable binary.
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
-
 $(eval $(call LINK_EXECUTABLE_RULE,$(SOURCES),$(LIBS),$(DEPS),$(LDFLAGS)))
 
-
+# Rules for copyin
 $(eval $(call COLLECT_DEPENDENCY_OUT,$(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_OUT)))
+
+
+# Rules for running unit tests.
+test:: all
+	+$(MAKE) --directory cpp_unittests run_test
+
+# Rules for cleaning unit test build artifacts on "make clean".
+tests_clean::
+	+$(MAKE) --directory cpp_unittests clean
+clean: tests_clean

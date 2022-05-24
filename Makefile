@@ -57,11 +57,13 @@ smart_card_connector_app/build: third_party/pcsc-lite/naclport/server_clients_ma
 TEST_TARGETS := \
 	common/cpp/build/tests \
 	common/js/build/unittests \
+	smart_card_connector_app/build/executable_module/cpp_unittests \
 	third_party/libusb/webport/build/js_unittests \
 	third_party/libusb/webport/build/tests \
 	third_party/pcsc-lite/naclport/server_clients_management/build/js_unittests \
 
 common/cpp/build/tests: common/cpp/build
+smart_card_connector_app/build/executable_module/cpp_unittests: smart_card_connector_app/build
 third_party/libusb/webport/build/tests: common/cpp/build
 third_party/libusb/webport/build/tests: third_party/libusb/webport/build
 

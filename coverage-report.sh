@@ -17,13 +17,11 @@
 set -eu
 
 CONFIGS="Release Debug"
-COVERAGE_PROFILE_DIRS="
-  common/cpp/build/tests
-  third_party/libusb/webport/build/tests"
 EXECUTABLE_MODULE_DIRS="
   smart_card_connector_app/build/executable_module"
 UNIT_TEST_EXECUTABLE_DIRS="
   common/cpp/build/tests
+  smart_card_connector_app/build/executable_module/cpp_unittests
   third_party/libusb/webport/build/tests"
 IGNORE_FILENAME_REGEX="
   third_party/googletest"
@@ -47,7 +45,7 @@ done
 
 log_message "Merging coverage profiles..."
 profile_files=
-for dir in ${COVERAGE_PROFILE_DIRS}; do
+for dir in ${UNIT_TEST_EXECUTABLE_DIRS}; do
   for config in ${CONFIGS}; do
     profile_files="${profile_files} ${dir}/${config}.profraw"
   done
