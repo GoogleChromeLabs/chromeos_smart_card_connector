@@ -37,6 +37,7 @@ LIBRARY_TARGETS := \
 	example_js_standalone_smart_card_client_library \
 	third_party/ccid/webport/build \
 	third_party/libusb/webport/build \
+	third_party/pcsc-lite/naclport/build_configuration \
 	third_party/pcsc-lite/naclport/common/build \
 	third_party/pcsc-lite/naclport/cpp_client/build \
 	third_party/pcsc-lite/naclport/cpp_demo/build \
@@ -53,6 +54,12 @@ smart_card_connector_app/build: third_party/libusb/webport/build
 smart_card_connector_app/build: third_party/pcsc-lite/naclport/common/build
 smart_card_connector_app/build: third_party/pcsc-lite/naclport/server/build
 smart_card_connector_app/build: third_party/pcsc-lite/naclport/server_clients_management/build
+third_party/ccid/webport/build: third_party/pcsc-lite/naclport/build_configuration
+third_party/pcsc-lite/naclport/common/build: third_party/pcsc-lite/naclport/build_configuration
+third_party/pcsc-lite/naclport/cpp_client/build: third_party/pcsc-lite/naclport/build_configuration
+third_party/pcsc-lite/naclport/cpp_demo/build: third_party/pcsc-lite/naclport/build_configuration
+third_party/pcsc-lite/naclport/server/build: third_party/pcsc-lite/naclport/build_configuration
+third_party/pcsc-lite/naclport/server_clients_management/build: third_party/pcsc-lite/naclport/build_configuration
 
 TEST_TARGETS := \
 	common/cpp/build/tests \

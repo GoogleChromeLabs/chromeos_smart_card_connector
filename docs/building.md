@@ -12,7 +12,8 @@ Connector App and examples of how programs can communicate with the app.
   too, though most probably will require more efforts.
 
 * The following tools should be present in the system: **bash**, **make**,
-  **curl**, **sed**, **mktemp**, **realpath**, **xxd**.
+  **curl**, **sed**, **mktemp**, **realpath**, **xxd**, **autoconf** (with the
+  "autoconf-archive" package), **flex** (or lex), **pkg-config**.
 
 * **Python 3.x**.
 
