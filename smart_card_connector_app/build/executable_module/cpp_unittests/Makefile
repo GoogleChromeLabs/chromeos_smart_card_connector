@@ -47,7 +47,8 @@ LIBS := \
   google_smart_card_libusb \
   google_smart_card_common \
 
+# Rules for compiling the test source files and linking them into a resulting
+# executable binary.
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
-
 $(eval $(call LINK_EXECUTABLE_RULE,$(SOURCES) $(TEST_RUNNER_SOURCES),\
 	$(LIBS) $(TEST_RUNNER_LIBS),$(TEST_RUNNER_DEPS),$(TEST_ADDITIONAL_LDFLAGS)))
