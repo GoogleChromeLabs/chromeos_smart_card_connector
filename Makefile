@@ -86,6 +86,7 @@ LIBRARY_TARGETS += \
 	third_party/googletest/webport/build \
 
 common/cpp/build/tests: third_party/googletest/webport/build
+smart_card_connector_app/build/executable_module/cpp_unittests: third_party/googletest/webport/build
 third_party/libusb/webport/build/tests: third_party/googletest/webport/build
 
 else ifeq ($(TOOLCHAIN),pnacl)
@@ -110,6 +111,7 @@ LIBRARY_TARGETS += \
 	third_party/googletest/webport/build \
 
 common/cpp/build/tests: third_party/googletest/webport/build
+smart_card_connector_app/build/executable_module/cpp_unittests: third_party/googletest/webport/build
 third_party/libusb/webport/build/tests: third_party/googletest/webport/build
 
 else
