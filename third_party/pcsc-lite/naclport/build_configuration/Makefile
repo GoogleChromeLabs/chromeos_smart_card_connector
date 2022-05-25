@@ -45,7 +45,7 @@ all: build.stamp
 # detect changes.
 build.stamp: $(shell find ../../src)
 	@rm -f build.stamp
-	@git status --ignored ../../src | xargs rm -rf
+	@git clean -fX ../../src
 	cd ../../src && ./bootstrap && ./configure
 	@touch build.stamp
 
@@ -53,4 +53,4 @@ build.stamp: $(shell find ../../src)
 .PHONY: clean
 clean:
 	@rm -f build.stamp
-	@git status --ignored ../../src | xargs rm -rf
+	@git clean -fX ../../src
