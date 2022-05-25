@@ -21,6 +21,7 @@
 #error "This file should only be used in Emscripten builds"
 #endif  // __EMSCRIPTEN__
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <thread>
