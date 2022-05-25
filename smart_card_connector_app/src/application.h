@@ -53,6 +53,11 @@ class Application final {
   // used to run the executable may end it instantly.
   ~Application();
 
+  // Must be called before destroying the object.
+  // Shuts down the application's daemon threads and stops using
+  // `global_context` and `typed_message_router`.
+  void ShutDownAndWait();
+
  private:
   void ScheduleServicesInitialization();
   void InitializeServicesOnBackgroundThread();

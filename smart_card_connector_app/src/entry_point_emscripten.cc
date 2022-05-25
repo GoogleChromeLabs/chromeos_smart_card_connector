@@ -32,6 +32,7 @@
 #include <google_smart_card_common/global_context_impl_emscripten.h>
 #include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
+#include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_emscripten_val_conversion.h>
 
@@ -48,14 +49,22 @@ class GoogleSmartCardModule final {
   explicit GoogleSmartCardModule(emscripten::val post_message_callback)
       : global_context_(std::make_shared<GlobalContextImplEmscripten>(
             std::this_thread::get_id(),
-            post_message_callback)) {}
+            post_message_callback)),
+        application_(MakeUnique<Application>(
+            global_context_.get(),
+            &typed_message_router_,
+            /*background_initialization_callback=*/std::function<void()>())) {}
 
   GoogleSmartCardModule(const GoogleSmartCardModule&) = delete;
   GoogleSmartCardModule& operator=(const GoogleSmartCardModule&) = delete;
 
   ~GoogleSmartCardModule() {
-    // Intentionally leak `global_context_` without destroying it, because there
-    // might still be background threads that access it.
+    // Intentionally leak the `Application` and `GlobalContext` objects as they
+    // might still be used by background threads. Only shut down the objects
+    // (which prevents them from referring to us and from talking to the
+    // JavaScript side).
+    application_->ShutDownAndWait();
+    (void)application_.release();
     global_context_->ShutDown();
     new std::shared_ptr<GlobalContextImplEmscripten>(global_context_);
   }
@@ -78,8 +87,7 @@ class GoogleSmartCardModule final {
  private:
   std::shared_ptr<GlobalContextImplEmscripten> global_context_;
   TypedMessageRouter typed_message_router_;
-  Application application_{global_context_.get(), &typed_message_router_,
-                           /*background_initialization_callback=*/{}};
+  std::unique_ptr<Application> application_;
 };
 
 }  // namespace

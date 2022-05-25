@@ -56,17 +56,23 @@ class PpInstance final : public pp::Instance {
   explicit PpInstance(PP_Instance instance)
       : pp::Instance(instance),
         global_context_(
-            MakeUnique<GlobalContextImplNacl>(pp::Module::Get()->core(),
-                                              this)) {
+            MakeUnique<GlobalContextImplNacl>(pp::Module::Get()->core(), this)),
+        application_(MakeUnique<Application>(
+            global_context_.get(),
+            &typed_message_router_,
+            std::bind(&PpInstance::InitializeOnBackgroundThread, this))) {
     typed_message_router_.AddRoute(&external_logs_printer_);
   }
 
   ~PpInstance() override {
     typed_message_router_.RemoveRoute(&external_logs_printer_);
 
-    // Intentionally leak the global context as it might still be used by
-    // background threads. Only shut it down (which prevents it from referring
-    // to us and from talking to the JavaScript side).
+    // Intentionally leak the `Application` and `GlobalContext` objects as they
+    // might still be used by background threads. Only shut down the objects
+    // (which prevents them from referring to us and from talking to the
+    // JavaScript side).
+    application_->ShutDownAndWait();
+    (void)application_.release();
     global_context_->ShutDown();
     (void)global_context_.release();
   }
@@ -91,10 +97,8 @@ class PpInstance final : public pp::Instance {
 
   std::unique_ptr<GlobalContextImplNacl> global_context_;
   TypedMessageRouter typed_message_router_;
+  std::unique_ptr<Application> application_;
   ExternalLogsPrinter external_logs_printer_{kJsLogsHandlerMessageType};
-  Application application_{
-      global_context_.get(), &typed_message_router_,
-      std::bind(&PpInstance::InitializeOnBackgroundThread, this)};
 };
 
 class PpModule final : public pp::Module {
