@@ -14,6 +14,7 @@
 
 #include "common/cpp/src/public/testing_global_context.h"
 
+#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -63,9 +64,10 @@ void TestingGlobalContext::WillReplyToRequestWith(
   // here, so that the test bodies are easier to read.
   Value::ArrayStorage array;
   array.push_back(MakeUnique<Value>(std::move(result_to_reply_with)));
-  AddExpectation(requester_name, function_name, std::move(arguments),
-                 /*payload_to_reply_with=*/Value(std::move(array)),
-                 /*error_to_reply_with=*/{});
+  AddExpectation(MakeRequestExpectation(
+      requester_name, function_name, std::move(arguments),
+      /*payload_to_reply_with=*/Value(std::move(array)),
+      /*error_to_reply_with=*/{}));
 }
 
 void TestingGlobalContext::WillReplyToRequestWithError(
@@ -73,11 +75,13 @@ void TestingGlobalContext::WillReplyToRequestWithError(
     const std::string& function_name,
     Value arguments,
     const std::string& error_to_reply_with) {
-  AddExpectation(requester_name, function_name, std::move(arguments),
-                 /*payload_to_reply_with=*/{}, error_to_reply_with);
+  AddExpectation(MakeRequestExpectation(
+      requester_name, function_name, std::move(arguments),
+      /*payload_to_reply_with=*/{}, error_to_reply_with));
 }
 
-void TestingGlobalContext::AddExpectation(
+// static
+TestingGlobalContext::Expectation TestingGlobalContext::MakeRequestExpectation(
     const std::string& requester_name,
     const std::string& function_name,
     Value arguments,
@@ -101,6 +105,11 @@ void TestingGlobalContext::AddExpectation(
       ConvertToValueOrDie(std::move(request_payload));
   expectation.payload_to_reply_with = std::move(payload_to_reply_with);
   expectation.error_to_reply_with = error_to_reply_with;
+  return expectation;
+}
+
+void TestingGlobalContext::AddExpectation(Expectation expectation) {
+  std::unique_lock<std::mutex> lock(mutex_);
 
   expectations_.push_back(std::move(expectation));
 }
@@ -108,6 +117,8 @@ void TestingGlobalContext::AddExpectation(
 optional<TestingGlobalContext::Expectation>
 TestingGlobalContext::PopMatchingExpectation(const std::string& message_type,
                                              const Value& request_payload) {
+  std::unique_lock<std::mutex> lock(mutex_);
+
   for (auto iter = expectations_.begin(); iter != expectations_.end(); ++iter) {
     if (message_type == GetRequestMessageType(iter->requester_name) &&
         request_payload.StrictlyEquals(iter->awaited_request_payload)) {

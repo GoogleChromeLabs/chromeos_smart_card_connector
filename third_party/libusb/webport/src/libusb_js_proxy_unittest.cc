@@ -649,6 +649,97 @@ TEST_F(LibusbJsProxyWithDeviceTest, InputControlTransferFailure) {
             LIBUSB_ERROR_OTHER);
 }
 
+// Test the correctness of work of multiple threads issuing a sequence of
+// synchronous transfer requests. It's a regression test for #464 and #465.
+//
+// Each transfer request is resolved immediately on the same thread that
+// initiated the transfer.
+TEST_F(LibusbJsProxyWithDeviceTest, ControlTransfersMultiThreadedStressTest) {
+  constexpr int kTransferRequest = 1;
+  constexpr int kTransferIndex = 24;
+  constexpr int kTransferValue = 42;
+  const std::vector<uint8_t> kData = {1, 2, 3, 4, 5, 6};
+  constexpr int kThreadCount = 10;
+  // A high number of transfers increases the chances of catching a bug, but the
+  // constant is lower in the Debug mode to avoid running too long.
+  constexpr int kIterationsPerThread =
+#ifdef NDEBUG
+      1000
+#else
+      100
+#endif
+      ;
+
+  // Arrange.
+  for (int i = 0; i < kThreadCount * kIterationsPerThread; ++i) {
+    // Each test thread iteration consists of one input and one output transfer
+    // - prepare replies for them in advance.
+    global_context_.WillReplyToRequestWith(
+        "libusb", "controlTransfer",
+        /*arguments=*/
+        ArrayValueBuilder()
+            .Add(kJsDeviceId)
+            .Add(kJsDeviceHandle)
+            .Add(DictValueBuilder()
+                     .Add("index", kTransferIndex)
+                     .Add("recipient", "endpoint")
+                     .Add("request", kTransferRequest)
+                     .Add("requestType", "standard")
+                     .Add("value", kTransferValue)
+                     .Add("lengthToReceive", kData.size())
+                     .Get())
+            .Get(),
+        /*result_to_reply_with=*/
+        DictValueBuilder().Add("receivedData", kData).Get());
+    global_context_.WillReplyToRequestWith(
+        "libusb", "controlTransfer",
+        /*arguments=*/
+        ArrayValueBuilder()
+            .Add(kJsDeviceId)
+            .Add(kJsDeviceHandle)
+            .Add(DictValueBuilder()
+                     .Add("dataToSend", kData)
+                     .Add("index", kTransferIndex)
+                     .Add("recipient", "endpoint")
+                     .Add("request", kTransferRequest)
+                     .Add("requestType", "standard")
+                     .Add("value", kTransferValue)
+                     .Get())
+            .Get(),
+        /*result_to_reply_with=*/Value(Value::Type::kDictionary));
+  }
+
+  // Act.
+  std::vector<std::thread> threads;
+  for (int thread_index = 0; thread_index < kThreadCount; ++thread_index) {
+    threads.emplace_back([this, kData] {
+      for (int iteration = 0; iteration < kIterationsPerThread; ++iteration) {
+        // Test input transfer.
+        std::vector<uint8_t> received_data(kData.size());
+        EXPECT_EQ(libusb_js_proxy_.LibusbControlTransfer(
+                      device_handle_,
+                      LIBUSB_RECIPIENT_ENDPOINT | LIBUSB_REQUEST_TYPE_STANDARD |
+                          LIBUSB_ENDPOINT_IN,
+                      kTransferRequest, kTransferValue, kTransferIndex,
+                      &received_data[0], received_data.size(), /*timeout=*/0),
+                  static_cast<int>(kData.size()));
+        EXPECT_EQ(received_data, kData);
+        // Test output transfer.
+        std::vector<uint8_t> data = kData;
+        EXPECT_EQ(libusb_js_proxy_.LibusbControlTransfer(
+                      device_handle_,
+                      LIBUSB_RECIPIENT_ENDPOINT | LIBUSB_REQUEST_TYPE_STANDARD |
+                          LIBUSB_ENDPOINT_OUT,
+                      kTransferRequest, kTransferValue, kTransferIndex,
+                      &data[0], data.size(), /*timeout=*/0),
+                  static_cast<int>(data.size()));
+      }
+    });
+  }
+  for (size_t thread_index = 0; thread_index < kThreadCount; ++thread_index)
+    threads[thread_index].join();
+}
+
 // TODO(#429): Resurrect the tests by reimplementing them on top of the
 // libusb-to-JS adaptor instead of the chrome_usb::ApiBridge.
 #if 0
@@ -1150,43 +1241,6 @@ INSTANTIATE_TEST_SUITE_P(
             LibusbJsProxySingleTransferTest::
                 GetTransferIndexToFinishUnsuccessful(),
             true)));
-
-// Test the correctness of work of multiple threads issuing a sequence of
-// synchronous transfer requests.
-//
-// Each transfer request is resolved immediately on the same thread that
-// initiated the transfer.
-TEST_F(LibusbJsProxyTransfersTest, SyncControlTransfersWithMultiThreading) {
-  // A high number of transfers increases the chances of catching a bug, but the
-  // constant is lower in the Debug mode to avoid running too long.
-  const size_t kMaxTransferIndex =
-#ifdef NDEBUG
-      1000
-#else
-      100
-#endif
-      ;
-  const size_t kThreadCount = 10;
-
-  for (size_t index = 0; index <= kMaxTransferIndex; ++index) {
-    for (bool is_transfer_output : kBoolValues)
-      SetUpMockForSyncControlTransfer(index, is_transfer_output);
-  }
-
-  std::vector<std::thread> threads;
-  for (size_t thread_index = 0; thread_index < kThreadCount; ++thread_index) {
-    threads.emplace_back([this, thread_index] {
-      for (size_t transfer_index = thread_index;
-           transfer_index <= kMaxTransferIndex;
-           transfer_index += kThreadCount) {
-        for (bool is_transfer_output : kBoolValues)
-          TestSyncControlTransfer(transfer_index, is_transfer_output);
-      }
-    });
-  }
-  for (size_t thread_index = 0; thread_index < kThreadCount; ++thread_index)
-    threads[thread_index].join();
-}
 
 namespace {
 
