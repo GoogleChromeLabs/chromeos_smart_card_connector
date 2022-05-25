@@ -721,7 +721,7 @@ TEST_F(LibusbJsProxyWithDeviceTest, ControlTransfersMultiThreadedStressTest) {
                       LIBUSB_RECIPIENT_ENDPOINT | LIBUSB_REQUEST_TYPE_STANDARD |
                           LIBUSB_ENDPOINT_IN,
                       kTransferRequest, kTransferValue, kTransferIndex,
-                      &received_data[0], received_data.size(), /*timeout=*/100),
+                      &received_data[0], received_data.size(), /*timeout=*/0),
                   static_cast<int>(kData.size()));
         EXPECT_EQ(received_data, kData);
         // Test output transfer.
@@ -731,7 +731,7 @@ TEST_F(LibusbJsProxyWithDeviceTest, ControlTransfersMultiThreadedStressTest) {
                       LIBUSB_RECIPIENT_ENDPOINT | LIBUSB_REQUEST_TYPE_STANDARD |
                           LIBUSB_ENDPOINT_OUT,
                       kTransferRequest, kTransferValue, kTransferIndex,
-                      &data[0], data.size(), /*timeout=*/100),
+                      &data[0], data.size(), /*timeout=*/0),
                   static_cast<int>(data.size()));
       }
     });
