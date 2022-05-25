@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.69])
 
-AC_INIT([pcsc-lite],[1.9.3])
+AC_INIT([pcsc-lite],[1.9.7])
 AC_CONFIG_SRCDIR(src/pcscdaemon.c)
 AM_INIT_AUTOMAKE(1.8 dist-bzip2 no-dist-gzip)
 AC_CONFIG_HEADERS([config.h])
@@ -60,7 +60,11 @@ AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
-AM_PROG_LEX
+AC_PROG_LEX([noyywrap])
+if test $LEX = ":"
+then
+	AC_MSG_ERROR([no lex or flex found])
+fi
 PKG_PROG_PKG_CONFIG
 AM_PROG_CC_C_O
 AM_PROG_AR
@@ -92,7 +96,6 @@ LT_INIT
 #AC_SUBST(LIBTOOL_DEPS)
 
 # Checks for header files
-AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS([getopt.h sys/filio.h syslog.h dl.h fcntl.h alloca.h])
 
@@ -100,7 +103,6 @@ AC_CHECK_HEADERS([getopt.h sys/filio.h syslog.h dl.h fcntl.h alloca.h])
 AC_C_CONST
 AC_TYPE_UID_T
 AC_TYPE_SIZE_T
-AC_HEADER_TIME
 AC_STRUCT_DIRENT_D_TYPE
 
 # Checks for library functions
@@ -169,7 +171,7 @@ fi
 
 # --disable-serial
 AC_ARG_ENABLE(serial,
-	AS_HELP_STRING([--disable-serial],[do not use serial reader.conf file]),
+	AS_HELP_STRING([--disable-serial],[do not use serial reader.conf files]),
 	[ use_serial="${enableval}" ], [ use_serial="yes" ] )
 AM_CONDITIONAL(ENABLE_SERIAL, test "$use_serial" != "no")
 if test "$use_serial" != "no"; then
@@ -385,7 +387,7 @@ CPPFLAGS="-I\${top_srcdir}/src $CPPFLAGS"
 
 # --enable-confdir=DIR
 AC_ARG_ENABLE(confdir,
-AS_HELP_STRING([--enable-confdir=DIR],[directory containing reader configurations (default /etc/reader.conf.d)]),
+AS_HELP_STRING([--enable-confdir=DIR],[directory containing reader configurations (default ${sysconfdir}/reader.conf.d)]),
 	[confdir="${enableval}"],
 	[confdir="${sysconfdir}/reader.conf.d"])
 
@@ -398,6 +400,17 @@ AC_ARG_ENABLE(filter,
 if test x$use_filter = xyes; then
   AC_DEFINE(FILTER_NAMES, 1, [Filter reader names])
   PCSCLITE_FEATURES="${PCSCLITE_FEATURES} filter"
+fi
+
+# --enable-strict
+AC_ARG_ENABLE(
+	[strict],
+	[AS_HELP_STRING([--enable-strict],[enable strict compile mode @<:@enabled@:>@])],
+	,
+	[enable_strict="no"]
+)
+if test "${enable_strict}" = "yes"; then
+	CFLAGS="-Wall -Wextra -Werror ${CFLAGS}"
 fi
 
 # Setup dist stuff
@@ -463,8 +476,6 @@ doc/pcscd.8
 doc/reader.conf.5
 doc/example/Makefile
 etc/Makefile
-etc/pcscd.service
-etc/pcscd.socket
 src/Makefile
 src/libpcsclite.pc
 src/pcscd.h

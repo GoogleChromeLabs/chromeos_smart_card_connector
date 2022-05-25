@@ -331,27 +331,7 @@ static LONG HPReadBundleValues(void)
 static void HPRemoveDevice(struct udev_device *dev)
 {
 	int i;
-	const char *devpath;
-	struct udev_device *parent;
 	const char *sysname;
-
-	/* The device pointed to by dev contains information about
-	   the interface. In order to get information about the USB
-	   device, get the parent device with the subsystem/devtype pair
-	   of "usb"/"usb_device". This will be several levels up the
-	   tree, but the function will find it.*/
-	parent = udev_device_get_parent_with_subsystem_devtype(dev, "usb",
-		"usb_device");
-	if (!parent)
-		return;
-
-	devpath = udev_device_get_devnode(parent);
-	if (!devpath)
-	{
-		/* the device disapeared? */
-		Log1(PCSC_LOG_ERROR, "udev_device_get_devnode() failed");
-		return;
-	}
 
 	sysname = udev_device_get_sysname(dev);
 	if (!sysname)
@@ -367,7 +347,7 @@ static void HPRemoveDevice(struct udev_device *dev)
 			Log4(PCSC_LOG_INFO, "Removing USB device[%d]: %s at %s", i,
 				readerTracker[i].fullName, readerTracker[i].devpath);
 
-			RFRemoveReader(readerTracker[i].fullName, PCSCLITE_HP_BASE_PORT + i);
+			RFRemoveReader(readerTracker[i].fullName, PCSCLITE_HP_BASE_PORT + i, REMOVE_READER_FLAG_REMOVED);
 
 			free(readerTracker[i].devpath);
 			readerTracker[i].devpath = NULL;
@@ -465,7 +445,7 @@ static void HPAddDevice(struct udev_device *dev)
 	{
 		Log2(PCSC_LOG_ERROR,
 			"Not enough reader entries. Already found %d readers", index);
-		return;
+		goto exit;
 	}
 
 	if (Add_Interface_In_Name)

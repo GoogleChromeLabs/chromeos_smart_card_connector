@@ -3,7 +3,7 @@
  *
  * Copyright (C) 1999-2002
  *  David Corcoran <corcoran@musclecard.com>
- * Copyright (C) 2002-2018
+ * Copyright (C) 2002-2022
  *  Ludovic Rousseau <ludovic.rousseau@free.fr>
  *
 Redistribution and use in source and binary forms, with or without
@@ -75,7 +75,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define FALSE 0
 #endif
 
-char AraKiri = FALSE;
+_Atomic char AraKiri = FALSE;
 static char Init = TRUE;
 char AutoExit = FALSE;
 char SocketActivated = FALSE;
@@ -107,7 +107,7 @@ static void SVCServiceRunLoop(void)
 {
 	int rsp;
 	LONG rv;
-	uint32_t dwClientID;	/* Connection ID used to reference the Client */
+	uint32_t dwClientID = 0;	/* Connection ID used to reference the Client */
 
 	while (TRUE)
 	{
@@ -260,7 +260,9 @@ int main(int argc, char **argv)
 	int rv;
 	char setToForeground;
 	char HotPlug;
-	char *newReaderConfig;
+#ifdef USE_SERIAL
+	char *newReaderConfig = NULL;
+#endif
 	struct stat fStatBuf;
 	int customMaxThreadCounter = 0;
 	int customMaxReaderHandles = 0;
@@ -293,7 +295,6 @@ int main(int argc, char **argv)
 #endif
 #define OPT_STRING "c:fTdhvaieCHt:r:s:xSI"
 
-	newReaderConfig = NULL;
 	setToForeground = FALSE;
 	HotPlug = FALSE;
 
@@ -335,10 +336,12 @@ int main(int argc, char **argv)
 					HPForceReaderPolling = optarg ? abs(atoi(optarg)) : 1;
 				break;
 #endif
+#ifdef USE_SERIAL
 			case 'c':
-				Log2(PCSC_LOG_INFO, "using new config file: %s", optarg);
+				Log2(PCSC_LOG_INFO, "using new config directory: %s", optarg);
 				newReaderConfig = optarg;
 				break;
+#endif
 
 			case 'f':
 				setToForeground = TRUE;
@@ -640,14 +643,14 @@ int main(int argc, char **argv)
 
 #ifdef USE_SERIAL
 	/*
-	 * Grab the information from the reader.conf
+	 * Grab the information from the reader.conf files
 	 */
 	if (newReaderConfig)
 	{
 		rv = RFStartSerialReaders(newReaderConfig);
 		if (rv != 0)
 		{
-			Log3(PCSC_LOG_CRITICAL, "invalid file %s: %s", newReaderConfig,
+			Log3(PCSC_LOG_CRITICAL, "invalid directory %s: %s", newReaderConfig,
 				strerror(errno));
 			at_exit();
 		}
@@ -700,7 +703,7 @@ int main(int argc, char **argv)
 	}
 
 	/*
-	 * post initialistion
+	 * post initialization
 	 */
 	Init = FALSE;
 
@@ -738,7 +741,7 @@ int main(int argc, char **argv)
 
 	(void)signal(SIGPIPE, SIG_IGN);
 	(void)signal(SIGHUP, SIG_IGN);	/* needed for Solaris. The signal is sent
-				 * when the shell is existed */
+				 * when the shell is exited */
 
 #if !defined(PCSCLITE_STATIC_DRIVER) && defined(USE_USB)
 	/*
@@ -748,6 +751,8 @@ int main(int argc, char **argv)
 #ifndef USE_SERIAL
 	if (rv)
 		at_exit();
+#else
+	(void)rv;
 #endif
 
 	rv = HPRegisterForHotplugEvents();
@@ -760,7 +765,7 @@ int main(int argc, char **argv)
 	RFWaitForReaderInit();
 #endif
 
-	/* initialisation succeeded */
+	/* initialization succeeded */
 	if (pipefd[1] >= 0)
 	{
 		char buf = 0;
@@ -774,6 +779,13 @@ int main(int argc, char **argv)
 		}
 		close(pipefd[1]);
 		pipefd[1] = -1;
+	}
+
+	if (AutoExit)
+	{
+		Log2(PCSC_LOG_DEBUG, "Starting suicide alarm in %d seconds",
+			TIME_BEFORE_SUICIDE);
+		alarm(TIME_BEFORE_SUICIDE);
 	}
 
 	SVCServiceRunLoop();
@@ -837,11 +849,13 @@ static void print_version(void)
 {
 	printf("%s version %s.\n",  PACKAGE, VERSION);
 	printf("Copyright (C) 1999-2002 by David Corcoran <corcoran@musclecard.com>.\n");
-	printf("Copyright (C) 2001-2018 by Ludovic Rousseau <ludovic.rousseau@free.fr>.\n");
+	printf("Copyright (C) 2001-2022 by Ludovic Rousseau <ludovic.rousseau@free.fr>.\n");
 	printf("Copyright (C) 2003-2004 by Damien Sauveron <sauveron@labri.fr>.\n");
 	printf("Report bugs to <pcsclite-muscle@lists.infradead.org>.\n");
 
-	printf ("Enabled features:%s\n", PCSCLITE_FEATURES);
+	printf("Enabled features:%s\n", PCSCLITE_FEATURES);
+	printf("MAX_READERNAME: %d, PCSCLITE_MAX_READERS_CONTEXTS: %d\n",
+		MAX_READERNAME, PCSCLITE_MAX_READERS_CONTEXTS);
 }
 
 static void print_usage(char const * const progname)
@@ -850,7 +864,9 @@ static void print_usage(char const * const progname)
 	printf("Options:\n");
 #ifdef HAVE_GETOPT_LONG
 	printf("  -a, --apdu		log APDU commands and results\n");
-	printf("  -c, --config		path to reader.conf\n");
+#ifdef USE_SERIAL
+	printf("  -c, --config		new reader.conf.d path\n");
+#endif
 	printf("  -f, --foreground	run in foreground (no daemon),\n");
 	printf("			send logs to stdout instead of syslog\n");
 	printf("  -T, --color		force use of colored logs\n");
@@ -870,7 +886,9 @@ static void print_usage(char const * const progname)
 	printf("  -I, --reader-name-no-interface do not include the USB interface name in the name\n");
 #else
 	printf("  -a    log APDU commands and results\n");
-	printf("  -c	path to reader.conf\n");
+#ifdef USE_SERIAL
+	printf("  -c	new reader.conf.d path\n");
+#endif
 	printf("  -f	run in foreground (no daemon), send logs to stdout instead of syslog\n");
 	printf("  -T    force use of colored logs\n");
 	printf("  -d	display debug messages.\n");
