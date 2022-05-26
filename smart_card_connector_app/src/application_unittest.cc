@@ -35,9 +35,8 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
  private:
   void StartApplication() {
     // Set up the expectation on the first C++-to-JS message.
-    TestingGlobalContext::Waiter pcsc_lite_ready_message_waiter =
-        global_context_.CreateMessageWaiter(
-            /*awaited_message_type=*/"pcsc_lite_ready");
+    auto pcsc_lite_ready_message_waiter = global_context_.CreateMessageWaiter(
+        /*awaited_message_type=*/"pcsc_lite_ready");
     // Set up the expectation for the application to run the provided callback.
     ::testing::MockFunction<void()> background_initialization_callback;
     EXPECT_CALL(background_initialization_callback, Call());
@@ -48,8 +47,8 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
         background_initialization_callback.AsStdFunction());
     // Wait until the daemon's background thread completes the initialization
     // and notifies the JS side.
-    pcsc_lite_ready_message_waiter.Wait();
-    EXPECT_TRUE(pcsc_lite_ready_message_waiter.GetValue().StrictlyEquals(
+    pcsc_lite_ready_message_waiter->Wait();
+    EXPECT_TRUE(pcsc_lite_ready_message_waiter->value().StrictlyEquals(
         Value(Value::Type::kDictionary)));
   }
 

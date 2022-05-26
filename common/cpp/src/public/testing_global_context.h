@@ -40,15 +40,15 @@ class TestingGlobalContext final : public GlobalContext {
   // specified C++-to-JS message is sent.
   class Waiter final {
    public:
-    Waiter(Waiter&&);
-    Waiter& operator=(Waiter&&);
+    Waiter(const Waiter&) = delete;
+    Waiter& operator=(const Waiter&) = delete;
     ~Waiter();
 
     void Wait();
 
-    const Value& GetValue() const;
-    Value TakeValue() &&;
-    optional<RequestId> GetRequestId() const;
+    const Value& value() const;
+    Value take_value() &&;
+    optional<RequestId> request_id() const;
 
    private:
     friend class TestingGlobalContext;
@@ -57,8 +57,8 @@ class TestingGlobalContext final : public GlobalContext {
 
     void Resolve(Value value, optional<RequestId> request_id);
 
-    std::unique_ptr<std::mutex> mutex_;
-    std::unique_ptr<std::condition_variable> condition_;
+    std::mutex mutex_;
+    std::condition_variable condition_;
     bool resolved_ = false;
     Value value_;
     optional<RequestId> request_id_;
@@ -80,7 +80,8 @@ class TestingGlobalContext final : public GlobalContext {
   }
 
   // Returns a waiter for when a message with the specified type arrives.
-  Waiter CreateMessageWaiter(const std::string& awaited_message_type);
+  std::unique_ptr<Waiter> CreateMessageWaiter(
+      const std::string& awaited_message_type);
 
   // Sets an expectation that a request will be sent to JS for executing the
   // given function with specified arguments. After this happens, the given
@@ -116,8 +117,7 @@ class TestingGlobalContext final : public GlobalContext {
       const std::string& requester_name,
       const std::string& function_name,
       Value arguments,
-      optional<Value> payload_to_reply_with,
-      const optional<std::string>& error_to_reply_with);
+      std::function<void(Value, optional<RequestId>)> callback_to_run);
   void AddExpectation(Expectation expectation);
   optional<Expectation> PopMatchingExpectation(const std::string& message_type,
                                                const Value* request_payload);

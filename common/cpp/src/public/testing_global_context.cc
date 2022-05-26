@@ -33,10 +33,14 @@
 #include <google_smart_card_common/value_conversion.h>
 #include <google_smart_card_common/value_debug_dumping.h>
 
+#include "common/cpp/src/public/value_builder.h"
+
 namespace google_smart_card {
 
 namespace {
 
+// Parses out the requester name from "<requester>::request", or returns a null
+// optional if the format doesn't match.
 optional<std::string> GetRequesterName(const std::string& message_type) {
   const std::string suffix = kRequestMessageTypeSuffix;
   if (message_type.length() <= suffix.length() ||
@@ -53,6 +57,7 @@ void PostFakeJsReply(TypedMessageRouter* typed_message_router,
                      const std::string& requester_name,
                      std::shared_ptr<Value> payload_to_reply_with,
                      const optional<std::string>& error_to_reply_with,
+                     Value /*request_payload*/,
                      optional<RequestId> request_id) {
   ResponseMessageData response_data;
   response_data.request_id = *request_id;
@@ -76,49 +81,43 @@ void PostFakeJsReply(TypedMessageRouter* typed_message_router,
 
 }  // namespace
 
-TestingGlobalContext::Waiter::Waiter(Waiter&&) = default;
-
-TestingGlobalContext::Waiter& TestingGlobalContext::Waiter::operator=(
-    Waiter&&) = default;
-
 TestingGlobalContext::Waiter::~Waiter() = default;
 
 void TestingGlobalContext::Waiter::Wait() {
-  std::unique_lock<std::mutex> lock(*mutex_);
-  condition_->wait(lock, [&] { return resolved_; });
+  std::unique_lock<std::mutex> lock(mutex_);
+  // Wait until `Resolve()` gets called.
+  condition_.wait(lock, [&] { return resolved_; });
 }
 
-const Value& TestingGlobalContext::Waiter::GetValue() const {
-  // No mutex locks, as it's only alllowed to call us after `Wait()` completes.
+const Value& TestingGlobalContext::Waiter::value() const {
+  // No mutex locks, as it's only allowed to call us after `Wait()` completes.
   GOOGLE_SMART_CARD_CHECK(resolved_);
   return value_;
 }
 
-Value TestingGlobalContext::Waiter::TakeValue() && {
-  // No mutex locks, as it's only alllowed to call us after `Wait()` completes.
+Value TestingGlobalContext::Waiter::take_value() && {
+  // No mutex locks, as it's only allowed to call us after `Wait()` completes.
   GOOGLE_SMART_CARD_CHECK(resolved_);
   return std::move(value_);
 }
 
-optional<RequestId> TestingGlobalContext::Waiter::GetRequestId() const {
-  // No mutex locks, as it's only alllowed to call us after `Wait()` completes.
+optional<RequestId> TestingGlobalContext::Waiter::request_id() const {
+  // No mutex locks, as it's only allowed to call us after `Wait()` completes.
   GOOGLE_SMART_CARD_CHECK(resolved_);
   return request_id_;
 }
 
-TestingGlobalContext::Waiter::Waiter()
-    : mutex_(MakeUnique<std::mutex>()),
-      condition_(MakeUnique<std::condition_variable>()) {}
+TestingGlobalContext::Waiter::Waiter() = default;
 
 void TestingGlobalContext::Waiter::Resolve(Value value,
                                            optional<RequestId> request_id) {
-  std::unique_lock<std::mutex> lock(*mutex_);
+  std::unique_lock<std::mutex> lock(mutex_);
 
   GOOGLE_SMART_CARD_CHECK(!resolved_);
   resolved_ = true;
   value_ = std::move(value);
   request_id_ = request_id;
-  condition_->notify_one();
+  condition_.notify_one();
 }
 
 TestingGlobalContext::TestingGlobalContext(
@@ -143,13 +142,16 @@ bool TestingGlobalContext::IsMainEventLoopThread() const {
 
 void TestingGlobalContext::ShutDown() {}
 
-TestingGlobalContext::Waiter TestingGlobalContext::CreateMessageWaiter(
+std::unique_ptr<TestingGlobalContext::Waiter>
+TestingGlobalContext::CreateMessageWaiter(
     const std::string& awaited_message_type) {
-  Waiter waiter;
+  // `MakeUnique` wouldn't work due to the constructor being private.
+  std::unique_ptr<Waiter> waiter(new Waiter);
   Expectation expectation;
   expectation.awaited_message_type = awaited_message_type;
-  expectation.callback_to_run = std::bind(
-      &Waiter::Resolve, &waiter, std::placeholders::_1, std::placeholders::_2);
+  expectation.callback_to_run =
+      std::bind(&Waiter::Resolve, waiter.get(), std::placeholders::_1,
+                std::placeholders::_2);
   AddExpectation(std::move(expectation));
   return waiter;
 }
@@ -161,12 +163,17 @@ void TestingGlobalContext::WillReplyToRequestWith(
     Value result_to_reply_with) {
   // The request result is always wrapped into a single-item array. Do it
   // here, so that the test bodies are easier to read.
-  Value::ArrayStorage array;
-  array.push_back(MakeUnique<Value>(std::move(result_to_reply_with)));
-  AddExpectation(MakeRequestExpectation(
-      requester_name, function_name, std::move(arguments),
-      /*payload_to_reply_with=*/Value(std::move(array)),
-      /*error_to_reply_with=*/{}));
+  Value array = ArrayValueBuilder().Add(std::move(result_to_reply_with)).Get();
+  // Work around std::function's inability to bind a move-only argument.
+  auto payload_shared_ptr = std::make_shared<Value>(std::move(array));
+  auto callback_to_run = std::bind(
+      &PostFakeJsReply, typed_message_router_, requester_name,
+      payload_shared_ptr, /*error_to_reply_with=*/optional<std::string>(),
+      /*request_payload=*/std::placeholders::_1,
+      /*request_id=*/std::placeholders::_2);
+
+  AddExpectation(MakeRequestExpectation(requester_name, function_name,
+                                        std::move(arguments), callback_to_run));
 }
 
 void TestingGlobalContext::WillReplyToRequestWithError(
@@ -174,44 +181,38 @@ void TestingGlobalContext::WillReplyToRequestWithError(
     const std::string& function_name,
     Value arguments,
     const std::string& error_to_reply_with) {
-  AddExpectation(MakeRequestExpectation(
-      requester_name, function_name, std::move(arguments),
-      /*payload_to_reply_with=*/{}, error_to_reply_with));
+  auto callback_to_run = std::bind(
+      &PostFakeJsReply, typed_message_router_, requester_name,
+      /*payload_to_reply_with=*/std::shared_ptr<Value>(), error_to_reply_with,
+      /*request_payload=*/std::placeholders::_1,
+      /*request_id=*/std::placeholders::_2);
+
+  AddExpectation(MakeRequestExpectation(requester_name, function_name,
+                                        std::move(arguments), callback_to_run));
 }
 
 TestingGlobalContext::Expectation TestingGlobalContext::MakeRequestExpectation(
     const std::string& requester_name,
     const std::string& function_name,
     Value arguments,
-    optional<Value> payload_to_reply_with,
-    const optional<std::string>& error_to_reply_with) {
+    std::function<void(Value, optional<RequestId>)> callback_to_run) {
   GOOGLE_SMART_CARD_CHECK(arguments.is_array());
 
   RemoteCallRequestPayload request_payload;
   request_payload.function_name = function_name;
-  // Convert `Value` to `vector<Value>`. Ideally the conversion wouldn't be
-  // needed, but in tests it's more convenient pass a single `Value` (e.g.,
-  // constructed via `ArrayValueBuilder`), meanwhile in the
+  // Convert an array `Value` to `vector<Value>`. Ideally the conversion
+  // wouldn't be needed, but in tests it's more convenient pass a single `Value`
+  // (e.g., constructed via `ArrayValueBuilder`), meanwhile in the
   // `RemoteCallRequestPayload` struct definition we want to express that only
   // array values are allowed.
   request_payload.arguments =
       ConvertFromValueOrDie<std::vector<Value>>(std::move(arguments));
 
-  // Work around std::function's inability to bind a move-only argument.
-  std::shared_ptr<Value> payload_shared_ptr;
-  if (payload_to_reply_with) {
-    payload_shared_ptr =
-        std::make_shared<Value>(std::move(*payload_to_reply_with));
-  }
-
   Expectation expectation;
   expectation.awaited_message_type = GetRequestMessageType(requester_name);
   expectation.awaited_request_payload =
       ConvertToValueOrDie(std::move(request_payload));
-  expectation.callback_to_run =
-      std::bind(&PostFakeJsReply, typed_message_router_, requester_name,
-                payload_shared_ptr, error_to_reply_with,
-                /*request_id=*/std::placeholders::_2);
+  expectation.callback_to_run = callback_to_run;
   return expectation;
 }
 
@@ -227,16 +228,25 @@ TestingGlobalContext::PopMatchingExpectation(const std::string& message_type,
   std::unique_lock<std::mutex> lock(mutex_);
 
   for (auto iter = expectations_.begin(); iter != expectations_.end(); ++iter) {
-    if (message_type != iter->awaited_message_type)
+    const Expectation& expectation = *iter;
+    if (message_type != expectation.awaited_message_type) {
+      // Skip - different type.
       continue;
-    if (request_payload &&
-        !request_payload->StrictlyEquals(*iter->awaited_request_payload)) {
+    }
+    if (expectation.awaited_request_payload && !request_payload) {
+      // Skip - expected a message with a payload, but none got.
+      continue;
+    }
+    if (expectation.awaited_request_payload &&
+        !expectation.awaited_request_payload->StrictlyEquals(
+            *request_payload)) {
+      // Skip - different payload.
       continue;
     }
     // A match found. The expectation is a one of, so remove it.
-    Expectation match = std::move(*iter);
+    Expectation result = std::move(*iter);
     expectations_.erase(iter);
-    return std::move(match);
+    return std::move(result);
   }
   // No match found.
   return {};
@@ -267,7 +277,7 @@ bool TestingGlobalContext::HandleMessageToJs(Value message) {
   if (!expectation)
     return false;
   expectation->callback_to_run(std::move(typed_message.data),
-                               /*request_id*/ optional<RequestId>());
+                               /*request_id=*/optional<RequestId>());
   return true;
 }
 
