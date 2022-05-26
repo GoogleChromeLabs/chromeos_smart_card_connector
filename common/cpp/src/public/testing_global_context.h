@@ -82,6 +82,11 @@ class TestingGlobalContext final : public GlobalContext {
   // Returns a waiter for when a message with the specified type arrives.
   std::unique_ptr<Waiter> CreateMessageWaiter(
       const std::string& awaited_message_type);
+  // Returns a waiter for when a request message to JS for executing the given
+  // function with specified arguments arrives.
+  std::unique_ptr<Waiter> CreateRequestWaiter(const std::string& requester_name,
+                                              const std::string& function_name,
+                                              Value arguments);
 
   // Sets an expectation that a request will be sent to JS for executing the
   // given function with specified arguments. After this happens, the given

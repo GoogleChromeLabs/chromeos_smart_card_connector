@@ -649,6 +649,81 @@ TEST_F(LibusbJsProxyWithDeviceTest, InputControlTransferFailure) {
             LIBUSB_ERROR_OTHER);
 }
 
+// Tests `LibusbControlTransfer()` timeout scenario for an input transfer.
+TEST_F(LibusbJsProxyWithDeviceTest, InputControlTransferTimeout) {
+  constexpr int kTransferRequest = 1;
+  constexpr int kTransferIndex = 24;
+  constexpr int kTransferValue = 42;
+  constexpr int kDataLengthRequested = 100;
+
+  // Arrange. Set up the expectation for the request message. We won't reply to
+  // this message.
+  auto waiter = global_context_.CreateRequestWaiter(
+      "libusb", "controlTransfer",
+      /*arguments=*/
+      ArrayValueBuilder()
+          .Add(kJsDeviceId)
+          .Add(kJsDeviceHandle)
+          .Add(DictValueBuilder()
+                   .Add("index", kTransferIndex)
+                   .Add("recipient", "device")
+                   .Add("request", kTransferRequest)
+                   .Add("requestType", "vendor")
+                   .Add("value", kTransferValue)
+                   .Add("lengthToReceive", kDataLengthRequested)
+                   .Get())
+          .Get());
+
+  // Act. This call will block for about a second before returning (we don't
+  // verify the clocks to avoid flakiness).
+  std::vector<uint8_t> received_data(kDataLengthRequested);
+  EXPECT_EQ(libusb_js_proxy_.LibusbControlTransfer(
+                device_handle_,
+                LIBUSB_RECIPIENT_DEVICE | LIBUSB_REQUEST_TYPE_VENDOR |
+                    LIBUSB_ENDPOINT_IN,
+                kTransferRequest, kTransferValue, kTransferIndex,
+                &received_data[0], received_data.size(), /*timeout=*/1000),
+            LIBUSB_ERROR_OTHER);
+}
+
+// Tests `LibusbControlTransfer()` timeout scenario for an output transfer.
+TEST_F(LibusbJsProxyWithDeviceTest, OutputControlTransferTimeout) {
+  constexpr int kTransferRequest = 1;
+  constexpr int kTransferIndex = 24;
+  constexpr int kTransferValue = 42;
+  // non-const, as LibusbControlTransfer() takes a non-const pointer to it -
+  // following libusb's original interface.
+  std::vector<uint8_t> data = {1, 2, 3};
+
+  // Arrange. Set up the expectation for the request message. We won't reply to
+  // this message.
+  auto waiter = global_context_.CreateRequestWaiter(
+      "libusb", "controlTransfer",
+      /*arguments=*/
+      ArrayValueBuilder()
+          .Add(kJsDeviceId)
+          .Add(kJsDeviceHandle)
+          .Add(DictValueBuilder()
+                   .Add("dataToSend", data)
+                   .Add("index", kTransferIndex)
+                   .Add("recipient", "endpoint")
+                   .Add("request", kTransferRequest)
+                   .Add("requestType", "standard")
+                   .Add("value", kTransferValue)
+                   .Get())
+          .Get());
+
+  // Act. This call will block for about a second before returning (we don't
+  // verify the clocks to avoid flakiness).
+  EXPECT_EQ(libusb_js_proxy_.LibusbControlTransfer(
+                device_handle_,
+                LIBUSB_RECIPIENT_ENDPOINT | LIBUSB_REQUEST_TYPE_STANDARD |
+                    LIBUSB_ENDPOINT_OUT,
+                kTransferRequest, kTransferValue, kTransferIndex, &data[0],
+                data.size(), /*timeout=*/1000),
+            LIBUSB_ERROR_OTHER);
+}
+
 // Test the correctness of work of multiple threads issuing a sequence of
 // synchronous transfer requests. It's a regression test for #464 and #465.
 //
