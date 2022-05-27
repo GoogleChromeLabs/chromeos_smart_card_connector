@@ -150,9 +150,23 @@ TestingGlobalContext::CreateMessageWaiter(
   Expectation expectation;
   expectation.awaited_message_type = awaited_message_type;
   expectation.callback_to_run =
-      std::bind(&Waiter::Resolve, waiter.get(), std::placeholders::_1,
-                std::placeholders::_2);
+      std::bind(&Waiter::Resolve, waiter.get(), /*value=*/std::placeholders::_1,
+                /*request_id=*/std::placeholders::_2);
   AddExpectation(std::move(expectation));
+  return waiter;
+}
+
+std::unique_ptr<TestingGlobalContext::Waiter>
+TestingGlobalContext::CreateRequestWaiter(const std::string& requester_name,
+                                          const std::string& function_name,
+                                          Value arguments) {
+  // `MakeUnique` wouldn't work due to the constructor being private.
+  std::unique_ptr<Waiter> waiter(new Waiter);
+  auto callback_to_run =
+      std::bind(&Waiter::Resolve, waiter.get(), /*value=*/std::placeholders::_1,
+                /*request_id=*/std::placeholders::_2);
+  AddExpectation(MakeRequestExpectation(requester_name, function_name,
+                                        std::move(arguments), callback_to_run));
   return waiter;
 }
 
