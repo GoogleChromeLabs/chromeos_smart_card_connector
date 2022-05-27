@@ -14,12 +14,49 @@
 
 #include "smart_card_connector_app/src/application.h"
 
+#include <memory>
+
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+#include <google_smart_card_common/messaging/typed_message_router.h>
+#include <google_smart_card_common/unique_ptr_utils.h>
+
+#include "common/cpp/src/public/testing_global_context.h"
 
 namespace google_smart_card {
 
-TEST(SmartCardConnectorApplicationTest, SmokeTest) {
-  // TODO: Implement the actual test.
-}
+class SmartCardConnectorApplicationTest : public ::testing::Test {
+ protected:
+  SmartCardConnectorApplicationTest() { StartApplication(); }
+
+  ~SmartCardConnectorApplicationTest() { application_->ShutDownAndWait(); }
+
+ private:
+  void StartApplication() {
+    // Set up the expectation on the first C++-to-JS message.
+    auto pcsc_lite_ready_message_waiter = global_context_.CreateMessageWaiter(
+        /*awaited_message_type=*/"pcsc_lite_ready");
+    // Set up the expectation for the application to run the provided callback.
+    ::testing::MockFunction<void()> background_initialization_callback;
+    EXPECT_CALL(background_initialization_callback, Call());
+    // Create the application, which spawns the background initialization
+    // thread.
+    application_ = MakeUnique<Application>(
+        &global_context_, &typed_message_router_,
+        background_initialization_callback.AsStdFunction());
+    // Wait until the daemon's background thread completes the initialization
+    // and notifies the JS side.
+    pcsc_lite_ready_message_waiter->Wait();
+    EXPECT_TRUE(pcsc_lite_ready_message_waiter->value().StrictlyEquals(
+        Value(Value::Type::kDictionary)));
+  }
+
+  TypedMessageRouter typed_message_router_;
+  TestingGlobalContext global_context_{&typed_message_router_};
+  std::unique_ptr<Application> application_;
+};
+
+TEST_F(SmartCardConnectorApplicationTest, SmokeTest) {}
 
 }  // namespace google_smart_card

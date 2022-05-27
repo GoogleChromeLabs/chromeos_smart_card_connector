@@ -33,6 +33,9 @@
 
 namespace google_smart_card {
 
+extern const char kRequestMessageTypeSuffix[];
+extern const char kResponseMessageTypeSuffix[];
+
 // Returns the message type for the requests for the requester with the
 // specified name.
 std::string GetRequestMessageType(const std::string& name);

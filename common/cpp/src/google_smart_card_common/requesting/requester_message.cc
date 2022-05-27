@@ -24,11 +24,12 @@ namespace google_smart_card {
 
 namespace {
 
-constexpr char kRequestMessageTypeSuffix[] = "::request";
-constexpr char kResponseMessageTypeSuffix[] = "::response";
 constexpr char kCanceledErrorMessage[] = "The request was canceled";
 
 }  // namespace
+
+const char kRequestMessageTypeSuffix[] = "::request";
+const char kResponseMessageTypeSuffix[] = "::response";
 
 std::string GetRequestMessageType(const std::string& name) {
   return name + kRequestMessageTypeSuffix;
