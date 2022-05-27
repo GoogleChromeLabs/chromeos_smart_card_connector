@@ -29,6 +29,16 @@
 #ifndef GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_SERVER_CONFIG_H_
 #define GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_SERVER_CONFIG_H_
 
+// Enable GNU-specific extensions of Standard Library, as they're called by
+// PC/SC-Lite's original code. This define must precede any include of a
+// standard header, which is why we have to replicate it here (the original
+// PC/SC-Lite's config.h doesn't include standard headers).
+// In some configurations (e.g., NaCl), this macro is already predefined, hence
+// wrap this code into an ifndef.
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/types.h>
