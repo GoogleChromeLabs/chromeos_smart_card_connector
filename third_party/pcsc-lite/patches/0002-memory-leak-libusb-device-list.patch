@@ -1,0 +1,35 @@
+From 1ab596a91032f0f4ce8d73454c33cae9129ab358 Mon Sep 17 00:00:00 2001
+From: Maksim Ivanov <emaxx@google.com>
+Date: Fri, 27 May 2022 17:17:37 +0200
+Subject: [PATCH] Fix libusb_device list leak on shutdown (#133)
+
+Call libusb_free_device_list() before exiting the hotplug thread in
+hotplug_libusb.c.
+---
+ src/hotplug_libusb.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/src/hotplug_libusb.c b/src/hotplug_libusb.c
+index b9be4496..b0a9d1ac 100644
+--- a/src/hotplug_libusb.c
++++ b/src/hotplug_libusb.c
+@@ -443,6 +443,9 @@ static void HPRescanUsbBus(void)
+ 			HPRemoveHotPluggable(i);
+ 	}
+ 
++	/* free the libusb allocated list & devices */
++	libusb_free_device_list(devs, 1);
++
+ 	if (AraKiriHotPlug)
+ 	{
+ 		int retval;
+@@ -460,9 +463,6 @@ static void HPRescanUsbBus(void)
+ 		Log1(PCSC_LOG_INFO, "Hotplug stopped");
+ 		pthread_exit(&retval);
+ 	}
+-
+-	/* free the libusb allocated list & devices */
+-	libusb_free_device_list(devs, 1);
+ }
+ 
+ static void * HPEstablishUSBNotifications(int pipefd[2])

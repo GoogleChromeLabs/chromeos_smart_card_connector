@@ -129,6 +129,7 @@ static LONG HPAddHotPluggable(struct libusb_device *dev,
 	struct _driverTracker *driver,
 	struct _driverTracker *classdriver);
 static LONG HPRemoveHotPluggable(int reader_index);
+static void HPCleanupHotPluggable(int reader_index);
 
 static LONG HPReadBundleValues(void)
 {
@@ -212,7 +213,7 @@ static LONG HPReadBundleValues(void)
 			if (rv)
 				CFBundleName = NULL;
 			else
-				CFBundleName = strdup(list_get_at(values, 0));
+				CFBundleName = list_get_at(values, 0);
 
 			/* while we find a nth ifdVendorID in Info.plist */
 			for (alias=0; alias<list_size(manuIDs); alias++)
@@ -232,7 +233,8 @@ static LONG HPReadBundleValues(void)
 				driverTracker[listCount].bundleName = strdup(currFP->d_name);
 				driverTracker[listCount].libraryPath = strdup(fullLibPath);
 				driverTracker[listCount].ifdCapabilities = ifdCapabilities;
-				driverTracker[listCount].CFBundleName = CFBundleName;
+				driverTracker[listCount].CFBundleName =
+				   CFBundleName ? strdup(CFBundleName) : NULL;
 
 #ifdef DEBUG_HOTPLUG
 				Log2(PCSC_LOG_INFO, "Found driver for: %s",
@@ -443,9 +445,18 @@ static void HPRescanUsbBus(void)
 			HPRemoveHotPluggable(i);
 	}
 
+	/* free the libusb allocated list & devices */
+	libusb_free_device_list(devs, 1);
+
 	if (AraKiriHotPlug)
 	{
 		int retval;
+
+		for (i=0; i<PCSCLITE_MAX_READERS_CONTEXTS; i++)
+		{
+			if (readerTracker[i].fullName != NULL)
+				HPCleanupHotPluggable(i);
+		}
 
 		for (i=0; i<driverSize; i++)
 		{
@@ -460,9 +471,6 @@ static void HPRescanUsbBus(void)
 		Log1(PCSC_LOG_INFO, "Hotplug stopped");
 		pthread_exit(&retval);
 	}
-
-	/* free the libusb allocated list & devices */
-	libusb_free_device_list(devs, 1);
 }
 
 static void * HPEstablishUSBNotifications(int pipefd[2])
@@ -549,6 +557,7 @@ LONG HPSearchHotPluggables(void)
 {
 	int i;
 
+	AraKiriHotPlug = FALSE;
 	for (i=0; i<PCSCLITE_MAX_READERS_CONTEXTS; i++)
 	{
 		readerTracker[i].status = READER_ABSENT;
@@ -769,14 +778,19 @@ static LONG HPRemoveHotPluggable(int reader_index)
 
 	RFRemoveReader(readerTracker[reader_index].fullName,
 		PCSCLITE_HP_BASE_PORT + reader_index, REMOVE_READER_FLAG_REMOVED);
-	free(readerTracker[reader_index].fullName);
-	readerTracker[reader_index].status = READER_ABSENT;
-	readerTracker[reader_index].bus_device[0] = '\0';
-	readerTracker[reader_index].fullName = NULL;
+	HPCleanupHotPluggable(reader_index);
 
 	pthread_mutex_unlock(&usbNotifierMutex);
 
 	return 1;
+}	/* End of function */
+
+static void HPCleanupHotPluggable(int reader_index)
+{
+	free(readerTracker[reader_index].fullName);
+	readerTracker[reader_index].status = READER_ABSENT;
+	readerTracker[reader_index].bus_device[0] = '\0';
+	readerTracker[reader_index].fullName = NULL;
 }	/* End of function */
 
 /**
