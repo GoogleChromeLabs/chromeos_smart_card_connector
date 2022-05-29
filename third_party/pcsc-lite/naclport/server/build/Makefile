@@ -55,9 +55,10 @@ PCSC_LITE_SOURCES_PATH := $(PCSC_LITE_DIR_PATH)/src/src
 # * FAKE_PCSC_NACL_SOCKET_FILE_NAME constant points to the file containing the
 #   fake socket file (it's used for tricking the original PC/SC-Lite code which
 #   calls stat() for this file - for the details see file
-#   src/winscard_msg_nacl.cc).
+#   src/winscard_msg_nacl.cc). Use a relative path, so that it works both inside
+#   the Smart Card Connector app and in unit tests.
 COMMON_CPPFLAGS := \
-	-DFAKE_PCSC_NACL_SOCKET_FILE_NAME='"/executable-module-filesystem/pcsc/fake_socket_file"' \
+	-DFAKE_PCSC_NACL_SOCKET_FILE_NAME='"executable-module-filesystem/pcsc/fake_socket_file"' \
 	-I$(SOURCES_PATH) \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 	-I$(PCSC_LITE_SOURCES_PATH) \
