@@ -23,14 +23,18 @@
 
 namespace google_smart_card {
 
-// Initializes NaCl nacl_io library and prepares /tmp and /crx directories.
-//
-// The /tmp directory is mounted to a temporary in-memory file system.
-//
-// The /crx directory is mounted to the extension package root.
+// Initializes NaCl nacl_io library.
 //
 // Note: This function must be called not from the main Pepper thread!
 void InitializeNaclIo(const pp::Instance& pp_instance);
+
+// Mounts / and /tmp directories.
+//
+// The / directory is mounted to the executable module's folder (which, in
+// extension/app environment, is the contents of the .crx package).
+//
+// The /tmp directory is mounted to a temporary in-memory file system.
+void MountNaclIoFolders();
 
 }  // namespace google_smart_card
 
