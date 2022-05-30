@@ -143,22 +143,6 @@ else ifeq ($(TOOLCHAIN),pnacl)
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src/fake_socket_file,executable-module-filesystem/pcsc/))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(ROOT_PATH)/third_party/ccid/webport/build/Info.plist,executable-module-filesystem/pcsc/drivers/ifd-ccid.bundle/Contents/))
 
-# Create the manifest file that is used by the nacl_io library in order to
-# support operations like listing directories in the "httpfs" file system.
-#
-# Implementation note: The Python script's output is first redirected into a
-# temporary ".build" file, so that a failure in the script leaves the manifest
-# file not existing or not modified (so that next invocations of make don't skip
-# it).
-$(OUT_DIR_PATH)/nacl_io_manifest.txt: generate_out
-	$(NACL_SDK_ROOT)/tools/genhttpfs.py \
-		--srcdir "$(OUT_DIR_PATH)" \
-		--recursive . \
-		> nacl_io_manifest.txt.build
-	@mv nacl_io_manifest.txt.build $(OUT_DIR_PATH)/nacl_io_manifest.txt
-$(eval $(call CLEAN_RULE,nacl_io_manifest.txt.build))
-all: $(OUT_DIR_PATH)/nacl_io_manifest.txt
-
 endif
 
 

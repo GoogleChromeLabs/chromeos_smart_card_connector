@@ -132,6 +132,22 @@ endef
 
 endif
 
+# Rule for creating a "nacl_io_manifest.txt" manifest file, which is used for
+# exposing resource files to the NaCl code through a virtual file system
+# ("httpfs", provided by nacl_io).
+#
+# Implementation note: The Python script's output is first redirected into a
+# temporary ".build" file, so that a failure in the script leaves the manifest
+# file not existing or not modified (so that next invocations of make don't skip
+# it).
+$(OUT_DIR_PATH)/nacl_io_manifest.txt: generate_out
+	$(NACL_SDK_ROOT)/tools/genhttpfs.py \
+		--srcdir "$(OUT_DIR_PATH)" \
+		--recursive . \
+		> nacl_io_manifest.txt.build
+	@mv nacl_io_manifest.txt.build $(OUT_DIR_PATH)/nacl_io_manifest.txt
+$(eval $(call CLEAN_RULE,nacl_io_manifest.txt.build))
+all: $(OUT_DIR_PATH)/nacl_io_manifest.txt
 
 #
 # By default, NaCl SDK "clean" rules leave the root output directory named as
