@@ -1,0 +1,36 @@
+From accaa9738ad6091603ead68e85d2217944624cee Mon Sep 17 00:00:00 2001
+From: Maksim Ivanov <emaxx@google.com>
+Date: Fri, 27 May 2022 17:19:21 +0200
+Subject: [PATCH] Fix double-free of CFBundleName on shutdown (#132)
+
+Fix the double-free of the _driverTracker::CFBundleName field in
+HPRescanUsbBus() in hotplug_libusb on the shutdown path. The root cause
+was reusing the same string pointer for multiple entries in the
+driverTracker array.
+---
+ src/hotplug_libusb.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/src/hotplug_libusb.c b/src/hotplug_libusb.c
+index b0a9d1ac..7462c863 100644
+--- a/src/hotplug_libusb.c
++++ b/src/hotplug_libusb.c
+@@ -212,7 +212,7 @@ static LONG HPReadBundleValues(void)
+ 			if (rv)
+ 				CFBundleName = NULL;
+ 			else
+-				CFBundleName = strdup(list_get_at(values, 0));
++				CFBundleName = list_get_at(values, 0);
+ 
+ 			/* while we find a nth ifdVendorID in Info.plist */
+ 			for (alias=0; alias<list_size(manuIDs); alias++)
+@@ -232,7 +232,8 @@ static LONG HPReadBundleValues(void)
+ 				driverTracker[listCount].bundleName = strdup(currFP->d_name);
+ 				driverTracker[listCount].libraryPath = strdup(fullLibPath);
+ 				driverTracker[listCount].ifdCapabilities = ifdCapabilities;
+-				driverTracker[listCount].CFBundleName = CFBundleName;
++				driverTracker[listCount].CFBundleName =
++				   CFBundleName ? strdup(CFBundleName) : NULL;
+ 
+ #ifdef DEBUG_HOTPLUG
+ 				Log2(PCSC_LOG_INFO, "Found driver for: %s",
