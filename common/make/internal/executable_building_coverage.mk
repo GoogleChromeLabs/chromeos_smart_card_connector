@@ -63,11 +63,15 @@ endef
 #   coverage.
 # * "fsanitize=address": Use Address Sanitizer (not strictly necessary for
 #   coverage builds, but having unit tests verified by it is useful).
+# * "fno-omit-frame-pointer", "fno-optimize-sibling-calls": Enable better stack
+#   traces (recommended with ASan).
 # * "g": Enable debug symbols.
 # * "m32": Build in 32-bit mode (this is also what Emscripten and NaCl
 #   toolchains use).
 COVERAGE_COMMON_FLAGS := \
 	-fcoverage-mapping \
+	-fno-omit-frame-pointer \
+	-fno-optimize-sibling-calls \
 	-fprofile-instr-generate \
 	-fsanitize=address \
 	-g \
