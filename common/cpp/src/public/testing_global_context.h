@@ -21,6 +21,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 
 #include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message.h>
@@ -74,7 +75,8 @@ class TestingGlobalContext final : public GlobalContext {
   bool IsMainEventLoopThread() const override;
   void ShutDown() override;
 
-  // Allows to configure the result of `IsMainEventLoopThread()`.
+  // Allows to configure the result of `IsMainEventLoopThread()` when it's
+  // called from the creation thread (on other threads it returns false anyway).
   void set_creation_thread_is_event_loop(bool creation_thread_is_event_loop) {
     creation_thread_is_event_loop_ = creation_thread_is_event_loop;
   }
@@ -129,6 +131,10 @@ class TestingGlobalContext final : public GlobalContext {
   bool HandleMessageToJs(Value message);
 
   TypedMessageRouter* const typed_message_router_;
+  // ID of the thread on which `this` was created.
+  const std::thread::id creation_thread_id_;
+  // The result to be returned from `IsMainEventLoopThread()` when called on the
+  // creation thread.
   bool creation_thread_is_event_loop_ = true;
   std::mutex mutex_;
   std::deque<Expectation> expectations_;
