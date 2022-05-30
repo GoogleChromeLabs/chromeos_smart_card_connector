@@ -21,14 +21,36 @@
 
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
+#include <google_smart_card_common/value.h>
 
 #include "common/cpp/src/public/testing_global_context.h"
+
+#ifdef __native_client__
+#include <google_smart_card_common/nacl_io_utils.h>
+#endif  // __native_client__
 
 namespace google_smart_card {
 
 class SmartCardConnectorApplicationTest : public ::testing::Test {
  protected:
-  SmartCardConnectorApplicationTest() { StartApplication(); }
+  SmartCardConnectorApplicationTest() {
+#ifdef __native_client__
+    // Make resource files accessible.
+    MountNaclIoFolders();
+#endif  // __native_client__
+
+    // TODO: This attempts to say "regardless of how many times the tested code
+    // calls listDevices, fail them". We need to replace this with full-fledged
+    // USB device simulation.
+    for (int i = 0; i < 100; ++i) {
+      global_context_.WillReplyToRequestWithError(
+          "libusb", "listDevices",
+          /*arguments=*/Value(Value::Type::kArray),
+          /*error_to_reply_with=*/"fake error");
+    }
+
+    StartApplication();
+  }
 
   ~SmartCardConnectorApplicationTest() { application_->ShutDownAndWait(); }
 
