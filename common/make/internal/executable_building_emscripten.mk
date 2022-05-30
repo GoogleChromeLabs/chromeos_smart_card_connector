@@ -156,6 +156,11 @@ endif
 # Documented at ../executable_building.mk.
 CXX_DIALECT := c++11
 
+# The list of linker flags and dependencies for adding resource files (initially
+# empty, and added by ADD_RESOURCE_RULE).
+EMSCRIPTEN_RESOURCE_FILE_LDFLAGS :=
+EMSCRIPTEN_RESOURCE_FILE_DEPS :=
+
 # Documented at ../executable_building.mk.
 #
 # Implementation notes:
@@ -267,6 +272,8 @@ $(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).wor
 $(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js: $(foreach lib,$(2),$(LIB_DIR)/lib$(lib).a)
 # Dependency on additionally specified targets:
 $(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js: $(3)
+# Dependency on input resource files:
+$(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js: $(EMSCRIPTEN_RESOURCE_FILE_DEPS)
 # Order-only dependency on the destination directory stamp:
 $(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js: | $(BUILD_DIR)/dir.stamp
 # The recipe that performs the linking and creates the resulting files:
@@ -278,6 +285,7 @@ $(BUILD_DIR)/$(TARGET)%js $(BUILD_DIR)/$(TARGET)%wasm $(BUILD_DIR)/$(TARGET).wor
 		$(foreach lib,$(2),-l$(lib)) \
 		$(EMSCRIPTEN_COMMON_FLAGS) \
 		$(EMSCRIPTEN_LINKER_FLAGS) \
+		$(EMSCRIPTEN_RESOURCE_FILE_LDFLAGS) \
 		$(4)
 # Add linking into the default "all" target's prerequisite:
 all: $(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js
@@ -286,6 +294,33 @@ $(eval $(call COPY_TO_OUT_DIR_RULE,$(BUILD_DIR)/$(TARGET).js))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(BUILD_DIR)/$(TARGET).wasm))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(BUILD_DIR)/$(TARGET).worker.js))
 endef
+
+# Documented at ../executable_building.mk.
+#
+# Implementation notes:
+# * On Emscripten, the files that need to be exposed to the executable module
+#   have to be packaged ("preloaded") into a .data file. This happens during the
+#   linking stage, hence this macro only modifies the variables that are used by
+#   LINK_EXECUTABLE_RULE.
+# * The "@" character in Emscripten's CLI syntax is a separator between input
+#   and output paths; we also have to strip the arguments to avoid accidental
+#   spaces around it.
+# * We also add a dependency on the "copy_emscripten_data_to_out" helper target
+#   that copies the .data file created during linking into the "out" folder.
+define ADD_RESOURCE_RULE
+EMSCRIPTEN_RESOURCE_FILE_LDFLAGS += --preload-file $(strip $(1))@$(strip $(2))
+EMSCRIPTEN_RESOURCE_FILE_DEPS += $(1)
+generate_out: copy_emscripten_data_to_out
+endef
+
+# Rules for copying the .data file created during linking into the out folder.
+#
+# We don't do it inside LINK_EXECUTABLE_RULE, because the .data file is only
+# created when there's at least one resource file, and with Make syntax it's
+# terribly difficult to encode such conditional logic inside a macro.
+.PHONY: copy_emscripten_data_to_out
+copy_emscripten_data_to_out: $(OUT_DIR_PATH) $(BUILD_DIR)/$(TARGET).wasm
+	@cp -pr $(BUILD_DIR)/$(TARGET).data $(OUT_DIR_PATH)/
 
 # Rules for cleaning build files when requested.
 .PHONY: clean_out_artifacts_emscripten

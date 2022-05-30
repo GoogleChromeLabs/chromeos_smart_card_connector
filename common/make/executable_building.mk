@@ -47,6 +47,14 @@
 #   $3 ("DEPS", optional): Libraries whose building will be added as
 #     dependencies of this target.
 #   $4 ("LDFLAGS", optional): Linker flags.
+#
+# * ADD_RESOURCE_RULE macro:
+#   Puts the specified resource file into the location from which it can be
+#   loaded by the executable module at runtime.
+#   Arguments:
+#   $1 ("RESOURCE_FILE"): Path to the input resource file,
+#   $2 ("TARGET_PATH"): Path under which the resource file should be exposed at
+#     runtime.
 
 # Load the toolchain-specific file.
 ifeq ($(TOOLCHAIN),emscripten)
