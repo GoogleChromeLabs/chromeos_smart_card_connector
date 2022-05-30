@@ -93,7 +93,10 @@ class PpInstance final : public pp::Instance {
   }
 
  private:
-  void InitializeOnBackgroundThread() { InitializeNaclIo(*this); }
+  void InitializeOnBackgroundThread() {
+    InitializeNaclIo(*this);
+    MountNaclIoFolders();
+  }
 
   std::unique_ptr<GlobalContextImplNacl> global_context_;
   TypedMessageRouter typed_message_router_;
