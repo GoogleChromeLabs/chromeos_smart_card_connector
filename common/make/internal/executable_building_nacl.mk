@@ -81,6 +81,18 @@ $(eval $(call COPY_TO_OUT_DIR_RULE,$(OUTDIR)/$(TARGET).nmf))
 
 endef
 
+# Documented at ../executable_building.mk.
+#
+# Implementation notes:
+# The resource file just needs to be copied into the out directory. The C++ code
+# uses the nacl_io library (with the "httpfs" virtual file system) in order to
+# access these files at runtime. Note that the macro arguments are stripped, so
+# that COPY_TO_OUT_DIR_RULE can't break due to leading/trailing spaces. Also we
+# drop the file name from the second argument, because COPY_TO_OUT_DIR_RULE
+# receives the name of the target directory.
+define ADD_RESOURCE_RULE
+$(eval $(call COPY_TO_OUT_DIR_RULE,$(strip $(1)),$(dir $(strip $(2)))))
+endef
 
 #
 # Auxiliary macro rule that adds rules for linking the resulting NaCl binaries.
