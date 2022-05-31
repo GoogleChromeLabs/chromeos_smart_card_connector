@@ -14,6 +14,7 @@
 
 #include "smart_card_connector_app/src/application.h"
 
+#include <functional>
 #include <memory>
 
 #include <gmock/gmock.h>
@@ -25,6 +26,7 @@
 #include <google_smart_card_common/value.h>
 
 #include "common/cpp/src/public/testing_global_context.h"
+#include "smart_card_connector_app/src/testing_smart_card_simulation.h"
 
 #ifdef __native_client__
 #include <google_smart_card_common/nacl_io_utils.h>
@@ -39,23 +41,21 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
     // Make resource files accessible.
     MountNaclIoFolders();
 #endif  // __native_client__
-
-    // TODO: This attempts to say "regardless of how many times the tested code
-    // calls listDevices, fail them". We need to replace this with full-fledged
-    // USB device simulation.
-    for (int i = 0; i < 100; ++i) {
-      global_context_.WillReplyToRequestWithError(
-          "libusb", "listDevices",
-          /*arguments=*/Value(Value::Type::kArray),
-          /*error_to_reply_with=*/"fake error");
-    }
-
+    SetUpUsbSimulation();
     StartApplication();
   }
 
   ~SmartCardConnectorApplicationTest() { application_->ShutDownAndWait(); }
 
  private:
+  void SetUpUsbSimulation() {
+    global_context_.RegisterRequestHandler(
+        TestingSmartCardSimulation::kRequesterName,
+        std::bind(&TestingSmartCardSimulation::OnRequestToJs,
+                  &smart_card_simulation_, std::placeholders::_1,
+                  std::placeholders::_2));
+  }
+
   void StartApplication() {
     // Set up the expectation on the first C++-to-JS message.
     auto pcsc_lite_ready_message_waiter = global_context_.CreateMessageWaiter(
@@ -76,6 +76,7 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
   }
 
   TypedMessageRouter typed_message_router_;
+  TestingSmartCardSimulation smart_card_simulation_{&typed_message_router_};
   TestingGlobalContext global_context_{&typed_message_router_};
   std::unique_ptr<Application> application_;
 };
