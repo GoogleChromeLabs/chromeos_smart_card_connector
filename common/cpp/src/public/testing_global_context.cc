@@ -145,6 +145,16 @@ bool TestingGlobalContext::IsMainEventLoopThread() const {
 
 void TestingGlobalContext::ShutDown() {}
 
+void TestingGlobalContext::RegisterRequestHandler(
+    const std::string& requester_name,
+    Callback callback_to_run) {
+  Expectation expectation;
+  expectation.awaited_message_type = GetRequestMessageType(requester_name);
+  expectation.callback_to_run = callback_to_run;
+  expectation.once = false;
+  AddExpectation(std::move(expectation));
+}
+
 std::unique_ptr<TestingGlobalContext::Waiter>
 TestingGlobalContext::CreateMessageWaiter(
     const std::string& awaited_message_type) {
@@ -239,9 +249,9 @@ void TestingGlobalContext::AddExpectation(Expectation expectation) {
   expectations_.push_back(std::move(expectation));
 }
 
-optional<TestingGlobalContext::Expectation>
-TestingGlobalContext::PopMatchingExpectation(const std::string& message_type,
-                                             const Value* request_payload) {
+optional<TestingGlobalContext::Callback>
+TestingGlobalContext::FindMatchingExpectation(const std::string& message_type,
+                                              const Value* request_payload) {
   std::unique_lock<std::mutex> lock(mutex_);
 
   for (auto iter = expectations_.begin(); iter != expectations_.end(); ++iter) {
@@ -260,10 +270,11 @@ TestingGlobalContext::PopMatchingExpectation(const std::string& message_type,
       // Skip - different payload.
       continue;
     }
-    // A match found. The expectation is a one of, so remove it.
-    Expectation result = std::move(*iter);
-    expectations_.erase(iter);
-    return std::move(result);
+    // A match found. Remove the expectation if it's a one-time.
+    Callback result = expectation.callback_to_run;
+    if (expectation.once)
+      expectations_.erase(iter);
+    return result;
   }
   // No match found.
   return {};
@@ -279,22 +290,22 @@ bool TestingGlobalContext::HandleMessageToJs(Value message) {
     // expectation.
     RequestMessageData request_data = ConvertFromValueOrDie<RequestMessageData>(
         std::move(typed_message.data));
-    optional<Expectation> expectation =
-        PopMatchingExpectation(typed_message.type, &request_data.payload);
-    if (!expectation)
+    optional<Callback> callback_to_run =
+        FindMatchingExpectation(typed_message.type, &request_data.payload);
+    if (!callback_to_run)
       return false;
-    expectation->callback_to_run(std::move(request_data.payload),
-                                 request_data.request_id);
+    (*callback_to_run)(std::move(request_data.payload),
+                       request_data.request_id);
     return true;
   }
 
   // It's a regular message - find the expectation using just the type.
-  optional<Expectation> expectation =
-      PopMatchingExpectation(typed_message.type, /*request_payload=*/nullptr);
-  if (!expectation)
+  optional<Callback> callback_to_run =
+      FindMatchingExpectation(typed_message.type, /*request_payload=*/nullptr);
+  if (!callback_to_run)
     return false;
-  expectation->callback_to_run(std::move(typed_message.data),
-                               /*request_id=*/optional<RequestId>());
+  (*callback_to_run)(std::move(typed_message.data),
+                     /*request_id=*/optional<RequestId>());
   return true;
 }
 

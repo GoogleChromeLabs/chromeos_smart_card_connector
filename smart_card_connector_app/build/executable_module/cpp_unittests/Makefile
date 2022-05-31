@@ -24,6 +24,7 @@ include ../../../../common/cpp_unit_test_runner/include.mk
 SOURCES := \
 	../../../src/application.cc \
 	../../../src/application_unittest.cc \
+	../../../src/testing_smart_card_simulation.cc \
 
 CXXFLAGS := \
 	-I$(ROOT_PATH) \

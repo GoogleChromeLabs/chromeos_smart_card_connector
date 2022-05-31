@@ -37,6 +37,12 @@ namespace google_smart_card {
 // the messages sent to the JavaScript side and to simulate responses from it.
 class TestingGlobalContext final : public GlobalContext {
  public:
+  // Callback to be run when an expected message is sent to JS. For request
+  // messages, the parameters are `RequestMessageData::payload` and
+  // `RequestMessageData::request_id`. For other messages, only
+  // `TypedMessage::data` is passed.
+  using Callback = std::function<void(Value, optional<RequestId>)>;
+
   // Helper returned by `Create...Waiter()` methods. Allows to wait until the
   // specified C++-to-JS message is sent.
   class Waiter final {
@@ -81,6 +87,10 @@ class TestingGlobalContext final : public GlobalContext {
     creation_thread_is_event_loop_ = creation_thread_is_event_loop;
   }
 
+  // Set a callback to be called whenever a request is sent to JS.
+  void RegisterRequestHandler(const std::string& requester_name,
+                              Callback callback_to_run);
+
   // Returns a waiter for when a message with the specified type arrives.
   std::unique_ptr<Waiter> CreateMessageWaiter(
       const std::string& awaited_message_type);
@@ -113,11 +123,11 @@ class TestingGlobalContext final : public GlobalContext {
     //   `RequestMessageData::payload` value.
     optional<Value> awaited_request_payload;
 
-    // The callback to trigger when the expectation is met. For request
-    // messages, will be called with `RequestMessageData::payload` and
-    // `RequestMessageData::request_id`. For other messages, will be called with
-    // `TypedMessage::data`.
-    std::function<void(Value, optional<RequestId>)> callback_to_run;
+    // The callback to trigger when the expectation is met.
+    Callback callback_to_run;
+
+    // Whether the expectation is a one-time.
+    bool once = true;
   };
 
   Expectation MakeRequestExpectation(
@@ -126,8 +136,8 @@ class TestingGlobalContext final : public GlobalContext {
       Value arguments,
       std::function<void(Value, optional<RequestId>)> callback_to_run);
   void AddExpectation(Expectation expectation);
-  optional<Expectation> PopMatchingExpectation(const std::string& message_type,
-                                               const Value* request_payload);
+  optional<Callback> FindMatchingExpectation(const std::string& message_type,
+                                             const Value* request_payload);
   bool HandleMessageToJs(Value message);
 
   TypedMessageRouter* const typed_message_router_;
