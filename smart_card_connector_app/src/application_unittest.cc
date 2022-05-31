@@ -18,6 +18,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <winscard.h>
 
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
@@ -80,5 +81,19 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
 };
 
 TEST_F(SmartCardConnectorApplicationTest, SmokeTest) {}
+
+// Test a PC/SC-Lite context can be established and freed, via direct C function
+// calls `SCardEstablishContext()` and `SCardReleaseContext()`.
+// This is an extended version of the "smoke test" as it verifies the daemon
+// successfully started and replies to calls sent over (fake) sockets.
+TEST_F(SmartCardConnectorApplicationTest, InternalApiContextEstablishing) {
+  SCARDCONTEXT scard_context = 0;
+  EXPECT_EQ(SCardEstablishContext(SCARD_SCOPE_SYSTEM, /*pvReserved1=*/nullptr,
+                                  /*pvReserved2=*/nullptr, &scard_context),
+            SCARD_S_SUCCESS);
+  EXPECT_NE(scard_context, 0);
+
+  EXPECT_EQ(SCardReleaseContext(scard_context), SCARD_S_SUCCESS);
+}
 
 }  // namespace google_smart_card
