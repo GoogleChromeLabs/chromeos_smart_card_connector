@@ -42,7 +42,10 @@ TestingSmartCardSimulation::~TestingSmartCardSimulation() = default;
 
 void TestingSmartCardSimulation::OnRequestToJs(Value request_payload,
                                                optional<RequestId> request_id) {
+  // Make the debug dump in advance, before we know whether we need to crash,
+  // because we can't dump the value after std::move()'ing it.
   const std::string payload_debug_dump = DebugDumpValueFull(request_payload);
+
   RemoteCallRequestPayload remote_call =
       ConvertFromValueOrDie<RemoteCallRequestPayload>(
           std::move(request_payload));
