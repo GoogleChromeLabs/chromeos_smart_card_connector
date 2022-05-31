@@ -32,6 +32,10 @@
 #include <google_smart_card_common/nacl_io_utils.h>
 #endif  // __native_client__
 
+#ifdef __native_client__
+#include <google_smart_card_common/nacl_io_utils.h>
+#endif  // __native_client__
+
 namespace google_smart_card {
 
 class SmartCardConnectorApplicationTest : public ::testing::Test {
