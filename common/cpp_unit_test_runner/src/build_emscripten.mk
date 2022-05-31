@@ -80,15 +80,17 @@ $(GOOGLETEST_LIBS_PATTERN):
 # Documented in ../include.mk.
 #
 # Implementation notes:
-# The execution is performed via Node.js.
+# The execution is performed via Node.js. We chdir into the out directory, so
+# that the .data file can be loaded at runtime without specifying any path (the
+# .data file is only used when the test uses resource files).
 #
 # Explanation of arguments:
 # DISPLAY: Workaround against "Permission denied" Node.js issue.
 # experimental-wasm-threads, experimental-wasm-bulk-memory: Needed for Pthreads
 #   (multi-threading) support.
 run_test: all
-	DISPLAY= \
+	cd $(OUT_DIR_PATH) && DISPLAY= \
 		node \
 		--experimental-wasm-threads \
 		--experimental-wasm-bulk-memory \
-		$(OUT_DIR_PATH)/$(TARGET).js
+		$(TARGET).js
