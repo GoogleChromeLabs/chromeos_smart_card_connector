@@ -24,6 +24,7 @@
 
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/requesting/request_id.h>
+#include <google_smart_card_common/requesting/request_result.h>
 #include <google_smart_card_common/requesting/requester_message.h>
 #include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/value.h>
@@ -33,6 +34,10 @@
 namespace google_smart_card {
 
 // Implements fake smart card reader USB devices.
+//
+// The implementation is based on the protocol standardized in "Specification
+// for Integrated Circuit(s) Cards Interface Devices" and on USB logs sniffed
+// from real devices.
 class TestingSmartCardSimulation final {
  public:
   // Fake device to simulate.
@@ -67,52 +72,62 @@ class TestingSmartCardSimulation final {
     std::vector<uint8_t> next_bulk_transfer_reply;
   };
 
-  void PostFakeJsResult(RequestId request_id, Value result);
-  void PostFakeJsError(RequestId request_id, const std::string& error);
-  void PostResponseMessage(ResponseMessageData response_data);
+  // Helper class that provides thread-safe operations with reader states.
+  class Core final {
+   public:
+    using DeviceState = TestingSmartCardSimulation::DeviceState;
 
-  DeviceState* FindDeviceStateByIdLocked(int64_t device_id);
-  DeviceState* FindDeviceStateByIdAndHandleLocked(int64_t device_id,
-                                                  int64_t device_handle);
+    Core();
+    Core(const Core&) = delete;
+    Core& operator=(const Core&) = delete;
+    ~Core();
 
-  void OnListDevicesCalled(RequestId request_id);
-  void OnGetConfigurationsCalled(int64_t device_id, RequestId request_id);
-  void OnOpenDeviceHandleCalled(int64_t device_id, RequestId request_id);
-  void OnCloseDeviceHandleCalled(int64_t device_id,
-                                 int64_t device_handle,
-                                 RequestId request_id);
-  void OnClaimInterfaceCalled(int64_t device_id,
-                              int64_t device_handle,
-                              int64_t interface_number,
-                              RequestId request_id);
-  void OnReleaseInterfaceCalled(int64_t device_id,
-                                int64_t device_handle,
-                                int64_t interface_number,
-                                RequestId request_id);
-  void OnControlTransferCalled(int64_t device_id,
-                               int64_t device_handle,
-                               LibusbJsControlTransferParameters params,
-                               RequestId request_id);
-  void OnBulkTransferCalled(int64_t device_id,
-                            int64_t device_handle,
-                            LibusbJsGenericTransferParameters params,
-                            RequestId request_id);
-  void OnInterruptTransferCalled(int64_t device_id,
-                                 int64_t device_handle,
-                                 LibusbJsGenericTransferParameters params,
-                                 RequestId request_id);
+    void SetDevices(const std::vector<Device>& devices);
 
-  optional<LibusbJsTransferResult> HandleOutputBulkTransferLocked(
-      const std::vector<uint8_t>& data_to_send,
-      DeviceState& device_state);
-  optional<LibusbJsTransferResult> HandleInputBulkTransferLocked(
-      int64_t length_to_receive,
-      DeviceState& device_state);
+    // Fake implementation of the JS counterpart of the Libusb operations:
+    GenericRequestResult ListDevices();
+    GenericRequestResult GetConfigurations(int64_t device_id);
+    GenericRequestResult OpenDeviceHandle(int64_t device_id);
+    GenericRequestResult CloseDeviceHandle(int64_t device_id,
+                                           int64_t device_handle);
+    GenericRequestResult ClaimInterface(int64_t device_id,
+                                        int64_t device_handle,
+                                        int64_t interface_number);
+    GenericRequestResult ReleaseInterface(int64_t device_id,
+                                          int64_t device_handle,
+                                          int64_t interface_number);
+    GenericRequestResult ControlTransfer(
+        int64_t device_id,
+        int64_t device_handle,
+        LibusbJsControlTransferParameters params);
+    GenericRequestResult BulkTransfer(int64_t device_id,
+                                      int64_t device_handle,
+                                      LibusbJsGenericTransferParameters params);
+    optional<GenericRequestResult> InterruptTransfer(
+        int64_t device_id,
+        int64_t device_handle,
+        LibusbJsGenericTransferParameters params);
+
+   private:
+    DeviceState* FindDeviceStateById(int64_t device_id);
+    DeviceState* FindDeviceStateByIdAndHandle(int64_t device_id,
+                                              int64_t device_handle);
+
+    GenericRequestResult HandleOutputBulkTransfer(
+        const std::vector<uint8_t>& data_to_send,
+        DeviceState& device_state);
+    GenericRequestResult HandleInputBulkTransfer(int64_t length_to_receive,
+                                                 DeviceState& device_state);
+
+    std::mutex mutex_;
+    std::vector<DeviceState> device_states_;
+    int64_t next_free_device_handle_ = 1;
+  };
+
+  void PostFakeJsResponse(RequestId request_id, GenericRequestResult result);
 
   TypedMessageRouter* const typed_message_router_;
-  std::mutex mutex_;
-  std::vector<DeviceState> device_states_;
-  int64_t next_free_device_handle_ = 1;
+  Core core_;
 };
 
 }  // namespace google_smart_card

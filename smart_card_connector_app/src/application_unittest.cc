@@ -16,7 +16,10 @@
 
 #include <functional>
 #include <memory>
+#include <mutex>
+#include <queue>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -35,13 +38,52 @@
 #include <google_smart_card_common/nacl_io_utils.h>
 #endif  // __native_client__
 
-#ifdef __native_client__
-#include <google_smart_card_common/nacl_io_utils.h>
-#endif  // __native_client__
-
 using testing::ElementsAre;
 
 namespace google_smart_card {
+
+namespace {
+
+// Records reader_* messages sent to JS and allows to inspect them in tests.
+class ReaderNotificationObserver final {
+ public:
+  void Init(TestingGlobalContext& global_context) {
+    for (const auto* event_name : {"reader_init_add", "reader_finish_add"}) {
+      global_context.RegisterMessageHandler(
+          event_name,
+          std::bind(&ReaderNotificationObserver::OnMessageToJs, this,
+                    event_name, /*request_payload=*/std::placeholders::_1,
+                    /*request_id=*/std::placeholders::_2));
+    }
+  }
+
+  // Extracts the next recorded notification, in the format "<event>:<reader>"
+  // (for simplifying test assertions).
+  std::string Pop() {
+    std::unique_lock<std::mutex> lock(mutex_);
+    GOOGLE_SMART_CARD_CHECK(!recorded_notifications_.empty());
+    std::string next = std::move(recorded_notifications_.front());
+    recorded_notifications_.pop();
+    return next;
+  }
+
+ private:
+  void OnMessageToJs(const std::string& event_name,
+                     Value message_data,
+                     optional<RequestId> /*request_id*/) {
+    std::string notification =
+        event_name + ":" +
+        message_data.GetDictionaryItem("readerName")->GetString();
+
+    std::unique_lock<std::mutex> lock(mutex_);
+    recorded_notifications_.push(notification);
+  }
+
+  std::mutex mutex_;
+  std::queue<std::string> recorded_notifications_;
+};
+
+}  // namespace
 
 class SmartCardConnectorApplicationTest : public ::testing::Test {
  protected:
@@ -51,7 +93,7 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
     MountNaclIoFolders();
 #endif  // __native_client__
     SetUpUsbSimulation();
-    SetUpReaderMessageObserving();
+    reader_notification_observer_.Init(global_context_);
   }
 
   ~SmartCardConnectorApplicationTest() { application_->ShutDownAndWait(); }
@@ -81,15 +123,8 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
     smart_card_simulation_.SetDevices(devices);
   }
 
-  // Returns all "reader_init_add" messages that were sent to JS (they are sent
-  // when a new reader starts to be initialized).
-  const std::vector<std::string>& reader_init_add_messages() const {
-    return reader_init_add_messages_;
-  }
-  // Returns all "reader_finish_add" messages that were sent to JS (they are
-  // sent when a reader initialization finishes).
-  const std::vector<std::string>& reader_finish_add_messages() const {
-    return reader_finish_add_messages_;
+  ReaderNotificationObserver& reader_notification_observer() {
+    return reader_notification_observer_;
   }
 
  private:
@@ -102,39 +137,11 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
                   /*request_id=*/std::placeholders::_2));
   }
 
-  void SetUpReaderMessageObserving() {
-    global_context_.RegisterMessageHandler(
-        "reader_init_add",
-        std::bind(&SmartCardConnectorApplicationTest::OnReaderInitAddPosted,
-                  this, /*request_payload=*/std::placeholders::_1,
-                  /*request_id=*/std::placeholders::_2));
-    global_context_.RegisterMessageHandler(
-        "reader_finish_add",
-        std::bind(&SmartCardConnectorApplicationTest::OnReaderFinishAddPosted,
-                  this, /*request_payload=*/std::placeholders::_1,
-                  /*request_id=*/std::placeholders::_2));
-  }
-
-  // Called when the code-under-test sends a "reader_init_add" message to JS.
-  void OnReaderInitAddPosted(Value request_payload,
-                             optional<RequestId> /*request_id*/) {
-    reader_init_add_messages_.push_back(
-        request_payload.GetDictionaryItem("readerName")->GetString());
-  }
-
-  // Called when the code-under-test sends a "reader_finish_add" message to JS.
-  void OnReaderFinishAddPosted(Value request_payload,
-                               optional<RequestId> /*request_id*/) {
-    reader_finish_add_messages_.push_back(
-        request_payload.GetDictionaryItem("readerName")->GetString());
-  }
-
   TypedMessageRouter typed_message_router_;
   TestingSmartCardSimulation smart_card_simulation_{&typed_message_router_};
+  ReaderNotificationObserver reader_notification_observer_;
   TestingGlobalContext global_context_{&typed_message_router_};
   std::unique_ptr<Application> application_;
-  std::vector<std::string> reader_init_add_messages_;
-  std::vector<std::string> reader_finish_add_messages_;
 };
 
 TEST_F(SmartCardConnectorApplicationTest, SmokeTest) {
@@ -147,6 +154,7 @@ TEST_F(SmartCardConnectorApplicationTest, SmokeTest) {
 // successfully started and replies to calls sent over (fake) sockets.
 TEST_F(SmartCardConnectorApplicationTest, InternalApiContextEstablishing) {
   // Arrange:
+
   StartApplication();
 
   // Act:
@@ -171,10 +179,10 @@ TEST_F(SmartCardConnectorApplicationTest, InternalApiSingleDeviceListing) {
   SetUsbDevices({device});
 
   StartApplication();
-  EXPECT_THAT(reader_init_add_messages(),
-              ElementsAre("Gemalto PC Twin Reader"));
-  EXPECT_THAT(reader_finish_add_messages(),
-              ElementsAre("Gemalto PC Twin Reader"));
+  EXPECT_EQ(reader_notification_observer().Pop(),
+            "reader_init_add:Gemalto PC Twin Reader");
+  EXPECT_EQ(reader_notification_observer().Pop(),
+            "reader_finish_add:Gemalto PC Twin Reader");
 
   // Act:
 
@@ -187,16 +195,21 @@ TEST_F(SmartCardConnectorApplicationTest, InternalApiSingleDeviceListing) {
   EXPECT_EQ(SCardListReaders(scard_context, /*mszGroups=*/nullptr,
                              /*mszReaders=*/nullptr, &readers_size),
             SCARD_S_SUCCESS);
+  EXPECT_GT(readers_size, 0U);
 
   std::string readers_multistring;
   readers_multistring.resize(readers_size);
   EXPECT_EQ(SCardListReaders(scard_context, /*mszGroups=*/nullptr,
                              &readers_multistring[0], &readers_size),
             SCARD_S_SUCCESS);
-  EXPECT_THAT(ExtractMultiStringElements(readers_multistring),
-              ElementsAre("Gemalto PC Twin Reader 00 00"));
+  EXPECT_EQ(readers_size, readers_multistring.size());
 
   EXPECT_EQ(SCardReleaseContext(scard_context), SCARD_S_SUCCESS);
+
+  // Assert:
+
+  EXPECT_THAT(ExtractMultiStringElements(readers_multistring),
+              ElementsAre("Gemalto PC Twin Reader 00 00"));
 }
 
 }  // namespace google_smart_card
