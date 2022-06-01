@@ -41,7 +41,7 @@ void ArrayValueBuilder::AddConverted(
                                           conversion_error_message.c_str());
     return;
   }
-  items_.push_back(MakeUnique<Value>(std::move(converted)));
+  items_.push_back(std::move(converted));
 }
 
 Value ArrayValueBuilder::Get() && {
@@ -72,7 +72,7 @@ void DictValueBuilder::AddConverted(bool conversion_success,
     error_message_ = FormatPrintfTemplate(R"(Duplicate key "%s")", key.c_str());
     return;
   }
-  items_[key] = MakeUnique<Value>(std::move(converted_value));
+  items_[key] = std::move(converted_value);
 }
 
 Value DictValueBuilder::Get() && {

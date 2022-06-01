@@ -183,11 +183,11 @@ TEST(ValueEmscriptenValConversion, DictionaryValue) {
 
   {
     // The test data is: {"xyz": {"foo": null, "bar": 123}}.
-    std::map<std::string, std::unique_ptr<Value>> inner_items;
-    inner_items["foo"] = MakeUnique<Value>();
-    inner_items["bar"] = MakeUnique<Value>(123);
-    std::map<std::string, std::unique_ptr<Value>> items;
-    items["xyz"] = MakeUnique<Value>(std::move(inner_items));
+    std::map<std::string, Value> inner_items;
+    inner_items["foo"] = Value();
+    inner_items["bar"] = Value(123);
+    std::map<std::string, Value> items;
+    items["xyz"] = Value(std::move(inner_items));
     const Value value(std::move(items));
 
     const optional<emscripten::val> converted =
@@ -209,8 +209,8 @@ TEST(ValueEmscriptenValConversion, DictionaryValue) {
 TEST(ValueEmscriptenValConversion, DictionaryValueError) {
   {
     constexpr int64_t k64BitMax = std::numeric_limits<int64_t>::max();
-    std::map<std::string, std::unique_ptr<Value>> items;
-    items["foo"] = MakeUnique<Value>(k64BitMax);
+    std::map<std::string, Value> items;
+    items["foo"] = Value(k64BitMax);
     const Value value(std::move(items));
 
     const optional<emscripten::val> converted =
@@ -220,9 +220,9 @@ TEST(ValueEmscriptenValConversion, DictionaryValueError) {
 
   {
     constexpr int64_t k64BitMin = std::numeric_limits<int64_t>::min();
-    std::map<std::string, std::unique_ptr<Value>> items;
-    items["abc"] = MakeUnique<Value>();
-    items["def"] = MakeUnique<Value>(k64BitMin);
+    std::map<std::string, Value> items;
+    items["abc"] = Value();
+    items["def"] = Value(k64BitMin);
     const Value value(std::move(items));
 
     std::string error_message;
@@ -249,11 +249,11 @@ TEST(ValueEmscriptenValConversion, ArrayValue) {
 
   {
     // The test data is: [[null, 123]].
-    std::vector<std::unique_ptr<Value>> inner_items;
-    inner_items.push_back(MakeUnique<Value>());
-    inner_items.push_back(MakeUnique<Value>(123));
-    std::vector<std::unique_ptr<Value>> items;
-    items.push_back(MakeUnique<Value>(std::move(inner_items)));
+    std::vector<Value> inner_items;
+    inner_items.emplace_back();
+    inner_items.emplace_back(123);
+    std::vector<Value> items;
+    items.emplace_back(std::move(inner_items));
     const Value value(std::move(items));
 
     const optional<emscripten::val> converted =
@@ -275,8 +275,8 @@ TEST(ValueEmscriptenValConversion, ArrayValue) {
 TEST(ValueEmscriptenValConversion, ArrayValueError) {
   {
     constexpr int64_t k64BitMax = std::numeric_limits<int64_t>::max();
-    std::vector<std::unique_ptr<Value>> items;
-    items.push_back(MakeUnique<Value>(k64BitMax));
+    std::vector<Value> items;
+    items.emplace_back(k64BitMax);
     const Value value(std::move(items));
 
     const optional<emscripten::val> converted =
@@ -286,9 +286,9 @@ TEST(ValueEmscriptenValConversion, ArrayValueError) {
 
   {
     constexpr int64_t k64BitMin = std::numeric_limits<int64_t>::min();
-    std::vector<std::unique_ptr<Value>> items;
-    items.push_back(MakeUnique<Value>());
-    items.push_back(MakeUnique<Value>(k64BitMin));
+    std::vector<Value> items;
+    items.emplace_back();
+    items.emplace_back(k64BitMin);
     const Value value(std::move(items));
 
     std::string error_message;

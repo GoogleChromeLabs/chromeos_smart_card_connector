@@ -139,11 +139,11 @@ TEST(ValueNaclPpVarConversion, DictionaryValue) {
 
   {
     // The test data is: {"xyz": {"foo": null, "bar": 123}}.
-    std::map<std::string, std::unique_ptr<Value>> inner_items;
-    inner_items["foo"] = MakeUnique<Value>();
-    inner_items["bar"] = MakeUnique<Value>(123);
-    std::map<std::string, std::unique_ptr<Value>> items;
-    items["xyz"] = MakeUnique<Value>(std::move(inner_items));
+    std::map<std::string, Value> inner_items;
+    inner_items["foo"] = Value();
+    inner_items["bar"] = Value(123);
+    std::map<std::string, Value> items;
+    items["xyz"] = Value(std::move(inner_items));
     const Value value(std::move(items));
 
     const pp::Var var = ConvertValueToPpVar(value);
@@ -172,11 +172,11 @@ TEST(ValueNaclPpVarConversion, ArrayValue) {
 
   {
     // The test data is: [[null, 123]].
-    std::vector<std::unique_ptr<Value>> inner_items;
-    inner_items.push_back(MakeUnique<Value>());
-    inner_items.push_back(MakeUnique<Value>(123));
-    std::vector<std::unique_ptr<Value>> items;
-    items.push_back(MakeUnique<Value>(std::move(inner_items)));
+    std::vector<Value> inner_items;
+    inner_items.push_back(Value());
+    inner_items.push_back(Value(123));
+    std::vector<Value> items;
+    items.emplace_back(std::move(inner_items));
     const Value value(std::move(items));
 
     const pp::Var var = ConvertValueToPpVar(value);
