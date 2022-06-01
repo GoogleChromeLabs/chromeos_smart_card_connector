@@ -63,7 +63,7 @@ class ArrayValueBuilder final {
 
   bool encountered_error_ = false;
   std::string error_message_;
-  Value::ArrayStorage items_;
+  std::vector<Value> items_;
 };
 
 // Helper for simplifying code that creates a dictionary `Value`.
@@ -104,7 +104,7 @@ class DictValueBuilder final {
 
   bool encountered_error_ = false;
   std::string error_message_;
-  Value::DictionaryStorage items_;
+  std::map<std::string, Value> items_;
 };
 
 }  // namespace google_smart_card

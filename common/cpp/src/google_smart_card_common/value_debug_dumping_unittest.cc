@@ -160,9 +160,9 @@ TEST(ValueDebugDumpingTest, Array) {
   const Value kBlank(Value::Type::kArray);
 
   const int64_t kInteger = 123;
-  Value::ArrayStorage array_items;
-  array_items.push_back(MakeUnique<Value>());
-  array_items.push_back(MakeUnique<Value>(kInteger));
+  std::vector<Value> array_items;
+  array_items.emplace_back();
+  array_items.emplace_back(kInteger);
   const Value kArray(std::move(array_items));  // [null, 123]
 
   const std::string full_blank = DebugDumpValueFull(kBlank);

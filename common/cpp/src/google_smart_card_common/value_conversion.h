@@ -552,11 +552,10 @@ template <typename T>
 bool ConvertToValue(std::vector<T> objects,
                     Value* value,
                     std::string* error_message = nullptr) {
-  std::vector<std::unique_ptr<Value>> converted_items(objects.size());
+  std::vector<Value> converted_items(objects.size());
   std::string local_error_message;
   for (size_t i = 0; i < objects.size(); ++i) {
-    converted_items[i] = MakeUnique<Value>();
-    if (!ConvertToValue(std::move(objects[i]), converted_items[i].get(),
+    if (!ConvertToValue(std::move(objects[i]), &converted_items[i],
                         &local_error_message)) {
       FormatPrintfTemplateAndSet(
           error_message, internal::kErrorToArrayValueConversion,

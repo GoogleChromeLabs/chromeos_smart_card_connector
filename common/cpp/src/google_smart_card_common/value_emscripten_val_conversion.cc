@@ -155,7 +155,8 @@ Value CreateValueFromDataViewVal(const emscripten::val& val) {
 optional<Value> CreateValueFromArrayLikeVal(const emscripten::val& val,
                                             std::string* error_message) {
   const size_t size = val["length"].as<size_t>();
-  std::vector<std::unique_ptr<Value>> converted_items(size);
+  std::vector<Value> converted_items;
+  converted_items.reserve(size);
   std::string local_error_message;
   for (size_t index = 0; index < size; ++index) {
     optional<Value> converted_item =
@@ -166,7 +167,7 @@ optional<Value> CreateValueFromArrayLikeVal(const emscripten::val& val,
           static_cast<int>(index), local_error_message.c_str());
       return {};
     }
-    converted_items[index] = MakeUnique<Value>(std::move(*converted_item));
+    converted_items.push_back(std::move(*converted_item));
   }
   return Value(std::move(converted_items));
 }

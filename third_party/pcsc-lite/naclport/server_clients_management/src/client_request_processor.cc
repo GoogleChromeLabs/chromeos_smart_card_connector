@@ -51,21 +51,19 @@ namespace google_smart_card {
 
 namespace {
 
-void ConvertToValueVectorOrDie(
-    std::vector<std::unique_ptr<Value>>* value_vector) {}
+void ConvertToValueVectorOrDie(std::vector<Value>* value_vector) {}
 
 template <typename FirstArg, typename... Args>
-void ConvertToValueVectorOrDie(
-    std::vector<std::unique_ptr<Value>>* value_vector,
-    const FirstArg& first_arg,
-    const Args&... args) {
-  value_vector->push_back(MakeUnique<Value>(ConvertToValueOrDie(first_arg)));
+void ConvertToValueVectorOrDie(std::vector<Value>* value_vector,
+                               const FirstArg& first_arg,
+                               const Args&... args) {
+  value_vector->push_back(ConvertToValueOrDie(first_arg));
   ConvertToValueVectorOrDie(value_vector, args...);
 }
 
 template <typename... Args>
 GenericRequestResult ReturnValues(const Args&... args) {
-  std::vector<std::unique_ptr<Value>> converted_args;
+  std::vector<Value> converted_args;
   ConvertToValueVectorOrDie(&converted_args, args...);
   return GenericRequestResult::CreateSuccessful(
       Value(std::move(converted_args)));

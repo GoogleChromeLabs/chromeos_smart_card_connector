@@ -71,7 +71,9 @@ class Value final {
   explicit Value(std::string string_value);
   explicit Value(BinaryStorage binary_value);
   explicit Value(DictionaryStorage dictionary_value);
+  explicit Value(std::map<std::string, Value> dictionary_value);
   explicit Value(ArrayStorage array_value);
+  explicit Value(std::vector<Value> array_value);
   // Forbid construction from pointers other than `const char*`. Without this
   // deleted overload, the `bool`-argument version would be silently picked up.
   explicit Value(const void*) = delete;

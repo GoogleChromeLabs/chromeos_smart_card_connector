@@ -82,7 +82,8 @@ pp::VarArray CreateVarArray(const Value::ArrayStorage& array_storage) {
 optional<Value> CreateValueFromPpVarArray(const pp::VarArray& var,
                                           std::string* error_message) {
   std::string local_error_message;
-  Value::ArrayStorage array_storage;
+  std::vector<Value> converted_items;
+  converted_items.reserve(var.GetLength());
   for (uint32_t index = 0; index < var.GetLength(); ++index) {
     optional<Value> converted_item =
         ConvertPpVarToValue(var.Get(index), &local_error_message);
@@ -92,9 +93,9 @@ optional<Value> CreateValueFromPpVarArray(const pp::VarArray& var,
           static_cast<int>(index), local_error_message.c_str());
       return {};
     }
-    array_storage.push_back(MakeUnique<Value>(std::move(*converted_item)));
+    converted_items.push_back(std::move(*converted_item));
   }
-  return Value(std::move(array_storage));
+  return Value(std::move(converted_items));
 }
 
 optional<Value> CreateValueFromPpVarDictionary(const pp::VarDictionary& var,

@@ -1502,9 +1502,9 @@ TEST(ValueConversion, ValueToVector) {
 
   {
     const std::vector<int> kNumbers = {123, -1, 1024};
-    std::vector<std::unique_ptr<Value>> items;
+    std::vector<Value> items;
     for (int number : kNumbers)
-      items.push_back(MakeUnique<Value>(number));
+      items.emplace_back(number);
     Value value(std::move(items));
 
     std::vector<int> converted;
@@ -1514,9 +1514,9 @@ TEST(ValueConversion, ValueToVector) {
 
   {
     const std::vector<uint8_t> kBytes = {1, 2, 255};
-    std::vector<std::unique_ptr<Value>> items;
+    std::vector<Value> items;
     for (uint8_t byte : kBytes)
-      items.push_back(MakeUnique<Value>(byte));
+      items.emplace_back(byte);
     Value value(std::move(items));
 
     std::vector<uint8_t> converted;
@@ -1534,9 +1534,9 @@ TEST(ValueConversion, ValueToVector) {
   }
 
   {
-    std::vector<std::unique_ptr<Value>> items;
-    items.push_back(MakeUnique<Value>("second"));
-    items.push_back(MakeUnique<Value>("first"));
+    std::vector<Value> items;
+    items.emplace_back("second");
+    items.emplace_back("first");
     Value value(std::move(items));
 
     std::vector<SomeEnum> converted;
@@ -1546,10 +1546,9 @@ TEST(ValueConversion, ValueToVector) {
   }
 
   {
-    std::unique_ptr<Value> dict_value =
-        MakeUnique<Value>(Value::Type::kDictionary);
-    dict_value->SetDictionaryItem("intField", 123);
-    std::vector<std::unique_ptr<Value>> items;
+    Value dict_value(Value::Type::kDictionary);
+    dict_value.SetDictionaryItem("intField", 123);
+    std::vector<Value> items;
     items.push_back(std::move(dict_value));
     Value value(std::move(items));
 
@@ -1561,14 +1560,14 @@ TEST(ValueConversion, ValueToVector) {
   }
 
   {
-    std::vector<std::unique_ptr<Value>> nested_items0;
-    nested_items0.push_back(MakeUnique<Value>(1));
-    nested_items0.push_back(MakeUnique<Value>(2));
-    std::vector<std::unique_ptr<Value>> nested_items1;
-    nested_items1.push_back(MakeUnique<Value>(1LL << 40));
-    std::vector<std::unique_ptr<Value>> items;
-    items.push_back(MakeUnique<Value>(std::move(nested_items0)));
-    items.push_back(MakeUnique<Value>(std::move(nested_items1)));
+    std::vector<Value> nested_items0;
+    nested_items0.emplace_back(1);
+    nested_items0.emplace_back(2);
+    std::vector<Value> nested_items1;
+    nested_items1.emplace_back(1LL << 40);
+    std::vector<Value> items;
+    items.emplace_back(std::move(nested_items0));
+    items.emplace_back(std::move(nested_items1));
     Value value(std::move(items));
 
     std::vector<std::vector<int64_t>> converted;
@@ -1599,8 +1598,8 @@ TEST(ValueConversion, VectorFromValueError) {
   }
 
   {
-    std::vector<std::unique_ptr<Value>> items;
-    items.push_back(MakeUnique<Value>(256));
+    std::vector<Value> items;
+    items.emplace_back(256);
     Value value(std::move(items));
 
     std::string error_message;
@@ -1613,8 +1612,8 @@ TEST(ValueConversion, VectorFromValueError) {
   }
 
   {
-    std::vector<std::unique_ptr<Value>> items;
-    items.push_back(MakeUnique<Value>("foo"));
+    std::vector<Value> items;
+    items.emplace_back("foo");
     Value value(std::move(items));
 
     std::string error_message;
@@ -1633,9 +1632,9 @@ TEST(ValueConversion, VectorFromValueError) {
   }
 
   {
-    std::vector<std::unique_ptr<Value>> items;
-    items.push_back(MakeUnique<Value>("second"));
-    items.push_back(MakeUnique<Value>("nonExisting"));
+    std::vector<Value> items;
+    items.emplace_back("second");
+    items.emplace_back("nonExisting");
     Value value(std::move(items));
 
     std::string error_message;

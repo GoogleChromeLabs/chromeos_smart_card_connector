@@ -16,6 +16,7 @@
 
 #include <string>
 #include <utility>
+#include <vector>
 
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
@@ -30,6 +31,26 @@ const char* const Value::kStringTypeTitle = "string";
 const char* const Value::kBinaryTypeTitle = "binary";
 const char* const Value::kDictionaryTypeTitle = "dictionary";
 const char* const Value::kArrayTypeTitle = "array";
+
+namespace {
+
+Value::DictionaryStorage ConvertMapToUniquePtrMap(
+    std::map<std::string, Value> map) {
+  Value::DictionaryStorage dictionary_storage;
+  for (auto& item : map)
+    dictionary_storage[item.first] = MakeUnique<Value>(std::move(item.second));
+  return dictionary_storage;
+}
+
+Value::ArrayStorage ConvertValuesToUniquePtrs(std::vector<Value> values) {
+  Value::ArrayStorage array_storage;
+  array_storage.reserve(values.size());
+  for (auto& value : values)
+    array_storage.push_back(MakeUnique<Value>(std::move(value)));
+  return array_storage;
+}
+
+}  // namespace
 
 Value::Value() {
   // Note: Cannot use "= default", because the inner union's default constructor
@@ -89,8 +110,14 @@ Value::Value(DictionaryStorage dictionary_value)
     : type_(Type::kDictionary),
       dictionary_value_(std::move(dictionary_value)) {}
 
+Value::Value(std::map<std::string, Value> dictionary_value)
+    : Value(ConvertMapToUniquePtrMap(std::move(dictionary_value))) {}
+
 Value::Value(ArrayStorage array_value)
     : type_(Type::kArray), array_value_(std::move(array_value)) {}
+
+Value::Value(std::vector<Value> array_value)
+    : Value(ConvertValuesToUniquePtrs(std::move(array_value))) {}
 
 Value::Value(Value&& other) {
   MoveConstructFrom(std::move(other));
