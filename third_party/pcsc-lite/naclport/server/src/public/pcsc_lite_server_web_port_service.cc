@@ -137,7 +137,10 @@ void PcscLiteServerDaemonThreadMain() {
   // code. This follows the code in the "if (AraKiri)" block in the
   // `SVCServiceRunLoop()` function in pcsc-lite/src/src/pcscdaemon.c.
   HPStopHotPluggables();
-  SYS_Sleep(1);
+  // TODO: Upstream's approach with a magic sleep is flaky: the background
+  // thread might be still running after this point, causing crashes. Replace
+  // this with a proper waiting mechanism.
+  SYS_Sleep(5);
   RFCleanupReaders();
   EHDeinitializeEventStructures();
   ContextsDeinitialize();
