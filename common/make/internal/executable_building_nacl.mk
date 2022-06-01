@@ -65,10 +65,11 @@ DEFAULT_NACL_LIBS := \
 CXX_DIALECT := gnu++11
 
 
-#
 # Documented at ../binary_executable_building.mk.
 #
-
+# Implementation notes:
+# * We add a dependency on the "nacl_io_manifest.txt" file, which is needed if
+#   the executable module loads resource files at runtime (via nacl_io).
 define LINK_EXECUTABLE_RULE
 
 $(eval $(call NACL_MODULE_LINK_INTERNAL_RULE,$(1),$(2),$(3),$(4)))
@@ -78,6 +79,8 @@ $(eval $(call NACL_MODULE_COPY_BINARIES_INTERNAL_RULE))
 $(eval $(call NMF_RULE,$(TARGET),--pnacl-optlevel=0 --pnacl-debug-optlevel=0))
 
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(OUTDIR)/$(TARGET).nmf))
+
+all: $(OUT_DIR_PATH)/nacl_io_manifest.txt
 
 endef
 
@@ -148,10 +151,13 @@ endif
 # exposing resource files to the NaCl code through a virtual file system
 # ("httpfs", provided by nacl_io).
 #
-# Implementation note: The Python script's output is first redirected into a
-# temporary ".build" file, so that a failure in the script leaves the manifest
-# file not existing or not modified (so that next invocations of make don't skip
-# it).
+# Implementation note:
+# * The rule isn't triggered by default - it's only enabled when an executable
+#   binary is linked via LINK_RULE (in other cases, namely when we build a
+#   static library, creating the manifest would be pointless).
+# * The Python script's output is first redirected into a temporary ".build"
+#   file, so that a failure in the script leaves the manifest file not existing
+#   or not modified (so that next invocations of make don't skip it).
 $(OUT_DIR_PATH)/nacl_io_manifest.txt: generate_out
 	$(NACL_SDK_ROOT)/tools/genhttpfs.py \
 		--srcdir "$(OUT_DIR_PATH)" \
@@ -159,7 +165,6 @@ $(OUT_DIR_PATH)/nacl_io_manifest.txt: generate_out
 		> nacl_io_manifest.txt.build
 	@mv nacl_io_manifest.txt.build $(OUT_DIR_PATH)/nacl_io_manifest.txt
 $(eval $(call CLEAN_RULE,nacl_io_manifest.txt.build))
-all: $(OUT_DIR_PATH)/nacl_io_manifest.txt
 
 #
 # By default, NaCl SDK "clean" rules leave the root output directory named as
