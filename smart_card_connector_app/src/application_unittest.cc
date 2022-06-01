@@ -39,6 +39,7 @@
 #endif  // __native_client__
 
 using testing::ElementsAre;
+using testing::IsEmpty;
 
 namespace google_smart_card {
 
@@ -48,7 +49,8 @@ namespace {
 class ReaderNotificationObserver final {
  public:
   void Init(TestingGlobalContext& global_context) {
-    for (const auto* event_name : {"reader_init_add", "reader_finish_add"}) {
+    for (const auto* event_name :
+         {"reader_init_add", "reader_finish_add", "reader_remove"}) {
       global_context.RegisterMessageHandler(
           event_name,
           std::bind(&ReaderNotificationObserver::OnMessageToJs, this,
@@ -67,6 +69,21 @@ class ReaderNotificationObserver final {
     return next;
   }
 
+  std::string WaitAndPop() {
+    std::unique_lock<std::mutex> lock(mutex_);
+    condition_.wait(lock, [&] {
+      return !recorded_notifications_.empty();
+    });
+    std::string next = std::move(recorded_notifications_.front());
+    recorded_notifications_.pop();
+    return next;
+  }
+
+  bool Empty() const {
+    std::unique_lock<std::mutex> lock(mutex_);
+    return recorded_notifications_.empty();
+  }
+
  private:
   void OnMessageToJs(const std::string& event_name,
                      Value message_data,
@@ -77,11 +94,34 @@ class ReaderNotificationObserver final {
 
     std::unique_lock<std::mutex> lock(mutex_);
     recorded_notifications_.push(notification);
+    condition_.notify_one();
   }
 
-  std::mutex mutex_;
+  // Mutable to allow locking in const methods.
+  mutable std::mutex mutex_;
+  std::condition_variable condition_;
   std::queue<std::string> recorded_notifications_;
 };
+
+std::vector<std::string> DirectCallSCardListReaders(
+    SCARDCONTEXT scard_context) {
+  DWORD readers_size = 0;
+  LONG return_code = SCardListReaders(scard_context, /*mszGroups=*/nullptr,
+                                      /*mszReaders=*/nullptr, &readers_size);
+  if (return_code == SCARD_E_NO_READERS_AVAILABLE)
+    return {};
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+  EXPECT_GT(readers_size, 0U);
+
+  std::string readers_multistring;
+  readers_multistring.resize(readers_size);
+  EXPECT_EQ(SCardListReaders(scard_context, /*mszGroups=*/nullptr,
+                             &readers_multistring[0], &readers_size),
+            SCARD_S_SUCCESS);
+  EXPECT_EQ(readers_size, readers_multistring.size());
+
+  return ExtractMultiStringElements(readers_multistring);
+}
 
 }  // namespace
 
@@ -183,6 +223,82 @@ TEST_F(SmartCardConnectorApplicationTest, InternalApiSingleDeviceListing) {
             "reader_init_add:Gemalto PC Twin Reader");
   EXPECT_EQ(reader_notification_observer().Pop(),
             "reader_finish_add:Gemalto PC Twin Reader");
+  EXPECT_TRUE(reader_notification_observer().Empty());
+
+  // Act:
+
+  SCARDCONTEXT scard_context = 0;
+  EXPECT_EQ(SCardEstablishContext(SCARD_SCOPE_SYSTEM, /*pvReserved1=*/nullptr,
+                                  /*pvReserved2=*/nullptr, &scard_context),
+            SCARD_S_SUCCESS);
+  std::vector<std::string> readers = DirectCallSCardListReaders(scard_context);
+  EXPECT_EQ(SCardReleaseContext(scard_context), SCARD_S_SUCCESS);
+
+  // Assert:
+
+  EXPECT_THAT(readers, ElementsAre("Gemalto PC Twin Reader 00 00"));
+}
+
+TEST_F(SmartCardConnectorApplicationTest,
+       InternalApiGetStatusChangeDeviceAppearing) {
+  // Arrange:
+
+  // Start with an empty list of readers.
+  StartApplication();
+  EXPECT_TRUE(reader_notification_observer().Empty());
+
+  // Act:
+
+  SCARDCONTEXT scard_context = 0;
+  EXPECT_EQ(SCardEstablishContext(SCARD_SCOPE_SYSTEM, /*pvReserved1=*/nullptr,
+                                  /*pvReserved2=*/nullptr, &scard_context),
+            SCARD_S_SUCCESS);
+  EXPECT_TRUE(DirectCallSCardListReaders(scard_context).empty());
+
+  // Simulate connecting a reader.
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  SetUsbDevices({device});
+
+  // Wait until PC/SC reports a change in the list of readers.
+  std::vector<SCARD_READERSTATE> reader_states(1);
+  reader_states[0].szReader = R"(\\?PnP?\Notification)";
+  reader_states[0].dwCurrentState = SCARD_STATE_UNAWARE;
+  EXPECT_EQ(SCardGetStatusChange(scard_context, /*dwTimeout=*/INFINITE,
+                                 reader_states.data(), reader_states.size()),
+            SCARD_S_SUCCESS);
+
+  std::vector<std::string> readers = DirectCallSCardListReaders(scard_context);
+
+  EXPECT_EQ(SCardReleaseContext(scard_context), SCARD_S_SUCCESS);
+
+  // Assert:
+
+  EXPECT_THAT(readers, ElementsAre("Gemalto PC Twin Reader 00 00"));
+  EXPECT_EQ(reader_notification_observer().WaitAndPop(),
+            "reader_init_add:Gemalto PC Twin Reader");
+  EXPECT_EQ(reader_notification_observer().WaitAndPop(),
+            "reader_finish_add:Gemalto PC Twin Reader");
+  EXPECT_TRUE(reader_notification_observer().Empty());
+}
+
+TEST_F(SmartCardConnectorApplicationTest,
+       InternalApiGetStatusChangeDeviceRemoving) {
+  // Arrange:
+
+  // Start with a single reader.
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  SetUsbDevices({device});
+
+  StartApplication();
+  EXPECT_EQ(reader_notification_observer().Pop(),
+            "reader_init_add:Gemalto PC Twin Reader");
+  EXPECT_EQ(reader_notification_observer().Pop(),
+            "reader_finish_add:Gemalto PC Twin Reader");
+  EXPECT_TRUE(reader_notification_observer().Empty());
 
   // Act:
 
@@ -191,25 +307,30 @@ TEST_F(SmartCardConnectorApplicationTest, InternalApiSingleDeviceListing) {
                                   /*pvReserved2=*/nullptr, &scard_context),
             SCARD_S_SUCCESS);
 
-  DWORD readers_size = 0;
-  EXPECT_EQ(SCardListReaders(scard_context, /*mszGroups=*/nullptr,
-                             /*mszReaders=*/nullptr, &readers_size),
-            SCARD_S_SUCCESS);
-  EXPECT_GT(readers_size, 0U);
+  EXPECT_THAT(DirectCallSCardListReaders(scard_context),
+              ElementsAre("Gemalto PC Twin Reader 00 00"));
 
-  std::string readers_multistring;
-  readers_multistring.resize(readers_size);
-  EXPECT_EQ(SCardListReaders(scard_context, /*mszGroups=*/nullptr,
-                             &readers_multistring[0], &readers_size),
+  // Simulate disconnecting the reader.
+  SetUsbDevices({});
+
+  // Wait until PC/SC reports a change in the list of readers.
+  std::vector<SCARD_READERSTATE> reader_states(1);
+  reader_states[0].szReader = R"(\\?PnP?\Notification)";
+  reader_states[0].dwCurrentState = SCARD_STATE_UNAWARE;
+  EXPECT_EQ(SCardGetStatusChange(scard_context, /*dwTimeout=*/INFINITE,
+                                 reader_states.data(), reader_states.size()),
             SCARD_S_SUCCESS);
-  EXPECT_EQ(readers_size, readers_multistring.size());
+
+  std::vector<std::string> readers = DirectCallSCardListReaders(scard_context);
 
   EXPECT_EQ(SCardReleaseContext(scard_context), SCARD_S_SUCCESS);
 
   // Assert:
 
-  EXPECT_THAT(ExtractMultiStringElements(readers_multistring),
-              ElementsAre("Gemalto PC Twin Reader 00 00"));
+  EXPECT_THAT(readers, IsEmpty());
+  EXPECT_EQ(reader_notification_observer().WaitAndPop(),
+            "reader_remove:Gemalto PC Twin Reader");
+  EXPECT_TRUE(reader_notification_observer().Empty());
 }
 
 }  // namespace google_smart_card
