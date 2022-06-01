@@ -35,7 +35,7 @@ namespace google_smart_card {
 // Implements fake smart card reader USB devices.
 class TestingSmartCardSimulation final {
  public:
-  // Fake device to semulate.
+  // Fake device to simulate.
   enum class DeviceType { kGemaltoPcTwinReader };
 
   // Parameters of the simulated device.

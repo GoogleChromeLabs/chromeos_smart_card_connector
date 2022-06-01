@@ -412,6 +412,7 @@ void TestingSmartCardSimulation::OnCloseDeviceHandleCalled(
     DeviceState* device_state =
         FindDeviceStateByIdAndHandleLocked(device_id, device_handle);
     if (device_state) {
+      GOOGLE_SMART_CARD_CHECK(device_state->opened_device_handle);
       device_found = true;
       device_state->opened_device_handle = {};
     }
