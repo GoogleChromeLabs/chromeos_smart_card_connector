@@ -250,7 +250,7 @@ TEST(ValueEmscriptenValConversion, ArrayValue) {
   {
     // The test data is: [[null, 123]].
     std::vector<Value> inner_items;
-    inner_items.empalce_back();
+    inner_items.emplace_back();
     inner_items.emplace_back(123);
     std::vector<Value> items;
     items.emplace_back(std::move(inner_items));

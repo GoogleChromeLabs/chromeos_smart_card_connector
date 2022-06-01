@@ -143,7 +143,7 @@ TEST(ValueNaclPpVarConversion, DictionaryValue) {
     inner_items["foo"] = Value();
     inner_items["bar"] = Value(123);
     std::map<std::string, Value> items;
-    items["xyz"] = std::move(inner_items);
+    items["xyz"] = Value(std::move(inner_items));
     const Value value(std::move(items));
 
     const pp::Var var = ConvertValueToPpVar(value);
@@ -176,7 +176,7 @@ TEST(ValueNaclPpVarConversion, ArrayValue) {
     inner_items.push_back(Value());
     inner_items.push_back(Value(123));
     std::vector<Value> items;
-    items.push_back(std::move(inner_items));
+    items.emplace_back(std::move(inner_items));
     const Value value(std::move(items));
 
     const pp::Var var = ConvertValueToPpVar(value);
