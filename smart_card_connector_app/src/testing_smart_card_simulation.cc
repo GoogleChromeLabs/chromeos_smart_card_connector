@@ -29,7 +29,6 @@
 #include <google_smart_card_common/requesting/remote_call_message.h>
 #include <google_smart_card_common/requesting/request_id.h>
 #include <google_smart_card_common/requesting/requester_message.h>
-#include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_conversion.h>
 #include <google_smart_card_common/value_debug_dumping.h>
@@ -342,12 +341,12 @@ TestingSmartCardSimulation::FindDeviceStateByIdAndHandleLocked(
 }
 
 void TestingSmartCardSimulation::OnListDevicesCalled(RequestId request_id) {
-  std::vector<std::unique_ptr<Value>> libusb_js_devices;
+  std::vector<Value> libusb_js_devices;
   {
     std::unique_lock<std::mutex> lock(mutex_);
     for (const auto& device_state : device_states_) {
-      libusb_js_devices.push_back(MakeUnique<Value>(
-          ConvertToValueOrDie(MakeLibusbJsDevice(device_state.device))));
+      libusb_js_devices.push_back(
+          ConvertToValueOrDie(MakeLibusbJsDevice(device_state.device)));
     }
   }
 
