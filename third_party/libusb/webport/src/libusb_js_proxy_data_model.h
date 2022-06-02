@@ -55,12 +55,12 @@ struct LibusbJsDevice {
   optional<std::string> serial_number;
 };
 
-enum LibusbJsDirection {
+enum class LibusbJsDirection {
   kIn,
   kOut,
 };
 
-enum LibusbJsEndpointType {
+enum class LibusbJsEndpointType {
   kBulk,
   kControl,
   kInterrupt,
