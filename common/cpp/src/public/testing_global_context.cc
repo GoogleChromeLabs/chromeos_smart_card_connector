@@ -145,6 +145,16 @@ bool TestingGlobalContext::IsMainEventLoopThread() const {
 
 void TestingGlobalContext::ShutDown() {}
 
+void TestingGlobalContext::RegisterMessageHandler(
+    const std::string& message_type,
+    Callback callback_to_run) {
+  Expectation expectation;
+  expectation.awaited_message_type = message_type;
+  expectation.callback_to_run = callback_to_run;
+  expectation.once = false;
+  AddExpectation(std::move(expectation));
+}
+
 void TestingGlobalContext::RegisterRequestHandler(
     const std::string& requester_name,
     Callback callback_to_run) {

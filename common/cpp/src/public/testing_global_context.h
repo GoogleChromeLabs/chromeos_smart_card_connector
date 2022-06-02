@@ -87,6 +87,10 @@ class TestingGlobalContext final : public GlobalContext {
     creation_thread_is_event_loop_ = creation_thread_is_event_loop;
   }
 
+  // Set a callback to be called whenever a message with the given type is sent
+  // to JS.
+  void RegisterMessageHandler(const std::string& message_type,
+                              Callback callback_to_run);
   // Set a callback to be called whenever a request is sent to JS.
   void RegisterRequestHandler(const std::string& requester_name,
                               Callback callback_to_run);
