@@ -198,49 +198,49 @@ void TestingSmartCardSimulation::OnRequestToJs(Value request_payload,
   optional<GenericRequestResult> response;
   if (remote_call.function_name == "listDevices") {
     GOOGLE_SMART_CARD_CHECK(remote_call.arguments.empty());
-    response = core_.ListDevices();
+    response = handler_.ListDevices();
   } else if (remote_call.function_name == "getConfigurations") {
     GOOGLE_SMART_CARD_CHECK(remote_call.arguments.size() == 1);
-    response = core_.GetConfigurations(
+    response = handler_.GetConfigurations(
         /*device_id=*/remote_call.arguments[0].GetInteger());
   } else if (remote_call.function_name == "openDeviceHandle") {
     GOOGLE_SMART_CARD_CHECK(remote_call.arguments.size() == 1);
-    response = core_.OpenDeviceHandle(
+    response = handler_.OpenDeviceHandle(
         /*device_id=*/remote_call.arguments[0].GetInteger());
   } else if (remote_call.function_name == "closeDeviceHandle") {
     GOOGLE_SMART_CARD_CHECK(remote_call.arguments.size() == 2);
-    response = core_.CloseDeviceHandle(
+    response = handler_.CloseDeviceHandle(
         /*device_id=*/remote_call.arguments[0].GetInteger(),
         /*device_handle=*/remote_call.arguments[1].GetInteger());
   } else if (remote_call.function_name == "claimInterface") {
     GOOGLE_SMART_CARD_CHECK(remote_call.arguments.size() == 3);
-    response = core_.ClaimInterface(
+    response = handler_.ClaimInterface(
         /*device_id=*/remote_call.arguments[0].GetInteger(),
         /*device_handle=*/remote_call.arguments[1].GetInteger(),
         /*interface_number=*/remote_call.arguments[2].GetInteger());
   } else if (remote_call.function_name == "releaseInterface") {
     GOOGLE_SMART_CARD_CHECK(remote_call.arguments.size() == 3);
-    response = core_.ReleaseInterface(
+    response = handler_.ReleaseInterface(
         /*device_id=*/remote_call.arguments[0].GetInteger(),
         /*device_handle=*/remote_call.arguments[1].GetInteger(),
         /*interface_number=*/remote_call.arguments[2].GetInteger());
   } else if (remote_call.function_name == "controlTransfer") {
     GOOGLE_SMART_CARD_CHECK(remote_call.arguments.size() == 3);
-    response = core_.ControlTransfer(
+    response = handler_.ControlTransfer(
         /*device_id=*/remote_call.arguments[0].GetInteger(),
         /*device_handle=*/remote_call.arguments[1].GetInteger(),
         ConvertFromValueOrDie<LibusbJsControlTransferParameters>(
             std::move(remote_call.arguments[2])));
   } else if (remote_call.function_name == "bulkTransfer") {
     GOOGLE_SMART_CARD_CHECK(remote_call.arguments.size() == 3);
-    response = core_.BulkTransfer(
+    response = handler_.BulkTransfer(
         /*device_id=*/remote_call.arguments[0].GetInteger(),
         /*device_handle=*/remote_call.arguments[1].GetInteger(),
         ConvertFromValueOrDie<LibusbJsGenericTransferParameters>(
             std::move(remote_call.arguments[2])));
   } else if (remote_call.function_name == "interruptTransfer") {
     GOOGLE_SMART_CARD_CHECK(remote_call.arguments.size() == 3);
-    response = core_.InterruptTransfer(
+    response = handler_.InterruptTransfer(
         /*device_id=*/remote_call.arguments[0].GetInteger(),
         /*device_handle=*/remote_call.arguments[1].GetInteger(),
         ConvertFromValueOrDie<LibusbJsGenericTransferParameters>(
@@ -249,21 +249,21 @@ void TestingSmartCardSimulation::OnRequestToJs(Value request_payload,
     GOOGLE_SMART_CARD_LOG_FATAL << "Unexpected request: " << payload_debug_dump;
   }
 
-  // Send a fake response if the method returned any.
+  // Send a fake response if the handler returned any.
   if (response)
     PostFakeJsResponse(*request_id, std::move(*response));
 }
 
 void TestingSmartCardSimulation::SetDevices(
     const std::vector<Device>& devices) {
-  core_.SetDevices(devices);
+  handler_.SetDevices(devices);
 }
 
-TestingSmartCardSimulation::Core::Core() = default;
+TestingSmartCardSimulation::ThreadSafeHandler::ThreadSafeHandler() = default;
 
-TestingSmartCardSimulation::Core::~Core() = default;
+TestingSmartCardSimulation::ThreadSafeHandler::~ThreadSafeHandler() = default;
 
-void TestingSmartCardSimulation::Core::SetDevices(
+void TestingSmartCardSimulation::ThreadSafeHandler::SetDevices(
     const std::vector<Device>& devices) {
   std::unique_lock<std::mutex> lock(mutex_);
 
@@ -283,7 +283,8 @@ void TestingSmartCardSimulation::Core::SetDevices(
   }
 }
 
-GenericRequestResult TestingSmartCardSimulation::Core::ListDevices() {
+GenericRequestResult
+TestingSmartCardSimulation::ThreadSafeHandler::ListDevices() {
   std::unique_lock<std::mutex> lock(mutex_);
 
   std::vector<LibusbJsDevice> js_devices;
@@ -293,7 +294,8 @@ GenericRequestResult TestingSmartCardSimulation::Core::ListDevices() {
       ConvertToValueOrDie(std::move(js_devices)));
 }
 
-GenericRequestResult TestingSmartCardSimulation::Core::GetConfigurations(
+GenericRequestResult
+TestingSmartCardSimulation::ThreadSafeHandler::GetConfigurations(
     int64_t device_id) {
   std::unique_lock<std::mutex> lock(mutex_);
 
@@ -304,7 +306,8 @@ GenericRequestResult TestingSmartCardSimulation::Core::GetConfigurations(
       MakeLibusbJsConfigurationDescriptors(device_state->device.type)));
 }
 
-GenericRequestResult TestingSmartCardSimulation::Core::OpenDeviceHandle(
+GenericRequestResult
+TestingSmartCardSimulation::ThreadSafeHandler::OpenDeviceHandle(
     int64_t device_id) {
   std::unique_lock<std::mutex> lock(mutex_);
 
@@ -319,7 +322,8 @@ GenericRequestResult TestingSmartCardSimulation::Core::OpenDeviceHandle(
       Value(*device_state->opened_device_handle));
 }
 
-GenericRequestResult TestingSmartCardSimulation::Core::CloseDeviceHandle(
+GenericRequestResult
+TestingSmartCardSimulation::ThreadSafeHandler::CloseDeviceHandle(
     int64_t device_id,
     int64_t device_handle) {
   std::unique_lock<std::mutex> lock(mutex_);
@@ -333,7 +337,8 @@ GenericRequestResult TestingSmartCardSimulation::Core::CloseDeviceHandle(
   return GenericRequestResult::CreateSuccessful(Value());
 }
 
-GenericRequestResult TestingSmartCardSimulation::Core::ClaimInterface(
+GenericRequestResult
+TestingSmartCardSimulation::ThreadSafeHandler::ClaimInterface(
     int64_t device_id,
     int64_t device_handle,
     int64_t interface_number) {
@@ -351,7 +356,8 @@ GenericRequestResult TestingSmartCardSimulation::Core::ClaimInterface(
   return GenericRequestResult::CreateSuccessful(Value());
 }
 
-GenericRequestResult TestingSmartCardSimulation::Core::ReleaseInterface(
+GenericRequestResult
+TestingSmartCardSimulation::ThreadSafeHandler::ReleaseInterface(
     int64_t device_id,
     int64_t device_handle,
     int64_t interface_number) {
@@ -367,7 +373,8 @@ GenericRequestResult TestingSmartCardSimulation::Core::ReleaseInterface(
   return GenericRequestResult::CreateSuccessful(Value());
 }
 
-GenericRequestResult TestingSmartCardSimulation::Core::ControlTransfer(
+GenericRequestResult
+TestingSmartCardSimulation::ThreadSafeHandler::ControlTransfer(
     int64_t device_id,
     int64_t device_handle,
     LibusbJsControlTransferParameters params) {
@@ -397,7 +404,8 @@ GenericRequestResult TestingSmartCardSimulation::Core::ControlTransfer(
   return GenericRequestResult::CreateFailed("Unknown control command");
 }
 
-GenericRequestResult TestingSmartCardSimulation::Core::BulkTransfer(
+GenericRequestResult
+TestingSmartCardSimulation::ThreadSafeHandler::BulkTransfer(
     int64_t device_id,
     int64_t device_handle,
     LibusbJsGenericTransferParameters params) {
@@ -415,7 +423,7 @@ GenericRequestResult TestingSmartCardSimulation::Core::BulkTransfer(
 }
 
 optional<GenericRequestResult>
-TestingSmartCardSimulation::Core::InterruptTransfer(
+TestingSmartCardSimulation::ThreadSafeHandler::InterruptTransfer(
     int64_t device_id,
     int64_t device_handle,
     LibusbJsGenericTransferParameters params) {
@@ -433,7 +441,8 @@ TestingSmartCardSimulation::Core::InterruptTransfer(
   return {};
 }
 
-GenericRequestResult TestingSmartCardSimulation::Core::HandleOutputBulkTransfer(
+GenericRequestResult
+TestingSmartCardSimulation::ThreadSafeHandler::HandleOutputBulkTransfer(
     const std::vector<uint8_t>& data_to_send,
     DeviceState& device_state) {
   // Extract the command's sequence number ("bSeq").
@@ -468,7 +477,8 @@ GenericRequestResult TestingSmartCardSimulation::Core::HandleOutputBulkTransfer(
   return GenericRequestResult::CreateFailed("Unexpected output bulk transfer");
 }
 
-GenericRequestResult TestingSmartCardSimulation::Core::HandleInputBulkTransfer(
+GenericRequestResult
+TestingSmartCardSimulation::ThreadSafeHandler::HandleInputBulkTransfer(
     int64_t length_to_receive,
     DeviceState& device_state) {
   if (device_state.next_bulk_transfer_reply.empty()) {
@@ -485,7 +495,8 @@ GenericRequestResult TestingSmartCardSimulation::Core::HandleInputBulkTransfer(
 }
 
 TestingSmartCardSimulation::DeviceState*
-TestingSmartCardSimulation::Core::FindDeviceStateById(int64_t device_id) {
+TestingSmartCardSimulation::ThreadSafeHandler::FindDeviceStateById(
+    int64_t device_id) {
   for (auto& device_state : device_states_) {
     if (device_state.device.id == device_id)
       return &device_state;
@@ -494,7 +505,7 @@ TestingSmartCardSimulation::Core::FindDeviceStateById(int64_t device_id) {
 }
 
 TestingSmartCardSimulation::DeviceState*
-TestingSmartCardSimulation::Core::FindDeviceStateByIdAndHandle(
+TestingSmartCardSimulation::ThreadSafeHandler::FindDeviceStateByIdAndHandle(
     int64_t device_id,
     int64_t device_handle) {
   DeviceState* device_state = FindDeviceStateById(device_id);

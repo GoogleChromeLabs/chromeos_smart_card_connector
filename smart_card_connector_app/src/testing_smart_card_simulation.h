@@ -73,14 +73,14 @@ class TestingSmartCardSimulation final {
   };
 
   // Helper class that provides thread-safe operations with reader states.
-  class Core final {
+  class ThreadSafeHandler final {
    public:
     using DeviceState = TestingSmartCardSimulation::DeviceState;
 
-    Core();
-    Core(const Core&) = delete;
-    Core& operator=(const Core&) = delete;
-    ~Core();
+    ThreadSafeHandler();
+    ThreadSafeHandler(const ThreadSafeHandler&) = delete;
+    ThreadSafeHandler& operator=(const ThreadSafeHandler&) = delete;
+    ~ThreadSafeHandler();
 
     void SetDevices(const std::vector<Device>& devices);
 
@@ -127,7 +127,7 @@ class TestingSmartCardSimulation final {
   void PostFakeJsResponse(RequestId request_id, GenericRequestResult result);
 
   TypedMessageRouter* const typed_message_router_;
-  Core core_;
+  ThreadSafeHandler handler_;
 };
 
 }  // namespace google_smart_card
