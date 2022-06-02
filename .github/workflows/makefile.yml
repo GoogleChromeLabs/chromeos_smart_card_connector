@@ -91,11 +91,14 @@ jobs:
 
     # When building for coverage, explicitly tell Clang to use the right include
     # path, because Clang's heuristics often fail to deduce it automatically.
+    #
+    # Set pipefail, so that failures in the coverage runs aren't swallowed.
     - name: Build coverage report
       id: build-coverage
       env:
         CPLUS_INCLUDE_PATH: /usr/i686-linux-gnu/include/c++/${{ env.COVERAGE_LIBSTDCPP_VERSION }}/i686-linux-gnu/
       run: >
+        set -o pipefail &&
         (./coverage-report.sh | tee coverage-output.txt) &&
         echo "::set-output name=LINE_COVERAGE_PERCENT::$(
           scripts/parse-coverage-output.py < coverage-output.txt
