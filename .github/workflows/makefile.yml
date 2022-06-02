@@ -16,6 +16,7 @@ jobs:
     strategy:
       matrix:
         build-config: [Release, Debug]
+      fail-fast: false
 
     steps:
     - name: Check out sources
@@ -51,6 +52,7 @@ jobs:
     strategy:
       matrix:
         build-config: [Release, Debug]
+      fail-fast: false
 
     steps:
     - name: Check out sources
