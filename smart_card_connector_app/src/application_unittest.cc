@@ -69,6 +69,7 @@ class ReaderNotificationObserver final {
     return next;
   }
 
+  // Same as `Pop()`, but waits if there's no notification to return.
   std::string WaitAndPop() {
     std::unique_lock<std::mutex> lock(mutex_);
     condition_.wait(lock, [&] {
@@ -79,6 +80,7 @@ class ReaderNotificationObserver final {
     return next;
   }
 
+  // Returns whether there's a notification to return.
   bool Empty() const {
     std::unique_lock<std::mutex> lock(mutex_);
     return recorded_notifications_.empty();
@@ -219,6 +221,8 @@ TEST_F(SmartCardConnectorApplicationTest, InternalApiSingleDeviceListing) {
   SetUsbDevices({device});
 
   StartApplication();
+  // No need to wait here, since the notifications for the initially present
+  // devices are sent during the startup.
   EXPECT_EQ(reader_notification_observer().Pop(),
             "reader_init_add:Gemalto PC Twin Reader");
   EXPECT_EQ(reader_notification_observer().Pop(),
@@ -294,6 +298,8 @@ TEST_F(SmartCardConnectorApplicationTest,
   SetUsbDevices({device});
 
   StartApplication();
+  // No need to wait here, since the notifications for the initially present
+  // devices are sent during the startup.
   EXPECT_EQ(reader_notification_observer().Pop(),
             "reader_init_add:Gemalto PC Twin Reader");
   EXPECT_EQ(reader_notification_observer().Pop(),
