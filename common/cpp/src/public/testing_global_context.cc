@@ -40,16 +40,27 @@ namespace google_smart_card {
 
 namespace {
 
-// Parses out the requester name from "<requester>::request", or returns a null
-// optional if the format doesn't match.
-optional<std::string> GetRequesterName(const std::string& message_type) {
-  const std::string suffix = kRequestMessageTypeSuffix;
-  if (message_type.length() <= suffix.length() ||
-      message_type.substr(message_type.length() - suffix.length()) != suffix) {
-    // Not a requester message.
+optional<std::string> StripSuffix(const std::string& string,
+                                  const std::string& suffix) {
+  if (string.length() <= suffix.length() ||
+      string.substr(string.length() - suffix.length()) != suffix) {
     return {};
   }
-  return message_type.substr(0, message_type.length() - suffix.length());
+  return string.substr(0, string.length() - suffix.length());
+}
+
+// Parses out the requester name from "<requester>::request" or
+// "<requester>::response", or returns a null optional if the format doesn't
+// match.
+optional<std::string> GetRequesterName(const std::string& message_type) {
+  auto stripped = StripSuffix(message_type, kRequestMessageTypeSuffix);
+  if (stripped)
+    return *stripped;
+  stripped = StripSuffix(message_type, kResponseMessageTypeSuffix);
+  if (stripped)
+    return *stripped;
+  // Not a request/response message.
+  return {};
 }
 
 // `payload_to_reply_with` is passed via shared_ptr in order to workaround
@@ -193,6 +204,21 @@ TestingGlobalContext::CreateRequestWaiter(const std::string& requester_name,
   return waiter;
 }
 
+std::unique_ptr<TestingGlobalContext::Waiter>
+TestingGlobalContext::CreateResponseWaiter(const std::string& requester_name,
+                                           RequestId request_id) {
+  // `MakeUnique` wouldn't work due to the constructor being private.
+  std::unique_ptr<Waiter> waiter(new Waiter);
+  Expectation expectation;
+  expectation.awaited_message_type = GetResponseMessageType(requester_name);
+  expectation.awaited_request_id = request_id;
+  expectation.callback_to_run =
+      std::bind(&Waiter::Resolve, waiter.get(), /*value=*/std::placeholders::_1,
+                /*request_id=*/std::placeholders::_2);
+  AddExpectation(std::move(expectation));
+  return waiter;
+}
+
 void TestingGlobalContext::WillReplyToRequestWith(
     const std::string& requester_name,
     const std::string& function_name,
@@ -261,6 +287,7 @@ void TestingGlobalContext::AddExpectation(Expectation expectation) {
 
 optional<TestingGlobalContext::Callback>
 TestingGlobalContext::FindMatchingExpectation(const std::string& message_type,
+                                              optional<RequestId> request_id,
                                               const Value* request_payload) {
   std::unique_lock<std::mutex> lock(mutex_);
 
@@ -268,6 +295,15 @@ TestingGlobalContext::FindMatchingExpectation(const std::string& message_type,
     const Expectation& expectation = *iter;
     if (message_type != expectation.awaited_message_type) {
       // Skip - different type.
+      continue;
+    }
+    if (expectation.awaited_request_id && !request_id) {
+      // Skip - expected a message with a request ID, but none got.
+      continue;
+    }
+    if (expectation.awaited_request_id &&
+        *expectation.awaited_request_id != *request_id) {
+      // Skip - different request ID.
       continue;
     }
     if (expectation.awaited_request_payload && !request_payload) {
@@ -296,12 +332,12 @@ bool TestingGlobalContext::HandleMessageToJs(Value message) {
 
   optional<std::string> requester_name = GetRequesterName(typed_message.type);
   if (requester_name) {
-    // It's a request message - parse its payload and use it to find the
-    // expectation.
+    // It's a request/response message - parse its payload and use it to find
+    // the expectation.
     RequestMessageData request_data = ConvertFromValueOrDie<RequestMessageData>(
         std::move(typed_message.data));
-    optional<Callback> callback_to_run =
-        FindMatchingExpectation(typed_message.type, &request_data.payload);
+    optional<Callback> callback_to_run = FindMatchingExpectation(
+        typed_message.type, request_data.request_id, &request_data.payload);
     if (!callback_to_run)
       return false;
     (*callback_to_run)(std::move(request_data.payload),
@@ -310,8 +346,8 @@ bool TestingGlobalContext::HandleMessageToJs(Value message) {
   }
 
   // It's a regular message - find the expectation using just the type.
-  optional<Callback> callback_to_run =
-      FindMatchingExpectation(typed_message.type, /*request_payload=*/nullptr);
+  optional<Callback> callback_to_run = FindMatchingExpectation(
+      typed_message.type, /*request_id=*/{}, /*request_payload=*/nullptr);
   if (!callback_to_run)
     return false;
   (*callback_to_run)(std::move(typed_message.data),
