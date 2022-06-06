@@ -37,9 +37,9 @@ namespace google_smart_card {
 // the messages sent to the JavaScript side and to simulate responses from it.
 class TestingGlobalContext final : public GlobalContext {
  public:
-  // Callback to be run when an expected message is sent to JS. For request
-  // messages, the parameters are `RequestMessageData::payload` and
-  // `RequestMessageData::request_id`. For other messages, only
+  // Callback to be run when an expected message is sent to JS. For
+  // request/response messages, the parameters are `RequestMessageData::payload`
+  // and `RequestMessageData::request_id`. For other messages, only
   // `TypedMessage::data` is passed.
   using Callback = std::function<void(Value, optional<RequestId>)>;
 
@@ -103,6 +103,11 @@ class TestingGlobalContext final : public GlobalContext {
   std::unique_ptr<Waiter> CreateRequestWaiter(const std::string& requester_name,
                                               const std::string& function_name,
                                               Value arguments);
+  // Returns a waiter for when a response message is sent to JS for the given
+  // request.
+  std::unique_ptr<Waiter> CreateResponseWaiter(
+      const std::string& requester_name,
+      RequestId request_id);
 
   // Sets an expectation that a request will be sent to JS for executing the
   // given function with specified arguments. After this happens, the given
@@ -123,6 +128,9 @@ class TestingGlobalContext final : public GlobalContext {
     // * The expectation only matches messages with the given
     //   `TypedMessage::type` value.
     std::string awaited_message_type;
+    // * If set, the expectation only matches request/response messages with the
+    //   given ID.
+    optional<RequestId> awaited_request_id;
     // * If set, the expectation only matches request messages with the given
     //   `RequestMessageData::payload` value.
     optional<Value> awaited_request_payload;
@@ -141,6 +149,7 @@ class TestingGlobalContext final : public GlobalContext {
       std::function<void(Value, optional<RequestId>)> callback_to_run);
   void AddExpectation(Expectation expectation);
   optional<Callback> FindMatchingExpectation(const std::string& message_type,
+                                             optional<RequestId> request_id,
                                              const Value* request_payload);
   bool HandleMessageToJs(Value message);
 

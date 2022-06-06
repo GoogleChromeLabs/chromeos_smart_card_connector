@@ -23,24 +23,22 @@ UNIT_TEST_EXECUTABLE_DIRS="
   common/cpp/build/tests
   smart_card_connector_app/build/executable_module/cpp_unittests
   third_party/libusb/webport/build/tests"
-IGNORE_FILENAME_REGEX="
-  third_party/googletest"
+IGNORE_FILENAME_REGEX="third_party/googletest"
 
 log_message() {
   local message=${1}
 
-  # Create a colored stderr log ("\033[33;32m" switches to the green color, and
+  # Create a colored log ("\033[33;32m" switches to the green color, and
   # "\033[0m" switches back).
-  echo -e "\033[33;32m******* ${message} *******\033[0m" >&2
+  echo -e "\033[33;32m******* ${message} *******\033[0m"
 }
 
-# Build all code and run tests. Make sure the output is redirected to stderr, so
-# that stdout stays non-littered.
+# Build all code and run tests.
 for config in ${CONFIGS}; do
   log_message "Building in mode \"${config}\"..."
-  TOOLCHAIN=coverage CONFIG=${config} make -j30 >&2
+  TOOLCHAIN=coverage CONFIG=${config} make -j30
   log_message "Running tests in mode \"${config}\"..."
-  TOOLCHAIN=coverage CONFIG=${config} make -j30 test >&2
+  TOOLCHAIN=coverage CONFIG=${config} make -j30 test
 done
 
 log_message "Merging coverage profiles..."
@@ -69,11 +67,20 @@ for dir in ${UNIT_TEST_EXECUTABLE_DIRS}; do
   done
 done
 # Insert "-object" before each path, except for the first one (that's the
-# weirdness of llvm-cov's CLI).
-llvm_cov_args=$(echo "${executables}" | tr ' ' ' -object ')
-# Print the coverage report table to stdout, so that the report can be parsed by
-# the next steps of the pipeline. (Everything above was logged to stderr.)
+# weirdness of llvm-cov's CLI). Trim the leading whitespace via one sed
+# invocation and replace inner spaces with the flag using the second one.
+llvm_cov_args=$(echo "${executables}" | sed 's/^ //g' | sed 's/ / -object /g')
+# Create detailed coverage HTML page with per-line information.
+llvm-cov show \
+  -format=html \
+  ${llvm_cov_args} \
+  -instr-profile=env/coverage-artifacts/all.profdata \
+  -ignore-filename-regex=${IGNORE_FILENAME_REGEX} \
+  -output-dir=coverage-report-detailed/
+# Create coverage summary with per-file information and overall coverage in text
+# format.
 llvm-cov report \
   ${llvm_cov_args} \
   -instr-profile=env/coverage-artifacts/all.profdata \
-  -ignore-filename-regex=${IGNORE_FILENAME_REGEX}
+  -ignore-filename-regex=${IGNORE_FILENAME_REGEX} \
+  > coverage-report-summary.txt
