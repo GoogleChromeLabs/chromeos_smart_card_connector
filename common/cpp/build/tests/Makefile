@@ -28,6 +28,7 @@ SOURCES := \
 	$(SOURCES_PATH)/ipc_emulation_unittest.cc \
 	$(SOURCES_PATH)/logging/hex_dumping_unittest.cc \
 	$(SOURCES_PATH)/messaging/typed_message_router_unittest.cc \
+	$(SOURCES_PATH)/multi_string_unittest.cc \
 	$(SOURCES_PATH)/numeric_conversions_unittest.cc \
 	$(SOURCES_PATH)/requesting/async_request_unittest.cc \
 	$(SOURCES_PATH)/requesting/async_requests_storage_unittest.cc \
