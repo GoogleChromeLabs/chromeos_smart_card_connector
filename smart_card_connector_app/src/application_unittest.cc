@@ -14,6 +14,7 @@
 
 #include "smart_card_connector_app/src/application.h"
 
+#include <condition_variable>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -26,12 +27,19 @@
 #include <gtest/gtest.h>
 #include <winscard.h>
 
+#include <google_smart_card_common/formatting.h>
+#include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/multi_string.h>
+#include <google_smart_card_common/optional.h>
+#include <google_smart_card_common/requesting/remote_call_message.h>
+#include <google_smart_card_common/requesting/requester_message.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
+#include <google_smart_card_common/value_conversion.h>
 
 #include "common/cpp/src/public/testing_global_context.h"
+#include "common/cpp/src/public/value_builder.h"
 #include "smart_card_connector_app/src/testing_smart_card_simulation.h"
 
 #ifdef __native_client__
@@ -72,9 +80,7 @@ class ReaderNotificationObserver final {
   // Same as `Pop()`, but waits if there's no notification to return.
   std::string WaitAndPop() {
     std::unique_lock<std::mutex> lock(mutex_);
-    condition_.wait(lock, [&] {
-      return !recorded_notifications_.empty();
-    });
+    condition_.wait(lock, [&] { return !recorded_notifications_.empty(); });
     std::string next = std::move(recorded_notifications_.front());
     recorded_notifications_.pop();
     return next;
@@ -104,6 +110,15 @@ class ReaderNotificationObserver final {
   std::condition_variable condition_;
   std::queue<std::string> recorded_notifications_;
 };
+
+std::string GetJsClientRequesterName(int handler_id) {
+  // The template should match the one in
+  // third_party/pcsc-lite/naclport/server_clients_management/src/clients_manager.cc.
+  // We hardcode it here too, so that the test enforces the API contract between
+  // C++ and JS isn't violated.
+  return FormatPrintfTemplate("pcsc_lite_client_handler_%d_call_function",
+                              handler_id);
+}
 
 std::vector<std::string> DirectCallSCardListReaders(
     SCARDCONTEXT scard_context) {
@@ -165,11 +180,118 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
     smart_card_simulation_.SetDevices(devices);
   }
 
+  void SimulateFakeJsMessage(const std::string& message_type,
+                             Value message_data) {
+    TypedMessage typed_message;
+    typed_message.type = message_type;
+    typed_message.data = std::move(message_data);
+    std::string error_message;
+    if (!typed_message_router_.OnMessageReceived(
+            ConvertToValueOrDie(std::move(typed_message)), &error_message)) {
+      ADD_FAILURE() << "Failed handling fake JS message: " << error_message;
+    }
+  }
+
   ReaderNotificationObserver& reader_notification_observer() {
     return reader_notification_observer_;
   }
 
- private:
+  // Sends a simulated JS-to-C++ notification of a PC/SC client being added (in
+  // the real world it's usually another Chrome Extension that wants to access
+  // smart cards).
+  void SimulateJsClientAdded(int handler_id,
+                             const std::string& client_name_for_log) {
+    SimulateFakeJsMessage("pcsc_lite_create_client_handler",
+                          DictValueBuilder()
+                              .Add("handler_id", handler_id)
+                              .Add("client_name_for_log", client_name_for_log)
+                              .Get());
+  }
+
+  // Sends a simulated JS-to-C++ notification of a PC/SC client being removed.
+  void SimulateJsClientRemoved(int handler_id) {
+    SimulateFakeJsMessage(
+        "pcsc_lite_delete_client_handler",
+        DictValueBuilder().Add("handler_id", handler_id).Get());
+  }
+
+  // Sends a simulated JS-to-C++ request to call a PC/SC function.
+  void SimulateCallFromJs(const std::string& requester_name,
+                          RequestId request_id,
+                          const std::string& function_name,
+                          Value arguments) {
+    RemoteCallRequestPayload remote_call_payload;
+    remote_call_payload.function_name = function_name;
+    // Convert an array `Value` to `vector<Value>`. Ideally the conversion
+    // wouldn't be needed, but in tests it's more convenient pass a single
+    // `Value` (e.g., constructed via `ArrayValueBuilder`).
+    remote_call_payload.arguments =
+        ConvertFromValueOrDie<std::vector<Value>>(std::move(arguments));
+
+    RequestMessageData request_data;
+    request_data.request_id = request_id;
+    request_data.payload = ConvertToValueOrDie(std::move(remote_call_payload));
+
+    SimulateFakeJsMessage(GetRequestMessageType(requester_name),
+                          ConvertToValueOrDie(std::move(request_data)));
+  }
+
+  LONG SimulateEstablishContextJsCall(int handler_id,
+                                      RequestId request_id,
+                                      DWORD scope,
+                                      Value reserved1,
+                                      Value reserved2,
+                                      SCARDCONTEXT& out_scard_context) {
+    const std::string requester_name = GetJsClientRequesterName(handler_id);
+    auto waiter =
+        global_context_.CreateResponseWaiter(requester_name, request_id);
+    SimulateCallFromJs(requester_name, request_id,
+                       /*function_name=*/"SCardEstablishContext",
+                       ArrayValueBuilder()
+                           .Add(scope)
+                           .Add(std::move(reserved1))
+                           .Add(std::move(reserved2))
+                           .Get());
+    waiter->Wait();
+    Value reply = std::move(*waiter).take_value();
+
+    GOOGLE_SMART_CARD_CHECK(reply.is_array());
+    const auto& reply_array = reply.GetArray();
+    GOOGLE_SMART_CARD_CHECK(!reply_array.empty());
+
+    GOOGLE_SMART_CARD_CHECK(reply_array[0]->is_integer());
+    LONG return_code = reply_array[0]->GetInteger();
+    if (return_code != SCARD_S_SUCCESS) {
+      GOOGLE_SMART_CARD_CHECK(reply_array.size() == 1);
+      return return_code;
+    }
+    GOOGLE_SMART_CARD_CHECK(reply_array.size() == 2);
+
+    out_scard_context = reply_array[1]->GetInteger();
+    return SCARD_S_SUCCESS;
+  }
+
+  LONG SimulateReleaseContextJsCall(int handler_id,
+                                    RequestId request_id,
+                                    SCARDCONTEXT scard_context) {
+    const std::string requester_name = GetJsClientRequesterName(handler_id);
+    auto waiter =
+        global_context_.CreateResponseWaiter(requester_name, request_id);
+    SimulateCallFromJs(requester_name, request_id,
+                       /*function_name=*/"SCardReleaseContext",
+                       ArrayValueBuilder().Add(scard_context).Get());
+    waiter->Wait();
+    Value reply = std::move(*waiter).take_value();
+
+    GOOGLE_SMART_CARD_CHECK(reply.is_array());
+    GOOGLE_SMART_CARD_CHECK(reply.GetArray().size() == 1);
+
+    GOOGLE_SMART_CARD_CHECK(reply.GetArray()[0]->is_integer());
+    LONG return_code = reply.GetArray()[0]->GetInteger();
+    return return_code;
+  }
+
+ protected:
   void SetUpUsbSimulation() {
     global_context_.RegisterRequestHandler(
         TestingSmartCardSimulation::kRequesterName,
@@ -337,6 +459,36 @@ TEST_F(SmartCardConnectorApplicationTest,
   EXPECT_EQ(reader_notification_observer().WaitAndPop(),
             "reader_remove:Gemalto PC Twin Reader");
   EXPECT_TRUE(reader_notification_observer().Empty());
+}
+
+// Test `SCardEstablishContext()` and `SCardReleaseContext()` can be called from
+// JS.
+TEST_F(SmartCardConnectorApplicationTest, SCardEstablishContext) {
+  constexpr int kFakeHandlerId = 1234;
+
+  // Arrange:
+
+  StartApplication();
+
+  // Act:
+
+  SimulateJsClientAdded(
+      kFakeHandlerId,
+      /*client_name_for_log=*/"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+
+  SCARDCONTEXT scard_context = 0;
+  EXPECT_EQ(SimulateEstablishContextJsCall(
+                kFakeHandlerId, /*request_id=*/1, SCARD_SCOPE_SYSTEM,
+                /*reserved1=*/Value(),
+                /*reserved2=*/Value(), scard_context),
+            SCARD_S_SUCCESS);
+  EXPECT_NE(scard_context, 0);
+
+  EXPECT_EQ(SimulateReleaseContextJsCall(kFakeHandlerId, /*request_id=*/2,
+                                         scard_context),
+            SCARD_S_SUCCESS);
+
+  SimulateJsClientRemoved(kFakeHandlerId);
 }
 
 }  // namespace google_smart_card
