@@ -14,6 +14,7 @@
 
 #include "smart_card_connector_app/src/application.h"
 
+#include <atomic>
 #include <condition_variable>
 #include <functional>
 #include <memory>
@@ -237,11 +238,11 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
   }
 
   LONG SimulateEstablishContextJsCall(int handler_id,
-                                      RequestId request_id,
                                       DWORD scope,
                                       Value reserved1,
                                       Value reserved2,
                                       SCARDCONTEXT& out_scard_context) {
+    const RequestId request_id = ++request_id_counter_;
     const std::string requester_name = GetJsClientRequesterName(handler_id);
     auto waiter =
         global_context_.CreateResponseWaiter(requester_name, request_id);
@@ -272,8 +273,8 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
   }
 
   LONG SimulateReleaseContextJsCall(int handler_id,
-                                    RequestId request_id,
                                     SCARDCONTEXT scard_context) {
+    const RequestId request_id = ++request_id_counter_;
     const std::string requester_name = GetJsClientRequesterName(handler_id);
     auto waiter =
         global_context_.CreateResponseWaiter(requester_name, request_id);
@@ -291,7 +292,7 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
     return return_code;
   }
 
- protected:
+ private:
   void SetUpUsbSimulation() {
     global_context_.RegisterRequestHandler(
         TestingSmartCardSimulation::kRequesterName,
@@ -306,6 +307,7 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
   ReaderNotificationObserver reader_notification_observer_;
   TestingGlobalContext global_context_{&typed_message_router_};
   std::unique_ptr<Application> application_;
+  std::atomic_int request_id_counter_{1};
 };
 
 TEST_F(SmartCardConnectorApplicationTest, SmokeTest) {
@@ -477,15 +479,14 @@ TEST_F(SmartCardConnectorApplicationTest, SCardEstablishContext) {
       /*client_name_for_log=*/"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 
   SCARDCONTEXT scard_context = 0;
-  EXPECT_EQ(SimulateEstablishContextJsCall(
-                kFakeHandlerId, /*request_id=*/1, SCARD_SCOPE_SYSTEM,
-                /*reserved1=*/Value(),
-                /*reserved2=*/Value(), scard_context),
-            SCARD_S_SUCCESS);
+  EXPECT_EQ(
+      SimulateEstablishContextJsCall(kFakeHandlerId, SCARD_SCOPE_SYSTEM,
+                                     /*reserved1=*/Value(),
+                                     /*reserved2=*/Value(), scard_context),
+      SCARD_S_SUCCESS);
   EXPECT_NE(scard_context, 0);
 
-  EXPECT_EQ(SimulateReleaseContextJsCall(kFakeHandlerId, /*request_id=*/2,
-                                         scard_context),
+  EXPECT_EQ(SimulateReleaseContextJsCall(kFakeHandlerId, scard_context),
             SCARD_S_SUCCESS);
 
   SimulateJsClientRemoved(kFakeHandlerId);
