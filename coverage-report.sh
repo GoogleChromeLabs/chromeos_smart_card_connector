@@ -69,8 +69,9 @@ for dir in ${UNIT_TEST_EXECUTABLE_DIRS}; do
   done
 done
 # Insert "-object" before each path, except for the first one (that's the
-# weirdness of llvm-cov's CLI).
-llvm_cov_args=$(echo "${executables}" | tr ' ' ' -object ')
+# weirdness of llvm-cov's CLI). Trim the leading whitespace via one sed
+# invocation and replace inner spaces with the flag using the second one.
+llvm_cov_args=$(echo "${executables}" | sed 's/^ //g' | sed 's/ / -object /g')
 # Print the coverage report table to stdout, so that the report can be parsed by
 # the next steps of the pipeline. (Everything above was logged to stderr.)
 llvm-cov report \
