@@ -54,6 +54,12 @@ LibusbJsDevice MakeLibusbJsDevice(
       // Numbers are for a real device.
       js_device.vendor_id = 0x08E6;
       js_device.product_id = 0x3437;
+      js_device.version = 0x200;
+      // TODO: Remove explicit `std::string` construction after switching to
+      // feature-complete `std::optional` (after dropping NaCl support).
+      js_device.product_name = std::string("USB SmartCard Reader");
+      js_device.manufacturer_name = std::string("Gemalto");
+      js_device.serial_number = std::string("E00E0000");  // redacted
       return js_device;
   }
   GOOGLE_SMART_CARD_NOTREACHED;
