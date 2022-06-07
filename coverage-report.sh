@@ -23,8 +23,7 @@ UNIT_TEST_EXECUTABLE_DIRS="
   common/cpp/build/tests
   smart_card_connector_app/build/executable_module/cpp_unittests
   third_party/libusb/webport/build/tests"
-IGNORE_FILENAME_REGEX="
-  third_party/googletest"
+IGNORE_FILENAME_REGEX="third_party/googletest"
 
 log_message() {
   local message=${1}
