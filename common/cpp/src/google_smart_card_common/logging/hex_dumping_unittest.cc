@@ -36,9 +36,23 @@ TEST(LoggingHexDumpingTest, HexDumpByte) {
   EXPECT_EQ("0xFF", HexDumpByte(static_cast<uint8_t>(255)));
 }
 
+TEST(LoggingHexDumpingTest, HexDumpDoublet) {
+  EXPECT_EQ("0x0000", HexDumpDoublet(static_cast<int16_t>(0)));
+  EXPECT_EQ("0x0000", HexDumpDoublet(static_cast<uint16_t>(0)));
+
+  EXPECT_EQ("0x0001", HexDumpDoublet(static_cast<int16_t>(1)));
+  EXPECT_EQ("0x0001", HexDumpDoublet(static_cast<uint16_t>(1)));
+
+  EXPECT_EQ("0xFFFF", HexDumpDoublet(static_cast<int16_t>(-1)));
+  EXPECT_EQ("0xFFFF", HexDumpDoublet(static_cast<uint16_t>(-1)));
+}
+
 TEST(LoggingHexDumpingTest, HexDumpQuadlet) {
   EXPECT_EQ("0x00000000", HexDumpQuadlet(static_cast<int32_t>(0)));
   EXPECT_EQ("0x00000000", HexDumpQuadlet(static_cast<uint32_t>(0)));
+
+  EXPECT_EQ("0x00000001", HexDumpQuadlet(static_cast<int32_t>(1)));
+  EXPECT_EQ("0x00000001", HexDumpQuadlet(static_cast<uint32_t>(1)));
 
   EXPECT_EQ("0xFFFFFFFF", HexDumpQuadlet(static_cast<int32_t>(-1)));
   EXPECT_EQ("0xFFFFFFFF", HexDumpQuadlet(static_cast<uint32_t>(-1)));
@@ -48,19 +62,28 @@ TEST(LoggingHexDumpingTest, HexDumpOctlet) {
   EXPECT_EQ("0x0000000000000000", HexDumpOctlet(static_cast<int64_t>(0)));
   EXPECT_EQ("0x0000000000000000", HexDumpOctlet(static_cast<uint64_t>(0)));
 
+  EXPECT_EQ("0x0000000000000001", HexDumpOctlet(static_cast<int64_t>(1)));
+  EXPECT_EQ("0x0000000000000001", HexDumpOctlet(static_cast<uint64_t>(1)));
+
   EXPECT_EQ("0xFFFFFFFFFFFFFFFF", HexDumpOctlet(static_cast<int64_t>(-1)));
   EXPECT_EQ("0xFFFFFFFFFFFFFFFF", HexDumpOctlet(static_cast<uint64_t>(-1)));
 }
 
 TEST(LoggingHexDumpingTest, HexDumpInteger) {
   EXPECT_EQ("0x00", HexDumpInteger(static_cast<int8_t>(0)));
+  EXPECT_EQ("0x0C", HexDumpInteger(static_cast<int8_t>(12)));
   EXPECT_EQ("0x00", HexDumpInteger(static_cast<uint8_t>(0)));
+  EXPECT_EQ("0x22", HexDumpInteger(static_cast<uint8_t>(34)));
 
   EXPECT_EQ("0x00000000", HexDumpInteger(static_cast<int32_t>(0)));
+  EXPECT_EQ("0x000004D2", HexDumpInteger(static_cast<int32_t>(1234)));
   EXPECT_EQ("0x00000000", HexDumpInteger(static_cast<uint32_t>(0)));
+  EXPECT_EQ("0x000011D7", HexDumpInteger(static_cast<uint32_t>(4567)));
 
   EXPECT_EQ("0x0000000000000000", HexDumpInteger(static_cast<int64_t>(0)));
+  EXPECT_EQ("0x000000000000007B", HexDumpInteger(static_cast<int64_t>(123)));
   EXPECT_EQ("0x0000000000000000", HexDumpInteger(static_cast<uint64_t>(0)));
+  EXPECT_EQ("0x00000000000001C8", HexDumpInteger(static_cast<uint64_t>(456)));
 }
 
 TEST(LoggingHexDumpingTest, HexDumpUnknownSizeInteger) {
@@ -94,6 +117,18 @@ TEST(LoggingHexDumpingTest, HexDumpUnknownSizeInteger) {
             HexDumpUnknownSizeInteger(static_cast<int64_t>(-256)));
   EXPECT_EQ("0x8000000000000000",
             HexDumpUnknownSizeInteger(std::numeric_limits<int64_t>::min()));
+}
+
+TEST(LoggingHexDumpingTest, HexDumpBytes) {
+  EXPECT_EQ(HexDumpBytes(nullptr, 0), "");
+
+  const uint8_t kArray[] = {1, 2, 123};
+  EXPECT_EQ(HexDumpBytes(kArray, 3), "0x01 0x02 0x7B");
+}
+
+TEST(LoggingHexDumpingTest, HexDumpBytesVector) {
+  EXPECT_EQ(HexDumpBytes({}), "");
+  EXPECT_EQ(HexDumpBytes({1, 2, 123}), "0x01 0x02 0x7B");
 }
 
 }  // namespace google_smart_card
