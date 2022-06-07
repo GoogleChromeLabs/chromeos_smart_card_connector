@@ -256,17 +256,18 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
     Value reply = std::move(*waiter).take_value();
 
     GOOGLE_SMART_CARD_CHECK(reply.is_array());
-    GOOGLE_SMART_CARD_CHECK(!reply.GetArray().empty());
+    const auto& reply_array = reply.GetArray();
+    GOOGLE_SMART_CARD_CHECK(!reply_array.empty());
 
-    GOOGLE_SMART_CARD_CHECK(reply.GetArray()[0]->is_integer());
-    LONG return_code = reply.GetArray()[0]->GetInteger();
+    GOOGLE_SMART_CARD_CHECK(reply_array[0]->is_integer());
+    LONG return_code = reply_array[0]->GetInteger();
     if (return_code != SCARD_S_SUCCESS) {
-      GOOGLE_SMART_CARD_CHECK(reply.GetArray().size() == 1);
+      GOOGLE_SMART_CARD_CHECK(reply_array.size() == 1);
       return return_code;
     }
-    GOOGLE_SMART_CARD_CHECK(reply.GetArray().size() == 2);
+    GOOGLE_SMART_CARD_CHECK(reply_array.size() == 2);
 
-    out_scard_context = reply.GetArray()[1]->GetInteger();
+    out_scard_context = reply_array[1]->GetInteger();
     return SCARD_S_SUCCESS;
   }
 
