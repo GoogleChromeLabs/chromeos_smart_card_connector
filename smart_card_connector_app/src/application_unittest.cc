@@ -285,11 +285,45 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
     Value reply = std::move(*waiter).take_value();
 
     GOOGLE_SMART_CARD_CHECK(reply.is_array());
-    GOOGLE_SMART_CARD_CHECK(reply.GetArray().size() == 1);
+    const auto& reply_array = reply.GetArray();
+    GOOGLE_SMART_CARD_CHECK(reply_array.size() == 1);
 
-    GOOGLE_SMART_CARD_CHECK(reply.GetArray()[0]->is_integer());
-    LONG return_code = reply.GetArray()[0]->GetInteger();
+    GOOGLE_SMART_CARD_CHECK(reply_array[0]->is_integer());
+    LONG return_code = reply_array[0]->GetInteger();
     return return_code;
+  }
+
+  LONG SimulateListReadersJsCall(int handler_id,
+                                 SCARDCONTEXT scard_context,
+                                 Value groups,
+                                 std::vector<std::string>& out_readers) {
+    const RequestId request_id = ++request_id_counter_;
+    const std::string requester_name = GetJsClientRequesterName(handler_id);
+    auto waiter =
+        global_context_.CreateResponseWaiter(requester_name, request_id);
+    SimulateCallFromJs(
+        requester_name, request_id,
+        /*function_name=*/"SCardListReaders",
+        ArrayValueBuilder().Add(scard_context).Add(std::move(groups)).Get());
+    waiter->Wait();
+    Value reply = std::move(*waiter).take_value();
+
+    GOOGLE_SMART_CARD_CHECK(reply.is_array());
+    const auto& reply_array = reply.GetArray();
+    GOOGLE_SMART_CARD_CHECK(!reply_array.empty());
+
+    GOOGLE_SMART_CARD_CHECK(reply_array[0]->is_integer());
+    LONG return_code = reply_array[0]->GetInteger();
+    if (return_code != SCARD_S_SUCCESS) {
+      GOOGLE_SMART_CARD_CHECK(reply_array.size() == 1);
+      return return_code;
+    }
+    GOOGLE_SMART_CARD_CHECK(reply_array.size() == 2);
+
+    GOOGLE_SMART_CARD_CHECK(reply_array[1]->is_array());
+    out_readers = ConvertFromValueOrDie<std::vector<std::string>>(
+        std::move(*reply_array[1]));
+    return SCARD_S_SUCCESS;
   }
 
  private:
@@ -463,33 +497,105 @@ TEST_F(SmartCardConnectorApplicationTest,
   EXPECT_TRUE(reader_notification_observer().Empty());
 }
 
+// Test fixture that simplifies simulating commands from a single client
+// application.
+class SmartCardConnectorApplicationSingleClientTest
+    : public SmartCardConnectorApplicationTest {
+ protected:
+  static constexpr int kFakeHandlerId = 1234;
+  static constexpr const char* kFakeClientNameForLog =
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+  void TearDown() override {
+    if (scard_context_)
+      TearDownSCardContext();
+    if (js_client_setup_)
+      SimulateJsClientRemoved(kFakeHandlerId);
+
+    SmartCardConnectorApplicationTest::TearDown();
+  }
+
+  void SetUpJsClient() {
+    GOOGLE_SMART_CARD_CHECK(!js_client_setup_);
+    SimulateJsClientAdded(kFakeHandlerId, kFakeClientNameForLog);
+    js_client_setup_ = true;
+  }
+
+  void SetUpSCardContext() {
+    GOOGLE_SMART_CARD_CHECK(!scard_context_);
+    SCARDCONTEXT local_scard_context = 0;
+    EXPECT_EQ(SimulateEstablishContextJsCall(kFakeHandlerId, SCARD_SCOPE_SYSTEM,
+                                             /*reserved1=*/Value(),
+                                             /*reserved2=*/Value(),
+                                             local_scard_context),
+              SCARD_S_SUCCESS);
+    scard_context_ = local_scard_context;
+  }
+
+  void TearDownSCardContext() {
+    GOOGLE_SMART_CARD_CHECK(scard_context_);
+    EXPECT_EQ(SimulateReleaseContextJsCall(kFakeHandlerId, *scard_context_),
+              SCARD_S_SUCCESS);
+    scard_context_ = {};
+  }
+
+  SCARDCONTEXT scard_context() const { return *scard_context_; }
+
+ private:
+  bool js_client_setup_ = false;
+  optional<SCARDCONTEXT> scard_context_;
+};
+
 // Test `SCardEstablishContext()` and `SCardReleaseContext()` can be called from
 // JS.
-TEST_F(SmartCardConnectorApplicationTest, SCardEstablishContext) {
-  constexpr int kFakeHandlerId = 1234;
-
+TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardEstablishContext) {
   // Arrange:
-
   StartApplication();
+  SetUpJsClient();
 
   // Act:
+  SetUpSCardContext();
+  TearDownSCardContext();
+}
 
-  SimulateJsClientAdded(
-      kFakeHandlerId,
-      /*client_name_for_log=*/"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+// Test `SCardListReaders()` call from JS returns an error when there's no
+// reader.
+TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardListReadersEmpty) {
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
 
-  SCARDCONTEXT scard_context = 0;
-  EXPECT_EQ(
-      SimulateEstablishContextJsCall(kFakeHandlerId, SCARD_SCOPE_SYSTEM,
-                                     /*reserved1=*/Value(),
-                                     /*reserved2=*/Value(), scard_context),
-      SCARD_S_SUCCESS);
-  EXPECT_NE(scard_context, 0);
+  // Act:
+  std::vector<std::string> readers;
+  LONG return_code = SimulateListReadersJsCall(kFakeHandlerId, scard_context(),
+                                               /*groups=*/Value(), readers);
 
-  EXPECT_EQ(SimulateReleaseContextJsCall(kFakeHandlerId, scard_context),
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_E_NO_READERS_AVAILABLE);
+  EXPECT_THAT(readers, IsEmpty());
+}
+
+// Test `SCardListReaders()` call from JS when there's one device available.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       SCardListReadersOneDevice) {
+  // Arrange:
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  SetUsbDevices({device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+
+  // Act:
+  std::vector<std::string> readers;
+  EXPECT_EQ(SimulateListReadersJsCall(kFakeHandlerId, scard_context(),
+                                      /*groups=*/Value(), readers),
             SCARD_S_SUCCESS);
 
-  SimulateJsClientRemoved(kFakeHandlerId);
+  // Assert:
+  EXPECT_THAT(readers, ElementsAre("Gemalto PC Twin Reader 00 00"));
 }
 
 }  // namespace google_smart_card
