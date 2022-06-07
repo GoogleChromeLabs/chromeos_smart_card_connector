@@ -72,6 +72,13 @@ done
 # weirdness of llvm-cov's CLI). Trim the leading whitespace via one sed
 # invocation and replace inner spaces with the flag using the second one.
 llvm_cov_args=$(echo "${executables}" | sed 's/^ //g' | sed 's/ / -object /g')
+# Create detailed coverage HTML page with per-line information.
+llvm-cov show \
+  -format=html \
+  ${llvm_cov_args} \
+  -instr-profile=env/coverage-artifacts/all.profdata \
+  -ignore-filename-regex=${IGNORE_FILENAME_REGEX} \
+  -output-dir=coverage-report-detailed/
 # Print the coverage report table to stdout, so that the report can be parsed by
 # the next steps of the pipeline. (Everything above was logged to stderr.)
 llvm-cov report \
