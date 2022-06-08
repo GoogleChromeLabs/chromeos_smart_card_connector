@@ -1,9 +1,15 @@
 name: CI
 
 on:
+  # Run CI on every commit to the "main" branch.
   push:
     branches: [ main ]
+  # Run CI on every PR.
   pull_request:
+  # Run CI on the "main" branch every day (to catch random flakiness or CI
+  # environment regressions).
+  schedule:
+    - cron: "0 0 * * *"
 
 env:
   # The version of libstdc++ to install for coverage builds.
