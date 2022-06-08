@@ -1,7 +1,7 @@
 name: 'Install build dependencies'
 inputs:
   toolchain:
-    description: '"emscripten", "pnacl" or "coverage"'
+    description: '"emscripten", "pnacl", "asan_testing" or "coverage"'
     required: true
 runs:
   using: 'composite'
@@ -33,11 +33,11 @@ runs:
     shell: bash
     run: env/initialize.sh -t ${{ inputs.toolchain }}
 
-  # Building in the coverage mode requires LLVM and Clang, as well as 32-bit
+  # Building in the analysis modes requires LLVM and Clang, as well as 32-bit
   # cross-compile versions of standard C and C++ libraries (needed as we're
   # building code in 32-bit mode on the 64-bit host).
-  - name: Install coverage toolchain
-    if: ${{ inputs.toolchain == 'coverage' }}
+  - name: Install clang toolchain
+    if: ${{ inputs.toolchain == 'asan_testing' || inputs.toolchain == 'coverage' }}
     shell: bash
     run: >
       sudo apt-get install -y
@@ -45,4 +45,4 @@ runs:
       llvm
       clang
       libc6-dev-i386
-      libstdc++-${COVERAGE_LIBSTDCPP_VERSION}-dev-i386-cross
+      libstdc++-${ANALYSIS_LIBSTDCPP_VERSION}-dev-i386-cross

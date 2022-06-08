@@ -1,4 +1,5 @@
 /headers_installed.stamp
+/out-artifacts-asan_testing/
 /out-artifacts-coverage/
 /out-artifacts-emscripten/
 /pnacl/

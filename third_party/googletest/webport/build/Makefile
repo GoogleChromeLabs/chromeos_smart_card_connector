@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # This Makefile builds GoogleTest and GoogleMock static libraries for usage in
-# Emscripten builds for creating test executables.
+# Emscripten/"analysis" builds for creating test executables.
 #
 # Note: This Makefile isn't supported in Native Client builds, since NaCl's
 # webports project already provides a NaCl-ported version of GoogleTest.
@@ -22,6 +22,17 @@ TARGET := googletest
 
 include ../../../../common/make/common.mk
 include $(ROOT_PATH)/common/make/executable_building.mk
+
+# Determine the type of toolchain.
+ifeq ($(TOOLCHAIN),emscripten)
+TOOLCHAIN_TYPE := emscripten
+else ifeq ($(TOOLCHAIN),asan_testing)
+TOOLCHAIN_TYPE := analysis
+else ifeq ($(TOOLCHAIN),coverage)
+TOOLCHAIN_TYPE := analysis
+else
+$(error Unsupported toolchain $(TOOLCHAIN).)
+endif
 
 # Library files that are created by this Makefile.
 #
@@ -92,21 +103,19 @@ ARTIFACTS_LIBS_PATTERN := \
 #
 # In the Emscripten mode, use the "emcmake" wrapper, which allows to reuse the
 # GoogleTest's standard CMake scripts as-is.
-ifeq ($(TOOLCHAIN),emscripten)
+ifeq ($(TOOLCHAIN_TYPE),emscripten)
 CMAKE_TOOL := emcmake cmake
-else ifeq ($(TOOLCHAIN),coverage)
+else ifeq ($(TOOLCHAIN_TYPE),analysis)
 CMAKE_TOOL := cmake
-else
-$(error Unsupported toolchain $(TOOLCHAIN).)
 endif
 
 # Environment variables to set when running CMake.
 #
 # In the Emscripten mode, we have to pass "-pthread" explicitly, both as
 # compiler and linker flags.
-ifeq ($(TOOLCHAIN),emscripten)
+ifeq ($(TOOLCHAIN_TYPE),emscripten)
 CMAKE_ENV := CXXFLAGS="-pthread" LDFLAGS="-pthread"
-else ifeq ($(TOOLCHAIN),coverage)
+else ifeq ($(TOOLCHAIN_TYPE),analysis)
 CMAKE_ENV :=
 endif
 
@@ -120,7 +129,7 @@ CMAKE_ARGS := \
 	-DCMAKE_BUILD_TYPE=$(CONFIG) \
 	-DGTEST_HAS_PTHREAD=1 \
 
-ifeq ($(TOOLCHAIN),coverage)
+ifeq ($(TOOLCHAIN_TYPE),analysis)
 
 # Arguments specific to Coverage builds:
 # * "clang++": Use clang (and not try to use gcc).

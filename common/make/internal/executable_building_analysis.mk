@@ -37,9 +37,9 @@ CONFIG ?= Release
 	@echo Stamp > $@
 
 # Directory where temporary build artifacts (like .o object files) are stored.
-BUILD_DIR := ./out-artifacts-coverage/$(CONFIG)
+BUILD_DIR := ./out-artifacts-$(TOOLCHAIN)/$(CONFIG)
 # Directory where library .a files (built by LIB_RULE) are installed.
-LIB_DIR := $(ROOT_PATH)/env/coverage-artifacts/$(CONFIG)
+LIB_DIR := $(ROOT_PATH)/env/$(TOOLCHAIN)-artifacts/$(CONFIG)
 
 # Macro that returns the .o object file path for the given source file.
 # See also the explanation of same macro at executable_building_emscripten.mk.
@@ -59,47 +59,64 @@ endef
 
 # Flags passed to both compiler and linker.
 #
-# * "fcoverage-mapping", "fprofile-instr-generate": Enable Clang's source-based
-#   coverage.
-# * "fsanitize=address": Use Address Sanitizer (not strictly necessary for
-#   coverage builds, but having unit tests verified by it is useful).
 # * "fno-omit-frame-pointer", "fno-optimize-sibling-calls": Enable better stack
-#   traces (recommended with ASan).
+#   traces (docs explicitly recommended this with sanitizers).
 # * "g": Enable debug symbols.
 # * "m32": Build in 32-bit mode (this is also what Emscripten and NaCl
 #   toolchains use).
-COVERAGE_COMMON_FLAGS := \
-	-fcoverage-mapping \
+ANALYSIS_COMMON_FLAGS := \
 	-fno-omit-frame-pointer \
 	-fno-optimize-sibling-calls \
-	-fprofile-instr-generate \
-	-fsanitize=address \
 	-g \
 	-m32 \
 
-# Flags passed to the compiler, in addition to COVERAGE_COMMON_FLAGS.
-COVERAGE_COMPILER_FLAGS :=
+# Flags passed to the compiler, in addition to ANALYSIS_COMMON_FLAGS.
+ANALYSIS_COMPILER_FLAGS :=
 
-# Flags passed to the linker, in addition to COVERAGE_COMMON_FLAGS.
-COVERAGE_LINKER_FLAGS :=
+# Flags passed to the linker, in addition to ANALYSIS_COMMON_FLAGS.
+ANALYSIS_LINKER_FLAGS :=
+
+ifeq ($(TOOLCHAIN),coverage)
+
+# Add compiler and linker flags specific to coverage builds.
+#
+# * "fcoverage-mapping", "fprofile-instr-generate": Enable Clang's source-based
+#   coverage.
+ANALYSIS_COMMON_FLAGS += \
+	-fcoverage-mapping \
+	-fprofile-instr-generate \
+
+else ifeq ($(TOOLCHAIN),asan_testing)
+
+# Add compiler and linker flags specific to ASan builds.
+#
+# * "fsanitize=address": Use Address Sanitizer.
+ANALYSIS_COMMON_FLAGS += \
+	-fsanitize=address \
+
+else
+
+$(error Unsupported TOOLCHAIN=$(TOOLCHAIN) value.)
+
+endif
 
 ifeq ($(CONFIG),Release)
 
 # Add compiler and linker flags specific to release builds.
-COVERAGE_COMMON_FLAGS += \
+ANALYSIS_COMMON_FLAGS += \
   -O3 \
 
 # Add compiler flags specific to release builds.
 #
 # Explanation:
 # NDEBUG: Disable debug-only functionality (assertions, etc.).
-COVERAGE_COMPILER_FLAGS += \
+ANALYSIS_COMPILER_FLAGS += \
   -DNDEBUG \
 
 else ifeq ($(CONFIG),Debug)
 
 # Add compiler and linker flags specific to debug builds.
-COVERAGE_COMMON_FLAGS += \
+ANALYSIS_COMMON_FLAGS += \
   -O0 \
 
 else
@@ -120,8 +137,8 @@ $(call OBJ_FILE_NAME,$(1)): $(1) | $(dir $(call OBJ_FILE_NAME,$(1)))dir.stamp
 		-c \
 		-MMD \
 		-MP \
-		$(COVERAGE_COMMON_FLAGS) \
-		$(COVERAGE_COMPILER_FLAGS) \
+		$(ANALYSIS_COMMON_FLAGS) \
+		$(ANALYSIS_COMPILER_FLAGS) \
 		$(2) \
 		$(1)
 -include $(call DEP_FILE_NAME,$(1))
@@ -162,8 +179,8 @@ $(BUILD_DIR)/$(TARGET):
 		-L$(LIB_DIR) \
 		$(foreach src,$(1),$(call OBJ_FILE_NAME,$(src))) \
 		$(foreach lib,$(2),-l$(lib)) \
-		$(COVERAGE_COMMON_FLAGS) \
-		$(COVERAGE_LINKER_FLAGS) \
+		$(ANALYSIS_COMMON_FLAGS) \
+		$(ANALYSIS_LINKER_FLAGS) \
 		$(4)
 all: $(BUILD_DIR)/$(TARGET)
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(BUILD_DIR)/$(TARGET)))
@@ -182,7 +199,7 @@ $(eval $(call COPY_TO_OUT_DIR_RULE,$(strip $(1)),$(dir $(strip $(2)))))
 endef
 
 # Rules for cleaning build files on "make clean".
-.PHONY: clean_out_artifacts_coverage
-clean_out_artifacts_coverage:
-	@rm -rf out-artifacts-coverage
-clean: clean_out_artifacts_coverage
+.PHONY: clean_out_artifacts_$(TOOLCHAIN)
+clean_out_artifacts_$(TOOLCHAIN):
+	@rm -rf out-artifacts-$(TOOLCHAIN)
+clean: clean_out_artifacts_$(TOOLCHAIN)
