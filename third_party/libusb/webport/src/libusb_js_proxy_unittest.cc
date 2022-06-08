@@ -815,6 +815,148 @@ TEST_F(LibusbJsProxyWithDeviceTest, ControlTransfersMultiThreadedStressTest) {
     threads[thread_index].join();
 }
 
+// Test an asynchronous input control transfer successful scenario.
+TEST_F(LibusbJsProxyWithDeviceTest, AsyncInputControlTransfer) {
+  constexpr int kTransferRequest = 1;
+  constexpr int kTransferIndex = 24;
+  constexpr int kTransferValue = 42;
+  const std::vector<uint8_t> kData = {1, 2, 3, 4, 5, 6};
+
+  // Arrange.
+  global_context_.WillReplyToRequestWith(
+      "libusb", "controlTransfer",
+      /*arguments=*/
+      ArrayValueBuilder()
+          .Add(kJsDeviceId)
+          .Add(kJsDeviceHandle)
+          .Add(DictValueBuilder()
+                   .Add("index", kTransferIndex)
+                   .Add("recipient", "endpoint")
+                   .Add("request", kTransferRequest)
+                   .Add("requestType", "standard")
+                   .Add("value", kTransferValue)
+                   .Add("lengthToReceive", kData.size())
+                   .Get())
+          .Get(),
+      /*result_to_reply_with=*/
+      DictValueBuilder().Add("receivedData", kData).Get());
+  auto transfer_callback = [](libusb_transfer* transfer) {
+    ASSERT_TRUE(transfer);
+    // `user_data` points to `transfer_completed` (a captureless lambda has no
+    // other way of telling the test it's run).
+    *static_cast<bool*>(transfer->user_data) = true;
+  };
+
+  // Act.
+  std::vector<uint8_t> setup(LIBUSB_CONTROL_SETUP_SIZE + kData.size());
+  libusb_fill_control_setup(
+      setup.data(),
+      LIBUSB_RECIPIENT_ENDPOINT | LIBUSB_REQUEST_TYPE_STANDARD |
+          LIBUSB_ENDPOINT_IN,
+      kTransferRequest, kTransferValue, kTransferIndex, kData.size());
+
+  libusb_transfer* const transfer =
+      libusb_js_proxy_.LibusbAllocTransfer(/*iso_packets=*/0);
+  ASSERT_TRUE(transfer);
+  bool transfer_completed = false;
+  libusb_fill_control_transfer(
+      transfer, device_handle_, setup.data(), transfer_callback,
+      /*user_data=*/static_cast<void*>(&transfer_completed),
+      /*timeout=*/0);
+
+  EXPECT_EQ(libusb_js_proxy_.LibusbSubmitTransfer(transfer), LIBUSB_SUCCESS);
+  EXPECT_FALSE(transfer_completed);
+  // Let the fake JS result propagate.
+  while (!transfer_completed) {
+    EXPECT_EQ(libusb_js_proxy_.LibusbHandleEvents(/*ctx=*/nullptr),
+              LIBUSB_SUCCESS);
+  }
+
+  // Assert.
+  EXPECT_EQ(transfer->status, LIBUSB_TRANSFER_COMPLETED);
+  EXPECT_EQ(transfer->actual_length, static_cast<int>(kData.size()));
+  EXPECT_EQ(std::vector<uint8_t>(setup.begin() + LIBUSB_CONTROL_SETUP_SIZE,
+                                 setup.end()),
+            kData);
+  // Attempting to cancel a completed transfer fails.
+  EXPECT_NE(libusb_js_proxy_.LibusbCancelTransfer(transfer), LIBUSB_SUCCESS);
+
+  libusb_js_proxy_.LibusbFreeTransfer(transfer);
+}
+
+// Test the cancellation of an asynchronous input control transfer.
+//
+// Other slight variations of this test as opposed to the above include using
+// the `LIBUSB_TRANSFER_FREE_TRANSFER` flag and `LibusbHandleEventsCompleted()`.
+TEST_F(LibusbJsProxyWithDeviceTest, AsyncInputControlTransferCancellation) {
+  constexpr int kTransferRequest = 1;
+  constexpr int kTransferIndex = 24;
+  constexpr int kTransferValue = 42;
+  constexpr int kDataLengthRequested = 100;
+
+  // Arrange. Set up the expectation for the request message. We won't reply to
+  // this message.
+  auto waiter = global_context_.CreateRequestWaiter(
+      "libusb", "controlTransfer",
+      /*arguments=*/
+      ArrayValueBuilder()
+          .Add(kJsDeviceId)
+          .Add(kJsDeviceHandle)
+          .Add(DictValueBuilder()
+                   .Add("index", kTransferIndex)
+                   .Add("recipient", "endpoint")
+                   .Add("request", kTransferRequest)
+                   .Add("requestType", "standard")
+                   .Add("value", kTransferValue)
+                   .Add("lengthToReceive", kDataLengthRequested)
+                   .Get())
+          .Get());
+  auto transfer_callback = [](libusb_transfer* transfer) {
+    ASSERT_TRUE(transfer);
+    EXPECT_EQ(transfer->status, LIBUSB_TRANSFER_CANCELLED);
+    EXPECT_EQ(transfer->actual_length, 0);
+    // `user_data` points to `transfer_completed` (a captureless lambda has no
+    // other way of telling the test it's run).
+    *static_cast<int*>(transfer->user_data) = true;
+  };
+
+  // Act.
+  std::vector<uint8_t> setup(LIBUSB_CONTROL_SETUP_SIZE + kDataLengthRequested);
+  libusb_fill_control_setup(
+      setup.data(),
+      LIBUSB_RECIPIENT_ENDPOINT | LIBUSB_REQUEST_TYPE_STANDARD |
+          LIBUSB_ENDPOINT_IN,
+      kTransferRequest, kTransferValue, kTransferIndex, kDataLengthRequested);
+
+  libusb_transfer* const transfer =
+      libusb_js_proxy_.LibusbAllocTransfer(/*iso_packets=*/0);
+  ASSERT_TRUE(transfer);
+  int transfer_completed = 0;
+  libusb_fill_control_transfer(
+      transfer, device_handle_, setup.data(), transfer_callback,
+      /*user_data=*/static_cast<void*>(&transfer_completed),
+      /*timeout=*/0);
+  // In this test we also verify the automatic deallocation of the transfer.
+  transfer->flags = LIBUSB_TRANSFER_FREE_TRANSFER;
+
+  EXPECT_EQ(libusb_js_proxy_.LibusbSubmitTransfer(transfer), LIBUSB_SUCCESS);
+  EXPECT_FALSE(transfer_completed);
+
+  EXPECT_EQ(libusb_js_proxy_.LibusbCancelTransfer(transfer), LIBUSB_SUCCESS);
+  // Second attempt to cancel a transfer fails.
+  EXPECT_NE(libusb_js_proxy_.LibusbCancelTransfer(transfer), LIBUSB_SUCCESS);
+  // Let the cancellation propagate.
+  while (!transfer_completed) {
+    EXPECT_EQ(libusb_js_proxy_.LibusbHandleEventsCompleted(/*ctx=*/nullptr,
+                                                           &transfer_completed),
+              LIBUSB_SUCCESS);
+  }
+
+  // Nothing to assert here - due to the `LIBUSB_TRANSFER_FREE_TRANSFER` flag
+  // the `transfer` is already deallocated here. All assertions are done inside
+  // the callback.
+}
+
 // TODO(#429): Resurrect the tests by reimplementing them on top of the
 // libusb-to-JS adaptor instead of the chrome_usb::ApiBridge.
 #if 0
