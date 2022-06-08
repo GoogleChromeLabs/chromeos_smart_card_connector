@@ -307,7 +307,7 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
   ReaderNotificationObserver reader_notification_observer_;
   TestingGlobalContext global_context_{&typed_message_router_};
   std::unique_ptr<Application> application_;
-  std::atomic_int request_id_counter_{1};
+  std::atomic_int request_id_counter_{0};
 };
 
 TEST_F(SmartCardConnectorApplicationTest, SmokeTest) {
