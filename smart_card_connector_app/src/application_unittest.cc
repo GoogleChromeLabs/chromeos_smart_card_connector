@@ -312,6 +312,15 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
         out_readers);
   }
 
+  LONG SimulateIsValidContextCallFromJsClient(int handler_id,
+                                              SCARDCONTEXT scard_context) {
+    return ExtractReturnCodeAndResults(
+        SimulateSyncCallFromJsClient(
+            handler_id,
+            /*function_name=*/"SCardIsValidContext",
+            ArrayValueBuilder().Add(scard_context).Get()));
+  }
+
  private:
   void SetUpUsbSimulation() {
     global_context_.RegisterRequestHandler(
@@ -543,6 +552,57 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardEstablishContext) {
   // Act:
   SetUpSCardContext();
   TearDownSCardContext();
+}
+
+// Test `SCardIsValidContext()` call from JS recognizes an existing context.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       SCardIsValidContextCorrect) {
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+
+  // Act:
+  SetUpSCardContext();
+  LONG return_code =
+      SimulateIsValidContextCallFromJsClient(kFakeHandlerId, scard_context());
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+}
+
+// Test `SCardIsValidContext()` call from JS rejects a random value.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       SCardIsValidContextWrong) {
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+
+  // Act:
+  SetUpSCardContext();
+  LONG return_code = SimulateIsValidContextCallFromJsClient(
+      kFakeHandlerId, scard_context() + 1);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_E_INVALID_HANDLE);
+}
+
+// Test `SCardIsValidContext()` call from JS rejects an already-released
+// context.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       SCardIsValidContextReleased) {
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+
+  // Act:
+  SetUpSCardContext();
+  SCARDCONTEXT cached_context = scard_context();
+  TearDownSCardContext();
+  LONG return_code =
+      SimulateIsValidContextCallFromJsClient(kFakeHandlerId, cached_context);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_E_INVALID_HANDLE);
 }
 
 // Test `SCardListReaders()` call from JS returns an error when there's no
