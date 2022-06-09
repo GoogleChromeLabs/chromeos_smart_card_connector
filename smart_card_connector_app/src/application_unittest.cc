@@ -141,6 +141,28 @@ std::vector<std::string> DirectCallSCardListReaders(
   return ExtractMultiStringElements(readers_multistring);
 }
 
+LONG ExtractReturnCodeAndResults(Value reply) {
+  GOOGLE_SMART_CARD_CHECK(reply.is_array());
+  auto& reply_array = reply.GetArray();
+  GOOGLE_SMART_CARD_CHECK(reply_array.size() == 1);
+  LONG return_code = ConvertFromValueOrDie<LONG>(std::move(*reply_array[0]));
+  return return_code;
+}
+
+template <typename Arg, typename... Args>
+LONG ExtractReturnCodeAndResults(Value reply, Arg& out_arg, Args&... out_args) {
+  GOOGLE_SMART_CARD_CHECK(reply.is_array());
+  auto& reply_array = reply.GetArray();
+  if (reply_array.size() == 1) {
+    // The reply contains only a return code - extract it.
+    return ExtractReturnCodeAndResults(std::move(reply));
+  }
+  GOOGLE_SMART_CARD_CHECK(reply_array.size() >= 2);
+  out_arg = ConvertFromValueOrDie<Arg>(std::move(*reply_array[1]));
+  reply_array.erase(reply_array.begin() + 1);
+  return ExtractReturnCodeAndResults(std::move(reply), out_args...);
+}
+
 }  // namespace
 
 class SmartCardConnectorApplicationTest : public ::testing::Test {
@@ -254,22 +276,8 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
                            .Add(std::move(reserved2))
                            .Get());
     waiter->Wait();
-    Value reply = std::move(*waiter).take_value();
-
-    GOOGLE_SMART_CARD_CHECK(reply.is_array());
-    const auto& reply_array = reply.GetArray();
-    GOOGLE_SMART_CARD_CHECK(!reply_array.empty());
-
-    GOOGLE_SMART_CARD_CHECK(reply_array[0]->is_integer());
-    LONG return_code = reply_array[0]->GetInteger();
-    if (return_code != SCARD_S_SUCCESS) {
-      GOOGLE_SMART_CARD_CHECK(reply_array.size() == 1);
-      return return_code;
-    }
-    GOOGLE_SMART_CARD_CHECK(reply_array.size() == 2);
-
-    out_scard_context = reply_array[1]->GetInteger();
-    return SCARD_S_SUCCESS;
+    return ExtractReturnCodeAndResults(std::move(*waiter).take_value(),
+                                       out_scard_context);
   }
 
   LONG SimulateReleaseContextJsCall(int handler_id,
@@ -282,15 +290,7 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
                        /*function_name=*/"SCardReleaseContext",
                        ArrayValueBuilder().Add(scard_context).Get());
     waiter->Wait();
-    Value reply = std::move(*waiter).take_value();
-
-    GOOGLE_SMART_CARD_CHECK(reply.is_array());
-    const auto& reply_array = reply.GetArray();
-    GOOGLE_SMART_CARD_CHECK(reply_array.size() == 1);
-
-    GOOGLE_SMART_CARD_CHECK(reply_array[0]->is_integer());
-    LONG return_code = reply_array[0]->GetInteger();
-    return return_code;
+    return ExtractReturnCodeAndResults(std::move(*waiter).take_value());
   }
 
   LONG SimulateListReadersJsCall(int handler_id,
@@ -306,24 +306,8 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
         /*function_name=*/"SCardListReaders",
         ArrayValueBuilder().Add(scard_context).Add(std::move(groups)).Get());
     waiter->Wait();
-    Value reply = std::move(*waiter).take_value();
-
-    GOOGLE_SMART_CARD_CHECK(reply.is_array());
-    const auto& reply_array = reply.GetArray();
-    GOOGLE_SMART_CARD_CHECK(!reply_array.empty());
-
-    GOOGLE_SMART_CARD_CHECK(reply_array[0]->is_integer());
-    LONG return_code = reply_array[0]->GetInteger();
-    if (return_code != SCARD_S_SUCCESS) {
-      GOOGLE_SMART_CARD_CHECK(reply_array.size() == 1);
-      return return_code;
-    }
-    GOOGLE_SMART_CARD_CHECK(reply_array.size() == 2);
-
-    GOOGLE_SMART_CARD_CHECK(reply_array[1]->is_array());
-    out_readers = ConvertFromValueOrDie<std::vector<std::string>>(
-        std::move(*reply_array[1]));
-    return SCARD_S_SUCCESS;
+    return ExtractReturnCodeAndResults(std::move(*waiter).take_value(),
+                                       out_readers);
   }
 
  private:
