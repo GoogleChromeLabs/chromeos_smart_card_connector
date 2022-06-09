@@ -259,55 +259,57 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
                           ConvertToValueOrDie(std::move(request_data)));
   }
 
-  LONG SimulateEstablishContextJsCall(int handler_id,
-                                      DWORD scope,
-                                      Value reserved1,
-                                      Value reserved2,
-                                      SCARDCONTEXT& out_scard_context) {
+  Value SimulateSyncCallFromJsClient(int handler_id,
+                                     const std::string& function_name,
+                                     Value arguments) {
     const RequestId request_id = ++request_id_counter_;
     const std::string requester_name = GetJsClientRequesterName(handler_id);
     auto waiter =
         global_context_.CreateResponseWaiter(requester_name, request_id);
-    SimulateCallFromJs(requester_name, request_id,
-                       /*function_name=*/"SCardEstablishContext",
-                       ArrayValueBuilder()
-                           .Add(scope)
-                           .Add(std::move(reserved1))
-                           .Add(std::move(reserved2))
-                           .Get());
+    SimulateCallFromJs(requester_name, request_id, function_name,
+                       std::move(arguments));
     waiter->Wait();
-    return ExtractReturnCodeAndResults(std::move(*waiter).take_value(),
-                                       out_scard_context);
+    return std::move(*waiter).take_value();
   }
 
-  LONG SimulateReleaseContextJsCall(int handler_id,
-                                    SCARDCONTEXT scard_context) {
-    const RequestId request_id = ++request_id_counter_;
-    const std::string requester_name = GetJsClientRequesterName(handler_id);
-    auto waiter =
-        global_context_.CreateResponseWaiter(requester_name, request_id);
-    SimulateCallFromJs(requester_name, request_id,
-                       /*function_name=*/"SCardReleaseContext",
-                       ArrayValueBuilder().Add(scard_context).Get());
-    waiter->Wait();
-    return ExtractReturnCodeAndResults(std::move(*waiter).take_value());
+  LONG SimulateEstablishContextCallFromJsClient(
+      int handler_id,
+      DWORD scope,
+      Value reserved1,
+      Value reserved2,
+      SCARDCONTEXT& out_scard_context) {
+    return ExtractReturnCodeAndResults(
+        SimulateSyncCallFromJsClient(handler_id,
+                                     /*function_name=*/"SCardEstablishContext",
+                                     ArrayValueBuilder()
+                                         .Add(scope)
+                                         .Add(std::move(reserved1))
+                                         .Add(std::move(reserved2))
+                                         .Get()),
+        out_scard_context);
   }
 
-  LONG SimulateListReadersJsCall(int handler_id,
-                                 SCARDCONTEXT scard_context,
-                                 Value groups,
-                                 std::vector<std::string>& out_readers) {
-    const RequestId request_id = ++request_id_counter_;
-    const std::string requester_name = GetJsClientRequesterName(handler_id);
-    auto waiter =
-        global_context_.CreateResponseWaiter(requester_name, request_id);
-    SimulateCallFromJs(
-        requester_name, request_id,
-        /*function_name=*/"SCardListReaders",
-        ArrayValueBuilder().Add(scard_context).Add(std::move(groups)).Get());
-    waiter->Wait();
-    return ExtractReturnCodeAndResults(std::move(*waiter).take_value(),
-                                       out_readers);
+  LONG SimulateReleaseContextCallFromJsClient(int handler_id,
+                                              SCARDCONTEXT scard_context) {
+    return ExtractReturnCodeAndResults(SimulateSyncCallFromJsClient(
+        handler_id,
+        /*function_name=*/"SCardReleaseContext",
+        ArrayValueBuilder().Add(scard_context).Get()));
+  }
+
+  LONG SimulateListReadersCallFromJsClient(
+      int handler_id,
+      SCARDCONTEXT scard_context,
+      Value groups,
+      std::vector<std::string>& out_readers) {
+    return ExtractReturnCodeAndResults(
+        SimulateSyncCallFromJsClient(handler_id,
+                                     /*function_name=*/"SCardListReaders",
+                                     ArrayValueBuilder()
+                                         .Add(scard_context)
+                                         .Add(std::move(groups))
+                                         .Get()),
+        out_readers);
   }
 
  private:
@@ -508,18 +510,19 @@ class SmartCardConnectorApplicationSingleClientTest
   void SetUpSCardContext() {
     GOOGLE_SMART_CARD_CHECK(!scard_context_);
     SCARDCONTEXT local_scard_context = 0;
-    EXPECT_EQ(SimulateEstablishContextJsCall(kFakeHandlerId, SCARD_SCOPE_SYSTEM,
-                                             /*reserved1=*/Value(),
-                                             /*reserved2=*/Value(),
-                                             local_scard_context),
+    EXPECT_EQ(SimulateEstablishContextCallFromJsClient(
+                  kFakeHandlerId, SCARD_SCOPE_SYSTEM,
+                  /*reserved1=*/Value(),
+                  /*reserved2=*/Value(), local_scard_context),
               SCARD_S_SUCCESS);
     scard_context_ = local_scard_context;
   }
 
   void TearDownSCardContext() {
     GOOGLE_SMART_CARD_CHECK(scard_context_);
-    EXPECT_EQ(SimulateReleaseContextJsCall(kFakeHandlerId, *scard_context_),
-              SCARD_S_SUCCESS);
+    EXPECT_EQ(
+        SimulateReleaseContextCallFromJsClient(kFakeHandlerId, *scard_context_),
+        SCARD_S_SUCCESS);
     scard_context_ = {};
   }
 
@@ -552,8 +555,9 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardListReadersEmpty) {
 
   // Act:
   std::vector<std::string> readers;
-  LONG return_code = SimulateListReadersJsCall(kFakeHandlerId, scard_context(),
-                                               /*groups=*/Value(), readers);
+  LONG return_code =
+      SimulateListReadersCallFromJsClient(kFakeHandlerId, scard_context(),
+                                          /*groups=*/Value(), readers);
 
   // Assert:
   EXPECT_EQ(return_code, SCARD_E_NO_READERS_AVAILABLE);
@@ -574,8 +578,8 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
 
   // Act:
   std::vector<std::string> readers;
-  EXPECT_EQ(SimulateListReadersJsCall(kFakeHandlerId, scard_context(),
-                                      /*groups=*/Value(), readers),
+  EXPECT_EQ(SimulateListReadersCallFromJsClient(kFakeHandlerId, scard_context(),
+                                                /*groups=*/Value(), readers),
             SCARD_S_SUCCESS);
 
   // Assert:
