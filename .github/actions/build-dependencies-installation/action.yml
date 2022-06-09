@@ -33,10 +33,10 @@ runs:
     shell: bash
     run: env/initialize.sh -t ${{ inputs.toolchain }}
 
-  # Building in the analysis modes requires LLVM and Clang, as well as 32-bit
+  # Building in the analysis modes requires LLVM/Clang, as well as 32-bit
   # cross-compile versions of standard C and C++ libraries (needed as we're
   # building code in 32-bit mode on the 64-bit host).
-  - name: Install clang toolchain
+  - name: Install LLVM toolchain
     if: ${{ inputs.toolchain == 'asan_testing' || inputs.toolchain == 'coverage' }}
     shell: bash
     run: >
