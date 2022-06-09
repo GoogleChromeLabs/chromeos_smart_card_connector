@@ -321,6 +321,34 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
             ArrayValueBuilder().Add(scard_context).Get()));
   }
 
+  LONG SimulateConnectCallFromJsClient(int handler_id,
+                                       SCARDCONTEXT scard_context,
+                                       const std::string& reader_name,
+                                       DWORD share_mode,
+                                       DWORD preferred_protocols,
+                                       SCARDHANDLE& out_scard_handle,
+                                       DWORD& out_active_protocol) {
+    return ExtractReturnCodeAndResults(
+        SimulateSyncCallFromJsClient(handler_id,
+                                     /*function_name=*/"SCardConnect",
+                                     ArrayValueBuilder()
+                                         .Add(scard_context)
+                                         .Add(reader_name)
+                                         .Add(share_mode)
+                                         .Add(preferred_protocols)
+                                         .Get()),
+        out_scard_handle, out_active_protocol);
+  }
+
+  LONG SimulateDisconnectCallFromJsClient(int handler_id,
+                                          SCARDHANDLE scard_handle,
+                                          DWORD disposition) {
+    return ExtractReturnCodeAndResults(SimulateSyncCallFromJsClient(
+        handler_id,
+        /*function_name=*/"SCardDisconnect",
+        ArrayValueBuilder().Add(scard_handle).Add(disposition).Get()));
+  }
+
  private:
   void SetUpUsbSimulation() {
     global_context_.RegisterRequestHandler(
@@ -644,6 +672,58 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
 
   // Assert:
   EXPECT_THAT(readers, ElementsAre("Gemalto PC Twin Reader 00 00"));
+}
+
+// Test `SCardConnect()` call from JS fails when there's no card inserted.
+TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardConnectErrorNoCard) {
+  // Arrange:
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  SetUsbDevices({device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+
+  // Act:
+  SCARDHANDLE scard_handle = 0;
+  DWORD active_protocol = 0;
+  EXPECT_EQ(SimulateConnectCallFromJsClient(
+                kFakeHandlerId, scard_context(), "Gemalto PC Twin Reader 00 00",
+                SCARD_SHARE_SHARED, SCARD_PROTOCOL_ANY, scard_handle,
+                active_protocol),
+            SCARD_E_NO_SMARTCARD);
+}
+
+// Test `SCardConnect()` call from JS succeeds for dwShareMode
+// `SCARD_SHARE_DIRECT` even when there's no card inserted.
+TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardConnectDirect) {
+  // Arrange:
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  SetUsbDevices({device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+
+  // Act:
+  SCARDHANDLE scard_handle = 0;
+  DWORD active_protocol = 0;
+  EXPECT_EQ(SimulateConnectCallFromJsClient(
+                kFakeHandlerId, scard_context(), "Gemalto PC Twin Reader 00 00",
+                SCARD_SHARE_DIRECT,
+                /*preferred_protocols=*/0, scard_handle, active_protocol),
+            SCARD_S_SUCCESS);
+
+  // Assert:
+  EXPECT_NE(scard_handle, 0);
+  EXPECT_EQ(active_protocol, 0U);
+
+  // Cleanup:
+  EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
+                                               SCARD_LEAVE_CARD),
+            SCARD_S_SUCCESS);
 }
 
 }  // namespace google_smart_card
