@@ -2,6 +2,7 @@
 /app_manifest_usb_devices.json
 /headers_installed.stamp
 /out/
+/out-artifacts-asan_testing/
 /out-artifacts-coverage/
 /out-artifacts-emscripten/
 /pnacl/

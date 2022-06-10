@@ -13,7 +13,8 @@
 # limitations under the License.
 
 # This file contains the implementation of the ../include.mk interface that
-# builds the C++ unit test runner using the "coverage" toolchain.
+# builds the C++ unit test runner using the "analysis" toolchains (sanitizers,
+# coverage).
 #
 # Note that the implementation is mostly similar to the one at
 # build-emscripten.mk.
@@ -43,18 +44,25 @@ GOOGLETEST_LIBS_PATTERN := \
 $(GOOGLETEST_LIBS_PATTERN):
 	$(MAKE) -C $(ROOT_PATH)/third_party/googletest/webport/build
 
-# Execute the test binary.
-#
-# Chdir into the "out/$TARGET" directory, so that resource files are available
-# under relative paths (./executable-module-filesystem/...). (We only need this
-# for the "coverage" toolchain, because other toolchains provide built-in ways
-# of exposing resource files through a virtual file system.)
-#
+TEST_ENV :=
+
+ifeq ($(TOOLCHAIN),coverage)
+
 # Write the collected coverage profile into ./{Debug|Release}.profraw, so that
 # we can later merge these profiles from all runs and build a summarized report.
 # Use "CURDIR" instead of ".", to use an absolute path that doesn't depend on
 # the program's current directory.
+TEST_ENV += \
+	LLVM_PROFILE_FILE="$(CURDIR)/$(CONFIG).profraw" \
+
+endif
+
+# Execute the test binary.
+#
+# Chdir into the "out/$TARGET" directory, so that resource files are available
+# under relative paths (./executable-module-filesystem/...). (We only need this
+# for the "analysis" toolchains, because other toolchains provide built-in ways
+# of exposing resource files through a virtual file system.)
 run_test: all
 	cd $(OUT_DIR_PATH) && \
-		LLVM_PROFILE_FILE="$(CURDIR)/$(CONFIG).profraw" \
-			./$(TARGET)
+		$(TEST_ENV) ./$(TARGET)

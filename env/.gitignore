@@ -1,4 +1,5 @@
 /activate
+/asan_testing-artifacts/
 /chromedriver
 /coverage-artifacts/
 /depot_tools/

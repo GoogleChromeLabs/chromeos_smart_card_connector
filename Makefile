@@ -27,10 +27,7 @@ all:
 
 # Toolchain-independent targets ####################
 
-APPLICATION_TARGETS := \
-	example_cpp_smart_card_client_app/build \
-	example_js_smart_card_client_app/build \
-	smart_card_connector_app/build \
+APPLICATION_TARGETS :=
 
 LIBRARY_TARGETS := \
 	common/cpp/build \
@@ -78,9 +75,19 @@ third_party/libusb/webport/build/tests: third_party/libusb/webport/build
 
 TOOLCHAIN ?= pnacl
 
-ifeq ($(TOOLCHAIN),emscripten)
+# Applications are only built in non-sanitizer builds.
+ifneq ($(TOOLCHAIN),asan_testing)
 
-# Emscripten-specific definitions ###############
+APPLICATION_TARGETS += \
+	example_cpp_smart_card_client_app/build \
+	example_js_smart_card_client_app/build \
+	smart_card_connector_app/build \
+
+endif
+
+# Use our checkout of Googletest for tests in all toolchains except NaCl (whose
+# SDK provides its own version).
+ifneq ($(TOOLCHAIN),pnacl)
 
 LIBRARY_TARGETS += \
 	third_party/googletest/webport/build \
@@ -89,9 +96,10 @@ common/cpp/build/tests: third_party/googletest/webport/build
 smart_card_connector_app/build/executable_module/cpp_unittests: third_party/googletest/webport/build
 third_party/libusb/webport/build/tests: third_party/googletest/webport/build
 
-else ifeq ($(TOOLCHAIN),pnacl)
+endif
 
-# Native Client specific definitions ############
+# Integration tests are only supported on NaCl at the moment.
+ifeq ($(TOOLCHAIN),pnacl)
 
 LIBRARY_TARGETS += \
 	common/integration_testing/build \
@@ -102,21 +110,6 @@ TEST_TARGETS += \
 example_cpp_smart_card_client_app/build/integration_tests: common/cpp/build
 example_cpp_smart_card_client_app/build/integration_tests: common/integration_testing/build
 example_cpp_smart_card_client_app/build/integration_tests: example_cpp_smart_card_client_app/build
-
-else ifeq ($(TOOLCHAIN),coverage)
-
-# Coverage-specific definitions #################
-
-LIBRARY_TARGETS += \
-	third_party/googletest/webport/build \
-
-common/cpp/build/tests: third_party/googletest/webport/build
-smart_card_connector_app/build/executable_module/cpp_unittests: third_party/googletest/webport/build
-third_party/libusb/webport/build/tests: third_party/googletest/webport/build
-
-else
-
-$(error Unknown TOOLCHAIN "$(TOOLCHAIN)".)
 
 endif
 
