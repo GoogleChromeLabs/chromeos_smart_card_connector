@@ -25,7 +25,6 @@
 #ifndef GOOGLE_SMART_CARD_COMMON_LOGGING_LOGGING_H_
 #define GOOGLE_SMART_CARD_COMMON_LOGGING_LOGGING_H_
 
-#include <cstdlib>
 #include <sstream>
 #include <string>
 
@@ -38,7 +37,10 @@ enum class LogSeverity { kDebug, kInfo, kWarning, kError, kFatal };
 
 namespace internal {
 
-class LogMessage final {
+// Helper class to hold a stringstream and print its contents on destruction.
+//
+// If constructed with `kFatal`, crashes the program via `std::abort()`.
+class LogMessage {
  public:
   explicit LogMessage(LogSeverity severity);
   LogMessage(const LogMessage&) = delete;
@@ -50,6 +52,18 @@ class LogMessage final {
  private:
   LogSeverity severity_;
   std::ostringstream stream_;
+};
+
+// Same as `LogMessage` with the `kFatal` argument, but with the destructor
+// explicitly marked as a function that doesn't return.
+//
+// This is useful for the compiler to understand that the execution never
+// continues after GOOGLE_SMART_CARD_LOG_FATAL and GOOGLE_SMART_CARD_NOTREACHED,
+// which suppresses warnings like "function does not return a value".
+class FatalLogMessage final : public LogMessage {
+ public:
+  FatalLogMessage() : LogMessage(LogSeverity::kFatal) {}
+  __attribute__((noreturn)) ~FatalLogMessage() = default;
 };
 
 std::string MakeCheckFailedMessage(const std::string& stringified_condition,
@@ -121,9 +135,8 @@ std::string MakeNotreachedMessage(const std::string& file,
   GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY( \
       ::google_smart_card::LogSeverity::kError)
 
-#define GOOGLE_SMART_CARD_LOG_FATAL                 \
-  GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY( \
-      ::google_smart_card::LogSeverity::kFatal)
+#define GOOGLE_SMART_CARD_LOG_FATAL \
+  ::google_smart_card::internal::FatalLogMessage().stream()
 
 // Evaluates the specified condition and, if it has a falsy value, then emits a
 // FATAL message (containing the stringified condition).
@@ -136,7 +149,6 @@ std::string MakeNotreachedMessage(const std::string& file,
       GOOGLE_SMART_CARD_LOG_FATAL                                   \
           << ::google_smart_card::internal::MakeCheckFailedMessage( \
                  #condition, __FILE__, __LINE__, __func__);         \
-      std::abort();                                                 \
     }                                                               \
   } while (false)
 
@@ -157,7 +169,6 @@ std::string MakeNotreachedMessage(const std::string& file,
     GOOGLE_SMART_CARD_LOG_FATAL                                  \
         << ::google_smart_card::internal::MakeNotreachedMessage( \
                __FILE__, __LINE__, __func__);                    \
-    std::abort();                                                \
   } while (false)
 
 }  // namespace google_smart_card
