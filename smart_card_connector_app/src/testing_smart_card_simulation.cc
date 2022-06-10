@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include <google_smart_card_common/logging/hex_dumping.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
@@ -407,7 +408,8 @@ TestingSmartCardSimulation::ThreadSafeHandler::ControlTransfer(
         ConvertToValueOrDie(std::move(result)));
   }
 
-  return GenericRequestResult::CreateFailed("Unknown control command");
+  GOOGLE_SMART_CARD_LOG_FATAL << "Unknown control command: request="
+                              << params.request;
 }
 
 GenericRequestResult
@@ -453,7 +455,7 @@ TestingSmartCardSimulation::ThreadSafeHandler::HandleOutputBulkTransfer(
     DeviceState& device_state) {
   // Extract the command's sequence number ("bSeq").
   if (data_to_send.size() < 7)
-    return GenericRequestResult::CreateFailed("Missing sequence number");
+    GOOGLE_SMART_CARD_LOG_FATAL << "Missing bulk transfer sequence number";
   uint8_t sequence_number = data_to_send[6];
 
   switch (data_to_send[0]) {
@@ -480,7 +482,8 @@ TestingSmartCardSimulation::ThreadSafeHandler::HandleOutputBulkTransfer(
           ConvertToValueOrDie(LibusbJsTransferResult()));
   }
   // Unknown command.
-  return GenericRequestResult::CreateFailed("Unexpected output bulk transfer");
+  GOOGLE_SMART_CARD_LOG_FATAL << "Unexpected output bulk transfer: "
+                              << HexDumpBytes(data_to_send);
 }
 
 GenericRequestResult
@@ -489,7 +492,7 @@ TestingSmartCardSimulation::ThreadSafeHandler::HandleInputBulkTransfer(
     DeviceState& device_state) {
   if (device_state.next_bulk_transfer_reply.empty()) {
     // Unexpected command - we have no reply prepared.
-    return GenericRequestResult::CreateFailed("Unexpected input bulk transfer");
+    GOOGLE_SMART_CARD_LOG_FATAL << "Unexpected input bulk transfer";
   }
   if (device_state.next_bulk_transfer_reply.size() > length_to_receive)
     return GenericRequestResult::CreateFailed("Transfer overflow");
