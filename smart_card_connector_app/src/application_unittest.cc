@@ -314,11 +314,10 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
 
   LONG SimulateIsValidContextCallFromJsClient(int handler_id,
                                               SCARDCONTEXT scard_context) {
-    return ExtractReturnCodeAndResults(
-        SimulateSyncCallFromJsClient(
-            handler_id,
-            /*function_name=*/"SCardIsValidContext",
-            ArrayValueBuilder().Add(scard_context).Get()));
+    return ExtractReturnCodeAndResults(SimulateSyncCallFromJsClient(
+        handler_id,
+        /*function_name=*/"SCardIsValidContext",
+        ArrayValueBuilder().Add(scard_context).Get()));
   }
 
   LONG SimulateConnectCallFromJsClient(int handler_id,
@@ -518,6 +517,54 @@ TEST_F(SmartCardConnectorApplicationTest,
   EXPECT_EQ(reader_notification_observer().WaitAndPop(),
             "reader_remove:Gemalto PC Twin Reader");
   EXPECT_TRUE(reader_notification_observer().Empty());
+}
+
+// Test that one client can't use PC/SC contexts belonging to another client.
+TEST_F(SmartCardConnectorApplicationTest, ContextsIsolation) {
+  static constexpr int kFirstHandlerId = 1234;
+  static constexpr int kSecondHandlerId = 321;
+
+  // Arrange:
+  StartApplication();
+  SimulateJsClientAdded(kFirstHandlerId, /*client_name_for_log=*/"foo");
+  SimulateJsClientAdded(kSecondHandlerId, /*client_name_for_log=*/"bar");
+  SCARDCONTEXT first_scard_context = 0;
+  EXPECT_EQ(SimulateEstablishContextCallFromJsClient(
+                kFirstHandlerId, SCARD_SCOPE_SYSTEM,
+                /*reserved1=*/Value(),
+                /*reserved2=*/Value(), first_scard_context),
+            SCARD_S_SUCCESS);
+  SCARDCONTEXT second_scard_context = 0;
+  EXPECT_EQ(SimulateEstablishContextCallFromJsClient(
+                kSecondHandlerId, SCARD_SCOPE_SYSTEM,
+                /*reserved1=*/Value(),
+                /*reserved2=*/Value(), second_scard_context),
+            SCARD_S_SUCCESS);
+  EXPECT_NE(first_scard_context, second_scard_context);
+
+  // Assert:
+  EXPECT_EQ(SimulateIsValidContextCallFromJsClient(kFirstHandlerId,
+                                                   second_scard_context),
+            SCARD_E_INVALID_HANDLE);
+  EXPECT_EQ(SimulateIsValidContextCallFromJsClient(kSecondHandlerId,
+                                                   first_scard_context),
+            SCARD_E_INVALID_HANDLE);
+  EXPECT_EQ(SimulateReleaseContextCallFromJsClient(kFirstHandlerId,
+                                                   second_scard_context),
+            SCARD_E_INVALID_HANDLE);
+  EXPECT_EQ(SimulateReleaseContextCallFromJsClient(kSecondHandlerId,
+                                                   first_scard_context),
+            SCARD_E_INVALID_HANDLE);
+
+  // Cleanup:
+  EXPECT_EQ(SimulateReleaseContextCallFromJsClient(kFirstHandlerId,
+                                                   first_scard_context),
+            SCARD_S_SUCCESS);
+  EXPECT_EQ(SimulateReleaseContextCallFromJsClient(kSecondHandlerId,
+                                                   second_scard_context),
+            SCARD_S_SUCCESS);
+  SimulateJsClientRemoved(kFirstHandlerId);
+  SimulateJsClientRemoved(kSecondHandlerId);
 }
 
 // Test fixture that simplifies simulating commands from a single client
