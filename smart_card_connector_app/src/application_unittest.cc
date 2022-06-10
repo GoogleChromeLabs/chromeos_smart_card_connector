@@ -836,6 +836,54 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
             SCARD_STATE_CHANGED | SCARD_STATE_UNAVAILABLE));
 }
 
+// Test `SCardGetStatusChange()` call from JS returns the reader and card
+// information.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       SCardGetStatusChangeWithCard) {
+  // Arrange:
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
+  SetUsbDevices({device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+
+  // Act:
+  std::vector<Value> reader_states;
+  // This call is expected to return immediately, since we pass
+  // `SCARD_STATE_UNKNOWN`.
+  EXPECT_EQ(SimulateGetStatusChangeCallFromJsClient(
+                kFakeHandlerId, scard_context(),
+                /*timeout=*/INFINITE,
+                ArrayValueBuilder()
+                    .Add(DictValueBuilder()
+                             .Add("reader_name", "Gemalto PC Twin Reader 00 00")
+                             .Add("current_state", SCARD_STATE_UNKNOWN)
+                             .Get())
+                    .Get(),
+                reader_states),
+            SCARD_S_SUCCESS);
+
+  // Assert:
+  ASSERT_THAT(reader_states, SizeIs(1));
+  EXPECT_THAT(reader_states[0], DictSizeIs(4));
+  EXPECT_THAT(reader_states[0],
+              DictContains("reader_name", "Gemalto PC Twin Reader 00 00"));
+  EXPECT_THAT(reader_states[0],
+              DictContains("current_state", SCARD_STATE_UNKNOWN));
+  EXPECT_THAT(
+      reader_states[0],
+      DictContains("event_state", SCARD_STATE_CHANGED | SCARD_STATE_PRESENT));
+  EXPECT_THAT(
+      reader_states[0],
+      DictContains("atr", std::vector<uint8_t>{
+                              0x3B, 0xDB, 0x96, 0x00, 0x80, 0xB1, 0xFE, 0x45,
+                              0x1F, 0x83, 0x00, 0x31, 0xC0, 0x64, 0xC7, 0xFC,
+                              0x10, 0x00, 0x01, 0x90, 0x00, 0x74}));
+}
+
 // `SCardConnect()` call from JS fails when there's no card inserted.
 TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardConnectErrorNoCard) {
   // Arrange:
