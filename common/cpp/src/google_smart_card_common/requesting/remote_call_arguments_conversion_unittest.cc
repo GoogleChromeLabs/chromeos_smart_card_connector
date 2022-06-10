@@ -17,6 +17,7 @@
 #include <string>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <google_smart_card_common/optional.h>
@@ -24,6 +25,11 @@
 #include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_conversion.h>
+#include <google_smart_card_common/value_test_utils.h>
+
+using testing::ElementsAre;
+using testing::IsEmpty;
+using testing::SizeIs;
 
 namespace google_smart_card {
 
@@ -55,7 +61,7 @@ TEST(ToRemoteCallRequestConversion, NoArguments) {
   const RemoteCallRequestPayload payload =
       ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc);
   EXPECT_EQ(payload.function_name, kSomeFunc);
-  EXPECT_TRUE(payload.arguments.empty());
+  EXPECT_THAT(payload.arguments, IsEmpty());
 }
 
 TEST(ToRemoteCallRequestConversion, BasicArgumentByValue) {
@@ -63,36 +69,28 @@ TEST(ToRemoteCallRequestConversion, BasicArgumentByValue) {
     const RemoteCallRequestPayload payload =
         ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc, false);
     EXPECT_EQ(payload.function_name, kSomeFunc);
-    ASSERT_EQ(payload.arguments.size(), 1U);
-    ASSERT_TRUE(payload.arguments[0].is_boolean());
-    EXPECT_EQ(payload.arguments[0].GetBoolean(), false);
+    EXPECT_THAT(payload.arguments, ElementsAre(StrictlyEquals(false)));
   }
 
   {
     const RemoteCallRequestPayload payload =
         ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc, 123);
     EXPECT_EQ(payload.function_name, kSomeFunc);
-    ASSERT_EQ(payload.arguments.size(), 1U);
-    ASSERT_TRUE(payload.arguments[0].is_integer());
-    EXPECT_EQ(payload.arguments[0].GetInteger(), 123);
+    EXPECT_THAT(payload.arguments, ElementsAre(StrictlyEquals(123)));
   }
 
   {
     const RemoteCallRequestPayload payload =
         ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc, "foo");
     EXPECT_EQ(payload.function_name, kSomeFunc);
-    ASSERT_EQ(payload.arguments.size(), 1U);
-    ASSERT_TRUE(payload.arguments[0].is_string());
-    EXPECT_EQ(payload.arguments[0].GetString(), "foo");
+    EXPECT_THAT(payload.arguments, ElementsAre(StrictlyEquals("foo")));
   }
 
   {
     const RemoteCallRequestPayload payload =
         ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc, std::string("foo"));
     EXPECT_EQ(payload.function_name, kSomeFunc);
-    ASSERT_EQ(payload.arguments.size(), 1U);
-    ASSERT_TRUE(payload.arguments[0].is_string());
-    EXPECT_EQ(payload.arguments[0].GetString(), "foo");
+    EXPECT_THAT(payload.arguments, ElementsAre(StrictlyEquals("foo")));
   }
 
   {
@@ -100,14 +98,8 @@ TEST(ToRemoteCallRequestConversion, BasicArgumentByValue) {
         ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc,
                                                std::vector<int>({1, 10}));
     EXPECT_EQ(payload.function_name, kSomeFunc);
-    ASSERT_EQ(payload.arguments.size(), 1U);
-    const Value& argument0 = payload.arguments[0];
-    ASSERT_TRUE(argument0.is_array());
-    ASSERT_EQ(argument0.GetArray().size(), 2U);
-    ASSERT_TRUE(argument0.GetArray()[0]->is_integer());
-    EXPECT_EQ(argument0.GetArray()[0]->GetInteger(), 1);
-    ASSERT_TRUE(argument0.GetArray()[1]->is_integer());
-    EXPECT_EQ(argument0.GetArray()[1]->GetInteger(), 10);
+    EXPECT_THAT(payload.arguments,
+                ElementsAre(StrictlyEquals(std::vector<int>({1, 10}))));
   }
 }
 
@@ -117,9 +109,7 @@ TEST(ToRemoteCallRequestConversion, BasicArgumentByReference) {
     const RemoteCallRequestPayload payload =
         ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc, boolean_value);
     EXPECT_EQ(payload.function_name, kSomeFunc);
-    ASSERT_EQ(payload.arguments.size(), 1U);
-    ASSERT_TRUE(payload.arguments[0].is_boolean());
-    EXPECT_EQ(payload.arguments[0].GetBoolean(), false);
+    EXPECT_THAT(payload.arguments, ElementsAre(StrictlyEquals(false)));
   }
 
   {
@@ -127,9 +117,7 @@ TEST(ToRemoteCallRequestConversion, BasicArgumentByReference) {
     const RemoteCallRequestPayload payload =
         ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc, string_value);
     EXPECT_EQ(payload.function_name, kSomeFunc);
-    ASSERT_EQ(payload.arguments.size(), 1U);
-    ASSERT_TRUE(payload.arguments[0].is_string());
-    EXPECT_EQ(payload.arguments[0].GetString(), "foo");
+    EXPECT_THAT(payload.arguments, ElementsAre(StrictlyEquals("foo")));
     // The call shouldn't modify arguments passed by reference.
     EXPECT_EQ(string_value, "foo");
   }
@@ -140,9 +128,7 @@ TEST(ToRemoteCallRequestConversion, BasicArgumentByConstReference) {
   const RemoteCallRequestPayload payload =
       ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc, kBooleanValue);
   EXPECT_EQ(payload.function_name, kSomeFunc);
-  ASSERT_EQ(payload.arguments.size(), 1U);
-  ASSERT_TRUE(payload.arguments[0].is_boolean());
-  EXPECT_EQ(payload.arguments[0].GetBoolean(), kBooleanValue);
+  EXPECT_THAT(payload.arguments, ElementsAre(StrictlyEquals(kBooleanValue)));
 }
 
 TEST(ToRemoteCallRequestConversion, OptionalArgumentByValue) {
@@ -150,8 +136,8 @@ TEST(ToRemoteCallRequestConversion, OptionalArgumentByValue) {
     const RemoteCallRequestPayload payload =
         ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc, optional<int>());
     EXPECT_EQ(payload.function_name, kSomeFunc);
-    ASSERT_EQ(payload.arguments.size(), 1U);
-    EXPECT_TRUE(payload.arguments[0].is_null());
+    EXPECT_THAT(payload.arguments,
+                ElementsAre(StrictlyEquals(Value::Type::kNull)));
   }
 
   {
@@ -160,9 +146,7 @@ TEST(ToRemoteCallRequestConversion, OptionalArgumentByValue) {
         ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc,
                                                make_optional(kIntegerValue));
     EXPECT_EQ(payload.function_name, kSomeFunc);
-    ASSERT_EQ(payload.arguments.size(), 1U);
-    ASSERT_TRUE(payload.arguments[0].is_integer());
-    EXPECT_EQ(payload.arguments[0].GetInteger(), kIntegerValue);
+    EXPECT_THAT(payload.arguments, ElementsAre(StrictlyEquals(kIntegerValue)));
   }
 }
 
@@ -172,8 +156,8 @@ TEST(ToRemoteCallRequestConversion, OptionalArgumentByReference) {
     const RemoteCallRequestPayload payload =
         ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc, boolean_argument);
     EXPECT_EQ(payload.function_name, kSomeFunc);
-    ASSERT_EQ(payload.arguments.size(), 1U);
-    EXPECT_TRUE(payload.arguments[0].is_null());
+    EXPECT_THAT(payload.arguments,
+                ElementsAre(StrictlyEquals(Value::Type::kNull)));
   }
 
   {
@@ -181,9 +165,7 @@ TEST(ToRemoteCallRequestConversion, OptionalArgumentByReference) {
     const RemoteCallRequestPayload payload =
         ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc, boolean_argument);
     EXPECT_EQ(payload.function_name, kSomeFunc);
-    ASSERT_EQ(payload.arguments.size(), 1U);
-    ASSERT_TRUE(payload.arguments[0].is_boolean());
-    EXPECT_EQ(payload.arguments[0].GetBoolean(), false);
+    EXPECT_THAT(payload.arguments, ElementsAre(StrictlyEquals(false)));
     // The call shouldn't modify arguments passed by reference.
     EXPECT_TRUE(boolean_argument);
   }
@@ -195,8 +177,8 @@ TEST(ToRemoteCallRequestConversion, OptionalArgumentByConstReference) {
     const RemoteCallRequestPayload payload =
         ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc, boolean_argument);
     EXPECT_EQ(payload.function_name, kSomeFunc);
-    ASSERT_EQ(payload.arguments.size(), 1U);
-    EXPECT_TRUE(payload.arguments[0].is_null());
+    EXPECT_THAT(payload.arguments,
+                ElementsAre(StrictlyEquals(Value::Type::kNull)));
   }
 
   {
@@ -204,9 +186,7 @@ TEST(ToRemoteCallRequestConversion, OptionalArgumentByConstReference) {
     const RemoteCallRequestPayload payload =
         ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc, boolean_argument);
     EXPECT_EQ(payload.function_name, kSomeFunc);
-    ASSERT_EQ(payload.arguments.size(), 1U);
-    ASSERT_TRUE(payload.arguments[0].is_boolean());
-    EXPECT_EQ(payload.arguments[0].GetBoolean(), false);
+    EXPECT_THAT(payload.arguments, ElementsAre(StrictlyEquals(false)));
   }
 }
 
@@ -214,22 +194,16 @@ TEST(ToRemoteCallRequestConversion, MultipleArguments) {
   const RemoteCallRequestPayload payload =
       ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc, -1, true, "");
   EXPECT_EQ(payload.function_name, kSomeFunc);
-  ASSERT_EQ(payload.arguments.size(), 3U);
-  ASSERT_TRUE(payload.arguments[0].is_integer());
-  EXPECT_EQ(payload.arguments[0].GetInteger(), -1);
-  ASSERT_TRUE(payload.arguments[1].is_boolean());
-  EXPECT_EQ(payload.arguments[1].GetBoolean(), true);
-  ASSERT_TRUE(payload.arguments[2].is_string());
-  EXPECT_EQ(payload.arguments[2].GetString(), "");
+  EXPECT_THAT(payload.arguments,
+              ElementsAre(StrictlyEquals(-1), StrictlyEquals(true),
+                          StrictlyEquals("")));
 }
 
 TEST(ToRemoteCallRequestConversion, EnumArgument) {
   const RemoteCallRequestPayload payload =
       ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc, SomeEnum::kFirst);
   EXPECT_EQ(payload.function_name, kSomeFunc);
-  ASSERT_EQ(payload.arguments.size(), 1U);
-  ASSERT_TRUE(payload.arguments[0].is_string());
-  EXPECT_EQ(payload.arguments[0].GetString(), "first");
+  EXPECT_THAT(payload.arguments, ElementsAre(StrictlyEquals("first")));
 }
 
 TEST(ToRemoteCallRequestConversion, StructArgument) {
@@ -238,13 +212,9 @@ TEST(ToRemoteCallRequestConversion, StructArgument) {
   const RemoteCallRequestPayload payload =
       ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc, some_struct);
   EXPECT_EQ(payload.function_name, kSomeFunc);
-  ASSERT_EQ(payload.arguments.size(), 1U);
-  ASSERT_TRUE(payload.arguments[0].is_dictionary());
-  EXPECT_EQ(payload.arguments[0].GetDictionary().size(), 1U);
-  const Value* const item_foo = payload.arguments[0].GetDictionaryItem("foo");
-  ASSERT_TRUE(item_foo);
-  ASSERT_TRUE(item_foo->is_integer());
-  EXPECT_EQ(item_foo->GetInteger(), 123);
+  ASSERT_THAT(payload.arguments, SizeIs(1));
+  EXPECT_THAT(payload.arguments[0], DictSizeIs(1));
+  EXPECT_THAT(payload.arguments[0], DictContains("foo", 123));
 }
 
 TEST(RemoteCallArgumentsExtractor, NoArgumentsExpected) {
