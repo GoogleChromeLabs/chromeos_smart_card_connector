@@ -889,6 +889,56 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
                        TestingSmartCardSimulation::CardType::kCosmoId70)));
 }
 
+// `SCardGetStatusChange()` call from JS returns the reader and card
+// information.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       SCardGetStatusChangeCardInserting) {
+  // Arrange: start without a card.
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  SetUsbDevices({device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+
+  // Act: simulate the card insertion.
+  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
+  SetUsbDevices({device});
+  // Request SCardGetStatusChange to check it observes the change.
+  std::vector<Value> reader_states;
+  EXPECT_EQ(SimulateGetStatusChangeCallFromJsClient(
+                kFakeHandlerId, scard_context(),
+                /*timeout=*/INFINITE,
+                ArrayValueBuilder()
+                    .Add(DictValueBuilder()
+                             .Add("reader_name", "Gemalto PC Twin Reader 00 00")
+                             .Add("current_state", SCARD_STATE_EMPTY)
+                             .Get())
+                    .Get(),
+                reader_states),
+            SCARD_S_SUCCESS);
+
+  // Assert:
+  ASSERT_THAT(reader_states, SizeIs(1));
+  EXPECT_THAT(reader_states[0], DictSizeIs(4));
+  EXPECT_THAT(reader_states[0],
+              DictContains("reader_name", "Gemalto PC Twin Reader 00 00"));
+  EXPECT_THAT(reader_states[0],
+              DictContains("current_state", SCARD_STATE_EMPTY));
+  // The "event_state" field contains the number of card insertion/removal
+  // events in the higher 16 bits.
+  EXPECT_THAT(reader_states[0],
+              DictContains("event_state", SCARD_STATE_CHANGED |
+                                              SCARD_STATE_PRESENT | 0x10000));
+  EXPECT_THAT(
+      reader_states[0],
+      DictContains("atr", std::vector<uint8_t>{
+                              0x3B, 0xDB, 0x96, 0x00, 0x80, 0xB1, 0xFE, 0x45,
+                              0x1F, 0x83, 0x00, 0x31, 0xC0, 0x64, 0xC7, 0xFC,
+                              0x10, 0x00, 0x01, 0x90, 0x00, 0x74}));
+}
+
 // `SCardConnect()` call from JS fails when there's no card inserted.
 TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardConnectErrorNoCard) {
   // Arrange:

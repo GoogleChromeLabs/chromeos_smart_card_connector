@@ -18,6 +18,7 @@
 #include <stdint.h>
 
 #include <mutex>
+#include <queue>
 #include <set>
 #include <string>
 #include <vector>
@@ -84,6 +85,7 @@ class TestingSmartCardSimulation final {
     optional<int64_t> opened_device_handle;
     std::set<int64_t> claimed_interfaces;
     std::vector<uint8_t> next_bulk_transfer_reply;
+    std::queue<RequestId> pending_interrupt_transfers;
     CcidIccStatus icc_status = CcidIccStatus::kNotPresent;
   };
 
@@ -92,7 +94,7 @@ class TestingSmartCardSimulation final {
    public:
     using DeviceState = TestingSmartCardSimulation::DeviceState;
 
-    ThreadSafeHandler();
+    explicit ThreadSafeHandler(TypedMessageRouter* typed_message_router);
     ThreadSafeHandler(const ThreadSafeHandler&) = delete;
     ThreadSafeHandler& operator=(const ThreadSafeHandler&) = delete;
     ~ThreadSafeHandler();
@@ -119,6 +121,7 @@ class TestingSmartCardSimulation final {
                                       int64_t device_handle,
                                       LibusbJsGenericTransferParameters params);
     optional<GenericRequestResult> InterruptTransfer(
+        RequestId request_id,
         int64_t device_id,
         int64_t device_handle,
         LibusbJsGenericTransferParameters params);
@@ -128,6 +131,7 @@ class TestingSmartCardSimulation final {
     DeviceState* FindDeviceStateByIdAndHandle(int64_t device_id,
                                               int64_t device_handle);
     void UpdateDeviceState(const Device& device, DeviceState& device_state);
+    void NotifySlotChange(DeviceState& device_state);
 
     GenericRequestResult HandleOutputBulkTransfer(
         const std::vector<uint8_t>& data_to_send,
@@ -135,12 +139,11 @@ class TestingSmartCardSimulation final {
     GenericRequestResult HandleInputBulkTransfer(int64_t length_to_receive,
                                                  DeviceState& device_state);
 
+    TypedMessageRouter* const typed_message_router_;
     std::mutex mutex_;
     std::vector<DeviceState> device_states_;
     int64_t next_free_device_handle_ = 1;
   };
-
-  void PostFakeJsResponse(RequestId request_id, GenericRequestResult result);
 
   TypedMessageRouter* const typed_message_router_;
   ThreadSafeHandler handler_;
