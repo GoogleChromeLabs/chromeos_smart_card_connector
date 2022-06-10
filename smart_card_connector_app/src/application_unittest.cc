@@ -38,6 +38,7 @@
 #include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_conversion.h>
+#include <google_smart_card_common/value_test_utils.h>
 
 #include "common/cpp/src/public/testing_global_context.h"
 #include "common/cpp/src/public/value_builder.h"
@@ -49,10 +50,13 @@
 
 using testing::ElementsAre;
 using testing::IsEmpty;
+using testing::SizeIs;
 
 namespace google_smart_card {
 
 namespace {
+
+constexpr char kPnpNotification[] = R"(\\?PnP?\Notification)";
 
 // Records reader_* messages sent to JS and allows to inspect them in tests.
 class ReaderNotificationObserver final {
@@ -320,6 +324,23 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
         ArrayValueBuilder().Add(scard_context).Get()));
   }
 
+  LONG SimulateGetStatusChangeCallFromJsClient(
+      int handler_id,
+      SCARDCONTEXT scard_context,
+      DWORD timeout,
+      Value in_reader_states,
+      std::vector<Value>& out_reader_states) {
+    return ExtractReturnCodeAndResults(
+        SimulateSyncCallFromJsClient(handler_id,
+                                     /*function_name=*/"SCardGetStatusChange",
+                                     ArrayValueBuilder()
+                                         .Add(scard_context)
+                                         .Add(timeout)
+                                         .Add(std::move(in_reader_states))
+                                         .Get()),
+        out_reader_states);
+  }
+
   LONG SimulateConnectCallFromJsClient(int handler_id,
                                        SCARDCONTEXT scard_context,
                                        const std::string& reader_name,
@@ -423,6 +444,8 @@ TEST_F(SmartCardConnectorApplicationTest, InternalApiSingleDeviceListing) {
   EXPECT_THAT(readers, ElementsAre("Gemalto PC Twin Reader 00 00"));
 }
 
+// Test the direct C function call `SCardGetStatusChange()` detects when a
+// reader is plugged in.
 TEST_F(SmartCardConnectorApplicationTest,
        InternalApiGetStatusChangeDeviceAppearing) {
   // Arrange:
@@ -447,7 +470,7 @@ TEST_F(SmartCardConnectorApplicationTest,
 
   // Wait until PC/SC reports a change in the list of readers.
   std::vector<SCARD_READERSTATE> reader_states(1);
-  reader_states[0].szReader = R"(\\?PnP?\Notification)";
+  reader_states[0].szReader = kPnpNotification;
   reader_states[0].dwCurrentState = SCARD_STATE_UNAWARE;
   EXPECT_EQ(SCardGetStatusChange(scard_context, /*dwTimeout=*/INFINITE,
                                  reader_states.data(), reader_states.size()),
@@ -459,6 +482,8 @@ TEST_F(SmartCardConnectorApplicationTest,
 
   // Assert:
 
+  EXPECT_EQ(reader_states[0].dwEventState,
+            static_cast<DWORD>(SCARD_STATE_CHANGED));
   EXPECT_THAT(readers, ElementsAre("Gemalto PC Twin Reader 00 00"));
   EXPECT_EQ(reader_notification_observer().WaitAndPop(),
             "reader_init_add:Gemalto PC Twin Reader");
@@ -467,6 +492,8 @@ TEST_F(SmartCardConnectorApplicationTest,
   EXPECT_TRUE(reader_notification_observer().Empty());
 }
 
+// Test the direct C function call `SCardGetStatusChange()` detects when a
+// reader is unplugged.
 TEST_F(SmartCardConnectorApplicationTest,
        InternalApiGetStatusChangeDeviceRemoving) {
   // Arrange:
@@ -501,7 +528,7 @@ TEST_F(SmartCardConnectorApplicationTest,
 
   // Wait until PC/SC reports a change in the list of readers.
   std::vector<SCARD_READERSTATE> reader_states(1);
-  reader_states[0].szReader = R"(\\?PnP?\Notification)";
+  reader_states[0].szReader = kPnpNotification;
   reader_states[0].dwCurrentState = SCARD_STATE_UNAWARE;
   EXPECT_EQ(SCardGetStatusChange(scard_context, /*dwTimeout=*/INFINITE,
                                  reader_states.data(), reader_states.size()),
@@ -719,6 +746,90 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
 
   // Assert:
   EXPECT_THAT(readers, ElementsAre("Gemalto PC Twin Reader 00 00"));
+}
+
+// Test `SCardGetStatusChange()` call from JS detects when a reader is plugged
+// in.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       SCardGetStatusChangeDeviceAppearing) {
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+
+  // Act:
+  // Simulate connecting a reader.
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  SetUsbDevices({device});
+  // Request SCardGetStatusChange to check it observes the change.
+  std::vector<Value> reader_states;
+  EXPECT_EQ(SimulateGetStatusChangeCallFromJsClient(
+                kFakeHandlerId, scard_context(),
+                /*timeout=*/INFINITE,
+                ArrayValueBuilder()
+                    .Add(DictValueBuilder()
+                             .Add("reader_name", kPnpNotification)
+                             .Add("current_state", SCARD_STATE_UNAWARE)
+                             .Get())
+                    .Get(),
+                reader_states),
+            SCARD_S_SUCCESS);
+
+  // Assert:
+  ASSERT_THAT(reader_states, SizeIs(1));
+  EXPECT_THAT(reader_states[0], DictSizeIs(4));
+  EXPECT_THAT(reader_states[0], DictContains("reader_name", kPnpNotification));
+  EXPECT_THAT(reader_states[0],
+              DictContains("current_state", SCARD_STATE_UNAWARE));
+  EXPECT_THAT(reader_states[0],
+              DictContains("event_state", SCARD_STATE_CHANGED));
+  EXPECT_THAT(reader_states[0], DictContains("atr", Value::Type::kBinary));
+}
+
+// Test `SCardGetStatusChange()` call from JS detects when a reader is
+// unplugged.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       SCardGetStatusChangeDeviceRemoving) {
+  // Arrange: start with a single device.
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  SetUsbDevices({device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+
+  // Act:
+  // Simulate disconnecting a reader.
+  SetUsbDevices({});
+  // Request SCardGetStatusChange to check it observes the change.
+  std::vector<Value> reader_states;
+  EXPECT_EQ(SimulateGetStatusChangeCallFromJsClient(
+                kFakeHandlerId, scard_context(),
+                /*timeout=*/INFINITE,
+                ArrayValueBuilder()
+                    .Add(DictValueBuilder()
+                             .Add("reader_name", "Gemalto PC Twin Reader 00 00")
+                             .Add("current_state", SCARD_STATE_EMPTY)
+                             .Get())
+                    .Get(),
+                reader_states),
+            SCARD_S_SUCCESS);
+
+  // Assert:
+  ASSERT_THAT(reader_states, SizeIs(1));
+  EXPECT_THAT(reader_states[0], DictSizeIs(4));
+  EXPECT_THAT(reader_states[0],
+              DictContains("reader_name", "Gemalto PC Twin Reader 00 00"));
+  EXPECT_THAT(reader_states[0],
+              DictContains("current_state", SCARD_STATE_EMPTY));
+  EXPECT_THAT(
+      reader_states[0],
+      DictContains("event_state", SCARD_STATE_CHANGED | SCARD_STATE_UNKNOWN |
+                                      SCARD_STATE_UNAVAILABLE));
+  EXPECT_THAT(reader_states[0], DictContains("atr", Value::Type::kBinary));
 }
 
 // Test `SCardConnect()` call from JS fails when there's no card inserted.
