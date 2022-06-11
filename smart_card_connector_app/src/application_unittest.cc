@@ -48,6 +48,7 @@
 #include <google_smart_card_common/nacl_io_utils.h>
 #endif  // __native_client__
 
+using testing::AnyOf;
 using testing::ElementsAre;
 using testing::IsEmpty;
 using testing::SizeIs;
@@ -820,16 +821,23 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
 
   // Assert:
   ASSERT_THAT(reader_states, SizeIs(1));
-  EXPECT_THAT(reader_states[0], DictSizeIs(4));
+  ASSERT_THAT(reader_states[0], DictSizeIs(4));
   EXPECT_THAT(reader_states[0],
               DictContains("reader_name", "Gemalto PC Twin Reader 00 00"));
   EXPECT_THAT(reader_states[0],
               DictContains("current_state", SCARD_STATE_EMPTY));
-  EXPECT_THAT(
-      reader_states[0],
-      DictContains("event_state", SCARD_STATE_CHANGED | SCARD_STATE_UNKNOWN |
-                                      SCARD_STATE_UNAVAILABLE));
   EXPECT_THAT(reader_states[0], DictContains("atr", Value::Type::kBinary));
+  // Depending on the timing, PC/SC may or may not report the
+  // `SCARD_STATE_UNKNOWN` flag (this depends on whether it already removed the
+  // "dead" reader from internal lists).
+  const Value* const received_event_state =
+      reader_states[0].GetDictionaryItem("event_state");
+  ASSERT_TRUE(received_event_state);
+  ASSERT_TRUE(received_event_state->is_integer());
+  EXPECT_THAT(
+      received_event_state->GetInteger(),
+      AnyOf(SCARD_STATE_CHANGED | SCARD_STATE_UNKNOWN | SCARD_STATE_UNAVAILABLE,
+            SCARD_STATE_CHANGED | SCARD_STATE_UNAVAILABLE));
 }
 
 // Test `SCardConnect()` call from JS fails when there's no card inserted.
