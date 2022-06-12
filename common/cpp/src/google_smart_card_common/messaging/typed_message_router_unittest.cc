@@ -130,6 +130,15 @@ TEST(MessagingTypedMessageRouterTest, Basic) {
       MakeTypedMessageValue(kSampleType1, MakeSampleData(7))));
 }
 
+TEST(MessagingTypedMessageRouterTest, MalformedMessage) {
+  TypedMessageRouter router;
+  std::string error_message;
+  EXPECT_FALSE(router.OnMessageReceived(Value(), &error_message));
+  EXPECT_EQ(error_message,
+            "Cannot parse typed message: Cannot convert value to struct "
+            "TypedMessage: Value is not a dictionary");
+}
+
 TEST(MessagingTypedMessageRouterTest, MultiThreading) {
   // A high number of iterations increases the chances of catching a bug, but
   // the constant is lower in the Debug mode to avoid running too long.
