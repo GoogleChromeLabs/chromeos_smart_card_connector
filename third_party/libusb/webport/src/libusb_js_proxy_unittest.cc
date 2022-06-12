@@ -867,10 +867,10 @@ TEST_F(LibusbJsProxyWithDeviceTest, AsyncInputControlTransfer) {
   EXPECT_EQ(libusb_js_proxy_.LibusbSubmitTransfer(transfer), LIBUSB_SUCCESS);
   EXPECT_FALSE(transfer_completed);
   // Let the fake JS result propagate.
-  while (!transfer_completed) {
+  do {
     EXPECT_EQ(libusb_js_proxy_.LibusbHandleEvents(/*ctx=*/nullptr),
               LIBUSB_SUCCESS);
-  }
+  } while (!transfer_completed);
 
   // Assert.
   EXPECT_EQ(transfer->status, LIBUSB_TRANSFER_COMPLETED);
@@ -881,6 +881,7 @@ TEST_F(LibusbJsProxyWithDeviceTest, AsyncInputControlTransfer) {
   // Attempting to cancel a completed transfer fails.
   EXPECT_NE(libusb_js_proxy_.LibusbCancelTransfer(transfer), LIBUSB_SUCCESS);
 
+  // Cleanup:
   libusb_js_proxy_.LibusbFreeTransfer(transfer);
 }
 
@@ -895,7 +896,7 @@ TEST_F(LibusbJsProxyWithDeviceTest, AsyncInputControlTransferCancellation) {
   constexpr int kDataLengthRequested = 100;
 
   // Arrange. Set up the expectation for the request message. We won't reply to
-  // this message.
+  // this message (until after we cancel the transfer).
   auto waiter = global_context_.CreateRequestWaiter(
       "libusb", "controlTransfer",
       /*arguments=*/
@@ -943,14 +944,21 @@ TEST_F(LibusbJsProxyWithDeviceTest, AsyncInputControlTransferCancellation) {
   EXPECT_FALSE(transfer_completed);
 
   EXPECT_EQ(libusb_js_proxy_.LibusbCancelTransfer(transfer), LIBUSB_SUCCESS);
+  EXPECT_FALSE(transfer_completed);
   // Second attempt to cancel a transfer fails.
   EXPECT_NE(libusb_js_proxy_.LibusbCancelTransfer(transfer), LIBUSB_SUCCESS);
+  EXPECT_FALSE(transfer_completed);
   // Let the cancellation propagate.
-  while (!transfer_completed) {
+  do {
     EXPECT_EQ(libusb_js_proxy_.LibusbHandleEventsCompleted(/*ctx=*/nullptr,
                                                            &transfer_completed),
               LIBUSB_SUCCESS);
-  }
+  } while (!transfer_completed);
+
+  // A reply from the JS side has no effect for the already canceled transfer.
+  waiter->Reply(/*result_to_reply_with*/ DictValueBuilder()
+                    .Add("receivedData", std::vector<uint8_t>({1, 2, 3}))
+                    .Get());
 
   // Nothing to assert here - due to the `LIBUSB_TRANSFER_FREE_TRANSFER` flag
   // the `transfer` is already deallocated here. All assertions are done inside
