@@ -498,6 +498,13 @@ end:
 	return rv;
 }
 
+#ifdef DESTRUCTOR
+DESTRUCTOR static void destructor(void)
+{
+	list_destroy(&contextMapList);
+}
+#endif
+
 /**
  * @brief Creates a communication context to the PC/SC Resource
  * Manager.
@@ -547,9 +554,8 @@ static LONG SCardEstablishContextTH(DWORD dwScope,
 	{
 		int lrv;
 
-		/* NOTE: The list will never be freed (No API call exists to
-		 * "close all contexts".
-		 * Applications which load and unload the library will leak
+		/* NOTE: The list will be freed only if DESTRUCTOR is defined.
+		 * Applications which load and unload the library may leak
 		 * the list's internal structures. */
 		lrv = list_init(&contextMapList);
 		if (lrv < 0)
@@ -2233,8 +2239,7 @@ LONG SCardControl(SCARDHANDLE hCard, DWORD dwControlCode, LPCVOID pbSendBuffer,
 		return SCARD_E_INVALID_HANDLE;
 	}
 
-	if ((cbSendLength > MAX_BUFFER_SIZE_EXTENDED)
-		|| (cbRecvLength > MAX_BUFFER_SIZE_EXTENDED))
+	if (cbSendLength > MAX_BUFFER_SIZE_EXTENDED)
 	{
 		rv = SCARD_E_INSUFFICIENT_BUFFER;
 		goto end;
@@ -2689,8 +2694,7 @@ retry:
 		return SCARD_E_INVALID_HANDLE;
 	}
 
-	if ((cbSendLength > MAX_BUFFER_SIZE_EXTENDED)
-		|| (*pcbRecvLength > MAX_BUFFER_SIZE_EXTENDED))
+	if (cbSendLength > MAX_BUFFER_SIZE_EXTENDED)
 	{
 		rv = SCARD_E_INSUFFICIENT_BUFFER;
 		goto end;

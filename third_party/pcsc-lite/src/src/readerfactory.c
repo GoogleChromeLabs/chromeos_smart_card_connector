@@ -1186,7 +1186,7 @@ SCARDHANDLE RFCreateReaderHandle(READER_CONTEXT * rContext)
 		/* FIXME: THIS IS NOT STRONG ENOUGH: A 128-bit token should be
 		 * generated.  The client and server would associate token and hCard
 		 * for authentication. */
-		randHandle = SYS_RandomInt(0, -1);
+		randHandle = SYS_RandomInt();
 
 		/* do we already use this hCard somewhere? */
 		ret = RFReaderInfoById(randHandle, &dummy_reader);
