@@ -576,6 +576,14 @@ int ccid_open_hack_post(unsigned int reader_index)
 			 * have one */
 			ccid_descriptor->bPINSupport = 0;
 			break;
+
+		case SAFENET_ETOKEN_5100:
+			/* the old SafeNet eToken 5110 SC (firmware 0.12 & 0.13)
+			 * does not like IFSD negotiation. So disable it. */
+			if ((0x0012 == ccid_descriptor->IFD_bcdDevice)
+				|| (0x0013 == ccid_descriptor->IFD_bcdDevice))
+				ccid_descriptor->dwFeatures |= CCID_CLASS_AUTO_IFSD;
+			break;
 	}
 
 	/* Gemalto readers may report additional information */
