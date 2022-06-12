@@ -34,16 +34,16 @@ extern "C" int SYS_USleep(int iTimeVal) {
   return 0;
 }
 
-extern "C" int SYS_RandomInt(int fStart, int fEnd) {
+extern "C" int SYS_RandomInt() {
   // Use C++11 pseudo-random number generator instead of C's rand(), since the
   // latter is broken in our PNaCl application (it produces duplicate values
   // very often).
   static std::random_device random_device;
   static std::mt19937 mt(random_device());
   static std::mutex mutex;
-  const int upper_bound = fEnd == -1 ? std::numeric_limits<int>::max() : fEnd;
   std::lock_guard<std::mutex> lock(mutex);
-  return std::uniform_int_distribution<int>(fStart, upper_bound)(mt);
+  return std::uniform_int_distribution<int>(
+      0, std::numeric_limits<int>::max())(mt);
 }
 
 extern "C" void SYS_InitRandom() {}
