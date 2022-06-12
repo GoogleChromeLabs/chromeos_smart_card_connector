@@ -143,7 +143,6 @@ class PcscLiteServerClientsManager final {
 
     ~Handler() override;
 
-    int64_t handler_id() const { return handler_id_; }
     const std::string& client_name_for_log() const {
       return client_name_for_log_;
     }
