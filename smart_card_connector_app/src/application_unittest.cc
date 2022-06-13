@@ -57,7 +57,13 @@ namespace google_smart_card {
 
 namespace {
 
+// The constant from the PC/SC-Lite API docs.
 constexpr char kPnpNotification[] = R"(\\?PnP?\Notification)";
+// Name of `TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader` as it
+// appears in the PC/SC-Lite API. The "0" suffix corresponds to the "00 00" part
+// that contains nonzeroes in case there are multiple devices with the same
+// name.
+constexpr char kGemaltoPcTwinReaderPcscName0[] = "Gemalto PC Twin Reader 00 00";
 
 // Records reader_* messages sent to JS and allows to inspect them in tests.
 class ReaderNotificationObserver final {
@@ -442,7 +448,7 @@ TEST_F(SmartCardConnectorApplicationTest, InternalApiSingleDeviceListing) {
 
   // Assert:
 
-  EXPECT_THAT(readers, ElementsAre("Gemalto PC Twin Reader 00 00"));
+  EXPECT_THAT(readers, ElementsAre(kGemaltoPcTwinReaderPcscName0));
 }
 
 // The direct C function call `SCardGetStatusChange()` detects when a reader is
@@ -485,7 +491,7 @@ TEST_F(SmartCardConnectorApplicationTest,
 
   EXPECT_EQ(reader_states[0].dwEventState,
             static_cast<DWORD>(SCARD_STATE_CHANGED));
-  EXPECT_THAT(readers, ElementsAre("Gemalto PC Twin Reader 00 00"));
+  EXPECT_THAT(readers, ElementsAre(kGemaltoPcTwinReaderPcscName0));
   EXPECT_EQ(reader_notification_observer().WaitAndPop(),
             "reader_init_add:Gemalto PC Twin Reader");
   EXPECT_EQ(reader_notification_observer().WaitAndPop(),
@@ -522,7 +528,7 @@ TEST_F(SmartCardConnectorApplicationTest,
             SCARD_S_SUCCESS);
 
   EXPECT_THAT(DirectCallSCardListReaders(scard_context),
-              ElementsAre("Gemalto PC Twin Reader 00 00"));
+              ElementsAre(kGemaltoPcTwinReaderPcscName0));
 
   // Simulate disconnecting the reader.
   SetUsbDevices({});
@@ -743,7 +749,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
             SCARD_S_SUCCESS);
 
   // Assert:
-  EXPECT_THAT(readers, ElementsAre("Gemalto PC Twin Reader 00 00"));
+  EXPECT_THAT(readers, ElementsAre(kGemaltoPcTwinReaderPcscName0));
 }
 
 // `SCardGetStatusChange()` call from JS detects when a reader is plugged in.
@@ -807,7 +813,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
                 /*timeout=*/INFINITE,
                 ArrayValueBuilder()
                     .Add(DictValueBuilder()
-                             .Add("reader_name", "Gemalto PC Twin Reader 00 00")
+                             .Add("reader_name", kGemaltoPcTwinReaderPcscName0)
                              .Add("current_state", SCARD_STATE_EMPTY)
                              .Get())
                     .Get(),
@@ -818,7 +824,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
   ASSERT_THAT(reader_states, SizeIs(1));
   ASSERT_THAT(reader_states[0], DictSizeIs(4));
   EXPECT_THAT(reader_states[0],
-              DictContains("reader_name", "Gemalto PC Twin Reader 00 00"));
+              DictContains("reader_name", kGemaltoPcTwinReaderPcscName0));
   EXPECT_THAT(reader_states[0],
               DictContains("current_state", SCARD_STATE_EMPTY));
   EXPECT_THAT(reader_states[0], DictContains("atr", Value::Type::kBinary));
@@ -836,6 +842,53 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
             SCARD_STATE_CHANGED | SCARD_STATE_UNAVAILABLE));
 }
 
+// Test `SCardGetStatusChange()` call from JS returns the reader and card
+// information.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       SCardGetStatusChangeWithCard) {
+  // Arrange:
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
+  SetUsbDevices({device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+
+  // Act:
+  std::vector<Value> reader_states;
+  // This call is expected to return immediately, since we pass
+  // `SCARD_STATE_UNKNOWN`.
+  EXPECT_EQ(SimulateGetStatusChangeCallFromJsClient(
+                kFakeHandlerId, scard_context(),
+                /*timeout=*/INFINITE,
+                ArrayValueBuilder()
+                    .Add(DictValueBuilder()
+                             .Add("reader_name", kGemaltoPcTwinReaderPcscName0)
+                             .Add("current_state", SCARD_STATE_UNKNOWN)
+                             .Get())
+                    .Get(),
+                reader_states),
+            SCARD_S_SUCCESS);
+
+  // Assert:
+  ASSERT_THAT(reader_states, SizeIs(1));
+  EXPECT_THAT(reader_states[0], DictSizeIs(4));
+  EXPECT_THAT(reader_states[0],
+              DictContains("reader_name", kGemaltoPcTwinReaderPcscName0));
+  EXPECT_THAT(reader_states[0],
+              DictContains("current_state", SCARD_STATE_UNKNOWN));
+  EXPECT_THAT(
+      reader_states[0],
+      DictContains("event_state", SCARD_STATE_CHANGED | SCARD_STATE_PRESENT));
+  EXPECT_THAT(
+      reader_states[0],
+      DictContains("atr",
+                   TestingSmartCardSimulation::GetCardAtr(
+                       TestingSmartCardSimulation::CardType::kCosmoId70)));
+}
+
 // `SCardConnect()` call from JS fails when there's no card inserted.
 TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardConnectErrorNoCard) {
   // Arrange:
@@ -851,7 +904,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardConnectErrorNoCard) {
   SCARDHANDLE scard_handle = 0;
   DWORD active_protocol = 0;
   EXPECT_EQ(SimulateConnectCallFromJsClient(
-                kFakeHandlerId, scard_context(), "Gemalto PC Twin Reader 00 00",
+                kFakeHandlerId, scard_context(), kGemaltoPcTwinReaderPcscName0,
                 SCARD_SHARE_SHARED, SCARD_PROTOCOL_ANY, scard_handle,
                 active_protocol),
             SCARD_E_NO_SMARTCARD);
@@ -873,7 +926,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardConnectDirect) {
   SCARDHANDLE scard_handle = 0;
   DWORD active_protocol = 0;
   EXPECT_EQ(SimulateConnectCallFromJsClient(
-                kFakeHandlerId, scard_context(), "Gemalto PC Twin Reader 00 00",
+                kFakeHandlerId, scard_context(), kGemaltoPcTwinReaderPcscName0,
                 SCARD_SHARE_DIRECT,
                 /*preferred_protocols=*/0, scard_handle, active_protocol),
             SCARD_S_SUCCESS);

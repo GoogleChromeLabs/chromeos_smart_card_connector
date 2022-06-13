@@ -40,6 +40,8 @@
 
 namespace google_smart_card {
 
+using CardType = TestingSmartCardSimulation::CardType;
+using CcidIccStatus = TestingSmartCardSimulation::CcidIccStatus;
 using DeviceType = TestingSmartCardSimulation::DeviceType;
 
 const char* TestingSmartCardSimulation::kRequesterName = "libusb";
@@ -169,20 +171,95 @@ std::vector<uint8_t> MakeGetDataRatesResponse(DeviceType device_type) {
 }
 
 // Builds a fake RDR_to_PC_SlotStatus message.
-std::vector<uint8_t> MakeSlotStatusTransferReply(uint8_t sequence_number) {
-  // Currently, the status always says "no ICC present".
-  const uint8_t status = 0x2;
-  return {0x81,   0x00, 0x00, 0x00, 0x00, 0x00, sequence_number,
-          status, 0x00, 0x00};
+std::vector<uint8_t> MakeSlotStatusTransferReply(uint8_t sequence_number,
+                                                 CcidIccStatus icc_status) {
+  // The message format is per CCID specs.
+  return {0x81,
+          0x00,
+          0x00,
+          0x00,
+          0x00,
+          0x00,
+          sequence_number,
+          static_cast<uint8_t>(icc_status),
+          0x00,
+          0x00};
 }
 
 // Builds a fake RDR_to_PC_Escape message.
-std::vector<uint8_t> MakeEscapeTransferReply(uint8_t sequence_number) {
+std::vector<uint8_t> MakeEscapeTransferReply(uint8_t sequence_number,
+                                             CcidIccStatus icc_status) {
+  // The message format is per CCID specs.
   // Currently, the status always says "escape command failed" and "no ICC
   // present".
-  const uint8_t status = 0x42;
+  const uint8_t kStatusFailed = 0x40;
+  const uint8_t status = kStatusFailed + static_cast<uint8_t>(icc_status);
   return {0x83,   0x00, 0x00, 0x00, 0x00, 0x00, sequence_number,
           status, 0x0A, 0x00};
+}
+
+// Builds a fake RDR_to_PC_DataBlock message.
+std::vector<uint8_t> MakeDataBlockTransferReply(
+    uint8_t sequence_number,
+    CcidIccStatus icc_status,
+    const std::vector<uint8_t>& data) {
+  // The code below that encodes the data length only supports single-byte
+  // length at the moment, for simplicity.
+  GOOGLE_SMART_CARD_CHECK(data.size() < 256);
+  // The message format is per CCID specs.
+  std::vector<uint8_t> transfer_reply = {0x80,
+                                         (uint8_t)data.size(),
+                                         0x00,
+                                         0x00,
+                                         0x00,
+                                         0x00,
+                                         sequence_number,
+                                         static_cast<uint8_t>(icc_status),
+                                         0x00,
+                                         0x00};
+  transfer_reply.insert(transfer_reply.end(), data.begin(), data.end());
+  return transfer_reply;
+}
+
+// Builds a fake RDR_to_PC_DataBlock message for replying to
+// PC_to_RDR_IccPowerOn.
+std::vector<uint8_t> MakePowerOnTransferReply(uint8_t sequence_number,
+                                              CcidIccStatus icc_status,
+                                              optional<CardType> card_type) {
+  std::vector<uint8_t> response_data;
+  if (card_type)
+    response_data = TestingSmartCardSimulation::GetCardAtr(*card_type);
+  return MakeDataBlockTransferReply(sequence_number, icc_status, response_data);
+}
+
+// Builds a fake RDR_to_PC_Parameters message for replying to
+// PC_to_RDR_SetParameters.
+std::vector<uint8_t> MakeParametersTransferReply(
+    uint8_t sequence_number,
+    CcidIccStatus icc_status,
+    optional<CardType> card_type,
+    const std::vector<uint8_t>& protocol_data_structure) {
+  GOOGLE_SMART_CARD_CHECK(card_type);
+  // For now we always simulate success, in which case the reply contains the
+  // same "abProtocolDataStructure" as the request.
+  // The code below that encodes the data length only supports single-byte
+  // length at the moment, for simplicity.
+  GOOGLE_SMART_CARD_CHECK(protocol_data_structure.size() < 256);
+  // The message format is per CCID specs.
+  std::vector<uint8_t> transfer_reply = {
+      0x82,
+      (uint8_t)protocol_data_structure.size(),
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      sequence_number,
+      static_cast<uint8_t>(icc_status),
+      0x00,
+      0x00};
+  transfer_reply.insert(transfer_reply.end(), protocol_data_structure.begin(),
+                        protocol_data_structure.end());
+  return transfer_reply;
 }
 
 }  // namespace
@@ -266,6 +343,18 @@ void TestingSmartCardSimulation::SetDevices(
   handler_.SetDevices(devices);
 }
 
+// Returns an ATR (answer-to-reset) for the given card. The hardcoded constants
+// are taken from real cards.
+std::vector<uint8_t> TestingSmartCardSimulation::GetCardAtr(
+    CardType card_type) {
+  switch (card_type) {
+    case CardType::kCosmoId70:
+      return {0x3B, 0xDB, 0x96, 0x00, 0x80, 0xB1, 0xFE, 0x45, 0x1F, 0x83, 0x00,
+              0x31, 0xC0, 0x64, 0xC7, 0xFC, 0x10, 0x00, 0x01, 0x90, 0x00, 0x74};
+  }
+  GOOGLE_SMART_CARD_NOTREACHED;
+}
+
 TestingSmartCardSimulation::ThreadSafeHandler::ThreadSafeHandler() = default;
 
 TestingSmartCardSimulation::ThreadSafeHandler::~ThreadSafeHandler() = default;
@@ -283,9 +372,10 @@ void TestingSmartCardSimulation::ThreadSafeHandler::SetDevices(
       if (old_state.device.id == device.id)
         state = old_state;
     }
-    // Update the `device` field unconditionally, to reflect any changes the
-    // caller might've provided in it.
-    state.device = device;
+    // Apply the new `Device` value. This also triggers state transitions (e.g.,
+    // whether a card is inserted) and notifications (e.g., replying to a
+    // pending interrupt transfer).
+    UpdateDeviceState(device, state);
     device_states_.push_back(state);
   }
 }
@@ -453,33 +543,66 @@ GenericRequestResult
 TestingSmartCardSimulation::ThreadSafeHandler::HandleOutputBulkTransfer(
     const std::vector<uint8_t>& data_to_send,
     DeviceState& device_state) {
+  // The message format is per CCID specs.
   // Extract the command's sequence number ("bSeq").
   if (data_to_send.size() < 7)
     GOOGLE_SMART_CARD_LOG_FATAL << "Missing bulk transfer sequence number";
   uint8_t sequence_number = data_to_send[6];
 
   switch (data_to_send[0]) {
-    case 0x65:
-      // It's a PC_to_RDR_GetSlotStatus request to the reader. Prepare a reply
-      // for the next input bulk transfer.
-      device_state.next_bulk_transfer_reply =
-          MakeSlotStatusTransferReply(sequence_number);
+    case 0x61: {
+      // It's a PC_to_RDR_SetParameters request to the reader. Parse the
+      // "abProtocolDataStructure" field (which, per specs, starts from offset
+      // 10).
+      GOOGLE_SMART_CARD_CHECK(data_to_send.size() >= 10);
+      const std::vector<uint8_t> protocol_data_structure(
+          data_to_send.begin() + 10, data_to_send.end());
+      // Prepare a RDR_to_PC_Parameters reply for the next input bulk transfer.
+      device_state.next_bulk_transfer_reply = MakeParametersTransferReply(
+          sequence_number, device_state.icc_status,
+          device_state.device.card_type, protocol_data_structure);
       return GenericRequestResult::CreateSuccessful(
           ConvertToValueOrDie(LibusbJsTransferResult()));
-    case 0x63:
-      // It's a PC_to_RDR_IccPowerOff request to the reader. Prepare a reply for
-      // the next input bulk transfer.
+    }
+    case 0x62: {
+      // It's a PC_to_RDR_IccPowerOn request to the reader. If the card was
+      // present and inactive, it needs to be transitioned into "active" state.
+      if (device_state.icc_status == CcidIccStatus::kPresentInactive)
+        device_state.icc_status = CcidIccStatus::kPresentActive;
+      // Prepare a RDR_to_PC_DataBlock reply for the next input bulk transfer.
       device_state.next_bulk_transfer_reply =
-          MakeSlotStatusTransferReply(sequence_number);
+          MakePowerOnTransferReply(sequence_number, device_state.icc_status,
+                                   device_state.device.card_type);
       return GenericRequestResult::CreateSuccessful(
           ConvertToValueOrDie(LibusbJsTransferResult()));
-    case 0x6B:
-      // It's a PC_to_RDR_Escape request to the reader. Prepare a reply for the
-      // next input bulk transfer.
+    }
+    case 0x63: {
+      // It's a PC_to_RDR_IccPowerOff request to the reader. If the card was
+      // present, it needs to be transitioned into "inactive" state.
+      if (device_state.icc_status == CcidIccStatus::kPresentActive)
+        device_state.icc_status = CcidIccStatus::kPresentInactive;
+      // Prepare a RDR_to_PC_SlotStatus reply for the next input bulk transfer.
       device_state.next_bulk_transfer_reply =
-          MakeEscapeTransferReply(sequence_number);
+          MakeSlotStatusTransferReply(sequence_number, device_state.icc_status);
       return GenericRequestResult::CreateSuccessful(
           ConvertToValueOrDie(LibusbJsTransferResult()));
+    }
+    case 0x65: {
+      // It's a PC_to_RDR_GetSlotStatus request to the reader. Prepare a
+      // RDR_to_PC_SlotStatus reply for the next input bulk transfer.
+      device_state.next_bulk_transfer_reply =
+          MakeSlotStatusTransferReply(sequence_number, device_state.icc_status);
+      return GenericRequestResult::CreateSuccessful(
+          ConvertToValueOrDie(LibusbJsTransferResult()));
+    }
+    case 0x6B: {
+      // It's a PC_to_RDR_Escape request to the reader. Prepare a
+      // RDR_to_PC_Escape reply for the next input bulk transfer.
+      device_state.next_bulk_transfer_reply =
+          MakeEscapeTransferReply(sequence_number, device_state.icc_status);
+      return GenericRequestResult::CreateSuccessful(
+          ConvertToValueOrDie(LibusbJsTransferResult()));
+    }
   }
   // Unknown command.
   GOOGLE_SMART_CARD_LOG_FATAL << "Unexpected output bulk transfer: "
@@ -521,6 +644,28 @@ TestingSmartCardSimulation::ThreadSafeHandler::FindDeviceStateByIdAndHandle(
   if (device_state && device_state->opened_device_handle == device_handle)
     return device_state;
   return nullptr;
+}
+
+void TestingSmartCardSimulation::ThreadSafeHandler::UpdateDeviceState(
+    const Device& device,
+    DeviceState& device_state) {
+  // Special handling for transitioning from the old `device_state.device` to
+  // the new `device`.
+  if (device_state.icc_status == CcidIccStatus::kNotPresent &&
+      device.card_type) {
+    // Simulate card insertion.
+    device_state.icc_status = CcidIccStatus::kPresentInactive;
+    // TODO: Resolve pending interrupt transfers with the slot change.
+  } else if (device_state.icc_status != CcidIccStatus::kNotPresent &&
+             !device.card_type) {
+    // Simulate card removal.
+    device_state.icc_status = CcidIccStatus::kNotPresent;
+    // TODO: Resolve pending interrupt transfers with the slot change.
+  }
+
+  // Apply the whole `device`, including the fields that didn't require special
+  // handling above.
+  device_state.device = device;
 }
 
 void TestingSmartCardSimulation::PostFakeJsResponse(

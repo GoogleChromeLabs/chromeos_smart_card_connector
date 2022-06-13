@@ -42,12 +42,22 @@ class TestingSmartCardSimulation final {
  public:
   // Fake device to simulate.
   enum class DeviceType { kGemaltoPcTwinReader };
+  enum class CardType { kCosmoId70 };
+
+  // Represents whether an ICC (a smart card) is inserted into the reader and is
+  // powered. Corresponds to "bmICCStatus" from CCID specs.
+  enum class CcidIccStatus : uint8_t {
+    kPresentActive = 0,
+    kPresentInactive = 1,
+    kNotPresent = 2,
+  };
 
   // Parameters of the simulated device.
   struct Device {
     // Unique device identifier to be used in the fake JS replies.
     int64_t id = -1;
     DeviceType type;
+    optional<CardType> card_type;
   };
 
   static const char* kRequesterName;
@@ -63,6 +73,10 @@ class TestingSmartCardSimulation final {
 
   void SetDevices(const std::vector<Device>& devices);
 
+  // Returns an ATR (answer-to-reset) for the given simulated card. The
+  // hardcoded constants are taken from real cards.
+  static std::vector<uint8_t> GetCardAtr(CardType card_type);
+
  private:
   // The simulation state of a device.
   struct DeviceState {
@@ -70,6 +84,7 @@ class TestingSmartCardSimulation final {
     optional<int64_t> opened_device_handle;
     std::set<int64_t> claimed_interfaces;
     std::vector<uint8_t> next_bulk_transfer_reply;
+    CcidIccStatus icc_status = CcidIccStatus::kNotPresent;
   };
 
   // Helper class that provides thread-safe operations with reader states.
@@ -112,6 +127,7 @@ class TestingSmartCardSimulation final {
     DeviceState* FindDeviceStateById(int64_t device_id);
     DeviceState* FindDeviceStateByIdAndHandle(int64_t device_id,
                                               int64_t device_handle);
+    void UpdateDeviceState(const Device& device, DeviceState& device_state);
 
     GenericRequestResult HandleOutputBulkTransfer(
         const std::vector<uint8_t>& data_to_send,
