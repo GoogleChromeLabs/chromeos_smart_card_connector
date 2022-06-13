@@ -118,17 +118,6 @@ MakeLibusbJsConfigurationDescriptors(DeviceType device_type) {
   GOOGLE_SMART_CARD_NOTREACHED;
 }
 
-// Returns an ATR (answer-to-reset) for the given card. The hardcoded constants
-// are taken from real cards.
-std::vector<uint8_t> GetCardAtr(CardType card_type) {
-  switch (card_type) {
-    case CardType::kCosmoId70:
-      return {0x3B, 0xDB, 0x96, 0x00, 0x80, 0xB1, 0xFE, 0x45, 0x1F, 0x83, 0x00,
-              0x31, 0xC0, 0x64, 0xC7, 0xFC, 0x10, 0x00, 0x01, 0x90, 0x00, 0x74};
-  }
-  GOOGLE_SMART_CARD_NOTREACHED;
-}
-
 bool DeviceInterfaceExists(DeviceType device_type, int64_t interface_number) {
   for (const auto& config : MakeLibusbJsConfigurationDescriptors(device_type)) {
     for (const auto& interface : config.interfaces) {
@@ -214,10 +203,10 @@ std::vector<uint8_t> MakeDataBlockTransferReply(
     uint8_t sequence_number,
     CcidIccStatus icc_status,
     const std::vector<uint8_t>& data) {
-  // The message format is per CCID specs.
   // The code below that encodes the data length only supports single-byte
   // length at the moment, for simplicity.
   GOOGLE_SMART_CARD_CHECK(data.size() < 256);
+  // The message format is per CCID specs.
   std::vector<uint8_t> transfer_reply = {0x80,
                                          (uint8_t)data.size(),
                                          0x00,
@@ -239,7 +228,7 @@ std::vector<uint8_t> MakePowerOnTransferReply(uint8_t sequence_number,
                                               optional<CardType> card_type) {
   std::vector<uint8_t> response_data;
   if (card_type)
-    response_data = GetCardAtr(*card_type);
+    response_data = TestingSmartCardSimulation::GetCardAtr(*card_type);
   return MakeDataBlockTransferReply(sequence_number, icc_status, response_data);
 }
 
@@ -250,13 +239,13 @@ std::vector<uint8_t> MakeParametersTransferReply(
     CcidIccStatus icc_status,
     optional<CardType> card_type,
     const std::vector<uint8_t>& protocol_data_structure) {
-  // The message format is per CCID specs.
   GOOGLE_SMART_CARD_CHECK(card_type);
   // For now we always simulate success, in which case the reply contains the
   // same "abProtocolDataStructure" as the request.
   // The code below that encodes the data length only supports single-byte
   // length at the moment, for simplicity.
   GOOGLE_SMART_CARD_CHECK(protocol_data_structure.size() < 256);
+  // The message format is per CCID specs.
   std::vector<uint8_t> transfer_reply = {
       0x82,
       (uint8_t)protocol_data_structure.size(),
@@ -352,6 +341,18 @@ void TestingSmartCardSimulation::OnRequestToJs(Value request_payload,
 void TestingSmartCardSimulation::SetDevices(
     const std::vector<Device>& devices) {
   handler_.SetDevices(devices);
+}
+
+// Returns an ATR (answer-to-reset) for the given card. The hardcoded constants
+// are taken from real cards.
+std::vector<uint8_t> TestingSmartCardSimulation::GetCardAtr(
+    CardType card_type) {
+  switch (card_type) {
+    case CardType::kCosmoId70:
+      return {0x3B, 0xDB, 0x96, 0x00, 0x80, 0xB1, 0xFE, 0x45, 0x1F, 0x83, 0x00,
+              0x31, 0xC0, 0x64, 0xC7, 0xFC, 0x10, 0x00, 0x01, 0x90, 0x00, 0x74};
+  }
+  GOOGLE_SMART_CARD_NOTREACHED;
 }
 
 TestingSmartCardSimulation::ThreadSafeHandler::ThreadSafeHandler() = default;

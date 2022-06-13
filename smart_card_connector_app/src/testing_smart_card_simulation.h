@@ -73,6 +73,10 @@ class TestingSmartCardSimulation final {
 
   void SetDevices(const std::vector<Device>& devices);
 
+  // Returns an ATR (answer-to-reset) for the given simulated card. The
+  // hardcoded constants are taken from real cards.
+  static std::vector<uint8_t> GetCardAtr(CardType card_type);
+
  private:
   // The simulation state of a device.
   struct DeviceState {
