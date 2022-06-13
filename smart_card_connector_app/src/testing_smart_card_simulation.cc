@@ -232,6 +232,53 @@ std::vector<uint8_t> MakePowerOnTransferReply(uint8_t sequence_number,
   return MakeDataBlockTransferReply(sequence_number, icc_status, response_data);
 }
 
+// Builds a fake RDR_to_PC_DataBlock message for replying to PC_to_RDR_XfrBlock.
+std::vector<uint8_t> MakeXfrBlockTransferReply(
+    uint8_t sequence_number,
+    CcidIccStatus icc_status,
+    optional<CardType> card_type,
+    const std::vector<uint8_t>& request_data) {
+  // The protocol details hardcoded in this function are based on ISO/IEC
+  // 7816-3.
+  GOOGLE_SMART_CARD_CHECK(card_type);
+  GOOGLE_SMART_CARD_CHECK(!request_data.empty());
+  if (request_data[0] == 0xFF) {
+    // It's a PPS ("protocol and parameters selection") request.
+    // For now we only support a particular (hardcoded) request.
+    GOOGLE_SMART_CARD_CHECK(request_data ==
+                            std::vector<uint8_t>({0xFF, 0x11, 0x96, 0x78}));
+    // A successful PPS response is (commonly) equal to the request.
+    const auto response_data = request_data;
+    switch (*card_type) {
+      case CardType::kCosmoId70:
+        return MakeDataBlockTransferReply(sequence_number, icc_status,
+                                          response_data);
+    }
+    GOOGLE_SMART_CARD_NOTREACHED;
+  }
+  if (request_data[0] == 0x00 && request_data[1] == 0xC1) {
+    // It's an IFS (maximum information field size) request: how many bytes can
+    // the reader receive from the card at once.
+    // For now we only support a particular (hardcoded) request.
+    GOOGLE_SMART_CARD_CHECK(
+        request_data == std::vector<uint8_t>({0x00, 0xC1, 0x01, 0xFE, 0x3E}));
+    // A successful IFS response only differs from the request by setting the
+    // 0x20 bit in the PCB (protocol control byte) .
+    auto response_data = request_data;
+    response_data[1] |= 0x20;
+    // Adjust the epilogue byte (a XOR checksum of other bytes) accordingly.
+    response_data[4] ^= 0x20;
+    switch (*card_type) {
+      case CardType::kCosmoId70:
+        return MakeDataBlockTransferReply(sequence_number, icc_status,
+                                          response_data);
+    }
+    GOOGLE_SMART_CARD_NOTREACHED;
+  }
+  GOOGLE_SMART_CARD_LOG_FATAL << "Unexpected XfrBlock transfer: "
+                              << HexDumpBytes(request_data);
+}
+
 // Builds a fake RDR_to_PC_Parameters message for replying to
 // PC_to_RDR_SetParameters.
 std::vector<uint8_t> MakeParametersTransferReply(
@@ -600,6 +647,19 @@ TestingSmartCardSimulation::ThreadSafeHandler::HandleOutputBulkTransfer(
       // RDR_to_PC_Escape reply for the next input bulk transfer.
       device_state.next_bulk_transfer_reply =
           MakeEscapeTransferReply(sequence_number, device_state.icc_status);
+      return GenericRequestResult::CreateSuccessful(
+          ConvertToValueOrDie(LibusbJsTransferResult()));
+    }
+    case 0x6F: {
+      // It's a PC_to_RDR_XfrBlock request to the reader. Parse the "abData"
+      // field (which, per specs, starts from offset 10).
+      GOOGLE_SMART_CARD_CHECK(data_to_send.size() >= 10);
+      const std::vector<uint8_t> request_data(data_to_send.begin() + 10,
+                                              data_to_send.end());
+      // Prepare a RDR_to_PC_DataBlock reply for the next input bulk transfer.
+      device_state.next_bulk_transfer_reply = MakeXfrBlockTransferReply(
+          sequence_number, device_state.icc_status,
+          device_state.device.card_type, request_data);
       return GenericRequestResult::CreateSuccessful(
           ConvertToValueOrDie(LibusbJsTransferResult()));
     }

@@ -941,4 +941,36 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardConnectDirect) {
             SCARD_S_SUCCESS);
 }
 
+// Test `SCardConnect()` call from JS successfully connects to a card using the
+// "T1" protocol.
+TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardConnectT1) {
+  // Arrange:
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
+  SetUsbDevices({device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+
+  // Act:
+  SCARDHANDLE scard_handle = 0;
+  DWORD active_protocol = 0;
+  EXPECT_EQ(SimulateConnectCallFromJsClient(
+                kFakeHandlerId, scard_context(), "Gemalto PC Twin Reader 00 00",
+                SCARD_SHARE_SHARED, SCARD_PROTOCOL_ANY, scard_handle,
+                active_protocol),
+            SCARD_S_SUCCESS);
+
+  // Assert:
+  EXPECT_NE(scard_handle, 0);
+  EXPECT_EQ(active_protocol, static_cast<DWORD>(SCARD_PROTOCOL_T1));
+
+  // Cleanup:
+  EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
+                                               SCARD_LEAVE_CARD),
+            SCARD_S_SUCCESS);
+}
+
 }  // namespace google_smart_card
