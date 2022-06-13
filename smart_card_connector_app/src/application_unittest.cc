@@ -392,7 +392,7 @@ TEST_F(SmartCardConnectorApplicationTest, SmokeTest) {
   StartApplication();
 }
 
-// Test a PC/SC-Lite context can be established and freed, via direct C function
+// A PC/SC-Lite context can be established and freed, via direct C function
 // calls `SCardEstablishContext()` and `SCardReleaseContext()`.
 // This is an extended version of the "smoke test" as it verifies the daemon
 // successfully started and replies to calls sent over (fake) sockets.
@@ -412,8 +412,8 @@ TEST_F(SmartCardConnectorApplicationTest, InternalApiContextEstablishing) {
   EXPECT_EQ(SCardReleaseContext(scard_context), SCARD_S_SUCCESS);
 }
 
-// Test a single reader is successfully initialized by PC/SC-Lite and is
-// returned via the direct C function call `SCardListReaders()`.
+// A single reader is successfully initialized by PC/SC-Lite and is returned via
+// the direct C function call `SCardListReaders()`.
 TEST_F(SmartCardConnectorApplicationTest, InternalApiSingleDeviceListing) {
   // Arrange:
 
@@ -445,8 +445,8 @@ TEST_F(SmartCardConnectorApplicationTest, InternalApiSingleDeviceListing) {
   EXPECT_THAT(readers, ElementsAre("Gemalto PC Twin Reader 00 00"));
 }
 
-// Test the direct C function call `SCardGetStatusChange()` detects when a
-// reader is plugged in.
+// The direct C function call `SCardGetStatusChange()` detects when a reader is
+// plugged in.
 TEST_F(SmartCardConnectorApplicationTest,
        InternalApiGetStatusChangeDeviceAppearing) {
   // Arrange:
@@ -493,8 +493,8 @@ TEST_F(SmartCardConnectorApplicationTest,
   EXPECT_TRUE(reader_notification_observer().Empty());
 }
 
-// Test the direct C function call `SCardGetStatusChange()` detects when a
-// reader is unplugged.
+// The direct C function call `SCardGetStatusChange()` detects when a reader is
+// unplugged.
 TEST_F(SmartCardConnectorApplicationTest,
        InternalApiGetStatusChangeDeviceRemoving) {
   // Arrange:
@@ -547,7 +547,7 @@ TEST_F(SmartCardConnectorApplicationTest,
   EXPECT_TRUE(reader_notification_observer().Empty());
 }
 
-// Test that one client can't use PC/SC contexts belonging to another client.
+// One client can't use PC/SC contexts belonging to another client.
 TEST_F(SmartCardConnectorApplicationTest, ContextsIsolation) {
   static constexpr int kFirstHandlerId = 1234;
   static constexpr int kSecondHandlerId = 321;
@@ -645,8 +645,7 @@ class SmartCardConnectorApplicationSingleClientTest
   optional<SCARDCONTEXT> scard_context_;
 };
 
-// Test `SCardEstablishContext()` and `SCardReleaseContext()` can be called from
-// JS.
+// `SCardEstablishContext()` and `SCardReleaseContext()` calls from JS succeed.
 TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardEstablishContext) {
   // Arrange:
   StartApplication();
@@ -657,7 +656,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardEstablishContext) {
   TearDownSCardContext();
 }
 
-// Test `SCardIsValidContext()` call from JS recognizes an existing context.
+// `SCardIsValidContext()` call from JS recognizes an existing context.
 TEST_F(SmartCardConnectorApplicationSingleClientTest,
        SCardIsValidContextCorrect) {
   // Arrange:
@@ -673,7 +672,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
   EXPECT_EQ(return_code, SCARD_S_SUCCESS);
 }
 
-// Test `SCardIsValidContext()` call from JS rejects a random value.
+// `SCardIsValidContext()` call from JS rejects a random value.
 TEST_F(SmartCardConnectorApplicationSingleClientTest,
        SCardIsValidContextWrong) {
   // Arrange:
@@ -689,8 +688,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
   EXPECT_EQ(return_code, SCARD_E_INVALID_HANDLE);
 }
 
-// Test `SCardIsValidContext()` call from JS rejects an already-released
-// context.
+// `SCardIsValidContext()` call from JS rejects an already-released context.
 TEST_F(SmartCardConnectorApplicationSingleClientTest,
        SCardIsValidContextReleased) {
   // Arrange:
@@ -708,8 +706,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
   EXPECT_EQ(return_code, SCARD_E_INVALID_HANDLE);
 }
 
-// Test `SCardListReaders()` call from JS returns an error when there's no
-// reader.
+// `SCardListReaders()` call from JS returns an error when there's no reader.
 TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardListReadersEmpty) {
   // Arrange:
   StartApplication();
@@ -727,7 +724,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardListReadersEmpty) {
   EXPECT_THAT(readers, IsEmpty());
 }
 
-// Test `SCardListReaders()` call from JS when there's one device available.
+// `SCardListReaders()` call succeeds from JS when there's one device available.
 TEST_F(SmartCardConnectorApplicationSingleClientTest,
        SCardListReadersOneDevice) {
   // Arrange:
@@ -749,8 +746,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
   EXPECT_THAT(readers, ElementsAre("Gemalto PC Twin Reader 00 00"));
 }
 
-// Test `SCardGetStatusChange()` call from JS detects when a reader is plugged
-// in.
+// `SCardGetStatusChange()` call from JS detects when a reader is plugged in.
 TEST_F(SmartCardConnectorApplicationSingleClientTest,
        SCardGetStatusChangeDeviceAppearing) {
   // Arrange:
@@ -789,8 +785,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
   EXPECT_THAT(reader_states[0], DictContains("atr", Value::Type::kBinary));
 }
 
-// Test `SCardGetStatusChange()` call from JS detects when a reader is
-// unplugged.
+// `SCardGetStatusChange()` call from JS detects when a reader is unplugged.
 TEST_F(SmartCardConnectorApplicationSingleClientTest,
        SCardGetStatusChangeDeviceRemoving) {
   // Arrange: start with a single device.
@@ -840,7 +835,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
             SCARD_STATE_CHANGED | SCARD_STATE_UNAVAILABLE));
 }
 
-// Test `SCardConnect()` call from JS fails when there's no card inserted.
+// `SCardConnect()` call from JS fails when there's no card inserted.
 TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardConnectErrorNoCard) {
   // Arrange:
   TestingSmartCardSimulation::Device device;
@@ -861,8 +856,8 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardConnectErrorNoCard) {
             SCARD_E_NO_SMARTCARD);
 }
 
-// Test `SCardConnect()` call from JS succeeds for dwShareMode
-// `SCARD_SHARE_DIRECT` even when there's no card inserted.
+// `SCardConnect()` call from JS succeeds for dwShareMode `SCARD_SHARE_DIRECT`
+// even when there's no card inserted.
 TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardConnectDirect) {
   // Arrange:
   TestingSmartCardSimulation::Device device;
