@@ -428,6 +428,13 @@ class StructValueDescriptor<optional<T>>;
 // and the last one isn't useful in this context (as helpers in this file are
 // about converting between a `Value` and a non-`Value` object).
 
+inline bool ConvertToValue(Value::Type value_type,
+                           Value* value,
+                           std::string* /*error_message*/ = nullptr) {
+  *value = Value(value_type);
+  return true;
+}
+
 inline bool ConvertToValue(Value source_value,
                            Value* target_value,
                            std::string* /*error_message*/ = nullptr) {
