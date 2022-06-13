@@ -101,7 +101,10 @@ std::string MakeNotreachedMessage(const std::string& file,
 // operator<<, and the built message is emitted at the end of expression.
 //
 // In Release builds, logging on DEBUG level is disabled (and the arguments are
-// _not_ even calculated during run time in that case).
+// _not_ even calculated during run time in that case). The only exception is
+// when we compile for TOOLCHAIN=coverage, since llvm-cov would confusingly mark
+// GOOGLE_SMART_CARD_LOG_DEBUG statements as unreachable if we disable the
+// parameter calculation.
 //
 // Logging a message at the FATAL severity level causes the program termination.
 //
@@ -112,16 +115,16 @@ std::string MakeNotreachedMessage(const std::string& file,
 //      GOOGLE_SMART_CARD_LOG_FATAL << "Fatal error, terminating...";
 //
 
-#ifdef NDEBUG
+#if defined(NDEBUG) && !defined(COVERAGE_ENABLED)
 #define GOOGLE_SMART_CARD_LOG_DEBUG                 \
   GOOGLE_SMART_CARD_INTERNAL_LOG_DISABLING          \
   GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY( \
       ::google_smart_card::LogSeverity::kDebug)
-#else
+#else  // else defined(NDEBUG) && !defined(COVERAGE_ENABLED)
 #define GOOGLE_SMART_CARD_LOG_DEBUG                 \
   GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY( \
       ::google_smart_card::LogSeverity::kDebug)
-#endif
+#endif  // defined(NDEBUG) && !defined(COVERAGE_ENABLED)
 
 #define GOOGLE_SMART_CARD_LOG_INFO                  \
   GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY( \
