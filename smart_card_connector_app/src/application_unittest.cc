@@ -824,7 +824,8 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
   EXPECT_THAT(reader_states[0], DictContains("atr", Value::Type::kBinary));
   // Depending on the timing, PC/SC may or may not report the
   // `SCARD_STATE_UNKNOWN` flag (this depends on whether it already removed the
-  // "dead" reader from internal lists).
+  // "dead" reader from internal lists by the time SCardGetStatusChange is
+  // replied to).
   const Value* const received_event_state =
       reader_states[0].GetDictionaryItem("event_state");
   ASSERT_TRUE(received_event_state);
