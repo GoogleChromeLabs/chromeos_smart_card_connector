@@ -63,7 +63,7 @@ $(eval $(call CLEAN_RULE,$(APP_RUN_USER_DATA_DIR_PATH)))
 $(TARGET)__webstore.zip: all
 	@rm -f "$(TARGET)__webstore.zip"
 	cd "$(OUT_DIR_PATH)" && zip -qr -9 -X "$(CURDIR)/$(TARGET)__webstore.zip" .
-	@mkdir -p "$(ROOT_PATH)/built_app_packages/$(TOOLCHAIN)-$(CONFIG)"
+	@mkdir -p "$(ROOT_PATH)/built_app_packages"
 	cp \
 		"$(CURDIR)/$(TARGET)__webstore.zip" \
 		"$(ROOT_PATH)/built_app_packages/$(TARGET)-$(TOOLCHAIN)-$(CONFIG)-$(PACKAGING).zip"
