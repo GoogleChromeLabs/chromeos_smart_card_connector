@@ -48,14 +48,12 @@ bool EndsWith(const std::string& string, const std::string& suffix) {
   return true;
 }
 
-// Parses out the requester name from "<requester>::request", or returns a null
-// optional if the format doesn't match.
+// Checks the message type against the "...::request" pattern.
 bool LooksLikeRequestMessage(const std::string& message_type) {
   return EndsWith(message_type, kRequestMessageTypeSuffix);
 }
 
-// Parses out the requester name from "<requester>::response", or returns a null
-// optional if the format doesn't match.
+// Checks the message type against the "...::response" pattern.
 bool LooksLikeResponseMessage(const std::string& message_type) {
   return EndsWith(message_type, kResponseMessageTypeSuffix);
 }
