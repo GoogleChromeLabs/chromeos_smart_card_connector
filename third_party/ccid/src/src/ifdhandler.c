@@ -490,8 +490,12 @@ EXTERNAL RESPONSECODE IFDHGetCapabilities(DWORD Lun, DWORD Tag,
 		case TAG_IFD_SLOT_THREAD_SAFE:
 			if (*Length >= 1)
 			{
+				_ccid_descriptor *ccid_desc =  get_ccid_descriptor(reader_index);
 				*Length = 1;
-				*Value = 0; /* Can NOT talk to multiple slots at the same time */
+				if (ccid_desc->bMaxSlotIndex +1 == ccid_desc->bMaxCCIDBusySlots)
+					*Value = 1; /* all slots can be used simultanesously */
+				else
+					*Value = 0; /* Can NOT talk to multiple slots at the same time */
 			}
 			else
 				return_value = IFD_ERROR_INSUFFICIENT_BUFFER;
@@ -602,6 +606,13 @@ EXTERNAL RESPONSECODE IFDHGetCapabilities(DWORD Lun, DWORD Tag,
 			break;
 #endif
 
+#ifdef TAG_IFD_DEVICE_REMOVED
+		case TAG_IFD_DEVICE_REMOVED:
+			if (Value && (1 == *Length))
+				Value[0] = 1;
+			break;
+#endif
+
 		case SCARD_ATTR_VENDOR_IFD_SERIAL_NO:
 			{
 				_ccid_descriptor *ccid_desc;
@@ -661,6 +672,7 @@ EXTERNAL RESPONSECODE IFDHSetCapabilities(DWORD Lun, DWORD Tag,
 	 * IFD_ERROR_VALUE_READ_ONLY
 	 */
 
+	RESPONSECODE return_value = IFD_SUCCESS;
 	(void)Length;
 	(void)Value;
 
@@ -672,7 +684,20 @@ EXTERNAL RESPONSECODE IFDHSetCapabilities(DWORD Lun, DWORD Tag,
 	DEBUG_INFO4("tag: 0x" DWORD_X ", %s (lun: " DWORD_X ")", Tag,
 		CcidSlots[reader_index].readerName, Lun);
 
-	return IFD_NOT_SUPPORTED;
+	switch (Tag)
+	{
+#ifdef TAG_IFD_DEVICE_REMOVED
+		case TAG_IFD_DEVICE_REMOVED:
+			if ((1 == Length) && (Value != NULL) && (Value[0] != 0))
+				DisconnectPort(reader_index);
+			break;
+#endif
+
+		default:
+			return_value = IFD_ERROR_TAG;
+	}
+
+	return return_value;
 } /* IFDHSetCapabilities */
 
 
@@ -791,10 +816,7 @@ EXTERNAL RESPONSECODE IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol,
 	/* Do not send CCID command SetParameters or PPS to the CCID
 	 * The CCID will do this himself */
 	if (ccid_desc->dwFeatures & CCID_CLASS_AUTO_PPS_PROP)
-	{
-		DEBUG_COMM2("Timeout: %d ms", ccid_desc->readTimeout);
 		goto end;
-	}
 
 	/* PTS1? */
 	if (Flags & IFD_NEGOTIATE_PTS1)
@@ -967,6 +989,7 @@ EXTERNAL RESPONSECODE IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol,
 		&& (atr.ib[1][ATR_INTERFACE_BYTE_TA].value & 0x10))
 		return IFD_COMMUNICATION_ERROR;
 
+end:
 	/* T=1 */
 	if (SCARD_PROTOCOL_T1 == Protocol)
 	{
@@ -1046,9 +1069,14 @@ EXTERNAL RESPONSECODE IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol,
 
 		DEBUG_COMM2("Timeout: %d ms", ccid_desc->readTimeout);
 
-		ret = SetParameters(reader_index, 1, sizeof(param), param);
-		if (IFD_SUCCESS != ret)
-			return ret;
+		if (ccid_desc->dwFeatures & CCID_CLASS_AUTO_PPS_PROP)
+			DEBUG_COMM("Skip SetParameters");
+		else
+		{
+			ret = SetParameters(reader_index, 1, sizeof(param), param);
+			if (IFD_SUCCESS != ret)
+				return ret;
+		}
 	}
 	else
 	/* T=0 */
@@ -1085,14 +1113,18 @@ EXTERNAL RESPONSECODE IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol,
 		ccid_desc->readTimeout = T0_card_timeout(f, d, param[2] /* TC1 */,
 			param[3] /* TC2 */, ccid_desc->dwDefaultClock);
 
-		DEBUG_COMM2("Communication timeout: %d ms", ccid_desc->readTimeout);
+		DEBUG_COMM2("Timeout: %d ms", ccid_desc->readTimeout);
 
-		ret = SetParameters(reader_index, 0, sizeof(param), param);
-		if (IFD_SUCCESS != ret)
-			return ret;
+		if (ccid_desc->dwFeatures & CCID_CLASS_AUTO_PPS_PROP)
+			DEBUG_COMM("Skip SetParameters");
+		else
+		{
+			ret = SetParameters(reader_index, 0, sizeof(param), param);
+			if (IFD_SUCCESS != ret)
+				return ret;
+		}
 	}
 
-end:
 	/* set IFSC & IFSD in T=1 */
 	if ((SCARD_PROTOCOL_T1 == Protocol)
 		&& (CCID_CLASS_TPDU == (ccid_desc->dwFeatures & CCID_CLASS_EXCHANGE_MASK)))
@@ -1195,6 +1227,9 @@ EXTERNAL RESPONSECODE IFDHPowerICC(DWORD Lun, DWORD Action,
 			CcidSlots[reader_index].bPowerFlags |= MASK_POWERFLAGS_PDWN;
 
 			/* send the command */
+			return_value = CmdPowerOff(reader_index);
+			if (IFD_NO_SUCH_DEVICE == return_value)
+				goto end;
 			if (IFD_SUCCESS != CmdPowerOff(reader_index))
 			{
 				DEBUG_CRITICAL("PowerDown failed");
@@ -1918,6 +1953,12 @@ EXTERNAL RESPONSECODE IFDHICCPresence(DWORD Lun)
 
 	/* set back the old LogLevel */
 	LogLevel = oldLogLevel;
+
+	if (IFD_NO_SUCH_DEVICE == return_value)
+	{
+		return_value = IFD_ICC_NOT_PRESENT;
+		goto end;
+	}
 
 	if (return_value != IFD_SUCCESS)
 		return return_value;

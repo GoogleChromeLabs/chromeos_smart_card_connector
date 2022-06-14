@@ -220,13 +220,16 @@ status_t WriteSerial(unsigned int reader_index, unsigned int length,
  *
  *****************************************************************************/
 status_t ReadSerial(unsigned int reader_index,
-	unsigned int *length, unsigned char *buffer)
+	unsigned int *length, unsigned char *buffer, int bSeq)
 {
 	unsigned char c;
 	int rv;
 	int echo;
 	int to_read;
 	int i;
+
+	/* ignore bSeq */
+	(void)bSeq;
 
 	/* we get the echo first */
 	echo = serialDevice[reader_index].echo;
@@ -620,6 +623,7 @@ static status_t set_ccid_descriptor(unsigned int reader_index,
 	serialDevice[reader_index].ccid.bPINSupport = 0x0;
 	serialDevice[reader_index].ccid.dwMaxDataRate = 344086;
 	serialDevice[reader_index].ccid.bMaxSlotIndex = 0;
+	serialDevice[reader_index].ccid.bMaxCCIDBusySlots = 1;
 	serialDevice[reader_index].ccid.arrayOfSupportedDataRates = SerialTwinDataRates;
 	serialDevice[reader_index].ccid.readTimeout = DEFAULT_COM_READ_TIMEOUT;
 	serialDevice[reader_index].ccid.dwSlotStatus = IFD_ICC_PRESENT;
@@ -932,6 +936,21 @@ status_t CloseSerial(unsigned int reader_index)
 
 	return STATUS_SUCCESS;
 } /* CloseSerial */
+
+
+/*****************************************************************************
+ *
+ *					DisconnectSerial
+ *
+ ****************************************************************************/
+status_t DisconnectSerial(unsigned int reader_index)
+{
+	(void)reader_index;
+
+	DEBUG_COMM("Disconnect reader");
+
+	return STATUS_UNSUCCESSFUL;
+} /* DisconnectSerial */
 
 
 /*****************************************************************************
