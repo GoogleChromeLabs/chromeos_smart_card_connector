@@ -312,6 +312,10 @@ std::vector<uint8_t> MakeParametersTransferReply(
 // Builds a RDR_to_PC_NotifySlotChange message.
 std::vector<uint8_t> MakeNotifySlotChangeTransferReply(CcidIccStatus icc_status,
                                                        bool slot0_changed) {
+  // The message format is per CCID specs. The status byte contains two bits per
+  // each slot (we simulate only single-slot devices at the moment): the first
+  // bit says whether a card is present, and the second bit whether the card was
+  // inserted/removed since the last RDR_to_PC_NotifySlotChange.
   const uint8_t slot0_current_bit = icc_status != CcidIccStatus::kNotPresent;
   const uint8_t status_byte = slot0_current_bit + (slot0_changed << 1);
   return {0x50, status_byte};

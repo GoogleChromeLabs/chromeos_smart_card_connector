@@ -889,8 +889,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
                        TestingSmartCardSimulation::CardType::kCosmoId70)));
 }
 
-// `SCardGetStatusChange()` call from JS returns the reader and card
-// information.
+// `SCardGetStatusChange()` call from JS detects when a card is inserted.
 TEST_F(SmartCardConnectorApplicationSingleClientTest,
        SCardGetStatusChangeCardInserting) {
   // Arrange: start without a card.
@@ -912,7 +911,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
                 /*timeout=*/INFINITE,
                 ArrayValueBuilder()
                     .Add(DictValueBuilder()
-                             .Add("reader_name", "Gemalto PC Twin Reader 00 00")
+                             .Add("reader_name", kGemaltoPcTwinReaderPcscName0)
                              .Add("current_state", SCARD_STATE_EMPTY)
                              .Get())
                     .Get(),
@@ -923,7 +922,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
   ASSERT_THAT(reader_states, SizeIs(1));
   EXPECT_THAT(reader_states[0], DictSizeIs(4));
   EXPECT_THAT(reader_states[0],
-              DictContains("reader_name", "Gemalto PC Twin Reader 00 00"));
+              DictContains("reader_name", kGemaltoPcTwinReaderPcscName0));
   EXPECT_THAT(reader_states[0],
               DictContains("current_state", SCARD_STATE_EMPTY));
   // The "event_state" field contains the number of card insertion/removal
@@ -933,10 +932,9 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
                                               SCARD_STATE_PRESENT | 0x10000));
   EXPECT_THAT(
       reader_states[0],
-      DictContains("atr", std::vector<uint8_t>{
-                              0x3B, 0xDB, 0x96, 0x00, 0x80, 0xB1, 0xFE, 0x45,
-                              0x1F, 0x83, 0x00, 0x31, 0xC0, 0x64, 0xC7, 0xFC,
-                              0x10, 0x00, 0x01, 0x90, 0x00, 0x74}));
+      DictContains("atr",
+                   TestingSmartCardSimulation::GetCardAtr(
+                       TestingSmartCardSimulation::CardType::kCosmoId70)));
 }
 
 // `SCardConnect()` call from JS fails when there's no card inserted.
