@@ -1093,6 +1093,7 @@ TEST_F(LibusbJsProxyWithDeviceTest, AsyncOutputControlTransferCancellation) {
 
   EXPECT_EQ(libusb_js_proxy_.LibusbSubmitTransfer(transfer), LIBUSB_SUCCESS);
 
+  // Wait for the JS request to be sent.
   waiter->Wait();
   EXPECT_FALSE(transfer_completed);
 
