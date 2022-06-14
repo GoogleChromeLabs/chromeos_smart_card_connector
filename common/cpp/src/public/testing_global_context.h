@@ -52,6 +52,7 @@ class TestingGlobalContext final : public GlobalContext {
     ~Waiter();
 
     void Wait();
+    void Reply(Value result_to_reply_with);
 
     const Value& value() const;
     Value take_value() &&;
@@ -60,10 +61,13 @@ class TestingGlobalContext final : public GlobalContext {
    private:
     friend class TestingGlobalContext;
 
-    Waiter();
+    Waiter(TypedMessageRouter* typed_message_router,
+           const optional<std::string>& requester_name);
 
     void Resolve(Value value, optional<RequestId> request_id);
 
+    TypedMessageRouter* const typed_message_router_;
+    const optional<std::string> requester_name_;
     std::mutex mutex_;
     std::condition_variable condition_;
     bool resolved_ = false;

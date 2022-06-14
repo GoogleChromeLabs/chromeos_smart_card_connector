@@ -101,6 +101,20 @@ void TestingGlobalContext::Waiter::Wait() {
   condition_.wait(lock, [&] { return resolved_; });
 }
 
+void TestingGlobalContext::Waiter::Reply(Value result_to_reply_with) {
+  GOOGLE_SMART_CARD_CHECK(requester_name_);
+  // No mutex locks, as it's only allowed to call us after `Wait()` completes.
+  GOOGLE_SMART_CARD_CHECK(resolved_);
+  GOOGLE_SMART_CARD_CHECK(request_id_);
+  // The request result is always wrapped into a single-item array. Do it
+  // here, so that the test bodies are easier to read.
+  Value array = ArrayValueBuilder().Add(std::move(result_to_reply_with)).Get();
+  PostFakeJsReply(typed_message_router_, *requester_name_,
+                  std::make_shared<Value>(std::move(array)),
+                  /*error_to_reply_with=*/{},
+                  /*request_payload=*/{}, *request_id_);
+}
+
 const Value& TestingGlobalContext::Waiter::value() const {
   // No mutex locks, as it's only allowed to call us after `Wait()` completes.
   GOOGLE_SMART_CARD_CHECK(resolved_);
@@ -119,7 +133,11 @@ optional<RequestId> TestingGlobalContext::Waiter::request_id() const {
   return request_id_;
 }
 
-TestingGlobalContext::Waiter::Waiter() = default;
+TestingGlobalContext::Waiter::Waiter(
+    TypedMessageRouter* typed_message_router,
+    const optional<std::string>& requester_name)
+    : typed_message_router_(typed_message_router),
+      requester_name_(requester_name) {}
 
 void TestingGlobalContext::Waiter::Resolve(Value value,
                                            optional<RequestId> request_id) {
@@ -180,7 +198,8 @@ std::unique_ptr<TestingGlobalContext::Waiter>
 TestingGlobalContext::CreateMessageWaiter(
     const std::string& awaited_message_type) {
   // `MakeUnique` wouldn't work due to the constructor being private.
-  std::unique_ptr<Waiter> waiter(new Waiter);
+  std::unique_ptr<Waiter> waiter(
+      new Waiter(typed_message_router_, /*requester_name=*/{}));
   Expectation expectation;
   expectation.awaited_message_type = awaited_message_type;
   expectation.callback_to_run =
@@ -195,7 +214,8 @@ TestingGlobalContext::CreateRequestWaiter(const std::string& requester_name,
                                           const std::string& function_name,
                                           Value arguments) {
   // `MakeUnique` wouldn't work due to the constructor being private.
-  std::unique_ptr<Waiter> waiter(new Waiter);
+  std::unique_ptr<Waiter> waiter(
+      new Waiter(typed_message_router_, requester_name));
   auto callback_to_run =
       std::bind(&Waiter::Resolve, waiter.get(), /*value=*/std::placeholders::_1,
                 /*request_id=*/std::placeholders::_2);
@@ -208,7 +228,8 @@ std::unique_ptr<TestingGlobalContext::Waiter>
 TestingGlobalContext::CreateResponseWaiter(const std::string& requester_name,
                                            RequestId request_id) {
   // `MakeUnique` wouldn't work due to the constructor being private.
-  std::unique_ptr<Waiter> waiter(new Waiter);
+  std::unique_ptr<Waiter> waiter(
+      new Waiter(typed_message_router_, requester_name));
   Expectation expectation;
   expectation.awaited_message_type = GetResponseMessageType(requester_name);
   expectation.awaited_request_id = request_id;
