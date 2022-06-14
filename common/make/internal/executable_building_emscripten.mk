@@ -113,8 +113,11 @@ ifeq ($(CONFIG),Release)
 #
 # Explanation:
 # O3: Enable advanced optimizations.
+# flto: Use link-time optimizations. Note: this typically produces larger
+#   executables, however they should presumably be faster.
 EMSCRIPTEN_COMMON_FLAGS += \
   -O3 \
+  -flto \
 
 # Add compiler flags specific to release builds.
 #
