@@ -41,11 +41,4 @@ GenericAsyncRequest RemoteCallAdaptor::StartAsyncRequest(
                                        callback);
 }
 
-void RemoteCallAdaptor::StartAsyncRequest(RemoteCallRequestPayload payload,
-                                          GenericAsyncRequestCallback callback,
-                                          GenericAsyncRequest* async_request) {
-  requester_->StartAsyncRequest(ConvertToValueOrDie(std::move(payload)),
-                                callback, async_request);
-}
-
 }  // namespace google_smart_card

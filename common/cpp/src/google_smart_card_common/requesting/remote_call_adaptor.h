@@ -105,10 +105,6 @@ class RemoteCallAdaptor final {
   GenericAsyncRequest StartAsyncRequest(RemoteCallRequestPayload payload,
                                         GenericAsyncRequestCallback callback);
 
-  void StartAsyncRequest(RemoteCallRequestPayload payload,
-                         GenericAsyncRequestCallback callback,
-                         GenericAsyncRequest* async_request);
-
   Requester* const requester_;
 };
 
