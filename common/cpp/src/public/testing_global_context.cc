@@ -68,6 +68,8 @@ void PostFakeJsReply(TypedMessageRouter* typed_message_router,
                      const optional<std::string>& error_to_reply_with,
                      optional<Value> /*request_payload*/,
                      optional<RequestId> request_id) {
+  GOOGLE_SMART_CARD_CHECK(request_id);
+
   ResponseMessageData response_data;
   response_data.request_id = *request_id;
   if (payload_to_reply_with)

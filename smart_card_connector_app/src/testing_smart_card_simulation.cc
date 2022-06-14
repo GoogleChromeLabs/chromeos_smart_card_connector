@@ -359,6 +359,8 @@ TestingSmartCardSimulation::~TestingSmartCardSimulation() = default;
 
 void TestingSmartCardSimulation::OnRequestToJs(optional<Value> request_payload,
                                                optional<RequestId> request_id) {
+  GOOGLE_SMART_CARD_CHECK(request_payload);
+  GOOGLE_SMART_CARD_CHECK(request_id);
   // Make the debug dump in advance, before we know whether we need to crash,
   // because we can't dump the value after std::move()'ing it.
   const std::string payload_debug_dump = DebugDumpValueFull(*request_payload);

@@ -109,6 +109,7 @@ class ReaderNotificationObserver final {
   void OnMessageToJs(const std::string& event_name,
                      optional<Value> message_data,
                      optional<RequestId> /*request_id*/) {
+    ASSERT_TRUE(message_data);
     std::string notification =
         event_name + ":" +
         message_data->GetDictionaryItem("readerName")->GetString();
