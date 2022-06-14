@@ -956,7 +956,7 @@ TEST_F(LibusbJsProxyWithDeviceTest, AsyncInputControlTransferCancellation) {
   } while (!transfer_completed);
 
   // A reply from the JS side has no effect for the already canceled transfer.
-  waiter->Reply(/*result_to_reply_with*/ DictValueBuilder()
+  waiter->Reply(/*result_to_reply_with=*/DictValueBuilder()
                     .Add("receivedData", std::vector<uint8_t>({1, 2, 3}))
                     .Get());
 
