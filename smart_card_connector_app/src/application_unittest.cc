@@ -33,6 +33,7 @@
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/multi_string.h>
 #include <google_smart_card_common/optional.h>
+#include <google_smart_card_common/optional_test_utils.h>
 #include <google_smart_card_common/requesting/remote_call_message.h>
 #include <google_smart_card_common/requesting/requester_message.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
@@ -106,11 +107,12 @@ class ReaderNotificationObserver final {
 
  private:
   void OnMessageToJs(const std::string& event_name,
-                     Value message_data,
+                     optional<Value> message_data,
                      optional<RequestId> /*request_id*/) {
+    ASSERT_TRUE(message_data);
     std::string notification =
         event_name + ":" +
-        message_data.GetDictionaryItem("readerName")->GetString();
+        message_data->GetDictionaryItem("readerName")->GetString();
 
     std::unique_lock<std::mutex> lock(mutex_);
     recorded_notifications_.push(notification);
@@ -152,18 +154,22 @@ std::vector<std::string> DirectCallSCardListReaders(
   return ExtractMultiStringElements(readers_multistring);
 }
 
-LONG ExtractReturnCodeAndResults(Value reply) {
-  GOOGLE_SMART_CARD_CHECK(reply.is_array());
-  auto& reply_array = reply.GetArray();
+LONG ExtractReturnCodeAndResults(optional<Value> reply) {
+  GOOGLE_SMART_CARD_CHECK(reply);
+  GOOGLE_SMART_CARD_CHECK(reply->is_array());
+  auto& reply_array = reply->GetArray();
   GOOGLE_SMART_CARD_CHECK(reply_array.size() == 1);
   LONG return_code = ConvertFromValueOrDie<LONG>(std::move(*reply_array[0]));
   return return_code;
 }
 
 template <typename Arg, typename... Args>
-LONG ExtractReturnCodeAndResults(Value reply, Arg& out_arg, Args&... out_args) {
-  GOOGLE_SMART_CARD_CHECK(reply.is_array());
-  auto& reply_array = reply.GetArray();
+LONG ExtractReturnCodeAndResults(optional<Value> reply,
+                                 Arg& out_arg,
+                                 Args&... out_args) {
+  GOOGLE_SMART_CARD_CHECK(reply);
+  GOOGLE_SMART_CARD_CHECK(reply->is_array());
+  auto& reply_array = reply->GetArray();
   if (reply_array.size() == 1) {
     // The reply contains only a return code - extract it.
     return ExtractReturnCodeAndResults(std::move(reply));
@@ -204,7 +210,7 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
     // Wait until the daemon's background thread completes the initialization
     // and notifies the JS side.
     pcsc_lite_ready_message_waiter->Wait();
-    EXPECT_TRUE(pcsc_lite_ready_message_waiter->value().StrictlyEquals(
+    EXPECT_TRUE(pcsc_lite_ready_message_waiter->value()->StrictlyEquals(
         Value(Value::Type::kDictionary)));
   }
 
@@ -270,9 +276,9 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
                           ConvertToValueOrDie(std::move(request_data)));
   }
 
-  Value SimulateSyncCallFromJsClient(int handler_id,
-                                     const std::string& function_name,
-                                     Value arguments) {
+  optional<Value> SimulateSyncCallFromJsClient(int handler_id,
+                                               const std::string& function_name,
+                                               Value arguments) {
     const RequestId request_id = ++request_id_counter_;
     const std::string requester_name = GetJsClientRequesterName(handler_id);
     auto waiter =
@@ -1019,6 +1025,22 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardConnectT1) {
   EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
                                                SCARD_LEAVE_CARD),
             SCARD_S_SUCCESS);
+}
+
+TEST_F(SmartCardConnectorApplicationSingleClientTest, NonExistingFunctionCall) {
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+
+  // Act:
+  optional<Value> response =
+      SimulateSyncCallFromJsClient(kFakeHandlerId,
+                                   /*function_name=*/"foo",
+                                   /*arguments=*/Value(Value::Type::kArray));
+
+  // Assert: the response is null as it only contains an error message (we don't
+  // verify the message here).
+  EXPECT_THAT(response, IsNullOptional());
 }
 
 }  // namespace google_smart_card

@@ -40,27 +40,22 @@ namespace google_smart_card {
 
 namespace {
 
-optional<std::string> StripSuffix(const std::string& string,
-                                  const std::string& suffix) {
+bool EndsWith(const std::string& string, const std::string& suffix) {
   if (string.length() <= suffix.length() ||
       string.substr(string.length() - suffix.length()) != suffix) {
-    return {};
+    return false;
   }
-  return string.substr(0, string.length() - suffix.length());
+  return true;
 }
 
-// Parses out the requester name from "<requester>::request" or
-// "<requester>::response", or returns a null optional if the format doesn't
-// match.
-optional<std::string> GetRequesterName(const std::string& message_type) {
-  auto stripped = StripSuffix(message_type, kRequestMessageTypeSuffix);
-  if (stripped)
-    return *stripped;
-  stripped = StripSuffix(message_type, kResponseMessageTypeSuffix);
-  if (stripped)
-    return *stripped;
-  // Not a request/response message.
-  return {};
+// Checks the message type against the "...::request" pattern.
+bool LooksLikeRequestMessage(const std::string& message_type) {
+  return EndsWith(message_type, kRequestMessageTypeSuffix);
+}
+
+// Checks the message type against the "...::response" pattern.
+bool LooksLikeResponseMessage(const std::string& message_type) {
+  return EndsWith(message_type, kResponseMessageTypeSuffix);
 }
 
 // `payload_to_reply_with` is passed via shared_ptr in order to workaround
@@ -69,8 +64,10 @@ void PostFakeJsReply(TypedMessageRouter* typed_message_router,
                      const std::string& requester_name,
                      std::shared_ptr<Value> payload_to_reply_with,
                      const optional<std::string>& error_to_reply_with,
-                     Value /*request_payload*/,
+                     optional<Value> /*request_payload*/,
                      optional<RequestId> request_id) {
+  GOOGLE_SMART_CARD_CHECK(request_id);
+
   ResponseMessageData response_data;
   response_data.request_id = *request_id;
   if (payload_to_reply_with)
@@ -106,8 +103,8 @@ void TestingGlobalContext::Waiter::Reply(Value result_to_reply_with) {
   // No mutex locks, as it's only allowed to call us after `Wait()` completes.
   GOOGLE_SMART_CARD_CHECK(resolved_);
   GOOGLE_SMART_CARD_CHECK(request_id_);
-  // The request result is always wrapped into a single-item array. Do it
-  // here, so that the test bodies are easier to read.
+  // The request result is always wrapped into a single-item array. Do it here,
+  // so that the test bodies are easier to read.
   Value array = ArrayValueBuilder().Add(std::move(result_to_reply_with)).Get();
   PostFakeJsReply(typed_message_router_, *requester_name_,
                   std::make_shared<Value>(std::move(array)),
@@ -115,13 +112,13 @@ void TestingGlobalContext::Waiter::Reply(Value result_to_reply_with) {
                   /*request_payload=*/{}, *request_id_);
 }
 
-const Value& TestingGlobalContext::Waiter::value() const {
+const optional<Value>& TestingGlobalContext::Waiter::value() const {
   // No mutex locks, as it's only allowed to call us after `Wait()` completes.
   GOOGLE_SMART_CARD_CHECK(resolved_);
   return value_;
 }
 
-Value TestingGlobalContext::Waiter::take_value() && {
+optional<Value> TestingGlobalContext::Waiter::take_value() && {
   // No mutex locks, as it's only allowed to call us after `Wait()` completes.
   GOOGLE_SMART_CARD_CHECK(resolved_);
   return std::move(value_);
@@ -139,7 +136,7 @@ TestingGlobalContext::Waiter::Waiter(
     : typed_message_router_(typed_message_router),
       requester_name_(requester_name) {}
 
-void TestingGlobalContext::Waiter::Resolve(Value value,
+void TestingGlobalContext::Waiter::Resolve(optional<Value> value,
                                            optional<RequestId> request_id) {
   std::unique_lock<std::mutex> lock(mutex_);
 
@@ -279,7 +276,7 @@ TestingGlobalContext::Expectation TestingGlobalContext::MakeRequestExpectation(
     const std::string& requester_name,
     const std::string& function_name,
     Value arguments,
-    std::function<void(Value, optional<RequestId>)> callback_to_run) {
+    Callback callback_to_run) {
   GOOGLE_SMART_CARD_CHECK(arguments.is_array());
 
   RemoteCallRequestPayload request_payload;
@@ -328,7 +325,7 @@ TestingGlobalContext::FindMatchingExpectation(const std::string& message_type,
       continue;
     }
     if (expectation.awaited_request_payload && !request_payload) {
-      // Skip - expected a message with a payload, but none got.
+      // Skip - expected a request message with a payload, but none got.
       continue;
     }
     if (expectation.awaited_request_payload &&
@@ -351,28 +348,46 @@ bool TestingGlobalContext::HandleMessageToJs(Value message) {
   TypedMessage typed_message =
       ConvertFromValueOrDie<TypedMessage>(std::move(message));
 
-  optional<std::string> requester_name = GetRequesterName(typed_message.type);
-  if (requester_name) {
-    // It's a request/response message - parse its payload and use it to find
-    // the expectation.
+  optional<RequestId> request_id;
+  // Only one of these variables will be filled below - depending on the message
+  // type.
+  optional<Value> request_payload, response_payload, message_data;
+
+  if (LooksLikeRequestMessage(typed_message.type)) {
+    // It's a request message; parse its ID and payload for finding the
+    // expectation and passing them to the callback.
     RequestMessageData request_data = ConvertFromValueOrDie<RequestMessageData>(
         std::move(typed_message.data));
-    optional<Callback> callback_to_run = FindMatchingExpectation(
-        typed_message.type, request_data.request_id, &request_data.payload);
-    if (!callback_to_run)
-      return false;
-    (*callback_to_run)(std::move(request_data.payload),
-                       request_data.request_id);
-    return true;
+    request_id = request_data.request_id;
+    request_payload = std::move(request_data.payload);
+  } else if (LooksLikeResponseMessage(typed_message.type)) {
+    // It's a response message; parse ID for finding the expectation and the
+    // payload (which can be null if the response contains a failure) for
+    // passing to the callback.
+    ResponseMessageData response_data =
+        ConvertFromValueOrDie<ResponseMessageData>(
+            std::move(typed_message.data));
+    request_id = response_data.request_id;
+    response_payload = std::move(response_data.payload);
+  } else {
+    // It's a regular message; find the expectation using just the type.
+    message_data = std::move(typed_message.data);
   }
 
-  // It's a regular message - find the expectation using just the type.
-  optional<Callback> callback_to_run = FindMatchingExpectation(
-      typed_message.type, /*request_id=*/{}, /*request_payload=*/nullptr);
+  // Find the callback for the message type, request ID and, if it's a request
+  // message, the request payload.
+  optional<Callback> callback_to_run =
+      FindMatchingExpectation(typed_message.type, request_id,
+                              request_payload ? &*request_payload : nullptr);
   if (!callback_to_run)
     return false;
-  (*callback_to_run)(std::move(typed_message.data),
-                     /*request_id=*/optional<RequestId>());
+
+  // Run the callback and pass the value (taken from one of three variables,
+  // depending on the branch taken above) to it.
+  (*callback_to_run)(request_payload    ? std::move(request_payload)
+                     : response_payload ? std::move(response_payload)
+                                        : std::move(message_data),
+                     request_id);
   return true;
 }
 

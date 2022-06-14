@@ -70,7 +70,8 @@ class TestingSmartCardSimulation final {
   ~TestingSmartCardSimulation();
 
   // Subscribe this to the C++-to-JS message channel.
-  void OnRequestToJs(Value request_payload, optional<RequestId> request_id);
+  void OnRequestToJs(optional<Value> request_payload,
+                     optional<RequestId> request_id);
 
   void SetDevices(const std::vector<Device>& devices);
 

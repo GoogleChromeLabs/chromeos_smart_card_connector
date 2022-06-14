@@ -41,7 +41,7 @@ class TestingGlobalContext final : public GlobalContext {
   // request/response messages, the parameters are `RequestMessageData::payload`
   // and `RequestMessageData::request_id`. For other messages, only
   // `TypedMessage::data` is passed.
-  using Callback = std::function<void(Value, optional<RequestId>)>;
+  using Callback = std::function<void(optional<Value>, optional<RequestId>)>;
 
   // Helper returned by `Create...Waiter()` methods. Allows to wait until the
   // specified C++-to-JS message is sent.
@@ -54,8 +54,8 @@ class TestingGlobalContext final : public GlobalContext {
     void Wait();
     void Reply(Value result_to_reply_with);
 
-    const Value& value() const;
-    Value take_value() &&;
+    const optional<Value>& value() const;
+    optional<Value> take_value() &&;
     optional<RequestId> request_id() const;
 
    private:
@@ -64,14 +64,14 @@ class TestingGlobalContext final : public GlobalContext {
     Waiter(TypedMessageRouter* typed_message_router,
            const optional<std::string>& requester_name);
 
-    void Resolve(Value value, optional<RequestId> request_id);
+    void Resolve(optional<Value> value, optional<RequestId> request_id);
 
     TypedMessageRouter* const typed_message_router_;
     const optional<std::string> requester_name_;
     std::mutex mutex_;
     std::condition_variable condition_;
     bool resolved_ = false;
-    Value value_;
+    optional<Value> value_;
     optional<RequestId> request_id_;
   };
 
@@ -146,11 +146,10 @@ class TestingGlobalContext final : public GlobalContext {
     bool once = true;
   };
 
-  Expectation MakeRequestExpectation(
-      const std::string& requester_name,
-      const std::string& function_name,
-      Value arguments,
-      std::function<void(Value, optional<RequestId>)> callback_to_run);
+  Expectation MakeRequestExpectation(const std::string& requester_name,
+                                     const std::string& function_name,
+                                     Value arguments,
+                                     Callback callback_to_run);
   void AddExpectation(Expectation expectation);
   optional<Callback> FindMatchingExpectation(const std::string& message_type,
                                              optional<RequestId> request_id,
