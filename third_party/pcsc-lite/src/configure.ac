@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.69])
 
-AC_INIT([pcsc-lite],[1.9.7])
+AC_INIT([pcsc-lite],[1.9.8])
 AC_CONFIG_SRCDIR(src/pcscdaemon.c)
 AM_INIT_AUTOMAKE(1.8 dist-bzip2 no-dist-gzip)
 AC_CONFIG_HEADERS([config.h])
@@ -109,7 +109,7 @@ AC_STRUCT_DIRENT_D_TYPE
 AC_FUNC_ERROR_AT_LINE
 AC_FUNC_STAT
 AC_FUNC_VPRINTF
-AC_CHECK_FUNCS(getopt_long nanosleep strerror vsnprintf)
+AC_CHECK_FUNCS(getopt_long nanosleep strerror vsnprintf getrandom)
 AC_FUNC_ALLOCA
 
 # C Compiler features
