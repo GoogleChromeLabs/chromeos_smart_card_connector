@@ -1068,7 +1068,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
 
 // `SCardConnect()` call from JS successfully connects via the "T1" protocol if
 // the previous connection via the "RAW" protocol was terminated by
-// `SCardDisconnect` with `SCArD_RESET_CARD`.
+// `SCardDisconnect` with `SCARD_RESET_CARD`.
 TEST_F(SmartCardConnectorApplicationSingleClientTest,
        SCardConnectProtocolChangeAfterReset) {
   // Arrange:
