@@ -105,8 +105,8 @@ void TestingGlobalContext::Waiter::Reply(Value result_to_reply_with) {
   // No mutex locks, as it's only allowed to call us after `Wait()` completes.
   GOOGLE_SMART_CARD_CHECK(resolved_);
   GOOGLE_SMART_CARD_CHECK(request_id_);
-  // The request result is always wrapped into a single-item array. Do it
-  // here, so that the test bodies are easier to read.
+  // The request result is always wrapped into a single-item array. Do it here,
+  // so that the test bodies are easier to read.
   Value array = ArrayValueBuilder().Add(std::move(result_to_reply_with)).Get();
   PostFakeJsReply(typed_message_router_, *requester_name_,
                   std::make_shared<Value>(std::move(array)),
