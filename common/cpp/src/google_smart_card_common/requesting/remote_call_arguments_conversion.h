@@ -19,7 +19,6 @@
 #include <utility>
 #include <vector>
 
-#include <google_smart_card_common/formatting.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/requesting/remote_call_message.h>
@@ -32,7 +31,9 @@ namespace google_smart_card {
 
 namespace internal {
 
-extern const char kRemoteCallArgumentConversionError[];
+void DieOnRemoteCallArgConversionError(const std::string& function_name,
+                                       int argument_index,
+                                       const std::string& error_message);
 
 // Converts the argument into a `Value` and appends it into `payload`.
 // Immediately crashes in case the conversion fails.
@@ -42,10 +43,9 @@ void ConvertAndAppendRemoteCallArg(RemoteCallRequestPayload* payload,
   std::string error_message;
   Value value;
   if (!ConvertToValue(std::forward<T>(argument), &value, &error_message)) {
-    GOOGLE_SMART_CARD_LOG_FATAL << FormatPrintfTemplate(
-        kRemoteCallArgumentConversionError,
-        static_cast<int>(payload->arguments.size()),
-        payload->function_name.c_str(), error_message.c_str());
+    DieOnRemoteCallArgConversionError(
+        payload->function_name, static_cast<int>(payload->arguments.size()),
+        error_message);
   }
   payload->arguments.push_back(std::move(value));
 }
@@ -160,11 +160,7 @@ class RemoteCallArgumentsExtractor final {
       ++current_argument_index_;
       return;
     }
-    success_ = false;
-    error_message_ =
-        FormatPrintfTemplate(internal::kRemoteCallArgumentConversionError,
-                             static_cast<int>(current_argument_index_),
-                             title_.c_str(), error_message_.c_str());
+    HandleArgumentConversionError();
   }
 
   // Specialized version of the overload above that supports converting a null
@@ -182,6 +178,7 @@ class RemoteCallArgumentsExtractor final {
     ExtractArgument(&arg->value());
   }
 
+  void HandleArgumentConversionError();
   void VerifySufficientCount(int arguments_to_convert);
   void VerifyNothingLeft();
 
@@ -219,8 +216,9 @@ void ExtractRemoteCallArgumentsOrDie(std::string function_name,
   std::string error_message;
   if (!ExtractRemoteCallArguments(std::move(function_name),
                                   std::move(argument_values), &error_message,
-                                  args...))
+                                  args...)) {
     GOOGLE_SMART_CARD_LOG_FATAL << error_message;
+  }
 }
 
 }  // namespace google_smart_card

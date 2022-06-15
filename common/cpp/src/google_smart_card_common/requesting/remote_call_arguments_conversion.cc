@@ -25,11 +25,22 @@
 
 namespace google_smart_card {
 
+namespace {
+
+constexpr char kConversionErrorTemplate[] =
+    "Failed to convert argument #%d for %s(): %s";
+
+}  // namespace
+
 namespace internal {
 
-// Definitions of the constants declared in the header file:
-const char kRemoteCallArgumentConversionError[] =
-    "Failed to convert argument #%d for %s(): %s";
+void DieOnRemoteCallArgConversionError(const std::string& function_name,
+                                       int argument_index,
+                                       const std::string& error_message) {
+  GOOGLE_SMART_CARD_LOG_FATAL
+      << FormatPrintfTemplate(kConversionErrorTemplate, argument_index,
+                              function_name.c_str(), error_message.c_str());
+}
 
 }  // namespace internal
 
@@ -58,6 +69,13 @@ void RemoteCallArgumentsExtractor::Extract() {}
 bool RemoteCallArgumentsExtractor::Finish() {
   VerifyNothingLeft();
   return success_;
+}
+
+void RemoteCallArgumentsExtractor::HandleArgumentConversionError() {
+  success_ = false;
+  error_message_ = FormatPrintfTemplate(
+      kConversionErrorTemplate, static_cast<int>(current_argument_index_),
+      title_.c_str(), error_message_.c_str());
 }
 
 void RemoteCallArgumentsExtractor::VerifySufficientCount(
