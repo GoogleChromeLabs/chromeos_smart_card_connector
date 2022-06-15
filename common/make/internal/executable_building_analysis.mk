@@ -86,6 +86,13 @@ ANALYSIS_COMMON_FLAGS += \
 	-fcoverage-mapping \
 	-fprofile-instr-generate \
 
+# Add compiler-only flags specific to coverage builds.
+#
+# * "DCOVERAGE_ENABLED": Tell the compiled code that it's build for coverage
+#   (99% of code shouldn't need to use it though).
+ANALYSIS_COMPILER_FLAGS += \
+	-DCOVERAGE_ENABLED \
+
 else ifeq ($(TOOLCHAIN),asan_testing)
 
 # Add compiler and linker flags specific to ASan builds.
