@@ -88,6 +88,8 @@ class LibusbTracingWrapper : public LibusbInterface {
   int LibusbHandleEventsCompleted(libusb_context* ctx, int* completed) override;
 
  private:
+  class LibusbTransferTracingWrapper;
+
   void AddOriginalToWrappedTransferMapItem(libusb_transfer* original_transfer,
                                            libusb_transfer* wrapped_transfer);
   libusb_transfer* GetWrappedTransfer(libusb_transfer* original_transfer) const;
