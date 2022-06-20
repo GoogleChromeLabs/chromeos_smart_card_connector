@@ -1115,6 +1115,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
             SCARD_S_SUCCESS);
 }
 
+// Calling a non-existing PC/SC function results in an error (but not crash).
 TEST_F(SmartCardConnectorApplicationSingleClientTest, NonExistingFunctionCall) {
   // Arrange:
   StartApplication();
@@ -1129,6 +1130,47 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, NonExistingFunctionCall) {
   // Assert: the response is null as it only contains an error message (we don't
   // verify the message here).
   EXPECT_THAT(response, IsNullOptional());
+}
+
+// `SCardDisconnect()` and `SCardReleaseContext` calls from JS should succeed
+// even after the reader disappeared when there was an active card handle. This
+// is a regression test for a PC/SC-Lite bug (see
+// <https://github.com/GoogleChromeLabs/chromeos_smart_card_connector/issues/681>).
+TEST_F(SmartCardConnectorApplicationSingleClientTest, DisconnectAfterRemoving) {
+  // Arrange. Start with a reader and a card available.
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
+  SetUsbDevices({device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+  // Connect to the card.
+  SCARDHANDLE scard_handle = 0;
+  DWORD active_protocol = 0;
+  EXPECT_EQ(SimulateConnectCallFromJsClient(
+                kFakeHandlerId, scard_context(), kGemaltoPcTwinReaderPcscName0,
+                SCARD_SHARE_SHARED,
+                /*preferred_protocols=*/SCARD_PROTOCOL_ANY, scard_handle,
+                active_protocol),
+            SCARD_S_SUCCESS);
+
+  // Act. Simulate disconnecting the reader.
+  SetUsbDevices({});
+  // Wait until PC/SC-Lite reports the change in the reader list.
+  std::vector<SCARD_READERSTATE> reader_states(1);
+  reader_states[0].szReader = kPnpNotification;
+  reader_states[0].dwCurrentState = SCARD_STATE_UNAWARE;
+  EXPECT_EQ(SCardGetStatusChange(scard_context(), /*dwTimeout=*/INFINITE,
+                                 reader_states.data(), reader_states.size()),
+            SCARD_S_SUCCESS);
+  // Try disconnecting the card handle.
+  LONG return_code = SimulateDisconnectCallFromJsClient(
+      kFakeHandlerId, scard_handle, SCARD_LEAVE_CARD);
+
+  // Assert.
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
 }
 
 }  // namespace google_smart_card
