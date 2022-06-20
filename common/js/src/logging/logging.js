@@ -126,6 +126,21 @@ let wasLoggingSetUp = false;
 let logBuffer = new GSC.LogBuffer(LOG_BUFFER_CAPACITY);
 
 /**
+ * Whether we should self-reload our App/Extension when a fatal log message.
+ *
+ * The default value is determined from build-time constants, and it can also be
+ * controlled at runtime by calling
+ * `GoogleSmartCard.disableSelfReloadOnFatalError()`.
+ * @type {boolean}
+ */
+let selfReloadOnFatalError =
+    !goog.DEBUG && GSC.Logging.SELF_RELOAD_ON_FATAL_ERROR;
+
+goog.exportSymbol('GoogleSmartCard.disableSelfReloadOnFatalError', function() {
+  selfReloadOnFatalError = false;
+});
+
+/**
  * Sets up logging parameters and log buffering.
  *
  * This function is called automatically when this library file is included.
@@ -238,7 +253,7 @@ GSC.Logging.checkWithLogger = function(logger, condition, opt_message) {
 GSC.Logging.fail = function(opt_message) {
   const message = opt_message ? opt_message : 'Failure';
   goog.log.error(rootLogger, message);
-  scheduleAppReloadIfAllowed();
+  scheduleSelfReloadIfAllowed();
   throw new Error(message);
 };
 
@@ -269,8 +284,8 @@ GSC.Logging.getLogBuffer = function() {
   return logBuffer;
 };
 
-function scheduleAppReloadIfAllowed() {
-  if (goog.DEBUG || !GSC.Logging.SELF_RELOAD_ON_FATAL_ERROR)
+function scheduleSelfReloadIfAllowed() {
+  if (!selfReloadOnFatalError)
     return;
   GSC.Logging.CrashLoopDetection.handleImminentCrash()
       .then(function(isInCrashLoop) {
