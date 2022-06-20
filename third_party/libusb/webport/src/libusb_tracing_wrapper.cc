@@ -886,7 +886,10 @@ int LibusbTracingWrapper::LibusbCancelTransfer(libusb_transfer* transfer) {
   // wrapped transfer (see the LibusbSubmitTransfer method implementation). So
   // here the actual cancellation should be called with the wrapper transfer.
   libusb_transfer* const wrapped_transfer = GetWrappedTransfer(transfer);
-  GOOGLE_SMART_CARD_CHECK(wrapped_transfer);
+  if (!wrapped_transfer) {
+    // The original transfer is either not yet submitted or already completed.
+    return LIBUSB_ERROR_NOT_FOUND;
+  }
 
   const int return_code =
       wrapped_libusb_->LibusbCancelTransfer(wrapped_transfer);
