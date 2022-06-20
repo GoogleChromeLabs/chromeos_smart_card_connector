@@ -209,7 +209,7 @@ executableModule.startLoading();
 // Open the UI window when the user launches the app.
 chrome.app.runtime.onLaunched.addListener(() => {
   GSC.PopupOpener.createWindow(MAIN_WINDOW_URL, MAIN_WINDOW_OPTIONS, {
-    executableModuleMessageChannel: executableModule.getMessageChannel(),
+    'executableModuleMessageChannel': executableModule.getMessageChannel(),
   });
 });
 
