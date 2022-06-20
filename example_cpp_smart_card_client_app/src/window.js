@@ -66,7 +66,7 @@ function onCloseWindowClicked(e) {
 // executable module to start the test.
 function onRunTestClicked(e) {
   e.preventDefault();
-  executableModuleMessageChannel.send('ui_backend', {command: 'run_test'});
+  executableModuleMessageChannel.send('ui_backend', {'command': 'run_test'});
 }
 
 // Called when a "output_message" message is received from the executable
