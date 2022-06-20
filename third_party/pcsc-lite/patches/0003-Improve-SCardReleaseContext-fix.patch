@@ -1,0 +1,34 @@
+From d7a08877c3f1d423f8fcfcb5b60f2cf6fefeceda Mon Sep 17 00:00:00 2001
+From: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date: Sun, 19 Jun 2022 21:27:46 +0200
+Subject: [PATCH] Improve SCardReleaseContext fix
+
+From Maksim Ivanov:
+SCARD_E_READER_UNAVAILABLE can be returned by RFReaderInfoById(): it's a
+corner case when the reader context is still there, but has a zero
+reference count.
+
+See RFReaderInfoById() using the REF_READER macro, which calls
+_RefReader() (and returns its error code on error), which in turn has
+this code:
+
+  if (0 == sReader->reference)
+    return SCARD_E_READER_UNAVAILABLE;
+---
+ src/winscard_svc.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/src/winscard_svc.c b/src/winscard_svc.c
+index f4583124..461ceabd 100644
+--- a/src/winscard_svc.c
++++ b/src/winscard_svc.c
+@@ -891,7 +891,8 @@ static LONG MSGRemoveContext(SCARDCONTEXT hContext, SCONTEXT * threadContext)
+ 		 * orphan handle.
+ 		 */
+ 		rv = RFReaderInfoById(hCard, &rContext);
+-		if (rv != SCARD_S_SUCCESS && rv != SCARD_E_INVALID_VALUE)
++		if (rv != SCARD_S_SUCCESS && rv != SCARD_E_INVALID_VALUE
++			&& rv != SCARD_E_READER_UNAVAILABLE)
+ 		{
+ 			(void)pthread_mutex_unlock(&threadContext->cardsList_lock);
+ 			return rv;
