@@ -850,7 +850,7 @@ int LibusbTracingWrapper::LibusbCancelTransfer(libusb_transfer* transfer) {
   // here the actual cancellation should be called with the wrapper transfer.
   libusb_transfer* const wrapped_transfer = GetWrappedTransfer(transfer);
   if (!wrapped_transfer) {
-    // The original transfer not submitted yet or already completed.
+    // The original transfer is either not yet submitted or already completed.
     return LIBUSB_ERROR_NOT_FOUND;
   }
 
