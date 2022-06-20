@@ -500,17 +500,20 @@ std::string DebugDumpLibusbTransfer(libusb_transfer* transfer,
   return result;
 }
 
+}  // namespace
+
 // This is a helper class that provides wrapping around libusb transfers that
 // adds debug logging for the transfer callback execution.
 //
 // The actual implementation is built on the idea of creating a temporary
 // wrapper transfer that somehow holds the pointer to the original transfer.
-class LibusbTransferTracingWrapper final {
+class LibusbTracingWrapper::LibusbTransferTracingWrapper final {
  public:
   LibusbTransferTracingWrapper(const LibusbTransferTracingWrapper&) = delete;
 
   static libusb_transfer* CreateWrappedTransfer(
       libusb_transfer* transfer,
+      LibusbTracingWrapper* libusb_tracing_wrapper,
       LibusbInterface* wrapped_libusb) {
     // Note: Here a manual memory management is used, as the only entity that
     // can own the created class instance is libusb_transfer, which can store
@@ -518,16 +521,21 @@ class LibusbTransferTracingWrapper final {
     //
     // The created LibusbTransferTracingWrapper instance is destroyed in the
     // LibusbTransferCallback method.
-    LibusbTransferTracingWrapper* const wrapper =                    // NOLINT
-        new LibusbTransferTracingWrapper(transfer, wrapped_libusb);  // NOLINT
-    return wrapper->wrapper_transfer_;                               // NOLINT
+    LibusbTransferTracingWrapper* const wrapper =
+        new LibusbTransferTracingWrapper(transfer, libusb_tracing_wrapper,
+                                         wrapped_libusb);
+    return wrapper->wrapper_transfer_;
   }
 
  private:
   LibusbTransferTracingWrapper(libusb_transfer* transfer,
+                               LibusbTracingWrapper* libusb_tracing_wrapper,
                                LibusbInterface* wrapped_libusb)
-      : transfer_(transfer), wrapped_libusb_(wrapped_libusb) {
+      : transfer_(transfer),
+        libusb_tracing_wrapper_(libusb_tracing_wrapper),
+        wrapped_libusb_(wrapped_libusb) {
     GOOGLE_SMART_CARD_CHECK(transfer_);
+    GOOGLE_SMART_CARD_CHECK(libusb_tracing_wrapper_);
     GOOGLE_SMART_CARD_CHECK(wrapped_libusb_);
 
     // Isochronous transfers are not supported.
@@ -546,8 +554,16 @@ class LibusbTransferTracingWrapper final {
 
     LibusbTransferTracingWrapper* const wrapper =
         static_cast<LibusbTransferTracingWrapper*>(wrapper_transfer->user_data);
-    wrapper->FillOriginalTransferOutputFields();
     libusb_transfer* const original_transfer = wrapper->transfer_;
+    LibusbTracingWrapper* const libusb_tracing_wrapper =
+        wrapper->libusb_tracing_wrapper_;
+
+    wrapper->FillOriginalTransferOutputFields();
+    // Avoid leaving a dangling pointer to `wrapper` in `LibusbTracingWrapper`:
+    // the wrapper will be destroyed immediately after the current function
+    // returns because we use the `LIBUSB_TRANSFER_FREE_TRANSFER` flag.
+    libusb_tracing_wrapper->RemoveOriginalToWrappedTransferMapItem(
+        original_transfer);
     delete wrapper;
 
     FunctionCallTracer tracer("libusb_transfer->callback", kLoggingPrefix);
@@ -566,11 +582,10 @@ class LibusbTransferTracingWrapper final {
   }
 
   libusb_transfer* const transfer_;
+  LibusbTracingWrapper* const libusb_tracing_wrapper_;
   LibusbInterface* const wrapped_libusb_;
   libusb_transfer* wrapper_transfer_;
 };
-
-}  // namespace
 
 LibusbTracingWrapper::LibusbTracingWrapper(LibusbInterface* wrapped_libusb)
     : wrapped_libusb_(wrapped_libusb) {
@@ -828,7 +843,7 @@ int LibusbTracingWrapper::LibusbSubmitTransfer(libusb_transfer* transfer) {
   // callback is executed, a copy of transfer is created with a wrapper
   // callback.
   libusb_transfer* const wrapped_transfer =
-      LibusbTransferTracingWrapper::CreateWrappedTransfer(transfer,
+      LibusbTransferTracingWrapper::CreateWrappedTransfer(transfer, this,
                                                           wrapped_libusb_);
   AddOriginalToWrappedTransferMapItem(transfer, wrapped_transfer);
 
@@ -865,11 +880,6 @@ void LibusbTracingWrapper::LibusbFreeTransfer(libusb_transfer* transfer) {
   tracer.LogEntrance();
 
   wrapped_libusb_->LibusbFreeTransfer(transfer);
-
-  // When the transfer was submitted, the original transfer was replaced with a
-  // wrapped transfer (see the LibusbSubmitTransfer method implementation). So
-  // here the mapping between these two transfers has to be deleted.
-  RemoveOriginalToWrappedTransferMapItem(transfer);
 
   tracer.LogExit();
 }
