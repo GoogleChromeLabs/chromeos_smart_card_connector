@@ -378,14 +378,20 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardReleaseContext(
   if (!s_card_handles_registry_.ContainsContext(s_card_context))
     return_code = SCARD_E_INVALID_HANDLE;
 
-  if (return_code == SCARD_S_SUCCESS)
+  if (return_code == SCARD_S_SUCCESS) {
     return_code = ::SCardReleaseContext(s_card_context);
+
+    // Catch when PC/SC-Lite core, unlike us, thinks the context doesn't exist.
+    if (return_code == SCARD_E_INVALID_HANDLE)
+      OnSCardContextRevoked(s_card_context);
+  }
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
   tracer.LogExit();
 
   if (return_code == SCARD_S_SUCCESS)
     s_card_handles_registry_.RemoveContext(s_card_context);
+
   return ReturnValues(return_code);
 }
 
@@ -413,6 +419,10 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardConnect(
     return_code =
         ::SCardConnect(s_card_context, reader_name.c_str(), share_mode,
                        preferred_protocols, &s_card_handle, &active_protocol);
+
+    // Catch when PC/SC-Lite core, unlike us, thinks the context doesn't exist.
+    if (return_code == SCARD_E_INVALID_HANDLE)
+      OnSCardContextRevoked(s_card_context);
   }
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
@@ -453,6 +463,10 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardReconnect(
     return_code =
         ::SCardReconnect(s_card_handle, share_mode, preferred_protocols,
                          initialization_action, &active_protocol);
+
+    // Catch when PC/SC-Lite core, unlike us, thinks the handle doesn't exist.
+    if (return_code == SCARD_E_INVALID_HANDLE)
+      OnSCardHandleRevoked(s_card_handle);
   }
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
@@ -481,8 +495,13 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardDisconnect(
   if (!s_card_handles_registry_.ContainsHandle(s_card_handle))
     return_code = SCARD_E_INVALID_HANDLE;
 
-  if (return_code == SCARD_S_SUCCESS)
+  if (return_code == SCARD_S_SUCCESS) {
     return_code = ::SCardDisconnect(s_card_handle, disposition_action);
+
+    // Catch when PC/SC-Lite core, unlike us, thinks the handle doesn't exist.
+    if (return_code == SCARD_E_INVALID_HANDLE)
+      OnSCardHandleRevoked(s_card_handle);
+  }
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
   tracer.LogExit();
@@ -503,8 +522,13 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardBeginTransaction(
   if (!s_card_handles_registry_.ContainsHandle(s_card_handle))
     return_code = SCARD_E_INVALID_HANDLE;
 
-  if (return_code == SCARD_S_SUCCESS)
+  if (return_code == SCARD_S_SUCCESS) {
     return_code = ::SCardBeginTransaction(s_card_handle);
+
+    // Catch when PC/SC-Lite core, unlike us, thinks the handle doesn't exist.
+    if (return_code == SCARD_E_INVALID_HANDLE)
+      OnSCardHandleRevoked(s_card_handle);
+  }
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
   tracer.LogExit();
@@ -526,8 +550,13 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardEndTransaction(
   if (!s_card_handles_registry_.ContainsHandle(s_card_handle))
     return_code = SCARD_E_INVALID_HANDLE;
 
-  if (return_code == SCARD_S_SUCCESS)
+  if (return_code == SCARD_S_SUCCESS) {
     return_code = ::SCardEndTransaction(s_card_handle, disposition_action);
+
+    // Catch when PC/SC-Lite core, unlike us, thinks the handle doesn't exist.
+    if (return_code == SCARD_E_INVALID_HANDLE)
+      OnSCardHandleRevoked(s_card_handle);
+  }
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
   tracer.LogExit();
@@ -557,6 +586,10 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardStatus(
         ::SCardStatus(s_card_handle, reinterpret_cast<LPSTR>(&reader_name),
                       &reader_name_length, &state, &protocol,
                       reinterpret_cast<LPBYTE>(&atr), &atr_length);
+
+    // Catch when PC/SC-Lite core, unlike us, thinks the handle doesn't exist.
+    if (return_code == SCARD_E_INVALID_HANDLE)
+      OnSCardHandleRevoked(s_card_handle);
   }
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
@@ -622,6 +655,10 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardGetStatusChange(
         s_card_context, timeout,
         pcsc_lite_reader_states.empty() ? nullptr : &pcsc_lite_reader_states[0],
         pcsc_lite_reader_states.size());
+
+    // Catch when PC/SC-Lite core, unlike us, thinks the context doesn't exist.
+    if (return_code == SCARD_E_INVALID_HANDLE)
+      OnSCardContextRevoked(s_card_context);
   }
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
@@ -668,6 +705,10 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardControl(
     return_code = ::SCardControl(s_card_handle, control_code, &data_to_send[0],
                                  data_to_send.size(), &buffer[0], buffer.size(),
                                  &bytes_received);
+
+    // Catch when PC/SC-Lite core, unlike us, thinks the handle doesn't exist.
+    if (return_code == SCARD_E_INVALID_HANDLE)
+      OnSCardHandleRevoked(s_card_handle);
   }
   if (return_code == SCARD_S_SUCCESS)
     buffer.resize(bytes_received);
@@ -705,6 +746,10 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardGetAttrib(
     return_code = ::SCardGetAttrib(s_card_handle, attribute_id,
                                    reinterpret_cast<LPBYTE>(&attribute),
                                    &attribute_length);
+
+    // Catch when PC/SC-Lite core, unlike us, thinks the handle doesn't exist.
+    if (return_code == SCARD_E_INVALID_HANDLE)
+      OnSCardHandleRevoked(s_card_handle);
   }
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
@@ -741,6 +786,10 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardSetAttrib(
     return_code = ::SCardSetAttrib(s_card_handle, attribute_id,
                                    attribute.empty() ? nullptr : &attribute[0],
                                    attribute.size());
+
+    // Catch when PC/SC-Lite core, unlike us, thinks the handle doesn't exist.
+    if (return_code == SCARD_E_INVALID_HANDLE)
+      OnSCardHandleRevoked(s_card_handle);
   }
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
@@ -789,6 +838,10 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardTransmit(
         s_card_handle, &scard_send_protocol_information,
         data_to_send.empty() ? nullptr : &data_to_send[0], data_to_send.size(),
         &scard_response_protocol_information, &buffer[0], &response_length);
+
+    // Catch when PC/SC-Lite core, unlike us, thinks the handle doesn't exist.
+    if (return_code == SCARD_E_INVALID_HANDLE)
+      OnSCardHandleRevoked(s_card_handle);
   }
   if (return_code == SCARD_S_SUCCESS)
     buffer.resize(response_length);
@@ -852,6 +905,10 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardListReaders(
     return_code =
         ::SCardListReaders(s_card_context, nullptr,
                            reinterpret_cast<LPSTR>(&readers), &readers_length);
+
+    // Catch when PC/SC-Lite core, unlike us, thinks the context doesn't exist.
+    if (return_code == SCARD_E_INVALID_HANDLE)
+      OnSCardContextRevoked(s_card_context);
   }
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
@@ -884,6 +941,10 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardListReaderGroups(
     return_code = ::SCardListReaderGroups(
         s_card_context, reinterpret_cast<LPSTR>(&reader_groups),
         &reader_groups_length);
+
+    // Catch when PC/SC-Lite core, unlike us, thinks the context doesn't exist.
+    if (return_code == SCARD_E_INVALID_HANDLE)
+      OnSCardContextRevoked(s_card_context);
   }
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
@@ -912,8 +973,13 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardCancel(
   if (!s_card_handles_registry_.ContainsContext(s_card_context))
     return_code = SCARD_E_INVALID_HANDLE;
 
-  if (return_code == SCARD_S_SUCCESS)
+  if (return_code == SCARD_S_SUCCESS) {
     return_code = ::SCardCancel(s_card_context);
+
+    // Catch when PC/SC-Lite core, unlike us, thinks the context doesn't exist.
+    if (return_code == SCARD_E_INVALID_HANDLE)
+      OnSCardContextRevoked(s_card_context);
+  }
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
   tracer.LogExit();
@@ -932,13 +998,33 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardIsValidContext(
   if (!s_card_handles_registry_.ContainsContext(s_card_context))
     return_code = SCARD_E_INVALID_HANDLE;
 
-  if (return_code == SCARD_S_SUCCESS)
+  if (return_code == SCARD_S_SUCCESS) {
     return_code = ::SCardIsValidContext(s_card_context);
+
+    // Catch when PC/SC-Lite core, unlike us, thinks the context doesn't exist.
+    if (return_code == SCARD_E_INVALID_HANDLE)
+      OnSCardContextRevoked(s_card_context);
+  }
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
   tracer.LogExit();
 
   return ReturnValues(return_code);
+}
+
+void PcscLiteClientRequestProcessor::OnSCardContextRevoked(
+    SCARDCONTEXT s_card_context) {
+  GOOGLE_SMART_CARD_LOG_WARNING
+      << "PC/SC-Lite unexpectedly revoked the context "
+      << DebugDumpSCardContext(s_card_context);
+  s_card_handles_registry_.RemoveContext(s_card_context);
+}
+
+void PcscLiteClientRequestProcessor::OnSCardHandleRevoked(
+    SCARDHANDLE s_card_handle) {
+  GOOGLE_SMART_CARD_LOG_WARNING << "PC/SC-Lite unexpectedly revoked the handle "
+                                << DebugDumpSCardHandle(s_card_handle);
+  s_card_handles_registry_.RemoveHandle(s_card_handle);
 }
 
 }  // namespace google_smart_card

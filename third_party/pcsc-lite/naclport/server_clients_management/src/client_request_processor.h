@@ -202,11 +202,21 @@ class PcscLiteClientRequestProcessor final
   GenericRequestResult SCardCancel(SCARDCONTEXT s_card_context);
   GenericRequestResult SCardIsValidContext(SCARDCONTEXT s_card_context);
 
+  // These two methods are called when the PC/SC-Lite core reports the
+  // context/handle doesn't exist, meanwhile our class thought it is. It
+  // shouldn't happen normally, but we met such bugs in the past (see
+  // <https://github.com/GoogleChromeLabs/chromeos_smart_card_connector/issues/681>).
+  void OnSCardContextRevoked(SCARDCONTEXT s_card_context);
+  void OnSCardHandleRevoked(SCARDHANDLE s_card_handle);
+
   const int64_t client_handler_id_;
   const std::string client_name_for_log_;
   const LogSeverity status_log_severity_;
   const std::string logging_prefix_;
   HandlerMap handler_map_;
+  // Stores PC/SC-Lite contexts and handles that belong to this client. This is
+  // used to implement the client isolation: one client shouldn't be able to use
+  // contexts/handles belonging to the other one.
   PcscLiteClientHandlesRegistry s_card_handles_registry_;
 };
 
