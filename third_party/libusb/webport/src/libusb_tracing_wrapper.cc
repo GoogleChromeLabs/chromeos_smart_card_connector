@@ -546,8 +546,10 @@ class LibusbTransferTracingWrapper final {
 
     LibusbTransferTracingWrapper* const wrapper =
         static_cast<LibusbTransferTracingWrapper*>(wrapper_transfer->user_data);
-    wrapper->FillOriginalTransferOutputFields();
+    LibusbInterface* const wrapped_libusb = wrapper->wrapped_libusb_;
     libusb_transfer* const original_transfer = wrapper->transfer_;
+
+    wrapper->FillOriginalTransferOutputFields();
     delete wrapper;
 
     FunctionCallTracer tracer("libusb_transfer->callback", kLoggingPrefix);
@@ -556,6 +558,12 @@ class LibusbTransferTracingWrapper final {
     tracer.LogEntrance();
 
     original_transfer->callback(original_transfer);
+    // If the original transfer requested automatic deallocation, do it here.
+    // Normally this flag is handled by the `LibusbInterface` implementation
+    // itself, but in this case the original transfer is hidden from it by the
+    // wrapper.
+    if (original_transfer->flags & LIBUSB_TRANSFER_FREE_TRANSFER)
+      wrapped_libusb->LibusbFreeTransfer(original_transfer);
 
     tracer.LogExit();
   }
