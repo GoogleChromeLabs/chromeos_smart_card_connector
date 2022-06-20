@@ -1,0 +1,30 @@
+From a4e5bf41ae652fd3837cc446a5a8cce0f4249845 Mon Sep 17 00:00:00 2001
+From: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date: Sun, 19 Jun 2022 18:49:42 +0200
+Subject: [PATCH] Fix SCardDisconnect on orphan handle
+
+If the reader is removed between SCardConnect() and SCardDisconnect()
+then SCardDisconnect() should not fail with SCARD_E_INVALID_VALUE.
+
+We now have the same behavior as on Windows 10.
+
+This patch is quiet similar to the previous one from Maksim Ivanov.
+Thanks for the idea.
+---
+ src/winscard.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/src/winscard.c b/src/winscard.c
+index e6f4c674..e411ca56 100644
+--- a/src/winscard.c
++++ b/src/winscard.c
+@@ -840,6 +840,9 @@ LONG SCardDisconnect(SCARDHANDLE hCard, DWORD dwDisposition)
+ 
+ 	/* get rContext corresponding to hCard */
+ 	rv = RFReaderInfoById(hCard, &rContext);
++	/* ignore reader removal */
++	if (SCARD_E_INVALID_VALUE == rv)
++		return SCARD_S_SUCCESS;
+ 	if (rv != SCARD_S_SUCCESS)
+ 		return rv;
+ 
