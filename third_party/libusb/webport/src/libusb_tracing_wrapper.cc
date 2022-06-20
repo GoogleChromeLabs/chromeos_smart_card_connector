@@ -453,13 +453,28 @@ std::string DebugDumpLibusbTransfer(libusb_transfer* transfer,
   if (!transfer)
     return "<NULL>";
 
-  const bool is_input_transfer =
-      (transfer->endpoint & LIBUSB_ENDPOINT_DIR_MASK) == LIBUSB_ENDPOINT_IN;
   const bool is_control_transfer =
       transfer->type == LIBUSB_TRANSFER_TYPE_CONTROL;
+  // Determine whether the transfer is input or output. This is determined by
+  // the `LIBUSB_ENDPOINT_IN` bit that's set in `libusb_transfer::endpoint` or,
+  // for control transfers, in `libusb_control_setup::bmRequestType`.
+  const uint8_t endpoint_dir_byte =
+      is_control_transfer
+          ? libusb_control_transfer_get_setup(transfer)->bmRequestType
+          : transfer->endpoint;
+  const bool is_input_transfer =
+      (endpoint_dir_byte & LIBUSB_ENDPOINT_DIR_MASK) == LIBUSB_ENDPOINT_IN;
+  // Determine the data buffer (pointer and size). They are stored directly in
+  // `libusb_transfer`, except for control transfers which have the first
+  // `LIBUSB_CONTROL_SETUP_SIZE` utility bytes. Also clamp negative sizes - we
+  // don't want to crash in the logging code even if the caller goes wild.
   const void* const data = is_control_transfer
                                ? libusb_control_transfer_get_data(transfer)
                                : transfer->buffer;
+  const int data_length = std::max(
+      0, static_cast<int>(is_control_transfer
+                              ? transfer->length - LIBUSB_CONTROL_SETUP_SIZE
+                              : transfer->length));
 
   std::string result = HexDumpPointer(transfer) + "(libusb_transfer(";
   result += "dev_handle=" + DebugDumpLibusbDeviceHandle(transfer->dev_handle) +
@@ -483,8 +498,7 @@ std::string DebugDumpLibusbTransfer(libusb_transfer* transfer,
                     libusb_control_transfer_get_setup(transfer)) +
                 " and data ";
     }
-    result +=
-        DebugDumpInboundDataBuffer(data, transfer->length, is_input_transfer);
+    result += DebugDumpInboundDataBuffer(data, data_length, is_input_transfer);
   } else {
     if (is_input_transfer) {
       result += ", buffer=";
