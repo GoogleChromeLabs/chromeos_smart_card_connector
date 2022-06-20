@@ -172,6 +172,10 @@ goog.exportProperty(
     Context.prototype, 'addOnInitializedCallback',
     Context.prototype.addOnInitializedCallback);
 
+goog.exportProperty(
+    Context.prototype, 'addOnDisposeCallback',
+    Context.prototype.addOnDisposeCallback);
+
 /**
  * Returns the API object, or null if the initialization didn't succeed.
  * @return {GSC.PcscLiteClient.API?}
