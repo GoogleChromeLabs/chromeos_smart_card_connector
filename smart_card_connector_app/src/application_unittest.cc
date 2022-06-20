@@ -1132,7 +1132,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, NonExistingFunctionCall) {
   EXPECT_THAT(response, IsNullOptional());
 }
 
-// `SCardDisconnect()` and `SCardReleaseContext` calls from JS should succeed
+// `SCardDisconnect()` and `SCardReleaseContext()` calls from JS should succeed
 // even after the reader disappeared when there was an active card handle. This
 // is a regression test for a PC/SC-Lite bug (see
 // <https://github.com/GoogleChromeLabs/chromeos_smart_card_connector/issues/681>).
@@ -1171,6 +1171,8 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, DisconnectAfterRemoving) {
 
   // Assert.
   EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+  // Note: `SCardReleaseContext()` is called and its result is verified by the
+  // fixture.
 }
 
 }  // namespace google_smart_card
