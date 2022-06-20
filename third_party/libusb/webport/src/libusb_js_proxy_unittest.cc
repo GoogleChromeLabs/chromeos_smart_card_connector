@@ -71,7 +71,8 @@ enum class WrapperTestParam {
   kWithoutTracingWrapper,
 };
 
-std::string PrintWrapperTestParam(const testing::TestParamInfo<WrapperTestParam>& info) {
+std::string PrintWrapperTestParam(
+    const testing::TestParamInfo<WrapperTestParam>& info) {
   switch (info.param) {
     case WrapperTestParam::kWithTracingWrapper:
       return "WithTracingWrapper";
@@ -96,6 +97,7 @@ class LibusbJsProxyTest : public ::testing::TestWithParam<WrapperTestParam> {
   }
   ~LibusbJsProxyTest() override = default;
 
+  TestingGlobalContext* global_context() { return &global_context_; }
   LibusbInterface* libusb() {
     return GetParam() == WrapperTestParam::kWithTracingWrapper
                ? static_cast<LibusbInterface*>(&libusb_tracing_wrapper_)
@@ -130,6 +132,7 @@ class LibusbJsProxyTest : public ::testing::TestWithParam<WrapperTestParam> {
       libusb()->LibusbUnrefDevice(device);
   }
 
+ private:
   TypedMessageRouter typed_message_router_;
   TestingGlobalContext global_context_{&typed_message_router_};
   LibusbJsProxy libusb_js_proxy_{&global_context_, &typed_message_router_};
@@ -160,7 +163,7 @@ TEST_P(LibusbJsProxyTest, ContextsCreation) {
 // Test `LibusbGetDeviceList()` failure when the JS side returns an error.
 TEST_P(LibusbJsProxyTest, DevicesListingWithFailure) {
   // Arrange:
-  global_context_.WillReplyToRequestWithError(
+  global_context()->WillReplyToRequestWithError(
       "libusb", "listDevices",
       /*arguments=*/Value(Value::Type::kArray), "fake failure");
 
@@ -173,7 +176,7 @@ TEST_P(LibusbJsProxyTest, DevicesListingWithFailure) {
 // Test `LibusbGetDeviceList()` successful scenario with zero readers.
 TEST_P(LibusbJsProxyTest, DevicesListingWithNoItems) {
   // Arrange.
-  global_context_.WillReplyToRequestWith(
+  global_context()->WillReplyToRequestWith(
       "libusb", "listDevices", /*arguments=*/Value(Value::Type::kArray),
       /*result_to_reply_with=*/Value(Value::Type::kArray));
 
@@ -196,7 +199,7 @@ TEST_P(LibusbJsProxyTest, DevicesListingWithTwoItems) {
                                      .Add("productId", 0)
                                      .Get())
                             .Get();
-  global_context_.WillReplyToRequestWith(
+  global_context()->WillReplyToRequestWith(
       "libusb", "listDevices",
       /*arguments=*/Value(Value::Type::kArray),
       /*result_to_reply_with=*/std::move(fake_js_reply));
@@ -213,7 +216,7 @@ TEST_P(LibusbJsProxyTest, DevicesListingWithTwoItems) {
 // called with `unref_devices`=true.
 TEST_P(LibusbJsProxyTest, DevicesListFreeingWithNoItems) {
   // Arrange.
-  global_context_.WillReplyToRequestWith(
+  global_context()->WillReplyToRequestWith(
       "libusb", "listDevices", /*arguments=*/Value(Value::Type::kArray),
       /*result_to_reply_with=*/Value(Value::Type::kArray));
 
@@ -241,7 +244,7 @@ TEST_P(LibusbJsProxyTest, DevicesListFreeingWithTwoItems) {
                                      .Add("productId", 0)
                                      .Get())
                             .Get();
-  global_context_.WillReplyToRequestWith(
+  global_context()->WillReplyToRequestWith(
       "libusb", "listDevices",
       /*arguments=*/Value(Value::Type::kArray),
       /*result_to_reply_with=*/std::move(fake_js_reply));
@@ -257,7 +260,7 @@ TEST_P(LibusbJsProxyTest, DevicesListFreeingWithTwoItems) {
 // Test `LibusbOpen()` successful scenario.
 TEST_P(LibusbJsProxyTest, DeviceOpening) {
   // Arrange.
-  global_context_.WillReplyToRequestWith(
+  global_context()->WillReplyToRequestWith(
       "libusb", "listDevices",
       /*arguments=*/Value(Value::Type::kArray),
       /*result_to_reply_with=*/
@@ -268,11 +271,11 @@ TEST_P(LibusbJsProxyTest, DeviceOpening) {
                    .Add("productId", 2)
                    .Get())
           .Get());
-  global_context_.WillReplyToRequestWith(
+  global_context()->WillReplyToRequestWith(
       "libusb", "openDeviceHandle",
       /*arguments=*/ArrayValueBuilder().Add(123).Get(),
       /*result_to_reply_with=*/Value(456));
-  global_context_.WillReplyToRequestWith(
+  global_context()->WillReplyToRequestWith(
       "libusb", "closeDeviceHandle",
       /*arguments=*/ArrayValueBuilder().Add(123).Add(456).Get(),
       /*result_to_reply_with=*/Value());
@@ -293,7 +296,7 @@ TEST_P(LibusbJsProxyTest, DeviceOpening) {
 // Test `LibusbOpen()` failure when the JS side returns an error.
 TEST_P(LibusbJsProxyTest, DeviceOpeningFailure) {
   // Arrange.
-  global_context_.WillReplyToRequestWith(
+  global_context()->WillReplyToRequestWith(
       "libusb", "listDevices",
       /*arguments=*/Value(Value::Type::kArray),
       /*result_to_reply_with=*/
@@ -304,7 +307,7 @@ TEST_P(LibusbJsProxyTest, DeviceOpeningFailure) {
                    .Add("productId", 2)
                    .Get())
           .Get());
-  global_context_.WillReplyToRequestWithError(
+  global_context()->WillReplyToRequestWithError(
       "libusb", "openDeviceHandle",
       /*arguments=*/ArrayValueBuilder().Add(123).Get(),
       /*error_to_reply_with=*/"fake error");
@@ -323,7 +326,7 @@ TEST_P(LibusbJsProxyTest, DeviceOpeningFailure) {
 // Test `LibusbClose()` doesn't crash when the JavaScript side reports an error.
 TEST_P(LibusbJsProxyTest, DeviceClosingFailure) {
   // Arrange.
-  global_context_.WillReplyToRequestWith(
+  global_context()->WillReplyToRequestWith(
       "libusb", "listDevices",
       /*arguments=*/Value(Value::Type::kArray),
       /*result_to_reply_with=*/
@@ -334,11 +337,11 @@ TEST_P(LibusbJsProxyTest, DeviceClosingFailure) {
                    .Add("productId", 2)
                    .Get())
           .Get());
-  global_context_.WillReplyToRequestWith(
+  global_context()->WillReplyToRequestWith(
       "libusb", "openDeviceHandle",
       /*arguments=*/ArrayValueBuilder().Add(123).Get(),
       /*result_to_reply_with=*/Value(456));
-  global_context_.WillReplyToRequestWithError(
+  global_context()->WillReplyToRequestWithError(
       "libusb", "closeDeviceHandle",
       /*arguments=*/ArrayValueBuilder().Add(123).Add(456).Get(),
       /*error_to_reply_with=*/"fake error");
@@ -363,7 +366,7 @@ TEST_P(LibusbJsProxyTest, DeviceRefUnref) {
   constexpr int kIterationCount = 100;
 
   // Arrange.
-  global_context_.WillReplyToRequestWith(
+  global_context()->WillReplyToRequestWith(
       "libusb", "listDevices",
       /*arguments=*/Value(Value::Type::kArray),
       /*result_to_reply_with=*/
@@ -414,7 +417,7 @@ class LibusbJsProxyWithDeviceTest : public LibusbJsProxyTest {
     ASSERT_EQ(libusb()->LibusbInit(/*ctx=*/nullptr), LIBUSB_SUCCESS);
 
     // Obtain the libusb device.
-    global_context_.WillReplyToRequestWith(
+    global_context()->WillReplyToRequestWith(
         "libusb", "listDevices",
         /*arguments=*/Value(Value::Type::kArray),
         /*result_to_reply_with=*/
@@ -430,7 +433,7 @@ class LibusbJsProxyWithDeviceTest : public LibusbJsProxyTest {
     device_ = devices[0];
 
     // Connect to the device.
-    global_context_.WillReplyToRequestWith(
+    global_context()->WillReplyToRequestWith(
         "libusb", "openDeviceHandle",
         /*arguments=*/ArrayValueBuilder().Add(kJsDeviceId).Get(),
         /*result_to_reply_with=*/Value(kJsDeviceHandle));
@@ -440,7 +443,7 @@ class LibusbJsProxyWithDeviceTest : public LibusbJsProxyTest {
 
   void TearDown() override {
     // Close the libusb device handle, which triggers a call to JS.
-    global_context_.WillReplyToRequestWith(
+    global_context()->WillReplyToRequestWith(
         "libusb", "closeDeviceHandle",
         /*arguments=*/
         ArrayValueBuilder().Add(kJsDeviceId).Add(kJsDeviceHandle).Get(),
@@ -463,7 +466,7 @@ class LibusbJsProxyWithDeviceTest : public LibusbJsProxyTest {
 // Test `LibusbResetDevice()` successful scenario.
 TEST_P(LibusbJsProxyWithDeviceTest, DeviceResetting) {
   // Arrange.
-  global_context_.WillReplyToRequestWith(
+  global_context()->WillReplyToRequestWith(
       "libusb", "resetDevice",
       /*arguments=*/
       ArrayValueBuilder().Add(kJsDeviceId).Add(kJsDeviceHandle).Get(),
@@ -476,7 +479,7 @@ TEST_P(LibusbJsProxyWithDeviceTest, DeviceResetting) {
 // Test `LibusbResetDevice()` failure due to the JS call returning an error.
 TEST_P(LibusbJsProxyWithDeviceTest, DeviceResettingFailure) {
   // Arrange.
-  global_context_.WillReplyToRequestWithError(
+  global_context()->WillReplyToRequestWithError(
       "libusb", "resetDevice",
       /*arguments=*/
       ArrayValueBuilder().Add(kJsDeviceId).Add(kJsDeviceHandle).Get(),
@@ -497,7 +500,7 @@ TEST_P(LibusbJsProxyWithDeviceTest, OutputControlTransfer) {
   std::vector<uint8_t> data = {1, 2, 3};
 
   // Arrange.
-  global_context_.WillReplyToRequestWith(
+  global_context()->WillReplyToRequestWith(
       "libusb", "controlTransfer",
       /*arguments=*/
       ArrayValueBuilder()
@@ -535,7 +538,7 @@ TEST_P(LibusbJsProxyWithDeviceTest, OutputControlTransferFailure) {
   std::vector<uint8_t> data = {1, 2, 3};
 
   // Arrange.
-  global_context_.WillReplyToRequestWithError(
+  global_context()->WillReplyToRequestWithError(
       "libusb", "controlTransfer",
       /*arguments=*/
       ArrayValueBuilder()
@@ -571,7 +574,7 @@ TEST_P(LibusbJsProxyWithDeviceTest, InputControlTransfer) {
   const std::vector<uint8_t> kData = {1, 2, 3, 4, 5, 6};
 
   // Arrange.
-  global_context_.WillReplyToRequestWith(
+  global_context()->WillReplyToRequestWith(
       "libusb", "controlTransfer",
       /*arguments=*/
       ArrayValueBuilder()
@@ -611,7 +614,7 @@ TEST_P(LibusbJsProxyWithDeviceTest, InputControlTransferShorterData) {
   const std::vector<uint8_t> kDataResponded = {1, 2, 3, 4, 5, 6};
 
   // Arrange.
-  global_context_.WillReplyToRequestWith(
+  global_context()->WillReplyToRequestWith(
       "libusb", "controlTransfer",
       /*arguments=*/
       ArrayValueBuilder()
@@ -652,7 +655,7 @@ TEST_P(LibusbJsProxyWithDeviceTest, InputControlTransferFailure) {
   constexpr int kDataLengthRequested = 100;
 
   // Arrange.
-  global_context_.WillReplyToRequestWithError(
+  global_context()->WillReplyToRequestWithError(
       "libusb", "controlTransfer",
       /*arguments=*/
       ArrayValueBuilder()
@@ -689,7 +692,7 @@ TEST_P(LibusbJsProxyWithDeviceTest, InputControlTransferTimeout) {
 
   // Arrange. Set up the expectation for the request message. We won't reply to
   // this message.
-  auto waiter = global_context_.CreateRequestWaiter(
+  auto waiter = global_context()->CreateRequestWaiter(
       "libusb", "controlTransfer",
       /*arguments=*/
       ArrayValueBuilder()
@@ -728,7 +731,7 @@ TEST_P(LibusbJsProxyWithDeviceTest, OutputControlTransferTimeout) {
 
   // Arrange. Set up the expectation for the request message. We won't reply to
   // this message.
-  auto waiter = global_context_.CreateRequestWaiter(
+  auto waiter = global_context()->CreateRequestWaiter(
       "libusb", "controlTransfer",
       /*arguments=*/
       ArrayValueBuilder()
@@ -780,7 +783,7 @@ TEST_P(LibusbJsProxyWithDeviceTest, ControlTransfersMultiThreadedStressTest) {
   for (int i = 0; i < kThreadCount * kIterationsPerThread; ++i) {
     // Each test thread iteration consists of one input and one output transfer
     // - prepare replies for them in advance.
-    global_context_.WillReplyToRequestWith(
+    global_context()->WillReplyToRequestWith(
         "libusb", "controlTransfer",
         /*arguments=*/
         ArrayValueBuilder()
@@ -797,7 +800,7 @@ TEST_P(LibusbJsProxyWithDeviceTest, ControlTransfersMultiThreadedStressTest) {
             .Get(),
         /*result_to_reply_with=*/
         DictValueBuilder().Add("receivedData", kData).Get());
-    global_context_.WillReplyToRequestWith(
+    global_context()->WillReplyToRequestWith(
         "libusb", "controlTransfer",
         /*arguments=*/
         ArrayValueBuilder()
@@ -854,7 +857,7 @@ TEST_P(LibusbJsProxyWithDeviceTest, AsyncInputControlTransfer) {
   const std::vector<uint8_t> kData = {1, 2, 3, 4, 5, 6};
 
   // Arrange.
-  global_context_.WillReplyToRequestWith(
+  global_context()->WillReplyToRequestWith(
       "libusb", "controlTransfer",
       /*arguments=*/
       ArrayValueBuilder()
@@ -927,7 +930,7 @@ TEST_P(LibusbJsProxyWithDeviceTest, AsyncInputControlTransferCancellation) {
 
   // Arrange. Set up the expectation for the request message. We won't reply to
   // this message (until after we cancel the transfer).
-  auto waiter = global_context_.CreateRequestWaiter(
+  auto waiter = global_context()->CreateRequestWaiter(
       "libusb", "controlTransfer",
       /*arguments=*/
       ArrayValueBuilder()
@@ -1003,7 +1006,7 @@ TEST_P(LibusbJsProxyWithDeviceTest, AsyncOutputControlTransfer) {
   const std::vector<uint8_t> kData = {1, 2, 3, 4, 5, 6};
 
   // Arrange.
-  global_context_.WillReplyToRequestWith(
+  global_context()->WillReplyToRequestWith(
       "libusb", "controlTransfer",
       /*arguments=*/
       ArrayValueBuilder()
@@ -1072,7 +1075,7 @@ TEST_P(LibusbJsProxyWithDeviceTest, AsyncOutputControlTransferCancellation) {
 
   // Arrange. Set up the expectation for the request message. We will reply to
   // this message only after attempting to cancel the transfer.
-  auto waiter = global_context_.CreateRequestWaiter(
+  auto waiter = global_context()->CreateRequestWaiter(
       "libusb", "controlTransfer",
       /*arguments=*/
       ArrayValueBuilder()
@@ -1161,7 +1164,7 @@ TEST_P(LibusbJsProxyWithDeviceTest, AsyncInputControlTransferDataRerouting) {
   // to these requests initially.
   std::unique_ptr<TestingGlobalContext::Waiter> waiters[2];
   for (int i = 0; i < 2; ++i) {
-    waiters[i] = global_context_.CreateRequestWaiter(
+    waiters[i] = global_context()->CreateRequestWaiter(
         "libusb", "controlTransfer",
         /*arguments=*/
         ArrayValueBuilder()
@@ -1198,22 +1201,21 @@ TEST_P(LibusbJsProxyWithDeviceTest, AsyncInputControlTransferDataRerouting) {
                               kTransferRequest, kTransferValue, kTransferIndex,
                               kDataLengthRequested[0]);
     libusb_transfer* const transfer1 =
-        libusb_js_proxy_.LibusbAllocTransfer(/*iso_packets=*/0);
+        libusb()->LibusbAllocTransfer(/*iso_packets=*/0);
     ASSERT_TRUE(transfer1);
     bool transfer1_completed = false;
     libusb_fill_control_transfer(
         transfer1, device_handle_, setup1.data(), transfer_callback,
         /*user_data=*/static_cast<void*>(&transfer1_completed),
         /*timeout=*/kTimeoutsMs[0]);
-    EXPECT_EQ(libusb_js_proxy_.LibusbSubmitTransfer(transfer1), LIBUSB_SUCCESS);
+    EXPECT_EQ(libusb()->LibusbSubmitTransfer(transfer1), LIBUSB_SUCCESS);
     waiters[0]->Wait();
-    EXPECT_EQ(libusb_js_proxy_.LibusbCancelTransfer(transfer1), LIBUSB_SUCCESS);
+    EXPECT_EQ(libusb()->LibusbCancelTransfer(transfer1), LIBUSB_SUCCESS);
     do {
-      EXPECT_EQ(libusb_js_proxy_.LibusbHandleEvents(/*ctx=*/nullptr),
-                LIBUSB_SUCCESS);
+      EXPECT_EQ(libusb()->LibusbHandleEvents(/*ctx=*/nullptr), LIBUSB_SUCCESS);
     } while (!transfer1_completed);
     EXPECT_EQ(transfer1->status, LIBUSB_TRANSFER_CANCELLED);
-    libusb_js_proxy_.LibusbFreeTransfer(transfer1);
+    libusb()->LibusbFreeTransfer(transfer1);
   }
   // Send the second transfer request.
   std::vector<uint8_t> setup2(LIBUSB_CONTROL_SETUP_SIZE +
@@ -1225,22 +1227,21 @@ TEST_P(LibusbJsProxyWithDeviceTest, AsyncInputControlTransferDataRerouting) {
                             kTransferRequest, kTransferValue, kTransferIndex,
                             kDataLengthRequested[1]);
   libusb_transfer* const transfer2 =
-      libusb_js_proxy_.LibusbAllocTransfer(/*iso_packets=*/0);
+      libusb()->LibusbAllocTransfer(/*iso_packets=*/0);
   ASSERT_TRUE(transfer2);
   bool transfer2_completed = false;
   libusb_fill_control_transfer(
       transfer2, device_handle_, setup2.data(), transfer_callback,
       /*user_data=*/static_cast<void*>(&transfer2_completed),
       /*timeout=*/kTimeoutsMs[1]);
-  EXPECT_EQ(libusb_js_proxy_.LibusbSubmitTransfer(transfer2), LIBUSB_SUCCESS);
+  EXPECT_EQ(libusb()->LibusbSubmitTransfer(transfer2), LIBUSB_SUCCESS);
   // Simulate a JS reply to the request initiated by the first transfer.
   waiters[0]->Reply(/*result_to_reply_with=*/DictValueBuilder()
                         .Add("receivedData", kData)
                         .Get());
   // Wait until the second transfer receives the "rerouted" JS reply.
   do {
-    EXPECT_EQ(libusb_js_proxy_.LibusbHandleEvents(/*ctx=*/nullptr),
-              LIBUSB_SUCCESS);
+    EXPECT_EQ(libusb()->LibusbHandleEvents(/*ctx=*/nullptr), LIBUSB_SUCCESS);
   } while (!transfer2_completed);
 
   // Assert.
@@ -1252,7 +1253,7 @@ TEST_P(LibusbJsProxyWithDeviceTest, AsyncInputControlTransferDataRerouting) {
             kData);
 
   // Cleanup:
-  libusb_js_proxy_.LibusbFreeTransfer(transfer2);
+  libusb()->LibusbFreeTransfer(transfer2);
 }
 
 INSTANTIATE_TEST_SUITE_P(
