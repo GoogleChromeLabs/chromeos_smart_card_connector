@@ -1116,6 +1116,118 @@ TEST_F(LibusbJsProxyWithDeviceTest, AsyncOutputControlTransferCancellation) {
   // the callback.
 }
 
+// Test the scenario with making another input control transfer with the same
+// parameters as a previously canceled transfer. In this scenario, the JS reply
+// that was originally sent to the first transfer's request is "rerouted" to the
+// second transfer.
+TEST_F(LibusbJsProxyWithDeviceTest, AsyncInputControlTransferDataRerouting) {
+  constexpr int kTransferRequest = 1;
+  constexpr int kTransferIndex = 24;
+  constexpr int kTransferValue = 42;
+  const std::vector<uint8_t> kData = {1, 2, 3, 4, 5, 6};
+  // Let two transfers use different timeouts and requested data sizes: these
+  // parameters shouldn't affect the "rerouting" of request results.
+  const size_t kDataLengthRequested[2] = {100, 200};
+  constexpr int kTimeoutsMs[2] = {300000, 400000};
+
+  // Arrange: expect two C++-to-JS transfer requests. We don't schedule replies
+  // to these requests initially.
+  std::unique_ptr<TestingGlobalContext::Waiter> waiters[2];
+  for (int i = 0; i < 2; ++i) {
+    waiters[i] = global_context_.CreateRequestWaiter(
+        "libusb", "controlTransfer",
+        /*arguments=*/
+        ArrayValueBuilder()
+            .Add(kJsDeviceId)
+            .Add(kJsDeviceHandle)
+            .Add(DictValueBuilder()
+                     .Add("index", kTransferIndex)
+                     .Add("recipient", "endpoint")
+                     .Add("request", kTransferRequest)
+                     .Add("requestType", "standard")
+                     .Add("value", kTransferValue)
+                     .Add("lengthToReceive", kDataLengthRequested[i])
+                     .Get())
+            .Get());
+  }
+  auto transfer_callback = [](libusb_transfer* transfer) {
+    ASSERT_TRUE(transfer);
+    // `user_data` points to `transfer1_completed`/`transfer2_completed` (a
+    // captureless lambda has no other way of telling the test it's run).
+    *static_cast<bool*>(transfer->user_data) = true;
+  };
+
+  // Act.
+  // Send the first transfer request and cancel it immediately after it's sent.
+  // Enclose this block into curly brackets, so that the test verifies that none
+  // of the variables is touched when the second transfer runs later.
+  {
+    std::vector<uint8_t> setup1(LIBUSB_CONTROL_SETUP_SIZE +
+                                kDataLengthRequested[0]);
+    libusb_fill_control_setup(setup1.data(),
+                              LIBUSB_RECIPIENT_ENDPOINT |
+                                  LIBUSB_REQUEST_TYPE_STANDARD |
+                                  LIBUSB_ENDPOINT_IN,
+                              kTransferRequest, kTransferValue, kTransferIndex,
+                              kDataLengthRequested[0]);
+    libusb_transfer* const transfer1 =
+        libusb_js_proxy_.LibusbAllocTransfer(/*iso_packets=*/0);
+    ASSERT_TRUE(transfer1);
+    bool transfer1_completed = false;
+    libusb_fill_control_transfer(
+        transfer1, device_handle_, setup1.data(), transfer_callback,
+        /*user_data=*/static_cast<void*>(&transfer1_completed),
+        /*timeout=*/kTimeoutsMs[0]);
+    EXPECT_EQ(libusb_js_proxy_.LibusbSubmitTransfer(transfer1), LIBUSB_SUCCESS);
+    waiters[0]->Wait();
+    EXPECT_EQ(libusb_js_proxy_.LibusbCancelTransfer(transfer1), LIBUSB_SUCCESS);
+    do {
+      EXPECT_EQ(libusb_js_proxy_.LibusbHandleEvents(/*ctx=*/nullptr),
+                LIBUSB_SUCCESS);
+    } while (!transfer1_completed);
+    EXPECT_EQ(transfer1->status, LIBUSB_TRANSFER_CANCELLED);
+    libusb_js_proxy_.LibusbFreeTransfer(transfer1);
+  }
+  // Send the second transfer request.
+  std::vector<uint8_t> setup2(LIBUSB_CONTROL_SETUP_SIZE +
+                              kDataLengthRequested[1]);
+  libusb_fill_control_setup(setup2.data(),
+                            LIBUSB_RECIPIENT_ENDPOINT |
+                                LIBUSB_REQUEST_TYPE_STANDARD |
+                                LIBUSB_ENDPOINT_IN,
+                            kTransferRequest, kTransferValue, kTransferIndex,
+                            kDataLengthRequested[1]);
+  libusb_transfer* const transfer2 =
+      libusb_js_proxy_.LibusbAllocTransfer(/*iso_packets=*/0);
+  ASSERT_TRUE(transfer2);
+  bool transfer2_completed = false;
+  libusb_fill_control_transfer(
+      transfer2, device_handle_, setup2.data(), transfer_callback,
+      /*user_data=*/static_cast<void*>(&transfer2_completed),
+      /*timeout=*/kTimeoutsMs[1]);
+  EXPECT_EQ(libusb_js_proxy_.LibusbSubmitTransfer(transfer2), LIBUSB_SUCCESS);
+  // Simulate a JS reply to the request initiated by the first transfer.
+  waiters[0]->Reply(/*result_to_reply_with=*/DictValueBuilder()
+                        .Add("receivedData", kData)
+                        .Get());
+  // Wait until the second transfer receives the "rerouted" JS reply.
+  do {
+    EXPECT_EQ(libusb_js_proxy_.LibusbHandleEvents(/*ctx=*/nullptr),
+              LIBUSB_SUCCESS);
+  } while (!transfer2_completed);
+
+  // Assert.
+  EXPECT_EQ(transfer2->status, LIBUSB_TRANSFER_COMPLETED);
+  EXPECT_EQ(transfer2->actual_length, static_cast<int>(kData.size()));
+  EXPECT_EQ(std::vector<uint8_t>(
+                setup2.begin() + LIBUSB_CONTROL_SETUP_SIZE,
+                setup2.begin() + LIBUSB_CONTROL_SETUP_SIZE + kData.size()),
+            kData);
+
+  // Cleanup:
+  libusb_js_proxy_.LibusbFreeTransfer(transfer2);
+}
+
 // TODO(#429): Resurrect the tests by reimplementing them on top of the
 // libusb-to-JS adaptor instead of the chrome_usb::ApiBridge.
 #if 0
@@ -1543,48 +1655,6 @@ TEST_P(LibusbJsProxySingleTransferTest, AsyncTransferCancellation) {
   SetUpTransferCallbackMockExpectations(GetParam().transfer_index,
                                         is_cancellation_successful,
                                         &transfer_callback);
-  libusb_js_proxy->LibusbHandleEvents(nullptr);
-}
-
-// Test that received result of a canceled asynchronous transfer is delivered to
-// the next transfer with the same parameters.
-TEST_P(LibusbJsProxySingleTransferTest,
-       AsyncTransferCompletionAfterCancellation) {
-  if (GetParam().is_transfer_output) {
-    // Cancellation of an output transfer is not supported, so the whole test
-    // makes no sense.
-    return;
-  }
-
-  const std::function<void()> first_chrome_usb_transfer_resolver =
-      SetUpMockForAsyncControlTransfer(GetParam().transfer_index,
-                                       GetParam().is_transfer_output);
-  const std::function<void()> second_chrome_usb_transfer_resolver =
-      SetUpMockForAsyncControlTransfer(GetParam().transfer_index,
-                                       GetParam().is_transfer_output);
-
-  MockFunction<void(libusb_transfer_status)> first_transfer_callback;
-  libusb_transfer* const first_transfer = StartAsyncControlTransfer(
-      GetParam().transfer_index, GetParam().is_transfer_output,
-      &first_transfer_callback);
-
-  MockFunction<void(libusb_transfer_status)> second_transfer_callback;
-  StartAsyncControlTransfer(GetParam().transfer_index,
-                            GetParam().is_transfer_output,
-                            &second_transfer_callback);
-
-  EXPECT_EQ(LIBUSB_SUCCESS,
-            libusb_js_proxy->LibusbCancelTransfer(first_transfer));
-
-  first_chrome_usb_transfer_resolver();
-
-  ASSERT_TRUE(Mock::VerifyAndClearExpectations(&first_transfer_callback));
-  ASSERT_TRUE(Mock::VerifyAndClearExpectations(&second_transfer_callback));
-  SetUpTransferCallbackMockExpectations(GetParam().transfer_index, true,
-                                        &first_transfer_callback);
-  SetUpTransferCallbackMockExpectations(GetParam().transfer_index, false,
-                                        &second_transfer_callback);
-  libusb_js_proxy->LibusbHandleEvents(nullptr);
   libusb_js_proxy->LibusbHandleEvents(nullptr);
 }
 
