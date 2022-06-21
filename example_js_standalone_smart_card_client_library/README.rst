@@ -3,62 +3,30 @@ Example JavaScript Standalone Smart Card Client Library
 
 
 This library allows to use the API exposed by the Smart Card Connector
-App. The library is built as a standalone script, that allows to use it
-without compiling all of the client code through the Google Closure
-Compiler or without the need to plug the Google Closure Library
-manually.
+App. The library is prebuilt, allowing you to use it in your
+application without having to deal with the library's build process
+(which is currently based on Closure Compiler). The prebuilt library
+comes in two flavours:
 
-The resulting JS code in the library is wrapped into an anonymous
-wrapper function, but all the library interface definitions (namely the
-``GoogleSmartCard.PcscLiteClient.Context`` and the
-``GoogleSmartCard.PcscLiteClient.API`` classes) and several crucial
-definitions from the Closure Library (``goog.Promise``,
-``goog.log.Logger``, etc.) are exported into the global ``window``
-object properties.
-
-
-Building
---------
-
-First, please make sure that all building prerequisites are provided and
-the building environment is set up - please refer to *Common building
-prerequisites* and *Building* sections of the ``README`` file located in
-the project root.
-
-After that, the library can be built by the following command::
-
-    make
-
-The resulting script file will be located in the ``out/`` directory.
-
-For the details of the code compilation, refer to the Closure Compiler
-documentation:
-<https://developers.google.com/closure/compiler/docs/limitations>.
+* As a standalone script ``google-smart-card-client-library.js`` (which
+  can be directly executed to get the necessary
+  ``GoogleSmartCard``/``goog`` definitions in the global scope; all
+  other library's internal definitions are hidden in an anonymous
+  wrapper function to avoid symbol collision);
+* As an ES module script
+  ``google-smart-card-client-library-es-module.js`` (from which the
+  ``GoogleSmartCard``/``goog`` definitions can be imported).
 
 
-Debug and Release building modes
---------------------------------
+Obtaining the library .JS files
+-------------------------------
 
-For the general discussion, please refer to the *Debug and Release
-building modes* section of the ``README`` file located in the project
-root.
+Even though you can build the library yourself, the recommended flow is
+to download a prebuilt library from
+<https://github.com/GoogleChromeLabs/chromeos_smart_card_connector/releases>.
 
-Additional notes:
-
-*   The Release mode triggers more advanced JavaScript compilation
-    modes, which result in renaming and removing of some of the symbols.
-
-    However, all the publicly available exported definitions and their
-    internal dependencies are always kept by the compiler (or, at least,
-    should be).
-
-*   When building in Debug mode, in addition to the resulting script, a
-    source map and a copy of all participated source files is put into
-    the ``out/`` directory.
-
-    These files are not required for the library functionality, but, if
-    put into the App next to the library script, may simplify the
-    debugging.
+You have a choice between 4 variations: ES module or non ES module, and
+each in either Release (recommended for production) or Debug variant.
 
 
 Usage
