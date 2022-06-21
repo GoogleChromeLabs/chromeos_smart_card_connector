@@ -51,13 +51,21 @@ class PcscLiteClientHandlesRegistry final {
   ~PcscLiteClientHandlesRegistry();
 
   bool ContainsContext(SCARDCONTEXT s_card_context) const;
+  // Adds the context to the data structure. CHECKs that it wasn't already
+  // present.
   void AddContext(SCARDCONTEXT s_card_context);
+  // Removes the context from the data structure. CHECKs that it was present.
   void RemoveContext(SCARDCONTEXT s_card_context);
+  // Returns all contexts currently stored in the data structure.
   std::vector<SCARDCONTEXT> GetSnapshotOfAllContexts();
+  // Returns all contexts currently stored in the data structure and clears it.
   std::vector<SCARDCONTEXT> PopAllContexts();
 
   bool ContainsHandle(SCARDHANDLE s_card_handle) const;
+  // Adds the handle to the data structure. CHECKs that it wasn't already
+  // present.
   void AddHandle(SCARDCONTEXT s_card_context, SCARDHANDLE s_card_handle);
+  // Removes the handle from the data structure. CHECKs that it was present.
   void RemoveHandle(SCARDHANDLE s_card_handle);
 
  private:
