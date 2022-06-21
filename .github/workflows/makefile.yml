@@ -52,6 +52,19 @@ jobs:
       with:
         path: built_app_packages
 
+    - name: Upload example JS standalone smart card client library
+      uses: actions/upload-artifact@v3
+      with:
+        # Suffix the file name with ".debug" for Debug builds.
+        name: google-smart-card-client-library${{ matrix.build-config == 'Debug' && '.debug' || '' }}.js
+        path: example_js_standalone_smart_card_client_library/out/example_js_standalone_smart_card_client_library/google-smart-card-client-library.js
+    - name: Upload example JS standalone smart card client library ES module
+      uses: actions/upload-artifact@v3
+      with:
+        # Suffix the file name with ".debug" for Debug builds.
+        name: google-smart-card-client-library-es-module${{ matrix.build-config == 'Debug' && '.debug' || '' }}.js
+        path: example_js_standalone_smart_card_client_library/out/example_js_standalone_smart_card_client_library/google-smart-card-client-library-es-module.js
+
   # Build and test in Native Client mode.
   build-nacl:
     runs-on: ubuntu-latest
