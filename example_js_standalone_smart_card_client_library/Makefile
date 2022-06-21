@@ -25,21 +25,35 @@ include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/js_client/include.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/common/include.mk
 
 
+# Input sources (files and directories) for the library:
 JS_COMPILER_INPUT_PATHS := \
 	$(PCSC_LITE_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
 	$(PCSC_LITE_JS_CLIENT_COMPILER_INPUT_DIR_PATHS) \
 	$(JS_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
 	src/exports.js \
 
-JS_COMPILER_TARGET_NAMESPACES := \
+# Namespaces and files that Closure Compiler should take into the resulting
+# library (together with their dependencies):
+JS_COMPILER_ENTRY_POINTS := \
 	GoogleSmartCard.PcscLiteClient.API \
 	GoogleSmartCard.PcscLiteClient.Context \
+	example_js_standalone_smart_card_client_library/src/exports.js \
 
 JS_COMPILER_OUTPUT_FILE_NAME := google-smart-card-client-library.js
 
+# Extra parameters passed to Closure Compiler.
+#
+# Explanation:
+# * assume_function_wrapper, output_wrapper: Enclose the produced code into an
+#   anonymous function (to avoid symbol collisions with any code outside the
+#   library);
+# * USE_SCOPED_LOGGERS: Prefix all logger names with "GoogleSmartCard.". It's
+#   done to prevent logger name/setting collision with the code outside the
+#   library (in case it uses Closure Library's logging too);
 JS_COMPILER_ADDITIONAL_FLAGS := \
 	--assume_function_wrapper \
 	--define='GoogleSmartCard.Logging.USE_SCOPED_LOGGERS=true' \
 	--output_wrapper="(function(){%output%})();" \
 
-$(eval $(call BUILD_JS_SCRIPT,$(JS_COMPILER_OUTPUT_FILE_NAME),$(JS_COMPILER_INPUT_PATHS),$(JS_COMPILER_TARGET_NAMESPACES),$(JS_COMPILER_ADDITIONAL_FLAGS)))
+# Build the library's JS file via Closure Compiler.
+$(eval $(call BUILD_JS_SCRIPT,$(JS_COMPILER_OUTPUT_FILE_NAME),$(JS_COMPILER_INPUT_PATHS),$(JS_COMPILER_ENTRY_POINTS),$(JS_COMPILER_ADDITIONAL_FLAGS)))
