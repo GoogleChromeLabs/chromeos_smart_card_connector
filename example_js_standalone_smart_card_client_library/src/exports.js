@@ -35,6 +35,18 @@ goog.exportSymbol('goog.log.error', goog.log.error);
 goog.exportSymbol('goog.log.warning', goog.log.warning);
 goog.exportSymbol('goog.log.info', goog.log.info);
 goog.exportSymbol('goog.log.fine', goog.log.fine);
+goog.exportSymbol('goog.log.ROOT_LOGGER_NAME', goog.log.ROOT_LOGGER_NAME);
+goog.exportSymbol('goog.log.addHandler', goog.log.addHandler);
+goog.exportSymbol('goog.log.removeHandler', goog.log.removeHandler);
+goog.exportSymbol('goog.log.setLevel', goog.log.setLevel);
+goog.exportSymbol('goog.log.getLevel', goog.log.getLevel);
+goog.exportSymbol('goog.log.getEffectiveLevel', goog.log.getEffectiveLevel);
+goog.exportSymbol('goog.log.isLoggable', goog.log.isLoggable);
+goog.exportSymbol('goog.log.log', goog.log.log);
+goog.exportSymbol('goog.log.getLogRecord', goog.log.getLogRecord);
+goog.exportSymbol('goog.log.warning', goog.log.warning);
+goog.exportSymbol('goog.log.info', goog.log.info);
+goog.exportSymbol('goog.log.fine', goog.log.fine);
 
 goog.exportSymbol('goog.log.LogRecord', goog.log.LogRecord);
 goog.exportProperty(
@@ -99,60 +111,10 @@ goog.exportProperty(
     goog.log.Level.prototype, 'toString', goog.log.Level.prototype.toString);
 
 goog.exportSymbol('goog.log.Logger', goog.log.Logger);
-goog.exportProperty(
-    goog.log.Logger, 'ROOT_LOGGER_NAME', goog.log.Logger.ROOT_LOGGER_NAME);
 goog.exportProperty(goog.log.Logger, 'Level', goog.log.Logger.Level);
-goog.exportProperty(goog.log.Logger, 'getLogger', goog.log.Logger.getLogger);
 goog.exportProperty(
-    goog.log.Logger, 'logToProfilers', goog.log.Logger.logToProfilers);
-goog.exportProperty(
-    goog.log.Logger.prototype, 'getName', goog.log.Logger.prototype.getName);
-goog.exportProperty(
-    goog.log.Logger.prototype, 'addHandler',
-    goog.log.Logger.prototype.addHandler);
-goog.exportProperty(
-    goog.log.Logger.prototype, 'removeHandler',
-    goog.log.Logger.prototype.removeHandler);
-goog.exportProperty(
-    goog.log.Logger.prototype, 'getParent',
-    goog.log.Logger.prototype.getParent);
-goog.exportProperty(
-    goog.log.Logger.prototype, 'getChildren',
-    goog.log.Logger.prototype.getChildren);
-goog.exportProperty(
-    goog.log.Logger.prototype, 'setLevel', goog.log.Logger.prototype.setLevel);
-goog.exportProperty(
-    goog.log.Logger.prototype, 'getLevel', goog.log.Logger.prototype.getLevel);
-goog.exportProperty(
-    goog.log.Logger.prototype, 'getEffectiveLevel',
-    goog.log.Logger.prototype.getEffectiveLevel);
-goog.exportProperty(
-    goog.log.Logger.prototype, 'isLoggable',
-    goog.log.Logger.prototype.isLoggable);
-goog.exportProperty(
-    goog.log.Logger.prototype, 'log', goog.log.Logger.prototype.log);
-goog.exportProperty(
-    goog.log.Logger.prototype, 'getLogRecord',
-    goog.log.Logger.prototype.getLogRecord);
-goog.exportProperty(
-    goog.log.Logger.prototype, 'shout', goog.log.Logger.prototype.shout);
-goog.exportProperty(
-    goog.log.Logger.prototype, 'severe', goog.log.Logger.prototype.severe);
-goog.exportProperty(
-    goog.log.Logger.prototype, 'warning', goog.log.Logger.prototype.warning);
-goog.exportProperty(
-    goog.log.Logger.prototype, 'info', goog.log.Logger.prototype.info);
-goog.exportProperty(
-    goog.log.Logger.prototype, 'config', goog.log.Logger.prototype.config);
-goog.exportProperty(
-    goog.log.Logger.prototype, 'fine', goog.log.Logger.prototype.fine);
-goog.exportProperty(
-    goog.log.Logger.prototype, 'finer', goog.log.Logger.prototype.finer);
-goog.exportProperty(
-    goog.log.Logger.prototype, 'finest', goog.log.Logger.prototype.finest);
-goog.exportProperty(
-    goog.log.Logger.prototype, 'logRecord',
-    goog.log.Logger.prototype.logRecord);
+    goog.log.Logger.prototype.getName, 'Level',
+    goog.log.Logger.prototype.getName);
 
 goog.exportSymbol('goog.Promise', goog.Promise);
 goog.exportProperty(goog.Promise, 'resolve', goog.Promise.resolve);
