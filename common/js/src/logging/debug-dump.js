@@ -284,16 +284,18 @@ function dump(value, recursionParentObjects) {
   // meaningful for logs anyway.
   //
   // Note that goog.dom.is* methods are not used because many of them may
-  // produce thorny false positives.
-  if (Document && value instanceof Document)
+  // produce thorny false positives. We also check for the type presence before
+  // calling `instanceof`, because in some environment (like Service Workers)
+  // DOM-related types are just absent.
+  if (typeof Document !== 'undefined' && value instanceof Document)
     return '<Document>';
-  if (Window && value instanceof Window)
+  if (typeof Window !== 'undefined' && value instanceof Window)
     return '<Window>';
-  if (NodeList && value instanceof NodeList)
+  if (typeof NodeList !== 'undefined' && value instanceof NodeList)
     return '<NodeList>';
-  if (HTMLCollection && value instanceof HTMLCollection)
+  if (typeof HTMLCollection !== 'undefined' && value instanceof HTMLCollection)
     return '<HTMLCollection>';
-  if (Node && value instanceof Node) {
+  if (typeof Node !== 'undefined' && value instanceof Node) {
     // Note that this branch should go after other branches checking for
     // DOM-related types.
     return '<Node>';

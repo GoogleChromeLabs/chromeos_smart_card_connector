@@ -57,3 +57,15 @@ JS_COMPILER_ADDITIONAL_FLAGS := \
 
 # Build the library's JS file via Closure Compiler.
 $(eval $(call BUILD_JS_SCRIPT,$(JS_COMPILER_OUTPUT_FILE_NAME),$(JS_COMPILER_INPUT_PATHS),$(JS_COMPILER_ENTRY_POINTS),$(JS_COMPILER_ADDITIONAL_FLAGS)))
+
+# Build an "ES module" flavor of the library. It's a concatenation of the
+# Closure Compiler output that's built above and the es-module-exports.js file.
+$(JS_BUILD_DIR_PATH)/google-smart-card-client-library-es-module.js: $(JS_BUILD_DIR_PATH) $(OUT_DIR_PATH)/$(JS_COMPILER_OUTPUT_FILE_NAME)
+	cat \
+		$(JS_BUILD_DIR_PATH)/$(JS_COMPILER_OUTPUT_FILE_NAME) \
+		src/es-module-exports.js \
+		> $(JS_BUILD_DIR_PATH)/google-smart-card-client-library-es-module.js
+
+# Copy the created ES module .js file into ./out/.
+$(eval $(call COPY_TO_OUT_DIR_RULE,\
+	$(JS_BUILD_DIR_PATH)/google-smart-card-client-library-es-module.js))
