@@ -327,9 +327,17 @@ function setupRootLoggerLevel() {
   goog.log.setLevel(rootLogger, ROOT_LOGGER_LEVEL);
 }
 
+function getDocumentLocation() {
+  if (typeof document === 'undefined') {
+    // We're likely inside a Service Worker.
+    return self.location.href;
+  }
+  return document.location.href;
+}
+
 function setupLogBuffer() {
   GSC.LogBuffer.attachBufferToLogger(
-      logBuffer, rootLogger, document.location.href);
+      logBuffer, rootLogger, getDocumentLocation());
 
   if (!chrome || !chrome.runtime || !chrome.runtime.getBackgroundPage) {
     // We don't know whether we're running inside the background page and
@@ -369,7 +377,7 @@ function setupLogBuffer() {
     // from our page's loggers. Dispose of our log buffer to avoid storing new
     // logs twice.
     GSC.LogBuffer.attachBufferToLogger(
-        backgroundLogBuffer, rootLogger, document.location.href);
+        backgroundLogBuffer, rootLogger, getDocumentLocation());
     logBuffer.dispose();
     // Switch our reference to the background page's log buffer.
     logBuffer = backgroundLogBuffer;
