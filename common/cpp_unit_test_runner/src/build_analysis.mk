@@ -19,6 +19,11 @@
 # Note that the implementation is mostly similar to the one at
 # build-emscripten.mk.
 
+# Allow passing additional parameters to GTest via setting this environment
+# variable. E.g.:
+#   GTEST_ARGS="--gtest_filter=*Foo" make test
+GTEST_ARGS ?=
+
 TEST_ADDITIONAL_CXXFLAGS := \
 	-DGTEST_HAS_PTHREAD=1 \
 	-I$(ROOT_PATH)/third_party/googletest/src/googlemock/include \
@@ -65,4 +70,4 @@ endif
 # of exposing resource files through a virtual file system.)
 run_test: all
 	cd $(OUT_DIR_PATH) && \
-		$(TEST_ENV) ./$(TARGET)
+		$(TEST_ENV) ./$(TARGET) $(GTEST_ARGS)
