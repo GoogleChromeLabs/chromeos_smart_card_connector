@@ -28,6 +28,7 @@ ROOT_SOURCES_SUBDIR := google_smart_card_common
 SOURCES_PATH := $(ROOT_SOURCES_PATH)/$(ROOT_SOURCES_SUBDIR)
 
 SOURCES := \
+        $(SOURCES_PATH)/admin_policy_getter.cc \
 	$(SOURCES_PATH)/formatting.cc \
 	$(SOURCES_PATH)/ipc_emulation.cc \
 	$(SOURCES_PATH)/logging/function_call_tracer.cc \
