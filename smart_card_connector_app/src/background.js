@@ -32,6 +32,7 @@ goog.require('GoogleSmartCard.MessagingOrigin');
 goog.require('GoogleSmartCard.NaclModule');
 goog.require('GoogleSmartCard.Packaging');
 goog.require('GoogleSmartCard.PcscLiteServer.ReaderTracker');
+goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.AdminPolicyService');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ClientHandler');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
 goog.require('GoogleSmartCard.PortMessageChannel');
@@ -127,6 +128,8 @@ createClientHandler(readerTrackerMessageChannelPair.getFirst(), undefined);
 const readerTracker = new GSC.PcscLiteServer.ReaderTracker(
     executableModule.getMessageChannel(),
     readerTrackerMessageChannelPair.getSecond(), executableModule.getLogger());
+
+createAdminPolicyService();
 
 executableModule.startLoading();
 
@@ -269,6 +272,22 @@ function getOrCreateSingleMessageBasedChannel(senderExtensionId) {
   if (newChannel.isDisposed())
     return null;
   return newChannel;
+}
+
+/**
+ * Creates the class that provides the C++ layer with the AdminPolicy obtained
+ * from the managed storage.
+ */
+ function createAdminPolicyService() {
+  if (executableModule.isDisposed() ||
+      executableModule.getMessageChannel().isDisposed()) {
+    goog.log.warning(
+        logger,
+        'Could not create AdminPolicyService as the server is disposed.');
+    return;
+  }
+  new GSC.PcscLiteServerClientsManagement.AdminPolicyService(
+      executableModule.getMessageChannel(), pcscLiteReadinessTracker);
 }
 
 /**
