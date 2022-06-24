@@ -18,6 +18,7 @@
 #include <thread>
 #include <utility>
 
+#include <google_smart_card_common/admin_policy_getter.h>
 #include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message.h>
@@ -69,8 +70,8 @@ void Application::InitializeServicesOnBackgroundThread() {
   pcsc_lite_server_web_port_service_->InitializeAndRunDaemonThread();
 
   pcsc_lite_server_clients_management_backend_ =
-      MakeUnique<PcscLiteServerClientsManagementBackend>(global_context_,
-                                                         typed_message_router_);
+      MakeUnique<PcscLiteServerClientsManagementBackend>(
+          global_context_, typed_message_router_, &admin_policy_getter_);
 
   GOOGLE_SMART_CARD_LOG_DEBUG << "All services are successfully "
                               << "initialized, posting ready message...";
