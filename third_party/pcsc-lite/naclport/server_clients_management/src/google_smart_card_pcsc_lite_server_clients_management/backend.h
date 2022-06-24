@@ -28,6 +28,7 @@
 
 #include <memory>
 
+#include <google_smart_card_common/admin_policy_getter.h>
 #include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 
@@ -46,7 +47,8 @@ class PcscLiteServerClientsManagementBackend final {
  public:
   PcscLiteServerClientsManagementBackend(
       GlobalContext* global_context,
-      TypedMessageRouter* typed_message_router);
+      TypedMessageRouter* typed_message_router,
+      AdminPolicyGetter* admin_policy_getter);
 
   PcscLiteServerClientsManagementBackend(
       const PcscLiteServerClientsManagementBackend&) = delete;
