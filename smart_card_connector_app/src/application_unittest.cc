@@ -382,6 +382,39 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
         ArrayValueBuilder().Add(scard_handle).Add(disposition).Get()));
   }
 
+  LONG SimulateTransmitCallFromJsClient(
+      int handler_id,
+      SCARDHANDLE scard_handle,
+      DWORD send_protocol,
+      const std::vector<uint8_t>& data_to_send,
+      optional<DWORD> receive_protocol,
+      DWORD& out_response_protocol,
+      std::vector<uint8_t>& out_response) {
+    Value receive_protocol_arg;
+    if (receive_protocol) {
+      receive_protocol_arg =
+          DictValueBuilder().Add("protocol", *receive_protocol).Get();
+    }
+    Value response_protocol_information;
+    LONG return_code = ExtractReturnCodeAndResults(
+        SimulateSyncCallFromJsClient(
+            handler_id,
+            /*function_name=*/"SCardTransmit",
+            ArrayValueBuilder()
+                .Add(scard_handle)
+                .Add(DictValueBuilder().Add("protocol", send_protocol).Get())
+                .Add(data_to_send)
+                .Add(std::move(receive_protocol_arg))
+                .Get()),
+        response_protocol_information, out_response);
+    if (return_code == SCARD_S_SUCCESS) {
+      out_response_protocol =
+          response_protocol_information.GetDictionaryItem("protocol")
+              ->GetInteger();
+    }
+    return return_code;
+  }
+
  private:
   void SetUpUsbSimulation() {
     global_context_.RegisterRequestHandler(
@@ -1173,6 +1206,60 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, DisconnectAfterRemoving) {
   EXPECT_EQ(return_code, SCARD_S_SUCCESS);
   // Note: `SCardReleaseContext()` is called and its result is verified by the
   // fixture.
+}
+
+// `SCardTransmit()` calls from JS should be able to send a request APDU to the
+// card and receive a response. We use a fake PIV card in this test.
+TEST_F(SmartCardConnectorApplicationSingleClientTest, TransmitPivCommands) {
+  // Arrange: set up a reader and a card with a PIV profile.
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
+  device.card_profile =
+      TestingSmartCardSimulation::CardProfile::kCharismathicsPiv;
+  SetUsbDevices({device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+  // Connect to the card.
+  SCARDHANDLE scard_handle = 0;
+  DWORD active_protocol = 0;
+  EXPECT_EQ(SimulateConnectCallFromJsClient(
+                kFakeHandlerId, scard_context(), kGemaltoPcTwinReaderPcscName0,
+                SCARD_SHARE_SHARED,
+                /*preferred_protocols=*/SCARD_PROTOCOL_T1, scard_handle,
+                active_protocol),
+            SCARD_S_SUCCESS);
+
+  // Act:
+  {
+    // Send the SELECT command (the format is per NIST 800-73-4).
+    const std::vector<uint8_t> kSelectCommand = {0x00, 0xA4, 0x04, 0x00, 0x09,
+                                                 0xA0, 0x00, 0x00, 0x03, 0x08,
+                                                 0x00, 0x00, 0x10, 0x00, 0x00};
+    std::vector<uint8_t> response;
+    DWORD response_protocol = 0;
+    EXPECT_EQ(
+        SimulateTransmitCallFromJsClient(
+            kFakeHandlerId, scard_handle, SCARD_PROTOCOL_T1, kSelectCommand,
+            /*receive_protocol=*/{}, response_protocol, response),
+        SCARD_S_SUCCESS);
+    EXPECT_EQ(response_protocol, static_cast<DWORD>(SCARD_PROTOCOL_T1));
+    // The expected result should contain the application identifier followed by
+    // 0x90 0x00 (denoting a successful operation).
+    std::vector<uint8_t> expected_response =
+        TestingSmartCardSimulation::GetCardProfileApplicationIdentifier(
+            TestingSmartCardSimulation::CardProfile::kCharismathicsPiv);
+    expected_response.push_back(0x90);
+    expected_response.push_back(0x00);
+    EXPECT_EQ(response, expected_response);
+  }
+
+  // Cleanup:
+  EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
+                                               SCARD_LEAVE_CARD),
+            SCARD_S_SUCCESS);
 }
 
 }  // namespace google_smart_card

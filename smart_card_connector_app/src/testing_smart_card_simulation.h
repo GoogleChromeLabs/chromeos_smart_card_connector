@@ -36,14 +36,24 @@ namespace google_smart_card {
 
 // Implements fake smart card reader USB devices.
 //
-// The implementation is based on the protocol standardized in "Specification
-// for Integrated Circuit(s) Cards Interface Devices" and on USB logs sniffed
-// from real devices.
+// The intention here is to have an emulator that mimicks key aspects of
+// real-world devices, to allow for unit testing of our low-level components
+// like the PC/SC daemon and the CCID driver. This class is NOT meant to provide
+// feature-complete fake devices (e.g., it doesn't even do any real
+// cryptography), it can't be used as a "virtual smart card" for performing real
+// authentication, we don't perform all checks that a real device would do, and
+// we don't cover exotic aspects of the specs.
+//
+// The implementation is based on the protocols standardized in "Specification
+// for Integrated Circuit(s) Cards Interface Devices", ISO/IEC 7816-3, ISO/IEC
+// 7816-4 and NIST 800-73-4. We focus primarily on flows and commands seen in
+// USB logs sniffed from real devices.
 class TestingSmartCardSimulation final {
  public:
   // Fake device to simulate.
   enum class DeviceType { kGemaltoPcTwinReader };
   enum class CardType { kCosmoId70 };
+  enum class CardProfile { kCharismathicsPiv };
 
   // Represents whether an ICC (a smart card) is inserted into the reader and is
   // powered. Corresponds to "bmICCStatus" from CCID specs.
@@ -58,7 +68,10 @@ class TestingSmartCardSimulation final {
     // Unique device identifier to be used in the fake JS replies.
     int64_t id = -1;
     DeviceType type;
+    // A null value denotes "no card inserted".
     optional<CardType> card_type;
+    // A null value denotes "the card is uninitialized".
+    optional<CardProfile> card_profile;
   };
 
   static const char* kRequesterName;
@@ -75,9 +88,12 @@ class TestingSmartCardSimulation final {
 
   void SetDevices(const std::vector<Device>& devices);
 
-  // Returns an ATR (answer-to-reset) for the given simulated card. The
-  // hardcoded constants are taken from real cards.
+  // Returns an ATR (answer-to-reset) for the given simulated card.
   static std::vector<uint8_t> GetCardAtr(CardType card_type);
+  // Returns an identifier of the card applet. The format follows ISO/IEC
+  // 7816-4.
+  static std::vector<uint8_t> GetCardProfileApplicationIdentifier(
+      CardProfile card_profile);
 
  private:
   // The simulation state of a device.
