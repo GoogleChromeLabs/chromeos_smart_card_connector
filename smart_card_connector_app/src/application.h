@@ -18,6 +18,7 @@
 #include <functional>
 #include <memory>
 
+#include <google_smart_card_common/admin_policy_getter.h>
 #include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_pcsc_lite_server_clients_management/backend.h>
@@ -64,6 +65,7 @@ class Application final {
 
   GlobalContext* const global_context_;
   TypedMessageRouter* const typed_message_router_;
+  AdminPolicyGetter admin_policy_getter_;
   std::function<void()> background_initialization_callback_;
   std::unique_ptr<LibusbWebPortService> libusb_web_port_service_;
   std::unique_ptr<PcscLiteServerClientsManagementBackend>
