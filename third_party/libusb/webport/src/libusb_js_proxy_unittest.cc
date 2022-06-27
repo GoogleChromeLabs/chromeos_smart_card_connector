@@ -895,6 +895,37 @@ TEST_P(LibusbJsProxyWithDeviceTest, AsyncInputControlTransfer) {
   libusb()->LibusbFreeTransfer(transfer);
 }
 
+// Test an input control transfer when it fails on the JS side.
+TEST_P(LibusbJsProxyWithDeviceTest, AsyncInputControlTransferFailure) {
+  constexpr int kDataLengthRequested = 100;
+
+  // Arrange.
+  global_context()->WillReplyToRequestWithError(
+      "libusb", "controlTransfer",
+      MakeExpectedInputControlTransferJsArgs(/*recipient=*/"endpoint",
+                                             /*request_type=*/"standard",
+                                             kDataLengthRequested),
+      "Fake failure");
+
+  // Act.
+  std::vector<uint8_t> setup =
+      MakeLibusbInputControlTransferSetup(kDataLengthRequested);
+  int transfer_completion_flag = 0;
+  libusb_transfer* transfer =
+      InitLibusbControlTransfer(/*timeout=*/0, setup, transfer_completion_flag);
+  ASSERT_TRUE(transfer);
+  SubmitLibusbTransferAndWaitForCompletion(*transfer, transfer_completion_flag);
+
+  // Assert.
+  EXPECT_EQ(transfer->status, LIBUSB_TRANSFER_ERROR);
+  EXPECT_EQ(transfer->actual_length, 0);
+  // Attempting to cancel a failed transfer fails.
+  EXPECT_NE(libusb()->LibusbCancelTransfer(transfer), LIBUSB_SUCCESS);
+
+  // Cleanup:
+  libusb()->LibusbFreeTransfer(transfer);
+}
+
 // Test the cancellation of an asynchronous input control transfer.
 //
 // This test also has other slight variations compared to the previous ones: it
@@ -972,6 +1003,35 @@ TEST_P(LibusbJsProxyWithDeviceTest, AsyncOutputControlTransfer) {
   EXPECT_EQ(transfer->status, LIBUSB_TRANSFER_COMPLETED);
   EXPECT_EQ(transfer->actual_length, static_cast<int>(kData.size()));
   // Attempting to cancel a completed transfer fails.
+  EXPECT_NE(libusb()->LibusbCancelTransfer(transfer), LIBUSB_SUCCESS);
+
+  // Cleanup:
+  libusb()->LibusbFreeTransfer(transfer);
+}
+
+// Test an asynchronous output control transfer when it fails on the JS side.
+TEST_P(LibusbJsProxyWithDeviceTest, AsyncOutputControlTransferFailure) {
+  const std::vector<uint8_t> kData = {1, 2, 3, 4, 5, 6};
+
+  // Arrange.
+  global_context()->WillReplyToRequestWithError(
+      "libusb", "controlTransfer",
+      MakeExpectedOutputControlTransferJsArgs(
+          /*recipient=*/"endpoint", /*request_type=*/"standard", kData),
+      "Fake failure");
+
+  // Act.
+  std::vector<uint8_t> setup = MakeLibusbOutputControlTransferSetup(kData);
+  int transfer_completion_flag = 0;
+  libusb_transfer* const transfer =
+      InitLibusbControlTransfer(/*timeout=*/0, setup, transfer_completion_flag);
+  ASSERT_TRUE(transfer);
+  SubmitLibusbTransferAndWaitForCompletion(*transfer, transfer_completion_flag);
+
+  // Assert.
+  EXPECT_EQ(transfer->status, LIBUSB_TRANSFER_ERROR);
+  EXPECT_EQ(transfer->actual_length, 0);
+  // Attempting to cancel a failed transfer fails.
   EXPECT_NE(libusb()->LibusbCancelTransfer(transfer), LIBUSB_SUCCESS);
 
   // Cleanup:
