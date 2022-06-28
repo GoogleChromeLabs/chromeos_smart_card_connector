@@ -44,17 +44,9 @@ goog.scope(function() {
  * Service name that is used for the message to the PC/SC server that the admin
  * policy has been updated.
  *
- * The message data will contain the new admin policy (see the
- * ADMIN_POLICY_MESSAGE_KEY constant).
+ * The message data will contain the data of the new admin policy.
  */
 const UPDATE_ADMIN_POLICY_SERVER_MESSAGE_SERVICE_NAME = 'update_admin_policy';
-
-/**
- * Key under which the admin policy is stored in the messages sent to the PC/SC
- * server (see also the UPDATE_ADMIN_POLICY_SERVER_MESSAGE_SERVICE_NAME
- * constant).
- */
-const ADMIN_POLICY_MESSAGE_KEY = 'admin_policy';
 
 const GSC = GoogleSmartCard;
 const DeferredProcessor = GSC.DeferredProcessor;
@@ -184,10 +176,8 @@ AdminPolicyService.prototype.sendServerUpdateAdminPolicyMessage_ = function() {
   GSC.Logging.checkWithLogger(this.logger, this.serverMessageChannel_);
   GSC.Logging.checkWithLogger(
       this.logger, !this.serverMessageChannel_.isDisposed());
-  const messageData = {};
-  messageData[ADMIN_POLICY_MESSAGE_KEY] = this.adminPolicy_;
   this.serverMessageChannel_.send(
-      UPDATE_ADMIN_POLICY_SERVER_MESSAGE_SERVICE_NAME, messageData);
+      UPDATE_ADMIN_POLICY_SERVER_MESSAGE_SERVICE_NAME, this.adminPolicy_);
 };
 
 /**
