@@ -46,6 +46,11 @@ struct OuterStruct {
   SomeStruct some_field;
 };
 
+struct StructPermittingUnknownFields {
+  int int_field;
+  optional<std::string> string_field;
+};
+
 }  // namespace
 
 template <>
@@ -70,6 +75,15 @@ StructValueDescriptor<OuterStruct>::Description
 StructValueDescriptor<OuterStruct>::GetDescription() {
   return Describe("OuterStruct")
       .WithField(&OuterStruct::some_field, "someField");
+}
+
+template <>
+StructValueDescriptor<StructPermittingUnknownFields>::Description
+StructValueDescriptor<StructPermittingUnknownFields>::GetDescription() {
+  return Describe("StructPermittingUnknownFields")
+      .WithField(&StructPermittingUnknownFields::int_field, "intField")
+      .WithField(&StructPermittingUnknownFields::string_field, "stringField")
+      .PermitUnknownFields();
 }
 
 TEST(ValueConversion, ValueToValue) {
@@ -1260,6 +1274,21 @@ TEST(ValueConversion, ValueToStruct) {
 
     std::string error_message;
     SomeStruct converted = {};
+    EXPECT_TRUE(ConvertFromValue(std::move(value), &converted, &error_message));
+    EXPECT_TRUE(error_message.empty());
+    EXPECT_EQ(converted.int_field, 123);
+    EXPECT_FALSE(converted.string_field);
+  }
+
+  // Test that a value with unknown keys can be converted to a struct if
+  // PermitUnknownFields() was set.
+  {
+    Value value(Value::Type::kDictionary);
+    value.SetDictionaryItem("intField", Value(123));
+    value.SetDictionaryItem("nonExisting", Value());
+
+    std::string error_message;
+    StructPermittingUnknownFields converted = {};
     EXPECT_TRUE(ConvertFromValue(std::move(value), &converted, &error_message));
     EXPECT_TRUE(error_message.empty());
     EXPECT_EQ(converted.int_field, 123);
