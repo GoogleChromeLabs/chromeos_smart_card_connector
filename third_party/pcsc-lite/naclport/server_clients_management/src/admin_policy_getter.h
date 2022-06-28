@@ -27,10 +27,10 @@ namespace google_smart_card {
 
 struct AdminPolicy {
   // Force allowed client App identifiers.
-  std::vector<std::string> force_allowed_client_app_ids;
+  optional<std::vector<std::string>> force_allowed_client_app_ids;
 
   // Client App identifiers using the SCardDisconnect fallback.
-  std::vector<std::string> scard_disconnect_fallback_client_app_ids;
+  optional<std::vector<std::string>> scard_disconnect_fallback_client_app_ids;
 };
 
 // This class listens for the update admin policy messages received from the
