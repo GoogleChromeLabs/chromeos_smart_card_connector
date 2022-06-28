@@ -36,7 +36,6 @@
 #include <tuple>
 #include <vector>
 
-#include <google_smart_card_common/admin_policy_getter.h>
 #include <google_smart_card_common/formatting.h>
 #include <google_smart_card_common/logging/function_call_tracer.h>
 #include <google_smart_card_common/logging/hex_dumping.h>
@@ -48,6 +47,8 @@
 #include <google_smart_card_common/value_conversion.h>
 #include <google_smart_card_common/value_debug_dumping.h>
 #include <google_smart_card_pcsc_lite_common/scard_debug_dump.h>
+
+#include "admin_policy_getter.h"
 
 namespace google_smart_card {
 
@@ -436,8 +437,13 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardConnect(
     // allowed by admin policy, disconnect and reset the card, and retry
     // connecting to it.
 
-    std::vector<std::string> client_ids =
-        admin_policy_getter_->Get().scard_disconnect_fallback_client_app_ids;
+    optional<AdminPolicy> admin_policy = admin_policy_getter_->WaitAndGet();
+    std::vector<std::string> client_ids;
+    if (admin_policy) {
+      client_ids =
+          admin_policy.value().scard_disconnect_fallback_client_app_ids;
+    }
+
     if (std::find(client_ids.begin(), client_ids.end(),
                   this->client_name_for_log_) != client_ids.end()) {
       GOOGLE_SMART_CARD_LOG_INFO
