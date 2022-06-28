@@ -40,7 +40,6 @@
 #include <winscard.h>
 #include <wintypes.h>
 
-#include <google_smart_card_common/admin_policy_getter.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/requesting/remote_call_message.h>
@@ -50,6 +49,7 @@
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_pcsc_lite_common/scard_structs_serialization.h>
 
+#include "admin_policy_getter.h"
 #include "client_handles_registry.h"
 
 namespace google_smart_card {
