@@ -32,7 +32,6 @@
 #include <string>
 #include <unordered_map>
 
-#include <google_smart_card_common/admin_policy_getter.h>
 #include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message_listener.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
@@ -41,6 +40,7 @@
 #include <google_smart_card_common/requesting/request_receiver.h>
 #include <google_smart_card_common/value.h>
 
+#include "admin_policy_getter.h"
 #include "client_request_processor.h"
 
 namespace google_smart_card {
@@ -97,21 +97,6 @@ class PcscLiteServerClientsManager final {
   void ShutDown();
 
  private:
-  class UpdateAdminPolicyMessageListener final : public TypedMessageListener {
-   public:
-    explicit UpdateAdminPolicyMessageListener(
-        AdminPolicyGetter* admin_policy_getter);
-    UpdateAdminPolicyMessageListener(const UpdateAdminPolicyMessageListener&) =
-        delete;
-
-    // TypedMessageListener:
-    std::string GetListenedMessageType() const override;
-    bool OnTypedMessageReceived(Value data) override;
-
-   private:
-    AdminPolicyGetter* admin_policy_getter_;
-  };
-
   // Message listener for the client handler creation messages received from the
   // JavaScript side. This class acts like a proxy, delegating the actual
   // handling of the message to the associated PcscLiteServerClientsManager
@@ -187,7 +172,6 @@ class PcscLiteServerClientsManager final {
   AdminPolicyGetter* admin_policy_getter_;
   CreateHandlerMessageListener create_handler_message_listener_;
   DeleteHandlerMessageListener delete_handler_message_listener_;
-  UpdateAdminPolicyMessageListener update_admin_policy_message_listener_;
   std::unordered_map<int64_t, std::unique_ptr<Handler>> handler_map_;
 };
 
