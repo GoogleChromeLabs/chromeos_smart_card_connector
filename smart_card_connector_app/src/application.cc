@@ -18,7 +18,6 @@
 #include <thread>
 #include <utility>
 
-#include <google_smart_card_common/admin_policy_getter.h>
 #include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message.h>
@@ -31,6 +30,7 @@
 
 #include "third_party/libusb/webport/src/public/libusb_web_port_service.h"
 #include "third_party/pcsc-lite/naclport/server/src/public/pcsc_lite_server_web_port_service.h"
+#include "third_party/pcsc-lite/naclport/server_clients_management/src/admin_policy_getter.h"
 
 namespace google_smart_card {
 
