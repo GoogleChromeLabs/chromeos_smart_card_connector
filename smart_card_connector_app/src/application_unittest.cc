@@ -1082,15 +1082,17 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
   SetUpSCardContext();
 
   // Simulate an UpdateAdminPolicy message to allowlist the client.
+  std::vector<std::string> force_allowed_client_app_ids;
   std::vector<std::string> scard_disconnect_fallback_client_app_ids;
   scard_disconnect_fallback_client_app_ids.push_back(kFakeClientNameForLog);
-  AdminPolicy admin_policy;
-  admin_policy.scard_disconnect_fallback_client_app_ids =
-      std::move(scard_disconnect_fallback_client_app_ids);
-  SimulateFakeJsMessage("update_admin_policy",
-                        DictValueBuilder()
-                            .Add("admin_policy", std::move(admin_policy))
-                            .Get());
+  SimulateFakeJsMessage(
+      "update_admin_policy",
+      DictValueBuilder()
+          .Add("force_allowed_client_app_ids",
+               std::move(force_allowed_client_app_ids))
+          .Add("scard_disconnect_fallback_client_app_ids",
+               std::move(scard_disconnect_fallback_client_app_ids))
+          .Get());
 
   // Act:
   // Connect via the "RAW" protocol and disconnect.
