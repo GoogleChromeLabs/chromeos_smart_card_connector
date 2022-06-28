@@ -190,6 +190,7 @@ class StructFromValueConverterBase {
 
   Value value_to_convert_;
   bool error_encountered_ = false;
+  bool permit_unexpected_keys_ = false;
   std::string inner_error_message_;
 };
 
@@ -233,6 +234,8 @@ class StructFromValueConverter final : public StructFromValueConverterBase {
     *converted_object = std::move(converted_object_);
     return true;
   }
+
+  void PermitUnexpectedKeys() { permit_unexpected_keys_ = true; }
 
  private:
   template <typename FieldT>
@@ -378,6 +381,12 @@ class StructValueDescriptor {
         to_value_converter_->HandleField(field_ptr, dictionary_key_name);
       else
         from_value_converter_->HandleField(field_ptr, dictionary_key_name);
+      return std::move(*this);
+    }
+
+    Description&& PermitUnknownFields() && {
+      if (from_value_converter_)
+        from_value_converter_->PermitUnexpectedKeys();
       return std::move(*this);
     }
 
