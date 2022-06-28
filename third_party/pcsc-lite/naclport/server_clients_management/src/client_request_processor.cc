@@ -439,9 +439,10 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardConnect(
 
     optional<AdminPolicy> admin_policy = admin_policy_getter_->WaitAndGet();
     std::vector<std::string> client_ids;
-    if (admin_policy) {
+    if (admin_policy &&
+        admin_policy.value().scard_disconnect_fallback_client_app_ids) {
       client_ids =
-          admin_policy.value().scard_disconnect_fallback_client_app_ids;
+          admin_policy.value().scard_disconnect_fallback_client_app_ids.value();
     }
 
     if (std::find(client_ids.begin(), client_ids.end(),
