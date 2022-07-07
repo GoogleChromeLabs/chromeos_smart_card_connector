@@ -36,6 +36,8 @@ const logger = GSC.Logging.getScopedLogger('Clipboard');
 
 /**
  * Copies the passed text to the clipboard.
+ * NOTE: This function only works when called from a foreground window and only
+ * in response to an explicit user gesture.
  *
  * The text may contain the \n characters as a delimiter for multiple lines.
  * @param {string} text
