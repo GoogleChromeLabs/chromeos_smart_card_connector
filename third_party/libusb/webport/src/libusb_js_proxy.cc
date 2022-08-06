@@ -515,13 +515,7 @@ int LibusbJsProxy::LibusbOpen(libusb_device* dev,
           std::move(request_result), &error_message, &js_device_handle)) {
     GOOGLE_SMART_CARD_LOG_WARNING << "LibusbOpen request failed: "
                                   << error_message;
-    // Modify the devices (fake) bus number that we report so that PCSC will
-    // retry to connect to the device once it updates the device list.
-    uint32_t new_bus_number =
-        static_cast<uint32_t>(LibusbGetBusNumber(dev)) + 1;
-    if (new_bus_number <= kMaximumBusNumber) {
-      bus_numbers_[dev->js_device().device_id] = new_bus_number;
-    }
+    TryApplyTransientAccessErrorWorkaround(dev);
     return LIBUSB_ERROR_OTHER;
   }
 
@@ -555,6 +549,7 @@ int LibusbJsProxy::LibusbClaimInterface(libusb_device_handle* dev,
   if (!request_result.is_successful()) {
     GOOGLE_SMART_CARD_LOG_WARNING << "LibusbClaimInterface request failed: "
                                   << request_result.error_message();
+    TryApplyTransientAccessErrorWorkaround(dev->device());
     return LIBUSB_ERROR_OTHER;
   }
   return LIBUSB_SUCCESS;
@@ -669,8 +664,10 @@ bool CreateLibusbJsControlTransferParameters(
   }
 
   AssignWithTypeSizeCheck(&result->request, control_setup->bRequest);
-  AssignWithTypeSizeCheck(&result->value, libusb_le16_to_cpu(control_setup->wValue));
-  AssignWithTypeSizeCheck(&result->index, libusb_le16_to_cpu(control_setup->wIndex));
+  AssignWithTypeSizeCheck(&result->value,
+                          libusb_le16_to_cpu(control_setup->wValue));
+  AssignWithTypeSizeCheck(&result->index,
+                          libusb_le16_to_cpu(control_setup->wIndex));
 
   if ((control_setup->bmRequestType & LIBUSB_ENDPOINT_DIR_MASK) ==
       LIBUSB_ENDPOINT_OUT) {
@@ -698,7 +695,7 @@ void CreateLibusbJsGenericTransferParameters(
     result->data_to_send = std::vector<uint8_t>(
         transfer->buffer, transfer->buffer + transfer->length);
   } else {
-    AssignWithTypeSizeCheck(&result->length_to_receive,transfer->length);
+    AssignWithTypeSizeCheck(&result->length_to_receive, transfer->length);
   }
 }
 
@@ -1084,6 +1081,23 @@ int LibusbJsProxy::DoGenericSyncTranfer(libusb_transfer_type transfer_type,
   if (actual_length)
     *actual_length = transfer.actual_length;
   return LibusbTransferStatusToLibusbErrorCode(transfer.status);
+}
+
+void LibusbJsProxy::TryApplyTransientAccessErrorWorkaround(libusb_device* dev) {
+  GOOGLE_SMART_CARD_CHECK(dev);
+
+  // Modify the device's (fake) bus number that we report so that next time the
+  // client code updates the device list it thinks it's a new device. This
+  // allows to work around transient access errors in case the device connection
+  // was taken for the first few seconds after our startup.
+  uint32_t new_bus_number = static_cast<uint32_t>(LibusbGetBusNumber(dev)) + 1;
+  if (new_bus_number > kMaximumBusNumber) {
+    // Don't apply the workaround after this number of times.
+    return;
+  }
+  GOOGLE_SMART_CARD_LOG_INFO << "Applying bus number increment workaround in "
+                                "case the USB access error was transient";
+  bus_numbers_[dev->js_device().device_id] = new_bus_number;
 }
 
 }  // namespace google_smart_card

@@ -138,6 +138,7 @@ class LibusbJsProxy final : public LibusbInterface {
                            int length,
                            int* actual_length,
                            unsigned timeout);
+  void TryApplyTransientAccessErrorWorkaround(libusb_device* dev);
 
   // Helpers for making requests to the JavaScript side.
   JsRequester js_requester_;
