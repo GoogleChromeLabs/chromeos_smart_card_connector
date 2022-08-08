@@ -700,16 +700,21 @@ void CreateLibusbJsGenericTransferParameters(
 }
 
 std::function<void(GenericRequestResult)> MakeLibusbJsTransferCallback(
+    const std::string& js_api_name,
     std::weak_ptr<libusb_context> context,
     const UsbTransferDestination& transfer_destination,
     LibusbJsProxy::TransferAsyncRequestStatePtr async_request_state) {
-  return [context, transfer_destination,
+  return [js_api_name, context, transfer_destination,
           async_request_state](GenericRequestResult js_result) {
     const std::shared_ptr<libusb_context> locked_context = context.lock();
     if (!locked_context) {
       // The context that was used for the original transfer submission has been
       // destroyed already.
       return;
+    }
+    if (!js_result.is_successful()) {
+      GOOGLE_SMART_CARD_LOG_INFO << js_api_name
+                                 << " failed: " << js_result.error_message();
     }
     LibusbJsTransferResult js_transfer_result;
     RequestResult<LibusbJsTransferResult> converted_result =
@@ -768,16 +773,23 @@ int LibusbJsProxy::LibusbSubmitTransfer(libusb_transfer* transfer) {
   const auto async_request_state = std::make_shared<TransferAsyncRequestState>(
       WrapLibusbTransferCallback(transfer));
 
+  std::string js_api_name;
   LibusbJsGenericTransferParameters generic_transfer_params;
   LibusbJsControlTransferParameters control_transfer_params;
   switch (transfer->type) {
     case LIBUSB_TRANSFER_TYPE_CONTROL:
+      js_api_name = kJsRequestControlTransfer;
       if (!CreateLibusbJsControlTransferParameters(transfer,
                                                    &control_transfer_params))
         return LIBUSB_ERROR_INVALID_PARAM;
       break;
     case LIBUSB_TRANSFER_TYPE_BULK:
+      js_api_name = kJsRequestBulkTransfer;
+      CreateLibusbJsGenericTransferParameters(transfer,
+                                              &generic_transfer_params);
+      break;
     case LIBUSB_TRANSFER_TYPE_INTERRUPT:
+      js_api_name = kJsRequestInterruptTransfer;
       CreateLibusbJsGenericTransferParameters(transfer,
                                               &generic_transfer_params);
       break;
@@ -792,25 +804,25 @@ int LibusbJsProxy::LibusbSubmitTransfer(libusb_transfer* transfer) {
                                     transfer);
 
   const auto js_api_callback = MakeLibusbJsTransferCallback(
-      contexts_storage_.FindContextByAddress(context), transfer_destination,
-      async_request_state);
+      js_api_name, contexts_storage_.FindContextByAddress(context),
+      transfer_destination, async_request_state);
 
   switch (transfer->type) {
     case LIBUSB_TRANSFER_TYPE_CONTROL:
       js_call_adaptor_.AsyncCall(
-          js_api_callback, kJsRequestControlTransfer,
+          js_api_callback, js_api_name,
           transfer->dev_handle->device()->js_device().device_id,
           transfer->dev_handle->js_device_handle(), control_transfer_params);
       break;
     case LIBUSB_TRANSFER_TYPE_BULK:
       js_call_adaptor_.AsyncCall(
-          js_api_callback, kJsRequestBulkTransfer,
+          js_api_callback, js_api_name,
           transfer->dev_handle->device()->js_device().device_id,
           transfer->dev_handle->js_device_handle(), generic_transfer_params);
       break;
     case LIBUSB_TRANSFER_TYPE_INTERRUPT:
       js_call_adaptor_.AsyncCall(
-          js_api_callback, kJsRequestInterruptTransfer,
+          js_api_callback, js_api_name,
           transfer->dev_handle->device()->js_device().device_id,
           transfer->dev_handle->js_device_handle(), generic_transfer_params);
       break;
