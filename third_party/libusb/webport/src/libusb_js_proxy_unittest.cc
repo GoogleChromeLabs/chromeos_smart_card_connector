@@ -771,6 +771,7 @@ TEST_P(LibusbJsProxyWithDeviceTest,
           .Add(kInterfaceNumber)
           .Get(),
       /*error_to_reply_with=*/"fake error");
+  EXPECT_EQ(libusb()->LibusbGetBusNumber(devices[0]), 1);
 
   // Act.
   EXPECT_EQ(libusb()->LibusbClaimInterface(device_handle_, kInterfaceNumber),
