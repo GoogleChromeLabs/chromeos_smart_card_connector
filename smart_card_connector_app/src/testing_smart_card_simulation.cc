@@ -40,6 +40,7 @@
 
 namespace google_smart_card {
 
+using CardProfile = TestingSmartCardSimulation::CardProfile;
 using CardType = TestingSmartCardSimulation::CardType;
 using CcidIccStatus = TestingSmartCardSimulation::CcidIccStatus;
 using DeviceType = TestingSmartCardSimulation::DeviceType;
@@ -47,6 +48,13 @@ using DeviceType = TestingSmartCardSimulation::DeviceType;
 const char* TestingSmartCardSimulation::kRequesterName = "libusb";
 
 namespace {
+
+uint8_t CalculateXor(const std::vector<uint8_t>& bytes) {
+  uint8_t xor_value = 0;
+  for (uint8_t byte : bytes)
+    xor_value ^= byte;
+  return xor_value;
+}
 
 LibusbJsDevice MakeLibusbJsDevice(
     const TestingSmartCardSimulation::Device& device) {
@@ -232,11 +240,92 @@ std::vector<uint8_t> MakePowerOnTransferReply(uint8_t sequence_number,
   return MakeDataBlockTransferReply(sequence_number, icc_status, response_data);
 }
 
+// Builds a fake reply to the "SELECT" command APDU sent to the card. `p1`,
+// `p2`, `le` and `command_data` refer to the fields defined in ISO/IEC 7816-3.
+std::vector<uint8_t> HandleSelectCommandApdu(
+    CardProfile card_profile,
+    uint8_t p1,
+    uint8_t p2,
+    uint8_t le,
+    const std::vector<uint8_t>& /*command_data*/) {
+  switch (card_profile) {
+    case CardProfile::kCharismathicsPiv: {
+      // Verify PIV command parameters per NIST 800-73-4. For now we don't check
+      // the command data, for simplicity.
+      GOOGLE_SMART_CARD_CHECK(p1 == 0x04);
+      GOOGLE_SMART_CARD_CHECK(p2 == 0x00);
+      GOOGLE_SMART_CARD_CHECK(le == 0x00);
+      // Reply with the application identifier, followed by the status bytes
+      // that denote success: SW1=0x90, SW2=0x00.
+      std::vector<uint8_t> apdu_response =
+          TestingSmartCardSimulation::GetCardProfileApplicationIdentifier(
+              card_profile);
+      const uint8_t sw1 = 0x90;
+      const uint8_t sw2 = 0x00;
+      apdu_response.push_back(sw1);
+      apdu_response.push_back(sw2);
+      return apdu_response;
+    }
+  }
+  GOOGLE_SMART_CARD_NOTREACHED;
+}
+
+// Builds a fake reply to the APDU (application protocol data unit) sent to the
+// smart card applet.
+std::vector<uint8_t> HandleApdu(CardProfile card_profile,
+                                const std::vector<uint8_t>& apdu) {
+  // The command, per ISO/IEC 7816-3, starts with a header in the following
+  // format: CLA INS P1 P2.
+  // * CLA: class byte.
+  // * INS: instruction byte.
+  // * P1 and P2: parameter bytes.
+  GOOGLE_SMART_CARD_CHECK(apdu.size() >= 4);
+  const uint8_t cla = apdu[0];
+  const uint8_t ins = apdu[1];
+  const uint8_t p1 = apdu[2];
+  const uint8_t p2 = apdu[3];
+  // The header is followed by the command body. It generally has the following
+  // format: Lc, Data, Le.
+  // * Lc: one byte; optional; denotes the request data size.
+  // * Data: a sequence of Lc bytes.
+  // * Le: one byte; optional; denotes the maximum expected response size.
+  // All fields are optional, hence we need to disambiguate between cases "the
+  // body starts from Lc" and "the body starts from Le". Per specs, we do that
+  // based on the body length.
+  // We only support single-byte Lc/Le values currently, for simplicity.
+  uint8_t le;
+  std::vector<uint8_t> data;
+  if (apdu.size() == 4) {
+    le = 0;
+  } else if (apdu.size() == 5) {
+    le = apdu.back();
+  } else {
+    uint8_t lc = apdu[4];
+    GOOGLE_SMART_CARD_CHECK(lc + 5 <= apdu.size());
+    data.assign(apdu.begin() + 5, apdu.begin() + 5 + lc);
+    if (lc + 5 == apdu.size())
+      le = 0;
+    else if (lc + 6 == apdu.size())
+      le = apdu.back();
+    else
+      GOOGLE_SMART_CARD_LOG_FATAL << "Failed to parse request command: "
+                                  << HexDumpBytes(apdu);
+  }
+  // Determine the requested command. This is mostly following definitions in
+  // ISO/IEC 7816-4, although particular profiles might have some differences.
+  if (cla == 0x00 && ins == 0xA4) {
+    // It's a "SELECT" command.
+    return HandleSelectCommandApdu(card_profile, p1, p2, le, data);
+  }
+  GOOGLE_SMART_CARD_LOG_FATAL << "Unexpected APDU: " << HexDumpBytes(apdu);
+}
+
 // Builds a fake RDR_to_PC_DataBlock message for replying to PC_to_RDR_XfrBlock.
 std::vector<uint8_t> MakeXfrBlockTransferReply(
     uint8_t sequence_number,
     CcidIccStatus icc_status,
     optional<CardType> card_type,
+    optional<CardProfile> card_profile,
     const std::vector<uint8_t>& request_data) {
   // The protocol details hardcoded in this function are based on ISO/IEC
   // 7816-3.
@@ -256,14 +345,15 @@ std::vector<uint8_t> MakeXfrBlockTransferReply(
     }
     GOOGLE_SMART_CARD_NOTREACHED;
   }
-  if (request_data[0] == 0x00 && request_data[1] == 0xC1) {
+  if (request_data.size() >= 2 && request_data[0] == 0x00 &&
+      request_data[1] == 0xC1) {
     // It's an IFS (maximum information field size) request: how many bytes can
     // the reader receive from the card at once.
     // For now we only support a particular (hardcoded) request.
     GOOGLE_SMART_CARD_CHECK(
         request_data == std::vector<uint8_t>({0x00, 0xC1, 0x01, 0xFE, 0x3E}));
     // A successful IFS response only differs from the request by setting the
-    // 0x20 bit in the PCB (protocol control byte) .
+    // 0x20 bit in the PCB (protocol control byte).
     auto response_data = request_data;
     response_data[1] |= 0x20;
     // Adjust the epilogue byte (a XOR checksum of other bytes) accordingly.
@@ -274,6 +364,35 @@ std::vector<uint8_t> MakeXfrBlockTransferReply(
                                           response_data);
     }
     GOOGLE_SMART_CARD_NOTREACHED;
+  }
+  if (card_profile && request_data.size() >= 3 && request_data[0] == 0x00 &&
+      request_data[1] == 0x00) {
+    // It's a command block in the T=1 protocol.
+    // The format according to the specs: NAD, PCB, LEN, INF, epilogue.
+    // * NAD (node address byte): 1 byte; we assume it to be 0;
+    // * PCB (protocol control byte): 1 byte; we assume it to be 0;
+    // * LEN: 1 byte;
+    // * INF: a sequence of LEN bytes;
+    // * epilogue: we assume it to be a 1-byte LRC (longitudinal redundancy
+    //   code), which is a XOR of all other bytes of the block.
+    // Sanity-check the "LEN" field value.
+    uint8_t information_length = request_data[2];
+    GOOGLE_SMART_CARD_CHECK(information_length + 4 == request_data.size());
+    // Extract the "INF" blob that contains the actual APDU of the command.
+    const std::vector<uint8_t> apdu(request_data.begin() + 3,
+                                    request_data.end() - 1);
+    // Simulate the reply from the applet on the card.
+    const std::vector<uint8_t> apdu_reply = HandleApdu(*card_profile, apdu);
+    // Construct the reply data, which has the same format as the request. For
+    // simplicity, we assume it to fit a single block.
+    GOOGLE_SMART_CARD_CHECK(apdu_reply.size() <= 255);
+    std::vector<uint8_t> response_data = {
+        0x00, 0x00, static_cast<uint8_t>(apdu_reply.size())};
+    response_data.insert(response_data.end(), apdu_reply.begin(),
+                         apdu_reply.end());
+    response_data.push_back(CalculateXor(response_data));
+    return MakeDataBlockTransferReply(sequence_number, icc_status,
+                                      response_data);
   }
   GOOGLE_SMART_CARD_LOG_FATAL << "Unexpected XfrBlock transfer: "
                               << HexDumpBytes(request_data);
@@ -435,14 +554,32 @@ void TestingSmartCardSimulation::SetDevices(
   handler_.SetDevices(devices);
 }
 
-// Returns an ATR (answer-to-reset) for the given card. The hardcoded constants
-// are taken from real cards.
 std::vector<uint8_t> TestingSmartCardSimulation::GetCardAtr(
     CardType card_type) {
+  // The hardcoded constants are taken from real cards.
   switch (card_type) {
     case CardType::kCosmoId70:
       return {0x3B, 0xDB, 0x96, 0x00, 0x80, 0xB1, 0xFE, 0x45, 0x1F, 0x83, 0x00,
               0x31, 0xC0, 0x64, 0xC7, 0xFC, 0x10, 0x00, 0x01, 0x90, 0x00, 0x74};
+  }
+  GOOGLE_SMART_CARD_NOTREACHED;
+}
+
+std::vector<uint8_t>
+TestingSmartCardSimulation::GetCardProfileApplicationIdentifier(
+    CardProfile card_profile) {
+  // The hardcoded constants are taken from real cards.
+  switch (card_profile) {
+    case CardProfile::kCharismathicsPiv:
+      return {0x61, 0x5C, 0x4F, 0x0B, 0xA0, 0x00, 0x00, 0x03, 0x08, 0x00, 0x00,
+              0x10, 0x00, 0x01, 0x00, 0x79, 0x07, 0x4F, 0x05, 0xA0, 0x00, 0x00,
+              0x03, 0x08, 0x50, 0x27, 0x50, 0x65, 0x72, 0x73, 0x6F, 0x6E, 0x61,
+              0x6C, 0x5F, 0x49, 0x64, 0x65, 0x6E, 0x74, 0x69, 0x74, 0x79, 0x5F,
+              0x61, 0x6E, 0x64, 0x5F, 0x56, 0x65, 0x72, 0x69, 0x66, 0x69, 0x63,
+              0x61, 0x74, 0x69, 0x6F, 0x6E, 0x5F, 0x43, 0x61, 0x72, 0x64, 0x5F,
+              0x50, 0x1A, 0x68, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x63, 0x73,
+              0x72, 0x63, 0x2E, 0x6E, 0x69, 0x73, 0x74, 0x2E, 0x67, 0x6F, 0x76,
+              0x2F, 0x6E, 0x70, 0x69, 0x76, 0x70};
   }
   GOOGLE_SMART_CARD_NOTREACHED;
 }
@@ -708,7 +845,8 @@ TestingSmartCardSimulation::ThreadSafeHandler::HandleOutputBulkTransfer(
       // Prepare a RDR_to_PC_DataBlock reply for the next input bulk transfer.
       device_state.next_bulk_transfer_reply = MakeXfrBlockTransferReply(
           sequence_number, device_state.icc_status,
-          device_state.device.card_type, request_data);
+          device_state.device.card_type, device_state.device.card_profile,
+          request_data);
       return GenericRequestResult::CreateSuccessful(
           ConvertToValueOrDie(LibusbJsTransferResult()));
     }

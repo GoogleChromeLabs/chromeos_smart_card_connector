@@ -64,6 +64,10 @@ namespace google_smart_card {
 
 namespace {
 
+constexpr int kControlTransferRequest = 1;
+constexpr int kControlTransferIndex = 24;
+constexpr int kControlTransferValue = 42;
+
 // Used with parameterized tests: whether or not a test should additionally
 // use `LibusbTracingWrapper`.
 enum class WrapperTestParam {
@@ -80,6 +84,43 @@ std::string PrintWrapperTestParam(
       return "WithoutTracingWrapper";
   }
   GOOGLE_SMART_CARD_NOTREACHED;
+}
+
+// Prepares a setup packet for an input control transfer.
+std::vector<uint8_t> MakeLibusbInputControlTransferSetup(
+    int data_length_requested) {
+  std::vector<uint8_t> setup(LIBUSB_CONTROL_SETUP_SIZE + data_length_requested);
+  libusb_fill_control_setup(setup.data(),
+                            LIBUSB_RECIPIENT_ENDPOINT |
+                                LIBUSB_REQUEST_TYPE_STANDARD |
+                                LIBUSB_ENDPOINT_IN,
+                            kControlTransferRequest, kControlTransferValue,
+                            kControlTransferIndex, data_length_requested);
+  return setup;
+}
+
+// Prepares a setup packet for an output control transfer.
+std::vector<uint8_t> MakeLibusbOutputControlTransferSetup(
+    const std::vector<uint8_t>& data_to_send) {
+  std::vector<uint8_t> setup(LIBUSB_CONTROL_SETUP_SIZE + data_to_send.size());
+  libusb_fill_control_setup(setup.data(),
+                            LIBUSB_RECIPIENT_ENDPOINT |
+                                LIBUSB_REQUEST_TYPE_STANDARD |
+                                LIBUSB_ENDPOINT_OUT,
+                            kControlTransferRequest, kControlTransferValue,
+                            kControlTransferIndex, data_to_send.size());
+  std::copy(data_to_send.begin(), data_to_send.end(),
+            setup.begin() + LIBUSB_CONTROL_SETUP_SIZE);
+  return setup;
+}
+
+// The default callback used for `libusb_transfer`. It signals to the test that
+// the transfer is completed.
+void OnLibusbAsyncTransferCompleted(libusb_transfer* transfer) {
+  ASSERT_TRUE(transfer);
+  // `user_data` points to `transfer_completion_flag` (a captureless function
+  // pointer has no other way of telling the test it's run).
+  *static_cast<int*>(transfer->user_data) = 1;
 }
 
 }  // namespace
@@ -130,6 +171,32 @@ class LibusbJsProxyTest : public ::testing::TestWithParam<WrapperTestParam> {
   void FreeLibusbDevices(const std::vector<libusb_device*>& devices) {
     for (auto* device : devices)
       libusb()->LibusbUnrefDevice(device);
+  }
+
+  // Submits the transfer and waits until the it completes using
+  // `LibusbHandleEventsCompleted()`.
+  void SubmitLibusbTransferAndWaitForCompletion(libusb_transfer& transfer,
+                                                int& transfer_completed) {
+    EXPECT_EQ(libusb()->LibusbSubmitTransfer(&transfer), LIBUSB_SUCCESS);
+    EXPECT_FALSE(transfer_completed);
+    WaitForLibusbTransferCompletion(transfer_completed);
+  }
+
+  // Waits until the transfer completes using `LibusbHandleEventsCompleted()`.
+  void WaitForLibusbTransferCompletion(int& transfer_completed) {
+    do {
+      EXPECT_EQ(libusb()->LibusbHandleEventsCompleted(/*ctx=*/nullptr,
+                                                      &transfer_completed),
+                LIBUSB_SUCCESS);
+    } while (!transfer_completed);
+  }
+
+  // Waits until the transfer completes using `LibusbHandleEvents()`. It's an
+  // older Libusb API, with `LibusbHandleEventsCompleted()` recommended instead.
+  void WaitForLibusbTransferCompletionViaOldApi(int& transfer_completed) {
+    do {
+      EXPECT_EQ(libusb()->LibusbHandleEvents(/*ctx=*/nullptr), LIBUSB_SUCCESS);
+    } while (!transfer_completed);
   }
 
  private:
@@ -396,6 +463,104 @@ TEST_P(LibusbJsProxyTest, DeviceRefUnref) {
   FreeLibusbDevices(devices);
 }
 
+// Test that `LibusbGetBusNumber()` initially returns the default bus number.
+TEST_P(LibusbJsProxyTest, BusNumber) {
+  // Arrange.
+  global_context()->WillReplyToRequestWith(
+      "libusb", "listDevices",
+      /*arguments=*/Value(Value::Type::kArray),
+      /*result_to_reply_with=*/
+      ArrayValueBuilder()
+          .Add(DictValueBuilder()
+                   .Add("deviceId", 123)
+                   .Add("vendorId", 1)
+                   .Add("productId", 2)
+                   .Get())
+          .Get());
+
+  // Act. Obtain the device from the device list.
+  std::vector<libusb_device*> devices = GetLibusbDevices();
+  ASSERT_EQ(devices.size(), 1U);
+
+  // Assert.
+  EXPECT_EQ(libusb()->LibusbGetBusNumber(devices[0]), 1);
+
+  FreeLibusbDevices(devices);
+}
+
+// Test that `LibusbGetBusNumber()` returns the same default bus number when
+// the devices are listed for the second time.
+TEST_P(LibusbJsProxyTest, BusNumberConstant) {
+  // Arrange.
+  for (int i = 0; i < 2; ++i) {
+    global_context()->WillReplyToRequestWith(
+        "libusb", "listDevices",
+        /*arguments=*/Value(Value::Type::kArray),
+        /*result_to_reply_with=*/
+        ArrayValueBuilder()
+            .Add(DictValueBuilder()
+                     .Add("deviceId", 123)
+                     .Add("vendorId", 1)
+                     .Add("productId", 2)
+                     .Get())
+            .Get());
+  }
+
+  // Act. Obtain the device from the device list.
+  std::vector<libusb_device*> devices = GetLibusbDevices();
+  EXPECT_EQ(devices.size(), 1U);
+  FreeLibusbDevices(devices);
+  // List devices again.
+  devices = GetLibusbDevices();
+  ASSERT_EQ(devices.size(), 1U);
+
+  // Assert.
+  EXPECT_EQ(libusb()->LibusbGetBusNumber(devices[0]), 1);
+
+  FreeLibusbDevices(devices);
+}
+
+// Test that `LibusbGetBusNumber()` returns an incremented value if the
+// `LibusbOpen()` method failed previously.
+TEST_P(LibusbJsProxyTest, BusNumberWorkaroundAfterOpenFailure) {
+  // Arrange.
+  for (int i = 0; i < 2; ++i) {
+    global_context()->WillReplyToRequestWith(
+        "libusb", "listDevices",
+        /*arguments=*/Value(Value::Type::kArray),
+        /*result_to_reply_with=*/
+        ArrayValueBuilder()
+            .Add(DictValueBuilder()
+                     .Add("deviceId", 123)
+                     .Add("vendorId", 1)
+                     .Add("productId", 2)
+                     .Get())
+            .Get());
+  }
+  global_context()->WillReplyToRequestWithError(
+      "libusb", "openDeviceHandle",
+      /*arguments=*/ArrayValueBuilder().Add(123).Get(),
+      /*error_to_reply_with=*/"fake error");
+
+  // Act. Obtain the device from the device list.
+  std::vector<libusb_device*> devices = GetLibusbDevices();
+  ASSERT_EQ(devices.size(), 1U);
+  EXPECT_EQ(libusb()->LibusbGetBusNumber(devices[0]), 1);
+  // Attempt connecting to the device.
+  libusb_device_handle* device_handle = nullptr;
+  EXPECT_EQ(libusb()->LibusbOpen(devices[0], &device_handle),
+            LIBUSB_ERROR_OTHER);
+  FreeLibusbDevices(devices);
+  // Obtain the list of devices again.
+  devices = GetLibusbDevices();
+  ASSERT_EQ(devices.size(), 1U);
+
+  // Assert. The bus number should be incremented now.
+  EXPECT_EQ(libusb()->LibusbGetBusNumber(devices[0]), 2);
+
+  FreeLibusbDevices(devices);
+}
+
 INSTANTIATE_TEST_SUITE_P(
     ,
     LibusbJsProxyTest,
@@ -419,15 +584,7 @@ class LibusbJsProxyWithDeviceTest : public LibusbJsProxyTest {
     // Obtain the libusb device.
     global_context()->WillReplyToRequestWith(
         "libusb", "listDevices",
-        /*arguments=*/Value(Value::Type::kArray),
-        /*result_to_reply_with=*/
-        ArrayValueBuilder()
-            .Add(DictValueBuilder()
-                     .Add("deviceId", kJsDeviceId)
-                     .Add("vendorId", 2)
-                     .Add("productId", 3)
-                     .Get())
-            .Get());
+        /*arguments=*/Value(Value::Type::kArray), MakeListDevicesFakeJsReply());
     std::vector<libusb_device*> devices = GetLibusbDevices();
     ASSERT_EQ(devices.size(), 1U);
     device_ = devices[0];
@@ -457,6 +614,76 @@ class LibusbJsProxyWithDeviceTest : public LibusbJsProxyTest {
 
     // Free the libusb global state.
     libusb()->LibusbExit(/*ctx=*/nullptr);
+  }
+
+  static Value MakeListDevicesFakeJsReply() {
+    return ArrayValueBuilder()
+        .Add(DictValueBuilder()
+                 .Add("deviceId", kJsDeviceId)
+                 .Add("vendorId", 2)
+                 .Add("productId", 3)
+                 .Get())
+        .Get();
+  }
+
+  static Value MakeExpectedOutputControlTransferJsArgs(
+      const std::string& recipient,
+      const std::string& request_type,
+      const std::vector<uint8_t>& data_to_send) {
+    return ArrayValueBuilder()
+        .Add(kJsDeviceId)
+        .Add(kJsDeviceHandle)
+        .Add(DictValueBuilder()
+                 .Add("dataToSend", data_to_send)
+                 .Add("index", kControlTransferIndex)
+                 .Add("recipient", recipient)
+                 .Add("request", kControlTransferRequest)
+                 .Add("requestType", request_type)
+                 .Add("value", kControlTransferValue)
+                 .Get())
+        .Get();
+  }
+
+  static Value MakeExpectedInputControlTransferJsArgs(
+      const std::string& recipient,
+      const std::string& request_type,
+      int length_to_receive) {
+    return ArrayValueBuilder()
+        .Add(kJsDeviceId)
+        .Add(kJsDeviceHandle)
+        .Add(DictValueBuilder()
+                 .Add("index", kControlTransferIndex)
+                 .Add("recipient", recipient)
+                 .Add("request", kControlTransferRequest)
+                 .Add("requestType", request_type)
+                 .Add("value", kControlTransferValue)
+                 .Add("lengthToReceive", length_to_receive)
+                 .Get())
+        .Get();
+  }
+
+  static Value MakeInputTransferFakeJsReply(
+      const std::vector<uint8_t>& received_data) {
+    return DictValueBuilder().Add("receivedData", received_data).Get();
+  }
+
+  static Value MakeOutputTransferFakeJsReply() {
+    return Value(Value::Type::kDictionary);
+  }
+
+  libusb_transfer* InitLibusbControlTransfer(int timeout,
+                                             std::vector<uint8_t>& setup,
+                                             int& transfer_completion_flag) {
+    libusb_transfer* const transfer =
+        libusb()->LibusbAllocTransfer(/*iso_packets=*/0);
+    if (!transfer) {
+      ADD_FAILURE() << "LibusbAllocTransfer failed";
+      return nullptr;
+    }
+    libusb_fill_control_transfer(
+        transfer, device_handle_, setup.data(), &OnLibusbAsyncTransferCompleted,
+        /*user_data=*/static_cast<void*>(&transfer_completion_flag), timeout);
+    return transfer;
   }
 
   libusb_device* device_ = nullptr;
@@ -489,12 +716,79 @@ TEST_P(LibusbJsProxyWithDeviceTest, DeviceResettingFailure) {
   EXPECT_EQ(libusb()->LibusbResetDevice(device_handle_), LIBUSB_ERROR_OTHER);
 }
 
+// Test `LibusbClaimInterface()` successful scenario.
+TEST_P(LibusbJsProxyWithDeviceTest, InterfaceClaiming) {
+  constexpr int kInterfaceNumber = 12;
+  // Arrange.
+  global_context()->WillReplyToRequestWith("libusb", "claimInterface",
+                                           /*arguments=*/
+                                           ArrayValueBuilder()
+                                               .Add(kJsDeviceId)
+                                               .Add(kJsDeviceHandle)
+                                               .Add(kInterfaceNumber)
+                                               .Get(),
+                                           /*result_to_reply_with=*/Value());
+
+  // Act.
+  EXPECT_EQ(libusb()->LibusbClaimInterface(device_handle_, kInterfaceNumber),
+            LIBUSB_SUCCESS);
+}
+
+// Test `LibusbClaimInterface()` failure due to the JS call returning an error.
+TEST_P(LibusbJsProxyWithDeviceTest, InterfaceClaimingFailure) {
+  constexpr int kInterfaceNumber = 12;
+  // Arrange.
+  global_context()->WillReplyToRequestWithError(
+      "libusb", "claimInterface",
+      /*arguments=*/
+      ArrayValueBuilder()
+          .Add(kJsDeviceId)
+          .Add(kJsDeviceHandle)
+          .Add(kInterfaceNumber)
+          .Get(),
+      /*error_to_reply_with=*/"fake error");
+
+  // Act.
+  EXPECT_EQ(libusb()->LibusbClaimInterface(device_handle_, kInterfaceNumber),
+            LIBUSB_ERROR_OTHER);
+}
+
+// Test that `LibusbGetBusNumber()` returns an incremented value if the
+// `LibusbClaimInterface()` method failed previously.
+TEST_P(LibusbJsProxyWithDeviceTest,
+       BusNumberWorkaroundAfterInterfaceClaimingFailure) {
+  constexpr int kInterfaceNumber = 12;
+  // Arrange.
+  global_context()->WillReplyToRequestWith(
+      "libusb", "listDevices",
+      /*arguments=*/Value(Value::Type::kArray), MakeListDevicesFakeJsReply());
+  global_context()->WillReplyToRequestWithError(
+      "libusb", "claimInterface",
+      /*arguments=*/
+      ArrayValueBuilder()
+          .Add(kJsDeviceId)
+          .Add(kJsDeviceHandle)
+          .Add(kInterfaceNumber)
+          .Get(),
+      /*error_to_reply_with=*/"fake error");
+  EXPECT_EQ(libusb()->LibusbGetBusNumber(device_), 1);
+
+  // Act.
+  EXPECT_EQ(libusb()->LibusbClaimInterface(device_handle_, kInterfaceNumber),
+            LIBUSB_ERROR_OTHER);
+  // Obtain the list of devices again.
+  std::vector<libusb_device*> devices = GetLibusbDevices();
+  ASSERT_EQ(devices.size(), 1U);
+
+  // Assert. The bus number should be incremented now.
+  EXPECT_EQ(libusb()->LibusbGetBusNumber(devices[0]), 2);
+
+  FreeLibusbDevices(devices);
+}
+
 // Tests `LibusbControlTransfer()` successful scenario when sending data to the
 // output endpoint.
 TEST_P(LibusbJsProxyWithDeviceTest, OutputControlTransfer) {
-  constexpr int kTransferRequest = 1;
-  constexpr int kTransferIndex = 24;
-  constexpr int kTransferValue = 42;
   // non-const, as LibusbControlTransfer() takes a non-const pointer to it -
   // following libusb's original interface.
   std::vector<uint8_t> data = {1, 2, 3};
@@ -502,37 +796,23 @@ TEST_P(LibusbJsProxyWithDeviceTest, OutputControlTransfer) {
   // Arrange.
   global_context()->WillReplyToRequestWith(
       "libusb", "controlTransfer",
-      /*arguments=*/
-      ArrayValueBuilder()
-          .Add(kJsDeviceId)
-          .Add(kJsDeviceHandle)
-          .Add(DictValueBuilder()
-                   .Add("dataToSend", data)
-                   .Add("index", kTransferIndex)
-                   .Add("recipient", "endpoint")
-                   .Add("request", kTransferRequest)
-                   .Add("requestType", "standard")
-                   .Add("value", kTransferValue)
-                   .Get())
-          .Get(),
-      /*result_to_reply_with=*/Value(Value::Type::kDictionary));
+      MakeExpectedOutputControlTransferJsArgs(
+          /*recipient=*/"endpoint", /*request_type=*/"standard", data),
+      MakeOutputTransferFakeJsReply());
 
   // Act.
   EXPECT_EQ(libusb()->LibusbControlTransfer(
                 device_handle_,
                 LIBUSB_RECIPIENT_ENDPOINT | LIBUSB_REQUEST_TYPE_STANDARD |
                     LIBUSB_ENDPOINT_OUT,
-                kTransferRequest, kTransferValue, kTransferIndex, &data[0],
-                data.size(), /*timeout=*/100),
+                kControlTransferRequest, kControlTransferValue,
+                kControlTransferIndex, &data[0], data.size(), /*timeout=*/100),
             static_cast<int>(data.size()));
 }
 
 // Test `LibusbControlTransfer()` failure scenario due to a JS error during an
 // output transfer.
 TEST_P(LibusbJsProxyWithDeviceTest, OutputControlTransferFailure) {
-  constexpr int kTransferRequest = 1;
-  constexpr int kTransferIndex = 24;
-  constexpr int kTransferValue = 42;
   // non-const, as LibusbControlTransfer() takes a non-const pointer to it -
   // following libusb's original interface.
   std::vector<uint8_t> data = {1, 2, 3};
@@ -540,107 +820,70 @@ TEST_P(LibusbJsProxyWithDeviceTest, OutputControlTransferFailure) {
   // Arrange.
   global_context()->WillReplyToRequestWithError(
       "libusb", "controlTransfer",
-      /*arguments=*/
-      ArrayValueBuilder()
-          .Add(kJsDeviceId)
-          .Add(kJsDeviceHandle)
-          .Add(DictValueBuilder()
-                   .Add("dataToSend", data)
-                   .Add("index", kTransferIndex)
-                   .Add("recipient", "interface")
-                   .Add("request", kTransferRequest)
-                   .Add("requestType", "class")
-                   .Add("value", kTransferValue)
-                   .Get())
-          .Get(),
-      /*error_to_reply_with=*/"fake error");
+      MakeExpectedOutputControlTransferJsArgs(/*recipient=*/"interface",
+                                              /*request_type=*/"class", data),
+      "fake error");
 
   // Act.
   EXPECT_EQ(libusb()->LibusbControlTransfer(
                 device_handle_,
                 LIBUSB_RECIPIENT_INTERFACE | LIBUSB_REQUEST_TYPE_CLASS |
                     LIBUSB_ENDPOINT_OUT,
-                kTransferRequest, kTransferValue, kTransferIndex, &data[0],
-                data.size(), /*timeout=*/100),
+                kControlTransferRequest, kControlTransferValue,
+                kControlTransferIndex, &data[0], data.size(), /*timeout=*/100),
             LIBUSB_ERROR_OTHER);
 }
 
 // Tests `LibusbControlTransfer()` successful scenario when reading data from
 // an endpoint.
 TEST_P(LibusbJsProxyWithDeviceTest, InputControlTransfer) {
-  constexpr int kTransferRequest = 1;
-  constexpr int kTransferIndex = 24;
-  constexpr int kTransferValue = 42;
   const std::vector<uint8_t> kData = {1, 2, 3, 4, 5, 6};
 
   // Arrange.
   global_context()->WillReplyToRequestWith(
       "libusb", "controlTransfer",
-      /*arguments=*/
-      ArrayValueBuilder()
-          .Add(kJsDeviceId)
-          .Add(kJsDeviceHandle)
-          .Add(DictValueBuilder()
-                   .Add("index", kTransferIndex)
-                   .Add("recipient", "endpoint")
-                   .Add("request", kTransferRequest)
-                   .Add("requestType", "standard")
-                   .Add("value", kTransferValue)
-                   .Add("lengthToReceive", kData.size())
-                   .Get())
-          .Get(),
-      /*result_to_reply_with=*/
-      DictValueBuilder().Add("receivedData", kData).Get());
+      MakeExpectedInputControlTransferJsArgs(/*recipient=*/"endpoint",
+                                             /*request_type=*/"standard",
+                                             kData.size()),
+      MakeInputTransferFakeJsReply(kData));
 
   // Act.
   std::vector<uint8_t> received_data(kData.size());
-  EXPECT_EQ(libusb()->LibusbControlTransfer(
-                device_handle_,
-                LIBUSB_RECIPIENT_ENDPOINT | LIBUSB_REQUEST_TYPE_STANDARD |
-                    LIBUSB_ENDPOINT_IN,
-                kTransferRequest, kTransferValue, kTransferIndex,
-                &received_data[0], received_data.size(), /*timeout=*/100),
-            static_cast<int>(kData.size()));
+  EXPECT_EQ(
+      libusb()->LibusbControlTransfer(
+          device_handle_,
+          LIBUSB_RECIPIENT_ENDPOINT | LIBUSB_REQUEST_TYPE_STANDARD |
+              LIBUSB_ENDPOINT_IN,
+          kControlTransferRequest, kControlTransferValue, kControlTransferIndex,
+          &received_data[0], received_data.size(), /*timeout=*/100),
+      static_cast<int>(kData.size()));
   EXPECT_EQ(received_data, kData);
 }
 
 // Tests `LibusbControlTransfer()` scenario when the data read from an endpoint
 // turned out to be shorter than requested.
 TEST_P(LibusbJsProxyWithDeviceTest, InputControlTransferShorterData) {
-  constexpr int kTransferRequest = 1;
-  constexpr int kTransferIndex = 24;
-  constexpr int kTransferValue = 42;
   constexpr int kDataLengthRequested = 100;
   const std::vector<uint8_t> kDataResponded = {1, 2, 3, 4, 5, 6};
 
   // Arrange.
   global_context()->WillReplyToRequestWith(
       "libusb", "controlTransfer",
-      /*arguments=*/
-      ArrayValueBuilder()
-          .Add(kJsDeviceId)
-          .Add(kJsDeviceHandle)
-          .Add(DictValueBuilder()
-                   .Add("index", kTransferIndex)
-                   .Add("recipient", "endpoint")
-                   .Add("request", kTransferRequest)
-                   .Add("requestType", "standard")
-                   .Add("value", kTransferValue)
-                   .Add("lengthToReceive", kDataLengthRequested)
-                   .Get())
-          .Get(),
-      /*result_to_reply_with=*/
-      DictValueBuilder().Add("receivedData", kDataResponded).Get());
+      MakeExpectedInputControlTransferJsArgs(/*recipient=*/"endpoint",
+                                             /*request_type=*/"standard",
+                                             kDataLengthRequested),
+      MakeInputTransferFakeJsReply(kDataResponded));
 
   // Act.
   std::vector<uint8_t> received_data(kDataLengthRequested);
-  EXPECT_EQ(libusb()->LibusbControlTransfer(
-                device_handle_,
-                LIBUSB_RECIPIENT_ENDPOINT | LIBUSB_REQUEST_TYPE_STANDARD |
-                    LIBUSB_ENDPOINT_IN,
-                kTransferRequest, kTransferValue, kTransferIndex,
-                &received_data[0], received_data.size(), /*timeout=*/100),
-            static_cast<int>(kDataResponded.size()));
+  EXPECT_EQ(
+      libusb()->LibusbControlTransfer(
+          device_handle_,
+          LIBUSB_RECIPIENT_ENDPOINT | LIBUSB_REQUEST_TYPE_STANDARD |
+              LIBUSB_ENDPOINT_IN,
+          kControlTransferRequest, kControlTransferValue, kControlTransferIndex,
+          &received_data[0], received_data.size(), /*timeout=*/100),
+      static_cast<int>(kDataResponded.size()));
   EXPECT_EQ(std::vector<uint8_t>(received_data.begin(),
                                  received_data.begin() + kDataResponded.size()),
             kDataResponded);
@@ -649,82 +892,55 @@ TEST_P(LibusbJsProxyWithDeviceTest, InputControlTransferShorterData) {
 // Tests `LibusbControlTransfer()` failure scenario when JS input transfer
 // returned an error.
 TEST_P(LibusbJsProxyWithDeviceTest, InputControlTransferFailure) {
-  constexpr int kTransferRequest = 1;
-  constexpr int kTransferIndex = 24;
-  constexpr int kTransferValue = 42;
   constexpr int kDataLengthRequested = 100;
 
   // Arrange.
   global_context()->WillReplyToRequestWithError(
       "libusb", "controlTransfer",
-      /*arguments=*/
-      ArrayValueBuilder()
-          .Add(kJsDeviceId)
-          .Add(kJsDeviceHandle)
-          .Add(DictValueBuilder()
-                   .Add("index", kTransferIndex)
-                   .Add("recipient", "device")
-                   .Add("request", kTransferRequest)
-                   .Add("requestType", "vendor")
-                   .Add("value", kTransferValue)
-                   .Add("lengthToReceive", kDataLengthRequested)
-                   .Get())
-          .Get(),
+      MakeExpectedInputControlTransferJsArgs(/*recipient=*/"device",
+                                             /*request_type=*/"vendor",
+                                             kDataLengthRequested),
       /*error_to_reply_with=*/"fake error");
 
   // Act.
   std::vector<uint8_t> received_data(kDataLengthRequested);
-  EXPECT_EQ(libusb()->LibusbControlTransfer(
-                device_handle_,
-                LIBUSB_RECIPIENT_DEVICE | LIBUSB_REQUEST_TYPE_VENDOR |
-                    LIBUSB_ENDPOINT_IN,
-                kTransferRequest, kTransferValue, kTransferIndex,
-                &received_data[0], received_data.size(), /*timeout=*/100),
-            LIBUSB_ERROR_OTHER);
+  EXPECT_EQ(
+      libusb()->LibusbControlTransfer(
+          device_handle_,
+          LIBUSB_RECIPIENT_DEVICE | LIBUSB_REQUEST_TYPE_VENDOR |
+              LIBUSB_ENDPOINT_IN,
+          kControlTransferRequest, kControlTransferValue, kControlTransferIndex,
+          &received_data[0], received_data.size(), /*timeout=*/100),
+      LIBUSB_ERROR_OTHER);
 }
 
 // Tests `LibusbControlTransfer()` timeout scenario for an input transfer.
 TEST_P(LibusbJsProxyWithDeviceTest, InputControlTransferTimeout) {
-  constexpr int kTransferRequest = 1;
-  constexpr int kTransferIndex = 24;
-  constexpr int kTransferValue = 42;
   constexpr int kDataLengthRequested = 100;
 
   // Arrange. Set up the expectation for the request message. We won't reply to
   // this message.
   auto waiter = global_context()->CreateRequestWaiter(
       "libusb", "controlTransfer",
-      /*arguments=*/
-      ArrayValueBuilder()
-          .Add(kJsDeviceId)
-          .Add(kJsDeviceHandle)
-          .Add(DictValueBuilder()
-                   .Add("index", kTransferIndex)
-                   .Add("recipient", "device")
-                   .Add("request", kTransferRequest)
-                   .Add("requestType", "vendor")
-                   .Add("value", kTransferValue)
-                   .Add("lengthToReceive", kDataLengthRequested)
-                   .Get())
-          .Get());
+      MakeExpectedInputControlTransferJsArgs(/*recipient=*/"device",
+                                             /*request_type=*/"vendor",
+                                             kDataLengthRequested));
 
   // Act. This call will block for about a second before returning (we don't
   // verify the clocks to avoid flakiness).
   std::vector<uint8_t> received_data(kDataLengthRequested);
-  EXPECT_EQ(libusb()->LibusbControlTransfer(
-                device_handle_,
-                LIBUSB_RECIPIENT_DEVICE | LIBUSB_REQUEST_TYPE_VENDOR |
-                    LIBUSB_ENDPOINT_IN,
-                kTransferRequest, kTransferValue, kTransferIndex,
-                &received_data[0], received_data.size(), /*timeout=*/1000),
-            LIBUSB_ERROR_OTHER);
+  EXPECT_EQ(
+      libusb()->LibusbControlTransfer(
+          device_handle_,
+          LIBUSB_RECIPIENT_DEVICE | LIBUSB_REQUEST_TYPE_VENDOR |
+              LIBUSB_ENDPOINT_IN,
+          kControlTransferRequest, kControlTransferValue, kControlTransferIndex,
+          &received_data[0], received_data.size(), /*timeout=*/1000),
+      LIBUSB_ERROR_OTHER);
 }
 
 // Tests `LibusbControlTransfer()` timeout scenario for an output transfer.
 TEST_P(LibusbJsProxyWithDeviceTest, OutputControlTransferTimeout) {
-  constexpr int kTransferRequest = 1;
-  constexpr int kTransferIndex = 24;
-  constexpr int kTransferValue = 42;
   // non-const, as LibusbControlTransfer() takes a non-const pointer to it -
   // following libusb's original interface.
   std::vector<uint8_t> data = {1, 2, 3};
@@ -733,19 +949,8 @@ TEST_P(LibusbJsProxyWithDeviceTest, OutputControlTransferTimeout) {
   // this message.
   auto waiter = global_context()->CreateRequestWaiter(
       "libusb", "controlTransfer",
-      /*arguments=*/
-      ArrayValueBuilder()
-          .Add(kJsDeviceId)
-          .Add(kJsDeviceHandle)
-          .Add(DictValueBuilder()
-                   .Add("dataToSend", data)
-                   .Add("index", kTransferIndex)
-                   .Add("recipient", "endpoint")
-                   .Add("request", kTransferRequest)
-                   .Add("requestType", "standard")
-                   .Add("value", kTransferValue)
-                   .Get())
-          .Get());
+      MakeExpectedOutputControlTransferJsArgs(
+          /*recipient=*/"endpoint", /*request_type=*/"standard", data));
 
   // Act. This call will block for about a second before returning (we don't
   // verify the clocks to avoid flakiness).
@@ -753,8 +958,8 @@ TEST_P(LibusbJsProxyWithDeviceTest, OutputControlTransferTimeout) {
                 device_handle_,
                 LIBUSB_RECIPIENT_ENDPOINT | LIBUSB_REQUEST_TYPE_STANDARD |
                     LIBUSB_ENDPOINT_OUT,
-                kTransferRequest, kTransferValue, kTransferIndex, &data[0],
-                data.size(), /*timeout=*/1000),
+                kControlTransferRequest, kControlTransferValue,
+                kControlTransferIndex, &data[0], data.size(), /*timeout=*/1000),
             LIBUSB_ERROR_OTHER);
 }
 
@@ -764,9 +969,6 @@ TEST_P(LibusbJsProxyWithDeviceTest, OutputControlTransferTimeout) {
 // Each transfer request is resolved immediately on the same thread that
 // initiated the transfer.
 TEST_P(LibusbJsProxyWithDeviceTest, ControlTransfersMultiThreadedStressTest) {
-  constexpr int kTransferRequest = 1;
-  constexpr int kTransferIndex = 24;
-  constexpr int kTransferValue = 42;
   const std::vector<uint8_t> kData = {1, 2, 3, 4, 5, 6};
   constexpr int kThreadCount = 10;
   // A high number of transfers increases the chances of catching a bug, but the
@@ -785,37 +987,15 @@ TEST_P(LibusbJsProxyWithDeviceTest, ControlTransfersMultiThreadedStressTest) {
     // - prepare replies for them in advance.
     global_context()->WillReplyToRequestWith(
         "libusb", "controlTransfer",
-        /*arguments=*/
-        ArrayValueBuilder()
-            .Add(kJsDeviceId)
-            .Add(kJsDeviceHandle)
-            .Add(DictValueBuilder()
-                     .Add("index", kTransferIndex)
-                     .Add("recipient", "endpoint")
-                     .Add("request", kTransferRequest)
-                     .Add("requestType", "standard")
-                     .Add("value", kTransferValue)
-                     .Add("lengthToReceive", kData.size())
-                     .Get())
-            .Get(),
-        /*result_to_reply_with=*/
-        DictValueBuilder().Add("receivedData", kData).Get());
+        MakeExpectedInputControlTransferJsArgs(/*recipient=*/"endpoint",
+                                               /*request_type=*/"standard",
+                                               kData.size()),
+        MakeInputTransferFakeJsReply(kData));
     global_context()->WillReplyToRequestWith(
         "libusb", "controlTransfer",
-        /*arguments=*/
-        ArrayValueBuilder()
-            .Add(kJsDeviceId)
-            .Add(kJsDeviceHandle)
-            .Add(DictValueBuilder()
-                     .Add("dataToSend", kData)
-                     .Add("index", kTransferIndex)
-                     .Add("recipient", "endpoint")
-                     .Add("request", kTransferRequest)
-                     .Add("requestType", "standard")
-                     .Add("value", kTransferValue)
-                     .Get())
-            .Get(),
-        /*result_to_reply_with=*/Value(Value::Type::kDictionary));
+        MakeExpectedOutputControlTransferJsArgs(
+            /*recipient=*/"endpoint", /*request_type=*/"standard", kData),
+        MakeOutputTransferFakeJsReply());
   }
 
   // Act.
@@ -829,19 +1009,21 @@ TEST_P(LibusbJsProxyWithDeviceTest, ControlTransfersMultiThreadedStressTest) {
                       device_handle_,
                       LIBUSB_RECIPIENT_ENDPOINT | LIBUSB_REQUEST_TYPE_STANDARD |
                           LIBUSB_ENDPOINT_IN,
-                      kTransferRequest, kTransferValue, kTransferIndex,
-                      &received_data[0], received_data.size(), /*timeout=*/0),
+                      kControlTransferRequest, kControlTransferValue,
+                      kControlTransferIndex, &received_data[0],
+                      received_data.size(), /*timeout=*/0),
                   static_cast<int>(kData.size()));
         EXPECT_EQ(received_data, kData);
         // Test output transfer.
         std::vector<uint8_t> data = kData;
-        EXPECT_EQ(libusb()->LibusbControlTransfer(
-                      device_handle_,
-                      LIBUSB_RECIPIENT_ENDPOINT | LIBUSB_REQUEST_TYPE_STANDARD |
-                          LIBUSB_ENDPOINT_OUT,
-                      kTransferRequest, kTransferValue, kTransferIndex,
-                      &data[0], data.size(), /*timeout=*/0),
-                  static_cast<int>(data.size()));
+        EXPECT_EQ(
+            libusb()->LibusbControlTransfer(
+                device_handle_,
+                LIBUSB_RECIPIENT_ENDPOINT | LIBUSB_REQUEST_TYPE_STANDARD |
+                    LIBUSB_ENDPOINT_OUT,
+                kControlTransferRequest, kControlTransferValue,
+                kControlTransferIndex, &data[0], data.size(), /*timeout=*/0),
+            static_cast<int>(data.size()));
       }
     });
   }
@@ -851,59 +1033,24 @@ TEST_P(LibusbJsProxyWithDeviceTest, ControlTransfersMultiThreadedStressTest) {
 
 // Test an asynchronous input control transfer successful scenario.
 TEST_P(LibusbJsProxyWithDeviceTest, AsyncInputControlTransfer) {
-  constexpr int kTransferRequest = 1;
-  constexpr int kTransferIndex = 24;
-  constexpr int kTransferValue = 42;
   const std::vector<uint8_t> kData = {1, 2, 3, 4, 5, 6};
 
   // Arrange.
   global_context()->WillReplyToRequestWith(
       "libusb", "controlTransfer",
-      /*arguments=*/
-      ArrayValueBuilder()
-          .Add(kJsDeviceId)
-          .Add(kJsDeviceHandle)
-          .Add(DictValueBuilder()
-                   .Add("index", kTransferIndex)
-                   .Add("recipient", "endpoint")
-                   .Add("request", kTransferRequest)
-                   .Add("requestType", "standard")
-                   .Add("value", kTransferValue)
-                   .Add("lengthToReceive", kData.size())
-                   .Get())
-          .Get(),
-      /*result_to_reply_with=*/
-      DictValueBuilder().Add("receivedData", kData).Get());
-  auto transfer_callback = [](libusb_transfer* transfer) {
-    ASSERT_TRUE(transfer);
-    // `user_data` points to `transfer_completed` (a captureless lambda has no
-    // other way of telling the test it's run).
-    *static_cast<bool*>(transfer->user_data) = true;
-  };
+      MakeExpectedInputControlTransferJsArgs(/*recipient=*/"endpoint",
+                                             /*request_type=*/"standard",
+                                             kData.size()),
+      MakeInputTransferFakeJsReply(kData));
 
   // Act.
-  std::vector<uint8_t> setup(LIBUSB_CONTROL_SETUP_SIZE + kData.size());
-  libusb_fill_control_setup(
-      setup.data(),
-      LIBUSB_RECIPIENT_ENDPOINT | LIBUSB_REQUEST_TYPE_STANDARD |
-          LIBUSB_ENDPOINT_IN,
-      kTransferRequest, kTransferValue, kTransferIndex, kData.size());
-
+  std::vector<uint8_t> setup =
+      MakeLibusbInputControlTransferSetup(kData.size());
+  int transfer_completion_flag = 0;
   libusb_transfer* const transfer =
-      libusb()->LibusbAllocTransfer(/*iso_packets=*/0);
+      InitLibusbControlTransfer(/*timeout=*/0, setup, transfer_completion_flag);
   ASSERT_TRUE(transfer);
-  bool transfer_completed = false;
-  libusb_fill_control_transfer(
-      transfer, device_handle_, setup.data(), transfer_callback,
-      /*user_data=*/static_cast<void*>(&transfer_completed),
-      /*timeout=*/0);
-
-  EXPECT_EQ(libusb()->LibusbSubmitTransfer(transfer), LIBUSB_SUCCESS);
-  EXPECT_FALSE(transfer_completed);
-  // Let the fake JS result propagate.
-  do {
-    EXPECT_EQ(libusb()->LibusbHandleEvents(/*ctx=*/nullptr), LIBUSB_SUCCESS);
-  } while (!transfer_completed);
+  SubmitLibusbTransferAndWaitForCompletion(*transfer, transfer_completion_flag);
 
   // Assert.
   EXPECT_EQ(transfer->status, LIBUSB_TRANSFER_COMPLETED);
@@ -918,80 +1065,85 @@ TEST_P(LibusbJsProxyWithDeviceTest, AsyncInputControlTransfer) {
   libusb()->LibusbFreeTransfer(transfer);
 }
 
+// Test an input control transfer when it fails on the JS side.
+TEST_P(LibusbJsProxyWithDeviceTest, AsyncInputControlTransferFailure) {
+  constexpr int kDataLengthRequested = 100;
+
+  // Arrange.
+  global_context()->WillReplyToRequestWithError(
+      "libusb", "controlTransfer",
+      MakeExpectedInputControlTransferJsArgs(/*recipient=*/"endpoint",
+                                             /*request_type=*/"standard",
+                                             kDataLengthRequested),
+      "Fake failure");
+
+  // Act.
+  std::vector<uint8_t> setup =
+      MakeLibusbInputControlTransferSetup(kDataLengthRequested);
+  int transfer_completion_flag = 0;
+  libusb_transfer* transfer =
+      InitLibusbControlTransfer(/*timeout=*/0, setup, transfer_completion_flag);
+  ASSERT_TRUE(transfer);
+  SubmitLibusbTransferAndWaitForCompletion(*transfer, transfer_completion_flag);
+
+  // Assert.
+  EXPECT_EQ(transfer->status, LIBUSB_TRANSFER_ERROR);
+  EXPECT_EQ(transfer->actual_length, 0);
+  // Attempting to cancel a failed transfer fails.
+  EXPECT_NE(libusb()->LibusbCancelTransfer(transfer), LIBUSB_SUCCESS);
+
+  // Cleanup:
+  libusb()->LibusbFreeTransfer(transfer);
+}
+
 // Test the cancellation of an asynchronous input control transfer.
 //
-// Other slight variations of this test as opposed to the above include using
-// the `LIBUSB_TRANSFER_FREE_TRANSFER` flag and `LibusbHandleEventsCompleted()`.
+// This test also has other slight variations compared to the previous ones: it
+// uses the `LIBUSB_TRANSFER_FREE_TRANSFER` flag and the old
+// `LibusbHandleEvents()` API.
 TEST_P(LibusbJsProxyWithDeviceTest, AsyncInputControlTransferCancellation) {
-  constexpr int kTransferRequest = 1;
-  constexpr int kTransferIndex = 24;
-  constexpr int kTransferValue = 42;
   constexpr int kDataLengthRequested = 100;
 
   // Arrange. Set up the expectation for the request message. We won't reply to
   // this message (until after we cancel the transfer).
   auto waiter = global_context()->CreateRequestWaiter(
       "libusb", "controlTransfer",
-      /*arguments=*/
-      ArrayValueBuilder()
-          .Add(kJsDeviceId)
-          .Add(kJsDeviceHandle)
-          .Add(DictValueBuilder()
-                   .Add("index", kTransferIndex)
-                   .Add("recipient", "endpoint")
-                   .Add("request", kTransferRequest)
-                   .Add("requestType", "standard")
-                   .Add("value", kTransferValue)
-                   .Add("lengthToReceive", kDataLengthRequested)
-                   .Get())
-          .Get());
-  auto transfer_callback = [](libusb_transfer* transfer) {
+      MakeExpectedInputControlTransferJsArgs(/*recipient=*/"endpoint",
+                                             /*request_type=*/"standard",
+                                             kDataLengthRequested));
+
+  // Act.
+  std::vector<uint8_t> setup =
+      MakeLibusbInputControlTransferSetup(kDataLengthRequested);
+  int transfer_completion_flag = 0;
+  libusb_transfer* transfer =
+      InitLibusbControlTransfer(/*timeout=*/0, setup, transfer_completion_flag);
+  ASSERT_TRUE(transfer);
+  // In this test we also verify the automatic deallocation of the transfer. We
+  // need to use a custom callback as we can only inspect the transfer state in
+  // callback (the transfer is destroyed afterwards).
+  transfer->flags |= LIBUSB_TRANSFER_FREE_TRANSFER;
+  transfer->callback = [](libusb_transfer* transfer) {
     ASSERT_TRUE(transfer);
     EXPECT_EQ(transfer->status, LIBUSB_TRANSFER_CANCELLED);
     EXPECT_EQ(transfer->actual_length, 0);
-    // `user_data` points to `transfer_completed` (a captureless lambda has no
-    // other way of telling the test it's run).
-    *static_cast<int*>(transfer->user_data) = true;
+    // Execute the default action that sets `transfer_completion_flag`.
+    OnLibusbAsyncTransferCompleted(transfer);
   };
 
-  // Act.
-  std::vector<uint8_t> setup(LIBUSB_CONTROL_SETUP_SIZE + kDataLengthRequested);
-  libusb_fill_control_setup(
-      setup.data(),
-      LIBUSB_RECIPIENT_ENDPOINT | LIBUSB_REQUEST_TYPE_STANDARD |
-          LIBUSB_ENDPOINT_IN,
-      kTransferRequest, kTransferValue, kTransferIndex, kDataLengthRequested);
-
-  libusb_transfer* const transfer =
-      libusb()->LibusbAllocTransfer(/*iso_packets=*/0);
-  ASSERT_TRUE(transfer);
-  int transfer_completed = 0;
-  libusb_fill_control_transfer(
-      transfer, device_handle_, setup.data(), transfer_callback,
-      /*user_data=*/static_cast<void*>(&transfer_completed),
-      /*timeout=*/0);
-  // In this test we also verify the automatic deallocation of the transfer.
-  transfer->flags = LIBUSB_TRANSFER_FREE_TRANSFER;
-
   EXPECT_EQ(libusb()->LibusbSubmitTransfer(transfer), LIBUSB_SUCCESS);
-  EXPECT_FALSE(transfer_completed);
+  EXPECT_FALSE(transfer_completion_flag);
 
   EXPECT_EQ(libusb()->LibusbCancelTransfer(transfer), LIBUSB_SUCCESS);
-  EXPECT_FALSE(transfer_completed);
+  EXPECT_FALSE(transfer_completion_flag);
   // Second attempt to cancel a transfer fails.
   EXPECT_NE(libusb()->LibusbCancelTransfer(transfer), LIBUSB_SUCCESS);
-  EXPECT_FALSE(transfer_completed);
+  EXPECT_FALSE(transfer_completion_flag);
   // Let the cancellation propagate.
-  do {
-    EXPECT_EQ(libusb()->LibusbHandleEventsCompleted(/*ctx=*/nullptr,
-                                                    &transfer_completed),
-              LIBUSB_SUCCESS);
-  } while (!transfer_completed);
+  WaitForLibusbTransferCompletionViaOldApi(transfer_completion_flag);
 
   // A reply from the JS side has no effect for the already canceled transfer.
-  waiter->Reply(/*result_to_reply_with=*/DictValueBuilder()
-                    .Add("receivedData", std::vector<uint8_t>({1, 2, 3}))
-                    .Get());
+  waiter->Reply(MakeInputTransferFakeJsReply({1, 2, 3}));
 
   // Nothing to assert here - due to the `LIBUSB_TRANSFER_FREE_TRANSFER` flag
   // the `transfer` is already deallocated here. All assertions are done inside
@@ -1000,60 +1152,22 @@ TEST_P(LibusbJsProxyWithDeviceTest, AsyncInputControlTransferCancellation) {
 
 // Test an asynchronous output control transfer successful scenario.
 TEST_P(LibusbJsProxyWithDeviceTest, AsyncOutputControlTransfer) {
-  constexpr int kTransferRequest = 1;
-  constexpr int kTransferIndex = 24;
-  constexpr int kTransferValue = 42;
   const std::vector<uint8_t> kData = {1, 2, 3, 4, 5, 6};
 
   // Arrange.
   global_context()->WillReplyToRequestWith(
       "libusb", "controlTransfer",
-      /*arguments=*/
-      ArrayValueBuilder()
-          .Add(kJsDeviceId)
-          .Add(kJsDeviceHandle)
-          .Add(DictValueBuilder()
-                   .Add("index", kTransferIndex)
-                   .Add("recipient", "endpoint")
-                   .Add("request", kTransferRequest)
-                   .Add("requestType", "standard")
-                   .Add("value", kTransferValue)
-                   .Add("dataToSend", kData)
-                   .Get())
-          .Get(),
-      /*result_to_reply_with=*/Value(Value::Type::kDictionary));
-  auto transfer_callback = [](libusb_transfer* transfer) {
-    ASSERT_TRUE(transfer);
-    // `user_data` points to `transfer_completed` (a captureless lambda has no
-    // other way of telling the test it's run).
-    *static_cast<bool*>(transfer->user_data) = true;
-  };
+      MakeExpectedOutputControlTransferJsArgs(
+          /*recipient=*/"endpoint", /*request_type=*/"standard", kData),
+      MakeOutputTransferFakeJsReply());
 
   // Act.
-  std::vector<uint8_t> setup(LIBUSB_CONTROL_SETUP_SIZE + kData.size());
-  libusb_fill_control_setup(
-      setup.data(),
-      LIBUSB_RECIPIENT_ENDPOINT | LIBUSB_REQUEST_TYPE_STANDARD |
-          LIBUSB_ENDPOINT_OUT,
-      kTransferRequest, kTransferValue, kTransferIndex, kData.size());
-  std::copy(kData.begin(), kData.end(),
-            setup.begin() + LIBUSB_CONTROL_SETUP_SIZE);
-
+  std::vector<uint8_t> setup = MakeLibusbOutputControlTransferSetup(kData);
+  int transfer_completion_flag = 0;
   libusb_transfer* const transfer =
-      libusb()->LibusbAllocTransfer(/*iso_packets=*/0);
+      InitLibusbControlTransfer(/*timeout=*/0, setup, transfer_completion_flag);
   ASSERT_TRUE(transfer);
-  bool transfer_completed = false;
-  libusb_fill_control_transfer(
-      transfer, device_handle_, setup.data(), transfer_callback,
-      /*user_data=*/static_cast<void*>(&transfer_completed),
-      /*timeout=*/0);
-
-  EXPECT_EQ(libusb()->LibusbSubmitTransfer(transfer), LIBUSB_SUCCESS);
-  EXPECT_FALSE(transfer_completed);
-  // Let the fake JS result propagate.
-  do {
-    EXPECT_EQ(libusb()->LibusbHandleEvents(/*ctx=*/nullptr), LIBUSB_SUCCESS);
-  } while (!transfer_completed);
+  SubmitLibusbTransferAndWaitForCompletion(*transfer, transfer_completion_flag);
 
   // Assert.
   EXPECT_EQ(transfer->status, LIBUSB_TRANSFER_COMPLETED);
@@ -1065,81 +1179,81 @@ TEST_P(LibusbJsProxyWithDeviceTest, AsyncOutputControlTransfer) {
   libusb()->LibusbFreeTransfer(transfer);
 }
 
+// Test an asynchronous output control transfer when it fails on the JS side.
+TEST_P(LibusbJsProxyWithDeviceTest, AsyncOutputControlTransferFailure) {
+  const std::vector<uint8_t> kData = {1, 2, 3, 4, 5, 6};
+
+  // Arrange.
+  global_context()->WillReplyToRequestWithError(
+      "libusb", "controlTransfer",
+      MakeExpectedOutputControlTransferJsArgs(
+          /*recipient=*/"endpoint", /*request_type=*/"standard", kData),
+      "Fake failure");
+
+  // Act.
+  std::vector<uint8_t> setup = MakeLibusbOutputControlTransferSetup(kData);
+  int transfer_completion_flag = 0;
+  libusb_transfer* const transfer =
+      InitLibusbControlTransfer(/*timeout=*/0, setup, transfer_completion_flag);
+  ASSERT_TRUE(transfer);
+  SubmitLibusbTransferAndWaitForCompletion(*transfer, transfer_completion_flag);
+
+  // Assert.
+  EXPECT_EQ(transfer->status, LIBUSB_TRANSFER_ERROR);
+  EXPECT_EQ(transfer->actual_length, 0);
+  // Attempting to cancel a failed transfer fails.
+  EXPECT_NE(libusb()->LibusbCancelTransfer(transfer), LIBUSB_SUCCESS);
+
+  // Cleanup:
+  libusb()->LibusbFreeTransfer(transfer);
+}
+
 // Test that it's not possible to cancel an asynchronous output control transfer
 // (only cancelling input transfers is supported by our implementation).
 TEST_P(LibusbJsProxyWithDeviceTest, AsyncOutputControlTransferCancellation) {
-  constexpr int kTransferRequest = 1;
-  constexpr int kTransferIndex = 24;
-  constexpr int kTransferValue = 42;
   const std::vector<uint8_t> kData = {1, 2, 3, 4, 5, 6};
 
   // Arrange. Set up the expectation for the request message. We will reply to
   // this message only after attempting to cancel the transfer.
   auto waiter = global_context()->CreateRequestWaiter(
       "libusb", "controlTransfer",
-      /*arguments=*/
-      ArrayValueBuilder()
-          .Add(kJsDeviceId)
-          .Add(kJsDeviceHandle)
-          .Add(DictValueBuilder()
-                   .Add("index", kTransferIndex)
-                   .Add("recipient", "endpoint")
-                   .Add("request", kTransferRequest)
-                   .Add("requestType", "standard")
-                   .Add("value", kTransferValue)
-                   .Add("dataToSend", kData)
-                   .Get())
-          .Get());
-  auto transfer_callback = [](libusb_transfer* transfer) {
+      MakeExpectedOutputControlTransferJsArgs(
+          /*recipient=*/"endpoint", /*request_type=*/"standard", kData));
+
+  // Act.
+  std::vector<uint8_t> setup = MakeLibusbOutputControlTransferSetup(kData);
+  int transfer_completion_flag = 0;
+  libusb_transfer* const transfer =
+      InitLibusbControlTransfer(/*timeout=*/0, setup, transfer_completion_flag);
+  ASSERT_TRUE(transfer);
+  // In this test we also verify the automatic deallocation of the transfer. We
+  // need to use a custom callback as we can only inspect the transfer state in
+  // callback (the transfer is destroyed afterwards).
+  transfer->flags |= LIBUSB_TRANSFER_FREE_TRANSFER;
+  transfer->callback = [](libusb_transfer* transfer) {
     ASSERT_TRUE(transfer);
     EXPECT_EQ(transfer->status, LIBUSB_TRANSFER_COMPLETED);
     // Check `actual_length` equals `kData.size()` (we can't pass it explicitly
     // as we're a captureless lambda).
     EXPECT_EQ(transfer->actual_length, 6);
-
-    // `user_data` points to `transfer_completed` (a captureless lambda has no
-    // other way of telling the test it's run).
-    *static_cast<bool*>(transfer->user_data) = true;
+    // Execute the default action that sets `transfer_completion_flag`.
+    OnLibusbAsyncTransferCompleted(transfer);
   };
-
-  // Act.
-  std::vector<uint8_t> setup(LIBUSB_CONTROL_SETUP_SIZE + kData.size());
-  libusb_fill_control_setup(
-      setup.data(),
-      LIBUSB_RECIPIENT_ENDPOINT | LIBUSB_REQUEST_TYPE_STANDARD |
-          LIBUSB_ENDPOINT_OUT,
-      kTransferRequest, kTransferValue, kTransferIndex, kData.size());
-  std::copy(kData.begin(), kData.end(),
-            setup.begin() + LIBUSB_CONTROL_SETUP_SIZE);
-
-  libusb_transfer* const transfer =
-      libusb()->LibusbAllocTransfer(/*iso_packets=*/0);
-  ASSERT_TRUE(transfer);
-  bool transfer_completed = false;
-  libusb_fill_control_transfer(
-      transfer, device_handle_, setup.data(), transfer_callback,
-      /*user_data=*/static_cast<void*>(&transfer_completed),
-      /*timeout=*/0);
-  // In this test we also verify the automatic deallocation of the transfer.
-  transfer->flags = LIBUSB_TRANSFER_FREE_TRANSFER;
-
   EXPECT_EQ(libusb()->LibusbSubmitTransfer(transfer), LIBUSB_SUCCESS);
 
   // Wait for the JS request to be sent.
   waiter->Wait();
-  EXPECT_FALSE(transfer_completed);
+  EXPECT_FALSE(transfer_completion_flag);
 
   // Attempt to cancel the transfer - this is expected to fail.
   EXPECT_EQ(libusb()->LibusbCancelTransfer(transfer), LIBUSB_ERROR_NOT_FOUND);
 
   // Simulate a successful transfer reply from the JS side.
-  waiter->Reply(/*result_to_reply_with=*/Value(Value::Type::kDictionary));
-  EXPECT_FALSE(transfer_completed);
+  waiter->Reply(MakeOutputTransferFakeJsReply());
+  EXPECT_FALSE(transfer_completion_flag);
 
   // Let the fake JS result propagate.
-  do {
-    EXPECT_EQ(libusb()->LibusbHandleEvents(/*ctx=*/nullptr), LIBUSB_SUCCESS);
-  } while (!transfer_completed);
+  WaitForLibusbTransferCompletion(transfer_completion_flag);
 
   // Nothing to assert here - due to the `LIBUSB_TRANSFER_FREE_TRANSFER` flag
   // the `transfer` is already deallocated here. All assertions are done inside
@@ -1151,9 +1265,6 @@ TEST_P(LibusbJsProxyWithDeviceTest, AsyncOutputControlTransferCancellation) {
 // that was originally sent to the first transfer's request is "rerouted" to the
 // second transfer.
 TEST_P(LibusbJsProxyWithDeviceTest, AsyncInputControlTransferDataRerouting) {
-  constexpr int kTransferRequest = 1;
-  constexpr int kTransferIndex = 24;
-  constexpr int kTransferValue = 42;
   const std::vector<uint8_t> kData = {1, 2, 3, 4, 5, 6};
   // Let two transfers use different timeouts and requested data sizes: these
   // parameters shouldn't affect the "rerouting" of request results.
@@ -1166,83 +1277,41 @@ TEST_P(LibusbJsProxyWithDeviceTest, AsyncInputControlTransferDataRerouting) {
   for (int i = 0; i < 2; ++i) {
     waiters[i] = global_context()->CreateRequestWaiter(
         "libusb", "controlTransfer",
-        /*arguments=*/
-        ArrayValueBuilder()
-            .Add(kJsDeviceId)
-            .Add(kJsDeviceHandle)
-            .Add(DictValueBuilder()
-                     .Add("index", kTransferIndex)
-                     .Add("recipient", "endpoint")
-                     .Add("request", kTransferRequest)
-                     .Add("requestType", "standard")
-                     .Add("value", kTransferValue)
-                     .Add("lengthToReceive", kDataLengthRequested[i])
-                     .Get())
-            .Get());
+        MakeExpectedInputControlTransferJsArgs(/*recipient=*/"endpoint",
+                                               /*request_type=*/"standard",
+                                               kDataLengthRequested[i]));
   }
-  auto transfer_callback = [](libusb_transfer* transfer) {
-    ASSERT_TRUE(transfer);
-    // `user_data` points to `transfer1_completed`/`transfer2_completed` (a
-    // captureless lambda has no other way of telling the test it's run).
-    *static_cast<bool*>(transfer->user_data) = true;
-  };
 
   // Act.
   // Send the first transfer request and cancel it immediately after it's sent.
   // Enclose this block into curly brackets, so that the test verifies that none
   // of the variables is touched when the second transfer runs later.
   {
-    std::vector<uint8_t> setup1(LIBUSB_CONTROL_SETUP_SIZE +
-                                kDataLengthRequested[0]);
-    libusb_fill_control_setup(setup1.data(),
-                              LIBUSB_RECIPIENT_ENDPOINT |
-                                  LIBUSB_REQUEST_TYPE_STANDARD |
-                                  LIBUSB_ENDPOINT_IN,
-                              kTransferRequest, kTransferValue, kTransferIndex,
-                              kDataLengthRequested[0]);
-    libusb_transfer* const transfer1 =
-        libusb()->LibusbAllocTransfer(/*iso_packets=*/0);
+    std::vector<uint8_t> setup1 =
+        MakeLibusbInputControlTransferSetup(kDataLengthRequested[0]);
+    int transfer1_completion_flag = 0;
+    libusb_transfer* const transfer1 = InitLibusbControlTransfer(
+        /*timeout=*/kTimeoutsMs[0], setup1, transfer1_completion_flag);
     ASSERT_TRUE(transfer1);
-    bool transfer1_completed = false;
-    libusb_fill_control_transfer(
-        transfer1, device_handle_, setup1.data(), transfer_callback,
-        /*user_data=*/static_cast<void*>(&transfer1_completed),
-        /*timeout=*/kTimeoutsMs[0]);
     EXPECT_EQ(libusb()->LibusbSubmitTransfer(transfer1), LIBUSB_SUCCESS);
     waiters[0]->Wait();
     EXPECT_EQ(libusb()->LibusbCancelTransfer(transfer1), LIBUSB_SUCCESS);
-    do {
-      EXPECT_EQ(libusb()->LibusbHandleEvents(/*ctx=*/nullptr), LIBUSB_SUCCESS);
-    } while (!transfer1_completed);
+    WaitForLibusbTransferCompletion(transfer1_completion_flag);
     EXPECT_EQ(transfer1->status, LIBUSB_TRANSFER_CANCELLED);
     libusb()->LibusbFreeTransfer(transfer1);
   }
   // Send the second transfer request.
-  std::vector<uint8_t> setup2(LIBUSB_CONTROL_SETUP_SIZE +
-                              kDataLengthRequested[1]);
-  libusb_fill_control_setup(setup2.data(),
-                            LIBUSB_RECIPIENT_ENDPOINT |
-                                LIBUSB_REQUEST_TYPE_STANDARD |
-                                LIBUSB_ENDPOINT_IN,
-                            kTransferRequest, kTransferValue, kTransferIndex,
-                            kDataLengthRequested[1]);
-  libusb_transfer* const transfer2 =
-      libusb()->LibusbAllocTransfer(/*iso_packets=*/0);
+  std::vector<uint8_t> setup2 =
+      MakeLibusbInputControlTransferSetup(kDataLengthRequested[1]);
+  int transfer2_completion_flag = 0;
+  libusb_transfer* const transfer2 = InitLibusbControlTransfer(
+      /*timeout=*/kTimeoutsMs[1], setup2, transfer2_completion_flag);
   ASSERT_TRUE(transfer2);
-  bool transfer2_completed = false;
-  libusb_fill_control_transfer(
-      transfer2, device_handle_, setup2.data(), transfer_callback,
-      /*user_data=*/static_cast<void*>(&transfer2_completed),
-      /*timeout=*/kTimeoutsMs[1]);
   EXPECT_EQ(libusb()->LibusbSubmitTransfer(transfer2), LIBUSB_SUCCESS);
   // Simulate a JS reply to the request initiated by the first transfer.
-  waiters[0]->Reply(/*result_to_reply_with=*/DictValueBuilder()
-                        .Add("receivedData", kData)
-                        .Get());
+  waiters[0]->Reply(MakeInputTransferFakeJsReply(kData));
   // Wait until the second transfer receives the "rerouted" JS reply.
-  do {
-    EXPECT_EQ(libusb()->LibusbHandleEvents(/*ctx=*/nullptr), LIBUSB_SUCCESS);
-  } while (!transfer2_completed);
+  WaitForLibusbTransferCompletion(transfer2_completion_flag);
 
   // Assert.
   EXPECT_EQ(transfer2->status, LIBUSB_TRANSFER_COMPLETED);

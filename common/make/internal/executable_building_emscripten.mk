@@ -144,11 +144,14 @@ EMSCRIPTEN_COMMON_FLAGS += \
 # DEMANGLE_SUPPORT: Demangle C++ function names in stack traces.
 # EXCEPTION_DEBUG: Enables printing exceptions coming from the executable.
 # SAFE_HEAP: Enable memory access checks.
+# Wno-limited-postlink-optimizations: Suppress a warning about limited
+#   optimizations.
 EMSCRIPTEN_LINKER_FLAGS += \
   -s ASSERTIONS=2 \
   -s DEMANGLE_SUPPORT=1 \
   -s EXCEPTION_DEBUG=1 \
   -s SAFE_HEAP=1 \
+  -Wno-limited-postlink-optimizations \
 
 else
 

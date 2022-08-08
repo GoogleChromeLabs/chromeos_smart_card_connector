@@ -515,13 +515,7 @@ int LibusbJsProxy::LibusbOpen(libusb_device* dev,
           std::move(request_result), &error_message, &js_device_handle)) {
     GOOGLE_SMART_CARD_LOG_WARNING << "LibusbOpen request failed: "
                                   << error_message;
-    // Modify the devices (fake) bus number that we report so that PCSC will
-    // retry to connect to the device once it updates the device list.
-    uint32_t new_bus_number =
-        static_cast<uint32_t>(LibusbGetBusNumber(dev)) + 1;
-    if (new_bus_number <= kMaximumBusNumber) {
-      bus_numbers_[dev->js_device().device_id] = new_bus_number;
-    }
+    TryApplyTransientAccessErrorWorkaround(dev);
     return LIBUSB_ERROR_OTHER;
   }
 
@@ -555,6 +549,7 @@ int LibusbJsProxy::LibusbClaimInterface(libusb_device_handle* dev,
   if (!request_result.is_successful()) {
     GOOGLE_SMART_CARD_LOG_WARNING << "LibusbClaimInterface request failed: "
                                   << request_result.error_message();
+    TryApplyTransientAccessErrorWorkaround(dev->device());
     return LIBUSB_ERROR_OTHER;
   }
   return LIBUSB_SUCCESS;
@@ -669,8 +664,10 @@ bool CreateLibusbJsControlTransferParameters(
   }
 
   AssignWithTypeSizeCheck(&result->request, control_setup->bRequest);
-  AssignWithTypeSizeCheck(&result->value, libusb_le16_to_cpu(control_setup->wValue));
-  AssignWithTypeSizeCheck(&result->index, libusb_le16_to_cpu(control_setup->wIndex));
+  AssignWithTypeSizeCheck(&result->value,
+                          libusb_le16_to_cpu(control_setup->wValue));
+  AssignWithTypeSizeCheck(&result->index,
+                          libusb_le16_to_cpu(control_setup->wIndex));
 
   if ((control_setup->bmRequestType & LIBUSB_ENDPOINT_DIR_MASK) ==
       LIBUSB_ENDPOINT_OUT) {
@@ -698,21 +695,26 @@ void CreateLibusbJsGenericTransferParameters(
     result->data_to_send = std::vector<uint8_t>(
         transfer->buffer, transfer->buffer + transfer->length);
   } else {
-    AssignWithTypeSizeCheck(&result->length_to_receive,transfer->length);
+    AssignWithTypeSizeCheck(&result->length_to_receive, transfer->length);
   }
 }
 
 std::function<void(GenericRequestResult)> MakeLibusbJsTransferCallback(
+    const std::string& js_api_name,
     std::weak_ptr<libusb_context> context,
     const UsbTransferDestination& transfer_destination,
     LibusbJsProxy::TransferAsyncRequestStatePtr async_request_state) {
-  return [context, transfer_destination,
+  return [js_api_name, context, transfer_destination,
           async_request_state](GenericRequestResult js_result) {
     const std::shared_ptr<libusb_context> locked_context = context.lock();
     if (!locked_context) {
       // The context that was used for the original transfer submission has been
       // destroyed already.
       return;
+    }
+    if (!js_result.is_successful()) {
+      GOOGLE_SMART_CARD_LOG_INFO << js_api_name
+                                 << " failed: " << js_result.error_message();
     }
     LibusbJsTransferResult js_transfer_result;
     RequestResult<LibusbJsTransferResult> converted_result =
@@ -771,16 +773,23 @@ int LibusbJsProxy::LibusbSubmitTransfer(libusb_transfer* transfer) {
   const auto async_request_state = std::make_shared<TransferAsyncRequestState>(
       WrapLibusbTransferCallback(transfer));
 
+  std::string js_api_name;
   LibusbJsGenericTransferParameters generic_transfer_params;
   LibusbJsControlTransferParameters control_transfer_params;
   switch (transfer->type) {
     case LIBUSB_TRANSFER_TYPE_CONTROL:
+      js_api_name = kJsRequestControlTransfer;
       if (!CreateLibusbJsControlTransferParameters(transfer,
                                                    &control_transfer_params))
         return LIBUSB_ERROR_INVALID_PARAM;
       break;
     case LIBUSB_TRANSFER_TYPE_BULK:
+      js_api_name = kJsRequestBulkTransfer;
+      CreateLibusbJsGenericTransferParameters(transfer,
+                                              &generic_transfer_params);
+      break;
     case LIBUSB_TRANSFER_TYPE_INTERRUPT:
+      js_api_name = kJsRequestInterruptTransfer;
       CreateLibusbJsGenericTransferParameters(transfer,
                                               &generic_transfer_params);
       break;
@@ -795,25 +804,25 @@ int LibusbJsProxy::LibusbSubmitTransfer(libusb_transfer* transfer) {
                                     transfer);
 
   const auto js_api_callback = MakeLibusbJsTransferCallback(
-      contexts_storage_.FindContextByAddress(context), transfer_destination,
-      async_request_state);
+      js_api_name, contexts_storage_.FindContextByAddress(context),
+      transfer_destination, async_request_state);
 
   switch (transfer->type) {
     case LIBUSB_TRANSFER_TYPE_CONTROL:
       js_call_adaptor_.AsyncCall(
-          js_api_callback, kJsRequestControlTransfer,
+          js_api_callback, js_api_name,
           transfer->dev_handle->device()->js_device().device_id,
           transfer->dev_handle->js_device_handle(), control_transfer_params);
       break;
     case LIBUSB_TRANSFER_TYPE_BULK:
       js_call_adaptor_.AsyncCall(
-          js_api_callback, kJsRequestBulkTransfer,
+          js_api_callback, js_api_name,
           transfer->dev_handle->device()->js_device().device_id,
           transfer->dev_handle->js_device_handle(), generic_transfer_params);
       break;
     case LIBUSB_TRANSFER_TYPE_INTERRUPT:
       js_call_adaptor_.AsyncCall(
-          js_api_callback, kJsRequestInterruptTransfer,
+          js_api_callback, js_api_name,
           transfer->dev_handle->device()->js_device().device_id,
           transfer->dev_handle->js_device_handle(), generic_transfer_params);
       break;
@@ -1084,6 +1093,23 @@ int LibusbJsProxy::DoGenericSyncTranfer(libusb_transfer_type transfer_type,
   if (actual_length)
     *actual_length = transfer.actual_length;
   return LibusbTransferStatusToLibusbErrorCode(transfer.status);
+}
+
+void LibusbJsProxy::TryApplyTransientAccessErrorWorkaround(libusb_device* dev) {
+  GOOGLE_SMART_CARD_CHECK(dev);
+
+  // Modify the device's (fake) bus number that we report so that next time the
+  // client code updates the device list it thinks it's a new device. This
+  // allows to work around transient access errors in case the device connection
+  // was taken for the first few seconds after our startup.
+  uint32_t new_bus_number = static_cast<uint32_t>(LibusbGetBusNumber(dev)) + 1;
+  if (new_bus_number > kMaximumBusNumber) {
+    // Don't apply the workaround after this number of times.
+    return;
+  }
+  GOOGLE_SMART_CARD_LOG_INFO << "Applying bus number increment workaround in "
+                                "case the USB access error was transient";
+  bus_numbers_[dev->js_device().device_id] = new_bus_number;
 }
 
 }  // namespace google_smart_card
