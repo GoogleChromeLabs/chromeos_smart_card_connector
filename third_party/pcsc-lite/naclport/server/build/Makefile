@@ -103,7 +103,6 @@ PCSC_LITE_SERVER_SOURCES := \
 	$(PCSC_LITE_SOURCES_PATH)/eventhandler.c \
 	$(PCSC_LITE_SOURCES_PATH)/ifdwrapper.c \
 	$(PCSC_LITE_SOURCES_PATH)/prothandler.c \
-	$(PCSC_LITE_SOURCES_PATH)/utils.c \
 	$(PCSC_LITE_SOURCES_PATH)/winscard.c \
 
 # * PCSCD definition is required to enable compilation of the code that is
@@ -147,6 +146,18 @@ PCSC_LITE_SERVER_SVC_CPPFLAGS := \
 	-Wno-return-type \
 
 $(foreach src,$(PCSC_LITE_SERVER_SVC_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_SVC_CPPFLAGS))))
+
+# Special group just for utils.c.
+PCSC_LITE_SERVER_UTILS_SOURCES := \
+	$(PCSC_LITE_SOURCES_PATH)/utils.c \
+
+# * DCheckForOpenCT: Redefine the CheckForOpenCT() function name, to let the
+#   webport inject its own implementation.
+PCSC_LITE_SERVER_UTILS_CPPFLAGS := \
+	$(PCSC_LITE_SERVER_CPPFLAGS) \
+	-DCheckForOpenCT=CheckForOpenCTOriginal \
+
+$(foreach src,$(PCSC_LITE_SERVER_UTILS_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_UTILS_CPPFLAGS))))
 
 # Special group just for debuglog.c.
 PCSC_LITE_SERVER_DEBUGLOG_SOURCES := \
@@ -216,6 +227,7 @@ PCSC_LITE_SERVER_NACL_SOURCES := \
 	$(SOURCES_PATH)/server_sockets_manager.cc \
 	$(SOURCES_PATH)/sys_nacl.cc \
 	$(SOURCES_PATH)/unistd_nacl.cc \
+	$(SOURCES_PATH)/utils_webport.cc \
 	$(SOURCES_PATH)/winscard_msg_nacl.cc \
 
 PCSC_LITE_SERVER_NACL_CXXFLAGS := \
@@ -231,6 +243,7 @@ $(foreach src,$(PCSC_LITE_SERVER_NACL_SOURCES),$(eval $(call COMPILE_RULE,$(src)
 SOURCES := \
 	$(PCSC_LITE_SERVER_SOURCES) \
 	$(PCSC_LITE_SERVER_SVC_SOURCES) \
+	$(PCSC_LITE_SERVER_UTILS_SOURCES) \
 	$(PCSC_LITE_SERVER_DEBUGLOG_SOURCES) \
 	$(PCSC_LITE_SERVER_HOTPLUG_LIBUSB_SOURCES) \
 	$(PCSC_LITE_CLIENT_SOURCES) \
