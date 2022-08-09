@@ -504,7 +504,7 @@ bool PcscLiteClientRequestProcessor::IsDisconnectFallbackPolicyEnabled() {
   }
 
   return std::find(client_ids.begin(), client_ids.end(),
-                   this->client_name_for_log_) != client_ids.end();
+                   client_name_for_log_) != client_ids.end();
 }
 
 bool PcscLiteClientRequestProcessor::ResetCard(SCARDCONTEXT s_card_context,
@@ -521,7 +521,7 @@ bool PcscLiteClientRequestProcessor::ResetCard(SCARDCONTEXT s_card_context,
                        &active_protocol) != SCARD_S_SUCCESS) {
     return false;
   }
-  return DisconnectCard(&s_card_handle, SCARD_RESET_CARD) == SCARD_S_SUCCESS;
+  return DisconnectCard(s_card_handle, SCARD_RESET_CARD) == SCARD_S_SUCCESS;
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardReconnect(
@@ -576,7 +576,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardDisconnect(
                       DebugDumpSCardDisposition(disposition_action));
   tracer.LogEntrance();
 
-  LONG return_code = DisconnectCard(&s_card_handle, disposition_action);
+  LONG return_code = DisconnectCard(s_card_handle, disposition_action);
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
   tracer.LogExit();
@@ -584,19 +584,19 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardDisconnect(
   return ReturnValues(return_code);
 }
 
-LONG PcscLiteClientRequestProcessor::DisconnectCard(LPSCARDHANDLE s_card_handle,
+LONG PcscLiteClientRequestProcessor::DisconnectCard(SCARDHANDLE s_card_handle,
                                                     DWORD disposition_action) {
-  if (!s_card_handles_registry_.ContainsHandle(*s_card_handle))
+  if (!s_card_handles_registry_.ContainsHandle(s_card_handle))
     return SCARD_E_INVALID_HANDLE;
 
-  LONG return_code = ::SCardDisconnect(*s_card_handle, disposition_action);
+  LONG return_code = ::SCardDisconnect(s_card_handle, disposition_action);
 
   // Catch when PC/SC-Lite core, unlike us, thinks the handle doesn't exist.
   if (return_code == SCARD_E_INVALID_HANDLE)
-    OnSCardHandleRevoked(*s_card_handle);
+    OnSCardHandleRevoked(s_card_handle);
 
   if (return_code == SCARD_S_SUCCESS)
-    s_card_handles_registry_.RemoveHandle(*s_card_handle);
+    s_card_handles_registry_.RemoveHandle(s_card_handle);
 
   return return_code;
 }

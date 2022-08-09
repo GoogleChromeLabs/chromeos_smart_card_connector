@@ -193,7 +193,7 @@ class PcscLiteClientRequestProcessor final
                                       DWORD initialization_action);
   GenericRequestResult SCardDisconnect(SCARDHANDLE s_card_handle,
                                        DWORD disposition_action);
-  LONG DisconnectCard(LPSCARDHANDLE s_card_handle, DWORD disposition_action);
+  LONG DisconnectCard(SCARDHANDLE s_card_handle, DWORD disposition_action);
   GenericRequestResult SCardBeginTransaction(SCARDHANDLE s_card_handle);
   GenericRequestResult SCardEndTransaction(SCARDHANDLE s_card_handle,
                                            DWORD disposition_action);
