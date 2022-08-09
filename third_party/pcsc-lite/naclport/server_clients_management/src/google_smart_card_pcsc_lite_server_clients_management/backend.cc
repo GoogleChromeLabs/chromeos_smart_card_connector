@@ -50,11 +50,10 @@ class PcscLiteServerClientsManagementBackend::Impl final {
 
 PcscLiteServerClientsManagementBackend::PcscLiteServerClientsManagementBackend(
     GlobalContext* global_context,
-    TypedMessageRouter* typed_message_router,
-    AdminPolicyGetter* admin_policy_getter)
-    : impl_(
-          new Impl(global_context, typed_message_router, admin_policy_getter)) {
-}
+    TypedMessageRouter* typed_message_router)
+    : impl_(new Impl(global_context,
+                     typed_message_router,
+                     &admin_policy_getter_)) {}
 
 PcscLiteServerClientsManagementBackend::
     ~PcscLiteServerClientsManagementBackend() {}

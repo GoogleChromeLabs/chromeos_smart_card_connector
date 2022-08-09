@@ -286,6 +286,8 @@ function createAdminPolicyService() {
         'Could not create AdminPolicyService as the server is disposed.');
     return;
   }
+  // This object's lifetime is bound to the message channel's one, hence we
+  // don't need to store it in a variable.
   new GSC.PcscLiteServerClientsManagement.AdminPolicyService(
       executableModule.getMessageChannel(), pcscLiteReadinessTracker);
 }

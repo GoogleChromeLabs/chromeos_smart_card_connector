@@ -48,8 +48,7 @@ class PcscLiteServerClientsManagementBackend final {
  public:
   PcscLiteServerClientsManagementBackend(
       GlobalContext* global_context,
-      TypedMessageRouter* typed_message_router,
-      AdminPolicyGetter* admin_policy_getter);
+      TypedMessageRouter* typed_message_router);
 
   PcscLiteServerClientsManagementBackend(
       const PcscLiteServerClientsManagementBackend&) = delete;
@@ -61,6 +60,7 @@ class PcscLiteServerClientsManagementBackend final {
  private:
   class Impl;
 
+  AdminPolicyGetter admin_policy_getter_;
   std::unique_ptr<Impl> impl_;
 };
 

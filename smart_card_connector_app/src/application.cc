@@ -30,7 +30,6 @@
 
 #include "third_party/libusb/webport/src/public/libusb_web_port_service.h"
 #include "third_party/pcsc-lite/naclport/server/src/public/pcsc_lite_server_web_port_service.h"
-#include "third_party/pcsc-lite/naclport/server_clients_management/src/admin_policy_getter.h"
 
 namespace google_smart_card {
 
@@ -70,8 +69,8 @@ void Application::InitializeServicesOnBackgroundThread() {
   pcsc_lite_server_web_port_service_->InitializeAndRunDaemonThread();
 
   pcsc_lite_server_clients_management_backend_ =
-      MakeUnique<PcscLiteServerClientsManagementBackend>(
-          global_context_, typed_message_router_, &admin_policy_getter_);
+      MakeUnique<PcscLiteServerClientsManagementBackend>(global_context_,
+                                                         typed_message_router_);
 
   GOOGLE_SMART_CARD_LOG_DEBUG << "All services are successfully "
                               << "initialized, posting ready message...";

@@ -171,32 +171,29 @@ class PcscLiteClientRequestProcessor final
                                     const std::string& reader_name,
                                     DWORD share_mode,
                                     DWORD preferred_protocols);
-  LONG SCardConnect(SCARDCONTEXT s_card_context,
-                    const std::string& reader_name,
-                    DWORD share_mode,
-                    DWORD preferred_protocols,
-                    LPSCARDHANDLE s_card_handle,
-                    LPDWORD active_protocol,
-                    bool update_card_handles_registry,
-                    bool handle_protocol_mismatch_error);
-  LONG SCardConnectHandleProtocolMismatchError(SCARDCONTEXT s_card_context,
-                                               const std::string& reader_name,
-                                               DWORD share_mode,
-                                               DWORD preferred_protocols,
-                                               LPSCARDHANDLE s_card_handle,
-                                               LPDWORD active_protocol);
-  bool SCardConnectAttemptReset(SCARDCONTEXT s_card_context,
-                                const std::string& reader_name,
-                                DWORD share_mode);
+  LONG ObtainCardHandleWithFallback(SCARDCONTEXT s_card_context,
+                                    const std::string& reader_name,
+                                    DWORD share_mode,
+                                    DWORD preferred_protocols,
+                                    LPSCARDHANDLE s_card_handle,
+                                    LPDWORD active_protocol);
+  LONG ObtainCardHandle(SCARDCONTEXT s_card_context,
+                        const std::string& reader_name,
+                        DWORD share_mode,
+                        DWORD preferred_protocols,
+                        LPSCARDHANDLE s_card_handle,
+                        LPDWORD active_protocol);
+  bool IsDisconnectFallbackPolicyEnabled();
+  bool ResetCard(SCARDCONTEXT s_card_context,
+                 const std::string& reader_name,
+                 DWORD share_mode);
   GenericRequestResult SCardReconnect(SCARDHANDLE s_card_handle,
                                       DWORD share_mode,
                                       DWORD preferred_protocols,
                                       DWORD initialization_action);
   GenericRequestResult SCardDisconnect(SCARDHANDLE s_card_handle,
                                        DWORD disposition_action);
-  LONG SCardDisconnect(SCARDHANDLE s_card_handle,
-                       DWORD disposition_action,
-                       bool update_card_handles_registry);
+  LONG DisconnectCard(LPSCARDHANDLE s_card_handle, DWORD disposition_action);
   GenericRequestResult SCardBeginTransaction(SCARDHANDLE s_card_handle);
   GenericRequestResult SCardEndTransaction(SCARDHANDLE s_card_handle,
                                            DWORD disposition_action);
@@ -235,7 +232,7 @@ class PcscLiteClientRequestProcessor final
   const std::string client_name_for_log_;
   const LogSeverity status_log_severity_;
   const std::string logging_prefix_;
-  AdminPolicyGetter* admin_policy_getter_;
+  AdminPolicyGetter* const admin_policy_getter_;
   HandlerMap handler_map_;
   // Stores PC/SC-Lite contexts and handles that belong to this client. This is
   // used to implement the client isolation: one client shouldn't be able to use

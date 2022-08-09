@@ -24,7 +24,6 @@
 
 #include "third_party/libusb/webport/src/public/libusb_web_port_service.h"
 #include "third_party/pcsc-lite/naclport/server/src/public/pcsc_lite_server_web_port_service.h"
-#include "third_party/pcsc-lite/naclport/server_clients_management/src/admin_policy_getter.h"
 
 namespace google_smart_card {
 
@@ -65,7 +64,6 @@ class Application final {
 
   GlobalContext* const global_context_;
   TypedMessageRouter* const typed_message_router_;
-  AdminPolicyGetter admin_policy_getter_;
   std::function<void()> background_initialization_callback_;
   std::unique_ptr<LibusbWebPortService> libusb_web_port_service_;
   std::unique_ptr<PcscLiteServerClientsManagementBackend>

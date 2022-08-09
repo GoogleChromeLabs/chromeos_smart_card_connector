@@ -1080,7 +1080,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
   SetUpSCardContext();
 
   // Simulate an empty UpdateAdminPolicy message to unblock the WaitAndGet()
-  // call. This is normally send when admin-policy-service.js is first
+  // call. This is normally sent when admin-policy-service.js is first
   // initialized.
   SimulateFakeJsMessage("update_admin_policy", {});
 
@@ -1125,13 +1125,11 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
   SetUpSCardContext();
 
   // Simulate an UpdateAdminPolicy message to allowlist the client.
-  std::vector<std::string> scard_disconnect_fallback_client_app_ids;
-  scard_disconnect_fallback_client_app_ids.push_back(kFakeClientNameForLog);
   SimulateFakeJsMessage(
       "update_admin_policy",
       DictValueBuilder()
           .Add("scard_disconnect_fallback_client_app_ids",
-               std::move(scard_disconnect_fallback_client_app_ids))
+               ArrayValueBuilder().Add(kFakeClientNameForLog).Get())
           .Get());
 
   // Act:

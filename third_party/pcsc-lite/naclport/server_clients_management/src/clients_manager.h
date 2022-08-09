@@ -169,7 +169,7 @@ class PcscLiteServerClientsManager final {
 
   GlobalContext* const global_context_;
   TypedMessageRouter* typed_message_router_;
-  AdminPolicyGetter* admin_policy_getter_;
+  AdminPolicyGetter* const admin_policy_getter_;
   CreateHandlerMessageListener create_handler_message_listener_;
   DeleteHandlerMessageListener delete_handler_message_listener_;
   std::unordered_map<int64_t, std::unique_ptr<Handler>> handler_map_;
