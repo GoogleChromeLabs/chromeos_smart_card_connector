@@ -171,6 +171,20 @@ class PcscLiteClientRequestProcessor final
                                     const std::string& reader_name,
                                     DWORD share_mode,
                                     DWORD preferred_protocols);
+  LONG SCardConnect(SCARDCONTEXT s_card_context,
+                    const std::string& reader_name,
+                    DWORD share_mode,
+                    DWORD preferred_protocols,
+                    LPSCARDHANDLE s_card_handle,
+                    LPDWORD active_protocol,
+                    bool update_card_handles_registry,
+                    bool handle_protocol_mismatch_error);
+  LONG SCardConnectHandleProtocolMismatchError(SCARDCONTEXT s_card_context,
+                                               const std::string& reader_name,
+                                               DWORD share_mode,
+                                               DWORD preferred_protocols,
+                                               LPSCARDHANDLE s_card_handle,
+                                               LPDWORD active_protocol);
   bool SCardConnectAttemptReset(SCARDCONTEXT s_card_context,
                                 const std::string& reader_name,
                                 DWORD share_mode);
@@ -180,6 +194,9 @@ class PcscLiteClientRequestProcessor final
                                       DWORD initialization_action);
   GenericRequestResult SCardDisconnect(SCARDHANDLE s_card_handle,
                                        DWORD disposition_action);
+  LONG SCardDisconnect(SCARDHANDLE s_card_handle,
+                       DWORD disposition_action,
+                       bool update_card_handles_registry);
   GenericRequestResult SCardBeginTransaction(SCARDHANDLE s_card_handle);
   GenericRequestResult SCardEndTransaction(SCARDHANDLE s_card_handle,
                                            DWORD disposition_action);

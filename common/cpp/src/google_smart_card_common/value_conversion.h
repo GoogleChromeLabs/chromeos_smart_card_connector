@@ -384,6 +384,8 @@ class StructValueDescriptor {
       return std::move(*this);
     }
 
+    // If called, the value-to-struct conversion will ignore unexpected
+    // dictionary keys.
     Description&& PermitUnknownFields() && {
       if (from_value_converter_)
         from_value_converter_->PermitUnexpectedKeys();

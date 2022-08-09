@@ -405,6 +405,28 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardConnect(
     const std::string& reader_name,
     DWORD share_mode,
     DWORD preferred_protocols) {
+  SCARDHANDLE s_card_handle;
+  DWORD active_protocol;
+  LONG return_code = SCardConnect(
+      s_card_context, reader_name, share_mode, preferred_protocols,
+      &s_card_handle, &active_protocol, /*update_card_handles_registry=*/true,
+      /*handle_protocol_mismatch_error=*/true);
+
+  if (return_code != SCARD_S_SUCCESS)
+    return ReturnValues(return_code);
+
+  return ReturnValues(return_code, s_card_handle, active_protocol);
+}
+
+LONG PcscLiteClientRequestProcessor::SCardConnect(
+    SCARDCONTEXT s_card_context,
+    const std::string& reader_name,
+    DWORD share_mode,
+    DWORD preferred_protocols,
+    LPSCARDHANDLE s_card_handle,
+    LPDWORD active_protocol,
+    bool update_card_handles_registry,
+    bool handle_protocol_mismatch_error) {
   FunctionCallTracer tracer("SCardConnect", logging_prefix_,
                             status_log_severity_);
   tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
@@ -415,130 +437,116 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardConnect(
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
-  if (!s_card_handles_registry_.ContainsContext(s_card_context))
+  if (update_card_handles_registry &&
+      !s_card_handles_registry_.ContainsContext(s_card_context)) {
     return_code = SCARD_E_INVALID_HANDLE;
+  }
 
-  SCARDHANDLE s_card_handle;
-  DWORD active_protocol;
   if (return_code == SCARD_S_SUCCESS) {
     return_code =
         ::SCardConnect(s_card_context, reader_name.c_str(), share_mode,
-                       preferred_protocols, &s_card_handle, &active_protocol);
+                       preferred_protocols, s_card_handle, active_protocol);
 
     // Catch when PC/SC-Lite core, unlike us, thinks the context doesn't exist.
     if (return_code == SCARD_E_INVALID_HANDLE)
       OnSCardContextRevoked(s_card_context);
   }
 
-  if (return_code == SCARD_E_PROTO_MISMATCH) {
-    // If SCardConnect fails with SCARD_E_PROTO_MISMATCH it could be because a
-    // client application did not correctly reset the card and is now trying to
-    // reuse the previous connection but requires a different protocol. If
-    // allowed by admin policy, disconnect and reset the card, and retry
-    // connecting to it.
-
-    optional<AdminPolicy> admin_policy = admin_policy_getter_->WaitAndGet();
-    std::vector<std::string> client_ids;
-    if (admin_policy &&
-        admin_policy.value().scard_disconnect_fallback_client_app_ids) {
-      client_ids =
-          admin_policy.value().scard_disconnect_fallback_client_app_ids.value();
-    }
-
-    if (std::find(client_ids.begin(), client_ids.end(),
-                  this->client_name_for_log_) != client_ids.end()) {
-      GOOGLE_SMART_CARD_LOG_INFO
-          << logging_prefix_ << "SCardConnect failed with a protocol mismatch "
-          << "error. Attempting SCardDisconnect fallback: disconnecting and "
-          << "resetting any previous connections for context "
-          << DebugDumpSCardContext(s_card_context);
-
-      bool reset_successful =
-          SCardConnectAttemptReset(s_card_context, reader_name, share_mode);
-      if (reset_successful) {
-        GOOGLE_SMART_CARD_LOG_DEBUG
-            << logging_prefix_ << "Card reset finished successfully. Retrying "
-            << "to establish the requested SCardConnect connection ...";
-
-        return_code = ::SCardConnect(s_card_context, reader_name.c_str(),
-                                     share_mode, preferred_protocols,
-                                     &s_card_handle, &active_protocol);
-      }
-
-      if (return_code != SCARD_S_SUCCESS) {
-        GOOGLE_SMART_CARD_LOG_INFO
-            << logging_prefix_ << "SCardDisconnect fallback was unsuccessful.";
-      }
-    }
+  if (return_code == SCARD_E_PROTO_MISMATCH && handle_protocol_mismatch_error) {
+    return_code = SCardConnectHandleProtocolMismatchError(
+        s_card_context, reader_name, share_mode, preferred_protocols,
+        s_card_handle, active_protocol);
   }
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
   if (return_code == SCARD_S_SUCCESS) {
-    tracer.AddReturnedArg("hCard", DebugDumpSCardHandle(s_card_handle));
+    tracer.AddReturnedArg("hCard", DebugDumpSCardHandle(*s_card_handle));
     tracer.AddReturnedArg("dwActiveProtocol",
-                          DebugDumpSCardProtocol(active_protocol));
+                          DebugDumpSCardProtocol(*active_protocol));
   }
   tracer.LogExit();
 
-  if (return_code != SCARD_S_SUCCESS)
-    return ReturnValues(return_code);
-  s_card_handles_registry_.AddHandle(s_card_context, s_card_handle);
-  return ReturnValues(return_code, s_card_handle, active_protocol);
+  if (return_code == SCARD_S_SUCCESS && update_card_handles_registry)
+    s_card_handles_registry_.AddHandle(s_card_context, *s_card_handle);
+
+  return return_code;
+}
+
+LONG PcscLiteClientRequestProcessor::SCardConnectHandleProtocolMismatchError(
+    SCARDCONTEXT s_card_context,
+    const std::string& reader_name,
+    DWORD share_mode,
+    DWORD preferred_protocols,
+    LPSCARDHANDLE s_card_handle,
+    LPDWORD active_protocol) {
+  LONG return_code = SCARD_E_PROTO_MISMATCH;
+  // If SCardConnect fails with SCARD_E_PROTO_MISMATCH it could be because a
+  // client application did not correctly reset the card and is now trying to
+  // reuse the previous connection although it requires a different protocol. If
+  // allowed by admin policy, disconnect and reset the card, and retry
+  // connecting to it.
+
+  optional<AdminPolicy> admin_policy = admin_policy_getter_->WaitAndGet();
+  std::vector<std::string> client_ids;
+  if (admin_policy &&
+      admin_policy.value().scard_disconnect_fallback_client_app_ids) {
+    client_ids =
+        admin_policy.value().scard_disconnect_fallback_client_app_ids.value();
+  }
+
+  if (std::find(client_ids.begin(), client_ids.end(),
+                this->client_name_for_log_) != client_ids.end()) {
+    GOOGLE_SMART_CARD_LOG_INFO
+        << logging_prefix_ << "SCardConnect failed with a protocol mismatch "
+        << "error. Attempting SCardDisconnect fallback: disconnecting and "
+        << "resetting any previous connections for context "
+        << DebugDumpSCardContext(s_card_context);
+
+    bool reset_successful =
+        SCardConnectAttemptReset(s_card_context, reader_name, share_mode);
+    if (reset_successful) {
+      GOOGLE_SMART_CARD_LOG_DEBUG
+          << logging_prefix_ << "Card reset finished successfully. Retrying "
+          << "to establish the requested SCardConnect connection ...";
+
+      return_code =
+          ::SCardConnect(s_card_context, reader_name.c_str(), share_mode,
+                         preferred_protocols, s_card_handle, active_protocol);
+    }
+
+    if (return_code != SCARD_S_SUCCESS) {
+      GOOGLE_SMART_CARD_LOG_INFO
+          << logging_prefix_ << "SCardDisconnect fallback was unsuccessful.";
+    }
+  }
+
+  return return_code;
 }
 
 bool PcscLiteClientRequestProcessor::SCardConnectAttemptReset(
     SCARDCONTEXT s_card_context,
     const std::string& reader_name,
     DWORD share_mode) {
-  // Try to get an s_card_handle by connecting using any protocol.
+  // Try to get an s_card_handle by performing SCardConnect using any protocol
+  // and without checking or updating the card handle registry. Do not handle
+  // potential protocol mismatch errors since at this point the reset attempt is
+  // already doing that.
   DWORD preferred_protocols =
-      SCARD_PROTOCOL_ANY|SCARD_PROTOCOL_RAW|SCARD_PROTOCOL_T15;
-  FunctionCallTracer tracer_connect("SCardConnect", logging_prefix_,
-                                    status_log_severity_);
-  tracer_connect.AddPassedArg("hContext",
-                              DebugDumpSCardContext(s_card_context));
-  tracer_connect.AddPassedArg("szReader", '"' + reader_name + '"');
-  tracer_connect.AddPassedArg("dwShareMode",
-                              DebugDumpSCardShareMode(share_mode));
-  tracer_connect.AddPassedArg("dwPreferredProtocols",
-                              DebugDumpSCardProtocols(preferred_protocols));
-  tracer_connect.LogEntrance();
-
+      SCARD_PROTOCOL_ANY | SCARD_PROTOCOL_RAW | SCARD_PROTOCOL_T15;
   SCARDHANDLE s_card_handle;
   DWORD active_protocol;
   LONG return_code_connect =
-      ::SCardConnect(s_card_context, reader_name.c_str(), share_mode,
-                     preferred_protocols, &s_card_handle, &active_protocol);
-
-  tracer_connect.AddReturnValue(DebugDumpSCardReturnCode(return_code_connect));
-  if (return_code_connect == SCARD_S_SUCCESS) {
-    tracer_connect.AddReturnedArg("hCard", DebugDumpSCardHandle(s_card_handle));
-    tracer_connect.AddReturnedArg("dwActiveProtocol",
-                                  DebugDumpSCardProtocol(active_protocol));
-  }
-  tracer_connect.LogExit();
+      SCardConnect(s_card_context, reader_name, share_mode, preferred_protocols,
+                   &s_card_handle, &active_protocol,
+                   /*update_card_handles_registry=*/false,
+                   /*handle_protocol_mismatch_error=*/false);
 
   if (return_code_connect != SCARD_S_SUCCESS || !s_card_handle)
     return false;
 
   // Reset the card.
-  FunctionCallTracer tracer_disconnect("SCardDisconnect", logging_prefix_,
-                                       status_log_severity_);
-  tracer_disconnect.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
-  tracer_disconnect.AddPassedArg("dwDisposition",
-                                 DebugDumpSCardDisposition(SCARD_RESET_CARD));
-  tracer_disconnect.LogEntrance();
-
-  LONG return_code_disconnect =
-      ::SCardDisconnect(s_card_handle, SCARD_RESET_CARD);
-
-  // Catch when PC/SC-Lite core, unlike us, thinks the handle doesn't exist.
-  if (return_code_disconnect == SCARD_E_INVALID_HANDLE)
-    OnSCardHandleRevoked(s_card_handle);
-
-  tracer_disconnect.AddReturnValue(
-      DebugDumpSCardReturnCode(return_code_disconnect));
-  tracer_disconnect.LogExit();
+  LONG return_code_disconnect = SCardDisconnect(
+      s_card_handle, SCARD_RESET_CARD, /*update_card_handles_registry=*/false);
 
   return return_code_disconnect == SCARD_S_SUCCESS;
 }
@@ -588,6 +596,16 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardReconnect(
 GenericRequestResult PcscLiteClientRequestProcessor::SCardDisconnect(
     SCARDHANDLE s_card_handle,
     DWORD disposition_action) {
+  LONG return_code = SCardDisconnect(s_card_handle, disposition_action,
+                                     /*update_card_handles_registry=*/true);
+
+  return ReturnValues(return_code);
+}
+
+LONG PcscLiteClientRequestProcessor::SCardDisconnect(
+    SCARDHANDLE s_card_handle,
+    DWORD disposition_action,
+    bool update_card_handles_registry) {
   FunctionCallTracer tracer("SCardDisconnect", logging_prefix_,
                             status_log_severity_);
   tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
@@ -596,8 +614,11 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardDisconnect(
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
-  if (!s_card_handles_registry_.ContainsHandle(s_card_handle))
+
+  if (update_card_handles_registry &&
+      !s_card_handles_registry_.ContainsHandle(s_card_handle)) {
     return_code = SCARD_E_INVALID_HANDLE;
+  }
 
   if (return_code == SCARD_S_SUCCESS) {
     return_code = ::SCardDisconnect(s_card_handle, disposition_action);
@@ -610,9 +631,9 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardDisconnect(
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
   tracer.LogExit();
 
-  if (return_code == SCARD_S_SUCCESS)
+  if (return_code == SCARD_S_SUCCESS && update_card_handles_registry)
     s_card_handles_registry_.RemoveHandle(s_card_handle);
-  return ReturnValues(return_code);
+  return return_code;
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardBeginTransaction(

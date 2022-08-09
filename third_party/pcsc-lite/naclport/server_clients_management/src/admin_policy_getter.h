@@ -47,7 +47,7 @@ class AdminPolicyGetter final : public TypedMessageListener {
   optional<AdminPolicy> WaitAndGet();
 
   // Replace the currently cached policy with |admin_policy|.
-  void UpdateAdminPolicy(const AdminPolicy admin_policy);
+  void UpdateAdminPolicy(const AdminPolicy& admin_policy);
 
   // Switches into the "shutting down" state. This makes all ongoing and future
   // `WaitAndGet()` calls return a null optional.
@@ -60,8 +60,7 @@ class AdminPolicyGetter final : public TypedMessageListener {
  private:
   std::mutex mutex_;
   std::condition_variable condition_variable_;
-  AdminPolicy admin_policy_;
-  bool admin_policy_received_ = false;
+  optional<AdminPolicy> admin_policy_;
   bool shutting_down_ = false;
 };
 

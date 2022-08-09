@@ -278,7 +278,7 @@ function getOrCreateSingleMessageBasedChannel(senderExtensionId) {
  * Creates the class that provides the C++ layer with the AdminPolicy obtained
  * from the managed storage.
  */
- function createAdminPolicyService() {
+function createAdminPolicyService() {
   if (executableModule.isDisposed() ||
       executableModule.getMessageChannel().isDisposed()) {
     goog.log.warning(

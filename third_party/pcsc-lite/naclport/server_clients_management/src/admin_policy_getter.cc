@@ -25,6 +25,9 @@ namespace google_smart_card {
 
 namespace {
 
+// Message type used to signal updates to the admin policy. This must match the
+// constant in
+// //third_party/pcsc-lite/naclport/server_clients_management/src/admin-policy-service.js.
 constexpr char kUpdateAdminPolicyMessageType[] = "update_admin_policy";
 
 }  // namespace
@@ -33,7 +36,7 @@ template <>
 StructValueDescriptor<AdminPolicy>::Description
 StructValueDescriptor<AdminPolicy>::GetDescription() {
   // Note: Strings passed to WithField() below must match the keys in
-  // //third_party/pcsc-lite/naclport/server_clients_management/src/client-handler.js.
+  // //smart_card_connector/src/managed_storage_schema.json
   return Describe("AdminPolicy")
       .WithField(&AdminPolicy::force_allowed_client_app_ids,
                  "force_allowed_client_app_ids")
@@ -44,14 +47,16 @@ StructValueDescriptor<AdminPolicy>::GetDescription() {
 
 AdminPolicyGetter::AdminPolicyGetter() = default;
 
-AdminPolicyGetter::~AdminPolicyGetter() = default;
+AdminPolicyGetter::~AdminPolicyGetter() {
+  if (!shutting_down_)
+    ShutDown();
+}
 
 optional<AdminPolicy> AdminPolicyGetter::WaitAndGet() {
   // Wait until the policy is received for the first time
   std::unique_lock<std::mutex> lock(mutex_);
-  condition_variable_.wait(lock, [this]() {
-    return shutting_down_ || admin_policy_received_;
-  });
+  condition_variable_.wait(
+      lock, [this]() { return shutting_down_ || admin_policy_; });
   if (shutting_down_)
     return {};
   return admin_policy_;
@@ -73,14 +78,15 @@ bool AdminPolicyGetter::OnTypedMessageReceived(Value data) {
   if (!ConvertFromValue(std::move(data), &message_data, &error_message)) {
     GOOGLE_SMART_CARD_LOG_WARNING << "Failed to parse admin policy message: "
                                   << error_message;
-    return false;
+    // Continue in order to pretend that an empty policy value was received to
+    // unblock WaitAndGet() callers.
   }
 
-  this->UpdateAdminPolicy(message_data);
+  UpdateAdminPolicy(message_data);
   return true;
 }
 
-void AdminPolicyGetter::UpdateAdminPolicy(const AdminPolicy admin_policy) {
+void AdminPolicyGetter::UpdateAdminPolicy(const AdminPolicy& admin_policy) {
   const std::unique_lock<std::mutex> lock(mutex_);
 
   Value value;
@@ -90,7 +96,6 @@ void AdminPolicyGetter::UpdateAdminPolicy(const AdminPolicy admin_policy) {
         << DebugDumpValueFull(value);
   }
   admin_policy_ = admin_policy;
-  admin_policy_received_ = true;
 
   condition_variable_.notify_all();
 }

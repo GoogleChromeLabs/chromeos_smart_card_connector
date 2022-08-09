@@ -1074,6 +1074,11 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
   SetUpJsClient();
   SetUpSCardContext();
 
+  // Simulate an empty UpdateAdminPolicy message to unblock the WaitAndGet()
+  // call. This is normally send when admin-policy-service.js is first
+  // initialized.
+  SimulateFakeJsMessage("update_admin_policy", {});
+
   // Act:
   // Connect via the "RAW" protocol and disconnect.
   SCARDHANDLE scard_handle = 0;
@@ -1143,10 +1148,12 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
   // T1").
   LONG return_code = SimulateConnectCallFromJsClient(
       kFakeHandlerId, scard_context(), kGemaltoPcTwinReaderPcscName0,
-      SCARD_SHARE_SHARED, SCARD_PROTOCOL_ANY, scard_handle, active_protocol);
+      SCARD_SHARE_SHARED, /*preferred_protocols=*/SCARD_PROTOCOL_ANY,
+      scard_handle, active_protocol);
 
   // Assert:
   EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+  EXPECT_EQ(active_protocol, static_cast<DWORD>(SCARD_PROTOCOL_T1));
 }
 
 // `SCardConnect()` call from JS successfully connects via the "T1" protocol if

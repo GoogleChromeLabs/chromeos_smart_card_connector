@@ -35,14 +35,16 @@ goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker')
 goog.require('goog.Disposable');
 goog.require('goog.log');
 goog.require('goog.log.Logger');
-goog.require('goog.object');
 goog.require('goog.messaging.AbstractChannel');
+goog.require('goog.object');
 
 goog.scope(function() {
 
 /**
  * Service name that is used for the message to the PC/SC server that the admin
- * policy has been updated.
+ * policy has been updated. The constant in
+ * //third_party/pcsc-lite/naclport/server_clients_management/src/admin_policy_getter.cc
+ * must match this value.
  *
  * The message data will contain the data of the new admin policy.
  */
@@ -130,7 +132,7 @@ AdminPolicyService.prototype.loadManagedStorage_ = function() {
  * @private
  */
 AdminPolicyService.prototype.managedStorageLoadedCallback_ = function(items) {
-  goog.log.fine(
+  goog.log.info(
       this.logger,
       'Loaded the following data from the managed storage: ' +
           GSC.DebugDump.dump(items));
@@ -152,7 +154,8 @@ AdminPolicyService.prototype.listenForStorageChanging_ = function() {
  * @private
  */
 AdminPolicyService.prototype.storageChangedListener_ = function(changes) {
-  if (this.isDisposed()) return;
+  if (this.isDisposed())
+    return;
 
   this.loadManagedStorage_();
 };
@@ -196,7 +199,8 @@ AdminPolicyService.prototype.addChannelDisposedListener_ = function() {
  */
 AdminPolicyService.prototype.serverMessageChannelDisposedListener_ =
     function() {
-  if (this.isDisposed()) return;
+  if (this.isDisposed())
+    return;
   goog.log.warning(
       this.logger, 'Server message channel was disposed, disposing...');
 

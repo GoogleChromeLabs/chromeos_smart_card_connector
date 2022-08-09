@@ -34,11 +34,11 @@ namespace google_smart_card {
 class PcscLiteServerClientsManagementBackend::Impl final {
  public:
   Impl(GlobalContext* global_context,
-     TypedMessageRouter* typed_message_router,
-     AdminPolicyGetter* admin_policy_getter)
-    : clients_manager_(global_context,
-                       typed_message_router,
-                       admin_policy_getter) {}
+       TypedMessageRouter* typed_message_router,
+       AdminPolicyGetter* admin_policy_getter)
+      : clients_manager_(global_context,
+                         typed_message_router,
+                         admin_policy_getter) {}
 
   Impl(const Impl&) = delete;
 
