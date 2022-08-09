@@ -52,5 +52,11 @@ ${usb_devices}
     },
 ${endif}
     "loginState"
-  ]
+  ],
+  "externally_connectable": {
+    "ids": ["*"],
+    "matches": [
+      "chrome-untrusted://terminal/*"
+    ]
+  }
 }
