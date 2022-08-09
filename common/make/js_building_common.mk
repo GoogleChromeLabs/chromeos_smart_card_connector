@@ -81,9 +81,12 @@ else
 # Explanation:
 # compilation_level: only do simple transformations: remove whitespaces and
 #   rename local variables.
+# goog.Promise.LONG_STACK_TRACES definition: add more details into promise
+#   stack traces.
 JS_BUILD_COMPILATION_FLAGS := \
 	--compilation_level=SIMPLE \
 	--debug \
+	--define='goog.Promise.LONG_STACK_TRACES=true' \
 	--formatting=PRETTY_PRINT \
 	--formatting=PRINT_INPUT_DELIMITER \
 

@@ -83,5 +83,8 @@
   "chrome-extension://hhbmmipodfklmbmiaegcbmbfmmfbngnf": {
     "name": "Guest@Google Kiosk App UAT",
     "autoapprove": true
+  },
+  "chrome-untrusted://terminal": {
+    "name": "ChromeOS Terminal"
   }
 }
