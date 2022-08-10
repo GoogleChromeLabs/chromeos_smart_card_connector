@@ -43,16 +43,16 @@ void syslog(int priority, const char* format, ...) {
       google_smart_card::FormatPrintfTemplate(format, var_args);
   va_end(var_args);
 
+  // Use the INFO log level for all non-debug logs, because the callsites
+  // sometimes use excessively high priority levels (like "LOG_CRIT" for USB
+  // errors that are normal when a reader gets unplugged). As any warning/error
+  // log is surfaced as a red "Errors" button in chrome://extensions and leads
+  // users to think there's some real problem, we stick to INFO here.
   switch (priority) {
     case LOG_EMERG:
     case LOG_ALERT:
     case LOG_CRIT:
     case LOG_ERR:
-      GOOGLE_SMART_CARD_LOG_ERROR << message;
-      return;
-    case LOG_WARNING:
-      GOOGLE_SMART_CARD_LOG_WARNING << message;
-      return;
     case LOG_NOTICE:
     case LOG_INFO:
       GOOGLE_SMART_CARD_LOG_INFO << message;
