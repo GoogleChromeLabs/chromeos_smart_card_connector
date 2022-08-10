@@ -50,7 +50,13 @@ void MountNaclIoFolders() {
 }
 
 bool UnmountNaclIoFolders() {
-  return ::umount("/tmp") == 0 && ::umount("/") == 0;
+  bool success = true;
+  // Try unmounting both even if one failed.
+  if (::umount("/") != 0)
+    success = false;
+  if (::umount("/tmp") != 0)
+    success = false;
+  return success;
 }
 
 }  // namespace google_smart_card
