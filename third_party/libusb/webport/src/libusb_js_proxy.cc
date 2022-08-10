@@ -568,7 +568,7 @@ int LibusbJsProxy::LibusbReleaseInterface(libusb_device_handle* dev,
     // Logging at the INFO level, since the error is normal in case the device
     // was unplugged.
     GOOGLE_SMART_CARD_LOG_INFO << "LibusbReleaseInterface request failed: "
-                                  << request_result.error_message();
+                               << request_result.error_message();
     return LIBUSB_ERROR_OTHER;
   }
   return LIBUSB_SUCCESS;
