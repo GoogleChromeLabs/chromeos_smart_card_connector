@@ -36,6 +36,9 @@ void InitializeNaclIo(const pp::Instance& pp_instance);
 // The /tmp directory is mounted to a temporary in-memory file system.
 void MountNaclIoFolders();
 
+// Unmounts directories mounted by `MountNaclIoFolders()`.
+void UnmountNaclIoFolders();
+
 }  // namespace google_smart_card
 
 #endif  // GOOGLE_SMART_CARD_COMMON_NACL_IO_UTILS_H_

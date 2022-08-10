@@ -193,7 +193,12 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
     reader_notification_observer_.Init(global_context_);
   }
 
-  ~SmartCardConnectorApplicationTest() { application_->ShutDownAndWait(); }
+  ~SmartCardConnectorApplicationTest() {
+    application_->ShutDownAndWait();
+#ifdef __native_client__
+    UnmountNaclIoFolders();
+#endif  // __native_client__
+  }
 
   void StartApplication() {
     // Set up the expectation on the first C++-to-JS message.
