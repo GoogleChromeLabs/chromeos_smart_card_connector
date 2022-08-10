@@ -37,7 +37,7 @@ void InitializeNaclIo(const pp::Instance& pp_instance);
 void MountNaclIoFolders();
 
 // Unmounts directories mounted by `MountNaclIoFolders()`.
-void UnmountNaclIoFolders();
+bool UnmountNaclIoFolders();
 
 }  // namespace google_smart_card
 

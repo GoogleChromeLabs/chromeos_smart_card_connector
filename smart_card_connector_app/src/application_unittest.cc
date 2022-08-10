@@ -196,7 +196,7 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
   ~SmartCardConnectorApplicationTest() {
     application_->ShutDownAndWait();
 #ifdef __native_client__
-    UnmountNaclIoFolders();
+    EXPECT_TRUE(UnmountNaclIoFolders());
 #endif  // __native_client__
   }
 
