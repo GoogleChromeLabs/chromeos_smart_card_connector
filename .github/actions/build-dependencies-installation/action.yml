@@ -3,6 +3,7 @@ inputs:
   toolchain:
     description: '"emscripten", "pnacl", "asan_testing" or "coverage"'
     required: true
+timeout-minutes: 10
 runs:
   using: 'composite'
   steps:
