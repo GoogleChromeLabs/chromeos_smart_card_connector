@@ -40,12 +40,23 @@ void InitializeNaclIo(const pp::Instance& pp_instance) {
 }
 
 void MountNaclIoFolders() {
-  GOOGLE_SMART_CARD_CHECK(::umount("/") == 0);
+  // Undo previous mounts in case there were any. The errors here are non-fatal.
+  UnmountNaclIoFolders();
 
   GOOGLE_SMART_CARD_CHECK(
       ::mount("/", "/", "httpfs", 0, "manifest=/nacl_io_manifest.txt") == 0);
 
   GOOGLE_SMART_CARD_CHECK(::mount("", "/tmp", "memfs", 0, "") == 0);
+}
+
+bool UnmountNaclIoFolders() {
+  bool success = true;
+  // Try unmounting both even if one failed.
+  if (::umount("/") != 0)
+    success = false;
+  if (::umount("/tmp") != 0)
+    success = false;
+  return success;
 }
 
 }  // namespace google_smart_card

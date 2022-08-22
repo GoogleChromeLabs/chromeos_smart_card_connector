@@ -19,6 +19,7 @@ jobs:
   # Build and test in WebAssembly mode.
   build-emscripten:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       matrix:
         build-config: [Release, Debug]
@@ -44,6 +45,7 @@ jobs:
       env:
         TOOLCHAIN: emscripten
         CONFIG: ${{ matrix.build-config }}
+      timeout-minutes: 10
       run: >
         source env/activate && make test
 
@@ -68,6 +70,7 @@ jobs:
   # Build and test in Native Client mode.
   build-nacl:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       matrix:
         build-config: [Release, Debug]
@@ -99,6 +102,7 @@ jobs:
   # Run unit tests under ASan.
   test-asan:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       matrix:
         build-config: [Release, Debug]
@@ -127,6 +131,7 @@ jobs:
       env:
         TOOLCHAIN: asan_testing
         CONFIG: ${{ matrix.build-config }}
+      timeout-minutes: 10
       run: >
         source env/activate && make test
 
@@ -135,6 +140,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       LINE_COVERAGE_PERCENT: ${{ steps.build-coverage.outputs.LINE_COVERAGE_PERCENT }}
+    timeout-minutes: 30
     steps:
     - name: Check out sources
       uses: actions/checkout@v3
@@ -171,6 +177,7 @@ jobs:
     runs-on: ubuntu-latest
     # Depend on all other jobs, so that we don't post a PR comment if any fails.
     needs: [build-emscripten, build-nacl, test-asan, collect-coverage]
+    timeout-minutes: 5
 
     steps:
     - name: Comment on pull request

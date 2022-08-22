@@ -1,0 +1,43 @@
+From 521e2dcf98eef1a1a2fb2580c08a17a12ed56835 Mon Sep 17 00:00:00 2001
+From: Maksim Ivanov <emaxx@google.com>
+Date: Wed, 10 Aug 2022 00:27:46 +0000
+Subject: [PATCH] Declare Alcor 95x0 readers supported
+
+Declare Alcor 9540/9560 readerrs as supported, so that the Connector app
+attempts to connect to them automatically, without an extra user gesture
+("add reader").
+
+Meanwhile the CCID driver's website and some internet sources claim this
+reader has issues, we haven't observed them. With the current state of
+things, it's better to allow such a reader to reduce user hurdles (and
+if the user does experience issues with it they can always uninstall the
+Connector app).
+---
+ third_party/ccid/src/readers/supported_readers.txt | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/third_party/ccid/src/readers/supported_readers.txt b/third_party/ccid/src/readers/supported_readers.txt
+index 1c050e2e..ce32653a 100644
+--- a/third_party/ccid/src/readers/supported_readers.txt
++++ b/third_party/ccid/src/readers/supported_readers.txt
+@@ -184,6 +184,7 @@
+ 
+ # Alcor Micro
+ 0x058F:0x9522:Alcor Micro AU9522
++0x058F:0x9540:Alcor Micro AU95x0
+ 
+ # ANCUD
+ 0x0483:0xACD1:ANCUD CCID USB Reader & RNG
+@@ -911,9 +912,6 @@
+ 
+ # Aladdin
+ 
+-# Alcor Micro
+-0x058F:0x9540:Alcor Micro AU9540
+-
+ # Athena
+ 0x0DC3:0x100F:Athena IDProtect Flash
+ 
+-- 
+2.37.1.559.g78731f0fdb-goog
+

@@ -533,7 +533,9 @@ void LibusbJsProxy::LibusbClose(libusb_device_handle* handle) {
   if (!request_result.is_successful()) {
     // It's essential to not crash in this case, because this may happen during
     // shutdown process.
-    GOOGLE_SMART_CARD_LOG_ERROR << "Failed to close USB device";
+    // Logging at the INFO level, since the error is normal in case the device
+    // was unplugged.
+    GOOGLE_SMART_CARD_LOG_INFO << "Failed to close USB device";
   }
 
   delete handle;
@@ -563,8 +565,10 @@ int LibusbJsProxy::LibusbReleaseInterface(libusb_device_handle* dev,
       kJsRequestReleaseInterface, dev->device()->js_device().device_id,
       dev->js_device_handle(), interface_number);
   if (!request_result.is_successful()) {
-    GOOGLE_SMART_CARD_LOG_WARNING << "LibusbReleaseInterface request failed: "
-                                  << request_result.error_message();
+    // Logging at the INFO level, since the error is normal in case the device
+    // was unplugged.
+    GOOGLE_SMART_CARD_LOG_INFO << "LibusbReleaseInterface request failed: "
+                               << request_result.error_message();
     return LIBUSB_ERROR_OTHER;
   }
   return LIBUSB_SUCCESS;
