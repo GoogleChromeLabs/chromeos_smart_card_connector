@@ -40,6 +40,7 @@
 #include <google_smart_card_common/requesting/request_receiver.h>
 #include <google_smart_card_common/value.h>
 
+#include "admin_policy_getter.h"
 #include "client_request_processor.h"
 
 namespace google_smart_card {
@@ -84,7 +85,8 @@ namespace google_smart_card {
 class PcscLiteServerClientsManager final {
  public:
   PcscLiteServerClientsManager(GlobalContext* global_context,
-                               TypedMessageRouter* typed_message_router);
+                               TypedMessageRouter* typed_message_router,
+                               AdminPolicyGetter* admin_policy_getter);
 
   PcscLiteServerClientsManager(const PcscLiteServerClientsManager&) = delete;
   PcscLiteServerClientsManager& operator=(const PcscLiteServerClientsManager&) =
@@ -138,7 +140,8 @@ class PcscLiteServerClientsManager final {
     Handler(int64_t handler_id,
             const std::string& client_name_for_log,
             GlobalContext* global_context,
-            TypedMessageRouter* typed_message_router);
+            TypedMessageRouter* typed_message_router,
+            AdminPolicyGetter* admin_policy_getter);
     Handler(const Handler&) = delete;
 
     ~Handler() override;
@@ -166,6 +169,7 @@ class PcscLiteServerClientsManager final {
 
   GlobalContext* const global_context_;
   TypedMessageRouter* typed_message_router_;
+  AdminPolicyGetter* const admin_policy_getter_;
   CreateHandlerMessageListener create_handler_message_listener_;
   DeleteHandlerMessageListener delete_handler_message_listener_;
   std::unordered_map<int64_t, std::unique_ptr<Handler>> handler_map_;

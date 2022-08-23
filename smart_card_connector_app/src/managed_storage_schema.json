@@ -10,6 +10,16 @@
         "minLength": 32,
         "maxLength": 32
       }
+    },
+    "scard_disconnect_fallback_client_app_ids": {
+      "title": "Client App identifiers using the SCardDisconnect fallback.",
+      "description": "List of client App identifiers that are using the SCardDisconnect fallback. In case SCardConnect fails because of a protocol mismatch, the fallback behavior will be to reset the card connection via SCardDisconnect and re-try the SCardConnect request.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 32,
+        "maxLength": 32
+      }
     }
   }
 }

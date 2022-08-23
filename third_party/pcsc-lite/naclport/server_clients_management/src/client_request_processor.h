@@ -49,6 +49,7 @@
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_pcsc_lite_common/scard_structs_serialization.h>
 
+#include "admin_policy_getter.h"
 #include "client_handles_registry.h"
 
 namespace google_smart_card {
@@ -103,7 +104,8 @@ class PcscLiteClientRequestProcessor final
   // `client_name_for_log` - a name describing the client for logging purposes,
   // or an empty string if it's our own application talking to itself.
   PcscLiteClientRequestProcessor(int64_t client_handler_id,
-                                 const std::string& client_name_for_log);
+                                 const std::string& client_name_for_log,
+                                 AdminPolicyGetter* admin_policy_getter);
   PcscLiteClientRequestProcessor(const PcscLiteClientRequestProcessor&) =
       delete;
   PcscLiteClientRequestProcessor& operator=(
@@ -169,12 +171,29 @@ class PcscLiteClientRequestProcessor final
                                     const std::string& reader_name,
                                     DWORD share_mode,
                                     DWORD preferred_protocols);
+  LONG ObtainCardHandleWithFallback(SCARDCONTEXT s_card_context,
+                                    const std::string& reader_name,
+                                    DWORD share_mode,
+                                    DWORD preferred_protocols,
+                                    LPSCARDHANDLE s_card_handle,
+                                    LPDWORD active_protocol);
+  LONG ObtainCardHandle(SCARDCONTEXT s_card_context,
+                        const std::string& reader_name,
+                        DWORD share_mode,
+                        DWORD preferred_protocols,
+                        LPSCARDHANDLE s_card_handle,
+                        LPDWORD active_protocol);
+  bool IsDisconnectFallbackPolicyEnabled();
+  bool ResetCard(SCARDCONTEXT s_card_context,
+                 const std::string& reader_name,
+                 DWORD share_mode);
   GenericRequestResult SCardReconnect(SCARDHANDLE s_card_handle,
                                       DWORD share_mode,
                                       DWORD preferred_protocols,
                                       DWORD initialization_action);
   GenericRequestResult SCardDisconnect(SCARDHANDLE s_card_handle,
                                        DWORD disposition_action);
+  LONG DisconnectCard(SCARDHANDLE s_card_handle, DWORD disposition_action);
   GenericRequestResult SCardBeginTransaction(SCARDHANDLE s_card_handle);
   GenericRequestResult SCardEndTransaction(SCARDHANDLE s_card_handle,
                                            DWORD disposition_action);
@@ -213,6 +232,7 @@ class PcscLiteClientRequestProcessor final
   const std::string client_name_for_log_;
   const LogSeverity status_log_severity_;
   const std::string logging_prefix_;
+  AdminPolicyGetter* const admin_policy_getter_;
   HandlerMap handler_map_;
   // Stores PC/SC-Lite contexts and handles that belong to this client. This is
   // used to implement the client isolation: one client shouldn't be able to use

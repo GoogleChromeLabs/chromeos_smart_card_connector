@@ -1079,6 +1079,11 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
   SetUpJsClient();
   SetUpSCardContext();
 
+  // Simulate an empty UpdateAdminPolicy message to unblock the WaitAndGet()
+  // call. This is normally sent when admin-policy-service.js is first
+  // initialized.
+  SimulateFakeJsMessage("update_admin_policy", {});
+
   // Act:
   // Connect via the "RAW" protocol and disconnect.
   SCARDHANDLE scard_handle = 0;
@@ -1102,6 +1107,56 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
 
   // Assert:
   EXPECT_EQ(return_code, SCARD_E_PROTO_MISMATCH);
+}
+
+// If the client is allowed to use the SCardDisconnect fallback by admin policy,
+// `SCardConnect()` call from JS succeeds to connect via the "T1" protocol
+// even if the previous connection was using the "RAW" protocol.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       SCardConnectProtocolMismatchDisconnectFallback) {
+  // Arrange:
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
+  SetUsbDevices({device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+
+  // Simulate an UpdateAdminPolicy message to allowlist the client.
+  SimulateFakeJsMessage(
+      "update_admin_policy",
+      DictValueBuilder()
+          .Add("scard_disconnect_fallback_client_app_ids",
+               ArrayValueBuilder().Add(kFakeClientNameForLog).Get())
+          .Get());
+
+  // Act:
+  // Connect via the "RAW" protocol and disconnect.
+  SCARDHANDLE scard_handle = 0;
+  DWORD active_protocol = 0;
+  EXPECT_EQ(SimulateConnectCallFromJsClient(
+                kFakeHandlerId, scard_context(), kGemaltoPcTwinReaderPcscName0,
+                SCARD_SHARE_SHARED,
+                /*preferred_protocols=*/SCARD_PROTOCOL_RAW, scard_handle,
+                active_protocol),
+            SCARD_S_SUCCESS);
+  EXPECT_NE(scard_handle, 0);
+  EXPECT_EQ(active_protocol, static_cast<DWORD>(SCARD_PROTOCOL_RAW));
+  EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
+                                               SCARD_LEAVE_CARD),
+            SCARD_S_SUCCESS);
+  // Attempt connecting via a different protocol ("ANY" denotes "either T0 or
+  // T1").
+  LONG return_code = SimulateConnectCallFromJsClient(
+      kFakeHandlerId, scard_context(), kGemaltoPcTwinReaderPcscName0,
+      SCARD_SHARE_SHARED, /*preferred_protocols=*/SCARD_PROTOCOL_ANY,
+      scard_handle, active_protocol);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+  EXPECT_EQ(active_protocol, static_cast<DWORD>(SCARD_PROTOCOL_T1));
 }
 
 // `SCardConnect()` call from JS successfully connects via the "T1" protocol if

@@ -45,6 +45,7 @@ SOURCES_PATH := ../src
 
 
 SOURCES := \
+        $(SOURCES_PATH)/admin_policy_getter.cc \
 	$(SOURCES_PATH)/client_request_processor.cc \
 	$(SOURCES_PATH)/clients_manager.cc \
 	$(SOURCES_PATH)/client_handles_registry.cc \

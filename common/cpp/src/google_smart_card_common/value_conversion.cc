@@ -188,7 +188,8 @@ void StructFromValueConverterBase::HandleFieldConversionError(
 bool StructFromValueConverterBase::FinishConversion(
     const char* type_name,
     std::string* error_message) {
-  if (!error_encountered_ && !value_to_convert_.GetDictionary().empty()) {
+  if (!error_encountered_ && !value_to_convert_.GetDictionary().empty() &&
+      !permit_unexpected_keys_) {
     error_encountered_ = true;
     const std::string& first_unexpected_key =
         value_to_convert_.GetDictionary().begin()->first;

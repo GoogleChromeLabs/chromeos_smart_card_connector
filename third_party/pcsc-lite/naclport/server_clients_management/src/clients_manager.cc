@@ -39,6 +39,7 @@
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_conversion.h>
 
+#include "admin_policy_getter.h"
 #include "client_request_processor.h"
 
 namespace google_smart_card {
@@ -86,16 +87,20 @@ StructValueDescriptor<DeleteHandlerMessageData>::GetDescription() {
 
 PcscLiteServerClientsManager::PcscLiteServerClientsManager(
     GlobalContext* global_context,
-    TypedMessageRouter* typed_message_router)
+    TypedMessageRouter* typed_message_router,
+    AdminPolicyGetter* admin_policy_getter)
     : global_context_(global_context),
       typed_message_router_(typed_message_router),
+      admin_policy_getter_(admin_policy_getter),
       create_handler_message_listener_(this),
       delete_handler_message_listener_(this) {
   GOOGLE_SMART_CARD_CHECK(global_context_);
   GOOGLE_SMART_CARD_CHECK(typed_message_router_);
+  GOOGLE_SMART_CARD_CHECK(admin_policy_getter_);
 
   typed_message_router_->AddRoute(&create_handler_message_listener_);
   typed_message_router_->AddRoute(&delete_handler_message_listener_);
+  typed_message_router_->AddRoute(admin_policy_getter_);
 }
 
 PcscLiteServerClientsManager::~PcscLiteServerClientsManager() {
@@ -107,6 +112,8 @@ void PcscLiteServerClientsManager::ShutDown() {
     return;
   typed_message_router_->RemoveRoute(&create_handler_message_listener_);
   typed_message_router_->RemoveRoute(&delete_handler_message_listener_);
+  typed_message_router_->RemoveRoute(admin_policy_getter_);
+  admin_policy_getter_->ShutDown();
   DeleteAllHandlers();
   typed_message_router_ = nullptr;
 }
@@ -150,11 +157,14 @@ PcscLiteServerClientsManager::Handler::Handler(
     int64_t handler_id,
     const std::string& client_name_for_log,
     GlobalContext* global_context,
-    TypedMessageRouter* typed_message_router)
+    TypedMessageRouter* typed_message_router,
+    AdminPolicyGetter* admin_policy_getter)
     : handler_id_(handler_id),
       client_name_for_log_(client_name_for_log),
       request_processor_(
-          new PcscLiteClientRequestProcessor(handler_id, client_name_for_log_)),
+          new PcscLiteClientRequestProcessor(handler_id,
+                                             client_name_for_log_,
+                                             admin_policy_getter)),
       request_receiver_(new JsRequestReceiver(
           FormatPrintfTemplate("pcsc_lite_client_handler_%" PRId64
                                "_call_function",
@@ -196,8 +206,9 @@ void PcscLiteServerClientsManager::Handler::HandleRequest(
 void PcscLiteServerClientsManager::CreateHandler(
     int64_t handler_id,
     const std::string& client_name_for_log) {
-  std::unique_ptr<Handler> handler(new Handler(
-      handler_id, client_name_for_log, global_context_, typed_message_router_));
+  std::unique_ptr<Handler> handler(
+      new Handler(handler_id, client_name_for_log, global_context_,
+                  typed_message_router_, admin_policy_getter_));
   if (!handler_map_.emplace(handler_id, std::move(handler)).second) {
     GOOGLE_SMART_CARD_LOG_FATAL << kLoggingPrefix << "Failed to create a "
                                 << "new client handler with id " << handler_id

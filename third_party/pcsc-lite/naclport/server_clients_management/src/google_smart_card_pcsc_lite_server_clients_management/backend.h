@@ -31,6 +31,8 @@
 #include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 
+#include "admin_policy_getter.h"
+
 namespace google_smart_card {
 
 // The class that enables the PC/SC-Lite server clients management (i.e.
@@ -58,6 +60,7 @@ class PcscLiteServerClientsManagementBackend final {
  private:
   class Impl;
 
+  AdminPolicyGetter admin_policy_getter_;
   std::unique_ptr<Impl> impl_;
 };
 
