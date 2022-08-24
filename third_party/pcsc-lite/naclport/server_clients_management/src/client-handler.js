@@ -441,10 +441,8 @@ ClientHandler.prototype.clientMessageChannelDisposedListener_ = function() {
  * @private
  */
 ClientHandler.prototype.postRequestToServer_ = function(remoteCallMessage) {
-  goog.log.fine(
-      this.logger,
-      'Started processing the remote call request: ' +
-          remoteCallMessage.getDebugRepresentation());
+  const requestDump = remoteCallMessage.getDebugRepresentation();
+  goog.log.fine(this.logger, `Processing PC/SC call: ${requestDump}`);
 
   this.createServerRequesterIfNeed_();
 
@@ -452,23 +450,18 @@ ClientHandler.prototype.postRequestToServer_ = function(remoteCallMessage) {
       .postRequest(remoteCallMessage.makeRequestPayload())
       .then(
           function(result) {
+            const resultDump = GSC.DebugDump.debugDump(result);
             goog.log.fine(
                 this.logger,
-                'The remote call request ' +
-                    remoteCallMessage.getDebugRepresentation() +
-                    ' finished successfully' +
-                    (goog.DEBUG ? ' with the following result: ' +
-                             GSC.DebugDump.debugDump(result) :
-                                  ''));
+                `PC/SC call ${requestDump} completed: ${resultDump}`);
             return result;
           },
           function(error) {
-            goog.log.warning(
+            goog.log.log(
                 this.logger,
-                'The remote call request ' +
-                    remoteCallMessage.getDebugRepresentation() +
-                    ' failed with the ' +
-                    'following error: ' + error);
+                this.isDisposed() ? goog.log.Level.FINE :
+                                    goog.log.Level.WARNING,
+                `PC/SC call ${requestDump} failed: ${error}`);
             throw error;
           },
           this);

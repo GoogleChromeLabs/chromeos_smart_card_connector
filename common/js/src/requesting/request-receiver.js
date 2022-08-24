@@ -59,7 +59,7 @@ GSC.RequestReceiver = function(name, messageChannel, requestHandler) {
    * @type {!goog.log.Logger}
    * @const
    */
-  this.logger = GSC.Logging.getScopedLogger('RequestReceiver<"' + name + '">');
+  this.logger = GSC.Logging.getScopedLogger(`RequestReceiver<"${name}">`);
 
   /** @private @const */
   this.name_ = name;
@@ -110,30 +110,27 @@ RequestReceiver.prototype.requestMessageReceivedListener_ = function(
   GSC.Logging.checkWithLogger(this.logger, goog.isObject(messageData));
   goog.asserts.assertObject(messageData);
 
+  const debugDump = GSC.DebugDump.debugDump(messageData);
+
   const requestMessageData = RequestMessageData.parseMessageData(messageData);
   if (requestMessageData === null) {
     if (this.shouldDisposeOnInvalidMessage_) {
       goog.log.warning(
           this.logger,
-          'Failed to parse the received request message: ' +
-              GSC.DebugDump.debugDump(messageData) +
-              ', disposing of the message ' +
-              'channel...');
+          `Failed to parse the received request message: ${debugDump}, ` +
+              `disposing of the message channel...`);
       this.messageChannel_.dispose();
       return;
-    } else {
-      GSC.Logging.failWithLogger(
-          this.logger,
-          'Failed to parse the received request message: ' +
-              GSC.DebugDump.debugDump(messageData));
     }
+    GSC.Logging.failWithLogger(
+        this.logger,
+        `Failed to parse the received request message: ${debugDump}`);
   }
 
   goog.log.fine(
       this.logger,
-      'Received a request with identifier ' + requestMessageData.requestId +
-          ', the payload is: ' +
-          GSC.DebugDump.debugDump(requestMessageData.payload));
+      `Received a request with requestId ${requestMessageData.requestId}, ` +
+          `the payload is: ${debugDump}`);
 
   const promise = this.requestHandler_(requestMessageData.payload);
   promise.then(
@@ -149,20 +146,19 @@ RequestReceiver.prototype.requestMessageReceivedListener_ = function(
 RequestReceiver.prototype.responseResolvedListener_ = function(
     requestMessageData, payload) {
   if (this.messageChannel_.isDisposed()) {
-    goog.log.warning(
+    // Discard the response if it's impossible to send it anymore.
+    goog.log.fine(
         this.logger,
-        'Ignoring the successful response for the request with identifier ' +
-            requestMessageData.requestId +
-            ' due to the disposal of the message ' +
-            'channel');
+        `Cannot send result for requestId ${requestMessageData.requestId} ` +
+            `as message channel is shutdown`);
     return;
   }
 
+  const debugDump = GSC.DebugDump.debugDump(payload);
   goog.log.fine(
       this.logger,
-      'Sending the successful response for the request with identifier ' +
-          requestMessageData.requestId +
-          ', the response is: ' + GSC.DebugDump.debugDump(payload));
+      `Sending result for requestId ${requestMessageData.requestId}: ` +
+          `${debugDump}`);
   this.sendResponse_(
       new ResponseMessageData(requestMessageData.requestId, payload));
 };
@@ -175,22 +171,22 @@ RequestReceiver.prototype.responseResolvedListener_ = function(
 RequestReceiver.prototype.responseRejectedListener_ = function(
     requestMessageData, error) {
   if (this.messageChannel_.isDisposed()) {
-    goog.log.warning(
+    // Discard the response if it's impossible to send it anymore.
+    goog.log.fine(
         this.logger,
-        'Ignoring the failure response for the request with identifier ' +
-            requestMessageData.requestId +
-            ' due to the disposal of the message ' +
-            'channel');
+        `Cannot send error for requestId ${requestMessageData.requestId} as ` +
+            `message channel is shutdown`);
     return;
   }
 
   const stringifiedError = String(error);
   goog.log.fine(
       this.logger,
-      'Sending the failure response for the request with identifier ' +
-          requestMessageData.requestId + ', the error is: ' + stringifiedError);
+      `Sending error for requestId ${requestMessageData.requestId}: ` +
+          `${stringifiedError}`);
   this.sendResponse_(new ResponseMessageData(
-      requestMessageData.requestId, undefined, stringifiedError));
+      requestMessageData.requestId, /*opt_payload=*/ undefined,
+      stringifiedError));
 };
 
 /**
