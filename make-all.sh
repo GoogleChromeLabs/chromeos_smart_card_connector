@@ -58,13 +58,14 @@ make_with_toolchain_and_config() {
 	fi
 }
 
+TARGET=${1-all}
 SCRIPTPATH=$(dirname $(realpath ${0}))
 cd ${SCRIPTPATH}
 
 for toolchain in ${TOOLCHAINS}; do
 	for config in ${CONFIGS}; do
-		log_message "Building in mode \"${toolchain}\" \"${config}\"..."
-		make_with_toolchain_and_config . all ${toolchain} ${config}
-		log_message "Successfully built in mode \"${toolchain}\" \"${config}\"."
+		log_message "Building ${TARGET} in mode \"${toolchain}\" \"${config}\"..."
+		make_with_toolchain_and_config . ${TARGET} ${toolchain} ${config}
+		log_message "Successfully built ${TARGET} in mode \"${toolchain}\" \"${config}\"."
 	done
 done

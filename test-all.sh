@@ -22,48 +22,5 @@
 #
 # For the building prerequisites, refer to the README file.
 
-
-set -eu
-
-
-TEST_DIRS="
-  common/cpp/build
-  common/js/build
-  example_cpp_smart_card_client_app/build
-  smart_card_connector/build
-  third_party/libusb/webport/build
-  third_party/pcsc-lite/naclport/server_clients_management/build"
-
-CONFIGS="Release Debug"
-
-
-log_message() {
-  local message=${1}
-
-  echo -e "\033[33;32m${message}\033[0m"
-}
-
-run_make_test_with_config() {
-  local build_dir=${1}
-  local config=${2-}
-
-  # NaCl build scripts still use Python 2, so enter the virtual environment.
-  source env/python2_venv/bin/activate
-
-  CONFIG=${config} make -C ${build_dir} test -j20
-
-  # Exit the virtual environment to avoid using Python 2 when it's not needed.
-  deactivate
-}
-
-
 SCRIPTPATH=$(dirname $(realpath ${0}))
-cd ${SCRIPTPATH}
-
-for dir in ${TEST_DIRS}; do
-  for config in ${CONFIGS}; do
-    log_message "Testing \"${dir}\" in ${config} mode..."
-    run_make_test_with_config ${dir} ${config}
-    log_message "Tests of \"${dir}\" in ${config} mode succeeded."
-  done
-done
+${SCRIPTPATH}/make-all.sh test
