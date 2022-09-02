@@ -1435,7 +1435,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, BeginTransaction) {
 
 // `SCardEndTransaction()` calls from JS should succeed.
 TEST_F(SmartCardConnectorApplicationSingleClientTest, EndTransaction) {
-  // Arrange: set up a reader and a card with a PIV profile.
+  // Arrange: set up a reader and a card.
   TestingSmartCardSimulation::Device device;
   device.id = 123;
   device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
@@ -1465,6 +1465,145 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, EndTransaction) {
   EXPECT_EQ(return_code, SCARD_S_SUCCESS);
 
   // Cleanup:
+  EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
+                                               SCARD_LEAVE_CARD),
+            SCARD_S_SUCCESS);
+}
+
+class SmartCardConnectorApplicationTwoClientsTest : public SmartCardConnectorApplicationSingleClientTest {
+ protected:
+  static constexpr int kFakeSecondHandlerId = 4567;
+  static constexpr const char* kFakeSecondClientNameForLog =
+      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+  void TearDown() override {
+    if (second_scard_context_)
+      TearDownSecondSCardContext();
+    if (second_js_client_setup_)
+      SimulateJsClientRemoved(kFakeSecondHandlerId);
+
+    SmartCardConnectorApplicationSingleClientTest::TearDown();
+  }
+
+  void SetUpSecondJsClient() {
+    GOOGLE_SMART_CARD_CHECK(!second_js_client_setup_);
+    SimulateJsClientAdded(kFakeSecondHandlerId, kFakeSecondClientNameForLog);
+    second_js_client_setup_ = true;
+  }
+
+  void SetUpSecondSCardContext() {
+    GOOGLE_SMART_CARD_CHECK(!second_scard_context_);
+    SCARDCONTEXT local_scard_context = 0;
+    EXPECT_EQ(SimulateEstablishContextCallFromJsClient(
+                  kFakeSecondHandlerId, SCARD_SCOPE_SYSTEM,
+                  /*reserved1=*/Value(),
+                  /*reserved2=*/Value(), local_scard_context),
+              SCARD_S_SUCCESS);
+    second_scard_context_ = local_scard_context;
+  }
+
+  void TearDownSecondSCardContext() {
+    GOOGLE_SMART_CARD_CHECK(second_scard_context_);
+    EXPECT_EQ(
+        SimulateReleaseContextCallFromJsClient(kFakeSecondHandlerId, *second_scard_context_),
+        SCARD_S_SUCCESS);
+    second_scard_context_ = {};
+  }
+
+  SCARDCONTEXT second_scard_context() const { return *second_scard_context_; }
+
+ private:
+  bool second_js_client_setup_ = false;
+  optional<SCARDCONTEXT> second_scard_context_;
+};
+
+// `SCardConnect()` call from JS succeeds even when there's an active connection
+// from another client (which allows shared access).
+TEST_F(SmartCardConnectorApplicationTwoClientsTest,
+       ConnectConcurrent) {
+  // Arrange: set up a reader and a card.
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
+  SetUsbDevices({device});
+  StartApplication();
+  // Set up the first client, which holds an shared connection.
+  SetUpJsClient();
+  SetUpSCardContext();
+  SCARDHANDLE scard_handle = 0;
+  DWORD active_protocol = 0;
+  EXPECT_EQ(SimulateConnectCallFromJsClient(
+                kFakeHandlerId, scard_context(), kGemaltoPcTwinReaderPcscName0,
+                SCARD_SHARE_SHARED,
+                /*preferred_protocols=*/SCARD_PROTOCOL_ANY, scard_handle,
+                active_protocol),
+            SCARD_S_SUCCESS);
+  // Set up the second client.
+  SetUpSecondJsClient();
+  SetUpSecondSCardContext();
+
+  // Act: the second client attempts to connect to the card.
+  SCARDHANDLE second_scard_handle = 0;
+  LONG return_code = SimulateConnectCallFromJsClient(
+      kFakeSecondHandlerId, second_scard_context(), kGemaltoPcTwinReaderPcscName0,
+      SCARD_SHARE_SHARED,
+      /*preferred_protocols=*/SCARD_PROTOCOL_ANY, second_scard_handle,
+      active_protocol);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+  EXPECT_NE(second_scard_handle, 0);
+  EXPECT_NE(scard_handle, second_scard_handle);
+
+  // Cleanup.
+  EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeSecondHandlerId, second_scard_handle,
+                                               SCARD_LEAVE_CARD),
+            SCARD_S_SUCCESS);
+  EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
+                                               SCARD_LEAVE_CARD),
+            SCARD_S_SUCCESS);
+}
+
+// `SCardConnect()` call from JS fails if there's another client holding
+// exclusive access.
+TEST_F(SmartCardConnectorApplicationTwoClientsTest,
+       ConnectErrorOtherExclusive) {
+  // Arrange: set up a reader and a card.
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
+  SetUsbDevices({device});
+  StartApplication();
+  // Set up the first client, which holds an exclusive connection.
+  SetUpJsClient();
+  SetUpSCardContext();
+  SCARDHANDLE scard_handle = 0;
+  DWORD active_protocol = 0;
+  EXPECT_EQ(SimulateConnectCallFromJsClient(
+                kFakeHandlerId, scard_context(), kGemaltoPcTwinReaderPcscName0,
+                SCARD_SHARE_EXCLUSIVE,
+                /*preferred_protocols=*/SCARD_PROTOCOL_ANY, scard_handle,
+                active_protocol),
+            SCARD_S_SUCCESS);
+  // Set up the second client.
+  SetUpSecondJsClient();
+  SetUpSecondSCardContext();
+
+  // Act: the second client attempts to connect to the card.
+  SCARDHANDLE second_scard_handle = 0;
+  LONG return_code = SimulateConnectCallFromJsClient(
+      kFakeSecondHandlerId, second_scard_context(), kGemaltoPcTwinReaderPcscName0,
+      SCARD_SHARE_SHARED,
+      /*preferred_protocols=*/SCARD_PROTOCOL_ANY, second_scard_handle,
+      active_protocol);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_E_SHARING_VIOLATION);
+  EXPECT_EQ(second_scard_handle, 0);
+
+  // Cleanup.
   EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
                                                SCARD_LEAVE_CARD),
             SCARD_S_SUCCESS);
