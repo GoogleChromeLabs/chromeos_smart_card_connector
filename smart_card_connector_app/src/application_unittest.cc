@@ -438,6 +438,23 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
     return return_code;
   }
 
+  LONG SimulateBeginTransactionCallFromJsClient(int handler_id,
+                                                SCARDHANDLE scard_handle) {
+    return ExtractReturnCodeAndResults(SimulateSyncCallFromJsClient(
+        handler_id,
+        /*function_name=*/"SCardBeginTransaction",
+        ArrayValueBuilder().Add(scard_handle).Get()));
+  }
+
+  LONG SimulateEndTransactionCallFromJsClient(int handler_id,
+                                              SCARDHANDLE scard_handle,
+                                              DWORD disposition) {
+    return ExtractReturnCodeAndResults(SimulateSyncCallFromJsClient(
+        handler_id,
+        /*function_name=*/"SCardEndTransaction",
+        ArrayValueBuilder().Add(scard_handle).Add(disposition).Get()));
+  }
+
  private:
   void SetUpUsbSimulation() {
     global_context_.RegisterRequestHandler(
@@ -1374,6 +1391,78 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, TransmitPivCommands) {
     expected_response.push_back(0x00);
     EXPECT_EQ(response, expected_response);
   }
+
+  // Cleanup:
+  EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
+                                               SCARD_LEAVE_CARD),
+            SCARD_S_SUCCESS);
+}
+
+// `SCardBeginTransaction()` calls from JS should succeed.
+TEST_F(SmartCardConnectorApplicationSingleClientTest, BeginTransaction) {
+  // Arrange: set up a reader and a card with a PIV profile.
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
+  SetUsbDevices({device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+  // Connect to the card.
+  SCARDHANDLE scard_handle = 0;
+  DWORD active_protocol = 0;
+  EXPECT_EQ(SimulateConnectCallFromJsClient(
+                kFakeHandlerId, scard_context(), kGemaltoPcTwinReaderPcscName0,
+                SCARD_SHARE_SHARED,
+                /*preferred_protocols=*/SCARD_PROTOCOL_T1, scard_handle,
+                active_protocol),
+            SCARD_S_SUCCESS);
+
+  // Act:
+  LONG return_code =
+      SimulateBeginTransactionCallFromJsClient(kFakeHandlerId, scard_handle);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+
+  // Cleanup. Note that we also verify here the transaction gets ended
+  // automatically.
+  EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
+                                               SCARD_LEAVE_CARD),
+            SCARD_S_SUCCESS);
+}
+
+// `SCardEndTransaction()` calls from JS should succeed.
+TEST_F(SmartCardConnectorApplicationSingleClientTest, EndTransaction) {
+  // Arrange: set up a reader and a card with a PIV profile.
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
+  SetUsbDevices({device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+  // Connect to the card and begin a transaction.
+  SCARDHANDLE scard_handle = 0;
+  DWORD active_protocol = 0;
+  EXPECT_EQ(SimulateConnectCallFromJsClient(
+                kFakeHandlerId, scard_context(), kGemaltoPcTwinReaderPcscName0,
+                SCARD_SHARE_SHARED,
+                /*preferred_protocols=*/SCARD_PROTOCOL_T1, scard_handle,
+                active_protocol),
+            SCARD_S_SUCCESS);
+  EXPECT_EQ(
+      SimulateBeginTransactionCallFromJsClient(kFakeHandlerId, scard_handle),
+      SCARD_S_SUCCESS);
+
+  // Act:
+  LONG return_code = SimulateEndTransactionCallFromJsClient(
+      kFakeHandlerId, scard_handle, SCARD_LEAVE_CARD);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
 
   // Cleanup:
   EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
