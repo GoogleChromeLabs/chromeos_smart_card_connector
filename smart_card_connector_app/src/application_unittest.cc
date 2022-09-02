@@ -378,6 +378,24 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
         out_scard_handle, out_active_protocol);
   }
 
+  LONG SimulateReconnectCallFromJsClient(int handler_id,
+                                         SCARDHANDLE scard_handle,
+                                         DWORD share_mode,
+                                         DWORD preferred_protocols,
+                                         DWORD initialization,
+                                         DWORD& out_active_protocol) {
+    return ExtractReturnCodeAndResults(
+        SimulateSyncCallFromJsClient(handler_id,
+                                     /*function_name=*/"SCardReconnect",
+                                     ArrayValueBuilder()
+                                         .Add(scard_handle)
+                                         .Add(share_mode)
+                                         .Add(preferred_protocols)
+                                         .Add(initialization)
+                                         .Get()),
+        out_active_protocol);
+  }
+
   LONG SimulateDisconnectCallFromJsClient(int handler_id,
                                           SCARDHANDLE scard_handle,
                                           DWORD disposition) {
@@ -1205,6 +1223,47 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
   // Cleanup:
   EXPECT_EQ(SimulateDisconnectCallFromJsClient(
                 kFakeHandlerId, second_scard_handle, SCARD_LEAVE_CARD),
+            SCARD_S_SUCCESS);
+}
+
+// `SCardReconnect()` call from JS succeeds when using the same parameters as
+// the previous `SCardConnect()` call.
+TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardReconnect) {
+  // Arrange:
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
+  SetUsbDevices({device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+  // Connect to the card.
+  SCARDHANDLE scard_handle = 0;
+  DWORD active_protocol = 0;
+  EXPECT_EQ(SimulateConnectCallFromJsClient(
+                kFakeHandlerId, scard_context(), kGemaltoPcTwinReaderPcscName0,
+                SCARD_SHARE_SHARED, SCARD_PROTOCOL_ANY, scard_handle,
+                active_protocol),
+            SCARD_S_SUCCESS);
+  EXPECT_NE(scard_handle, 0);
+  EXPECT_EQ(active_protocol, static_cast<DWORD>(SCARD_PROTOCOL_T1));
+
+  // Act:
+  // Reconnect using the same parameters.
+  DWORD new_active_protocol = 0;
+  LONG return_code = SimulateReconnectCallFromJsClient(
+      kFakeHandlerId, scard_handle, SCARD_SHARE_SHARED,
+      /*preferred_protocols=*/SCARD_PROTOCOL_ANY, SCARD_LEAVE_CARD,
+      new_active_protocol);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+  EXPECT_EQ(new_active_protocol, static_cast<DWORD>(SCARD_PROTOCOL_T1));
+
+  // Cleanup:
+  EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
+                                               SCARD_LEAVE_CARD),
             SCARD_S_SUCCESS);
 }
 
