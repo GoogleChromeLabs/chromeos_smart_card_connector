@@ -63,7 +63,6 @@ CCID_SOURCES := \
 	$(CCID_SOURCES_PATH)/commands.c \
 	$(CCID_SOURCES_PATH)/debug.c \
 	$(CCID_SOURCES_PATH)/ifdhandler.c \
-	$(CCID_SOURCES_PATH)/strlcpy.c \
 	$(CCID_SOURCES_PATH)/tokenparser.c \
 	$(CCID_SOURCES_PATH)/utils.c \
 
