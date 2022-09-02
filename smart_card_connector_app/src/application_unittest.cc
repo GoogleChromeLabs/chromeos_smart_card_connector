@@ -1250,7 +1250,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardReconnect) {
   EXPECT_EQ(active_protocol, static_cast<DWORD>(SCARD_PROTOCOL_T1));
 
   // Act:
-  // Reconnect using the same parameters.
+  // Reconnect using the same sharing and protocol.
   DWORD new_active_protocol = 0;
   LONG return_code = SimulateReconnectCallFromJsClient(
       kFakeHandlerId, scard_handle, SCARD_SHARE_SHARED,
