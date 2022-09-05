@@ -72,8 +72,8 @@ const Checker = PermissionsChecking.Checker;
  * @type {!goog.log.Logger}
  * @const
  */
-Checker.prototype.logger = GSC.Logging.getScopedLogger(
-    'PcscLiteServerClientsManagement.PermissionsChecking.Checker');
+Checker.prototype.logger =
+    GSC.Logging.getScopedLogger('Pcsc.PermissionsChecker');
 
 /**
  * Starts the permission check for the given client application.

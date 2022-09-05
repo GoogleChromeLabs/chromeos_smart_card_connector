@@ -110,8 +110,8 @@ UserPromptingChecker.overrideModalDialogRunnerForTesting = function(
  * @type {!goog.log.Logger}
  * @const
  */
-UserPromptingChecker.prototype.logger = GSC.Logging.getScopedLogger(
-    'PcscLiteServerClientsManagement.PermissionsChecking.UserPromptingChecker');
+UserPromptingChecker.prototype.logger =
+    GSC.Logging.getScopedLogger('Pcsc.PermissionsPromptingChecker');
 
 /**
  * Starts the permission check for the given client app - against the previously

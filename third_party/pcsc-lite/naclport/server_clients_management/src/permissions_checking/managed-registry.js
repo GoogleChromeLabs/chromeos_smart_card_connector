@@ -70,8 +70,8 @@ const ManagedRegistry = PermissionsChecking.ManagedRegistry;
  * @type {!goog.log.Logger}
  * @const
  */
-ManagedRegistry.prototype.logger = GSC.Logging.getScopedLogger(
-    'PcscLiteServerClientsManagement.PermissionsChecking.ManagedRegistry');
+ManagedRegistry.prototype.logger =
+    GSC.Logging.getScopedLogger('Pcsc.ManagedPermissionsRegistry');
 
 /**
  * Starts the permission check for the given client app against the managed

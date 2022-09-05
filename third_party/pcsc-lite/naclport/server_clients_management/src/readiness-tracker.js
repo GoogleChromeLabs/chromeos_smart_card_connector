@@ -62,8 +62,7 @@ GSC.PcscLiteServerClientsManagement.ReadinessTracker = function(
    * @const
    * @private
    */
-  this.logger_ = GSC.Logging.getScopedLogger(
-      'PcscLiteServerClientsManagement.ReadinessTracker');
+  this.logger_ = GSC.Logging.getScopedLogger('Pcsc.ServerReadinessTracker');
 
   /** @type {!goog.promise.Resolver.<null>} @private @const */
   this.promiseResolver_ = goog.Promise.withResolver();

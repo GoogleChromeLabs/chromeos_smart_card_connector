@@ -74,8 +74,7 @@ GSC.PcscLiteServerClientsManagement.AdminPolicyService = function(
    * @type {!goog.log.Logger}
    * @const
    */
-  this.logger = GSC.Logging.getScopedLogger(
-      'PcscLiteServerClientsManagement.AdminPolicyService');
+  this.logger = GSC.Logging.getScopedLogger('Pcsc.AdminPolicyService');
 
   /** @private */
   this.serverMessageChannel_ = serverMessageChannel;
