@@ -250,8 +250,7 @@ LogBuffer.prototype.addLogRecord_ = function(
     return;
 
   const logRecord = new goog.log.LogRecord(
-      logLevel, logMsg, loggerName,
-      logTime, logSequenceNumber);
+      logLevel, logMsg, loggerName, logTime, logSequenceNumber);
   for (const observer of this.observers_)
     observer(documentLocation, logRecord);
 
@@ -261,8 +260,7 @@ LogBuffer.prototype.addLogRecord_ = function(
 };
 
 goog.exportProperty(
-    LogBuffer.prototype, 'addLogRecord_',
-    LogBuffer.prototype.addLogRecord_);
+    LogBuffer.prototype, 'addLogRecord_', LogBuffer.prototype.addLogRecord_);
 
 /**
  * @param {string} formattedLogRecord
