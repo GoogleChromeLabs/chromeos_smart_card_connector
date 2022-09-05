@@ -405,6 +405,20 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
         ArrayValueBuilder().Add(scard_handle).Add(disposition).Get()));
   }
 
+  LONG SimulateStatusCallFromJsClient(int handler_id,
+                                      SCARDHANDLE scard_handle,
+                                      std::string& out_reader_name,
+                                      DWORD& out_state,
+                                      DWORD& out_protocol,
+                                      std::vector<uint8_t>& out_atr) {
+    return ExtractReturnCodeAndResults(
+        SimulateSyncCallFromJsClient(
+            handler_id,
+            /*function_name=*/"SCardStatus",
+            ArrayValueBuilder().Add(scard_handle).Get()),
+        out_reader_name, out_state, out_protocol, out_atr);
+  }
+
   LONG SimulateTransmitCallFromJsClient(
       int handler_id,
       SCARDHANDLE scard_handle,
@@ -1342,6 +1356,51 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, DisconnectAfterRemoving) {
   EXPECT_EQ(return_code, SCARD_S_SUCCESS);
   // Note: `SCardReleaseContext()` is called and its result is verified by the
   // fixture.
+}
+
+// `SCardStatus()` calls from JS should succeed and return information about the
+// card.
+TEST_F(SmartCardConnectorApplicationSingleClientTest, Status) {
+  // Arrange: set up a reader and a card.
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
+  SetUsbDevices({device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+  // Connect to the card.
+  SCARDHANDLE scard_handle = 0;
+  DWORD connection_protocol = 0;
+  EXPECT_EQ(SimulateConnectCallFromJsClient(
+                kFakeHandlerId, scard_context(), kGemaltoPcTwinReaderPcscName0,
+                SCARD_SHARE_SHARED,
+                /*preferred_protocols=*/SCARD_PROTOCOL_ANY, scard_handle,
+                connection_protocol),
+            SCARD_S_SUCCESS);
+
+  // Act:
+  std::string reader_name;
+  DWORD state = 0;
+  DWORD protocol = 0;
+  std::vector<uint8_t> atr;
+  LONG return_code = SimulateStatusCallFromJsClient(
+      kFakeHandlerId, scard_handle, reader_name, state, protocol, atr);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+  EXPECT_EQ(reader_name, kGemaltoPcTwinReaderPcscName0);
+  EXPECT_EQ(state, static_cast<DWORD>(SCARD_NEGOTIABLE | SCARD_POWERED |
+                                      SCARD_PRESENT));
+  EXPECT_EQ(protocol, connection_protocol);
+  EXPECT_EQ(atr, TestingSmartCardSimulation::GetCardAtr(
+                     TestingSmartCardSimulation::CardType::kCosmoId70));
+
+  // Cleanup:
+  EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
+                                               SCARD_LEAVE_CARD),
+            SCARD_S_SUCCESS);
 }
 
 // `SCardTransmit()` calls from JS should be able to send a request APDU to the
