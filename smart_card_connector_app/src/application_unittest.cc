@@ -15,12 +15,15 @@
 #include "smart_card_connector_app/src/application.h"
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <functional>
+#include <future>
 #include <memory>
 #include <mutex>
 #include <queue>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -357,6 +360,14 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
                                          .Add(std::move(in_reader_states))
                                          .Get()),
         out_reader_states);
+  }
+
+  LONG SimulateCancelCallFromJsClient(int handler_id,
+                                      SCARDCONTEXT scard_context) {
+    return ExtractReturnCodeAndResults(SimulateSyncCallFromJsClient(
+        handler_id,
+        /*function_name=*/"SCardCancel",
+        ArrayValueBuilder().Add(scard_context).Get()));
   }
 
   LONG SimulateConnectCallFromJsClient(int handler_id,
@@ -1028,6 +1039,61 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
       DictContains("atr",
                    TestingSmartCardSimulation::GetCardAtr(
                        TestingSmartCardSimulation::CardType::kCosmoId70)));
+}
+
+// `SCardCancel()` call from JS terminates a running `ScardGetStatusChange()`
+// call.
+TEST_F(SmartCardConnectorApplicationSingleClientTest, Cancel) {
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+  // Start a blocking `SCardGetStatusChange()` call on a different thread.
+  std::future<LONG> pending_status_return_code =
+      std::async(std::launch::async, [&] {
+        std::vector<Value> reader_states;
+        return SimulateGetStatusChangeCallFromJsClient(
+            kFakeHandlerId, scard_context(),
+            /*timeout=*/INFINITE,
+            ArrayValueBuilder()
+                .Add(DictValueBuilder()
+                         .Add("reader_name", kPnpNotification)
+                         .Add("current_state", SCARD_STATE_UNAWARE)
+                         .Get())
+                .Get(),
+            reader_states);
+      });
+  // Check that the call is actually blocked (either until a reader event or
+  // cancellation happen). The exact interval isn't important here - we just
+  // want some reasonably big probability of catching a bug if it's introduced.
+  EXPECT_EQ(pending_status_return_code.wait_for(std::chrono::seconds(1)),
+            std::future_status::timeout);
+
+  // Act: trigger `SCardCancel()` to abort the blocking call.
+  LONG cancellation_return_code =
+      SimulateCancelCallFromJsClient(kFakeHandlerId, scard_context());
+  // Wait until the `SCardGetStatusChange()` call completes.
+  LONG status_return_code = pending_status_return_code.get();
+
+  // Assert:
+  EXPECT_EQ(cancellation_return_code, SCARD_S_SUCCESS);
+  EXPECT_EQ(status_return_code, SCARD_E_CANCELLED);
+}
+
+// `SCardCancel()` call from JS succeeds even when there's no pending
+// `SCardGetStatusChange()` call.
+TEST_F(SmartCardConnectorApplicationSingleClientTest, CancelNothing) {
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+
+  // Act:
+  LONG return_code =
+      SimulateCancelCallFromJsClient(kFakeHandlerId, scard_context());
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
 }
 
 // `SCardConnect()` call from JS fails when there's no card inserted.
