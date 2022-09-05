@@ -26,6 +26,8 @@ SOURCES := \
 	../../../src/application_unittest.cc \
 	../../../src/testing_smart_card_simulation.cc \
 
+# Explanation:
+# -Wno-zero-length-array: Suppress warnings in the third-party reader.h file.
 CXXFLAGS := \
 	-I$(ROOT_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src \
@@ -36,6 +38,7 @@ CXXFLAGS := \
 	-Wall \
 	-Werror \
 	-Wextra \
+	-Wno-zero-length-array \
 	-std=$(CXX_DIALECT) \
 	$(TEST_ADDITIONAL_CXXFLAGS) \
 
