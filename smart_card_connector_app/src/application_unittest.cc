@@ -29,6 +29,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <reader.h>
 #include <winscard.h>
 
 #include <google_smart_card_common/formatting.h>
@@ -461,6 +462,18 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
               ->GetInteger();
     }
     return return_code;
+  }
+
+  LONG SimulateGetAttribCallFromJsClient(int handler_id,
+                                         SCARDHANDLE scard_handle,
+                                         DWORD attr_id,
+                                         std::vector<uint8_t>& out_attr) {
+    return ExtractReturnCodeAndResults(
+        SimulateSyncCallFromJsClient(
+            handler_id,
+            /*function_name=*/"SCardGetAttrib",
+            ArrayValueBuilder().Add(scard_handle).Add(attr_id).Get()),
+        out_attr);
   }
 
   LONG SimulateBeginTransactionCallFromJsClient(int handler_id,
@@ -1462,6 +1475,44 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, Status) {
   EXPECT_EQ(protocol, connection_protocol);
   EXPECT_EQ(atr, TestingSmartCardSimulation::GetCardAtr(
                      TestingSmartCardSimulation::CardType::kCosmoId70));
+
+  // Cleanup:
+  EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
+                                               SCARD_LEAVE_CARD),
+            SCARD_S_SUCCESS);
+}
+
+// `SCardGetAttrib()` call from JS should succeed for the
+// `SCARD_ATTR_ATR_STRING` argument.
+TEST_F(SmartCardConnectorApplicationSingleClientTest, GetAttribAtr) {
+  // Arrange: set up a reader and a card.
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
+  SetUsbDevices({device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+  // Connect to the card.
+  SCARDHANDLE scard_handle = 0;
+  DWORD active_protocol = 0;
+  EXPECT_EQ(SimulateConnectCallFromJsClient(
+                kFakeHandlerId, scard_context(), kGemaltoPcTwinReaderPcscName0,
+                SCARD_SHARE_SHARED,
+                /*preferred_protocols=*/SCARD_PROTOCOL_ANY, scard_handle,
+                active_protocol),
+            SCARD_S_SUCCESS);
+
+  // Act:
+  std::vector<uint8_t> attr;
+  LONG return_code = SimulateGetAttribCallFromJsClient(
+      kFakeHandlerId, scard_handle, SCARD_ATTR_ATR_STRING, attr);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+  EXPECT_EQ(attr, TestingSmartCardSimulation::GetCardAtr(
+                      TestingSmartCardSimulation::CardType::kCosmoId70));
 
   // Cleanup:
   EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
