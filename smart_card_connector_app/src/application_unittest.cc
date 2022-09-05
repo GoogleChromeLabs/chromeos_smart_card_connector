@@ -14,11 +14,14 @@
 
 #include "smart_card_connector_app/src/application.h"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <functional>
 #include <future>
+#include <limits>
+#include <locale>
 #include <memory>
 #include <mutex>
 #include <queue>
@@ -321,6 +324,21 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
         handler_id,
         /*function_name=*/"SCardReleaseContext",
         ArrayValueBuilder().Add(scard_context).Get()));
+  }
+
+  std::string SimulateStringifyErrorCallFromJsClient(int handler_id,
+                                                     LONG error) {
+    optional<Value> reply =
+        SimulateSyncCallFromJsClient(handler_id,
+                                     /*function_name=*/"pcsc_stringify_error",
+                                     ArrayValueBuilder().Add(error).Get());
+    // Extract the result manually because, unlike all other PC/SC functions,
+    // the `pcsc_stringify_error()` method doesn't return error codes.
+    GOOGLE_SMART_CARD_CHECK(reply);
+    GOOGLE_SMART_CARD_CHECK(reply->is_array());
+    auto& reply_array = reply->GetArray();
+    GOOGLE_SMART_CARD_CHECK(reply_array.size() == 1);
+    return ConvertFromValueOrDie<std::string>(std::move(*reply_array[0]));
   }
 
   LONG SimulateListReadersCallFromJsClient(
@@ -777,6 +795,52 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardEstablishContext) {
   // Act:
   SetUpSCardContext();
   TearDownSCardContext();
+}
+
+MATCHER(IsPrintableNonEmptyString, "") {
+  if (arg.empty())
+    return false;
+  std::locale c_locale("C");
+  return std::all_of(arg.begin(), arg.end(),
+                     [&](char c) { return std::isprint(c, c_locale); });
+}
+
+// `pcsc_stringify_error()` calls from JS succeed with reasonable results for
+// each possible error code.
+// We don't check against golden strings because hardcoding them all in the test
+// would make little sense.
+TEST_F(SmartCardConnectorApplicationSingleClientTest, StringifyError) {
+  constexpr LONG kFirstError = SCARD_F_INTERNAL_ERROR;
+  constexpr LONG kLastError = SCARD_W_CARD_NOT_AUTHENTICATED;
+  constexpr LONG kNonExistingError = 1;
+  constexpr LONG kMinValue = std::numeric_limits<LONG>::min();
+  constexpr LONG kMaxValue = std::numeric_limits<LONG>::max();
+
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+
+  // Act:
+  // Check the successful return code. It's a special case because its numerical
+  // value (0) is distant from all error codes.
+  EXPECT_THAT(
+      SimulateStringifyErrorCallFromJsClient(kFakeHandlerId, SCARD_S_SUCCESS),
+      IsPrintableNonEmptyString());
+  // Try every value within the range of known error codes (there are gaps
+  // within this range, but the code-under-test should handle them as well).
+  for (LONG code = std::min(kFirstError, kLastError);
+       code <= std::max(kFirstError, kLastError); ++code) {
+    EXPECT_THAT(SimulateStringifyErrorCallFromJsClient(kFakeHandlerId, code),
+                IsPrintableNonEmptyString())
+        << code;
+  }
+  // Try explicitly unknown and extreme values. The code-under-test should
+  // return reasonable results for them too.
+  for (LONG code : {kNonExistingError, kMinValue, kMaxValue}) {
+    EXPECT_THAT(SimulateStringifyErrorCallFromJsClient(kFakeHandlerId, code),
+                IsPrintableNonEmptyString())
+        << code;
+  }
 }
 
 // `SCardIsValidContext()` call from JS recognizes an existing context.
