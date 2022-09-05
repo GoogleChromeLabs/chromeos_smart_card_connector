@@ -61,9 +61,7 @@ const GSC = GoogleSmartCard;
 const urlParams = new URLSearchParams(window.location.search);
 
 /** @type {!goog.log.Logger} */
-const logger = GSC.Logging.getScopedLogger(
-    'PcscLiteServerClientsManagement.PermissionsChecking.UserPromptDialog.' +
-    'Main');
+const logger = GSC.Logging.getScopedLogger('Pcsc.PermissionsDialog');
 
 const data = GSC.InPopupMainScript.getData();
 

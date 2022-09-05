@@ -216,8 +216,7 @@ GSC.PcscLiteServerClientsManagement.ClientHandler = function(
    * @const
    */
   this.logger = GSC.Logging.getScopedLogger(
-      `PcscLiteServerClientsManagement.ClientHandler<${nameForJsLog}, id=${
-          this.id}>`);
+      `Pcsc.ClientHandler<${nameForJsLog}, id=${this.id}>`);
 
   /** @private */
   this.requestReceiver_ = new GSC.RequestReceiver(
