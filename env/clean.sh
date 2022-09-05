@@ -20,9 +20,12 @@ set -eu
 
 PATHS_TO_CLEAN="
   activate
+  chromedriver
   depot_tools
   emsdk
   nacl_sdk
+  python2_venv
+  python3_venv
   webports
 "
 
