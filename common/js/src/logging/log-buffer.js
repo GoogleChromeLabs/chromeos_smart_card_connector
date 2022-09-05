@@ -102,9 +102,12 @@ LogBuffer.attachBufferToLogger = function(logBuffer, logger, documentLocation) {
   // We also have to access the method by indexing the properties, since due to
   // method renaming the shortened method name in our page might differ from the
   // one in the `logBuffer`s page.
-  const handler =
-      logBuffer['onLogRecordObserved_'].bind(logBuffer, documentLocation);
-  goog.log.addHandler(logger, handler);
+  goog.log.addHandler(logger, (logRecord) => {
+    logBuffer['addLogRecord_'](
+        documentLocation, logRecord.getLevel(), logRecord.getMessage(),
+        logRecord.getLoggerName(), logRecord.getMillis(),
+        logRecord.getSequenceNumber());
+  });
 };
 
 goog.exportProperty(
@@ -233,14 +236,22 @@ LogBuffer.prototype.copyToOtherBuffer = function(otherLogBuffer) {
 
 /**
  * @param {string} documentLocation
- * @param {!goog.log.LogRecord} logRecord
+ * @param {?goog.log.Level} logLevel
+ * @param {string} logMsg
+ * @param {string} loggerName
+ * @param {number=} logTime
+ * @param {number=} logSequenceNumber
  * @private
  */
-LogBuffer.prototype.onLogRecordObserved_ = function(
-    documentLocation, logRecord) {
+LogBuffer.prototype.addLogRecord_ = function(
+    documentLocation, logLevel, logMsg, loggerName, logTime,
+    logSequenceNumber) {
   if (this.isDisposed())
     return;
 
+  const logRecord = new goog.log.LogRecord(
+      logLevel, logMsg, loggerName,
+      logTime, logSequenceNumber);
   for (const observer of this.observers_)
     observer(documentLocation, logRecord);
 
@@ -250,8 +261,8 @@ LogBuffer.prototype.onLogRecordObserved_ = function(
 };
 
 goog.exportProperty(
-    LogBuffer.prototype, 'onLogRecordObserved_',
-    LogBuffer.prototype.onLogRecordObserved_);
+    LogBuffer.prototype, 'addLogRecord_',
+    LogBuffer.prototype.addLogRecord_);
 
 /**
  * @param {string} formattedLogRecord
