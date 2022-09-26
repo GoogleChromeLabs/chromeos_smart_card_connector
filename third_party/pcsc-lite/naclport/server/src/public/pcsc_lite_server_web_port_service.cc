@@ -42,6 +42,10 @@
 
 #include "server_sockets_manager.h"
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten/version.h>
+#endif
+
 // Include the C headers after all other includes, because the preprocessor
 // definitions from them interfere with the symbols from the standard C++
 // library.
