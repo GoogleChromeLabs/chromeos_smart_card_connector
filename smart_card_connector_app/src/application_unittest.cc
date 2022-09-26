@@ -1710,7 +1710,8 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, EndTransaction) {
             SCARD_S_SUCCESS);
 }
 
-class SmartCardConnectorApplicationTwoClientsTest : public SmartCardConnectorApplicationSingleClientTest {
+class SmartCardConnectorApplicationTwoClientsTest
+    : public SmartCardConnectorApplicationSingleClientTest {
  protected:
   static constexpr int kFakeSecondHandlerId = 4567;
   static constexpr const char* kFakeSecondClientNameForLog =
@@ -1744,9 +1745,9 @@ class SmartCardConnectorApplicationTwoClientsTest : public SmartCardConnectorApp
 
   void TearDownSecondSCardContext() {
     GOOGLE_SMART_CARD_CHECK(second_scard_context_);
-    EXPECT_EQ(
-        SimulateReleaseContextCallFromJsClient(kFakeSecondHandlerId, *second_scard_context_),
-        SCARD_S_SUCCESS);
+    EXPECT_EQ(SimulateReleaseContextCallFromJsClient(kFakeSecondHandlerId,
+                                                     *second_scard_context_),
+              SCARD_S_SUCCESS);
     second_scard_context_ = {};
   }
 
@@ -1759,8 +1760,7 @@ class SmartCardConnectorApplicationTwoClientsTest : public SmartCardConnectorApp
 
 // `SCardConnect()` call from JS succeeds even when there's an active connection
 // from another client (which allows shared access).
-TEST_F(SmartCardConnectorApplicationTwoClientsTest,
-       ConnectConcurrent) {
+TEST_F(SmartCardConnectorApplicationTwoClientsTest, ConnectConcurrent) {
   // Arrange: set up a reader and a card.
   TestingSmartCardSimulation::Device device;
   device.id = 123;
@@ -1786,8 +1786,8 @@ TEST_F(SmartCardConnectorApplicationTwoClientsTest,
   // Act: the second client attempts to connect to the card.
   SCARDHANDLE second_scard_handle = 0;
   LONG return_code = SimulateConnectCallFromJsClient(
-      kFakeSecondHandlerId, second_scard_context(), kGemaltoPcTwinReaderPcscName0,
-      SCARD_SHARE_SHARED,
+      kFakeSecondHandlerId, second_scard_context(),
+      kGemaltoPcTwinReaderPcscName0, SCARD_SHARE_SHARED,
       /*preferred_protocols=*/SCARD_PROTOCOL_ANY, second_scard_handle,
       active_protocol);
 
@@ -1797,8 +1797,8 @@ TEST_F(SmartCardConnectorApplicationTwoClientsTest,
   EXPECT_NE(scard_handle, second_scard_handle);
 
   // Cleanup.
-  EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeSecondHandlerId, second_scard_handle,
-                                               SCARD_LEAVE_CARD),
+  EXPECT_EQ(SimulateDisconnectCallFromJsClient(
+                kFakeSecondHandlerId, second_scard_handle, SCARD_LEAVE_CARD),
             SCARD_S_SUCCESS);
   EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
                                                SCARD_LEAVE_CARD),
@@ -1834,8 +1834,8 @@ TEST_F(SmartCardConnectorApplicationTwoClientsTest,
   // Act: the second client attempts to connect to the card.
   SCARDHANDLE second_scard_handle = 0;
   LONG return_code = SimulateConnectCallFromJsClient(
-      kFakeSecondHandlerId, second_scard_context(), kGemaltoPcTwinReaderPcscName0,
-      SCARD_SHARE_SHARED,
+      kFakeSecondHandlerId, second_scard_context(),
+      kGemaltoPcTwinReaderPcscName0, SCARD_SHARE_SHARED,
       /*preferred_protocols=*/SCARD_PROTOCOL_ANY, second_scard_handle,
       active_protocol);
 
