@@ -959,6 +959,26 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
   EXPECT_THAT(readers, ElementsAre(kGemaltoPcTwinReaderPcscName0));
 }
 
+// `SCardListReaders()` call from JS fails when using a wrong context.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       SCardListReadersWrongContext) {
+  constexpr SCARDCONTEXT kWrongScardContext = 123456;
+
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+
+  // Act:
+  std::vector<std::string> readers;
+  LONG return_code =
+      SimulateListReadersCallFromJsClient(kFakeHandlerId, kWrongScardContext,
+                                          /*groups=*/Value(), readers);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_E_INVALID_HANDLE);
+  EXPECT_THAT(readers, IsEmpty());
+}
+
 // `SCardGetStatusChange()` call from JS detects when a reader is plugged in.
 TEST_F(SmartCardConnectorApplicationSingleClientTest,
        SCardGetStatusChangeDeviceAppearing) {
@@ -1144,6 +1164,33 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
                        TestingSmartCardSimulation::CardType::kCosmoId70)));
 }
 
+// `SCardGetStatusChange()` call from JS fails when using a wrong context.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       SCardGetStatusChangeWrongContext) {
+  constexpr SCARDCONTEXT kWrongScardContext = 123456;
+
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+
+  // Act:
+  std::vector<Value> reader_states;
+  LONG return_code = SimulateGetStatusChangeCallFromJsClient(
+      kFakeHandlerId, kWrongScardContext,
+      /*timeout=*/INFINITE,
+      ArrayValueBuilder()
+          .Add(DictValueBuilder()
+                   .Add("reader_name", kGemaltoPcTwinReaderPcscName0)
+                   .Add("current_state", SCARD_STATE_EMPTY)
+                   .Get())
+          .Get(),
+      reader_states);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_E_INVALID_HANDLE);
+  EXPECT_THAT(reader_states, IsEmpty());
+}
+
 // `SCardCancel()` call from JS terminates a running `ScardGetStatusChange()`
 // call.
 TEST_F(SmartCardConnectorApplicationSingleClientTest, Cancel) {
@@ -1197,6 +1244,22 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, CancelNothing) {
 
   // Assert:
   EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+}
+
+// `SCardCancel()` call from JS fails when using a wrong context.
+TEST_F(SmartCardConnectorApplicationSingleClientTest, CancelWrongContext) {
+  constexpr SCARDCONTEXT kWrongScardContext = 123456;
+
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+
+  // Act:
+  LONG return_code =
+      SimulateCancelCallFromJsClient(kFakeHandlerId, kWrongScardContext);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_E_INVALID_HANDLE);
 }
 
 // `SCardConnect()` call from JS fails when there's no card inserted.
@@ -1426,6 +1489,30 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
             SCARD_S_SUCCESS);
 }
 
+// `SCardConnect()` call from JS fails when using a wrong context.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       SCardConnectWrongContext) {
+  constexpr SCARDCONTEXT kWrongScardContext = 123456;
+
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+
+  // Act:
+  SCARDHANDLE scard_handle = 0;
+  DWORD active_protocol = 0;
+  LONG return_code = SimulateConnectCallFromJsClient(
+      kFakeHandlerId, kWrongScardContext, kGemaltoPcTwinReaderPcscName0,
+      SCARD_SHARE_SHARED,
+      /*preferred_protocols=*/SCARD_PROTOCOL_RAW, scard_handle,
+      active_protocol);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_E_INVALID_HANDLE);
+  EXPECT_EQ(scard_handle, 0);
+  EXPECT_EQ(active_protocol, static_cast<DWORD>(0));
+}
+
 // Test fixture that sets up a test reader with a card inserted into it, and a
 // client that has open `SCARDCONTEXT` and `SCARDHANDLE` for the reader.
 class SmartCardConnectorApplicationConnectedReaderTest
@@ -1507,6 +1594,27 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardReconnect) {
             SCARD_S_SUCCESS);
 }
 
+// `SCardReconnect()` call from JS fails when using a wrong handle.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       SCardReconnectWrongHandle) {
+  constexpr SCARDHANDLE kWrongScardHandle = 123456;
+
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+
+  // Act:
+  DWORD active_protocol = 0;
+  LONG return_code = SimulateReconnectCallFromJsClient(
+      kFakeHandlerId, kWrongScardHandle, SCARD_SHARE_SHARED,
+      /*preferred_protocols=*/SCARD_PROTOCOL_ANY, SCARD_LEAVE_CARD,
+      active_protocol);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_E_INVALID_HANDLE);
+  EXPECT_EQ(active_protocol, static_cast<DWORD>(0));
+}
+
 // Calling a non-existing PC/SC function results in an error (but not crash).
 TEST_F(SmartCardConnectorApplicationSingleClientTest, NonExistingFunctionCall) {
   // Arrange:
@@ -1567,6 +1675,22 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, DisconnectAfterRemoving) {
   // fixture.
 }
 
+// `SCardDisconnect()` calls from JS should fail when using a wrong handle.
+TEST_F(SmartCardConnectorApplicationSingleClientTest, DisconnectWrongHandle) {
+  constexpr SCARDHANDLE kWrongScardHandle = 123456;
+
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+
+  // Act:
+  LONG return_code = SimulateDisconnectCallFromJsClient(
+      kFakeHandlerId, kWrongScardHandle, SCARD_LEAVE_CARD);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_E_INVALID_HANDLE);
+}
+
 // `SCardStatus()` calls from JS should succeed and return information about the
 // card.
 TEST_F(SmartCardConnectorApplicationSingleClientTest, Status) {
@@ -1612,6 +1736,26 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, Status) {
             SCARD_S_SUCCESS);
 }
 
+// `SCardStatus()` calls from JS should fail when using a wrong handle.
+TEST_F(SmartCardConnectorApplicationSingleClientTest, StatusWrongHandle) {
+  constexpr SCARDHANDLE kWrongScardHandle = 123456;
+
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+
+  // Act:
+  std::string reader_name;
+  DWORD state = 0;
+  DWORD protocol = 0;
+  std::vector<uint8_t> atr;
+  LONG return_code = SimulateStatusCallFromJsClient(
+      kFakeHandlerId, kWrongScardHandle, reader_name, state, protocol, atr);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_E_INVALID_HANDLE);
+}
+
 // `SCardGetAttrib()` call from JS should succeed for the
 // `SCARD_ATTR_ATR_STRING` argument.
 TEST_F(SmartCardConnectorApplicationSingleClientTest, GetAttribAtr) {
@@ -1648,6 +1792,23 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, GetAttribAtr) {
   EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
                                                SCARD_LEAVE_CARD),
             SCARD_S_SUCCESS);
+}
+
+// `SCardGetAttrib()` call from JS should fail when using a wrong handle.
+TEST_F(SmartCardConnectorApplicationSingleClientTest, GetAttribWrongHandle) {
+  constexpr SCARDHANDLE kWrongScardHandle = 123456;
+
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+
+  // Act:
+  std::vector<uint8_t> attr;
+  LONG return_code = SimulateGetAttribCallFromJsClient(
+      kFakeHandlerId, kWrongScardHandle, SCARD_ATTR_ATR_STRING, attr);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_E_INVALID_HANDLE);
 }
 
 // `SCardSetAttrib()` calls from JS should fail for unsupported attributes.
@@ -1712,6 +1873,26 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, TransmitPivCommands) {
             SCARD_S_SUCCESS);
 }
 
+// `SCardTransmit()` calls from JS should fail when using a wrong handle.
+TEST_F(SmartCardConnectorApplicationSingleClientTest, TransmitWrongHandle) {
+  constexpr SCARDHANDLE kWrongScardHandle = 123456;
+
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+
+  // Act:
+  std::vector<uint8_t> response;
+  DWORD response_protocol = 0;
+  LONG return_code = SimulateTransmitCallFromJsClient(
+      kFakeHandlerId, kWrongScardHandle, SCARD_PROTOCOL_T1,
+      /*data_to_send=*/{1, 2, 3, 4},
+      /*receive_protocol=*/{}, response_protocol, response);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_E_INVALID_HANDLE);
+}
+
 // `SCardBeginTransaction()` calls from JS should succeed.
 TEST_F(SmartCardConnectorApplicationSingleClientTest, BeginTransaction) {
   // Arrange: set up a reader and a card with a PIV profile.
@@ -1745,6 +1926,24 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, BeginTransaction) {
   EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
                                                SCARD_LEAVE_CARD),
             SCARD_S_SUCCESS);
+}
+
+// `SCardBeginTransaction()` calls from JS should fail when using a wrong
+// handle.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       BeginTransactionWrongHandle) {
+  constexpr SCARDHANDLE kWrongScardHandle = 123456;
+
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+
+  // Act:
+  LONG return_code = SimulateBeginTransactionCallFromJsClient(
+      kFakeHandlerId, kWrongScardHandle);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_E_INVALID_HANDLE);
 }
 
 // `SCardEndTransaction()` calls from JS should succeed.
@@ -1782,6 +1981,23 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, EndTransaction) {
   EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
                                                SCARD_LEAVE_CARD),
             SCARD_S_SUCCESS);
+}
+
+// `SCardEndTransaction()` calls from JS should fail when using a wrong handle.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       EndTransactionWrongHandle) {
+  constexpr SCARDHANDLE kWrongScardHandle = 123456;
+
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+
+  // Act:
+  LONG return_code = SimulateEndTransactionCallFromJsClient(
+      kFakeHandlerId, kWrongScardHandle, SCARD_LEAVE_CARD);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_E_INVALID_HANDLE);
 }
 
 // `SCardControl()` call from JS should succeed for the
