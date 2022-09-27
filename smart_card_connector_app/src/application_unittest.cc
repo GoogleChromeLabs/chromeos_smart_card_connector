@@ -187,6 +187,14 @@ LONG ExtractReturnCodeAndResults(optional<Value> reply,
   return ExtractReturnCodeAndResults(std::move(reply), out_args...);
 }
 
+// Waits until the given functor returns true. The implementation is a simple
+// periodic polling.
+void WaitUntilPredicate(std::function<bool()> predicate) {
+  const auto kPollingInterval = std::chrono::milliseconds(1);
+  while (!predicate())
+    std::this_thread::sleep_for(kPollingInterval);
+}
+
 }  // namespace
 
 class SmartCardConnectorApplicationTest : public ::testing::Test {
@@ -760,6 +768,32 @@ TEST_F(SmartCardConnectorApplicationTest, ContextsIsolation) {
             SCARD_S_SUCCESS);
   SimulateJsClientRemoved(kFirstHandlerId);
   SimulateJsClientRemoved(kSecondHandlerId);
+}
+
+// Test that after a client is removed, the context it opened eventually becomes
+// released.
+TEST_F(SmartCardConnectorApplicationTest, AutoCleanupContext) {
+  constexpr int kHandlerId = 1234;
+
+  // Arrange:
+  StartApplication();
+  SimulateJsClientAdded(kHandlerId, /*client_name_for_log=*/"foo");
+  SCARDCONTEXT scard_context = 0;
+  EXPECT_EQ(SimulateEstablishContextCallFromJsClient(
+                kHandlerId, SCARD_SCOPE_SYSTEM,
+                /*reserved1=*/Value(),
+                /*reserved2=*/Value(), scard_context),
+            SCARD_S_SUCCESS);
+  EXPECT_EQ(SCardIsValidContext(scard_context), SCARD_S_SUCCESS);
+
+  // Act:
+  SimulateJsClientRemoved(kHandlerId);
+
+  // Assert: the context should eventually become invalid (as it's freed by a
+  // background thread there's no easy way to observe this without polling).
+  WaitUntilPredicate([&]() {
+    return SCardIsValidContext(scard_context) == SCARD_E_INVALID_HANDLE;
+  });
 }
 
 // Test fixture that simplifies simulating commands from a single client
