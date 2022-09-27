@@ -1538,6 +1538,7 @@ class SmartCardConnectorApplicationConnectedReaderTest
                   /*preferred_protocols=*/SCARD_PROTOCOL_T1, scard_handle_,
                   active_protocol),
               SCARD_S_SUCCESS);
+    EXPECT_EQ(active_protocol, static_cast<DWORD>(SCARD_PROTOCOL_T1));
   }
 
   void TearDown() override {
@@ -1555,43 +1556,17 @@ class SmartCardConnectorApplicationConnectedReaderTest
 
 // `SCardReconnect()` call from JS succeeds when using the same parameters as
 // the previous `SCardConnect()` call.
-TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardReconnect) {
-  // Arrange:
-  TestingSmartCardSimulation::Device device;
-  device.id = 123;
-  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
-  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
-  SetUsbDevices({device});
-  StartApplication();
-  SetUpJsClient();
-  SetUpSCardContext();
-  // Connect to the card.
-  SCARDHANDLE scard_handle = 0;
-  DWORD active_protocol = 0;
-  EXPECT_EQ(SimulateConnectCallFromJsClient(
-                kFakeHandlerId, scard_context(), kGemaltoPcTwinReaderPcscName0,
-                SCARD_SHARE_SHARED, SCARD_PROTOCOL_ANY, scard_handle,
-                active_protocol),
-            SCARD_S_SUCCESS);
-  EXPECT_NE(scard_handle, 0);
-  EXPECT_EQ(active_protocol, static_cast<DWORD>(SCARD_PROTOCOL_T1));
-
-  // Act:
-  // Reconnect using the same sharing and protocol.
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest, SCardReconnect) {
+  // Reconnect using the same sharing and protocol as the `SCardConnect()` call
+  // in the test's setup.
   DWORD new_active_protocol = 0;
   LONG return_code = SimulateReconnectCallFromJsClient(
-      kFakeHandlerId, scard_handle, SCARD_SHARE_SHARED,
+      kFakeHandlerId, scard_handle(), SCARD_SHARE_SHARED,
       /*preferred_protocols=*/SCARD_PROTOCOL_ANY, SCARD_LEAVE_CARD,
       new_active_protocol);
 
-  // Assert:
   EXPECT_EQ(return_code, SCARD_S_SUCCESS);
   EXPECT_EQ(new_active_protocol, static_cast<DWORD>(SCARD_PROTOCOL_T1));
-
-  // Cleanup:
-  EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
-                                               SCARD_LEAVE_CARD),
-            SCARD_S_SUCCESS);
 }
 
 // `SCardReconnect()` call from JS fails when using a wrong handle.
@@ -1693,47 +1668,23 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, DisconnectWrongHandle) {
 
 // `SCardStatus()` calls from JS should succeed and return information about the
 // card.
-TEST_F(SmartCardConnectorApplicationSingleClientTest, Status) {
-  // Arrange: set up a reader and a card.
-  TestingSmartCardSimulation::Device device;
-  device.id = 123;
-  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
-  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
-  SetUsbDevices({device});
-  StartApplication();
-  SetUpJsClient();
-  SetUpSCardContext();
-  // Connect to the card.
-  SCARDHANDLE scard_handle = 0;
-  DWORD connection_protocol = 0;
-  EXPECT_EQ(SimulateConnectCallFromJsClient(
-                kFakeHandlerId, scard_context(), kGemaltoPcTwinReaderPcscName0,
-                SCARD_SHARE_SHARED,
-                /*preferred_protocols=*/SCARD_PROTOCOL_ANY, scard_handle,
-                connection_protocol),
-            SCARD_S_SUCCESS);
-
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest, Status) {
   // Act:
   std::string reader_name;
   DWORD state = 0;
   DWORD protocol = 0;
   std::vector<uint8_t> atr;
   LONG return_code = SimulateStatusCallFromJsClient(
-      kFakeHandlerId, scard_handle, reader_name, state, protocol, atr);
+      kFakeHandlerId, scard_handle(), reader_name, state, protocol, atr);
 
   // Assert:
   EXPECT_EQ(return_code, SCARD_S_SUCCESS);
   EXPECT_EQ(reader_name, kGemaltoPcTwinReaderPcscName0);
   EXPECT_EQ(state, static_cast<DWORD>(SCARD_NEGOTIABLE | SCARD_POWERED |
                                       SCARD_PRESENT));
-  EXPECT_EQ(protocol, connection_protocol);
+  EXPECT_EQ(protocol, static_cast<DWORD>(SCARD_PROTOCOL_T1));
   EXPECT_EQ(atr, TestingSmartCardSimulation::GetCardAtr(
                      TestingSmartCardSimulation::CardType::kCosmoId70));
-
-  // Cleanup:
-  EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
-                                               SCARD_LEAVE_CARD),
-            SCARD_S_SUCCESS);
 }
 
 // `SCardStatus()` calls from JS should fail when using a wrong handle.
@@ -1758,40 +1709,14 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, StatusWrongHandle) {
 
 // `SCardGetAttrib()` call from JS should succeed for the
 // `SCARD_ATTR_ATR_STRING` argument.
-TEST_F(SmartCardConnectorApplicationSingleClientTest, GetAttribAtr) {
-  // Arrange: set up a reader and a card.
-  TestingSmartCardSimulation::Device device;
-  device.id = 123;
-  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
-  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
-  SetUsbDevices({device});
-  StartApplication();
-  SetUpJsClient();
-  SetUpSCardContext();
-  // Connect to the card.
-  SCARDHANDLE scard_handle = 0;
-  DWORD active_protocol = 0;
-  EXPECT_EQ(SimulateConnectCallFromJsClient(
-                kFakeHandlerId, scard_context(), kGemaltoPcTwinReaderPcscName0,
-                SCARD_SHARE_SHARED,
-                /*preferred_protocols=*/SCARD_PROTOCOL_ANY, scard_handle,
-                active_protocol),
-            SCARD_S_SUCCESS);
-
-  // Act:
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest, GetAttribAtr) {
   std::vector<uint8_t> attr;
   LONG return_code = SimulateGetAttribCallFromJsClient(
-      kFakeHandlerId, scard_handle, SCARD_ATTR_ATR_STRING, attr);
+      kFakeHandlerId, scard_handle(), SCARD_ATTR_ATR_STRING, attr);
 
-  // Assert:
   EXPECT_EQ(return_code, SCARD_S_SUCCESS);
   EXPECT_EQ(attr, TestingSmartCardSimulation::GetCardAtr(
                       TestingSmartCardSimulation::CardType::kCosmoId70));
-
-  // Cleanup:
-  EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
-                                               SCARD_LEAVE_CARD),
-            SCARD_S_SUCCESS);
 }
 
 // `SCardGetAttrib()` call from JS should fail when using a wrong handle.
@@ -1894,38 +1819,14 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, TransmitWrongHandle) {
 }
 
 // `SCardBeginTransaction()` calls from JS should succeed.
-TEST_F(SmartCardConnectorApplicationSingleClientTest, BeginTransaction) {
-  // Arrange: set up a reader and a card with a PIV profile.
-  TestingSmartCardSimulation::Device device;
-  device.id = 123;
-  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
-  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
-  SetUsbDevices({device});
-  StartApplication();
-  SetUpJsClient();
-  SetUpSCardContext();
-  // Connect to the card.
-  SCARDHANDLE scard_handle = 0;
-  DWORD active_protocol = 0;
-  EXPECT_EQ(SimulateConnectCallFromJsClient(
-                kFakeHandlerId, scard_context(), kGemaltoPcTwinReaderPcscName0,
-                SCARD_SHARE_SHARED,
-                /*preferred_protocols=*/SCARD_PROTOCOL_T1, scard_handle,
-                active_protocol),
-            SCARD_S_SUCCESS);
-
-  // Act:
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest, BeginTransaction) {
   LONG return_code =
-      SimulateBeginTransactionCallFromJsClient(kFakeHandlerId, scard_handle);
+      SimulateBeginTransactionCallFromJsClient(kFakeHandlerId, scard_handle());
 
-  // Assert:
   EXPECT_EQ(return_code, SCARD_S_SUCCESS);
 
-  // Cleanup. Note that we also verify here the transaction gets ended
-  // automatically.
-  EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
-                                               SCARD_LEAVE_CARD),
-            SCARD_S_SUCCESS);
+  // The test `TearDown()` will verify that the disconnection works despite the
+  // unended transaction.
 }
 
 // `SCardBeginTransaction()` calls from JS should fail when using a wrong
@@ -1947,40 +1848,18 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
 }
 
 // `SCardEndTransaction()` calls from JS should succeed.
-TEST_F(SmartCardConnectorApplicationSingleClientTest, EndTransaction) {
-  // Arrange: set up a reader and a card.
-  TestingSmartCardSimulation::Device device;
-  device.id = 123;
-  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
-  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
-  SetUsbDevices({device});
-  StartApplication();
-  SetUpJsClient();
-  SetUpSCardContext();
-  // Connect to the card and begin a transaction.
-  SCARDHANDLE scard_handle = 0;
-  DWORD active_protocol = 0;
-  EXPECT_EQ(SimulateConnectCallFromJsClient(
-                kFakeHandlerId, scard_context(), kGemaltoPcTwinReaderPcscName0,
-                SCARD_SHARE_SHARED,
-                /*preferred_protocols=*/SCARD_PROTOCOL_T1, scard_handle,
-                active_protocol),
-            SCARD_S_SUCCESS);
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest, EndTransaction) {
+  // Arrange: begin a transaction.
   EXPECT_EQ(
-      SimulateBeginTransactionCallFromJsClient(kFakeHandlerId, scard_handle),
+      SimulateBeginTransactionCallFromJsClient(kFakeHandlerId, scard_handle()),
       SCARD_S_SUCCESS);
 
   // Act:
   LONG return_code = SimulateEndTransactionCallFromJsClient(
-      kFakeHandlerId, scard_handle, SCARD_LEAVE_CARD);
+      kFakeHandlerId, scard_handle(), SCARD_LEAVE_CARD);
 
   // Assert:
   EXPECT_EQ(return_code, SCARD_S_SUCCESS);
-
-  // Cleanup:
-  EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
-                                               SCARD_LEAVE_CARD),
-            SCARD_S_SUCCESS);
 }
 
 // `SCardEndTransaction()` calls from JS should fail when using a wrong handle.
