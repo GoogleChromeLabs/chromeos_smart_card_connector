@@ -494,6 +494,16 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
         out_attr);
   }
 
+  LONG SimulateSetAttribCallFromJsClient(int handler_id,
+                                         SCARDHANDLE scard_handle,
+                                         DWORD attr_id,
+                                         const std::vector<uint8_t>& attr) {
+    return ExtractReturnCodeAndResults(SimulateSyncCallFromJsClient(
+        handler_id,
+        /*function_name=*/"SCardSetAttrib",
+        ArrayValueBuilder().Add(scard_handle).Add(attr_id).Add(attr).Get()));
+  }
+
   LONG SimulateBeginTransactionCallFromJsClient(int handler_id,
                                                 SCARDHANDLE scard_handle) {
     return ExtractReturnCodeAndResults(SimulateSyncCallFromJsClient(
@@ -1638,6 +1648,14 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, GetAttribAtr) {
   EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
                                                SCARD_LEAVE_CARD),
             SCARD_S_SUCCESS);
+}
+
+// `SCardSetAttrib()` calls from JS should fail for unsupported attributes.
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest, SetAttribError) {
+  LONG return_code = SimulateSetAttribCallFromJsClient(
+      kFakeHandlerId, scard_handle(), SCARD_ATTR_ATR_STRING,
+      /*data_to_send=*/{});
+  EXPECT_EQ(return_code, SCARD_E_INVALID_PARAMETER);
 }
 
 // `SCardTransmit()` calls from JS should be able to send a request APDU to the
