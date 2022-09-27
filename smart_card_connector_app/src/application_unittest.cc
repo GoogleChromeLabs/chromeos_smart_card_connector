@@ -1164,6 +1164,51 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
                        TestingSmartCardSimulation::CardType::kCosmoId70)));
 }
 
+// `SCardGetStatusChange()` call from JS detects when a card is removed.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       SCardGetStatusChangeCardRemoving) {
+  // Arrange: start with a card.
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
+  SetUsbDevices({device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+
+  // Act: simulate the card removal.
+  device.card_type = {};
+  SetUsbDevices({device});
+  // Request SCardGetStatusChange to check it observes the change.
+  std::vector<Value> reader_states;
+  EXPECT_EQ(SimulateGetStatusChangeCallFromJsClient(
+                kFakeHandlerId, scard_context(),
+                /*timeout=*/INFINITE,
+                ArrayValueBuilder()
+                    .Add(DictValueBuilder()
+                             .Add("reader_name", kGemaltoPcTwinReaderPcscName0)
+                             .Add("current_state", SCARD_STATE_PRESENT)
+                             .Get())
+                    .Get(),
+                reader_states),
+            SCARD_S_SUCCESS);
+
+  // Assert:
+  ASSERT_THAT(reader_states, SizeIs(1));
+  EXPECT_THAT(reader_states[0], DictSizeIs(4));
+  EXPECT_THAT(reader_states[0],
+              DictContains("reader_name", kGemaltoPcTwinReaderPcscName0));
+  EXPECT_THAT(reader_states[0],
+              DictContains("current_state", SCARD_STATE_PRESENT));
+  // The "event_state" field contains the number of card insertion/removal
+  // events in the higher 16 bits.
+  EXPECT_THAT(reader_states[0],
+              DictContains("event_state",
+                           SCARD_STATE_CHANGED | SCARD_STATE_EMPTY | 0x10000));
+  EXPECT_THAT(reader_states[0], DictContains("atr", std::vector<uint8_t>()));
+}
+
 // `SCardGetStatusChange()` call from JS fails when using a wrong context.
 TEST_F(SmartCardConnectorApplicationSingleClientTest,
        SCardGetStatusChangeWrongContext) {
