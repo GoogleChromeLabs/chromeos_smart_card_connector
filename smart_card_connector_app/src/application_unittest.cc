@@ -511,6 +511,22 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
         ArrayValueBuilder().Add(scard_handle).Add(disposition).Get()));
   }
 
+  LONG SimulateControlCallFromJsClient(int handler_id,
+                                       SCARDHANDLE scard_handle,
+                                       DWORD control_code,
+                                       const std::vector<uint8_t>& request_data,
+                                       std::vector<uint8_t>& out_response) {
+    return ExtractReturnCodeAndResults(
+        SimulateSyncCallFromJsClient(handler_id,
+                                     /*function_name=*/"SCardControl",
+                                     ArrayValueBuilder()
+                                         .Add(scard_handle)
+                                         .Add(control_code)
+                                         .Add(request_data)
+                                         .Get()),
+        out_response);
+  }
+
  private:
   void SetUpUsbSimulation() {
     global_context_.RegisterRequestHandler(
@@ -1400,6 +1416,46 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
             SCARD_S_SUCCESS);
 }
 
+// Test fixture that sets up a test reader with a card inserted into it, and a
+// client that has open `SCARDCONTEXT` and `SCARDHANDLE` for the reader.
+class SmartCardConnectorApplicationConnectedReaderTest
+    : public SmartCardConnectorApplicationSingleClientTest {
+ protected:
+  void SetUp() override {
+    SmartCardConnectorApplicationSingleClientTest::SetUp();
+
+    TestingSmartCardSimulation::Device device;
+    device.id = 123;
+    device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+    device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
+    SetUsbDevices({device});
+
+    StartApplication();
+    SetUpJsClient();
+    SetUpSCardContext();
+
+    DWORD active_protocol = 0;
+    EXPECT_EQ(SimulateConnectCallFromJsClient(
+                  kFakeHandlerId, scard_context(),
+                  kGemaltoPcTwinReaderPcscName0, SCARD_SHARE_SHARED,
+                  /*preferred_protocols=*/SCARD_PROTOCOL_T1, scard_handle_,
+                  active_protocol),
+              SCARD_S_SUCCESS);
+  }
+
+  void TearDown() override {
+    EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle_,
+                                                 SCARD_LEAVE_CARD),
+              SCARD_S_SUCCESS);
+    SmartCardConnectorApplicationSingleClientTest::TearDown();
+  }
+
+  SCARDHANDLE scard_handle() const { return scard_handle_; }
+
+ private:
+  SCARDHANDLE scard_handle_;
+};
+
 // `SCardReconnect()` call from JS succeeds when using the same parameters as
 // the previous `SCardConnect()` call.
 TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardReconnect) {
@@ -1708,6 +1764,77 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, EndTransaction) {
   EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
                                                SCARD_LEAVE_CARD),
             SCARD_S_SUCCESS);
+}
+
+// `SCardControl()` call from JS should succeed for the
+// `CM_IOCTL_GET_FEATURE_REQUEST` command and return the list of features
+// supported by the reader.
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest, ControlGetFeature) {
+  // A TLV ("tag-length-value") structure that contains the PCSC_TLV_STRUCTURE
+  // constant. For the test reader it's the only expected blob to be returned.
+  const std::vector<uint8_t> kFeatureGetTlvProperties = {0x12, 0x04, 0x42,
+                                                         0x33, 0x00, 0x12};
+
+  std::vector<uint8_t> received_data;
+  LONG return_code = SimulateControlCallFromJsClient(
+      kFakeHandlerId, scard_handle(), CM_IOCTL_GET_FEATURE_REQUEST,
+      /*data_to_send=*/{}, received_data);
+
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+  EXPECT_EQ(received_data, kFeatureGetTlvProperties);
+}
+
+// `SCardControl()` call from JS should fail for the
+// `IOCTL_SMARTCARD_VENDOR_IFD_EXCHANGE` command.
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest,
+       ControlVendorIfdFailure) {
+  // Corresponds to `IOCTL_SMARTCARD_VENDOR_IFD_EXCHANGE` in the CCID sources.
+  constexpr DWORD kIoctlSmartcardVendorIfdExchange = 0x42000001;
+
+  std::vector<uint8_t> received_data;
+  LONG return_code = SimulateControlCallFromJsClient(
+      kFakeHandlerId, scard_handle(), kIoctlSmartcardVendorIfdExchange,
+      /*data_to_send=*/{}, received_data);
+
+  EXPECT_EQ(return_code, SCARD_E_NOT_TRANSACTED);
+  EXPECT_THAT(received_data, IsEmpty());
+}
+
+// `SCardControl()` call from JS should succeed for the
+// `IOCTL_FEATURE_IFD_PIN_PROPERTIES` command and return the properties.
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest, ControlFeatureIfdPin) {
+  // Corresponds to `IOCTL_FEATURE_IFD_PIN_PROPERTIES` in the CCID sources.
+  constexpr DWORD kIoctlFeatureIfdPinProperties = 0x4233000A;
+  // The `PIN_PROPERTIES_STRUCTURE` struct as encoded blob, with the value
+  // that's expected for a standard reader.
+  const std::vector<uint8_t> kPinPropertiesStructure = {0x00, 0x00, 0x07, 0x00};
+
+  std::vector<uint8_t> received_data;
+  LONG return_code = SimulateControlCallFromJsClient(
+      kFakeHandlerId, scard_handle(), kIoctlFeatureIfdPinProperties,
+      /*data_to_send=*/{}, received_data);
+
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+  EXPECT_EQ(received_data, kPinPropertiesStructure);
+}
+
+// `SCardControl()` call from JS should succeed for the
+// `IOCTL_FEATURE_GET_TLV_PROPERTIES` command and return the properties.
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest,
+       ControlFeatureGetTlvProperties) {
+  // Corresponds to `IOCTL_FEATURE_GET_TLV_PROPERTIES` in the CCID sources.
+  constexpr DWORD kIoctlFeatureGetTlvProperties = 0x42330012;
+  const std::vector<uint8_t> kTlvProperties = {
+      0x01, 0x02, 0x00, 0x00, 0x03, 0x01, 0x00, 0x09, 0x01, 0x00, 0x0B, 0x02,
+      0xE6, 0x08, 0x0C, 0x02, 0x37, 0x34, 0x0A, 0x04, 0x00, 0x00, 0x01, 0x00};
+
+  std::vector<uint8_t> received_data;
+  LONG return_code = SimulateControlCallFromJsClient(
+      kFakeHandlerId, scard_handle(), kIoctlFeatureGetTlvProperties,
+      /*data_to_send=*/{}, received_data);
+
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+  EXPECT_EQ(received_data, kTlvProperties);
 }
 
 class SmartCardConnectorApplicationTwoClientsTest
