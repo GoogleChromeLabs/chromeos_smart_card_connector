@@ -1600,12 +1600,7 @@ class SmartCardConnectorApplicationConnectedReaderTest
   void SetUp() override {
     SmartCardConnectorApplicationSingleClientTest::SetUp();
 
-    TestingSmartCardSimulation::Device device;
-    device.id = 123;
-    device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
-    device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
-    SetUsbDevices({device});
-
+    SetUsbDevices({GetSimulationDevice()});
     StartApplication();
     SetUpJsClient();
     SetUpSCardContext();
@@ -1625,6 +1620,14 @@ class SmartCardConnectorApplicationConnectedReaderTest
                                                  SCARD_LEAVE_CARD),
               SCARD_S_SUCCESS);
     SmartCardConnectorApplicationSingleClientTest::TearDown();
+  }
+
+  TestingSmartCardSimulation::Device GetSimulationDevice() const {
+    TestingSmartCardSimulation::Device device;
+    device.id = 123;
+    device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+    device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
+    return device;
   }
 
   SCARDHANDLE scard_handle() const { return scard_handle_; }
@@ -1764,6 +1767,71 @@ TEST_F(SmartCardConnectorApplicationConnectedReaderTest, Status) {
   EXPECT_EQ(protocol, static_cast<DWORD>(SCARD_PROTOCOL_T1));
   EXPECT_EQ(atr, TestingSmartCardSimulation::GetCardAtr(
                      TestingSmartCardSimulation::CardType::kCosmoId70));
+}
+
+// `SCardStatus()` starts returning `SCARD_E_READER_UNAVAILABLE` after the
+// reader disappears.
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest,
+       StatusAfterReaderRemoval) {
+  // Act:
+  SetUsbDevices({});
+
+  // Assert: `SCardStatus()` should eventually return a specific error (we have
+  // to do a polling loop since there's no simple way to observe this
+  // asynchronous event).
+  WaitUntilPredicate([&]() {
+    std::string reader_name;
+    DWORD state = 0;
+    DWORD protocol = 0;
+    std::vector<uint8_t> atr;
+    LONG return_code = SimulateStatusCallFromJsClient(
+        kFakeHandlerId, scard_handle(), reader_name, state, protocol, atr);
+    // Continue waiting if `SCARD_S_SUCCESS` was returned. Complete the test
+    // after `SCARD_E_READER_UNAVAILABLE` is returned, but verify the returned
+    // values are correct.
+    EXPECT_THAT(return_code,
+                AnyOf(SCARD_S_SUCCESS, SCARD_E_READER_UNAVAILABLE));
+    if (return_code == SCARD_S_SUCCESS)
+      return false;
+    EXPECT_EQ(reader_name, "");
+    EXPECT_EQ(state, static_cast<DWORD>(0));
+    EXPECT_EQ(protocol, static_cast<DWORD>(0));
+    EXPECT_THAT(atr, IsEmpty());
+    return true;
+  });
+}
+
+// `SCardStatus()` starts returning `SCARD_W_REMOVED_CARD` after the card gets
+// removed from the reader.
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest,
+       StatusAfterCardRemoval) {
+  // Act: simulate the card removal.
+  TestingSmartCardSimulation::Device device = GetSimulationDevice();
+  device.card_type = {};
+  SetUsbDevices({device});
+
+  // Assert: `SCardStatus()` should eventually return a specific error (we have
+  // to do a polling loop since there's no simple way to observe this
+  // asynchronous event).
+  WaitUntilPredicate([&]() {
+    std::string reader_name;
+    DWORD state = 0;
+    DWORD protocol = 0;
+    std::vector<uint8_t> atr;
+    LONG return_code = SimulateStatusCallFromJsClient(
+        kFakeHandlerId, scard_handle(), reader_name, state, protocol, atr);
+    // Continue waiting if `SCARD_S_SUCCESS` was returned. Complete the test
+    // after `SCARD_W_REMOVED_CARD` is returned, but verify the returned values
+    // are correct.
+    EXPECT_THAT(return_code, AnyOf(SCARD_S_SUCCESS, SCARD_W_REMOVED_CARD));
+    if (return_code == SCARD_S_SUCCESS)
+      return false;
+    EXPECT_EQ(reader_name, "");
+    EXPECT_EQ(state, static_cast<DWORD>(0));
+    EXPECT_EQ(protocol, static_cast<DWORD>(0));
+    EXPECT_THAT(atr, IsEmpty());
+    return true;
+  });
 }
 
 // `SCardStatus()` calls from JS should fail when using a wrong handle.
