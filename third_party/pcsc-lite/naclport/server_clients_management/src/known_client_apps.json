@@ -86,5 +86,8 @@
   },
   "chrome-untrusted://terminal": {
     "name": "ChromeOS Terminal"
+  },
+  "chrome-extension://nebchommhahdcpcnbjbgmhnodjhnjnpd": {
+    "name": "DriveLock Smart Card Middleware Beta"
   }
 }
