@@ -95,6 +95,7 @@ ${if PACKAGING=app}
     "usb",
     {
       "usbDevices": [
+        {"vendorId": 1839, "productId": 8704},
 ${usb_devices}
       ]
     },
