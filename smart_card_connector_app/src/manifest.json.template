@@ -1,49 +1,97 @@
 {
+
 ${if CONFIG=Debug}
+  # Specify the public key that corresponds to the same extension ID under which
+  # we're published on WebStore ("khpfeaanjngmcnplbdlpegiifgpfgdco"). It
+  # simplifies development, as it allows developers to install the Debug build
+  # manually via chrome://extensions and test it against other applications that
+  # communicate to it using this hardcoded ID.
+  #
+  # Note that this is not a security issue, since this "mimicking" only works
+  # when installing the extension manually. Regular users install extensions via
+  # WebStore or get them from policy, and in these scenarios Chrome checks a
+  # cryptographic signature that the WebStore generates (and only it has the
+  # corresponding private key).
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlc6hy5++uljMusXcpXspmA3UH5t9ppVHj3FfxvVMPOFX0RLrDvXtfH3f/TkdyPsAzk1QDDQ1++lDatRa3xc4rOGa2ynXljOR9y6rWoqB5wwMOjB42AWSVZWNwpccRsYkMhML5s7uur+B4SERWeMasXuJUhTPweS48Mz0mvp9wZMQB9+xPNm93iUeUZvVtB63ksibx5B3UJUCBz1wSUXLnEoTjy6TR9XsQ+boZlRsk/jY79A+iMQZw72QBBXvWSfJRaeDj266Dz+Jyp0h4lxZJjg/pnL0Rp5s0zlhlSNm6zyrQ6lWMzagjP/2G95LWMNvLTE95oKqhP4hNaxYrI/pUQIDAQAB",
 ${endif}
+
   "manifest_version": 2,
+
+  # Name and description strings are localized (see the messages files under
+  # ./_locales/).
   "name": "__MSG_appName__",
   "short_name": "__MSG_appShortName__",
   "description": "__MSG_appDesc__",
+
   "version": "1.3.9.3",
+
+  # Whether an application is an App or an Extension is determined by nesting or
+  # not nesting the background script information under the "app" key.
 ${if PACKAGING=app}
   "app": {
 ${endif}
     "background": {
+
+      # Using a non-persistent background page (event page) is a Chrome
+      # requirement. In fact we never shut down after startup, but this is
+      # achieved by calls made in the background script.
       "persistent": false,
+
+      # Run the compiled background script produced by the Closure Compiler.
       "scripts": [
         "background.js"
       ]
+
 ${if PACKAGING=app}
     }
 ${endif}
   },
+
 ${if PACKAGING=extension}
+  # When compiled as an Extension, the main window is launched via a browser
+  # action icon. (For reference, the App's UI is available via ChromeOS Launcher
+  # and is implemented via `chrome.app.runtime.onLaunched`.)
   "browser_action": {
     "default_icon": "icon.png",
     "default_title": "__MSG_appShortName__",
     "default_popup": "window.html"
   },
+
+  # Allow executing WebAssembly code. (It's not needed when compiling as an App,
+  # because the default CSP is less strict for Apps.)
   "content_security_policy": "script-src 'self' 'wasm-eval'; object-src 'self'",
 ${endif}
+
+  # Specify the minimum ChromeOS milestone on which we're guaranteed to work.
+  # When compiled as an Extension, the requirement is much higher because both
+  # WebUSB and WebAssembly are required in this mode and are only stable and
+  # reliable on new versions.
 ${if PACKAGING=app}
   "minimum_chrome_version": "48",
 ${endif}
 ${if PACKAGING=extension}
   "minimum_chrome_version": "96",
 ${endif}
+
   "default_locale": "en",
   "icons": {
     "128": "icon.png"
   },
+
+  # Specify the schema of the policy-for-extensions that we support.
   "storage": {
     "managed_schema": "managed_storage_schema.json"
   },
+
   "permissions": [
 ${if PACKAGING=app}
+    # Needed for the permission prompt (when a client Extension/App sends a
+    # command to us for the first time).
     "alwaysOnTopWindows",
+    # Needed for opening the Help Center article.
     "browser",
+    # Needed for talking to the smart card reader USB devices (the variable is
+    # substituted with the list obtained from the CCID Free Driver config).
     "usb",
     {
       "usbDevices": [
@@ -51,12 +99,18 @@ ${usb_devices}
       ]
     },
 ${endif}
+    # Needed for detecting the ChromeOS Lock Screen state (used for disabling
+    # the USB communication if we run in-session and the screen is locked).
     "loginState"
   ],
+
+  # Allow any Extension/App and the specified web page URLs to send messages to
+  # us.
   "externally_connectable": {
     "ids": ["*"],
     "matches": [
       "chrome-untrusted://terminal/*"
     ]
   }
+
 }
