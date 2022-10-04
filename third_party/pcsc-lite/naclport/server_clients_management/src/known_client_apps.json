@@ -89,5 +89,17 @@
   },
   "chrome-extension://nebchommhahdcpcnbjbgmhnodjhnjnpd": {
     "name": "DriveLock Smart Card Middleware Beta"
+  },
+  "chrome-extension://kghimeaijcapoakcbhbelgkcdoiigbmn": {
+    "name": "Ujambo Kiosk App",
+    "autoapprove": true
+  },
+  "chrome-extension://oialdphpkhfcnjooecmochkdfmhhnelp": {
+    "name": "Ujambo Kiosk App (acceptance)",
+    "autoapprove": true
+  },
+  "chrome-extension://gpnmjjdkmdfmccnpepmianiomfahpbcc": {
+    "name": "Ujambo Kiosk App (development)",
+    "autoapprove": true
   }
 }
