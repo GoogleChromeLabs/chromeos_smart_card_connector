@@ -88,17 +88,27 @@ ${if PACKAGING=app}
     # Needed for the permission prompt (when a client Extension/App sends a
     # command to us for the first time).
     "alwaysOnTopWindows",
+
     # Needed for opening the Help Center article.
     "browser",
-    # Needed for talking to the smart card reader USB devices (the variable is
-    # substituted with the list obtained from the CCID Free Driver config).
+
+    # Needed for talking to the smart card reader USB devices.
     "usb",
     {
       "usbDevices": [
+        # Allowlist the ACS ACR122U PICC reader. It's not officially supported
+        # due to various issues, hence we don't patch the CCID Free Driver's
+        # config to include it, but we allow deployments that are willing to use
+        # this reader do so without extra user or admin actions.
+        {"vendorId": 1839, "productId": 8704},
+
+        # The variable is substituted with the list obtained from the CCID Free
+        # Driver config.
 ${usb_devices}
       ]
     },
 ${endif}
+
     # Needed for detecting the ChromeOS Lock Screen state (used for disabling
     # the USB communication if we run in-session and the screen is locked).
     "loginState"
