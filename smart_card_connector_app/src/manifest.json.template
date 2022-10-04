@@ -23,7 +23,7 @@ ${endif}
   "short_name": "__MSG_appShortName__",
   "description": "__MSG_appDesc__",
 
-  "version": "1.3.9.3",
+  "version": "1.3.10.0",
 
   # Whether an application is an App or an Extension is determined by nesting or
   # not nesting the background script information under the "app" key.
