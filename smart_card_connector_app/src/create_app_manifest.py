@@ -25,6 +25,13 @@ import sys
 # list in the app's manifest file.
 CCID_SUPPORTED_READERS_CONFIG_SECTIONS_TO_PICK = ('supported', 'shouldwork')
 
+# Regexp for finding comment lines.
+PREPROCESSOR_COMMENT_REGEXP = r'^\s*#.*\n'
+# Regexp for finding all ${if ...}...${endif} blocks.
+PREPROCESSOR_IF_REGEXP = r'\s*\${if (.*?)}((.|\n)*?)\s*\${endif}'
+# Regexp for finding line breaks.
+PREPROCESSOR_LINE_BREAKS_REGEXP = r'\n+'
+
 def load_usb_devices(ccid_supported_readers_file):
   """Parses the specified config containing descriptions of the readers
   supported by CCID.
@@ -102,9 +109,12 @@ def load_usb_devices(ccid_supported_readers_file):
 
   return usb_devices
 
-def preprocess_manifest_template(manifest_template, enabled_conditions):
-  # Use regexps for finding all ${if ...}...${endif} blocks.
-  regexp = re.compile(r'\s*\${if (.*?)}((.|\n)*?)\s*\${endif}', re.MULTILINE)
+def preprocess_manifest_comments(manifest_template):
+  return re.sub(PREPROCESSOR_COMMENT_REGEXP, '', manifest_template,
+                flags=re.MULTILINE)
+
+def preprocess_manifest_conditions(manifest_template, enabled_conditions):
+  regexp = re.compile(PREPROCESSOR_IF_REGEXP, re.MULTILINE)
   while True:
     match = regexp.search(manifest_template)
     if not match:
@@ -124,6 +134,10 @@ def preprocess_manifest_template(manifest_template, enabled_conditions):
         all_after=all_after)
   return manifest_template
 
+def remove_empty_lines(manifest_template):
+  return re.sub(PREPROCESSOR_LINE_BREAKS_REGEXP, '\n', manifest_template,
+                flags=re.MULTILINE)
+
 def build_manifest(manifest_template_file, ccid_supported_readers_file,
                    enabled_conditions):
   usb_devices = load_usb_devices(ccid_supported_readers_file)
@@ -133,9 +147,10 @@ def build_manifest(manifest_template_file, ccid_supported_readers_file,
       for vendor_id, product_id in sorted(usb_devices))
 
   template = manifest_template_file.read()
-  preprocessed_template = preprocess_manifest_template(
-      template, enabled_conditions)
-  return string.Template(preprocessed_template).substitute(
+  template = preprocess_manifest_comments(template)
+  template = preprocess_manifest_conditions(template, enabled_conditions)
+  template = remove_empty_lines(template)
+  return string.Template(template).substitute(
       usb_devices=formatted_usb_devices)
 
 def main():
