@@ -353,9 +353,14 @@ function setupLogBuffer() {
   goog.global[GLOBAL_LOG_BUFFER_VARIABLE_NAME] = logBuffer;
 
   chrome.runtime.getBackgroundPage(function(backgroundPage) {
-    GSC.Logging.check(backgroundPage);
-    goog.asserts.assert(backgroundPage);
-
+    if (!backgroundPage) {
+      // There's no background page - it's expected when we're running inside an
+      // extension without a background page. No action needed for log buffers.
+      goog.log.fine(
+          rootLogger,
+          `No background page: ${chrome.runtime.lastError?.message}`);
+      return;
+    }
     if (backgroundPage === window) {
       // We're running inside the background page - no action needed.
       return;
