@@ -105,12 +105,13 @@ if (logBufferForwarderToNaclModule) {
     // Skip forwarding logs that were received from the NaCl module or generated
     // while sending messages to it, in order to avoid duplication and/or
     // infinite recursion.
+    const naclModule = /** @type {!GSC.NaclModule} */ (executableModule);
     logBufferForwarderToNaclModule.ignoreLogger(
-        executableModule.logMessagesReceiver.logger.getName());
+        naclModule.logMessagesReceiver.logger.getName());
     // Start forwarding all future log messages collected on the JS side, but
     // also immediately post the messages that have been accumulated so far.
     logBufferForwarderToNaclModule.startForwarding(
-        executableModule.getMessageChannel());
+        naclModule.getMessageChannel());
   }, () => {});
 }
 

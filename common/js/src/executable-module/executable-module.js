@@ -34,48 +34,43 @@ goog.scope(function() {
 const GSC = GoogleSmartCard;
 
 /**
- * An interface that can be used for loading and interacting with a binary
- * executable module.
- * The object gets disposed of when the module fails to load or crashes.
- * @abstract @constructor
- * @extends goog.Disposable
- */
-GSC.ExecutableModule = function() {};
-
-const ExecutableModule = GSC.ExecutableModule;
-goog.inherits(ExecutableModule, goog.Disposable);
-
-/**
  * Type of the toolchain used for building the binary executable module.
  * @enum {string}
  */
-ExecutableModule.Toolchain = {
+const Toolchain = {
   EMSCRIPTEN: 'emscripten',
   PNACL: 'pnacl',
 };
 
 /** @define {string} */
-const TOOLCHAIN = goog.define('GoogleSmartCard.ExecutableModule.TOOLCHAIN', '');
+const TOOLCHAIN_STR = goog.define(
+    'GoogleSmartCard.ExecutableModule.TOOLCHAIN', '');
 GSC.Logging.check(
-    Object.values(GSC.ExecutableModule.Toolchain).includes(TOOLCHAIN),
+    Object.values(Toolchain).includes(TOOLCHAIN_STR),
     `Unexpected value of GoogleSmartCard.ExecutableModule.TOOLCHAIN: ${
-        TOOLCHAIN}`);
+        TOOLCHAIN_STR}`);
 
-  /**
+/**
  * The toolchain that is used for building the executable module. This constant
  * is coming from the build scripts, which take it from the "TOOLCHAIN"
  * environment variable.
- * @type {!ExecutableModule.Toolchain}
+ * @type {!Toolchain}
  * @const
  */
-ExecutableModule.TOOLCHAIN =
-    /** @type {!ExecutableModule.Toolchain} */ (TOOLCHAIN);
+const TOOLCHAIN = /** @type {!Toolchain} */ (TOOLCHAIN_STR);
 
+/**
+ * An interface that can be used for loading and interacting with a binary
+ * executable module.
+ * The object gets disposed of when the module fails to load or crashes.
+ * @abstract
+ */
+GSC.ExecutableModule = class extends goog.Disposable {
 /**
  * @abstract
  * @return {!goog.log.Logger}
  */
-ExecutableModule.prototype.getLogger = function() {};
+getLogger() {}
 
 /**
  * Begins loading and running the executable module.
@@ -84,7 +79,7 @@ ExecutableModule.prototype.getLogger = function() {};
  * channel listeners.
  * @abstract
  */
-ExecutableModule.prototype.startLoading = function() {};
+startLoading() {}
 
 /**
  * Returns the promise that gets fulfilled when the module loading completes.
@@ -92,7 +87,7 @@ ExecutableModule.prototype.startLoading = function() {};
  * @abstract
  * @return {!goog.Promise<void>}
  */
-ExecutableModule.prototype.getLoadPromise = function() {};
+getLoadPromise() {}
 
 /**
  * Returns the message channel for sending/receiving messages to/from the
@@ -100,5 +95,10 @@ ExecutableModule.prototype.getLoadPromise = function() {};
  * @abstract
  * @return {!goog.messaging.AbstractChannel}
  */
-ExecutableModule.prototype.getMessageChannel = function() {};
+getMessageChannel() {}
+};
+
+// Expose static attributes.
+GSC.ExecutableModule.Toolchain = Toolchain;
+GSC.ExecutableModule.TOOLCHAIN = TOOLCHAIN;
 });  // goog.scope
