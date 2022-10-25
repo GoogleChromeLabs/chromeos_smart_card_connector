@@ -118,175 +118,176 @@ function createPingResponderMessageData(channelId) {
  * track situations when the other end restarts unexpectedly.
  */
 GSC.MessageChannelPinging.Pinger = class extends goog.Disposable {
-/**
- * @param {!goog.messaging.AbstractChannel} messageChannel
- * @param {!goog.log.Logger} parentLogger
- * @param {function()=} opt_onEstablished Callback to be called when the first
- * correct "pong" response is received.
- */
-constructor(messageChannel, parentLogger, opt_onEstablished) {
-  super();
-
   /**
-   * @type {!goog.log.Logger}
-   * @const
+   * @param {!goog.messaging.AbstractChannel} messageChannel
+   * @param {!goog.log.Logger} parentLogger
+   * @param {function()=} opt_onEstablished Callback to be called when the first
+   * correct "pong" response is received.
    */
-  this.logger = GSC.Logging.getChildLogger(parentLogger, PINGER_LOGGER_TITLE);
+  constructor(messageChannel, parentLogger, opt_onEstablished) {
+    super();
 
-  /** @private */
-  this.messageChannel_ = messageChannel;
-  // Register itself for receiving "pong" response messages.
-  this.messageChannel_.registerService(
-      PING_RESPONDER_SERVICE_NAME, this.serviceCallback_.bind(this), true);
+    /**
+     * @type {!goog.log.Logger}
+     * @const
+     */
+    this.logger = GSC.Logging.getChildLogger(parentLogger, PINGER_LOGGER_TITLE);
 
-  /** @private */
-  this.onEstablished_ =
-      opt_onEstablished !== undefined ? opt_onEstablished : null;
+    /** @private */
+    this.messageChannel_ = messageChannel;
+    // Register itself for receiving "pong" response messages.
+    this.messageChannel_.registerService(
+        PING_RESPONDER_SERVICE_NAME, this.serviceCallback_.bind(this), true);
+
+    /** @private */
+    this.onEstablished_ =
+        opt_onEstablished !== undefined ? opt_onEstablished : null;
+
+    /**
+     * @type {number|null}
+     * @private
+     */
+    this.previousRemoteEndChannelId_ = null;
+
+    /** @private */
+    this.timeoutTimerId_ = null;
+    this.scheduleTimeoutTimer_();
+
+    goog.async.nextTick(this.postPingMessageAndScheduleNext_, this);
+  }
 
   /**
-   * @type {number|null}
+   * Posts a ping message through the message channel.
+   */
+  postPingMessage() {
+    if (this.isDisposed())
+      return;
+    goog.log.log(
+        this.logger, goog.log.Level.FINEST, 'Sending a ping request...');
+
+    this.messageChannel_.send(PINGER_SERVICE_NAME, createPingerMessageData());
+  }
+
+  /** @override */
+  disposeInternal() {
+    this.clearTimeoutTimer_();
+
+    this.onEstablished_ = null;
+
+    this.messageChannel_ = null;
+
+    goog.log.fine(this.logger, 'Disposed');
+
+    super.disposeInternal();
+  }
+
+  /**
+   * @param {string|!Object} messageData
    * @private
    */
-  this.previousRemoteEndChannelId_ = null;
+  serviceCallback_(messageData) {
+    GSC.Logging.checkWithLogger(this.logger, goog.isObject(messageData));
+    goog.asserts.assertObject(messageData);
+
+    if (this.isDisposed())
+      return;
+
+    if (!goog.object.containsKey(messageData, CHANNEL_ID_MESSAGE_KEY)) {
+      goog.log.warning(
+          this.logger,
+          'Received pong message has wrong format: no "' +
+              CHANNEL_ID_MESSAGE_KEY + '" field is present. Disposing...');
+      this.disposeChannelAndSelf_();
+      return;
+    }
+    const channelId = messageData[CHANNEL_ID_MESSAGE_KEY];
+    if (typeof channelId !== 'number') {
+      goog.log.warning(
+          this.logger,
+          'Received pong message has wrong format: channel id ' +
+              'is not a number. Disposing...');
+      this.disposeChannelAndSelf_();
+      return;
+    }
+
+    if (this.previousRemoteEndChannelId_ === null) {
+      goog.log.fine(
+          this.logger,
+          'Received the first pong response (remote channel id is ' +
+              channelId + '). The message channel is considered established');
+      this.previousRemoteEndChannelId_ = channelId;
+      if (this.onEstablished_) {
+        this.onEstablished_();
+        this.onEstablished_ = null;
+      }
+    } else if (this.previousRemoteEndChannelId_ == channelId) {
+      goog.log.log(
+          this.logger, goog.log.Level.FINEST,
+          'Received a pong response with the correct channel ' +
+              'id, so the remote end considered alive');
+      this.clearTimeoutTimer_();
+      this.scheduleTimeoutTimer_();
+    } else {
+      goog.log.warning(
+          this.logger,
+          'Received a pong response with a channel id different from the ' +
+              'expected one (expected ' + this.previousRemoteEndChannelId_ +
+              ', received ' + channelId + '). Disposing...');
+      this.disposeChannelAndSelf_();
+    }
+  }
 
   /** @private */
-  this.timeoutTimerId_ = null;
-  this.scheduleTimeoutTimer_();
-
-  goog.async.nextTick(this.postPingMessageAndScheduleNext_, this);
-}
-
-/**
- * Posts a ping message through the message channel.
- */
-postPingMessage() {
-  if (this.isDisposed())
-    return;
-  goog.log.log(this.logger, goog.log.Level.FINEST, 'Sending a ping request...');
-
-  this.messageChannel_.send(PINGER_SERVICE_NAME, createPingerMessageData());
-}
-
-/** @override */
-disposeInternal() {
-  this.clearTimeoutTimer_();
-
-  this.onEstablished_ = null;
-
-  this.messageChannel_ = null;
-
-  goog.log.fine(this.logger, 'Disposed');
-
-  super.disposeInternal();
-}
-
-/**
- * @param {string|!Object} messageData
- * @private
- */
-serviceCallback_(messageData) {
-  GSC.Logging.checkWithLogger(this.logger, goog.isObject(messageData));
-  goog.asserts.assertObject(messageData);
-
-  if (this.isDisposed())
-    return;
-
-  if (!goog.object.containsKey(messageData, CHANNEL_ID_MESSAGE_KEY)) {
-    goog.log.warning(
-        this.logger,
-        'Received pong message has wrong format: no "' +
-            CHANNEL_ID_MESSAGE_KEY + '" field is present. Disposing...');
-    this.disposeChannelAndSelf_();
-    return;
-  }
-  const channelId = messageData[CHANNEL_ID_MESSAGE_KEY];
-  if (typeof channelId !== 'number') {
-    goog.log.warning(
-        this.logger,
-        'Received pong message has wrong format: channel id ' +
-            'is not a number. Disposing...');
-    this.disposeChannelAndSelf_();
-    return;
+  disposeChannelAndSelf_() {
+    goog.log.fine(this.logger, 'Disposing the message channel and self');
+    this.messageChannel_.dispose();
+    this.dispose();
   }
 
-  if (this.previousRemoteEndChannelId_ === null) {
-    goog.log.fine(
-        this.logger,
-        'Received the first pong response (remote channel id is ' + channelId +
-            '). The message channel is considered established');
-    this.previousRemoteEndChannelId_ = channelId;
-    if (this.onEstablished_) {
-      this.onEstablished_();
-      this.onEstablished_ = null;
+  /** @private */
+  postPingMessageAndScheduleNext_() {
+    this.postPingMessage();
+    this.schedulePostingPingMessage_();
+  }
+
+  /** @private */
+  schedulePostingPingMessage_() {
+    if (this.isDisposed())
+      return;
+    let interval = PINGER_INTERVAL_MILLISECONDS;
+    if (intervalOverrideForTesting)
+      interval = intervalOverrideForTesting;
+    goog.Timer.callOnce(this.postPingMessageAndScheduleNext_, interval, this);
+  }
+
+  /** @private */
+  scheduleTimeoutTimer_() {
+    GSC.Logging.checkWithLogger(this.logger, this.timeoutTimerId_ === null);
+    let timeout = PINGER_TIMEOUT_MILLISECONDS;
+    if (timeoutOverrideForTesting)
+      timeout = timeoutOverrideForTesting;
+    this.timeoutTimerId_ =
+        goog.Timer.callOnce(this.timeoutCallback_.bind(this), timeout, this);
+  }
+
+  /** @private */
+  clearTimeoutTimer_() {
+    if (this.timeoutTimerId_ !== null) {
+      goog.Timer.clear(this.timeoutTimerId_);
+      this.timeoutTimerId_ = null;
     }
-  } else if (this.previousRemoteEndChannelId_ == channelId) {
-    goog.log.log(
-        this.logger, goog.log.Level.FINEST,
-        'Received a pong response with the correct channel ' +
-            'id, so the remote end considered alive');
-    this.clearTimeoutTimer_();
-    this.scheduleTimeoutTimer_();
-  } else {
+  }
+
+  /** @private */
+  timeoutCallback_() {
+    if (this.isDisposed())
+      return;
     goog.log.warning(
         this.logger,
-        'Received a pong response with a channel id different from the ' +
-            'expected one (expected ' + this.previousRemoteEndChannelId_ +
-            ', received ' + channelId + '). Disposing...');
+        'No pong response received in time, the remote end is ' +
+            'dead. Disposing...');
     this.disposeChannelAndSelf_();
   }
-}
-
-/** @private */
-disposeChannelAndSelf_() {
-  goog.log.fine(this.logger, 'Disposing the message channel and self');
-  this.messageChannel_.dispose();
-  this.dispose();
-}
-
-/** @private */
-postPingMessageAndScheduleNext_() {
-  this.postPingMessage();
-  this.schedulePostingPingMessage_();
-}
-
-/** @private */
-schedulePostingPingMessage_() {
-  if (this.isDisposed())
-    return;
-  let interval = PINGER_INTERVAL_MILLISECONDS;
-  if (intervalOverrideForTesting)
-    interval = intervalOverrideForTesting;
-  goog.Timer.callOnce(this.postPingMessageAndScheduleNext_, interval, this);
-}
-
-/** @private */
-scheduleTimeoutTimer_() {
-  GSC.Logging.checkWithLogger(this.logger, this.timeoutTimerId_ === null);
-  let timeout = PINGER_TIMEOUT_MILLISECONDS;
-  if (timeoutOverrideForTesting)
-    timeout = timeoutOverrideForTesting;
-  this.timeoutTimerId_ =
-      goog.Timer.callOnce(this.timeoutCallback_.bind(this), timeout, this);
-}
-
-/** @private */
-clearTimeoutTimer_() {
-  if (this.timeoutTimerId_ !== null) {
-    goog.Timer.clear(this.timeoutTimerId_);
-    this.timeoutTimerId_ = null;
-  }
-}
-
-/** @private */
-timeoutCallback_() {
-  if (this.isDisposed())
-    return;
-  goog.log.warning(
-      this.logger,
-      'No pong response received in time, the remote end is ' +
-          'dead. Disposing...');
-  this.disposeChannelAndSelf_();
-}
 };
 
 // Expose static properties:
@@ -297,14 +298,16 @@ GSC.MessageChannelPinging.Pinger.SERVICE_NAME = PINGER_SERVICE_NAME;
 /**
  * @param {number|null} timeoutMilliseconds
  */
-GSC.MessageChannelPinging.Pinger.overrideTimeoutForTesting = function(timeoutMilliseconds) {
+GSC.MessageChannelPinging.Pinger.overrideTimeoutForTesting = function(
+    timeoutMilliseconds) {
   timeoutOverrideForTesting = timeoutMilliseconds;
 };
 
 /**
  * @param {number|null} intervalMilliseconds
  */
-GSC.MessageChannelPinging.Pinger.overrideIntervalForTesting = function(intervalMilliseconds) {
+GSC.MessageChannelPinging.Pinger.overrideIntervalForTesting = function(
+    intervalMilliseconds) {
   intervalOverrideForTesting = intervalMilliseconds;
 };
 
@@ -316,66 +319,69 @@ GSC.MessageChannelPinging.Pinger.overrideIntervalForTesting = function(intervalM
  * identifier will be specified along with the all sent "pong" messages.
  */
 GSC.MessageChannelPinging.PingResponder = class extends goog.Disposable {
-/**
- * @param {!goog.messaging.AbstractChannel} messageChannel
- * @param {!goog.log.Logger} parentLogger
- * @param {function()=} opt_onPingReceived
- */
-constructor(messageChannel, parentLogger, opt_onPingReceived) {
-  super();
-
   /**
-   * @type {!goog.log.Logger}
-   * @const
+   * @param {!goog.messaging.AbstractChannel} messageChannel
+   * @param {!goog.log.Logger} parentLogger
+   * @param {function()=} opt_onPingReceived
    */
-  this.logger =
-      GSC.Logging.getChildLogger(parentLogger, PING_RESPONDER_LOGGER_TITLE);
+  constructor(messageChannel, parentLogger, opt_onPingReceived) {
+    super();
+
+    /**
+     * @type {!goog.log.Logger}
+     * @const
+     */
+    this.logger =
+        GSC.Logging.getChildLogger(parentLogger, PING_RESPONDER_LOGGER_TITLE);
+
+    /** @private */
+    this.messageChannel_ = messageChannel;
+    // Register itself for receiving the "ping" messages.
+    this.messageChannel_.registerService(
+        PINGER_SERVICE_NAME, this.serviceCallback_.bind(this), true);
+
+    /** @private */
+    this.onPingReceivedListener_ = opt_onPingReceived;
+
+    goog.log.fine(
+        this.logger,
+        'Initialized (generated channel id is ' + PING_RESPONDER_CHANNEL_ID +
+            ')');
+  }
 
   /** @private */
-  this.messageChannel_ = messageChannel;
-  // Register itself for receiving the "ping" messages.
-  this.messageChannel_.registerService(
-      PINGER_SERVICE_NAME, this.serviceCallback_.bind(this), true);
+  serviceCallback_() {
+    if (this.isDisposed())
+      return;
 
-  /** @private */
-  this.onPingReceivedListener_ = opt_onPingReceived;
+    goog.log.log(
+        this.logger, goog.log.Level.FINEST,
+        'Received a ping request, sending pong response...');
 
-  goog.log.fine(
-      this.logger,
-      'Initialized (generated channel id is ' + PING_RESPONDER_CHANNEL_ID + ')');
-}
+    this.messageChannel_.send(
+        PING_RESPONDER_SERVICE_NAME,
+        createPingResponderMessageData(PING_RESPONDER_CHANNEL_ID));
 
-/** @private */
-serviceCallback_() {
-  if (this.isDisposed())
-    return;
+    if (this.onPingReceivedListener_)
+      this.onPingReceivedListener_();
+  }
 
-  goog.log.log(
-      this.logger, goog.log.Level.FINEST,
-      'Received a ping request, sending pong response...');
+  /** @override */
+  disposeInternal() {
+    this.messageChannel_ = null;
 
-  this.messageChannel_.send(
-      PING_RESPONDER_SERVICE_NAME,
-      createPingResponderMessageData(PING_RESPONDER_CHANNEL_ID));
+    this.onPingReceivedListener_ = null;
 
-  if (this.onPingReceivedListener_)
-    this.onPingReceivedListener_();
-}
+    goog.log.fine(this.logger, 'Disposed');
 
-/** @override */
-disposeInternal() {
-  this.messageChannel_ = null;
-
-  this.onPingReceivedListener_ = null;
-
-  goog.log.fine(this.logger, 'Disposed');
-
-  super.disposeInternal();
-}
+    super.disposeInternal();
+  }
 };
 
 // Expose static properties.
-GSC.MessageChannelPinging.PingResponder.SERVICE_NAME = PING_RESPONDER_SERVICE_NAME;
-GSC.MessageChannelPinging.PingResponder.createMessageData = createPingResponderMessageData;
+GSC.MessageChannelPinging.PingResponder.SERVICE_NAME =
+    PING_RESPONDER_SERVICE_NAME;
+GSC.MessageChannelPinging.PingResponder.createMessageData =
+    createPingResponderMessageData;
 GSC.MessageChannelPinging.PingResponder.generateChannelId = generateChannelId;
 });  // goog.scope
