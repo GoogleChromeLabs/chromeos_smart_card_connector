@@ -53,91 +53,91 @@ const POSTPONING_BUFFER_CAPACITY = 100;
  * class has only limited capacity for storing messages before that.
  */
 GSC.LogBufferForwarder = class {
-/**
- * @param {!GSC.LogBuffer} logBuffer
- * @param {string} messageChannelServiceName
- */
-constructor(logBuffer, messageChannelServiceName) {
-  /** @type {string} @private @const */
-  this.messageChannelServiceName_ = messageChannelServiceName;
-  /** @type {!Set} @private @const */
-  this.ignoredLoggerNames_ = new Set();
   /**
-   * @type {?goog.messaging.AbstractChannel}
+   * @param {!GSC.LogBuffer} logBuffer
+   * @param {string} messageChannelServiceName
+   */
+  constructor(logBuffer, messageChannelServiceName) {
+    /** @type {string} @private @const */
+    this.messageChannelServiceName_ = messageChannelServiceName;
+    /** @type {!Set} @private @const */
+    this.ignoredLoggerNames_ = new Set();
+    /**
+     * @type {?goog.messaging.AbstractChannel}
+     * @private
+     */
+    this.messageChannel_ = null;
+    /**
+     * @type {boolean}
+     * @private
+     */
+    this.logCapturingEnabled_ = true;
+    /** @type {!goog.structs.CircularBuffer<string>} @private @const */
+    this.postponedLogRecords_ = new goog.structs.CircularBuffer();
+
+    logBuffer.addObserver(this.onLogRecordObserved_.bind(this));
+  }
+
+  /**
+   * Sets up forwarding of the log records to the specified message channel.
+   *
+   * Also immediately sends the log records that have been accumulated so far.
+   * @param {!goog.messaging.AbstractChannel} messageChannel
+   */
+  startForwarding(messageChannel) {
+    this.messageChannel_ = messageChannel;
+
+    for (const logRecord of this.postponedLogRecords_.getValues())
+      this.sendLogRecord_(logRecord);
+    this.postponedLogRecords_.clear();
+  }
+
+  /**
+   * Adds a logger whose messages have to be ignored.
+   *
+   * This only affects the messages collected after the call. This does NOT
+   * affect messages from children of the specified logger.
+   * @param {string} loggerName
+   */
+  ignoreLogger(loggerName) {
+    this.ignoredLoggerNames_.add(loggerName);
+  }
+
+  /**
+   * @param {string} documentLocation
+   * @param {!goog.log.LogRecord} logRecord
    * @private
    */
-  this.messageChannel_ = null;
+  onLogRecordObserved_(documentLocation, logRecord) {
+    if (!this.logCapturingEnabled_ ||
+        this.ignoredLoggerNames_.has(logRecord.getLoggerName())) {
+      return;
+    }
+    const formattedLogRecord =
+        GSC.LogFormatting.formatLogRecord(documentLocation, logRecord);
+    if (!this.messageChannel_) {
+      this.postponedLogRecords_.add(formattedLogRecord);
+      return;
+    }
+    this.sendLogRecord_(formattedLogRecord);
+  }
+
   /**
-   * @type {boolean}
+   * @param {string} formattedLogRecord
    * @private
    */
-  this.logCapturingEnabled_ = true;
-  /** @type {!goog.structs.CircularBuffer<string>} @private @const */
-  this.postponedLogRecords_ = new goog.structs.CircularBuffer();
+  sendLogRecord_(formattedLogRecord) {
+    // Ignore log messages emitted while sending the log, to minimize the risk
+    // of infinite recursion if the message channel emits a non-ignored message.
+    this.logCapturingEnabled_ = false;
 
-  logBuffer.addObserver(this.onLogRecordObserved_.bind(this));
-}
+    GSC.Logging.check(this.messageChannel_);
+    const message = {'formatted_log_message': formattedLogRecord};
+    this.messageChannel_.send(this.messageChannelServiceName_, message);
+    GSC.Logging.check(!this.logCapturingEnabled_);
 
-/**
- * Sets up forwarding of the log records to the specified message channel.
- *
- * Also immediately sends the log records that have been accumulated so far.
- * @param {!goog.messaging.AbstractChannel} messageChannel
- */
-startForwarding(messageChannel) {
-  this.messageChannel_ = messageChannel;
-
-  for (const logRecord of this.postponedLogRecords_.getValues())
-    this.sendLogRecord_(logRecord);
-  this.postponedLogRecords_.clear();
-}
-
-/**
- * Adds a logger whose messages have to be ignored.
- *
- * This only affects the messages collected after the call. This does NOT affect
- * messages from children of the specified logger.
- * @param {string} loggerName
- */
-ignoreLogger(loggerName) {
-  this.ignoredLoggerNames_.add(loggerName);
-}
-
-/**
- * @param {string} documentLocation
- * @param {!goog.log.LogRecord} logRecord
- * @private
- */
-onLogRecordObserved_(documentLocation, logRecord) {
-  if (!this.logCapturingEnabled_ ||
-      this.ignoredLoggerNames_.has(logRecord.getLoggerName())) {
-    return;
+    this.logCapturingEnabled_ = true;
   }
-  const formattedLogRecord =
-      GSC.LogFormatting.formatLogRecord(documentLocation, logRecord);
-  if (!this.messageChannel_) {
-    this.postponedLogRecords_.add(formattedLogRecord);
-    return;
-  }
-  this.sendLogRecord_(formattedLogRecord);
-}
-
-/**
- * @param {string} formattedLogRecord
- * @private
- */
-sendLogRecord_(formattedLogRecord) {
-  // Ignore log messages emitted while sending the log, to minimize the risk of
-  // infinite recursion if the message channel emits a non-ignored message.
-  this.logCapturingEnabled_ = false;
-
-  GSC.Logging.check(this.messageChannel_);
-  const message = {'formatted_log_message': formattedLogRecord};
-  this.messageChannel_.send(this.messageChannelServiceName_, message);
-  GSC.Logging.check(!this.logCapturingEnabled_);
-
-  this.logCapturingEnabled_ = true;
-}
 };
 
 goog.exportSymbol('GoogleSmartCard.LogBufferForwarder', GSC.LogBufferForwarder);
