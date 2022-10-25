@@ -43,8 +43,8 @@ const Toolchain = {
 };
 
 /** @define {string} */
-const TOOLCHAIN_STR = goog.define(
-    'GoogleSmartCard.ExecutableModule.TOOLCHAIN', '');
+const TOOLCHAIN_STR =
+    goog.define('GoogleSmartCard.ExecutableModule.TOOLCHAIN', '');
 GSC.Logging.check(
     Object.values(Toolchain).includes(TOOLCHAIN_STR),
     `Unexpected value of GoogleSmartCard.ExecutableModule.TOOLCHAIN: ${
@@ -66,36 +66,36 @@ const TOOLCHAIN = /** @type {!Toolchain} */ (TOOLCHAIN_STR);
  * @abstract
  */
 GSC.ExecutableModule = class extends goog.Disposable {
-/**
- * @abstract
- * @return {!goog.log.Logger}
- */
-getLogger() {}
+  /**
+   * @abstract
+   * @return {!goog.log.Logger}
+   */
+  getLogger() {}
 
-/**
- * Begins loading and running the executable module.
- * Implemented as a separate method rather than the constructor's
- * responsibility, so that the consumer code can set up event and message
- * channel listeners.
- * @abstract
- */
-startLoading() {}
+  /**
+   * Begins loading and running the executable module.
+   * Implemented as a separate method rather than the constructor's
+   * responsibility, so that the consumer code can set up event and message
+   * channel listeners.
+   * @abstract
+   */
+  startLoading() {}
 
-/**
- * Returns the promise that gets fulfilled when the module loading completes.
- * The promise will be rejected in case the loading failed.
- * @abstract
- * @return {!goog.Promise<void>}
- */
-getLoadPromise() {}
+  /**
+   * Returns the promise that gets fulfilled when the module loading completes.
+   * The promise will be rejected in case the loading failed.
+   * @abstract
+   * @return {!goog.Promise<void>}
+   */
+  getLoadPromise() {}
 
-/**
- * Returns the message channel for sending/receiving messages to/from the
- * module.
- * @abstract
- * @return {!goog.messaging.AbstractChannel}
- */
-getMessageChannel() {}
+  /**
+   * Returns the message channel for sending/receiving messages to/from the
+   * module.
+   * @abstract
+   * @return {!goog.messaging.AbstractChannel}
+   */
+  getMessageChannel() {}
 };
 
 // Expose static attributes.

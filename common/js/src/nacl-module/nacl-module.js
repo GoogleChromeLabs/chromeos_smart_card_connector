@@ -61,199 +61,204 @@ const Type = {
  * NaCl module (see the nacl-module-messaging-channel.js file).
  */
 GSC.NaclModule = class extends GSC.ExecutableModule {
-/**
- * @param {string} naclModulePath URL of the NaCl module manifest (.NMF file).
- * @param {!Type} type Type of the NaCl module.
- * @param {boolean=} logModulePath Whether the logger scope should include the
- * NaCl module path.
- */
-constructor(naclModulePath, type, logModulePath = false) {
-  super();
-
-  const loggerScope =
-      'NaclModule' + (logModulePath ? `<"${naclModulePath}">` : '');
-  const messagesReceiverLogger = GSC.Logging.getScopedLogger(loggerScope);
   /**
-   * @type {!goog.log.Logger}
-   * @const @private
+   * @param {string} naclModulePath URL of the NaCl module manifest (.NMF file).
+   * @param {!Type} type Type of the NaCl module.
+   * @param {boolean=} logModulePath Whether the logger scope should include the
+   * NaCl module path.
    */
-  this.logger_ =
-      GSC.Logging.getChildLogger(messagesReceiverLogger, LOGGER_TITLE);
+  constructor(naclModulePath, type, logModulePath = false) {
+    super();
 
-  /**
-   * @type {string}
-   * @const
-   */
-  this.naclModulePath = naclModulePath;
+    const loggerScope =
+        'NaclModule' + (logModulePath ? `<"${naclModulePath}">` : '');
+    const messagesReceiverLogger = GSC.Logging.getScopedLogger(loggerScope);
+    /**
+     * @type {!goog.log.Logger}
+     * @const @private
+     */
+    this.logger_ =
+        GSC.Logging.getChildLogger(messagesReceiverLogger, LOGGER_TITLE);
 
-  /**
-   * @type {!Type}
-   * @const
-   */
-  this.type = type;
+    /**
+     * @type {string}
+     * @const
+     */
+    this.naclModulePath = naclModulePath;
 
-  /** @private @const */
-  this.loadPromiseResolver_ = goog.Promise.withResolver();
-  GSC.PromiseHelpers.suppressUnhandledRejectionError(
-      this.loadPromiseResolver_.promise);
+    /**
+     * @type {!Type}
+     * @const
+     */
+    this.type = type;
 
-  /**
-   * @type {!Element}
-   * @private
-   */
-  this.element_ = this.createElement_();
+    /** @private @const */
+    this.loadPromiseResolver_ = goog.Promise.withResolver();
+    GSC.PromiseHelpers.suppressUnhandledRejectionError(
+        this.loadPromiseResolver_.promise);
 
-  /**
-   * Message channel that can be used to exchange messages with the NaCl module.
-   * @type {!GSC.NaclModuleMessageChannel}
-   * @private
-   */
-  this.messageChannel_ =
-      new GSC.NaclModuleMessageChannel(this.element_, this.logger_);
+    /**
+     * @type {!Element}
+     * @private
+     */
+    this.element_ = this.createElement_();
 
-  /** @type {!GSC.NaclModuleLogMessagesReceiver} */
-  this.logMessagesReceiver = new GSC.NaclModuleLogMessagesReceiver(
-      this.messageChannel_, messagesReceiverLogger);
+    /**
+     * Message channel that can be used to exchange messages with the NaCl
+     * module.
+     * @type {!GSC.NaclModuleMessageChannel}
+     * @private
+     */
+    this.messageChannel_ =
+        new GSC.NaclModuleMessageChannel(this.element_, this.logger_);
 
-  this.addStatusEventListeners_();
-}
+    /** @type {!GSC.NaclModuleLogMessagesReceiver} */
+    this.logMessagesReceiver = new GSC.NaclModuleLogMessagesReceiver(
+        this.messageChannel_, messagesReceiverLogger);
 
-/** @override */
-getLogger() {
-  return this.logger_;
-}
-
-/** @override */
-startLoading() {
-  goog.log.info(this.logger_, 'Loading NaCl module...');
-  GSC.Logging.checkWithLogger(this.logger_, !this.element_.parentNode);
-  GSC.Logging.checkWithLogger(this.logger_, document.body);
-  document.body.appendChild(this.element_);
-  this.forceElementLoading_();
-}
-
-/** @override */
-getLoadPromise() {
-  return this.loadPromiseResolver_.promise;
-}
-
-/** @override */
-getMessageChannel() {
-  return this.messageChannel_;
-}
-
-/** @override */
-disposeInternal() {
-  delete this.logMessagesReceiver;
-
-  this.messageChannel_.dispose();
-  delete this.messageChannel_;
-
-  goog.dom.removeNode(this.element_);
-  goog.events.removeAll(this.element_);
-  delete this.element_;
-
-  this.loadPromiseResolver_.reject(new Error('Disposed'));
-
-  goog.log.fine(this.logger_, 'Disposed');
-
-  super.disposeInternal();
-}
-
-/**
- * @return {!Element}
- * @private
- */
-createElement_() {
-  const mimeType = this.getMimeType_();
-  goog.log.fine(
-      this.logger_, 'Preparing NaCl embed (MIME type: "' + mimeType + '")...');
-  return goog.dom.createDom(
-      'embed',
-      {'type': mimeType, 'width': 0, 'height': 0, 'src': this.naclModulePath});
-}
-
-/**
- * @return {string}
- * @private
- */
-getMimeType_() {
-  switch (this.type) {
-    case Type.NACL:
-      return 'application/x-nacl';
-    case Type.PNACL:
-      return 'application/x-pnacl';
-    default:
-      GSC.Logging.failWithLogger(
-          this.logger_, 'Unexpected NaclModule type: ' + this.type);
-      return '';
+    this.addStatusEventListeners_();
   }
-}
 
-/**
- * @param {string} type
- * @param {function(?)} listener
- * @private
- */
-addEventListener_(type, listener) {
-  this.element_.addEventListener(type, listener, true);
-}
+  /** @override */
+  getLogger() {
+    return this.logger_;
+  }
 
-/** @private */
-addStatusEventListeners_() {
-  this.addEventListener_('load', this.loadEventListener_.bind(this));
-  this.addEventListener_('abort', this.abortEventListener_.bind(this));
-  this.addEventListener_('error', this.errorEventListener_.bind(this));
-  this.addEventListener_('crash', this.crashEventListener_.bind(this));
-}
+  /** @override */
+  startLoading() {
+    goog.log.info(this.logger_, 'Loading NaCl module...');
+    GSC.Logging.checkWithLogger(this.logger_, !this.element_.parentNode);
+    GSC.Logging.checkWithLogger(this.logger_, document.body);
+    document.body.appendChild(this.element_);
+    this.forceElementLoading_();
+  }
 
-/** @private */
-loadEventListener_() {
-  if (this.isDisposed())
-    return;
-  goog.log.info(this.logger_, 'Successfully loaded NaCl module');
-  this.loadPromiseResolver_.resolve();
-}
+  /** @override */
+  getLoadPromise() {
+    return this.loadPromiseResolver_.promise;
+  }
 
-/** @private */
-abortEventListener_() {
-  if (this.isDisposed())
-    return;
-  goog.log.error(
-      this.logger_,
-      'NaCl module load was aborted with the following ' +
-          'message: ' + this.element_['lastError']);
-  this.dispose();
-}
+  /** @override */
+  getMessageChannel() {
+    return this.messageChannel_;
+  }
 
-/** @private */
-errorEventListener_() {
-  if (this.isDisposed())
-    return;
-  goog.log.error(
-      this.logger_,
-      'Failed to load NaCl module with the following ' +
-          'message: ' + this.element_['lastError']);
-  this.dispose();
-}
+  /** @override */
+  disposeInternal() {
+    delete this.logMessagesReceiver;
 
-/** @private */
-crashEventListener_() {
-  if (this.isDisposed())
-    return;
-  goog.log.error(this.logger_, 'The NaCl module has crashed');
-  this.dispose();
-}
+    this.messageChannel_.dispose();
+    delete this.messageChannel_;
 
-/** @private */
-forceElementLoading_() {
-  // Request the offsetTop property to force a relayout. As of June 29, 2014,
-  // this is needed if the module is being loaded in a background page (see
-  // crbug.com/350445).
-  // Assign the result to a random property, so that Closure Compiler doesn't
-  // optimize the "useless" expression away.
-  this.element_.style.top = this.element_.offsetTop;
-}
+    goog.dom.removeNode(this.element_);
+    goog.events.removeAll(this.element_);
+    delete this.element_;
+
+    this.loadPromiseResolver_.reject(new Error('Disposed'));
+
+    goog.log.fine(this.logger_, 'Disposed');
+
+    super.disposeInternal();
+  }
+
+  /**
+   * @return {!Element}
+   * @private
+   */
+  createElement_() {
+    const mimeType = this.getMimeType_();
+    goog.log.fine(
+        this.logger_,
+        'Preparing NaCl embed (MIME type: "' + mimeType + '")...');
+    return goog.dom.createDom('embed', {
+      'type': mimeType,
+      'width': 0,
+      'height': 0,
+      'src': this.naclModulePath
+    });
+  }
+
+  /**
+   * @return {string}
+   * @private
+   */
+  getMimeType_() {
+    switch (this.type) {
+      case Type.NACL:
+        return 'application/x-nacl';
+      case Type.PNACL:
+        return 'application/x-pnacl';
+      default:
+        GSC.Logging.failWithLogger(
+            this.logger_, 'Unexpected NaclModule type: ' + this.type);
+        return '';
+    }
+  }
+
+  /**
+   * @param {string} type
+   * @param {function(?)} listener
+   * @private
+   */
+  addEventListener_(type, listener) {
+    this.element_.addEventListener(type, listener, true);
+  }
+
+  /** @private */
+  addStatusEventListeners_() {
+    this.addEventListener_('load', this.loadEventListener_.bind(this));
+    this.addEventListener_('abort', this.abortEventListener_.bind(this));
+    this.addEventListener_('error', this.errorEventListener_.bind(this));
+    this.addEventListener_('crash', this.crashEventListener_.bind(this));
+  }
+
+  /** @private */
+  loadEventListener_() {
+    if (this.isDisposed())
+      return;
+    goog.log.info(this.logger_, 'Successfully loaded NaCl module');
+    this.loadPromiseResolver_.resolve();
+  }
+
+  /** @private */
+  abortEventListener_() {
+    if (this.isDisposed())
+      return;
+    goog.log.error(
+        this.logger_,
+        'NaCl module load was aborted with the following ' +
+            'message: ' + this.element_['lastError']);
+    this.dispose();
+  }
+
+  /** @private */
+  errorEventListener_() {
+    if (this.isDisposed())
+      return;
+    goog.log.error(
+        this.logger_,
+        'Failed to load NaCl module with the following ' +
+            'message: ' + this.element_['lastError']);
+    this.dispose();
+  }
+
+  /** @private */
+  crashEventListener_() {
+    if (this.isDisposed())
+      return;
+    goog.log.error(this.logger_, 'The NaCl module has crashed');
+    this.dispose();
+  }
+
+  /** @private */
+  forceElementLoading_() {
+    // Request the offsetTop property to force a relayout. As of June 29, 2014,
+    // this is needed if the module is being loaded in a background page (see
+    // crbug.com/350445).
+    // Assign the result to a random property, so that Closure Compiler doesn't
+    // optimize the "useless" expression away.
+    this.element_.style.top = this.element_.offsetTop;
+  }
 };
 
 // Expose static attributes.
