@@ -36,6 +36,47 @@ goog.scope(function() {
 const GSC = GoogleSmartCard;
 
 /**
+ * The structure that is used for returning the immutable snapshot of the log
+ * buffer state (see the LogBuffer.prototype.getState method).
+ * @unrestricted
+ */
+class State {
+/**
+ * @param {number} logCount
+ * @param {!Array.<string>} formattedLogsPrefix
+ * @param {number} skippedLogCount
+ * @param {!Array.<string>} formattedLogsSuffix
+ */
+constructor(
+    logCount, formattedLogsPrefix, skippedLogCount, formattedLogsSuffix) {
+  this['logCount'] = logCount;
+  this['formattedLogsPrefix'] = formattedLogsPrefix;
+  this['skippedLogCount'] = skippedLogCount;
+  this['formattedLogsSuffix'] = formattedLogsSuffix;
+}
+
+/**
+ * Returns the textual dump of the internal state.
+ *
+ * The dump contains the formatted log messages, together with the information
+ * about the dropped log messages (if there are any).
+ * @return {string}
+ */
+getAsText() {
+  const prefix = goog.iter.join(this['formattedLogsPrefix'], '');
+  const suffix = goog.iter.join(this['formattedLogsSuffix'], '');
+
+  let result = prefix;
+  if (this['skippedLogCount'])
+    result += '\n... skipped ' + this['skippedLogCount'] + ' messages ...\n\n';
+  result += suffix;
+  return result;
+}
+};
+
+goog.exportProperty(State.prototype, 'getAsText', State.prototype.getAsText);
+
+/**
  * This class is the log buffer that allows to keep the log messages emitted by
  * by the loggers to which it is attached.
  *
@@ -50,12 +91,14 @@ const GSC = GoogleSmartCard;
  * difference is that the latter one, when its capacity its exceeded, keeps only
  * last of the log messages, meanwhile the very first messages may also contain
  * the crucial information.
- * @param {number} capacity The maximum number of stored log messages.
- * @constructor
- * @extends {goog.Disposable}
+ * @unrestricted
  */
-GSC.LogBuffer = function(capacity) {
-  LogBuffer.base(this, 'constructor');
+GSC.LogBuffer = class extends goog.Disposable {
+/**
+ * @param {number} capacity The maximum number of stored log messages.
+ */
+constructor(capacity) {
+  super();
 
   /** @private @const */
   this.capacity_ = capacity;
@@ -76,101 +119,22 @@ GSC.LogBuffer = function(capacity) {
   /** @type {!goog.structs.CircularBuffer.<string>} @private @const */
   this.formattedLogsSuffix_ =
       new goog.structs.CircularBuffer(capacity - this.logsPrefixCapacity_);
-};
-
-const LogBuffer = GSC.LogBuffer;
-
-goog.inherits(LogBuffer, goog.Disposable);
-
-goog.exportSymbol('GoogleSmartCard.LogBuffer', LogBuffer);
-
-/**
- * Attaches the given log buffer to the given logger, making the buffer collect
- * all logs sent to the logger. Additionally, all collected logs are attributed
- * with the specified document location, which simplifies interpreting them.
- * @param {!LogBuffer} logBuffer
- * @param {!goog.log.Logger} logger
- * @param {string} documentLocation
- */
-LogBuffer.attachBufferToLogger = function(logBuffer, logger, documentLocation) {
-  // Note: It's crucial that we're in a static method and calling a global
-  // function (`goog.log.addHandler()`), because when `logBuffer` comes from a
-  // different page (e.g., the background page), we're dealing with two
-  // instances of Closure Library: one in our page and another in the buffer's
-  // page. We want the current page's instance to register the buffer, since
-  // it's where the `logger`s messages are handled.
-  // We also have to access the method by indexing the properties, since due to
-  // method renaming the shortened method name in our page might differ from the
-  // one in the `logBuffer`s page.
-  goog.log.addHandler(logger, (logRecord) => {
-    logBuffer['addLogRecord_'](
-        documentLocation, logRecord.getLevel(), logRecord.getMessage(),
-        logRecord.getLoggerName(), logRecord.getMillis(),
-        logRecord.getSequenceNumber());
-  });
-};
-
-goog.exportProperty(
-    LogBuffer, 'attachBufferToLogger', LogBuffer.attachBufferToLogger);
+}
 
 /** @override */
-LogBuffer.prototype.disposeInternal = function() {
+disposeInternal() {
   this.formattedLogsPrefix_.length = 0;
   this.observers_.length = 0;
   this.formattedLogsSuffix_.clear();
-  LogBuffer.base(this, 'disposeInternal');
-};
+  super.disposeInternal();
+}
 
 /**
  * @return {number}
  */
-LogBuffer.prototype.getCapacity = function() {
+getCapacity() {
   return this.capacity_;
-};
-
-goog.exportProperty(
-    LogBuffer.prototype, 'getCapacity', LogBuffer.prototype.getCapacity);
-
-/**
- * The structure that is used for returning the immutable snapshot of the log
- * buffer state (see the LogBuffer.prototype.getState method).
- * @param {number} logCount
- * @param {!Array.<string>} formattedLogsPrefix
- * @param {number} skippedLogCount
- * @param {!Array.<string>} formattedLogsSuffix
- * @constructor
- */
-LogBuffer.State = function(
-    logCount, formattedLogsPrefix, skippedLogCount, formattedLogsSuffix) {
-  this['logCount'] = logCount;
-  this['formattedLogsPrefix'] = formattedLogsPrefix;
-  this['skippedLogCount'] = skippedLogCount;
-  this['formattedLogsSuffix'] = formattedLogsSuffix;
-};
-
-goog.exportProperty(LogBuffer, 'State', LogBuffer.State);
-
-/**
- * Returns the textual dump of the internal state.
- *
- * The dump contains the formatted log messages, together with the information
- * about the dropped log messages (if there are any).
- * @return {string}
- */
-LogBuffer.State.prototype.getAsText = function() {
-  const prefix = goog.iter.join(this['formattedLogsPrefix'], '');
-  const suffix = goog.iter.join(this['formattedLogsSuffix'], '');
-
-  let result = prefix;
-  if (this['skippedLogCount'])
-    result += '\n... skipped ' + this['skippedLogCount'] + ' messages ...\n\n';
-  result += suffix;
-  return result;
-};
-
-goog.exportProperty(
-    LogBuffer.State.prototype, 'getAsText',
-    LogBuffer.State.prototype.getAsText);
+}
 
 /**
  * Returns the immutable snapshot of the log buffer state.
@@ -179,41 +143,38 @@ goog.exportProperty(
  * accessor methods is that it's quite possible that new log messages will be
  * emitted while the client is still iterating over the kept state, which would
  * make writing a robust client code difficult.
- * @return {!LogBuffer.State}
+ * @return {!State}
  */
-LogBuffer.prototype.getState = function() {
-  return new LogBuffer.State(
+getState() {
+  return new State(
       this.size_, goog.array.clone(this.formattedLogsPrefix_),
       this.size_ - this.formattedLogsPrefix_.length -
           this.formattedLogsSuffix_.getCount(),
       this.formattedLogsSuffix_.getValues());
-};
-
-goog.exportProperty(
-    LogBuffer.prototype, 'getState', LogBuffer.prototype.getState);
+}
 
 /**
  * Adds an observer for captured log records.
  * @param {function(string, !goog.log.LogRecord)} observer
  */
-LogBuffer.prototype.addObserver = function(observer) {
+addObserver(observer) {
   this.observers_.push(observer);
-};
+}
 
 /**
  * @param {function(string, !goog.log.LogRecord)} observer
  */
-LogBuffer.prototype.removeObserver = function(observer) {
+removeObserver(observer) {
   this.observers_ = this.observers_.filter((value) => {
     return value !== observer;
   });
-};
+}
 
 /**
  * Copies all log records that we've aggregated to the specified log buffer.
- * @param {!LogBuffer} otherLogBuffer
+ * @param {!GSC.LogBuffer} otherLogBuffer
  */
-LogBuffer.prototype.copyToOtherBuffer = function(otherLogBuffer) {
+copyToOtherBuffer(otherLogBuffer) {
   if (this.isDisposed())
     return;
   // Take a snapshot before copying, to protect against new items being appended
@@ -232,7 +193,7 @@ LogBuffer.prototype.copyToOtherBuffer = function(otherLogBuffer) {
     logCopier(formattedLogRecord);
   for (const formattedLogRecord of state['formattedLogsSuffix'])
     logCopier(formattedLogRecord);
-};
+}
 
 /**
  * @param {string} documentLocation
@@ -243,7 +204,7 @@ LogBuffer.prototype.copyToOtherBuffer = function(otherLogBuffer) {
  * @param {number=} logSequenceNumber
  * @private
  */
-LogBuffer.prototype.addLogRecord_ = function(
+addLogRecord_(
     documentLocation, logLevel, logMsg, loggerName, logTime,
     logSequenceNumber) {
   if (this.isDisposed())
@@ -257,16 +218,13 @@ LogBuffer.prototype.addLogRecord_ = function(
   const formattedLogRecord =
       GSC.LogFormatting.formatLogRecordCompact(documentLocation, logRecord);
   this.addFormattedLogRecord_(formattedLogRecord);
-};
-
-goog.exportProperty(
-    LogBuffer.prototype, 'addLogRecord_', LogBuffer.prototype.addLogRecord_);
+}
 
 /**
  * @param {string} formattedLogRecord
  * @private
  */
-LogBuffer.prototype.addFormattedLogRecord_ = function(formattedLogRecord) {
+addFormattedLogRecord_(formattedLogRecord) {
   if (this.isDisposed())
     return;
 
@@ -275,9 +233,51 @@ LogBuffer.prototype.addFormattedLogRecord_ = function(formattedLogRecord) {
   else
     this.formattedLogsSuffix_.add(formattedLogRecord);
   ++this.size_;
+}
 };
 
+/**
+ * Attaches the given log buffer to the given logger, making the buffer collect
+ * all logs sent to the logger. Additionally, all collected logs are attributed
+ * with the specified document location, which simplifies interpreting them.
+ * @param {!GSC.LogBuffer} logBuffer
+ * @param {!goog.log.Logger} logger
+ * @param {string} documentLocation
+ */
+GSC.LogBuffer.attachBufferToLogger = function(logBuffer, logger, documentLocation) {
+  // Note: It's crucial that we're in a static method and calling a global
+  // function (`goog.log.addHandler()`), because when `logBuffer` comes from a
+  // different page (e.g., the background page), we're dealing with two
+  // instances of Closure Library: one in our page and another in the buffer's
+  // page. We want the current page's instance to register the buffer, since
+  // it's where the `logger`s messages are handled.
+  // We also have to access the method by indexing the properties, since due to
+  // method renaming the shortened method name in our page might differ from the
+  // one in the `logBuffer`s page.
+  goog.log.addHandler(logger, (logRecord) => {
+    logBuffer['addLogRecord_'](
+        documentLocation, logRecord.getLevel(), logRecord.getMessage(),
+        logRecord.getLoggerName(), logRecord.getMillis(),
+        logRecord.getSequenceNumber());
+  });
+}
+
+// Export symbols.
+GSC.LogBuffer.State = State;
+goog.exportProperty(GSC.LogBuffer, 'State', GSC.LogBuffer.State);
+goog.exportSymbol('GoogleSmartCard.LogBuffer', GSC.LogBuffer);
 goog.exportProperty(
-    LogBuffer.prototype, 'addFormattedLogRecord_',
-    LogBuffer.prototype.addFormattedLogRecord_);
+    GSC.LogBuffer, 'attachBufferToLogger', GSC.LogBuffer.attachBufferToLogger);
+goog.exportProperty(
+    GSC.LogBuffer.prototype, 'getCapacity',
+    GSC.LogBuffer.prototype.getCapacity);
+goog.exportProperty(
+    GSC.LogBuffer.prototype, 'getState', GSC.LogBuffer.prototype.getState);
+goog.exportProperty(
+    GSC.LogBuffer.prototype, 'addLogRecord_',
+    GSC.LogBuffer.prototype.addLogRecord_);
+goog.exportProperty(
+    GSC.LogBuffer.prototype, 'addFormattedLogRecord_',
+    GSC.LogBuffer.prototype.addFormattedLogRecord_);
+
 });  // goog.scope
