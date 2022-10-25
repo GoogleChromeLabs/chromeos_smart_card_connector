@@ -51,16 +51,16 @@ const PingResponder = GSC.MessageChannelPinging.PingResponder;
  * Apart from adapting the one-time communication mechanisms into the methods of
  * the goog.messaging.AbstractChannel class, this class enables pinging over
  * this message channel (see the message-channel-pinging.js file for details).
+ */
+GSC.SingleMessageBasedChannel = class extends goog.messaging.AbstractChannel {
+/**
  * @param {string} extensionId
  * @param {function()=} opt_onEstablished
  * @param {boolean=} opt_shouldPingOnPing Whether an additional ping message
  * should be sent each time a ping message is received.
- * @constructor
- * @extends goog.messaging.AbstractChannel
  */
-GSC.SingleMessageBasedChannel = function(
-    extensionId, opt_onEstablished, opt_shouldPingOnPing) {
-  SingleMessageBasedChannel.base(this, 'constructor');
+constructor(extensionId, opt_onEstablished, opt_shouldPingOnPing) {
+  super();
 
   /** @const @type {string} */
   this.extensionId = extensionId;
@@ -85,18 +85,14 @@ GSC.SingleMessageBasedChannel = function(
       this, this.logger, this.pingMessageReceivedListener_.bind(this));
 
   goog.log.fine(this.logger, 'Initialized successfully');
-};
-
-const SingleMessageBasedChannel = GSC.SingleMessageBasedChannel;
-
-goog.inherits(SingleMessageBasedChannel, goog.messaging.AbstractChannel);
+}
 
 /**
  * @override
  * @param {string} serviceName
  * @param {!Object|string} payload
  */
-SingleMessageBasedChannel.prototype.send = function(serviceName, payload) {
+send(serviceName, payload) {
   GSC.Logging.checkWithLogger(this.logger, goog.isObject(payload));
   goog.asserts.assertObject(payload);
 
@@ -115,13 +111,13 @@ SingleMessageBasedChannel.prototype.send = function(serviceName, payload) {
   }
 
   chrome.runtime.sendMessage(this.extensionId, message);
-};
+}
 
 /**
  * This method passes the message to the corresponding registered service.
  * @param {*} message
  */
-SingleMessageBasedChannel.prototype.deliverMessage = function(message) {
+deliverMessage(message) {
   goog.log.log(
       this.logger, goog.log.Level.FINEST,
       'Received a message: ' + GSC.DebugDump.debugDump(message));
@@ -135,12 +131,12 @@ SingleMessageBasedChannel.prototype.deliverMessage = function(message) {
   }
 
   this.deliver(typedMessage.type, typedMessage.data);
-};
+}
 
 /**
  * @override
  */
-SingleMessageBasedChannel.prototype.disposeInternal = function() {
+disposeInternal() {
   this.pinger_.dispose();
   this.pinger_ = null;
 
@@ -149,27 +145,27 @@ SingleMessageBasedChannel.prototype.disposeInternal = function() {
 
   goog.log.fine(this.logger, 'Disposed');
 
-  SingleMessageBasedChannel.base(this, 'disposeInternal');
-};
+  super.disposeInternal();
+}
 
 /**
  * @param {string} serviceName
  * @param {!Object|string} payload
  * @private
  */
-SingleMessageBasedChannel.prototype.defaultServiceCallback_ = function(
-    serviceName, payload) {
+defaultServiceCallback_(serviceName, payload) {
   GSC.Logging.failWithLogger(
       this.logger,
       'Unhandled message received: serviceName="' + serviceName +
           '", payload=' + GSC.DebugDump.debugDump(payload));
-};
+}
 
 /** @private */
-SingleMessageBasedChannel.prototype.pingMessageReceivedListener_ = function() {
+pingMessageReceivedListener_() {
   if (this.isDisposed())
     return;
   if (this.shouldPingOnPing_)
     this.pinger_.postPingMessage();
+}
 };
 });  // goog.scope
