@@ -47,11 +47,10 @@ const logger = GSC.Logging.getScopedLogger('MessageChannelPair');
  *
  * Note that messages that are sent through the channel pair are always
  * delivered asynchronously.
- * @constructor
- * @extends goog.Disposable
  */
-GSC.MessageChannelPair = function() {
-  MessageChannelPair.base(this, 'constructor');
+GSC.MessageChannelPair = class extends goog.Disposable {
+constructor() {
+  super();
 
   /**
    * @type {!Array.<!MessageChannelPairItem>}
@@ -60,43 +59,39 @@ GSC.MessageChannelPair = function() {
   this.items_ = [
     new MessageChannelPairItem(this, 0), new MessageChannelPairItem(this, 1)
   ];
-};
-
-const MessageChannelPair = GSC.MessageChannelPair;
-
-goog.inherits(MessageChannelPair, goog.Disposable);
+}
 
 /**
  * @param {number} itemIndex
  * @return {!goog.messaging.AbstractChannel}
  */
-MessageChannelPair.prototype.getItem = function(itemIndex) {
+getItem(itemIndex) {
   GSC.Logging.checkWithLogger(logger, 0 <= itemIndex && itemIndex <= 1);
   GSC.Logging.checkWithLogger(logger, !this.isDisposed());
   return this.items_[itemIndex];
-};
+}
 
 /**
  * @return {!goog.messaging.AbstractChannel}
  */
-MessageChannelPair.prototype.getFirst = function() {
+getFirst() {
   return this.getItem(0);
-};
+}
 
 /**
  * @return {!goog.messaging.AbstractChannel}
  */
-MessageChannelPair.prototype.getSecond = function() {
+getSecond() {
   return this.getItem(1);
-};
+}
 
 /** @override */
-MessageChannelPair.prototype.disposeInternal = function() {
+disposeInternal() {
   for (let item of this.items_)
     item.dispose();
   this.items_ = [];
-  MessageChannelPair.base(this, 'disposeInternal');
-};
+  super.disposeInternal();
+}
 
 /**
  * @param {number} fromItemIndex
@@ -104,8 +99,7 @@ MessageChannelPair.prototype.disposeInternal = function() {
  * @param {!Object|string} payload
  * @private
  */
-MessageChannelPair.prototype.sendFrom_ = function(
-    fromItemIndex, serviceName, payload) {
+sendFrom_(fromItemIndex, serviceName, payload) {
   // Deliver the message to the target message channel asynchronously, because
   // that's how the real message channels usually work.
   goog.async.nextTick(() => {
@@ -116,48 +110,49 @@ MessageChannelPair.prototype.sendFrom_ = function(
     const targetItem = this.items_[1 - fromItemIndex];
     targetItem.deliver_(serviceName, payload);
   });
+}
 };
 
 /**
  * A message channel which is an element of the message channel pair.
- * @param {!MessageChannelPair} messageChannelPair
- * @param {number} indexInPair
- * @constructor
- * @extends goog.messaging.AbstractChannel
  */
-const MessageChannelPairItem = function(messageChannelPair, indexInPair) {
-  MessageChannelPairItem.base(this, 'constructor');
+class MessageChannelPairItem extends goog.messaging.AbstractChannel {
+/**
+ * @param {!GSC.MessageChannelPair} messageChannelPair
+ * @param {number} indexInPair
+ */
+constructor(messageChannelPair, indexInPair) {
+  super();
 
   /** @private */
   this.messageChannelPair_ = messageChannelPair;
   /** @private @const */
   this.indexInPair_ = indexInPair;
-};
-
-goog.inherits(MessageChannelPairItem, goog.messaging.AbstractChannel);
+}
 
 /** @override */
-MessageChannelPairItem.prototype.send = function(serviceName, payload) {
+send(serviceName, payload) {
   GSC.Logging.checkWithLogger(logger, !this.isDisposed());
   this.messageChannelPair_.sendFrom_(this.indexInPair_, serviceName, payload);
-};
+}
 
 /** @override */
-MessageChannelPairItem.prototype.disposeInternal = function() {
+disposeInternal() {
   // Our disposal triggers the disposal of the whole pair and, hence, disposal
   // of the second item of the pair.
   this.messageChannelPair_.dispose();
   this.messageChannelPair_ = undefined;
-  MessageChannelPairItem.base(this, 'disposeInternal');
-};
+  super.disposeInternal();
+}
 
 /**
  * @param {string} serviceName
  * @param {!Object|string} payload
  * @private
  */
-MessageChannelPairItem.prototype.deliver_ = function(serviceName, payload) {
+deliver_(serviceName, payload) {
   GSC.Logging.checkWithLogger(logger, !this.isDisposed());
   this.deliver(serviceName, payload);
+}
 };
 });  // goog.scope
