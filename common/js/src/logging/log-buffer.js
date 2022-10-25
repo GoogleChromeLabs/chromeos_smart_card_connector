@@ -41,37 +41,38 @@ const GSC = GoogleSmartCard;
  * @unrestricted
  */
 class State {
-/**
- * @param {number} logCount
- * @param {!Array.<string>} formattedLogsPrefix
- * @param {number} skippedLogCount
- * @param {!Array.<string>} formattedLogsSuffix
- */
-constructor(
-    logCount, formattedLogsPrefix, skippedLogCount, formattedLogsSuffix) {
-  this['logCount'] = logCount;
-  this['formattedLogsPrefix'] = formattedLogsPrefix;
-  this['skippedLogCount'] = skippedLogCount;
-  this['formattedLogsSuffix'] = formattedLogsSuffix;
-}
+  /**
+   * @param {number} logCount
+   * @param {!Array.<string>} formattedLogsPrefix
+   * @param {number} skippedLogCount
+   * @param {!Array.<string>} formattedLogsSuffix
+   */
+  constructor(
+      logCount, formattedLogsPrefix, skippedLogCount, formattedLogsSuffix) {
+    this['logCount'] = logCount;
+    this['formattedLogsPrefix'] = formattedLogsPrefix;
+    this['skippedLogCount'] = skippedLogCount;
+    this['formattedLogsSuffix'] = formattedLogsSuffix;
+  }
 
-/**
- * Returns the textual dump of the internal state.
- *
- * The dump contains the formatted log messages, together with the information
- * about the dropped log messages (if there are any).
- * @return {string}
- */
-getAsText() {
-  const prefix = goog.iter.join(this['formattedLogsPrefix'], '');
-  const suffix = goog.iter.join(this['formattedLogsSuffix'], '');
+  /**
+   * Returns the textual dump of the internal state.
+   *
+   * The dump contains the formatted log messages, together with the information
+   * about the dropped log messages (if there are any).
+   * @return {string}
+   */
+  getAsText() {
+    const prefix = goog.iter.join(this['formattedLogsPrefix'], '');
+    const suffix = goog.iter.join(this['formattedLogsSuffix'], '');
 
-  let result = prefix;
-  if (this['skippedLogCount'])
-    result += '\n... skipped ' + this['skippedLogCount'] + ' messages ...\n\n';
-  result += suffix;
-  return result;
-}
+    let result = prefix;
+    if (this['skippedLogCount'])
+      result +=
+          '\n... skipped ' + this['skippedLogCount'] + ' messages ...\n\n';
+    result += suffix;
+    return result;
+  }
 };
 
 goog.exportProperty(State.prototype, 'getAsText', State.prototype.getAsText);
@@ -94,146 +95,146 @@ goog.exportProperty(State.prototype, 'getAsText', State.prototype.getAsText);
  * @unrestricted
  */
 GSC.LogBuffer = class extends goog.Disposable {
-/**
- * @param {number} capacity The maximum number of stored log messages.
- */
-constructor(capacity) {
-  super();
-
-  /** @private @const */
-  this.capacity_ = capacity;
-
-  /** @private */
-  this.size_ = 0;
-
-  /** @private @const */
-  this.logsPrefixCapacity_ = Math.trunc(capacity / 2);
-  /** @type {!Array.<string>} @private @const */
-  this.formattedLogsPrefix_ = [];
   /**
-   * @type {!Array.<function(string, !goog.log.LogRecord)>}
+   * @param {number} capacity The maximum number of stored log messages.
+   */
+  constructor(capacity) {
+    super();
+
+    /** @private @const */
+    this.capacity_ = capacity;
+
+    /** @private */
+    this.size_ = 0;
+
+    /** @private @const */
+    this.logsPrefixCapacity_ = Math.trunc(capacity / 2);
+    /** @type {!Array.<string>} @private @const */
+    this.formattedLogsPrefix_ = [];
+    /**
+     * @type {!Array.<function(string, !goog.log.LogRecord)>}
+     * @private
+     */
+    this.observers_ = [];
+
+    /** @type {!goog.structs.CircularBuffer.<string>} @private @const */
+    this.formattedLogsSuffix_ =
+        new goog.structs.CircularBuffer(capacity - this.logsPrefixCapacity_);
+  }
+
+  /** @override */
+  disposeInternal() {
+    this.formattedLogsPrefix_.length = 0;
+    this.observers_.length = 0;
+    this.formattedLogsSuffix_.clear();
+    super.disposeInternal();
+  }
+
+  /**
+   * @return {number}
+   */
+  getCapacity() {
+    return this.capacity_;
+  }
+
+  /**
+   * Returns the immutable snapshot of the log buffer state.
+   *
+   * The reason for this way of returning the internal state against the usual
+   * accessor methods is that it's quite possible that new log messages will be
+   * emitted while the client is still iterating over the kept state, which
+   * would make writing a robust client code difficult.
+   * @return {!State}
+   */
+  getState() {
+    return new State(
+        this.size_, goog.array.clone(this.formattedLogsPrefix_),
+        this.size_ - this.formattedLogsPrefix_.length -
+            this.formattedLogsSuffix_.getCount(),
+        this.formattedLogsSuffix_.getValues());
+  }
+
+  /**
+   * Adds an observer for captured log records.
+   * @param {function(string, !goog.log.LogRecord)} observer
+   */
+  addObserver(observer) {
+    this.observers_.push(observer);
+  }
+
+  /**
+   * @param {function(string, !goog.log.LogRecord)} observer
+   */
+  removeObserver(observer) {
+    this.observers_ = this.observers_.filter((value) => {
+      return value !== observer;
+    });
+  }
+
+  /**
+   * Copies all log records that we've aggregated to the specified log buffer.
+   * @param {!GSC.LogBuffer} otherLogBuffer
+   */
+  copyToOtherBuffer(otherLogBuffer) {
+    if (this.isDisposed())
+      return;
+    // Take a snapshot before copying, to protect against new items being
+    // appended while we're iterating over old ones.
+    const state = this.getState();
+
+    // Note: accessing the member function by indexing the properties, in order
+    // to avoid issues due to the code minification. When `this` and
+    // `otherLogBuffer` are coming from two different pages, we want to run the
+    // function from the `otherLogBuffer`s page; failing to do so may cause
+    // subtle errors, as property names in two pages might be shortened in two
+    // different ways by the compiler.
+    const logCopier =
+        otherLogBuffer['addFormattedLogRecord_'].bind(otherLogBuffer);
+    for (const formattedLogRecord of state['formattedLogsPrefix'])
+      logCopier(formattedLogRecord);
+    for (const formattedLogRecord of state['formattedLogsSuffix'])
+      logCopier(formattedLogRecord);
+  }
+
+  /**
+   * @param {string} documentLocation
+   * @param {?goog.log.Level} logLevel
+   * @param {string} logMsg
+   * @param {string} loggerName
+   * @param {number=} logTime
+   * @param {number=} logSequenceNumber
    * @private
    */
-  this.observers_ = [];
+  addLogRecord_(
+      documentLocation, logLevel, logMsg, loggerName, logTime,
+      logSequenceNumber) {
+    if (this.isDisposed())
+      return;
 
-  /** @type {!goog.structs.CircularBuffer.<string>} @private @const */
-  this.formattedLogsSuffix_ =
-      new goog.structs.CircularBuffer(capacity - this.logsPrefixCapacity_);
-}
+    const logRecord = new goog.log.LogRecord(
+        logLevel, logMsg, loggerName, logTime, logSequenceNumber);
+    for (const observer of this.observers_)
+      observer(documentLocation, logRecord);
 
-/** @override */
-disposeInternal() {
-  this.formattedLogsPrefix_.length = 0;
-  this.observers_.length = 0;
-  this.formattedLogsSuffix_.clear();
-  super.disposeInternal();
-}
+    const formattedLogRecord =
+        GSC.LogFormatting.formatLogRecordCompact(documentLocation, logRecord);
+    this.addFormattedLogRecord_(formattedLogRecord);
+  }
 
-/**
- * @return {number}
- */
-getCapacity() {
-  return this.capacity_;
-}
+  /**
+   * @param {string} formattedLogRecord
+   * @private
+   */
+  addFormattedLogRecord_(formattedLogRecord) {
+    if (this.isDisposed())
+      return;
 
-/**
- * Returns the immutable snapshot of the log buffer state.
- *
- * The reason for this way of returning the internal state against the usual
- * accessor methods is that it's quite possible that new log messages will be
- * emitted while the client is still iterating over the kept state, which would
- * make writing a robust client code difficult.
- * @return {!State}
- */
-getState() {
-  return new State(
-      this.size_, goog.array.clone(this.formattedLogsPrefix_),
-      this.size_ - this.formattedLogsPrefix_.length -
-          this.formattedLogsSuffix_.getCount(),
-      this.formattedLogsSuffix_.getValues());
-}
-
-/**
- * Adds an observer for captured log records.
- * @param {function(string, !goog.log.LogRecord)} observer
- */
-addObserver(observer) {
-  this.observers_.push(observer);
-}
-
-/**
- * @param {function(string, !goog.log.LogRecord)} observer
- */
-removeObserver(observer) {
-  this.observers_ = this.observers_.filter((value) => {
-    return value !== observer;
-  });
-}
-
-/**
- * Copies all log records that we've aggregated to the specified log buffer.
- * @param {!GSC.LogBuffer} otherLogBuffer
- */
-copyToOtherBuffer(otherLogBuffer) {
-  if (this.isDisposed())
-    return;
-  // Take a snapshot before copying, to protect against new items being appended
-  // while we're iterating over old ones.
-  const state = this.getState();
-
-  // Note: accessing the member function by indexing the properties, in order to
-  // avoid issues due to the code minification. When `this` and `otherLogBuffer`
-  // are coming from two different pages, we want to run the function from the
-  // `otherLogBuffer`s page; failing to do so may cause subtle errors, as
-  // property names in two pages might be shortened in two different ways by the
-  // compiler.
-  const logCopier =
-      otherLogBuffer['addFormattedLogRecord_'].bind(otherLogBuffer);
-  for (const formattedLogRecord of state['formattedLogsPrefix'])
-    logCopier(formattedLogRecord);
-  for (const formattedLogRecord of state['formattedLogsSuffix'])
-    logCopier(formattedLogRecord);
-}
-
-/**
- * @param {string} documentLocation
- * @param {?goog.log.Level} logLevel
- * @param {string} logMsg
- * @param {string} loggerName
- * @param {number=} logTime
- * @param {number=} logSequenceNumber
- * @private
- */
-addLogRecord_(
-    documentLocation, logLevel, logMsg, loggerName, logTime,
-    logSequenceNumber) {
-  if (this.isDisposed())
-    return;
-
-  const logRecord = new goog.log.LogRecord(
-      logLevel, logMsg, loggerName, logTime, logSequenceNumber);
-  for (const observer of this.observers_)
-    observer(documentLocation, logRecord);
-
-  const formattedLogRecord =
-      GSC.LogFormatting.formatLogRecordCompact(documentLocation, logRecord);
-  this.addFormattedLogRecord_(formattedLogRecord);
-}
-
-/**
- * @param {string} formattedLogRecord
- * @private
- */
-addFormattedLogRecord_(formattedLogRecord) {
-  if (this.isDisposed())
-    return;
-
-  if (this.formattedLogsPrefix_.length < this.logsPrefixCapacity_)
-    this.formattedLogsPrefix_.push(formattedLogRecord);
-  else
-    this.formattedLogsSuffix_.add(formattedLogRecord);
-  ++this.size_;
-}
+    if (this.formattedLogsPrefix_.length < this.logsPrefixCapacity_)
+      this.formattedLogsPrefix_.push(formattedLogRecord);
+    else
+      this.formattedLogsSuffix_.add(formattedLogRecord);
+    ++this.size_;
+  }
 };
 
 /**
@@ -244,7 +245,8 @@ addFormattedLogRecord_(formattedLogRecord) {
  * @param {!goog.log.Logger} logger
  * @param {string} documentLocation
  */
-GSC.LogBuffer.attachBufferToLogger = function(logBuffer, logger, documentLocation) {
+GSC.LogBuffer.attachBufferToLogger = function(
+    logBuffer, logger, documentLocation) {
   // Note: It's crucial that we're in a static method and calling a global
   // function (`goog.log.addHandler()`), because when `logBuffer` comes from a
   // different page (e.g., the background page), we're dealing with two
@@ -260,7 +262,7 @@ GSC.LogBuffer.attachBufferToLogger = function(logBuffer, logger, documentLocatio
         logRecord.getLoggerName(), logRecord.getMillis(),
         logRecord.getSequenceNumber());
   });
-}
+};
 
 // Export symbols.
 GSC.LogBuffer.State = State;
@@ -279,5 +281,4 @@ goog.exportProperty(
 goog.exportProperty(
     GSC.LogBuffer.prototype, 'addFormattedLogRecord_',
     GSC.LogBuffer.prototype.addFormattedLogRecord_);
-
 });  // goog.scope
