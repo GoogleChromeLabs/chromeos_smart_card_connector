@@ -35,130 +35,130 @@ const logger = GSC.Logging.getScopedLogger('MockPort');
  * Mock of the Port class.
  */
 GSC.MockPort = class extends goog.Disposable {
-/**
- * @param {string=} opt_name
- */
-constructor(opt_name) {
-  super();
+  /**
+   * @param {string=} opt_name
+   */
+  constructor(opt_name) {
+    super();
 
-  /** @private @const */
-  this.name_ = opt_name;
+    /** @private @const */
+    this.name_ = opt_name;
 
-  /** @type {?} */
-  this.postMessage = goog.testing.createFunctionMock('postMessage');
+    /** @type {?} */
+    this.postMessage = goog.testing.createFunctionMock('postMessage');
 
-  /** @private */
-  this.isConnected_ = true;
+    /** @private */
+    this.isConnected_ = true;
 
-  /** @private */
-  this.listenerMap_ = new goog.events.ListenerMap(null);
+    /** @private */
+    this.listenerMap_ = new goog.events.ListenerMap(null);
 
-  /** @private */
-  this.fakePort_ = this.createFakePort_();
-}
-
-/** @override */
-disposeInternal() {
-  this.disconnect_();
-  delete this.postMessage;
-  this.listenerMap_.removeAll();
-  delete this.listenerMap_;
-  delete this.fakePort_;
-  super.disposeInternal();
-}
-
-/**
- * @param {*} message
- */
-fireOnMessage(message) {
-  GSC.Logging.checkWithLogger(
-      logger, !this.isDisposed() && this.isConnected_,
-      'Trying to fire onMessage for closed mock port');
-  for (let listener of this.getListeners_('onMessage'))
-    listener(message);
-}
-
-/**
- * @return {!Port}
- */
-getFakePort() {
-  return this.fakePort_;
-}
-
-/**
- * @return {!Port}
- * @suppress {invalidCasts}
- * @private
- */
-createFakePort_() {
-  const self = this;
-
-  // Return the value that pretends to be a Port (the type checking was
-  // suppressed to allow such, technically invalid, cast).
-  return /** @type {!Port} */ ({
-    'name': this.name_,
-    'onDisconnect': {
-      'addListener': function(callback) {
-        self.addListener_('onDisconnect', callback);
-      },
-      'removeListener': function(callback) {
-        self.removeListener_('onDisconnect', callback);
-      }
-    },
-    'onMessage': {
-      'addListener': function(callback) {
-        self.addListener_('onMessage', callback);
-      },
-      'removeListener': function(callback) {
-        self.removeListener_('onMessage', callback);
-      }
-    },
-    'postMessage': this.postMessage,
-    'disconnect': this.disconnect_.bind(this)
-  });
-}
-
-/**
- * @private
- */
-disconnect_() {
-  if (!this.isConnected_)
-    return;
-  this.isConnected_ = false;
-  for (let listener of this.getListeners_('onDisconnect'))
-    listener();
-}
-
-/**
- * @param {string} type
- * @param {!Function} callback
- * @private
- */
-addListener_(type, callback) {
-  this.listenerMap_.add(type, callback, false);
-}
-
-/**
- * @param {string} type
- * @param {!Function} callback
- * @private
- */
-removeListener_(type, callback) {
-  this.listenerMap_.remove(type, callback, false);
-}
-
-/**
- * @param {string} type
- * @return {!Array.<!Function>}
- * @private
- */
-getListeners_(type) {
-  const result = [];
-  for (let listenerKey of this.listenerMap_.getListeners(type, false)) {
-    if (goog.functions.isFunction(listenerKey.listener))
-      result.push(listenerKey.listener);
+    /** @private */
+    this.fakePort_ = this.createFakePort_();
   }
-  return result;
-}
+
+  /** @override */
+  disposeInternal() {
+    this.disconnect_();
+    delete this.postMessage;
+    this.listenerMap_.removeAll();
+    delete this.listenerMap_;
+    delete this.fakePort_;
+    super.disposeInternal();
+  }
+
+  /**
+   * @param {*} message
+   */
+  fireOnMessage(message) {
+    GSC.Logging.checkWithLogger(
+        logger, !this.isDisposed() && this.isConnected_,
+        'Trying to fire onMessage for closed mock port');
+    for (let listener of this.getListeners_('onMessage'))
+      listener(message);
+  }
+
+  /**
+   * @return {!Port}
+   */
+  getFakePort() {
+    return this.fakePort_;
+  }
+
+  /**
+   * @return {!Port}
+   * @suppress {invalidCasts}
+   * @private
+   */
+  createFakePort_() {
+    const self = this;
+
+    // Return the value that pretends to be a Port (the type checking was
+    // suppressed to allow such, technically invalid, cast).
+    return /** @type {!Port} */ ({
+      'name': this.name_,
+      'onDisconnect': {
+        'addListener': function(callback) {
+          self.addListener_('onDisconnect', callback);
+        },
+        'removeListener': function(callback) {
+          self.removeListener_('onDisconnect', callback);
+        }
+      },
+      'onMessage': {
+        'addListener': function(callback) {
+          self.addListener_('onMessage', callback);
+        },
+        'removeListener': function(callback) {
+          self.removeListener_('onMessage', callback);
+        }
+      },
+      'postMessage': this.postMessage,
+      'disconnect': this.disconnect_.bind(this)
+    });
+  }
+
+  /**
+   * @private
+   */
+  disconnect_() {
+    if (!this.isConnected_)
+      return;
+    this.isConnected_ = false;
+    for (let listener of this.getListeners_('onDisconnect'))
+      listener();
+  }
+
+  /**
+   * @param {string} type
+   * @param {!Function} callback
+   * @private
+   */
+  addListener_(type, callback) {
+    this.listenerMap_.add(type, callback, false);
+  }
+
+  /**
+   * @param {string} type
+   * @param {!Function} callback
+   * @private
+   */
+  removeListener_(type, callback) {
+    this.listenerMap_.remove(type, callback, false);
+  }
+
+  /**
+   * @param {string} type
+   * @return {!Array.<!Function>}
+   * @private
+   */
+  getListeners_(type) {
+    const result = [];
+    for (let listenerKey of this.listenerMap_.getListeners(type, false)) {
+      if (goog.functions.isFunction(listenerKey.listener))
+        result.push(listenerKey.listener);
+    }
+    return result;
+  }
 };
 });  // goog.scope
