@@ -38,25 +38,25 @@ const GSC = GoogleSmartCard;
  * The structure that can be used to store the fields of the typed message.
  */
 GSC.TypedMessage = class {
-/**
- * @param {string} type
- * @param {!Object} data
- */
-constructor(type, data) {
-  /** @type {string} @const */
-  this.type = type;
-  /** @type {!Object} @const */
-  this.data = data;
-}
+  /**
+   * @param {string} type
+   * @param {!Object} data
+   */
+  constructor(type, data) {
+    /** @type {string} @const */
+    this.type = type;
+    /** @type {!Object} @const */
+    this.data = data;
+  }
 
-/**
- * Constructs the object containing the fields of the typed message.
- * @return {!Object}
- */
-makeMessage() {
-  return goog.object.create(
-      TYPE_MESSAGE_KEY, this.type, DATA_MESSAGE_KEY, this.data);
-}
+  /**
+   * Constructs the object containing the fields of the typed message.
+   * @return {!Object}
+   */
+  makeMessage() {
+    return goog.object.create(
+        TYPE_MESSAGE_KEY, this.type, DATA_MESSAGE_KEY, this.data);
+  }
 };
 
 /**
@@ -74,6 +74,7 @@ GSC.TypedMessage.parseTypedMessage = function(message) {
       !goog.isObject(message[DATA_MESSAGE_KEY])) {
     return null;
   }
-  return new GSC.TypedMessage(message[TYPE_MESSAGE_KEY], message[DATA_MESSAGE_KEY]);
+  return new GSC.TypedMessage(
+      message[TYPE_MESSAGE_KEY], message[DATA_MESSAGE_KEY]);
 };
 });  // goog.scope
