@@ -47,11 +47,13 @@ const TEXT_MESSAGE_KEY = 'text';
  * The NaCl module sends the emitted log messages as messages of some special
  * structure. This class handles these messages, extracts their fields and
  * transforms them into emitting log messages into the given logger.
+ */
+GSC.NaclModuleLogMessagesReceiver = class {
+/**
  * @param {!goog.messaging.AbstractChannel} messageChannel
  * @param {!goog.log.Logger} logger
- * @constructor
  */
-GSC.NaclModuleLogMessagesReceiver = function(messageChannel, logger) {
+constructor(messageChannel, logger) {
   messageChannel.registerService(
       SERVICE_NAME, this.onMessageReceived_.bind(this), true);
 
@@ -60,31 +62,27 @@ GSC.NaclModuleLogMessagesReceiver = function(messageChannel, logger) {
    * @const
    */
   this.logger = logger;
-};
-
-const NaclModuleLogMessagesReceiver = GSC.NaclModuleLogMessagesReceiver;
+}
 
 /**
  * @param {string|!Object} messageData
  * @private
  */
-NaclModuleLogMessagesReceiver.prototype.onMessageReceived_ = function(
-    messageData) {
+onMessageReceived_(messageData) {
   GSC.Logging.checkWithLogger(this.logger, goog.isObject(messageData));
   goog.asserts.assertObject(messageData);
 
   goog.log.log(
       this.logger, this.extractLogMessageLevel_(messageData),
       this.extractLogMessageText_(messageData));
-};
+}
 
 /**
  * @param {!Object} messageData
  * @return {!goog.log.Level}
  * @private
  */
-NaclModuleLogMessagesReceiver.prototype.extractLogMessageLevel_ = function(
-    messageData) {
+extractLogMessageLevel_(messageData) {
   GSC.Logging.checkWithLogger(
       this.logger, goog.object.containsKey(messageData, LOG_LEVEL_MESSAGE_KEY));
   const value = messageData[LOG_LEVEL_MESSAGE_KEY];
@@ -99,15 +97,14 @@ NaclModuleLogMessagesReceiver.prototype.extractLogMessageLevel_ = function(
   goog.asserts.assert(result);
 
   return result;
-};
+}
 
 /**
  * @param {!Object} messageData
  * @return {string}
  * @private
  */
-NaclModuleLogMessagesReceiver.prototype.extractLogMessageText_ = function(
-    messageData) {
+extractLogMessageText_(messageData) {
   GSC.Logging.checkWithLogger(
       this.logger, goog.object.containsKey(messageData, TEXT_MESSAGE_KEY));
   const value = messageData[TEXT_MESSAGE_KEY];
@@ -116,5 +113,6 @@ NaclModuleLogMessagesReceiver.prototype.extractLogMessageText_ = function(
   goog.asserts.assertString(value);
 
   return value;
+}
 };
 });  // goog.scope
