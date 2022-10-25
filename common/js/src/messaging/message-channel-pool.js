@@ -36,9 +36,9 @@ const GSC = GoogleSmartCard;
 
 /**
  * This class is a pool which keeps track of Closure-style AbstractChannel's.
- * @constructor
  */
-GSC.MessageChannelPool = function() {
+GSC.MessageChannelPool = class {
+constructor() {
   /**
    * @type {!goog.log.Logger}
    * @const
@@ -58,33 +58,30 @@ GSC.MessageChannelPool = function() {
   this.onUpdateListeners_ = [];
 
   goog.log.fine(this.logger, 'Initialized successfully');
-};
-
-const MessageChannelPool = GSC.MessageChannelPool;
+}
 
 /**
  * @param {string} messagingOrigin
  * @return {!Array.<!goog.messaging.AbstractChannel>}
  */
-MessageChannelPool.prototype.getChannels = function(messagingOrigin) {
+getChannels(messagingOrigin) {
   return /** @type {!Array.<!goog.messaging.AbstractChannel>} */ (
       this.channels_.get(messagingOrigin));
-};
+}
 
 /**
  * Returns the messagingOrigin's of all connected channels.
  * @return {!Array.<string>}
  */
-MessageChannelPool.prototype.getMessagingOrigins = function() {
+getMessagingOrigins() {
   return this.channels_.getKeys();
-};
+}
 
 /**
  * @param {string} messagingOrigin
  * @param {!goog.messaging.AbstractChannel} messageChannel
  */
-MessageChannelPool.prototype.addChannel = function(
-    messagingOrigin, messageChannel) {
+addChannel(messagingOrigin, messageChannel) {
   if (this.channels_.containsEntry(messagingOrigin, messageChannel)) {
     GSC.Logging.failWithLogger(
         this.logger, 'Tried to add a channel that was already present');
@@ -95,7 +92,7 @@ MessageChannelPool.prototype.addChannel = function(
   messageChannel.addOnDisposeCallback(
       this.handleChannelDisposed_.bind(this, messagingOrigin, messageChannel));
   this.fireOnUpdateListeners_();
-};
+}
 
 /**
  * Adds a listener that will be called with the list of app information
@@ -103,21 +100,20 @@ MessageChannelPool.prototype.addChannel = function(
  * @param {function(!Array.<string>)} listener
  * @param {!Object=} opt_scope
  */
-MessageChannelPool.prototype.addOnUpdateListener = function(
-    listener, opt_scope) {
+addOnUpdateListener(listener, opt_scope) {
   this.onUpdateListeners_.push(
       opt_scope !== undefined ? goog.bind(listener, opt_scope) : listener);
   goog.log.fine(this.logger, 'Added an OnUpdateListener');
 
   // Fire it once immediately to update.
   this.fireOnUpdateListeners_();
-};
+}
 
 /**
  * Removes a previously added listener function.
  * @param {function(!Array.<string>)} listener
  */
-MessageChannelPool.prototype.removeOnUpdateListener = function(listener) {
+removeOnUpdateListener(listener) {
   if (goog.array.remove(this.onUpdateListeners_, listener)) {
     goog.log.fine(this.logger, 'Removed an update listener');
   } else {
@@ -126,12 +122,12 @@ MessageChannelPool.prototype.removeOnUpdateListener = function(listener) {
         'Failed to remove an update listener: the passed ' +
             'function was not found');
   }
-};
+}
 
 /**
  * @private
  */
-MessageChannelPool.prototype.fireOnUpdateListeners_ = function() {
+fireOnUpdateListeners_() {
   goog.log.fine(this.logger, 'Firing channel update listeners');
   for (let listener of this.onUpdateListeners_) {
     try {
@@ -144,15 +140,14 @@ MessageChannelPool.prototype.fireOnUpdateListeners_ = function() {
       })
     }
   }
-};
+}
 
 /**
  * @private
  * @param {string} messagingOrigin
  * @param {!goog.messaging.AbstractChannel} messageChannel
  */
-MessageChannelPool.prototype.handleChannelDisposed_ = function(
-    messagingOrigin, messageChannel) {
+handleChannelDisposed_(messagingOrigin, messageChannel) {
   goog.log.fine(
       this.logger, 'Disposed of channel, origin = ' + messagingOrigin);
   if (!this.channels_.remove(messagingOrigin, messageChannel)) {
@@ -160,5 +155,6 @@ MessageChannelPool.prototype.handleChannelDisposed_ = function(
         this.logger, 'Tried to dispose of non-existing channel');
   }
   this.fireOnUpdateListeners_();
+}
 };
 });  // goog.scope
