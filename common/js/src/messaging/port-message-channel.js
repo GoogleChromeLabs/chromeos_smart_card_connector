@@ -53,13 +53,14 @@ const PingResponder = GSC.MessageChannelPinging.PingResponder;
  * Apart from adapting the Port communication mechanisms into the methods of the
  * goog.messaging.AbstractChannel class, this class enables pinging over this
  * message channel (see the message-channel-pinging.js file for details).
+ */
+GSC.PortMessageChannel = class extends goog.messaging.AbstractChannel {
+/**
  * @param {!Port} port
  * @param {function()=} opt_onEstablished
- * @constructor
- * @extends goog.messaging.AbstractChannel
  */
-GSC.PortMessageChannel = function(port, opt_onEstablished) {
-  PortMessageChannel.base(this, 'constructor');
+constructor(port, opt_onEstablished) {
+  super();
 
   /**
    * @type {Port?}
@@ -99,14 +100,10 @@ GSC.PortMessageChannel = function(port, opt_onEstablished) {
   this.pinger_ = new Pinger(this, this.logger, opt_onEstablished);
 
   goog.log.fine(this.logger, 'Initialized successfully');
-};
-
-const PortMessageChannel = GSC.PortMessageChannel;
-
-goog.inherits(PortMessageChannel, goog.messaging.AbstractChannel);
+}
 
 /** @override */
-PortMessageChannel.prototype.send = function(serviceName, payload) {
+send(serviceName, payload) {
   GSC.Logging.checkWithLogger(this.logger, goog.isObject(payload));
   goog.asserts.assertObject(payload);
 
@@ -131,10 +128,10 @@ PortMessageChannel.prototype.send = function(serviceName, payload) {
     this.dispose();
     GSC.Logging.failWithLogger(this.logger, 'Failed to post message: ' + exc);
   }
-};
+}
 
 /** @override */
-PortMessageChannel.prototype.disposeInternal = function() {
+disposeInternal() {
   this.pinger_.dispose();
   this.pinger_ = null;
 
@@ -152,11 +149,11 @@ PortMessageChannel.prototype.disposeInternal = function() {
 
   goog.log.fine(this.logger, 'Disposed');
 
-  PortMessageChannel.base(this, 'disposeInternal');
-};
+  super.disposeInternal();
+}
 
 /** @private */
-PortMessageChannel.prototype.disconnectEventHandler_ = function() {
+disconnectEventHandler_() {
   let reason = '';
   if (chrome.runtime && chrome.runtime.lastError &&
       chrome.runtime.lastError.message) {
@@ -165,13 +162,13 @@ PortMessageChannel.prototype.disconnectEventHandler_ = function() {
   goog.log.info(
       this.logger, `Message port was disconnected${reason}, disposing...`);
   this.dispose();
-};
+}
 
 /**
  * @param {*} message
  * @private
  */
-PortMessageChannel.prototype.messageEventHandler_ = function(message) {
+messageEventHandler_(message) {
   goog.log.log(
       this.logger, goog.log.Level.FINEST,
       'Received a message: ' + GSC.DebugDump.debugDump(message));
@@ -185,18 +182,18 @@ PortMessageChannel.prototype.messageEventHandler_ = function(message) {
   }
 
   this.deliver(typedMessage.type, typedMessage.data);
-};
+}
 
 /**
  * @param {string} serviceName
  * @param {!Object|string} payload
  * @private
  */
-PortMessageChannel.prototype.defaultServiceCallback_ = function(
-    serviceName, payload) {
+defaultServiceCallback_(serviceName, payload) {
   GSC.Logging.failWithLogger(
       this.logger,
       'Unhandled message received: serviceName="' + serviceName +
           '", payload=' + GSC.DebugDump.debugDump(payload));
+}
 };
 });  // goog.scope
