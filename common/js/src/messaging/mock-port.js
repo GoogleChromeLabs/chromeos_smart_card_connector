@@ -29,14 +29,17 @@ goog.scope(function() {
 
 const GSC = GoogleSmartCard;
 
+const logger = GSC.Logging.getScopedLogger('MockPort');
+
 /**
  * Mock of the Port class.
- * @param {string=} opt_name
- * @constructor
- * @extends goog.Disposable
  */
-GSC.MockPort = function(opt_name) {
-  MockPort.base(this, 'constructor');
+GSC.MockPort = class extends goog.Disposable {
+/**
+ * @param {string=} opt_name
+ */
+constructor(opt_name) {
+  super();
 
   /** @private @const */
   this.name_ = opt_name;
@@ -52,48 +55,42 @@ GSC.MockPort = function(opt_name) {
 
   /** @private */
   this.fakePort_ = this.createFakePort_();
-};
-
-const MockPort = GSC.MockPort;
-
-goog.inherits(MockPort, goog.Disposable);
-
-MockPort.prototype.logger = GSC.Logging.getScopedLogger('MockPort');
+}
 
 /** @override */
-MockPort.prototype.disposeInternal = function() {
+disposeInternal() {
   this.disconnect_();
   delete this.postMessage;
   this.listenerMap_.removeAll();
   delete this.listenerMap_;
   delete this.fakePort_;
-  MockPort.base(this, 'disposeInternal');
-};
+  super.disposeInternal();
+}
 
 /**
  * @param {*} message
  */
-MockPort.prototype.fireOnMessage = function(message) {
+fireOnMessage(message) {
   GSC.Logging.checkWithLogger(
-      this.logger, !this.isDisposed() && this.isConnected_,
+      logger, !this.isDisposed() && this.isConnected_,
       'Trying to fire onMessage for closed mock port');
   for (let listener of this.getListeners_('onMessage'))
     listener(message);
-};
+}
 
 /**
  * @return {!Port}
  */
-MockPort.prototype.getFakePort = function() {
+getFakePort() {
   return this.fakePort_;
-};
+}
 
 /**
  * @return {!Port}
  * @suppress {invalidCasts}
  * @private
  */
-MockPort.prototype.createFakePort_ = function() {
+createFakePort_() {
   const self = this;
 
   // Return the value that pretends to be a Port (the type checking was
@@ -119,48 +116,49 @@ MockPort.prototype.createFakePort_ = function() {
     'postMessage': this.postMessage,
     'disconnect': this.disconnect_.bind(this)
   });
-};
+}
 
 /**
  * @private
  */
-MockPort.prototype.disconnect_ = function() {
+disconnect_() {
   if (!this.isConnected_)
     return;
   this.isConnected_ = false;
   for (let listener of this.getListeners_('onDisconnect'))
     listener();
-};
+}
 
 /**
  * @param {string} type
  * @param {!Function} callback
  * @private
  */
-MockPort.prototype.addListener_ = function(type, callback) {
+addListener_(type, callback) {
   this.listenerMap_.add(type, callback, false);
-};
+}
 
 /**
  * @param {string} type
  * @param {!Function} callback
  * @private
  */
-MockPort.prototype.removeListener_ = function(type, callback) {
+removeListener_(type, callback) {
   this.listenerMap_.remove(type, callback, false);
-};
+}
 
 /**
  * @param {string} type
  * @return {!Array.<!Function>}
  * @private
  */
-MockPort.prototype.getListeners_ = function(type) {
+getListeners_(type) {
   const result = [];
   for (let listenerKey of this.listenerMap_.getListeners(type, false)) {
     if (goog.functions.isFunction(listenerKey.listener))
       result.push(listenerKey.listener);
   }
   return result;
+}
 };
 });  // goog.scope
