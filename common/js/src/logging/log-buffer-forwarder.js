@@ -51,11 +51,13 @@ const POSTPONING_BUFFER_CAPACITY = 100;
  *
  * NOTE 2: It's expected that startForwarding() is called "soon", because this
  * class has only limited capacity for storing messages before that.
+ */
+GSC.LogBufferForwarder = class {
+/**
  * @param {!GSC.LogBuffer} logBuffer
  * @param {string} messageChannelServiceName
- * @constructor
  */
-GSC.LogBufferForwarder = function(logBuffer, messageChannelServiceName) {
+constructor(logBuffer, messageChannelServiceName) {
   /** @type {string} @private @const */
   this.messageChannelServiceName_ = messageChannelServiceName;
   /** @type {!Set} @private @const */
@@ -74,11 +76,7 @@ GSC.LogBufferForwarder = function(logBuffer, messageChannelServiceName) {
   this.postponedLogRecords_ = new goog.structs.CircularBuffer();
 
   logBuffer.addObserver(this.onLogRecordObserved_.bind(this));
-};
-
-const LogBufferForwarder = GSC.LogBufferForwarder;
-
-goog.exportSymbol('GoogleSmartCard.LogBufferForwarder', LogBufferForwarder);
+}
 
 /**
  * Sets up forwarding of the log records to the specified message channel.
@@ -86,13 +84,13 @@ goog.exportSymbol('GoogleSmartCard.LogBufferForwarder', LogBufferForwarder);
  * Also immediately sends the log records that have been accumulated so far.
  * @param {!goog.messaging.AbstractChannel} messageChannel
  */
-LogBufferForwarder.prototype.startForwarding = function(messageChannel) {
+startForwarding(messageChannel) {
   this.messageChannel_ = messageChannel;
 
   for (const logRecord of this.postponedLogRecords_.getValues())
     this.sendLogRecord_(logRecord);
   this.postponedLogRecords_.clear();
-};
+}
 
 /**
  * Adds a logger whose messages have to be ignored.
@@ -101,17 +99,16 @@ LogBufferForwarder.prototype.startForwarding = function(messageChannel) {
  * messages from children of the specified logger.
  * @param {string} loggerName
  */
-LogBufferForwarder.prototype.ignoreLogger = function(loggerName) {
+ignoreLogger(loggerName) {
   this.ignoredLoggerNames_.add(loggerName);
-};
+}
 
 /**
  * @param {string} documentLocation
  * @param {!goog.log.LogRecord} logRecord
  * @private
  */
-LogBufferForwarder.prototype.onLogRecordObserved_ = function(
-    documentLocation, logRecord) {
+onLogRecordObserved_(documentLocation, logRecord) {
   if (!this.logCapturingEnabled_ ||
       this.ignoredLoggerNames_.has(logRecord.getLoggerName())) {
     return;
@@ -123,13 +120,13 @@ LogBufferForwarder.prototype.onLogRecordObserved_ = function(
     return;
   }
   this.sendLogRecord_(formattedLogRecord);
-};
+}
 
 /**
  * @param {string} formattedLogRecord
  * @private
  */
-LogBufferForwarder.prototype.sendLogRecord_ = function(formattedLogRecord) {
+sendLogRecord_(formattedLogRecord) {
   // Ignore log messages emitted while sending the log, to minimize the risk of
   // infinite recursion if the message channel emits a non-ignored message.
   this.logCapturingEnabled_ = false;
@@ -140,5 +137,8 @@ LogBufferForwarder.prototype.sendLogRecord_ = function(formattedLogRecord) {
   GSC.Logging.check(!this.logCapturingEnabled_);
 
   this.logCapturingEnabled_ = true;
+}
 };
+
+goog.exportSymbol('GoogleSmartCard.LogBufferForwarder', GSC.LogBufferForwarder);
 });
