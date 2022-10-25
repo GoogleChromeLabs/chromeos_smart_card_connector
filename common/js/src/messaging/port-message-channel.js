@@ -55,145 +55,146 @@ const PingResponder = GSC.MessageChannelPinging.PingResponder;
  * message channel (see the message-channel-pinging.js file for details).
  */
 GSC.PortMessageChannel = class extends goog.messaging.AbstractChannel {
-/**
- * @param {!Port} port
- * @param {function()=} opt_onEstablished
- */
-constructor(port, opt_onEstablished) {
-  super();
+  /**
+   * @param {!Port} port
+   * @param {function()=} opt_onEstablished
+   */
+  constructor(port, opt_onEstablished) {
+    super();
+
+    /**
+     * @type {Port?}
+     * @private
+     */
+    this.port_ = port;
+
+    /** @type {string|null} @const */
+    this.messagingOrigin =
+        GSC.MessagingOrigin.getFromChromeMessageSender(port.sender);
+
+    /**
+     * @type {!goog.log.Logger}
+     * @const
+     */
+    this.logger = GSC.Logging.getScopedLogger(
+        'PortMessageChannel<"' + port.name + '"' +
+        (this.messagingOrigin === null ?
+             '' :
+             ', sender="' + this.messagingOrigin + '"') +
+        '>');
+
+    /** @private */
+    this.boundDisconnectEventHandler_ = this.disconnectEventHandler_.bind(this);
+    this.port_.onDisconnect.addListener(this.boundDisconnectEventHandler_);
+
+    /** @private */
+    this.boundMessageEventHandler_ = this.messageEventHandler_.bind(this);
+    this.port_.onMessage.addListener(this.boundMessageEventHandler_);
+
+    this.registerDefaultService(this.defaultServiceCallback_.bind(this));
+
+    /** @private */
+    this.pingResponder_ = new PingResponder(this, this.logger);
+
+    /** @private */
+    this.pinger_ = new Pinger(this, this.logger, opt_onEstablished);
+
+    goog.log.fine(this.logger, 'Initialized successfully');
+  }
+
+  /** @override */
+  send(serviceName, payload) {
+    GSC.Logging.checkWithLogger(this.logger, goog.isObject(payload));
+    goog.asserts.assertObject(payload);
+
+    const normalizedPayload =
+        GSC.ContainerHelpers.substituteArrayBuffersRecursively(payload);
+
+    const typedMessage = new GSC.TypedMessage(serviceName, normalizedPayload);
+    const message = typedMessage.makeMessage();
+    goog.log.log(
+        this.logger, goog.log.Level.FINEST,
+        'Posting a message: ' + GSC.DebugDump.debugDump(message));
+
+    if (this.isDisposed()) {
+      GSC.Logging.failWithLogger(
+          this.logger,
+          'Failed to post message: the channel is already disposed');
+    }
+
+    /** @preserveTry */
+    try {
+      this.port_.postMessage(message);
+    } catch (exc) {
+      this.dispose();
+      GSC.Logging.failWithLogger(this.logger, 'Failed to post message: ' + exc);
+    }
+  }
+
+  /** @override */
+  disposeInternal() {
+    this.pinger_.dispose();
+    this.pinger_ = null;
+
+    this.pingResponder_.dispose();
+    this.pingResponder_ = null;
+
+    this.port_.onMessage.removeListener(this.boundMessageEventHandler_);
+    this.boundMessageEventHandler_ = null;
+
+    this.port_.onDisconnect.removeListener(this.boundDisconnectEventHandler_);
+    this.boundDisconnectEventHandler_ = null;
+
+    this.port_.disconnect();
+    this.port_ = null;
+
+    goog.log.fine(this.logger, 'Disposed');
+
+    super.disposeInternal();
+  }
+
+  /** @private */
+  disconnectEventHandler_() {
+    let reason = '';
+    if (chrome.runtime && chrome.runtime.lastError &&
+        chrome.runtime.lastError.message) {
+      reason = ` due to '${chrome.runtime.lastError.message}'`;
+    }
+    goog.log.info(
+        this.logger, `Message port was disconnected${reason}, disposing...`);
+    this.dispose();
+  }
 
   /**
-   * @type {Port?}
+   * @param {*} message
    * @private
    */
-  this.port_ = port;
+  messageEventHandler_(message) {
+    goog.log.log(
+        this.logger, goog.log.Level.FINEST,
+        'Received a message: ' + GSC.DebugDump.debugDump(message));
 
-  /** @type {string|null} @const */
-  this.messagingOrigin =
-      GSC.MessagingOrigin.getFromChromeMessageSender(port.sender);
+    const typedMessage = GSC.TypedMessage.parseTypedMessage(message);
+    if (!typedMessage) {
+      GSC.Logging.failWithLogger(
+          this.logger,
+          'Failed to parse the received message: ' +
+              GSC.DebugDump.debugDump(message));
+    }
+
+    this.deliver(typedMessage.type, typedMessage.data);
+  }
 
   /**
-   * @type {!goog.log.Logger}
-   * @const
+   * @param {string} serviceName
+   * @param {!Object|string} payload
+   * @private
    */
-  this.logger = GSC.Logging.getScopedLogger(
-      'PortMessageChannel<"' + port.name + '"' +
-      (this.messagingOrigin === null ?
-           '' :
-           ', sender="' + this.messagingOrigin + '"') +
-      '>');
-
-  /** @private */
-  this.boundDisconnectEventHandler_ = this.disconnectEventHandler_.bind(this);
-  this.port_.onDisconnect.addListener(this.boundDisconnectEventHandler_);
-
-  /** @private */
-  this.boundMessageEventHandler_ = this.messageEventHandler_.bind(this);
-  this.port_.onMessage.addListener(this.boundMessageEventHandler_);
-
-  this.registerDefaultService(this.defaultServiceCallback_.bind(this));
-
-  /** @private */
-  this.pingResponder_ = new PingResponder(this, this.logger);
-
-  /** @private */
-  this.pinger_ = new Pinger(this, this.logger, opt_onEstablished);
-
-  goog.log.fine(this.logger, 'Initialized successfully');
-}
-
-/** @override */
-send(serviceName, payload) {
-  GSC.Logging.checkWithLogger(this.logger, goog.isObject(payload));
-  goog.asserts.assertObject(payload);
-
-  const normalizedPayload =
-      GSC.ContainerHelpers.substituteArrayBuffersRecursively(payload);
-
-  const typedMessage = new GSC.TypedMessage(serviceName, normalizedPayload);
-  const message = typedMessage.makeMessage();
-  goog.log.log(
-      this.logger, goog.log.Level.FINEST,
-      'Posting a message: ' + GSC.DebugDump.debugDump(message));
-
-  if (this.isDisposed()) {
-    GSC.Logging.failWithLogger(
-        this.logger, 'Failed to post message: the channel is already disposed');
-  }
-
-  /** @preserveTry */
-  try {
-    this.port_.postMessage(message);
-  } catch (exc) {
-    this.dispose();
-    GSC.Logging.failWithLogger(this.logger, 'Failed to post message: ' + exc);
-  }
-}
-
-/** @override */
-disposeInternal() {
-  this.pinger_.dispose();
-  this.pinger_ = null;
-
-  this.pingResponder_.dispose();
-  this.pingResponder_ = null;
-
-  this.port_.onMessage.removeListener(this.boundMessageEventHandler_);
-  this.boundMessageEventHandler_ = null;
-
-  this.port_.onDisconnect.removeListener(this.boundDisconnectEventHandler_);
-  this.boundDisconnectEventHandler_ = null;
-
-  this.port_.disconnect();
-  this.port_ = null;
-
-  goog.log.fine(this.logger, 'Disposed');
-
-  super.disposeInternal();
-}
-
-/** @private */
-disconnectEventHandler_() {
-  let reason = '';
-  if (chrome.runtime && chrome.runtime.lastError &&
-      chrome.runtime.lastError.message) {
-    reason = ` due to '${chrome.runtime.lastError.message}'`;
-  }
-  goog.log.info(
-      this.logger, `Message port was disconnected${reason}, disposing...`);
-  this.dispose();
-}
-
-/**
- * @param {*} message
- * @private
- */
-messageEventHandler_(message) {
-  goog.log.log(
-      this.logger, goog.log.Level.FINEST,
-      'Received a message: ' + GSC.DebugDump.debugDump(message));
-
-  const typedMessage = GSC.TypedMessage.parseTypedMessage(message);
-  if (!typedMessage) {
+  defaultServiceCallback_(serviceName, payload) {
     GSC.Logging.failWithLogger(
         this.logger,
-        'Failed to parse the received message: ' +
-            GSC.DebugDump.debugDump(message));
+        'Unhandled message received: serviceName="' + serviceName +
+            '", payload=' + GSC.DebugDump.debugDump(payload));
   }
-
-  this.deliver(typedMessage.type, typedMessage.data);
-}
-
-/**
- * @param {string} serviceName
- * @param {!Object|string} payload
- * @private
- */
-defaultServiceCallback_(serviceName, payload) {
-  GSC.Logging.failWithLogger(
-      this.logger,
-      'Unhandled message received: serviceName="' + serviceName +
-          '", payload=' + GSC.DebugDump.debugDump(payload));
-}
 };
 });  // goog.scope
