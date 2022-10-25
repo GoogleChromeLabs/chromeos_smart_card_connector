@@ -49,70 +49,71 @@ const TEXT_MESSAGE_KEY = 'text';
  * transforms them into emitting log messages into the given logger.
  */
 GSC.NaclModuleLogMessagesReceiver = class {
-/**
- * @param {!goog.messaging.AbstractChannel} messageChannel
- * @param {!goog.log.Logger} logger
- */
-constructor(messageChannel, logger) {
-  messageChannel.registerService(
-      SERVICE_NAME, this.onMessageReceived_.bind(this), true);
+  /**
+   * @param {!goog.messaging.AbstractChannel} messageChannel
+   * @param {!goog.log.Logger} logger
+   */
+  constructor(messageChannel, logger) {
+    messageChannel.registerService(
+        SERVICE_NAME, this.onMessageReceived_.bind(this), true);
+
+    /**
+     * @type {!goog.log.Logger}
+     * @const
+     */
+    this.logger = logger;
+  }
 
   /**
-   * @type {!goog.log.Logger}
-   * @const
+   * @param {string|!Object} messageData
+   * @private
    */
-  this.logger = logger;
-}
+  onMessageReceived_(messageData) {
+    GSC.Logging.checkWithLogger(this.logger, goog.isObject(messageData));
+    goog.asserts.assertObject(messageData);
 
-/**
- * @param {string|!Object} messageData
- * @private
- */
-onMessageReceived_(messageData) {
-  GSC.Logging.checkWithLogger(this.logger, goog.isObject(messageData));
-  goog.asserts.assertObject(messageData);
+    goog.log.log(
+        this.logger, this.extractLogMessageLevel_(messageData),
+        this.extractLogMessageText_(messageData));
+  }
 
-  goog.log.log(
-      this.logger, this.extractLogMessageLevel_(messageData),
-      this.extractLogMessageText_(messageData));
-}
+  /**
+   * @param {!Object} messageData
+   * @return {!goog.log.Level}
+   * @private
+   */
+  extractLogMessageLevel_(messageData) {
+    GSC.Logging.checkWithLogger(
+        this.logger,
+        goog.object.containsKey(messageData, LOG_LEVEL_MESSAGE_KEY));
+    const value = messageData[LOG_LEVEL_MESSAGE_KEY];
 
-/**
- * @param {!Object} messageData
- * @return {!goog.log.Level}
- * @private
- */
-extractLogMessageLevel_(messageData) {
-  GSC.Logging.checkWithLogger(
-      this.logger, goog.object.containsKey(messageData, LOG_LEVEL_MESSAGE_KEY));
-  const value = messageData[LOG_LEVEL_MESSAGE_KEY];
+    GSC.Logging.checkWithLogger(this.logger, typeof value === 'string');
+    goog.asserts.assertString(value);
 
-  GSC.Logging.checkWithLogger(this.logger, typeof value === 'string');
-  goog.asserts.assertString(value);
+    const result = goog.log.Level.getPredefinedLevel(value);
+    GSC.Logging.checkWithLogger(
+        this.logger, result,
+        'Unknown log level specified in the received message: "' + value + '"');
+    goog.asserts.assert(result);
 
-  const result = goog.log.Level.getPredefinedLevel(value);
-  GSC.Logging.checkWithLogger(
-      this.logger, result,
-      'Unknown log level specified in the received message: "' + value + '"');
-  goog.asserts.assert(result);
+    return result;
+  }
 
-  return result;
-}
+  /**
+   * @param {!Object} messageData
+   * @return {string}
+   * @private
+   */
+  extractLogMessageText_(messageData) {
+    GSC.Logging.checkWithLogger(
+        this.logger, goog.object.containsKey(messageData, TEXT_MESSAGE_KEY));
+    const value = messageData[TEXT_MESSAGE_KEY];
 
-/**
- * @param {!Object} messageData
- * @return {string}
- * @private
- */
-extractLogMessageText_(messageData) {
-  GSC.Logging.checkWithLogger(
-      this.logger, goog.object.containsKey(messageData, TEXT_MESSAGE_KEY));
-  const value = messageData[TEXT_MESSAGE_KEY];
+    GSC.Logging.checkWithLogger(this.logger, typeof value === 'string');
+    goog.asserts.assertString(value);
 
-  GSC.Logging.checkWithLogger(this.logger, typeof value === 'string');
-  goog.asserts.assertString(value);
-
-  return value;
-}
+    return value;
+  }
 };
 });  // goog.scope
