@@ -186,7 +186,7 @@ getEmscriptenApiModuleSettings_() {
 onModuleCrashed_() {
   goog.log.error(this.logger_, 'The Emscripten module crashed');
   this.dispose();
-};
+}
 
 /**
  * Handles an stdout message received from the Emscripten module.
@@ -197,7 +197,7 @@ onModuleStdoutReceived_(message) {
   // TODO(#185): Consider downgrading to the "fine" level once structured log
   // messages are received from the module.
   goog.log.info(this.fromModuleMessagesLogger_, message);
-};
+}
 
 /**
  * Handles an stderr message received from the Emscripten module.
@@ -273,7 +273,7 @@ onMessageFromModule(message) {
         GSC.DebugDump.debugDump(message));
   }
   this.deliver(typedMessage.type, typedMessage.data);
-};
+}
 
 /**
  * @param {!Object} message
