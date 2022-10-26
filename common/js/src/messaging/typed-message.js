@@ -36,27 +36,37 @@ const GSC = GoogleSmartCard;
 
 /**
  * The structure that can be used to store the fields of the typed message.
- * @param {string} type
- * @param {!Object} data
- * @constructor
  */
-GSC.TypedMessage = function(type, data) {
-  /** @type {string} @const */
-  this.type = type;
-  /** @type {!Object} @const */
-  this.data = data;
-};
+GSC.TypedMessage = class {
+  /**
+   * @param {string} type
+   * @param {!Object} data
+   */
+  constructor(type, data) {
+    /** @type {string} @const */
+    this.type = type;
+    /** @type {!Object} @const */
+    this.data = data;
+  }
 
-const TypedMessage = GSC.TypedMessage;
+  /**
+   * Constructs the object containing the fields of the typed message.
+   * @return {!Object}
+   */
+  makeMessage() {
+    return goog.object.create(
+        TYPE_MESSAGE_KEY, this.type, DATA_MESSAGE_KEY, this.data);
+  }
+};
 
 /**
  * Parses the specified message into the typed message fields (type and data).
  *
  * Returns null if the parsing failed.
  * @param {*} message
- * @return {TypedMessage?}
+ * @return {GSC.TypedMessage?}
  */
-TypedMessage.parseTypedMessage = function(message) {
+GSC.TypedMessage.parseTypedMessage = function(message) {
   if (!goog.isObject(message) || goog.object.getCount(message) != 2 ||
       !goog.object.containsKey(message, TYPE_MESSAGE_KEY) ||
       typeof message[TYPE_MESSAGE_KEY] !== 'string' ||
@@ -64,15 +74,7 @@ TypedMessage.parseTypedMessage = function(message) {
       !goog.isObject(message[DATA_MESSAGE_KEY])) {
     return null;
   }
-  return new TypedMessage(message[TYPE_MESSAGE_KEY], message[DATA_MESSAGE_KEY]);
-};
-
-/**
- * Constructs the object containing the fields of the typed message.
- * @return {!Object}
- */
-TypedMessage.prototype.makeMessage = function() {
-  return goog.object.create(
-      TYPE_MESSAGE_KEY, this.type, DATA_MESSAGE_KEY, this.data);
+  return new GSC.TypedMessage(
+      message[TYPE_MESSAGE_KEY], message[DATA_MESSAGE_KEY]);
 };
 });  // goog.scope
