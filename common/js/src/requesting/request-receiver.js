@@ -48,13 +48,15 @@ const ResponseMessageData = RequesterMessage.ResponseMessageData;
  * The actual request handling is delegated to the specified request handler.
  * The results it returns (either successful or not) are transformed by this
  * class into response messages and sent back through the message channel.
+ */
+GSC.RequestReceiver = class {
+/**
  * @param {string} name Name of the requester whose requests will be handled by
  * this instance.
  * @param {!goog.messaging.AbstractChannel} messageChannel
  * @param {function(!Object):(!goog.Promise|!Promise)} requestHandler
- * @constructor
  */
-GSC.RequestReceiver = function(name, messageChannel, requestHandler) {
+constructor(name, messageChannel, requestHandler) {
   /**
    * @type {!goog.log.Logger}
    * @const
@@ -77,9 +79,7 @@ GSC.RequestReceiver = function(name, messageChannel, requestHandler) {
   this.shouldDisposeOnInvalidMessage_ = false;
 
   this.registerRequestMessagesService_();
-};
-
-const RequestReceiver = GSC.RequestReceiver;
+}
 
 /**
  * Sets whether the message channel should be disposed when an invalid message
@@ -89,24 +89,22 @@ const RequestReceiver = GSC.RequestReceiver;
  * message, and a fatal error is raised instead.
  * @param {boolean} shouldDisposeOnInvalidMessage
  */
-RequestReceiver.prototype.setShouldDisposeOnInvalidMessage = function(
-    shouldDisposeOnInvalidMessage) {
+setShouldDisposeOnInvalidMessage(shouldDisposeOnInvalidMessage) {
   this.shouldDisposeOnInvalidMessage_ = shouldDisposeOnInvalidMessage;
-};
+}
 
 /** @private */
-RequestReceiver.prototype.registerRequestMessagesService_ = function() {
+registerRequestMessagesService_() {
   const serviceName = RequesterMessage.getRequestMessageType(this.name_);
   this.messageChannel_.registerService(
       serviceName, this.requestMessageReceivedListener_.bind(this), true);
-};
+}
 
 /**
  * @param {string|!Object} messageData
  * @private
  */
-RequestReceiver.prototype.requestMessageReceivedListener_ = function(
-    messageData) {
+requestMessageReceivedListener_(messageData) {
   GSC.Logging.checkWithLogger(this.logger, goog.isObject(messageData));
   goog.asserts.assertObject(messageData);
 
@@ -136,15 +134,14 @@ RequestReceiver.prototype.requestMessageReceivedListener_ = function(
   promise.then(
       this.responseResolvedListener_.bind(this, requestMessageData),
       this.responseRejectedListener_.bind(this, requestMessageData));
-};
+}
 
 /**
  * @param {!RequestMessageData} requestMessageData
  * @param {*} payload
  * @private
  */
-RequestReceiver.prototype.responseResolvedListener_ = function(
-    requestMessageData, payload) {
+responseResolvedListener_(requestMessageData, payload) {
   if (this.messageChannel_.isDisposed()) {
     // Discard the response if it's impossible to send it anymore.
     goog.log.fine(
@@ -161,15 +158,14 @@ RequestReceiver.prototype.responseResolvedListener_ = function(
           `${debugDump}`);
   this.sendResponse_(
       new ResponseMessageData(requestMessageData.requestId, payload));
-};
+}
 
 /**
  * @param {!RequestMessageData} requestMessageData
  * @param {*} error
  * @private
  */
-RequestReceiver.prototype.responseRejectedListener_ = function(
-    requestMessageData, error) {
+responseRejectedListener_(requestMessageData, error) {
   if (this.messageChannel_.isDisposed()) {
     // Discard the response if it's impossible to send it anymore.
     goog.log.fine(
@@ -187,17 +183,18 @@ RequestReceiver.prototype.responseRejectedListener_ = function(
   this.sendResponse_(new ResponseMessageData(
       requestMessageData.requestId, /*opt_payload=*/ undefined,
       stringifiedError));
-};
+}
 
 /**
  * @param {!ResponseMessageData} responseMessageData
  * @private
  */
-RequestReceiver.prototype.sendResponse_ = function(responseMessageData) {
+sendResponse_(responseMessageData) {
   GSC.Logging.checkWithLogger(this.logger, !this.messageChannel_.isDisposed());
 
   const messageData = responseMessageData.makeMessageData();
   const serviceName = RequesterMessage.getResponseMessageType(this.name_);
   this.messageChannel_.send(serviceName, messageData);
+}
 };
 });  // goog.scope
