@@ -337,7 +337,7 @@ GSC.PcscLiteClient.NaclClientBackend = class {
             remoteCallMessage.getDebugRepresentation() +
             ' with the result: ' + apiMethodResult.getDebugRepresentation());
     promiseResolver.resolve(apiMethodResult.responseItems);
-  };
+  }
 
   /**
    * @param {!GSC.RemoteCallMessage} remoteCallMessage
@@ -353,7 +353,7 @@ GSC.PcscLiteClient.NaclClientBackend = class {
             remoteCallMessage.getDebugRepresentation() +
             ' with the error: ' + apiMethodError);
     promiseResolver.reject(apiMethodError);
-  };
+  }
 
   /**
    * @param {string} methodName
