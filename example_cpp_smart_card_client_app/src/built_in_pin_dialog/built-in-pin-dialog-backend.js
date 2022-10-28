@@ -66,18 +66,18 @@ const logger = GSC.Logging.getLogger('SmartCardClientApp.BuiltInPinDialog');
  * Once the message with the PIN request is received, opens the built-in PIN
  * dialog and, once it finishes, sends its result as a message through the
  * message channel.
- * @param {!goog.messaging.AbstractChannel} executableModuleMessageChannel
- * @constructor
  */
-SmartCardClientApp.BuiltInPinDialog.Backend = function(
-    executableModuleMessageChannel) {
-  // Note: the request receiver instance is not stored anywhere, as it makes
-  // itself being owned by the message channel.
-  new GSC.RequestReceiver(
-      REQUESTER_NAME, executableModuleMessageChannel, handleRequest);
+SmartCardClientApp.BuiltInPinDialog.Backend = class {
+  /**
+   * @param {!goog.messaging.AbstractChannel} executableModuleMessageChannel
+   */
+  constructor(executableModuleMessageChannel) {
+    // Note: the request receiver instance is not stored anywhere, as it makes
+    // itself being owned by the message channel.
+    new GSC.RequestReceiver(
+        REQUESTER_NAME, executableModuleMessageChannel, handleRequest);
+  }
 };
-
-const Backend = SmartCardClientApp.BuiltInPinDialog.Backend;
 
 /**
  * @param {!Object} payload
