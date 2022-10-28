@@ -62,20 +62,39 @@ const REINITIALIZATION_INTERVAL_SECONDS = 10;
 const GSC = GoogleSmartCard;
 
 /**
+ * @type {!goog.log.Logger}
+ */
+const logger = GSC.Logging.getScopedLogger('PcscLiteClient.NaclClientBackend');
+
+class BufferedRequest {
+/**
+ * @param {!GSC.RemoteCallMessage} remoteCallMessage
+ * @param {!goog.promise.Resolver} promiseResolver
+ */
+constructor(remoteCallMessage, promiseResolver) {
+  /** @const */
+  this.remoteCallMessage = remoteCallMessage;
+  /** @const */
+  this.promiseResolver = promiseResolver;
+}
+}
+
+/**
  * This class handles the PC/SC-Lite client API requests (which are normally
  * received from the NaCl module) and implements them through the instances of
  * GoogleSmartCard.PcscLiteClient.Context and GoogleSmartCard.PcscLiteClient.API
  * classes.
  * TODO(#220): Get rid of hardcoded references to NaCl.
+ */
+GSC.PcscLiteClient.NaclClientBackend = class {
+/**
  * @param {!goog.messaging.AbstractChannel} naclModuleMessageChannel
  * @param {string} clientTitle Client title for the connection. Currently this
  * is only used for the debug logs produced by the server app.
  * @param {string=} opt_serverAppId ID of the server App. By default, the ID of
  * the official server App distributed through WebStore is used.
- * @constructor
  */
-GSC.PcscLiteClient.NaclClientBackend = function(
-    naclModuleMessageChannel, clientTitle, opt_serverAppId) {
+constructor(naclModuleMessageChannel, clientTitle, opt_serverAppId) {
   /** @private @const */
   this.clientTitle_ = clientTitle;
 
@@ -108,34 +127,25 @@ GSC.PcscLiteClient.NaclClientBackend = function(
   new GSC.RequestReceiver(
       REQUESTER_NAME, naclModuleMessageChannel, this.handleRequest_.bind(this));
 
-  goog.log.fine(this.logger, 'Constructed');
-};
-
-const NaclClientBackend = GSC.PcscLiteClient.NaclClientBackend;
-
-/**
- * @type {!goog.log.Logger}
- * @const
- */
-NaclClientBackend.prototype.logger =
-    GSC.Logging.getScopedLogger('PcscLiteClient.NaclClientBackend');
+  goog.log.fine(logger, 'Constructed');
+}
 
 /**
  * @param {!Object} payload
  * @return {!goog.Promise}
  * @private
  */
-NaclClientBackend.prototype.handleRequest_ = function(payload) {
+handleRequest_(payload) {
   const remoteCallMessage = GSC.RemoteCallMessage.parseRequestPayload(payload);
   if (!remoteCallMessage) {
     GSC.Logging.failWithLogger(
-        this.logger,
+        logger,
         'Failed to parse the remote call message: ' +
             GSC.DebugDump.debugDump(payload));
   }
 
   goog.log.fine(
-      this.logger,
+      logger,
       'Received a remote call request: ' +
           remoteCallMessage.getDebugRepresentation());
 
@@ -149,7 +159,7 @@ NaclClientBackend.prototype.handleRequest_ = function(payload) {
     this.flushBufferedRequestsQueue_();
   } else {
     goog.log.fine(
-        this.logger, 'The request was queued, as API is not initialized yet');
+        logger, 'The request was queued, as API is not initialized yet');
     // Several cases are possible here:
     // - this.context_ is not null - which means that either it's still
     //   initializing or is disposing right now - in both cases it's necessary
@@ -170,22 +180,10 @@ NaclClientBackend.prototype.handleRequest_ = function(payload) {
   }
 
   return promiseResolver.promise;
-};
-
-/**
- * @param {!GSC.RemoteCallMessage} remoteCallMessage
- * @param {!goog.promise.Resolver} promiseResolver
- * @constructor
- */
-function BufferedRequest(remoteCallMessage, promiseResolver) {
-  /** @const */
-  this.remoteCallMessage = remoteCallMessage;
-  /** @const */
-  this.promiseResolver = promiseResolver;
 }
 
 /** @private */
-NaclClientBackend.prototype.initialize_ = function() {
+initialize_() {
   this.initializationTimerId_ = null;
   if (this.api_) {
     this.api_.dispose();
@@ -196,7 +194,7 @@ NaclClientBackend.prototype.initialize_ = function() {
     this.context_ = null;
   }
 
-  goog.log.fine(this.logger, 'Initializing...');
+  goog.log.fine(logger, 'Initializing...');
 
   this.context_ =
       new GSC.PcscLiteClient.Context(this.clientTitle_, this.serverAppId_);
@@ -204,29 +202,29 @@ NaclClientBackend.prototype.initialize_ = function() {
       this.contextInitializedListener_.bind(this));
   this.context_.addOnDisposeCallback(this.contextDisposedListener_.bind(this));
   this.context_.initialize();
-};
+}
 
 /** @private */
-NaclClientBackend.prototype.contextInitializedListener_ = function(api) {
+contextInitializedListener_(api) {
   GSC.Logging.checkWithLogger(
-      this.logger, this.initializationTimerId_ === null);
+      logger, this.initializationTimerId_ === null);
 
-  GSC.Logging.checkWithLogger(this.logger, !this.api_);
+  GSC.Logging.checkWithLogger(logger, !this.api_);
   this.api_ = api;
 
   api.addOnDisposeCallback(this.apiDisposedListener_.bind(this));
 
   this.flushBufferedRequestsQueue_();
-};
+}
 
 /** @private */
-NaclClientBackend.prototype.contextDisposedListener_ = function() {
+contextDisposedListener_() {
   goog.log.fine(
-      this.logger,
+      logger,
       'PC/SC-Lite Client Context instance was disposed, cleaning up, ' +
           'rejecting all queued requests and scheduling reinitialization...');
   GSC.Logging.checkWithLogger(
-      this.logger, this.initializationTimerId_ === null);
+      logger, this.initializationTimerId_ === null);
   if (this.api_) {
     this.api_.dispose();
     this.api_ = null;
@@ -237,83 +235,82 @@ NaclClientBackend.prototype.contextDisposedListener_ = function() {
   }
   this.rejectAllBufferedRequests_();
   this.scheduleReinitialization_();
-};
+}
 
 /** @private */
-NaclClientBackend.prototype.apiDisposedListener_ = function() {
+apiDisposedListener_() {
   goog.log.fine(
-      this.logger,
+      logger,
       'PC/SC-Lite Client API instance was disposed, cleaning up...');
   this.api_ = null;
   if (this.context_) {
     this.context_.dispose();
     this.context_ = null;
   }
-};
+}
 
 /** @private */
-NaclClientBackend.prototype.scheduleReinitialization_ = function() {
+scheduleReinitialization_() {
   goog.log.fine(
-      this.logger,
+      logger,
       'Scheduled reinitialization in ' + REINITIALIZATION_INTERVAL_SECONDS +
           ' seconds if new requests will arrive...');
   this.initializationTimerId_ = goog.Timer.callOnce(
       this.reinitializationTimeoutCallback_,
       REINITIALIZATION_INTERVAL_SECONDS * 1000, this);
-};
+}
 
 /** @private */
-NaclClientBackend.prototype.reinitializationTimeoutCallback_ = function() {
+reinitializationTimeoutCallback_() {
   this.initializationTimerId_ = null;
   if (!this.bufferedRequestsQueue_.isEmpty()) {
     this.initialize_();
   } else {
     goog.log.log(
-        this.logger, goog.log.Level.FINER,
+        logger, goog.log.Level.FINER,
         'Reinitialization timeout passed, but not initializing ' +
             'as no new requests arrived');
   }
-};
+}
 
 /** @private */
-NaclClientBackend.prototype.flushBufferedRequestsQueue_ = function() {
-  GSC.Logging.checkWithLogger(this.logger, this.api_);
+flushBufferedRequestsQueue_() {
+  GSC.Logging.checkWithLogger(logger, this.api_);
   if (this.bufferedRequestsQueue_.isEmpty())
     return;
   goog.log.log(
-      this.logger, goog.log.Level.FINER,
+      logger, goog.log.Level.FINER,
       'Starting processing the queued requests...');
   while (!this.bufferedRequestsQueue_.isEmpty()) {
     const request = this.bufferedRequestsQueue_.dequeue();
     this.startRequest_(request.remoteCallMessage, request.promiseResolver);
   }
-};
+}
 
 /** @private */
-NaclClientBackend.prototype.rejectAllBufferedRequests_ = function() {
+rejectAllBufferedRequests_() {
   if (this.bufferedRequestsQueue_.isEmpty())
     return;
-  goog.log.fine(this.logger, 'Rejecting all queued requests...');
+  goog.log.fine(logger, 'Rejecting all queued requests...');
   while (!this.bufferedRequestsQueue_.isEmpty()) {
     const request = this.bufferedRequestsQueue_.dequeue();
     request.promiseResolver.reject(
         new Error('PC/SC-Lite Client API instance was disposed'));
   }
-};
+}
 
 /**
  * @param {!GSC.RemoteCallMessage} remoteCallMessage
  * @param {!goog.promise.Resolver} promiseResolver
  * @private
  */
-NaclClientBackend.prototype.startRequest_ = function(
-    remoteCallMessage, promiseResolver) {
+startRequest_(remoteCallMessage, promiseResolver) {
   goog.log.fine(
-      this.logger,
+      logger,
       'Started processing the remote call request: ' +
           remoteCallMessage.getDebugRepresentation());
 
-  GSC.Logging.checkWithLogger(this.logger, this.api_);
+  GSC.Logging.checkWithLogger(logger, this.api_);
 
   const method = this.getApiMethod_(remoteCallMessage.functionName);
   const resultPromise =
@@ -323,7 +320,7 @@ NaclClientBackend.prototype.startRequest_ = function(
           this, remoteCallMessage, promiseResolver),
       this.apiMethodRejectedCallback_.bind(
           this, remoteCallMessage, promiseResolver));
-};
+}
 
 /**
  * @param {!GSC.RemoteCallMessage} remoteCallMessage
@@ -331,10 +328,10 @@ NaclClientBackend.prototype.startRequest_ = function(
  * @param {!GSC.PcscLiteClient.API.ResultOrErrorCode} apiMethodResult
  * @private
  */
-NaclClientBackend.prototype.apiMethodResolvedCallback_ = function(
+apiMethodResolvedCallback_(
     remoteCallMessage, promiseResolver, apiMethodResult) {
   goog.log.fine(
-      this.logger,
+      logger,
       'The remote call completed: ' +
           remoteCallMessage.getDebugRepresentation() +
           ' with the result: ' + apiMethodResult.getDebugRepresentation());
@@ -347,10 +344,10 @@ NaclClientBackend.prototype.apiMethodResolvedCallback_ = function(
  * @param {*} apiMethodError
  * @private
  */
-NaclClientBackend.prototype.apiMethodRejectedCallback_ = function(
+apiMethodRejectedCallback_(
     remoteCallMessage, promiseResolver, apiMethodError) {
   goog.log.fine(
-      this.logger,
+      logger,
       'The remote call failed: ' + remoteCallMessage.getDebugRepresentation() +
           ' with the error: ' + apiMethodError);
   promiseResolver.reject(apiMethodError);
@@ -361,14 +358,15 @@ NaclClientBackend.prototype.apiMethodRejectedCallback_ = function(
  * @return {!Function}
  * @private
  */
-NaclClientBackend.prototype.getApiMethod_ = function(methodName) {
-  GSC.Logging.checkWithLogger(this.logger, this.api_);
+getApiMethod_(methodName) {
+  GSC.Logging.checkWithLogger(logger, this.api_);
   if (!goog.object.containsKey(this.api_, methodName) ||
       !goog.functions.isFunction(this.api_[methodName])) {
     GSC.Logging.failWithLogger(
-        this.logger,
+        logger,
         'Unknown PC/SC-Lite Client API method requested: ' + methodName);
   }
   return this.api_[methodName];
+}
 };
 });  // goog.scope
