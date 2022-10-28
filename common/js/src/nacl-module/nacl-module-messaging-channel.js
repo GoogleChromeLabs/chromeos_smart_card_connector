@@ -44,83 +44,83 @@ const GSC = GoogleSmartCard;
  * <http://google.github.io/closure-library/api/interface_goog_messaging_MessageChannel.html>).
  */
 GSC.NaclModuleMessageChannel = class extends goog.messaging.AbstractChannel {
-/**
- * @param {!Element} naclModuleElement
- * @param {!goog.log.Logger} parentLogger
- */
-constructor(naclModuleElement, parentLogger) {
-  super();
-
-  /** @private @const */
-  this.logger_ = parentLogger;
-
   /**
-   * @type {Element?}
-   * @private
+   * @param {!Element} naclModuleElement
+   * @param {!goog.log.Logger} parentLogger
    */
-  this.naclModuleElement_ = naclModuleElement;
+  constructor(naclModuleElement, parentLogger) {
+    super();
 
-  /** @private */
-  this.boundMessageEventListener_ = this.messageEventListener_.bind(this);
+    /** @private @const */
+    this.logger_ = parentLogger;
 
-  this.naclModuleElement_.addEventListener(
-      'message', this.boundMessageEventListener_, true);
+    /**
+     * @type {Element?}
+     * @private
+     */
+    this.naclModuleElement_ = naclModuleElement;
 
-  this.registerDefaultService(this.defaultServiceCallback_.bind(this));
+    /** @private */
+    this.boundMessageEventListener_ = this.messageEventListener_.bind(this);
 
-  goog.log.fine(this.logger_, 'Initialized');
-}
+    this.naclModuleElement_.addEventListener(
+        'message', this.boundMessageEventListener_, true);
 
-/** @override */
-send(serviceName, payload) {
-  GSC.Logging.checkWithLogger(this.logger_, goog.isObject(payload));
-  goog.asserts.assertObject(payload);
-  const typedMessage = new GSC.TypedMessage(serviceName, payload);
-  const message = typedMessage.makeMessage();
-  if (this.isDisposed())
-    return;
-  goog.log.log(
-      this.logger_, goog.log.Level.FINEST,
-      'Sending message to NaCl module: ' + GSC.DebugDump.debugDump(message));
-  this.naclModuleElement_['postMessage'](message);
-}
+    this.registerDefaultService(this.defaultServiceCallback_.bind(this));
 
-/** @override */
-disposeInternal() {
-  this.naclModuleElement_.removeEventListener(
-      'message', this.boundMessageEventListener_, true);
-  this.boundMessageEventListener_ = null;
-
-  this.naclModuleElement_ = null;
-
-  super.disposeInternal();
-}
-
-/** @private */
-messageEventListener_(message) {
-  const messageData = message['data'];
-
-  const typedMessage = GSC.TypedMessage.parseTypedMessage(messageData);
-  if (!typedMessage) {
-    GSC.Logging.failWithLogger(
-        this.logger_,
-        'Failed to parse message received from NaCl module: ' +
-            GSC.DebugDump.debugDump(messageData));
+    goog.log.fine(this.logger_, 'Initialized');
   }
 
-  goog.log.log(
-      this.logger_, goog.log.Level.FINEST,
-      'Received a message from NaCl module: ' +
-          GSC.DebugDump.debugDump(messageData));
-  this.deliver(typedMessage.type, typedMessage.data);
-}
+  /** @override */
+  send(serviceName, payload) {
+    GSC.Logging.checkWithLogger(this.logger_, goog.isObject(payload));
+    goog.asserts.assertObject(payload);
+    const typedMessage = new GSC.TypedMessage(serviceName, payload);
+    const message = typedMessage.makeMessage();
+    if (this.isDisposed())
+      return;
+    goog.log.log(
+        this.logger_, goog.log.Level.FINEST,
+        'Sending message to NaCl module: ' + GSC.DebugDump.debugDump(message));
+    this.naclModuleElement_['postMessage'](message);
+  }
 
-/** @private */
-defaultServiceCallback_(serviceName, payload) {
-  GSC.Logging.failWithLogger(
-      this.logger_,
-      'Unhandled message received from NaCl module: serviceName="' +
-          serviceName + '", payload=' + GSC.DebugDump.debugDump(payload));
-}
+  /** @override */
+  disposeInternal() {
+    this.naclModuleElement_.removeEventListener(
+        'message', this.boundMessageEventListener_, true);
+    this.boundMessageEventListener_ = null;
+
+    this.naclModuleElement_ = null;
+
+    super.disposeInternal();
+  }
+
+  /** @private */
+  messageEventListener_(message) {
+    const messageData = message['data'];
+
+    const typedMessage = GSC.TypedMessage.parseTypedMessage(messageData);
+    if (!typedMessage) {
+      GSC.Logging.failWithLogger(
+          this.logger_,
+          'Failed to parse message received from NaCl module: ' +
+              GSC.DebugDump.debugDump(messageData));
+    }
+
+    goog.log.log(
+        this.logger_, goog.log.Level.FINEST,
+        'Received a message from NaCl module: ' +
+            GSC.DebugDump.debugDump(messageData));
+    this.deliver(typedMessage.type, typedMessage.data);
+  }
+
+  /** @private */
+  defaultServiceCallback_(serviceName, payload) {
+    GSC.Logging.failWithLogger(
+        this.logger_,
+        'Unhandled message received from NaCl module: serviceName="' +
+            serviceName + '", payload=' + GSC.DebugDump.debugDump(payload));
+  }
 };
 });  // goog.scope
