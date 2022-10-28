@@ -73,27 +73,38 @@ RequesterMessage.getResponseMessageType = function(name) {
 
 /**
  * The structure that can be used to store the fields of the request message.
- * @param {number} requestId
- * @param {!Object} payload
- * @constructor
  */
-RequesterMessage.RequestMessageData = function(requestId, payload) {
-  /** @type {number} @const */
-  this.requestId = requestId;
-  /** @type {!Object} @const */
-  this.payload = payload;
-};
+RequesterMessage.RequestMessageData = class {
+  /**
+   * @param {number} requestId
+   * @param {!Object} payload
+   */
+  constructor(requestId, payload) {
+    /** @type {number} @const */
+    this.requestId = requestId;
+    /** @type {!Object} @const */
+    this.payload = payload;
+  }
 
-const RequestMessageData = RequesterMessage.RequestMessageData;
+  /**
+   * Constructs the object containing the fields of the request message data.
+   * @return {!Object}
+   */
+  makeMessageData() {
+    return goog.object.create(
+        REQUEST_ID_MESSAGE_KEY, this.requestId, PAYLOAD_MESSAGE_KEY,
+        this.payload);
+  }
+};
 
 /**
  * Parses the specified message data into the request message fields.
  *
  * Returns null if the parsing failed.
  * @param {!Object} messageData
- * @return {RequestMessageData?}
+ * @return {RequesterMessage.RequestMessageData?}
  */
-RequestMessageData.parseMessageData = function(messageData) {
+RequesterMessage.RequestMessageData.parseMessageData = function(messageData) {
   if (goog.object.getCount(messageData) != 2 ||
       !goog.object.containsKey(messageData, REQUEST_ID_MESSAGE_KEY) ||
       typeof messageData[REQUEST_ID_MESSAGE_KEY] !== 'number' ||
@@ -101,73 +112,80 @@ RequestMessageData.parseMessageData = function(messageData) {
       !goog.isObject(messageData[PAYLOAD_MESSAGE_KEY])) {
     return null;
   }
-  return new RequestMessageData(
+  return new RequesterMessage.RequestMessageData(
       messageData[REQUEST_ID_MESSAGE_KEY], messageData[PAYLOAD_MESSAGE_KEY]);
 };
 
 /**
- * Constructs the object containing the fields of the request message data.
- * @return {!Object}
- */
-RequestMessageData.prototype.makeMessageData = function() {
-  return goog.object.create(
-      REQUEST_ID_MESSAGE_KEY, this.requestId, PAYLOAD_MESSAGE_KEY,
-      this.payload);
-};
-
-/**
- * The structure that can be used to store the fields of the response message.
- * @param {number} requestId
- * @param {*=} opt_payload
- * @param {string=} opt_errorMessage
- * @constructor
- */
-RequesterMessage.ResponseMessageData = function(
-    requestId, opt_payload, opt_errorMessage) {
-  /** @type {number} @const */
-  this.requestId = requestId;
-  /** @type {*} @const */
-  this.payload = opt_payload;
-  /** @type {string|undefined} @const */
-  this.errorMessage = opt_errorMessage;
-
-  GSC.Logging.checkWithLogger(
-      this.logger, opt_payload === undefined || opt_errorMessage === undefined);
-};
-
-const ResponseMessageData = RequesterMessage.ResponseMessageData;
-
-/**
  * @type {!goog.log.Logger}
- * @const
  */
-ResponseMessageData.prototype.logger =
+const responseMessageDataLogger =
     GSC.Logging.getScopedLogger('RequesterMessage.ResponseMessageData');
 
 /**
- * @return {boolean}
+ * The structure that can be used to store the fields of the response message.
  */
-ResponseMessageData.prototype.isSuccessful = function() {
-  return this.errorMessage === undefined;
-};
+RequesterMessage.ResponseMessageData = class {
+  /**
+   * @param {number} requestId
+   * @param {*=} opt_payload
+   * @param {string=} opt_errorMessage
+   */
+  constructor(requestId, opt_payload, opt_errorMessage) {
+    /** @type {number} @const */
+    this.requestId = requestId;
+    /** @type {*} @const */
+    this.payload = opt_payload;
+    /** @type {string|undefined} @const */
+    this.errorMessage = opt_errorMessage;
 
-/**
- * @return {*}
- */
-ResponseMessageData.prototype.getPayload = function() {
-  GSC.Logging.checkWithLogger(this.logger, this.isSuccessful());
-  return this.payload;
-};
+    GSC.Logging.checkWithLogger(
+        responseMessageDataLogger,
+        opt_payload === undefined || opt_errorMessage === undefined);
+  }
 
-/**
- * @return {string}
- */
-ResponseMessageData.prototype.getErrorMessage = function() {
-  GSC.Logging.checkWithLogger(this.logger, !this.isSuccessful());
-  GSC.Logging.checkWithLogger(
-      this.logger, typeof this.errorMessage === 'string');
-  goog.asserts.assertString(this.errorMessage);
-  return this.errorMessage;
+  /**
+   * @return {boolean}
+   */
+  isSuccessful() {
+    return this.errorMessage === undefined;
+  }
+
+  /**
+   * @return {*}
+   */
+  getPayload() {
+    GSC.Logging.checkWithLogger(responseMessageDataLogger, this.isSuccessful());
+    return this.payload;
+  }
+
+  /**
+   * @return {string}
+   */
+  getErrorMessage() {
+    GSC.Logging.checkWithLogger(
+        responseMessageDataLogger, !this.isSuccessful());
+    GSC.Logging.checkWithLogger(
+        responseMessageDataLogger, typeof this.errorMessage === 'string');
+    goog.asserts.assertString(this.errorMessage);
+    return this.errorMessage;
+  }
+
+  /**
+   * Constructs the object containing the fields of the response message data.
+   * @return {!Object}
+   */
+  makeMessageData() {
+    const args = [REQUEST_ID_MESSAGE_KEY, this.requestId];
+    if (this.isSuccessful()) {
+      args.push(PAYLOAD_MESSAGE_KEY);
+      args.push(this.getPayload());
+    } else {
+      args.push(ERROR_MESSAGE_KEY);
+      args.push(this.getErrorMessage());
+    }
+    return goog.object.create(args);
+  }
 };
 
 /**
@@ -175,9 +193,9 @@ ResponseMessageData.prototype.getErrorMessage = function() {
  *
  * Returns null if the parsing failed.
  * @param {!Object} messageData
- * @return {ResponseMessageData?}
+ * @return {RequesterMessage.ResponseMessageData?}
  */
-ResponseMessageData.parseMessageData = function(messageData) {
+RequesterMessage.ResponseMessageData.parseMessageData = function(messageData) {
   if (goog.object.getCount(messageData) != 2 ||
       !goog.object.containsKey(messageData, REQUEST_ID_MESSAGE_KEY) ||
       typeof messageData[REQUEST_ID_MESSAGE_KEY] !== 'number') {
@@ -185,29 +203,14 @@ ResponseMessageData.parseMessageData = function(messageData) {
   }
   const requestId = messageData[REQUEST_ID_MESSAGE_KEY];
   if (goog.object.containsKey(messageData, PAYLOAD_MESSAGE_KEY)) {
-    return new ResponseMessageData(requestId, messageData[PAYLOAD_MESSAGE_KEY]);
+    return new RequesterMessage.ResponseMessageData(
+        requestId, messageData[PAYLOAD_MESSAGE_KEY]);
   }
   if (goog.object.containsKey(messageData, ERROR_MESSAGE_KEY) &&
       typeof messageData[ERROR_MESSAGE_KEY] === 'string') {
-    return new ResponseMessageData(
+    return new RequesterMessage.ResponseMessageData(
         requestId, undefined, messageData[ERROR_MESSAGE_KEY]);
   }
   return null;
-};
-
-/**
- * Constructs the object containing the fields of the response message data.
- * @return {!Object}
- */
-ResponseMessageData.prototype.makeMessageData = function() {
-  const args = [REQUEST_ID_MESSAGE_KEY, this.requestId];
-  if (this.isSuccessful()) {
-    args.push(PAYLOAD_MESSAGE_KEY);
-    args.push(this.getPayload());
-  } else {
-    args.push(ERROR_MESSAGE_KEY);
-    args.push(this.getErrorMessage());
-  }
-  return goog.object.create(args);
 };
 });  // goog.scope
