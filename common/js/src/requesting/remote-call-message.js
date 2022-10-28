@@ -43,42 +43,42 @@ const GSC = GoogleSmartCard;
  * message.
  */
 GSC.RemoteCallMessage = class {
-/**
- * @param {string} functionName
- * @param {!Array.<*>} functionArguments
- */
-constructor(functionName, functionArguments) {
-  /** @type {string} @const */
-  this.functionName = functionName;
-  /** @type {!Array.<*>} @const */
-  this.functionArguments = functionArguments;
-}
+  /**
+   * @param {string} functionName
+   * @param {!Array.<*>} functionArguments
+   */
+  constructor(functionName, functionArguments) {
+    /** @type {string} @const */
+    this.functionName = functionName;
+    /** @type {!Array.<*>} @const */
+    this.functionArguments = functionArguments;
+  }
 
-/**
- * Constructs the object containing the fields of the remote call message.
- * @return {!Object}
- */
-makeRequestPayload() {
-  return goog.object.create(
-      FUNCTION_NAME_MESSAGE_KEY, this.functionName, ARGUMENTS_MESSAGE_KEY,
-      this.functionArguments);
-}
+  /**
+   * Constructs the object containing the fields of the remote call message.
+   * @return {!Object}
+   */
+  makeRequestPayload() {
+    return goog.object.create(
+        FUNCTION_NAME_MESSAGE_KEY, this.functionName, ARGUMENTS_MESSAGE_KEY,
+        this.functionArguments);
+  }
 
-/**
- * Generates a debug textual representation of the remote call message
- * structure.
- *
- * This function is safe to be used in Release builds, because all potentially
- * privacy-sensitive data is stripped away from the resulting text.
- * @return {string}
- */
-getDebugRepresentation() {
-  return goog.string.subs(
-      '%s(%s)', this.functionName,
-      goog.iter.join(
-          goog.iter.map(this.functionArguments, GSC.DebugDump.debugDump),
-          ', '));
-}
+  /**
+   * Generates a debug textual representation of the remote call message
+   * structure.
+   *
+   * This function is safe to be used in Release builds, because all potentially
+   * privacy-sensitive data is stripped away from the resulting text.
+   * @return {string}
+   */
+  getDebugRepresentation() {
+    return goog.string.subs(
+        '%s(%s)', this.functionName,
+        goog.iter.join(
+            goog.iter.map(this.functionArguments, GSC.DebugDump.debugDump),
+            ', '));
+  }
 };
 
 /**
