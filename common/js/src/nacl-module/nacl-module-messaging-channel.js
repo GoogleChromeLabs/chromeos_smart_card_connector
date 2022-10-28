@@ -42,13 +42,14 @@ const GSC = GoogleSmartCard;
  * <https://developer.chrome.com/native-client/devguide/coding/message-system>)
  * that transforms them into Closure-style message channels (see
  * <http://google.github.io/closure-library/api/interface_goog_messaging_MessageChannel.html>).
+ */
+GSC.NaclModuleMessageChannel = class extends goog.messaging.AbstractChannel {
+/**
  * @param {!Element} naclModuleElement
  * @param {!goog.log.Logger} parentLogger
- * @constructor
- * @extends goog.messaging.AbstractChannel
  */
-GSC.NaclModuleMessageChannel = function(naclModuleElement, parentLogger) {
-  NaclModuleMessageChannel.base(this, 'constructor');
+constructor(naclModuleElement, parentLogger) {
+  super();
 
   /** @private @const */
   this.logger_ = parentLogger;
@@ -68,14 +69,10 @@ GSC.NaclModuleMessageChannel = function(naclModuleElement, parentLogger) {
   this.registerDefaultService(this.defaultServiceCallback_.bind(this));
 
   goog.log.fine(this.logger_, 'Initialized');
-};
-
-const NaclModuleMessageChannel = GSC.NaclModuleMessageChannel;
-
-goog.inherits(NaclModuleMessageChannel, goog.messaging.AbstractChannel);
+}
 
 /** @override */
-NaclModuleMessageChannel.prototype.send = function(serviceName, payload) {
+send(serviceName, payload) {
   GSC.Logging.checkWithLogger(this.logger_, goog.isObject(payload));
   goog.asserts.assertObject(payload);
   const typedMessage = new GSC.TypedMessage(serviceName, payload);
@@ -86,21 +83,21 @@ NaclModuleMessageChannel.prototype.send = function(serviceName, payload) {
       this.logger_, goog.log.Level.FINEST,
       'Sending message to NaCl module: ' + GSC.DebugDump.debugDump(message));
   this.naclModuleElement_['postMessage'](message);
-};
+}
 
 /** @override */
-NaclModuleMessageChannel.prototype.disposeInternal = function() {
+disposeInternal() {
   this.naclModuleElement_.removeEventListener(
       'message', this.boundMessageEventListener_, true);
   this.boundMessageEventListener_ = null;
 
   this.naclModuleElement_ = null;
 
-  NaclModuleMessageChannel.base(this, 'disposeInternal');
-};
+  super.disposeInternal();
+}
 
 /** @private */
-NaclModuleMessageChannel.prototype.messageEventListener_ = function(message) {
+messageEventListener_(message) {
   const messageData = message['data'];
 
   const typedMessage = GSC.TypedMessage.parseTypedMessage(messageData);
@@ -116,14 +113,14 @@ NaclModuleMessageChannel.prototype.messageEventListener_ = function(message) {
       'Received a message from NaCl module: ' +
           GSC.DebugDump.debugDump(messageData));
   this.deliver(typedMessage.type, typedMessage.data);
-};
+}
 
 /** @private */
-NaclModuleMessageChannel.prototype.defaultServiceCallback_ = function(
-    serviceName, payload) {
+defaultServiceCallback_(serviceName, payload) {
   GSC.Logging.failWithLogger(
       this.logger_,
       'Unhandled message received from NaCl module: serviceName="' +
           serviceName + '", payload=' + GSC.DebugDump.debugDump(payload));
+}
 };
 });  // goog.scope
