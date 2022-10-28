@@ -35,9 +35,9 @@ const INTEGRATION_TEST_NACL_MODULE_REQUESTER_NAME = 'integration_test';
 /**
  * Class that encapsulates setup/teardown/communication steps of a
  * JavaScript-and-C++ integration test.
- * @constructor
  */
-GSC.IntegrationTestController = function() {
+GSC.IntegrationTestController = class {
+constructor() {
   /** @type {!goog.testing.PropertyReplacer} @const */
   this.propertyReplacer = new goog.testing.PropertyReplacer;
   /** @type {!GSC.NaclModule} @const */
@@ -47,27 +47,27 @@ GSC.IntegrationTestController = function() {
   this.naclModuleRequester_ = new GSC.Requester(
       INTEGRATION_TEST_NACL_MODULE_REQUESTER_NAME,
       this.naclModule.getMessageChannel());
-};
+}
 
 /**
  * @return {!goog.Promise<void>}
  */
-GSC.IntegrationTestController.prototype.initAsync = function() {
+initAsync() {
   this.naclModule.startLoading();
   return this.naclModule.getLoadPromise();
-};
+}
 
 /**
  * @return {!goog.Promise<void>}
  */
-GSC.IntegrationTestController.prototype.disposeAsync = function() {
+disposeAsync() {
   return this.callCpp_('TearDownAll', /*functionArguments=*/[])
       .thenAlways(() => {
         this.naclModuleRequester_.dispose();
         this.naclModule.dispose();
         this.propertyReplacer.reset();
       });
-};
+}
 
 /**
  * Tells the C++ side to initialize the given helper; reports the result of the
@@ -76,11 +76,10 @@ GSC.IntegrationTestController.prototype.disposeAsync = function() {
  * @param {!Object} helperArgument
  * @return {!goog.Promise<void>}
  */
-GSC.IntegrationTestController.prototype.setUpCppHelper = function(
-    helperName, helperArgument) {
+setUpCppHelper(helperName, helperArgument) {
   return this.callCpp_(
       'SetUp', /*functionArguments=*/[helperName, helperArgument]);
-};
+}
 
 /**
  * Sends a message to the given C++ helper; reports the result via a promise.
@@ -88,11 +87,10 @@ GSC.IntegrationTestController.prototype.setUpCppHelper = function(
  * @param {*} messageForHelper
  * @return {!goog.Promise<void>}
  */
-GSC.IntegrationTestController.prototype.sendMessageToCppHelper = function(
-    helperName, messageForHelper) {
+sendMessageToCppHelper(helperName, messageForHelper) {
   return this.callCpp_(
       'HandleMessage', /*functionArguments=*/[helperName, messageForHelper]);
-};
+}
 
 /**
  * Sends a remote call request to the NaCl module and returns its response via a
@@ -101,11 +99,11 @@ GSC.IntegrationTestController.prototype.sendMessageToCppHelper = function(
  * @param {!Array.<*>} functionArguments
  * @return {!goog.Promise}
  */
-GSC.IntegrationTestController.prototype.callCpp_ = function(
-    functionName, functionArguments) {
+callCpp_(functionName, functionArguments) {
   const remoteCallMessage =
       new GSC.RemoteCallMessage(functionName, functionArguments);
   return this.naclModuleRequester_.postRequest(
       remoteCallMessage.makeRequestPayload());
+}
 };
 });
