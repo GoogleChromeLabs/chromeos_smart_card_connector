@@ -41,18 +41,45 @@ const GSC = GoogleSmartCard;
 /**
  * The structure that can be used to store the fields of the remote call
  * message.
- * @param {string} functionName
- * @param {!Array.<*>} functionArguments
- * @constructor
  */
-GSC.RemoteCallMessage = function(functionName, functionArguments) {
-  /** @type {string} @const */
-  this.functionName = functionName;
-  /** @type {!Array.<*>} @const */
-  this.functionArguments = functionArguments;
-};
+GSC.RemoteCallMessage = class {
+  /**
+   * @param {string} functionName
+   * @param {!Array.<*>} functionArguments
+   */
+  constructor(functionName, functionArguments) {
+    /** @type {string} @const */
+    this.functionName = functionName;
+    /** @type {!Array.<*>} @const */
+    this.functionArguments = functionArguments;
+  }
 
-const RemoteCallMessage = GSC.RemoteCallMessage;
+  /**
+   * Constructs the object containing the fields of the remote call message.
+   * @return {!Object}
+   */
+  makeRequestPayload() {
+    return goog.object.create(
+        FUNCTION_NAME_MESSAGE_KEY, this.functionName, ARGUMENTS_MESSAGE_KEY,
+        this.functionArguments);
+  }
+
+  /**
+   * Generates a debug textual representation of the remote call message
+   * structure.
+   *
+   * This function is safe to be used in Release builds, because all potentially
+   * privacy-sensitive data is stripped away from the resulting text.
+   * @return {string}
+   */
+  getDebugRepresentation() {
+    return goog.string.subs(
+        '%s(%s)', this.functionName,
+        goog.iter.join(
+            goog.iter.map(this.functionArguments, GSC.DebugDump.debugDump),
+            ', '));
+  }
+};
 
 /**
  * Parses the specified request payload into the remote call message fields
@@ -60,9 +87,9 @@ const RemoteCallMessage = GSC.RemoteCallMessage;
  *
  * Returns null if the parsing failed.
  * @param {!Object} requestPayload
- * @return {RemoteCallMessage?}
+ * @return {GSC.RemoteCallMessage?}
  */
-RemoteCallMessage.parseRequestPayload = function(requestPayload) {
+GSC.RemoteCallMessage.parseRequestPayload = function(requestPayload) {
   if (goog.object.getCount(requestPayload) != 2 ||
       !goog.object.containsKey(requestPayload, FUNCTION_NAME_MESSAGE_KEY) ||
       typeof requestPayload[FUNCTION_NAME_MESSAGE_KEY] !== 'string' ||
@@ -70,34 +97,8 @@ RemoteCallMessage.parseRequestPayload = function(requestPayload) {
       !Array.isArray(requestPayload[ARGUMENTS_MESSAGE_KEY])) {
     return null;
   }
-  return new RemoteCallMessage(
+  return new GSC.RemoteCallMessage(
       requestPayload[FUNCTION_NAME_MESSAGE_KEY],
       requestPayload[ARGUMENTS_MESSAGE_KEY]);
-};
-
-/**
- * Constructs the object containing the fields of the remote call message.
- * @return {!Object}
- */
-RemoteCallMessage.prototype.makeRequestPayload = function() {
-  return goog.object.create(
-      FUNCTION_NAME_MESSAGE_KEY, this.functionName, ARGUMENTS_MESSAGE_KEY,
-      this.functionArguments);
-};
-
-/**
- * Generates a debug textual representation of the remote call message
- * structure.
- *
- * This function is safe to be used in Release builds, because all potentially
- * privacy-sensitive data is stripped away from the resulting text.
- * @return {string}
- */
-RemoteCallMessage.prototype.getDebugRepresentation = function() {
-  return goog.string.subs(
-      '%s(%s)', this.functionName,
-      goog.iter.join(
-          goog.iter.map(this.functionArguments, GSC.DebugDump.debugDump),
-          ', '));
 };
 });  // goog.scope
