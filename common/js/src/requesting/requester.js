@@ -54,13 +54,14 @@ const ResponseMessageData = RequesterMessage.ResponseMessageData;
  * The requester has a name that should uniquely represent it, so that the
  * appropriate handler can be triggered on the other end of the message channel,
  * and so that its response is delivered back to this instance.
+ */
+GSC.Requester = class extends goog.Disposable {
+/**
  * @param {string} name
  * @param {!goog.messaging.AbstractChannel} messageChannel
- * @extends {goog.Disposable}
- * @constructor
  */
-GSC.Requester = function(name, messageChannel) {
-  Requester.base(this, 'constructor');
+constructor(name, messageChannel) {
+  super();
 
   /**
    * @type {!goog.log.Logger}
@@ -85,11 +86,7 @@ GSC.Requester = function(name, messageChannel) {
 
   this.registerResponseMessagesService_();
   this.addChannelDisposedListener_();
-};
-
-const Requester = GSC.Requester;
-
-goog.inherits(Requester, goog.Disposable);
+}
 
 /**
  * Starts a request with the specified payload data.
@@ -104,7 +101,7 @@ goog.inherits(Requester, goog.Disposable);
  * @param {!Object} payload
  * @return {!goog.Promise}
  */
-Requester.prototype.postRequest = function(payload) {
+postRequest(payload) {
   const requestId = this.requestIdGenerator_.next();
 
   goog.log.fine(
@@ -131,10 +128,10 @@ Requester.prototype.postRequest = function(payload) {
   this.messageChannel_.send(serviceName, messageData);
 
   return promiseResolver.promise;
-};
+}
 
 /** @override */
-Requester.prototype.disposeInternal = function() {
+disposeInternal() {
   const runningRequestIds =
       Array.from(this.requestIdToPromiseResolverMap_.keys());
   goog.array.sort(runningRequestIds);
@@ -150,35 +147,35 @@ Requester.prototype.disposeInternal = function() {
 
   goog.log.fine(this.logger, 'Disposed');
 
-  Requester.base(this, 'disposeInternal');
-};
+  super.disposeInternal();
+}
 
 /** @private */
-Requester.prototype.registerResponseMessagesService_ = function() {
+registerResponseMessagesService_() {
   const serviceName = RequesterMessage.getResponseMessageType(this.name_);
   this.messageChannel_.registerService(
       serviceName, this.responseMessageReceivedListener_.bind(this), true);
-};
+}
 
 /** @private */
-Requester.prototype.addChannelDisposedListener_ = function() {
+addChannelDisposedListener_() {
   this.messageChannel_.addOnDisposeCallback(
       this.channelDisposedListener_.bind(this));
-};
+}
 
 /** @private */
-Requester.prototype.channelDisposedListener_ = function() {
+channelDisposedListener_() {
   if (this.isDisposed())
     return;
   goog.log.info(this.logger, 'Message channel was disposed, disposing...');
   this.dispose();
-};
+}
 
 /**
  * @param {string|!Object} messageData
  * @private
  */
-Requester.prototype.responseMessageReceivedListener_ = function(messageData) {
+responseMessageReceivedListener_(messageData) {
   GSC.Logging.checkWithLogger(this.logger, goog.isObject(messageData));
   goog.asserts.assertObject(messageData);
 
@@ -206,42 +203,43 @@ Requester.prototype.responseMessageReceivedListener_ = function(messageData) {
     this.resolveRequest_(requestId, responseMessageData.getPayload());
   else
     this.rejectRequest_(requestId, responseMessageData.getErrorMessage());
-};
+}
 
 /**
  * @param {number} requestId
  * @param {*} payload
  * @private
  */
-Requester.prototype.resolveRequest_ = function(requestId, payload) {
+resolveRequest_(requestId, payload) {
   goog.log.fine(
       this.logger,
       'The request with identifier ' + requestId + ' succeeded with the ' +
           'following result: ' + GSC.DebugDump.debugDump(payload));
   this.popRequestPromiseResolver_(requestId).resolve(payload);
-};
+}
 
 /**
  * @param {number} requestId
  * @param {string} errorMessage
  * @private
  */
-Requester.prototype.rejectRequest_ = function(requestId, errorMessage) {
+rejectRequest_(requestId, errorMessage) {
   goog.log.fine(
       this.logger,
       'The request with identifier ' + requestId + ' failed: ' + errorMessage);
   this.popRequestPromiseResolver_(requestId).reject(new Error(errorMessage));
-};
+}
 
 /**
  * @param {number} requestId
  * @return {!goog.promise.Resolver}
  * @private
  */
-Requester.prototype.popRequestPromiseResolver_ = function(requestId) {
+popRequestPromiseResolver_(requestId) {
   const result = this.requestIdToPromiseResolverMap_.get(requestId);
   GSC.Logging.checkWithLogger(this.logger, result !== undefined);
   this.requestIdToPromiseResolverMap_.delete(requestId);
   return result;
+}
 };
 });  // goog.scope
