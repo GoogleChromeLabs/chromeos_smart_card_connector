@@ -37,25 +37,26 @@ const getRequestMessageType = GSC.RequesterMessage.getRequestMessageType;
 const getResponseMessageType = GSC.RequesterMessage.getResponseMessageType;
 
 class PromiseTracker {
-constructor(promise) {
-  this.isResolved = false;
-  this.isFulfilled = false;
-  this.isRejected = false;
-  promise.then(
-      this.onPromiseFulfilled_.bind(this), this.onPromiseRejected_.bind(this));
-}
+  constructor(promise) {
+    this.isResolved = false;
+    this.isFulfilled = false;
+    this.isRejected = false;
+    promise.then(
+        this.onPromiseFulfilled_.bind(this),
+        this.onPromiseRejected_.bind(this));
+  }
 
-/** @private */
-onPromiseFulfilled_() {
-  this.isResolved = true;
-  this.isFulfilled = true;
-}
+  /** @private */
+  onPromiseFulfilled_() {
+    this.isResolved = true;
+    this.isFulfilled = true;
+  }
 
-/** @private */
-onPromiseRejected_() {
-  this.isResolved = true;
-  this.isRejected = true;
-}
+  /** @private */
+  onPromiseRejected_() {
+    this.isResolved = true;
+    this.isRejected = true;
+  }
 };
 
 goog.exportSymbol('testRequester', function() {
