@@ -36,23 +36,27 @@ const ResponseMessageData = GSC.RequesterMessage.ResponseMessageData;
 const getRequestMessageType = GSC.RequesterMessage.getRequestMessageType;
 const getResponseMessageType = GSC.RequesterMessage.getResponseMessageType;
 
-/** @constructor */
-function PromiseTracker(promise) {
-  this.isResolved = false;
-  this.isFulfilled = false;
-  this.isRejected = false;
-  promise.then(
-      this.onPromiseFulfilled_.bind(this), this.onPromiseRejected_.bind(this));
-}
+class PromiseTracker {
+  constructor(promise) {
+    this.isResolved = false;
+    this.isFulfilled = false;
+    this.isRejected = false;
+    promise.then(
+        this.onPromiseFulfilled_.bind(this),
+        this.onPromiseRejected_.bind(this));
+  }
 
-PromiseTracker.prototype.onPromiseFulfilled_ = function() {
-  this.isResolved = true;
-  this.isFulfilled = true;
-};
+  /** @private */
+  onPromiseFulfilled_() {
+    this.isResolved = true;
+    this.isFulfilled = true;
+  }
 
-PromiseTracker.prototype.onPromiseRejected_ = function() {
-  this.isResolved = true;
-  this.isRejected = true;
+  /** @private */
+  onPromiseRejected_() {
+    this.isResolved = true;
+    this.isRejected = true;
+  }
 };
 
 goog.exportSymbol('testRequester', function() {
