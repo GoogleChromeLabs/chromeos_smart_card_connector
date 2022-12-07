@@ -139,6 +139,9 @@ class LibusbJsProxy final : public LibusbInterface {
                            int* actual_length,
                            unsigned timeout);
   void TryApplyTransientAccessErrorWorkaround(libusb_device* dev);
+  // Fetches the descriptor from the JS side and stores it in
+  // `libusb_device::js_config`.
+  void ObtainActiveConfigDescriptor(libusb_device* dev);
 
   // Helpers for making requests to the JavaScript side.
   JsRequester js_requester_;

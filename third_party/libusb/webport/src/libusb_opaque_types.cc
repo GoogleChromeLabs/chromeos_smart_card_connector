@@ -339,13 +339,31 @@ const google_smart_card::LibusbJsDevice& libusb_device::js_device() const {
   return js_device_;
 }
 
+google_smart_card::optional<google_smart_card::LibusbJsConfigurationDescriptor>
+libusb_device::js_config() const {
+  std::unique_lock<std::mutex> lock(mutex_);
+  return js_config_;
+}
+
+void libusb_device::set_js_config(
+    google_smart_card::optional<
+        google_smart_card::LibusbJsConfigurationDescriptor> new_js_config) {
+  std::unique_lock<std::mutex> lock(mutex_);
+  js_config_ = std::move(new_js_config);
+}
+
 void libusb_device::AddReference() {
-  const int new_reference_count = ++reference_count_;
-  GOOGLE_SMART_CARD_CHECK(new_reference_count > 1);
+  std::unique_lock<std::mutex> lock(mutex_);
+  ++reference_count_;
+  GOOGLE_SMART_CARD_CHECK(reference_count_ > 1);
 }
 
 void libusb_device::RemoveReference() {
-  const int new_reference_count = --reference_count_;
+  int new_reference_count;
+  {
+    std::unique_lock<std::mutex> lock(mutex_);
+    new_reference_count = --reference_count_;
+  }
   GOOGLE_SMART_CARD_CHECK(new_reference_count >= 0);
   if (!new_reference_count)
     delete this;

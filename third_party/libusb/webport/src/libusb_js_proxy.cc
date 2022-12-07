@@ -341,41 +341,15 @@ int LibusbJsProxy::LibusbGetActiveConfigDescriptor(
   GOOGLE_SMART_CARD_CHECK(dev);
   GOOGLE_SMART_CARD_CHECK(config);
 
-  GenericRequestResult request_result = js_call_adaptor_.SyncCall(
-      kJsRequestGetConfigurations, dev->js_device().device_id);
-  std::string error_message;
-  std::vector<LibusbJsConfigurationDescriptor> js_configs;
-  if (!RemoteCallAdaptor::ExtractResultPayload(std::move(request_result),
-                                               &error_message, &js_configs)) {
-    GOOGLE_SMART_CARD_LOG_WARNING
-        << "LibusbGetActiveConfigDescriptor request failed: " << error_message;
+  ObtainActiveConfigDescriptor(dev);
+  const optional<LibusbJsConfigurationDescriptor> js_config = dev->js_config();
+
+  if (!js_config) {
+    *config = nullptr;
     return LIBUSB_ERROR_OTHER;
   }
-
-  *config = nullptr;
-  for (const auto& js_config : js_configs) {
-    if (js_config.active) {
-      if (*config) {
-        // Normally there should be only one active configuration, but the
-        // chrome.usb API implementation misbehaves on some devices: see
-        // <https://crbug.com/1218141>. As a workaround, proceed with the first
-        // received configuration that's marked as active.
-        GOOGLE_SMART_CARD_LOG_WARNING
-            << "Unexpected state in LibusbGetActiveConfigDescriptor: JS API "
-               "returned multiple active configurations";
-        break;
-      }
-
-      *config = new libusb_config_descriptor;
-      FillLibusbConfigDescriptor(js_config, *config);
-    }
-  }
-  if (!*config) {
-    GOOGLE_SMART_CARD_LOG_WARNING
-        << "LibusbGetActiveConfigDescriptor request failed: No active config "
-           "descriptors were returned by JS API";
-    return LIBUSB_ERROR_OTHER;
-  }
+  *config = new libusb_config_descriptor;
+  FillLibusbConfigDescriptor(*js_config, *config);
   return LIBUSB_SUCCESS;
 }
 
@@ -685,6 +659,48 @@ bool CreateLibusbJsControlTransferParameters(
   return true;
 }
 
+int RoundUpToMultiple(int value_to_round, int modulus) {
+  int rounded_up = value_to_round;
+  if (modulus) {
+    int remainder = value_to_round % modulus;
+    if (remainder) {
+      rounded_up += modulus - remainder;
+    }
+  }
+  return rounded_up;
+}
+
+// Round up the number of expected to read bytes to the closest multiple of the
+// packet size.
+// This is to mitigate "babble" inbound transfer errors (previously known as
+// "Inbound transfer overflow" in chrome.usb) that are caused by possible
+// reordering of results of inbound transfers that have common destinations.
+int FixUpInboundGenericTransferLength(
+    int transfer_length,
+    unsigned char endpoint,
+    const optional<LibusbJsConfigurationDescriptor>& js_config) {
+  if (!js_config) {
+    // There was a failure when obtaining the config descriptor, hence no fixup
+    // is possible and we can only return the original length.
+    return transfer_length;
+  }
+  // Find the endpoint descriptor to use its packet size for calculating the
+  // corrected transfer length.
+  for (const LibusbJsInterfaceDescriptor& js_interface :
+       js_config->interfaces) {
+    for (const LibusbJsEndpointDescriptor& js_endpoint :
+         js_interface.endpoints) {
+      if (js_endpoint.endpoint_address == endpoint) {
+        return RoundUpToMultiple(transfer_length, js_endpoint.max_packet_size);
+      }
+    }
+  }
+  // No endpoint descriptor found (which shouldn't normally happen - only if
+  // the code is requesting undefined endpoints for some reason). No fixup is
+  // possible - hence just return the original length.
+  return transfer_length;
+}
+
 void CreateLibusbJsGenericTransferParameters(
     libusb_transfer* transfer,
     LibusbJsGenericTransferParameters* result) {
@@ -699,7 +715,10 @@ void CreateLibusbJsGenericTransferParameters(
     result->data_to_send = std::vector<uint8_t>(
         transfer->buffer, transfer->buffer + transfer->length);
   } else {
-    AssignWithTypeSizeCheck(&result->length_to_receive, transfer->length);
+    int length_to_receive = FixUpInboundGenericTransferLength(
+        transfer->length, transfer->endpoint,
+        transfer->dev_handle->device()->js_config());
+    AssignWithTypeSizeCheck(&result->length_to_receive, length_to_receive);
   }
 }
 
@@ -776,6 +795,13 @@ int LibusbJsProxy::LibusbSubmitTransfer(libusb_transfer* transfer) {
 
   const auto async_request_state = std::make_shared<TransferAsyncRequestState>(
       WrapLibusbTransferCallback(transfer));
+
+  // Sending bulk and interrupt transfers requires knowing some parameters of
+  // the descriptor. To reduce overhead, do this only if it's not fetched yet.
+  if (transfer->type != LIBUSB_TRANSFER_TYPE_CONTROL &&
+      !transfer->dev_handle->device()->js_config()) {
+    ObtainActiveConfigDescriptor(transfer->dev_handle->device());
+  }
 
   std::string js_api_name;
   LibusbJsGenericTransferParameters generic_transfer_params;
@@ -1114,6 +1140,48 @@ void LibusbJsProxy::TryApplyTransientAccessErrorWorkaround(libusb_device* dev) {
   GOOGLE_SMART_CARD_LOG_INFO << "Applying bus number increment workaround in "
                                 "case the USB access error was transient";
   bus_numbers_[dev->js_device().device_id] = new_bus_number;
+}
+
+void LibusbJsProxy::ObtainActiveConfigDescriptor(libusb_device* dev) {
+  GOOGLE_SMART_CARD_CHECK(dev);
+
+  GenericRequestResult request_result = js_call_adaptor_.SyncCall(
+      kJsRequestGetConfigurations, dev->js_device().device_id);
+  std::string error_message;
+  std::vector<LibusbJsConfigurationDescriptor> js_configs;
+  if (!RemoteCallAdaptor::ExtractResultPayload(std::move(request_result),
+                                               &error_message, &js_configs)) {
+    GOOGLE_SMART_CARD_LOG_WARNING
+        << "ObtainActiveConfigDescriptor request failed: " << error_message;
+    dev->set_js_config({});
+    return;
+  }
+
+  LibusbJsConfigurationDescriptor* active_js_config = nullptr;
+  for (auto& js_config : js_configs) {
+    if (js_config.active) {
+      if (active_js_config) {
+        // Normally there should be only one active configuration, but the
+        // chrome.usb API implementation misbehaves on some devices: see
+        // <https://crbug.com/1218141>. As a workaround, proceed with the first
+        // received configuration that's marked as active.
+        GOOGLE_SMART_CARD_LOG_WARNING
+            << "Unexpected state in ObtainActiveConfigDescriptor: JS API "
+               "returned multiple active configurations";
+        break;
+      }
+      active_js_config = &js_config;
+    }
+  }
+
+  if (!active_js_config) {
+    GOOGLE_SMART_CARD_LOG_WARNING
+        << "LibusbGetActiveConfigDescriptor request failed: No active config "
+           "descriptors were returned by JS API";
+    dev->set_js_config({});
+    return;
+  }
+  dev->set_js_config(std::move(*active_js_config));
 }
 
 }  // namespace google_smart_card
