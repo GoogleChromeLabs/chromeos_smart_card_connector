@@ -45,7 +45,7 @@ jobs:
       env:
         TOOLCHAIN: emscripten
         CONFIG: ${{ matrix.build-config }}
-      timeout-minutes: 10
+      timeout-minutes: 15
       run: >
         source env/activate && make test
 
@@ -131,7 +131,7 @@ jobs:
       env:
         TOOLCHAIN: asan_testing
         CONFIG: ${{ matrix.build-config }}
-      timeout-minutes: 10
+      timeout-minutes: 15
       run: >
         source env/activate && make test
 
