@@ -140,7 +140,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       LINE_COVERAGE_PERCENT: ${{ steps.build-coverage.outputs.LINE_COVERAGE_PERCENT }}
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
     - name: Check out sources
       uses: actions/checkout@v3
