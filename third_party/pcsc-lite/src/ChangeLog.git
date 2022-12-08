@@ -1,4 +1,290 @@
-commit 41dc5a51321bc3198af36574f73dc007cab72a7d (HEAD -> master, tag: 1.9.8)
+commit 15c16c7796607b1c8a2ce253d3f536918ab26b4a (HEAD -> master, origin/master, origin/HEAD)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Sep 11 16:12:03 2022 +0200
+
+    Release 1.9.9
+    
+    Signed-off-by: Ludovic Rousseau <ludovic.rousseau@free.fr>
+
+ ChangeLog    | 10 ++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 11 insertions(+), 1 deletion(-)
+
+commit d069c580b74273bfcf12523b73f71bb6be9378dd (zotac/master, github/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Sep 11 13:59:34 2022 +0200
+
+    c.sh: reformat
+
+ c.sh | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 241a993f954b00cbb5904ac5fc6e4425977fc319
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Sep 8 19:43:39 2022 +0200
+
+    UT control_get_firmware: support multi-readers
+    
+    Do not exit if the command fails with a reader but continue with the other
+    readers.
+
+ UnitaryTests/control_get_firmware.py | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+commit 1935b6997b281f0d836b829b4cfeeab6c81c3ded
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 20 15:29:28 2022 +0200
+
+    SCardEstablishContext() may return SCARD_W_SECURITY_VIOLATION
+    
+    See the previous patch for details.
+
+ src/winscard_clnt.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 68f629ffecaec3886c717021e70ac62c22b38bd8
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 20 15:13:00 2022 +0200
+
+    MessageReceive() may return SCARD_W_SECURITY_VIOLATION
+    
+    If the daemon kills/resets the connection because the user is not
+    authorized by Polkit then the client side now returns
+    SCARD_W_SECURITY_VIOLATION instead of the too generic
+    SCARD_F_COMM_ERROR.
+    Polkit is used in RedHat/Fedora. Users connected by ssh do not have
+    access to PC/SC by default.
+    
+    On the daemon side we have in the logs:
+    00000003 [139737213696960] pcscdaemon.c:133:SVCServiceRunLoop() A new
+    context thread creation is requested: 10
+    00019807 [139737012623104] auth.c:139:IsClientAuthorized() Process
+    41685 (user: 1000) is NOT authorized for action: access_pcsc
+    00000107 [139737012623104] winscard_svc.c:335:ContextThread() Rejected
+    unauthorized PC/SC client
+    But this information was not available in the client side.
+    
+    pcsc_scan will now report:
+    $ pcsc_scan
+    SCardEstablishContext: Access denied.
+    
+    This has been discussed on the pcsclite-muscle mailing list at:
+    "[Pcsclite-muscle] Change the error code when PC/SC access is refused by
+    polkit?"
+    http://lists.infradead.org/pipermail/pcsclite-muscle/2022-July/001279.html
+
+ src/winscard_msg.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+commit 34f27e766f413d8f37a95ad605dbe6f664c077bc
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 20 15:03:53 2022 +0200
+
+    pcsc_stringify_error(): add SCARD_W_SECURITY_VIOLATION
+
+ src/error.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+commit 8eca1a54b252a84f5498ac5e5b84e81a47c9d231
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 20 14:45:14 2022 +0200
+
+    Remove unsed #define
+    
+    SCARD_PROTOCOL_ANY_OLD is no more used on the client side.
+
+ src/winscard_clnt.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+commit 6a6291eb8e7906d4f63c962360e5fdc5d6d745db
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 13 14:44:28 2022 +0200
+
+    Log the error in text and not just the hex code
+    
+    We now have:
+    00000008 [139893430789696] winscard.c:1621:SCardTransmit() Card not transacted: rv=SCARD_E_NO_SMARTCARD
+    instead of:
+    00000008 [139893430789696] winscard.c:1621:SCardTransmit() Card not transacted: rv=0x8010000C
+
+ src/eventhandler.c  |  2 +-
+ src/readerfactory.c |  2 +-
+ src/winscard.c      | 14 +++++++-------
+ 3 files changed, 9 insertions(+), 9 deletions(-)
+
+commit fecbcac0e6a8cf43b691151fef2967600098b49b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 13 14:52:42 2022 +0200
+
+    UnitaryTests: fix a deprecation warning
+    
+    UnitaryTests/ThreadSafeConnect.py:87: DeprecationWarning: getName() is deprecated, get the name attribute instead
+      print("joined:", thread.getName())
+
+ UnitaryTests/ThreadSafeConnect.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 13bd3dcc9fa1ae6894ac4f882c5a62b28a6adde5
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 13 14:41:59 2022 +0200
+
+    export rv2txt() function
+    
+    convert from integer rv value to a string value
+    SCARD_S_SUCCESS -> "SCARD_S_SUCCESS"
+
+ src/PCSC/debuglog.h | 2 ++
+ src/debuglog.c      | 2 +-
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+commit 002d1ffef359cfba1c45f24c78ac21e18925e670
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Aug 12 17:51:37 2022 +0200
+
+    Improve the log from pcscd
+    
+    - log the return code in text instead of hex
+    00000002 [139848448452160] winscard_svc.c:523:ContextThread() CONNECT for client 12, rv=SCARD_E_UNKNOWN_READER
+    insted of:
+    00000004 [140270933177920] winscard_svc.c:523:ContextThread() CONNECT rv=0x80100009 for client 12
+    
+    - colorize the return value in red in case it is different from SCARD_S_SUCCESS
+    
+    The idea is to more easily spot an error code in the values returned by
+    pcscd.
+
+ src/PCSC/debuglog.h |   5 +++
+ src/debuglog.c      | 109 ++++++++++++++++++++++++++++++++++++++++++++++++----
+ src/winscard_svc.c  |   2 +-
+ 3 files changed, 107 insertions(+), 9 deletions(-)
+
+commit e2de54e00f2ebeebf633adef32228d2af33a6483
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Jul 30 14:02:49 2022 +0200
+
+    pcsc-spy: log the pioSendPci & pioRecvPci SCardTransmit() parameters
+    
+    The pioSendPci contains the protocol to use and may be important to
+    diagnose a SCARD_E_PROTO_MISMATCH error.
+
+ src/spy/libpcscspy.c |  4 ++++
+ src/spy/pcsc-spy     | 30 ++++++++++++++++++++++++++++++
+ 2 files changed, 34 insertions(+)
+
+commit af1f32ca3762374dc66aac972c0c3fc50e9ae566
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jul 17 17:57:26 2022 +0200
+
+    pcscd.8: remove reference to bundleTool
+    
+    bundleTool is no more provided with pcsc-lite since
+    84448b0d2a7b5300837c40311f12d81a959a9f45 in 2006.
+
+ doc/pcscd.8.in | 1 -
+ 1 file changed, 1 deletion(-)
+
+commit ff8f77d445ebf7f863ed4cf4951b7ab6e1d08426
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jul 17 17:52:29 2022 +0200
+
+    pcscd.8: fix typo in manpage
+
+ doc/pcscd.8.in | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit c35130f2215b75c6d54c4f0162d68548a6de4bab
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jun 19 21:32:20 2022 +0200
+
+    Improve SCardDisconnect fix
+    
+    Same justification as for the previous patch. RFReaderInfoById() may
+    return SCARD_E_READER_UNAVAILABLE.
+
+ src/winscard.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit d7a08877c3f1d423f8fcfcb5b60f2cf6fefeceda
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jun 19 21:27:46 2022 +0200
+
+    Improve SCardReleaseContext fix
+    
+    From Maksim Ivanov:
+    SCARD_E_READER_UNAVAILABLE can be returned by RFReaderInfoById(): it's a
+    corner case when the reader context is still there, but has a zero
+    reference count.
+    
+    See RFReaderInfoById() using the REF_READER macro, which calls
+    _RefReader() (and returns its error code on error), which in turn has
+    this code:
+    
+      if (0 == sReader->reference)
+        return SCARD_E_READER_UNAVAILABLE;
+
+ src/winscard_svc.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+commit d0e594789096c7b99ace1ec6ab2cecb7961747cb
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jun 19 18:53:36 2022 +0200
+
+    Test orphan handles
+    
+    Check the return values of SCardDisconnect() and SCardReleaseContext()
+    after a reader removal.
+
+ UnitaryTests/SCard_RemovedReader.py | 80 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 80 insertions(+)
+
+commit a4e5bf41ae652fd3837cc446a5a8cce0f4249845
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jun 19 18:49:42 2022 +0200
+
+    Fix SCardDisconnect on orphan handle
+    
+    If the reader is removed between SCardConnect() and SCardDisconnect()
+    then SCardDisconnect() should not fail with SCARD_E_INVALID_VALUE.
+    
+    We now have the same behavior as on Windows 10.
+    
+    This patch is quiet similar to the previous one from Maksim Ivanov.
+    Thanks for the idea.
+
+ src/winscard.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+commit 2735a6d1b7ffa5ca81e602417516a9c0702c0fcd
+Author: Maksim Ivanov <emaxx@google.com>
+Date:   Sat Jun 18 13:46:38 2022 +0200
+
+    Fix SCardReleaseContext failure on orphan handles
+    
+    Fix returning a spurious error from SCardReleaseContext() for a
+    correct SCARDCONTEXT, in case there was an orphan SCARDHANDLE left after
+    disconnecting a reader.
+    
+    The error was caused by the fact that SCardReleaseContext attempts to do
+    SCardDisconnect for all active SCARDHANDLEs stored in SCARDCONTEXT,
+    which fails when the handle was already deleted by the hotplug code from
+    READER_CONTEXT or the reader got zero reference count.
+
+ src/winscard_svc.c | 59 ++++++++++++++++++++++++++++++------------------------
+ 1 file changed, 33 insertions(+), 26 deletions(-)
+
+commit 2c3e9156bea6d658f5f7af801f5b92cdb9c83882
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jun 13 17:11:50 2022 +0200
+
+    pcscd.h: remove unused PCSCLITE_STATUS_WAIT
+    
+    PCSCLITE_STATUS_WAIT is no more used since
+    c2a93242e445558ead8eea40223482ee8995954a in 2008.
+
+ src/pcscd.h.in | 2 --
+ 1 file changed, 2 deletions(-)
+
+commit 41dc5a51321bc3198af36574f73dc007cab72a7d (tag: 1.9.8)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Jun 11 10:49:34 2022 +0200
 
@@ -10,7 +296,7 @@ Date:   Sat Jun 11 10:49:34 2022 +0200
  configure.ac |  2 +-
  2 files changed, 11 insertions(+), 1 deletion(-)
 
-commit f7f80db5fae5f15c0d0ce2e6cd81a5c11c0a7510 (zotac/master, origin/master, origin/HEAD, github/master)
+commit f7f80db5fae5f15c0d0ce2e6cd81a5c11c0a7510
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Jun 10 09:58:46 2022 +0200
 
