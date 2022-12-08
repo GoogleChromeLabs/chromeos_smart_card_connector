@@ -51,7 +51,7 @@
 	-->
 
 	<key>ifdDriverOptions</key>
-	<string>0x0004</string>
+	<string>0x0000</string>
 
 	<!-- Possible values for ifdDriverOptions
 	0x01: DRIVER_OPTION_CCID_EXCHANGE_AUTHORIZED
