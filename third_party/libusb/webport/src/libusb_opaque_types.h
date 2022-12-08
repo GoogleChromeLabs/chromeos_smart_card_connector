@@ -26,7 +26,6 @@
 
 #include <stdint.h>
 
-#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <map>
@@ -192,6 +191,14 @@ struct libusb_device final {
   libusb_context* context() const;
   const google_smart_card::LibusbJsDevice& js_device() const;
 
+  // Cached active config that was received by the most recent JS call.
+  google_smart_card::optional<
+      google_smart_card::LibusbJsConfigurationDescriptor>
+  js_config() const;
+  void set_js_config(
+      google_smart_card::optional<
+          google_smart_card::LibusbJsConfigurationDescriptor> new_js_config);
+
   // Increments the reference counter.
   void AddReference();
   // Decrements the reference counter. If it becomes equal to zero, then deletes
@@ -201,7 +208,12 @@ struct libusb_device final {
  private:
   libusb_context* const context_;
   const google_smart_card::LibusbJsDevice js_device_;
-  std::atomic_int reference_count_{1};
+
+  mutable std::mutex mutex_;
+  int reference_count_ = 1;
+  google_smart_card::optional<
+      google_smart_card::LibusbJsConfigurationDescriptor>
+      js_config_;
 };
 
 // Definition of the libusb_device_handle type declared in the libusb headers.
