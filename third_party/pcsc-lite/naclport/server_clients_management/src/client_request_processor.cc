@@ -32,6 +32,9 @@
 #include <cstddef>
 #include <cstring>
 #include <memory>
+#include <mutex>
+#include <sstream>
+#include <string>
 #include <thread>
 #include <tuple>
 #include <vector>
@@ -130,6 +133,14 @@ void CleanupHandles(const std::string& logging_prefix,
   CloseLeftHandles(logging_prefix, s_card_contexts);
 }
 
+// Returns whether the PC/SC function can be called concurrently with other
+// functions that operate on the same `SCARDCONTEXT`.
+bool IsConcurrentCallAllowed(const std::string& function_name) {
+  // Per the PC/SC API specification, only cancellation can be requested from a
+  // different thread.
+  return function_name == "SCardCancel";
+}
+
 }  // namespace
 
 PcscLiteClientRequestProcessor::PcscLiteClientRequestProcessor(
@@ -202,6 +213,8 @@ void PcscLiteClientRequestProcessor::ProcessRequest(
         << "\"";
   }
 
+  LeaveConcurrencyCheckScope(request.function_name);
+
   result_callback(std::move(result));
 }
 
@@ -210,6 +223,12 @@ void PcscLiteClientRequestProcessor::AsyncProcessRequest(
     std::shared_ptr<PcscLiteClientRequestProcessor> request_processor,
     RemoteCallRequestPayload request,
     RequestReceiver::ResultCallback result_callback) {
+  // This is paired with the call to `LeaveConcurrencyCheckScope()` in
+  // `ProcessRequest()`. We enter the scope here in order to be able to catch
+  // concurrency violations even when they occur so fast that the thread created
+  // below didn't have chance to start and do any work.
+  request_processor->EnterConcurrencyCheckScope(request.function_name);
+
   std::thread(&PcscLiteClientRequestProcessor::ProcessRequest,
               request_processor, std::move(request), result_callback)
       .detach();
@@ -1115,6 +1134,44 @@ void PcscLiteClientRequestProcessor::OnSCardHandleRevoked(
   GOOGLE_SMART_CARD_LOG_WARNING << "PC/SC-Lite unexpectedly revoked the handle "
                                 << DebugDumpSCardHandle(s_card_handle);
   s_card_handles_registry_.RemoveHandle(s_card_handle);
+}
+
+void PcscLiteClientRequestProcessor::EnterConcurrencyCheckScope(
+    const std::string& starting_function_name) {
+  if (IsConcurrentCallAllowed(starting_function_name)) {
+    return;
+  }
+
+  std::vector<std::string> concurrent_functions;
+  {
+    std::unique_lock<std::mutex> lock(mutex_);
+    concurrent_functions.assign(currently_running_functions_.begin(),
+                                currently_running_functions_.end());
+    currently_running_functions_.insert(starting_function_name);
+  }
+
+  if (concurrent_functions.empty()) {
+    return;
+  }
+
+  std::ostringstream str;
+  for (const auto& name : concurrent_functions) {
+    str << ", " << name;
+  }
+  GOOGLE_SMART_CARD_LOG_WARNING
+      << logging_prefix_ << "Client violates threading: concurrent calls of "
+      << starting_function_name << str.str()
+      << ". Future releases of Smart Card Connector will forbid this.";
+}
+
+void PcscLiteClientRequestProcessor::LeaveConcurrencyCheckScope(
+    const std::string& finished_function_name) {
+  if (IsConcurrentCallAllowed(finished_function_name)) {
+    return;
+  }
+  std::unique_lock<std::mutex> lock(mutex_);
+  currently_running_functions_.erase(
+      currently_running_functions_.find(finished_function_name));
 }
 
 }  // namespace google_smart_card

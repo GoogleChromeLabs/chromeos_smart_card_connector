@@ -31,6 +31,8 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <mutex>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -228,6 +230,9 @@ class PcscLiteClientRequestProcessor final
   void OnSCardContextRevoked(SCARDCONTEXT s_card_context);
   void OnSCardHandleRevoked(SCARDHANDLE s_card_handle);
 
+  void EnterConcurrencyCheckScope(const std::string& starting_function_name);
+  void LeaveConcurrencyCheckScope(const std::string& finished_function_name);
+
   const int64_t client_handler_id_;
   const std::string client_name_for_log_;
   const LogSeverity status_log_severity_;
@@ -238,6 +243,9 @@ class PcscLiteClientRequestProcessor final
   // used to implement the client isolation: one client shouldn't be able to use
   // contexts/handles belonging to the other one.
   PcscLiteClientHandlesRegistry s_card_handles_registry_;
+
+  mutable std::mutex mutex_;
+  std::multiset<std::string> currently_running_functions_;
 };
 
 }  // namespace google_smart_card
