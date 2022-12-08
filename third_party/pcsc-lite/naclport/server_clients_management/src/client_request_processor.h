@@ -145,11 +145,13 @@ class PcscLiteClientRequestProcessor final
       std::function<GenericRequestResult(std::vector<Value> arguments)>;
   using HandlerMap = std::unordered_map<std::string, Handler>;
 
+  // Helper class for making updates to `context_to_running_functions_`. On
+  // construction, adds the given function name and logs a warning if misuse
+  // detected. On destruction, undoes the change.
   class ScopedConcurrencyGuard final {
    public:
     ScopedConcurrencyGuard(const std::string& function_name,
                            SCARDCONTEXT s_card_context,
-                           SCARDHANDLE s_card_handle,
                            PcscLiteClientRequestProcessor& owner);
 
     ScopedConcurrencyGuard(const ScopedConcurrencyGuard&) = delete;
@@ -159,8 +161,8 @@ class PcscLiteClientRequestProcessor final
 
    private:
     const std::string function_name_;
+    const SCARDCONTEXT s_card_context_;
     PcscLiteClientRequestProcessor& owner_;
-    SCARDCONTEXT s_card_context_ = 0;
   };
 
   friend class ScopedConcurrencyGuard;
