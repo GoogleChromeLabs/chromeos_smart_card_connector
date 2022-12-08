@@ -1156,7 +1156,7 @@ void PcscLiteClientRequestProcessor::EnterConcurrencyCheckScope(
 
   GOOGLE_SMART_CARD_LOG_WARNING
       << logging_prefix_ << "Client violates threading: concurrent calls of "
-      << starting_function_name << concurrent_functions
+      << starting_function_name << ", " << concurrent_functions
       << ". Future releases of Smart Card Connector will forbid this.";
 }
 
