@@ -249,7 +249,9 @@ PcscLiteClientRequestProcessor::ScopedConcurrencyGuard::ScopedConcurrencyGuard(
         << owner_.logging_prefix_
         << "Client violates threading: concurrent calls of " << function_name_
         << ", " << concurrent_functions_dump
-        << ". Future releases of Smart Card Connector will forbid this.";
+        << " against the same SCARDCONTEXT. Future releases of Smart Card "
+           "Connector will forbid this: every call referring to some "
+           "SCARDCONTEXT must come after the previous one completed.";
   }
 }
 
