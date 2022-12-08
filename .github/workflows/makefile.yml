@@ -13,7 +13,7 @@ on:
 
 env:
   # The version of libstdc++ to install for analysis builds.
-  ANALYSIS_LIBSTDCPP_VERSION: 10
+  ANALYSIS_LIBSTDCPP_VERSION: 12
 
 jobs:
   # Build and test in WebAssembly mode.
@@ -45,7 +45,7 @@ jobs:
       env:
         TOOLCHAIN: emscripten
         CONFIG: ${{ matrix.build-config }}
-      timeout-minutes: 10
+      timeout-minutes: 15
       run: >
         source env/activate && make test
 
@@ -131,7 +131,7 @@ jobs:
       env:
         TOOLCHAIN: asan_testing
         CONFIG: ${{ matrix.build-config }}
-      timeout-minutes: 10
+      timeout-minutes: 15
       run: >
         source env/activate && make test
 
@@ -140,7 +140,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       LINE_COVERAGE_PERCENT: ${{ steps.build-coverage.outputs.LINE_COVERAGE_PERCENT }}
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
     - name: Check out sources
       uses: actions/checkout@v3

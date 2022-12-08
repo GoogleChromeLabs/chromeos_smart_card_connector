@@ -144,7 +144,7 @@ void PcscLiteServerDaemonThreadMain() {
   // TODO: Upstream's approach with a magic sleep is flaky: the background
   // thread might be still running after this point, causing crashes. Replace
   // this with a proper waiting mechanism.
-  SYS_Sleep(5);
+  SYS_Sleep(10);
   RFCleanupReaders();
   EHDeinitializeEventStructures();
   ContextsDeinitialize();
