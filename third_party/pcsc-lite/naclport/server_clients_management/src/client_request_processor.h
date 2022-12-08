@@ -145,6 +145,26 @@ class PcscLiteClientRequestProcessor final
       std::function<GenericRequestResult(std::vector<Value> arguments)>;
   using HandlerMap = std::unordered_map<std::string, Handler>;
 
+  class ScopedConcurrencyGuard final {
+   public:
+    ScopedConcurrencyGuard(const std::string& function_name,
+                           SCARDCONTEXT s_card_context,
+                           SCARDHANDLE s_card_handle,
+                           PcscLiteClientRequestProcessor& owner);
+
+    ScopedConcurrencyGuard(const ScopedConcurrencyGuard&) = delete;
+    ScopedConcurrencyGuard& operator=(const ScopedConcurrencyGuard&) = delete;
+
+    ~ScopedConcurrencyGuard();
+
+   private:
+    const std::string function_name_;
+    PcscLiteClientRequestProcessor& owner_;
+    SCARDCONTEXT s_card_context_ = 0;
+  };
+
+  friend class ScopedConcurrencyGuard;
+
   void BuildHandlerMap();
 
   template <typename... Args>
@@ -245,7 +265,8 @@ class PcscLiteClientRequestProcessor final
   PcscLiteClientHandlesRegistry s_card_handles_registry_;
 
   mutable std::mutex mutex_;
-  std::multiset<std::string> currently_running_functions_;
+  std::unordered_map<SCARDCONTEXT, std::multiset<std::string>>
+      context_to_running_functions_;
 };
 
 }  // namespace google_smart_card

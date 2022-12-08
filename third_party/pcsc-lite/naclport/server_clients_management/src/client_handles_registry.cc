@@ -103,6 +103,17 @@ bool PcscLiteClientHandlesRegistry::ContainsHandle(
   return handle_to_context_map_.count(s_card_handle);
 }
 
+SCARDCONTEXT PcscLiteClientHandlesRegistry::FindContextByHandle(
+    SCARDHANDLE s_card_handle) const {
+  const std::unique_lock<std::mutex> lock(mutex_);
+
+  auto iter = handle_to_context_map_.find(s_card_handle);
+  if (iter == handle_to_context_map_.end()) {
+    return 0;
+  }
+  return iter->second;
+}
+
 void PcscLiteClientHandlesRegistry::AddHandle(SCARDCONTEXT s_card_context,
                                               SCARDHANDLE s_card_handle) {
   const std::unique_lock<std::mutex> lock(mutex_);
