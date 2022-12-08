@@ -187,6 +187,7 @@
 
 # Alcor Micro
 0x058F:0x9522:Alcor Micro AU9522
+0x058F:0x9540:Alcor Micro AU95x0
 
 # ANCUD
 0x0483:0xACD1:ANCUD CCID USB Reader & RNG
@@ -937,9 +938,6 @@
 0x09C3:0x0008:ActivCard ActivCard USB Reader V2
 
 # Aladdin
-
-# Alcor Micro
-0x058F:0x9540:Alcor Micro AU9540
 
 # Athena
 0x0DC3:0x100F:Athena IDProtect Flash

@@ -47,3 +47,8 @@ extern "C" int SYS_RandomInt() {
 }
 
 extern "C" void SYS_InitRandom() {}
+
+extern "C" const char* SYS_GetEnv(const char* name) {
+  // Pretend that no environment variable is set.
+  return nullptr;
+}
