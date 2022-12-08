@@ -133,14 +133,6 @@ void CleanupHandles(const std::string& logging_prefix,
   CloseLeftHandles(logging_prefix, s_card_contexts);
 }
 
-// Returns whether the PC/SC function can be called concurrently with other
-// functions that operate on the same `SCARDCONTEXT`.
-bool IsConcurrentCallAllowed(const std::string& function_name) {
-  // Per the PC/SC API specification, only cancellation can be requested from a
-  // different thread.
-  return function_name == "SCardCancel";
-}
-
 }  // namespace
 
 PcscLiteClientRequestProcessor::PcscLiteClientRequestProcessor(
@@ -234,9 +226,6 @@ PcscLiteClientRequestProcessor::ScopedConcurrencyGuard::ScopedConcurrencyGuard(
     : owner_(owner),
       function_name_(function_name),
       s_card_context_(s_card_context) {
-  if (IsConcurrentCallAllowed(function_name_)) {
-    return;
-  }
   s_card_context_ =
       s_card_handle
           ? owner_.s_card_handles_registry_.FindContextByHandle(s_card_handle)
@@ -266,7 +255,7 @@ PcscLiteClientRequestProcessor::ScopedConcurrencyGuard::ScopedConcurrencyGuard(
 
 PcscLiteClientRequestProcessor::ScopedConcurrencyGuard::
     ~ScopedConcurrencyGuard() {
-  if (IsConcurrentCallAllowed(function_name_) || !s_card_context_) {
+  if (!s_card_context_) {
     return;
   }
   const std::unique_lock<std::mutex> lock(owner_.mutex_);
@@ -1150,8 +1139,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardCancel(
                             status_log_severity_);
   tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
   tracer.LogEntrance();
-  ScopedConcurrencyGuard concurrency_guard("SCardCancel", s_card_context,
-                                           /*s_card_handle=*/0, *this);
+  // Note there's no `ScopedConcurrencyGuard`, since PC/SC API allows calling
+  // `SCardCancel()` from different threads.
 
   LONG return_code = SCARD_S_SUCCESS;
   if (!s_card_handles_registry_.ContainsContext(s_card_context))
