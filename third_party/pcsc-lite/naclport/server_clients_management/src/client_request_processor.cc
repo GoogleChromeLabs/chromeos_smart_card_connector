@@ -33,13 +33,13 @@
 #include <cstring>
 #include <memory>
 #include <mutex>
-#include <sstream>
 #include <string>
 #include <thread>
 #include <tuple>
 #include <vector>
 
 #include <google_smart_card_common/formatting.h>
+#include <google_smart_card_common/join_string.h>
 #include <google_smart_card_common/logging/function_call_tracer.h>
 #include <google_smart_card_common/logging/hex_dumping.h>
 #include <google_smart_card_common/multi_string.h>
@@ -1142,11 +1142,11 @@ void PcscLiteClientRequestProcessor::EnterConcurrencyCheckScope(
     return;
   }
 
-  std::vector<std::string> concurrent_functions;
+  std::string concurrent_functions;
   {
     std::unique_lock<std::mutex> lock(mutex_);
-    concurrent_functions.assign(currently_running_functions_.begin(),
-                                currently_running_functions_.end());
+    concurrent_functions =
+        JoinStrings(currently_running_functions_, /*separator=*/", ");
     currently_running_functions_.insert(starting_function_name);
   }
 
@@ -1154,13 +1154,9 @@ void PcscLiteClientRequestProcessor::EnterConcurrencyCheckScope(
     return;
   }
 
-  std::ostringstream str;
-  for (const auto& name : concurrent_functions) {
-    str << ", " << name;
-  }
   GOOGLE_SMART_CARD_LOG_WARNING
       << logging_prefix_ << "Client violates threading: concurrent calls of "
-      << starting_function_name << str.str()
+      << starting_function_name << concurrent_functions
       << ". Future releases of Smart Card Connector will forbid this.";
 }
 
