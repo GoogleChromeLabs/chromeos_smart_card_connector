@@ -62,6 +62,8 @@ class PcscLiteClientHandlesRegistry final {
   std::vector<SCARDCONTEXT> PopAllContexts();
 
   bool ContainsHandle(SCARDHANDLE s_card_handle) const;
+  // Returns the context that this handle refers to, or zero if none found.
+  SCARDCONTEXT FindContextByHandle(SCARDHANDLE s_card_handle) const;
   // Adds the handle to the data structure. CHECKs that it wasn't already
   // present.
   void AddHandle(SCARDCONTEXT s_card_context, SCARDHANDLE s_card_handle);

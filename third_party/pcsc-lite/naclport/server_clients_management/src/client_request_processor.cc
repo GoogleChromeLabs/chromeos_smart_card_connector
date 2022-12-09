@@ -32,11 +32,14 @@
 #include <cstddef>
 #include <cstring>
 #include <memory>
+#include <mutex>
+#include <string>
 #include <thread>
 #include <tuple>
 #include <vector>
 
 #include <google_smart_card_common/formatting.h>
+#include <google_smart_card_common/join_string.h>
 #include <google_smart_card_common/logging/function_call_tracer.h>
 #include <google_smart_card_common/logging/hex_dumping.h>
 #include <google_smart_card_common/multi_string.h>
@@ -215,6 +218,55 @@ void PcscLiteClientRequestProcessor::AsyncProcessRequest(
       .detach();
 }
 
+PcscLiteClientRequestProcessor::ScopedConcurrencyGuard::ScopedConcurrencyGuard(
+    const std::string& function_name,
+    SCARDCONTEXT s_card_context,
+    PcscLiteClientRequestProcessor& owner)
+    : function_name_(function_name),
+      s_card_context_(s_card_context),
+      owner_(owner) {
+  if (!s_card_context_) {
+    return;
+  }
+
+  optional<std::string> concurrent_functions_dump;
+  {
+    const std::unique_lock<std::mutex> lock(owner_.mutex_);
+    std::multiset<std::string>& running_functions =
+        owner_.context_to_running_functions_[s_card_context_];
+    if (!running_functions.empty()) {
+      concurrent_functions_dump =
+          JoinStrings(running_functions, /*separator=*/", ");
+    }
+    running_functions.insert(function_name_);
+  }
+
+  if (concurrent_functions_dump) {
+    GOOGLE_SMART_CARD_LOG_WARNING
+        << owner_.logging_prefix_
+        << "Client violates threading: concurrent calls of " << function_name_
+        << ", " << *concurrent_functions_dump
+        << " against the same SCARDCONTEXT. Future releases of Smart Card "
+           "Connector will forbid this: every call referring to some "
+           "SCARDCONTEXT must come after the previous one completed.";
+  }
+}
+
+PcscLiteClientRequestProcessor::ScopedConcurrencyGuard::
+    ~ScopedConcurrencyGuard() {
+  if (!s_card_context_) {
+    return;
+  }
+  const std::unique_lock<std::mutex> lock(owner_.mutex_);
+  auto iter = owner_.context_to_running_functions_.find(s_card_context_);
+  GOOGLE_SMART_CARD_CHECK(iter != owner_.context_to_running_functions_.end());
+  std::multiset<std::string>& running_functions = iter->second;
+  running_functions.erase(running_functions.find(function_name_));
+  if (running_functions.empty()) {
+    owner_.context_to_running_functions_.erase(iter);
+  }
+}
+
 void PcscLiteClientRequestProcessor::BuildHandlerMap() {
   AddHandlerToHandlerMap(
       "pcsc_lite_version_number",
@@ -378,6 +430,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardReleaseContext(
                             status_log_severity_);
   tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
   tracer.LogEntrance();
+  ScopedConcurrencyGuard concurrency_guard("SCardReleaseContext",
+                                           s_card_context, *this);
 
   LONG return_code = SCARD_S_SUCCESS;
   if (!s_card_handles_registry_.ContainsContext(s_card_context))
@@ -413,6 +467,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardConnect(
   tracer.AddPassedArg("dwPreferredProtocols",
                       DebugDumpSCardProtocols(preferred_protocols));
   tracer.LogEntrance();
+  ScopedConcurrencyGuard concurrency_guard("SCardConnect", s_card_context,
+                                           *this);
 
   SCARDHANDLE s_card_handle;
   DWORD active_protocol;
@@ -538,6 +594,9 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardReconnect(
   tracer.AddPassedArg("dwInitialization",
                       DebugDumpSCardDisposition(initialization_action));
   tracer.LogEntrance();
+  ScopedConcurrencyGuard concurrency_guard(
+      "SCardReconnect",
+      s_card_handles_registry_.FindContextByHandle(s_card_handle), *this);
 
   LONG return_code = SCARD_S_SUCCESS;
   if (!s_card_handles_registry_.ContainsHandle(s_card_handle))
@@ -575,6 +634,9 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardDisconnect(
   tracer.AddPassedArg("dwDisposition",
                       DebugDumpSCardDisposition(disposition_action));
   tracer.LogEntrance();
+  ScopedConcurrencyGuard concurrency_guard(
+      "SCardDisconnect",
+      s_card_handles_registry_.FindContextByHandle(s_card_handle), *this);
 
   LONG return_code = DisconnectCard(s_card_handle, disposition_action);
 
@@ -607,6 +669,9 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardBeginTransaction(
                             status_log_severity_);
   tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
   tracer.LogEntrance();
+  ScopedConcurrencyGuard concurrency_guard(
+      "SCardBeginTransaction",
+      s_card_handles_registry_.FindContextByHandle(s_card_handle), *this);
 
   LONG return_code = SCARD_S_SUCCESS;
   if (!s_card_handles_registry_.ContainsHandle(s_card_handle))
@@ -635,6 +700,9 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardEndTransaction(
   tracer.AddPassedArg("dwDisposition",
                       DebugDumpSCardDisposition(disposition_action));
   tracer.LogEntrance();
+  ScopedConcurrencyGuard concurrency_guard(
+      "SCardEndTransaction",
+      s_card_handles_registry_.FindContextByHandle(s_card_handle), *this);
 
   LONG return_code = SCARD_S_SUCCESS;
   if (!s_card_handles_registry_.ContainsHandle(s_card_handle))
@@ -660,6 +728,9 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardStatus(
                             status_log_severity_);
   tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
   tracer.LogEntrance();
+  ScopedConcurrencyGuard concurrency_guard(
+      "SCardStatus",
+      s_card_handles_registry_.FindContextByHandle(s_card_handle), *this);
 
   LONG return_code = SCARD_S_SUCCESS;
   if (!s_card_handles_registry_.ContainsHandle(s_card_handle))
@@ -735,6 +806,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardGetStatusChange(
                                                 : &pcsc_lite_reader_states[0],
                                             pcsc_lite_reader_states.size()));
   tracer.LogEntrance();
+  ScopedConcurrencyGuard concurrency_guard("SCardGetStatusChange",
+                                           s_card_context, *this);
 
   LONG return_code = SCARD_S_SUCCESS;
   if (!s_card_handles_registry_.ContainsContext(s_card_context))
@@ -784,6 +857,9 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardControl(
   tracer.AddPassedArg("bSendBuffer",
                       "<" + DebugDumpSCardBufferContents(data_to_send) + ">");
   tracer.LogEntrance();
+  ScopedConcurrencyGuard concurrency_guard(
+      "SCardControl",
+      s_card_handles_registry_.FindContextByHandle(s_card_handle), *this);
 
   LONG return_code = SCARD_S_SUCCESS;
   if (!s_card_handles_registry_.ContainsHandle(s_card_handle))
@@ -825,6 +901,9 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardGetAttrib(
   tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
   tracer.AddPassedArg("dwAttrId", DebugDumpSCardAttributeId(attribute_id));
   tracer.LogEntrance();
+  ScopedConcurrencyGuard concurrency_guard(
+      "SCardGetAttrib",
+      s_card_handles_registry_.FindContextByHandle(s_card_handle), *this);
 
   LONG return_code = SCARD_S_SUCCESS;
   if (!s_card_handles_registry_.ContainsHandle(s_card_handle))
@@ -867,6 +946,9 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardSetAttrib(
   tracer.AddPassedArg("dwAttrId", DebugDumpSCardAttributeId(attribute_id));
   tracer.AddPassedArg("pbAttr", "<" + HexDumpBytes(attribute) + ">");
   tracer.LogEntrance();
+  ScopedConcurrencyGuard concurrency_guard(
+      "SCardSetAttrib",
+      s_card_handles_registry_.FindContextByHandle(s_card_handle), *this);
 
   LONG return_code = SCARD_S_SUCCESS;
   if (!s_card_handles_registry_.ContainsHandle(s_card_handle))
@@ -916,6 +998,9 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardTransmit(
                                          scard_response_protocol_information));
   }
   tracer.LogEntrance();
+  ScopedConcurrencyGuard concurrency_guard(
+      "SCardTransmit",
+      s_card_handles_registry_.FindContextByHandle(s_card_handle), *this);
 
   LONG return_code = SCARD_S_SUCCESS;
   if (!s_card_handles_registry_.ContainsHandle(s_card_handle))
@@ -984,6 +1069,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardListReaders(
   tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
   tracer.AddPassedArg("mszGroups", Value::kNullTypeTitle);
   tracer.LogEntrance();
+  ScopedConcurrencyGuard concurrency_guard("SCardListReaders", s_card_context,
+                                           *this);
 
   LONG return_code = SCARD_S_SUCCESS;
   if (!s_card_handles_registry_.ContainsContext(s_card_context))
@@ -1020,6 +1107,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardListReaderGroups(
                             status_log_severity_);
   tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
   tracer.LogEntrance();
+  ScopedConcurrencyGuard concurrency_guard("SCardListReaderGroups",
+                                           s_card_context, *this);
 
   LONG return_code = SCARD_S_SUCCESS;
   if (!s_card_handles_registry_.ContainsContext(s_card_context))
@@ -1058,6 +1147,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardCancel(
                             status_log_severity_);
   tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
   tracer.LogEntrance();
+  // Note there's no `ScopedConcurrencyGuard`, since PC/SC API allows calling
+  // `SCardCancel()` from different threads.
 
   LONG return_code = SCARD_S_SUCCESS;
   if (!s_card_handles_registry_.ContainsContext(s_card_context))
@@ -1083,6 +1174,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardIsValidContext(
                             status_log_severity_);
   tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
   tracer.LogEntrance();
+  ScopedConcurrencyGuard concurrency_guard("SCardIsValidContext",
+                                           s_card_context, *this);
 
   LONG return_code = SCARD_S_SUCCESS;
   if (!s_card_handles_registry_.ContainsContext(s_card_context))

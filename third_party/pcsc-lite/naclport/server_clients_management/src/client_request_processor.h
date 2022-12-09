@@ -31,6 +31,8 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <mutex>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -143,6 +145,28 @@ class PcscLiteClientRequestProcessor final
       std::function<GenericRequestResult(std::vector<Value> arguments)>;
   using HandlerMap = std::unordered_map<std::string, Handler>;
 
+  // Helper class for making updates to `context_to_running_functions_`. On
+  // construction, adds the given function name and logs a warning if misuse
+  // detected. On destruction, undoes the change.
+  class ScopedConcurrencyGuard final {
+   public:
+    ScopedConcurrencyGuard(const std::string& function_name,
+                           SCARDCONTEXT s_card_context,
+                           PcscLiteClientRequestProcessor& owner);
+
+    ScopedConcurrencyGuard(const ScopedConcurrencyGuard&) = delete;
+    ScopedConcurrencyGuard& operator=(const ScopedConcurrencyGuard&) = delete;
+
+    ~ScopedConcurrencyGuard();
+
+   private:
+    const std::string function_name_;
+    const SCARDCONTEXT s_card_context_;
+    PcscLiteClientRequestProcessor& owner_;
+  };
+
+  friend class ScopedConcurrencyGuard;
+
   void BuildHandlerMap();
 
   template <typename... Args>
@@ -238,6 +262,10 @@ class PcscLiteClientRequestProcessor final
   // used to implement the client isolation: one client shouldn't be able to use
   // contexts/handles belonging to the other one.
   PcscLiteClientHandlesRegistry s_card_handles_registry_;
+
+  mutable std::mutex mutex_;
+  std::unordered_map<SCARDCONTEXT, std::multiset<std::string>>
+      context_to_running_functions_;
 };
 
 }  // namespace google_smart_card
