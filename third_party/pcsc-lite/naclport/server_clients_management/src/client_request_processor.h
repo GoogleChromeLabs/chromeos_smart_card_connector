@@ -252,9 +252,6 @@ class PcscLiteClientRequestProcessor final
   void OnSCardContextRevoked(SCARDCONTEXT s_card_context);
   void OnSCardHandleRevoked(SCARDHANDLE s_card_handle);
 
-  void EnterConcurrencyCheckScope(const std::string& starting_function_name);
-  void LeaveConcurrencyCheckScope(const std::string& finished_function_name);
-
   const int64_t client_handler_id_;
   const std::string client_name_for_log_;
   const LogSeverity status_log_severity_;
