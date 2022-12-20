@@ -1,4 +1,4 @@
-ignoreFiles:
+ignorePaths:
 # Suppress spurious "Security Policy violation" reports on files taken from
 # trusted upstream repositories as-is:
 - third_party/closure-compiler-binary/src/compiler.jar
