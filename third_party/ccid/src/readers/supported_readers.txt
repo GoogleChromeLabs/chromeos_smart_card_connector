@@ -1,6 +1,6 @@
 #
 # List of readers supported by the CCID driver
-# Generated: 2022-10-27
+# Generated: 2023-01-20
 #
 # DO NOT EDIT BY HAND
 
@@ -187,7 +187,6 @@
 
 # Alcor Micro
 0x058F:0x9522:Alcor Micro AU9522
-0x058F:0x9540:Alcor Micro AU95x0
 
 # ANCUD
 0x0483:0xACD1:ANCUD CCID USB Reader & RNG
@@ -600,6 +599,9 @@
 0x2A18:0x5001:KACST HSID Reader Single Storage
 0x2A18:0x5002:KACST HSID Reader Dual Storage
 
+# KAPELSE
+0x2947:0x0101:KAPELSE KAP-LINK
+
 # Kapsch TrafficCom
 0x28B9:0x0002:Kapsch TrafficCom USB SAM reader
 
@@ -621,6 +623,9 @@
 # KRONEGGER
 0x2D25:0x0000:KRONEGGER NFC blue Reader Platform
 0x2D25:0x0001:KRONEGGER Micro Core Platform
+
+# LDU
+0x0925:0x900A:LDU LANDI
 
 # Ledger
 0x2C97:0x0001:Ledger Nano S
@@ -781,6 +786,7 @@
 
 # Sensyl
 0x356F:0x22FC:Sensyl SSC-NFC Reader
+0x356F:0x23FE:Sensyl SSC-HV Reader
 
 # Sitecom
 0x0DF6:0x800A:Sitecom Sitecom USB simcard reader MD-010
@@ -850,6 +856,7 @@
 
 # Thales
 0x08E6:0x34C7:Thales Shield M4 Reader
+0x17B9:0x400B:Thales RF Reader
 
 # THURSBY SOFTWARE
 0x1976:0x0001:THURSBY SOFTWARE TSS-PK1
@@ -862,6 +869,12 @@
 # Todos
 0x0B0C:0x0050:Todos Argos Mini II
 0x0B0C:0x0052:Todos CX00
+
+# TOKEN2
+0x349E:0x0300:TOKEN2 Molto2
+
+# TOKEN2 MFA
+0x349E:0x0430:TOKEN2 MFA NFC Reader
 
 # TOPPAN FORMS CO.,LTD
 0x23EB:0x0003:TOPPAN FORMS CO.,LTD TC63CUT021
@@ -938,6 +951,9 @@
 0x09C3:0x0008:ActivCard ActivCard USB Reader V2
 
 # Aladdin
+
+# Alcor Micro
+0x058F:0x9540:Alcor Micro AU9540
 
 # Athena
 0x0DC3:0x100F:Athena IDProtect Flash

@@ -1,4 +1,520 @@
-commit 64a1780ac6b9947223a7d65c363556f2aed8d4c9 (HEAD -> master, zotac/master)
+commit 9a7ad431a184771fdb7228da922c89daf5d55acb (HEAD -> master, zotac/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Jan 31 16:26:09 2023 +0100
+
+    Release 1.5.2
+    
+    Signed-off-by: Ludovic Rousseau <ludovic.rousseau@free.fr>
+
+ README.md    | 12 ++++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 13 insertions(+), 1 deletion(-)
+
+commit ae7e716f8b0fee0effabe80aeea7bca2c066a291 (zotac/AlcorMicro)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jan 15 15:06:32 2023 +0100
+
+    Hack for AlcorMicro AU9560 and Acos-ID card
+    
+    Perform a double reset cold + hot so that the Acos-ID card uses a lower
+    communication speed.
+    
+    The cold ATR of this card is:
+    3B DF 96 FF 91 01 31 FE 46 80 31 90 52 41 02 64 05 02 00 AC 73 D6 22 C0 17
+    While the hot ATR is:
+    3B DF 18 FF 91 01 31 FE 46 80 31 90 52 41 02 64 05 02 00 AC 73 D6 22 C0 99
+    
+    Note how TA1 changed from 0x96 (250000 bits/s at 4 MHz) to 0x18
+    (129032 bits/s at 4.00 MHz).
+    
+    The pcscd trace is:
+    00000002 [] ifdhandler.c:926:IFDHSetProtocolParameters() Set adapted speed to 115625 bauds
+    00000003 [] ifdhandler.c:1039:IFDHSetProtocolParameters() BWI/CWI (TB3) present: 0x46
+    00000002 [] ifdhandler.c:1074:IFDHSetProtocolParameters() IFSC (TA3) present: 254
+    00000002 [] ifdhandler.c:1078:IFDHSetProtocolParameters() Timeout: 2928 ms
+    00000003 [] commands.c:2324:SetParameters() length: 7 bytes
+    00000006 [] -> 000000 61 07 00 00 00 00 0D 01 00 00 95 10 FF 46 00 FE 00
+    02267701 [] <- 000000 82 00 00 00 00 00 0D 41 FE 00
+    00000021 [] commands.c:2351:SetParameters Card absent or mute
+    00000011 [] ifdhandler.c:1246:IFDHPowerICC() action: Reset, usb:058f/9540:libudev:0:/dev/bus/usb/003/003 (lun: 0)
+    00000006 [] -> 000000 62 00 00 00 00 00 0E 00 00 00
+    00194208 [] <- 000000 80 19 00 00 00 00 0E 00 00 00 3B DF 96 FF 91 01 31 FE 46 80 31 90 52 41 02 64 05 02 00 AC 73 D6 22 C0 17
+    00000025 [] ifdhandler.c:1246:IFDHPowerICC() action: Reset, usb:058f/9540:libudev:0:/dev/bus/usb/003/003 (lun: 0)
+    00000007 [] -> 000000 62 00 00 00 00 00 0F 00 00 00
+    00056894 [] <- 000000 80 19 00 00 00 00 0F 00 00 00 3B DF 18 FF 91 01 31 FE 46 80 31 90 52 41 02 64 05 02 00 AC 73 D6 22 C0 99
+    00000022 [] winscard.c:430:SCardConnect() Active Protocol: T=1
+
+ src/ifdhandler.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+commit 02f953b72bf55005f2483163fc35b2f6f0bbd30a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jan 11 16:04:08 2023 +0100
+
+    Hack for AlcorMicro AU9560 and Acos-ID card
+    
+    The Acos-ID card 3BDF96FF910131FE4680319052410264050200AC73D622C017 does
+    not like when the driver tries to negotiate a speed lower than its
+    TA1=0x96
+    
+    The AlcorMicro AU9560 does not support the card speed so must negotiate a
+    lower speed using Set Paramaters.
+    But that fails:
+    00000004 [] ifdhandler.c:858:IFDHSetProtocolParameters() Card can work at 231250 bauds
+    00000003 [] ifdhandler.c:897:IFDHSetProtocolParameters() Reader can't do more than 200000 bauds
+    00000002 [] ifdhandler.c:2176:find_baud_rate() Card baud rate: 115625
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 1807
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 1989
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 2409
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 2487
+    00000001 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 3315
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 3613
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 3978
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 4818
+    00000001 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 4973
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 6631
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 7227
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 7957
+    00000001 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 9635
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 9946
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 13262
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 14453
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 15914
+    00000004 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 19271
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 19892
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 21680
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 23871
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 26523
+    00000001 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 28906
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 29839
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 31828
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 36133
+    00000001 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 38542
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 39785
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 43359
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 48177
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 49731
+    00000001 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 53047
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 57813
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 59677
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 63656
+    00000001 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 66308
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 72266
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 77083
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 79570
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 86719
+    00000001 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 96354
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 99462
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 106093
+    00000002 [] ifdhandler.c:2185:find_baud_rate() Reader can do: 115625
+    00000002 [] ifdhandler.c:926:IFDHSetProtocolParameters() Set adapted speed to 115625 bauds
+    00000002 [] ifdhandler.c:1039:IFDHSetProtocolParameters() BWI/CWI (TB3) present: 0x46
+    00000003 [] ifdhandler.c:1074:IFDHSetProtocolParameters() IFSC (TA3) present: 254
+    00000002 [] ifdhandler.c:1078:IFDHSetProtocolParameters() Timeout: 2928 ms
+    00000003 [] commands.c:2324:SetParameters() length: 7 bytes
+    00000006 [] -> 000000 61 07 00 00 00 00 4B 01 00 00 95 10 FF 46 00 FE 00
+    02267435 [] <- 000000 82 00 00 00 00 00 4B 41 FE 00
+    00000023 [] commands.c:2351:SetParameters Card absent or mute
+    
+    The idea is to reset the card and do NOT try to use lower the speed.
+
+ src/ifdhandler.c | 18 +++++++++++++++++-
+ 1 file changed, 17 insertions(+), 1 deletion(-)
+
+commit 5fb1e2c3d4b1ee40dd5c370cbb5fe8c1f7de8851
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jan 25 14:41:11 2023 +0100
+
+    Alcor Micro AU9560: check the list exists before truncation
+    
+    The reader may be in a incorrect state and not respond to the
+    GET_DATA_RATES command. The list is then empty and we should not try to
+    truncate it (or the driver would crash).
+    
+    The logs are:
+    00000003 [] ccid_usb.c:1432:ControlUSB() request: 0x03
+    00000259 [] ccid_usb.c:1443:ControlUSB() control failed (1/3): LIBUSB_ERROR_IO
+    00000003 [] ccid_usb.c:1377:get_data_rates() IFD does not support GET_DATA_RATES request: -1
+    then crash
+
+ src/ccid.c | 25 +++++++++++++++----------
+ 1 file changed, 15 insertions(+), 10 deletions(-)
+
+commit 2f78bca94a4d815231638d1ff434b549f20913bf
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jan 20 16:15:17 2023 +0100
+
+    Add Sensyl SSC-HV Reader
+
+ readers/Sensyl_SSC-HV_Reader.txt | 100 +++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt    |   3 +-
+ 2 files changed, 102 insertions(+), 1 deletion(-)
+
+commit 98fb549ba17954f0623cb7a0e737e52d78f6149b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jan 20 12:37:42 2023 +0100
+
+    Makefile: fix 'make dist'
+    
+    make[2]: *** No rule to make target 'SCARDGETATTRIB.txt', needed by 'distdir-am'.  Stop.
+
+ Makefile.am | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+commit 772f64885ecc421b5002dbed6d897d5471a9e3c9
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jan 20 10:55:39 2023 +0100
+
+    Rename SCARDGETATTRIB from .txt to .md
+
+ SCARDGETATTRIB.txt => SCARDGETATTRIB.md | 86 +++++++++++++++++++--------------
+ 1 file changed, 49 insertions(+), 37 deletions(-)
+
+commit 23948c5b7ff038c2a84a570274b50486eed5d43f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jan 20 10:37:35 2023 +0100
+
+    Convert SCARDCONTOL from .txt to .md
+
+ SCARDCONTOL.md  | 68 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ SCARDCONTOL.txt | 63 ----------------------------------------------------
+ 2 files changed, 68 insertions(+), 63 deletions(-)
+
+commit 62a62d3fcc10beb639de0c96258c36225e560754
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Dec 7 11:31:07 2022 +0100
+
+    ccid_open_hack_pre: fix build error on macOS
+    
+    clang compiler does not like to have variables declared in a case: block
+    without a { } block.
+    
+    ccid.c:107:4: error: expected expression
+                            unsigned int *uint_array = ccid_descriptor->arrayOfSupportedDataRates;
+                            ^
+    ccid.c:112:12: error: use of undeclared identifier 'uint_array'
+                            after = uint_array;
+                                    ^
+    ccid.c:113:29: error: use of undeclared identifier 'uint_array'
+                            while ((current_speed = *uint_array++) != 0)
+                                                     ^
+    3 errors generated.
+
+ src/ccid.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+commit 3f42960bcd71a1053a6e330ccf33de617895e62e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Nov 23 15:29:36 2022 +0100
+
+    IFDHSetProtocolParameters: add logs to speed selection
+    
+    We now log:
+    - the baud rate the card can use
+    - the maxiumum baud rate the reader can use
+    
+    So it you use a card with TA1=0x96 (250000 bits/s at 4 MHz) and the
+    reader can't use this speed you will have something like:
+    ifdhandler.c:858:IFDHSetProtocolParameters() Card can work at 231250 bauds
+    ifdhandler.c:897:IFDHSetProtocolParameters() Reader can't do more than 187500 bauds
+    ifdhandler.c:2160:find_baud_rate() Card baud rate: 115625
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 1807
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 1989
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 2409
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 2487
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 3315
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 3613
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 3978
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 4818
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 4973
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 6631
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 7227
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 7957
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 9635
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 9946
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 13262
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 14453
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 15914
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 19271
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 19892
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 21680
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 23871
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 26523
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 28906
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 29839
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 31828
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 36133
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 38542
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 39785
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 43359
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 48177
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 49731
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 53047
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 57813
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 59677
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 63656
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 66308
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 72266
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 77083
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 79570
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 86719
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 96354
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 99462
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 106093
+    ifdhandler.c:2169:find_baud_rate() Reader can do: 115625
+    ifdhandler.c:926:IFDHSetProtocolParameters() Set adapted speed to 115625 bauds
+    
+    This is the case with the "NXP JCOP 4, J3R200P0X3U/0ZA16CP NXD6.2
+    (JavaCard)" card
+    https://smartcard-atr.apdu.fr/parse?ATR=3BDC96FF8111FE8031C8544356350773FFA1C03C
+    and the Alcor Micro AU9560 reader.
+
+ src/ifdhandler.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+commit c81c512ba7159ad35a41deaf4d294ee4cc399920
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Nov 22 17:56:47 2022 +0100
+
+    Alcor Micro AU9560: Remove high speeds
+    
+    The reader does NOT support high speeds even if it declares so.
+    
+    We remove all baud rates higher than 200000.
+    
+    00000026 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 1807 bps
+    00000005 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 1989 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 2409 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 2487 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 3315 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 3613 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 3978 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 4818 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 4973 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 6631 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 7227 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 7957 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 9635 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 9946 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 13262 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 14453 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 15914 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 19271 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 19892 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 21680 bps
+    00000007 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 23871 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 26523 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 28906 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 29839 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 31828 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 36133 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 38542 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 39785 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 43359 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 48177 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 49731 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 53047 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 57813 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 59677 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 63656 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 66308 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 72266 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 77083 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 79570 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 86719 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 96354 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 99462 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 106093 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 115625 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 119355 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 132616 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 144531 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 154167 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 159140 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 198925 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 212186 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 231250 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 318280 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 2344 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 2581 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 3125 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 3226 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 4301 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 4688 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 5161 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 5859 bps
+    00000007 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 6250 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 6452 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 7813 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 8065 bps
+    00000009 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 8602 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 9375 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 10323 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 10753 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 11719 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 12500 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 12903 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 15625 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 16129 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 17204 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 18750 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 20645 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 21505 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 23438 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 25000 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 25806 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 28125 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 30968 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 31250 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 32258 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 34409 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 37500 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 38710 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 41290 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 43011 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 46875 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 50000 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 51613 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 56250 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 62500 bps
+    00000005 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 64516 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 68817 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 70313 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 75000 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 77419 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 82581 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 86022 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 93750 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 96774 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 100000 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 103226 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 112500 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 117188 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 125000 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 127312 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 129032 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 137634 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 150000 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 156250 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 161290 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 165161 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 172043 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 187500 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 200000 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 206452 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 215054 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 250000 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 258065 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 275269 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 300000 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 308333 bps
+    00000005 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 344086 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 375000 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 400000 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 412903 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 424373 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 462500 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 500000 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 516129 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 550538 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 600000 bps
+    00000003 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 636559 bps
+    00000002 [140214768158720] ccid_usb.c:1412:get_data_rates() declared: 688172 bps
+    00001534 [140214768158720] ccid.c:117:ccid_open_hack_pre() Remove baudrate: 212186
+    00000015 [140214768158720] ccid.c:117:ccid_open_hack_pre() Remove baudrate: 231250
+    00000004 [140214768158720] ccid.c:117:ccid_open_hack_pre() Remove baudrate: 318280
+    00000003 [140214768158720] ccid.c:117:ccid_open_hack_pre() Remove baudrate: 206452
+    00000002 [140214768158720] ccid.c:117:ccid_open_hack_pre() Remove baudrate: 215054
+    00000003 [140214768158720] ccid.c:117:ccid_open_hack_pre() Remove baudrate: 250000
+    00000002 [140214768158720] ccid.c:117:ccid_open_hack_pre() Remove baudrate: 258065
+    00000002 [140214768158720] ccid.c:117:ccid_open_hack_pre() Remove baudrate: 275269
+    00000003 [140214768158720] ccid.c:117:ccid_open_hack_pre() Remove baudrate: 300000
+    00000002 [140214768158720] ccid.c:117:ccid_open_hack_pre() Remove baudrate: 308333
+    00000002 [140214768158720] ccid.c:117:ccid_open_hack_pre() Remove baudrate: 344086
+    00000002 [140214768158720] ccid.c:117:ccid_open_hack_pre() Remove baudrate: 375000
+    00000003 [140214768158720] ccid.c:117:ccid_open_hack_pre() Remove baudrate: 400000
+    00000002 [140214768158720] ccid.c:117:ccid_open_hack_pre() Remove baudrate: 412903
+    00000003 [140214768158720] ccid.c:117:ccid_open_hack_pre() Remove baudrate: 424373
+    00000002 [140214768158720] ccid.c:117:ccid_open_hack_pre() Remove baudrate: 462500
+    00000003 [140214768158720] ccid.c:117:ccid_open_hack_pre() Remove baudrate: 500000
+    00000002 [140214768158720] ccid.c:117:ccid_open_hack_pre() Remove baudrate: 516129
+    00000002 [140214768158720] ccid.c:117:ccid_open_hack_pre() Remove baudrate: 550538
+    00000005 [140214768158720] ccid.c:117:ccid_open_hack_pre() Remove baudrate: 600000
+    00000003 [140214768158720] ccid.c:117:ccid_open_hack_pre() Remove baudrate: 636559
+    00000002 [140214768158720] ccid.c:117:ccid_open_hack_pre() Remove baudrate: 688172
+    
+    Cards with TA1=0x96 or 0x97 are now working with this reader after
+    negotiating a lower speed.
+
+ src/ccid.c | 24 ++++++++++++++++++++++++
+ src/ccid.h |  1 +
+ 2 files changed, 25 insertions(+)
+
+commit 1af59ba4d1b4b4557085f3e7938b0275282e66c8
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jan 18 14:34:56 2023 +0100
+
+    Add KAPELSE KAP-LINK
+
+ readers/KAPELSE_KAP-LINK.txt  | 102 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |   5 ++-
+ 2 files changed, 106 insertions(+), 1 deletion(-)
+
+commit 171ba932c94473ec699a0f2279cdb1bcef949caa
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jan 13 21:54:50 2023 +0100
+
+    configure.ac: disable the use of --disable-usbdropdir
+    
+    The configure will now fails with the error:
+    use --enable-usbdropdir=DIR
+    
+    It is not possible to build the driver without specifying a USB dropdir.
+
+ configure.ac | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 6ba85f0626cb00af18be7fd17ff1c0144d373405 (origin/master, origin/HEAD, github/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Dec 6 17:22:14 2022 +0100
+
+    Add LDU LANDI
+
+ readers/LDU_LANDI.txt         | 51 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  5 ++++-
+ 2 files changed, 55 insertions(+), 1 deletion(-)
+
+commit 2b568a65c887b5416c3d3a7ed7d44407ba7d8e91
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Nov 18 11:09:21 2022 +0100
+
+    Add TOKEN2 MFA NFC Reader
+
+ readers/TOKEN2_MFA_NFC_Reader.txt | 100 ++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt     |   5 +-
+ 2 files changed, 104 insertions(+), 1 deletion(-)
+
+commit cd1df07d90487c77f07ecebf098ee64f85b64873
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Nov 17 21:52:35 2022 +0100
+
+    Add Thales RF Reader
+
+ readers/Thales_RF_Reader.txt  | 57 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  3 ++-
+ 2 files changed, 59 insertions(+), 1 deletion(-)
+
+commit 7ddec0a46fe7592a06b1ed22b4afdcc8e301465e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Nov 16 14:52:48 2022 +0100
+
+    Add TOKEN2 Molto2
+
+ readers/TOKEN2_Molto2.txt     | 50 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  5 ++++-
+ 2 files changed, 54 insertions(+), 1 deletion(-)
+
+commit 64a1780ac6b9947223a7d65c363556f2aed8d4c9 (tag: 1.5.1)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Mon Nov 14 11:41:23 2022 +0100
 
@@ -10,7 +526,7 @@ Date:   Mon Nov 14 11:41:23 2022 +0100
  configure.ac |  2 +-
  2 files changed, 29 insertions(+), 1 deletion(-)
 
-commit 67b825199a6d3510168b49d90e16265cdaead00d (origin/master, origin/HEAD)
+commit 67b825199a6d3510168b49d90e16265cdaead00d
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Nov 8 18:13:48 2022 +0100
 
@@ -116,7 +632,7 @@ Date:   Tue Nov 8 15:29:48 2022 +0100
  PCSC | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit 89bddc85d819df57ff1e0cf7e28c92ae08708fb5 (github/master)
+commit 89bddc85d819df57ff1e0cf7e28c92ae08708fb5
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Mon Nov 7 17:28:57 2022 +0100
 

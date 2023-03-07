@@ -4,7 +4,7 @@
 # Require autoconf 2.61
 AC_PREREQ([2.69])
 
-AC_INIT([ccid],[1.5.1])
+AC_INIT([ccid],[1.5.2])
 AC_CONFIG_SRCDIR(src/ifdhandler.c)
 AC_CONFIG_AUX_DIR([.])
 AM_INIT_AUTOMAKE(1.8 dist-bzip2 no-dist-gzip subdir-objects foreign)
@@ -183,7 +183,7 @@ if test "${usbdropdir}" = false ; then
 	usbdropdir=`$PKG_CONFIG libpcsclite --variable=usbdropdir`
 fi
 AC_DEFINE_UNQUOTED(PCSCLITE_HP_DROPDIR, "$usbdropdir", [directory containing USB drivers])
-if test "${usbdropdir}" = "" ; then
+if test "${usbdropdir}" = "" -o "${usbdropdir}" = "no" ; then
 	AC_MSG_ERROR([use --enable-usbdropdir=DIR])
 fi
 
