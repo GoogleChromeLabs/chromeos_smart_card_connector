@@ -855,6 +855,8 @@ EXTERNAL RESPONSECODE IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol,
 			default_baudrate = (unsigned int) (1000 * ccid_desc->dwDefaultClock
 				* ATR_DEFAULT_D / ATR_DEFAULT_F);
 
+			DEBUG_COMM2("Card can work at %d bauds", card_baudrate);
+
 			/* if the card does not try to lower the default speed */
 			if ((card_baudrate > default_baudrate)
 				/* and the reader is fast enough */
@@ -891,6 +893,9 @@ EXTERNAL RESPONSECODE IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol,
 					&& (atr.ib[0][ATR_INTERFACE_BYTE_TA].value <= 0x97))
 				{
 					unsigned char old_TA1;
+
+					DEBUG_COMM2("Reader can't do more than %d bauds",
+						ccid_desc->dwMaxDataRate);
 
 					old_TA1 = atr.ib[0][ATR_INTERFACE_BYTE_TA].value;
 					while (atr.ib[0][ATR_INTERFACE_BYTE_TA].value > 0x94)
@@ -1078,7 +1083,29 @@ end:
 		{
 			ret = SetParameters(reader_index, 1, sizeof(param), param);
 			if (IFD_SUCCESS != ret)
-				return ret;
+			{
+				if (ALCORMICRO_AU9540 == ccid_desc -> readerID)
+				{
+					/* Set Parameters failed
+					 * reset the card and continue without Set Parameters */
+
+					UCHAR atr2[MAX_ATR_SIZE];
+					DWORD atr2length;
+					RESPONSECODE ret2;
+
+					/* 1st (cold?) reset */
+					ret2 = IFDHPowerICC(Lun, IFD_RESET, atr2, &atr2length);
+					if (IFD_SUCCESS != ret2)
+						return ret;
+
+					/* hot reset */
+					ret2 = IFDHPowerICC(Lun, IFD_RESET, atr2, &atr2length);
+					if (IFD_SUCCESS != ret2)
+						return ret;
+				}
+				else
+					return ret;
+			}
 		}
 	}
 	else
