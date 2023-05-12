@@ -60,6 +60,7 @@ SOURCES_PATH := ../src
 
 JS_COMPILER_FLAGS := \
 	--define='GoogleSmartCard.Logging.SELF_RELOAD_ON_FATAL_ERROR=true' \
+	--externs $(CURDIR)/../src/externs/chrome_smart_card_provider_private.js
 
 
 #

@@ -111,7 +111,10 @@ ${endif}
 
     # Needed for detecting the ChromeOS Lock Screen state (used for disabling
     # the USB communication if we run in-session and the screen is locked).
-    "loginState"
+    "loginState",
+
+    # Power the Web Smart Card API on ChromeOS
+    "smartCardProviderPrivate"
   ],
 
   # Allow any Extension/App and the specified web page URLs to send messages to
