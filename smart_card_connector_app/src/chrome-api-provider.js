@@ -2,12 +2,17 @@ goog.provide('GoogleSmartCard.ConnectorApp.ChromeApiProvider');
 
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ServerRequestHandler');
 goog.require('goog.Disposable');
+goog.require('goog.log');
+goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 
 goog.scope(function() {
 
 const GSC = GoogleSmartCard;
 const Pcsc = GSC.PcscLiteServerClientsManagement;
+
+/** @type {!goog.log.Logger} */
+const logger = GSC.Logging.getScopedLogger('ConnectorApp.ChromeApiProvider');
 
 /**
  * This class provides chrome.smartCardProviderPrivate API with PCSC responses.
@@ -28,8 +33,7 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
     this.serverRequester_ = new Pcsc.ServerRequestHandler(
         serverMessageChannel, serverReadinessTracker, 'chrome');
 
-    chrome.smartCardProviderPrivate.onEstablishContextRequested.addListener(
-        this.webApiEstablishContextListener_.bind(this));
+    this.subscribeToChromeApiEvents_();
 
     // TODO: addOnDisposeCallback
   }
@@ -37,6 +41,19 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
   /** @override */
   disposeInternal() {
     // TODO: add impl
+  }
+
+  subscribeToChromeApiEvents_() {
+    if (chrome.smartCardProviderPrivate === undefined) {
+      goog.log.error(
+          logger,
+          'Failed to subscribe to chrome.smartCardProviderPrivate API' +
+              'events as API is not available');
+      return;
+    }
+
+    chrome.smartCardProviderPrivate.onEstablishContextRequested.addListener(
+        this.webApiEstablishContextListener_.bind(this));
   }
 
   /**
