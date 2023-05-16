@@ -93,21 +93,22 @@ const CLIENT_HANDLER_ID_MESSAGE_KEY = 'handler_id';
 const CLIENT_NAME_FOR_LOG_MESSAGE_KEY = 'client_name_for_log';
 
 const GSC = GoogleSmartCard;
+const Pcsc = GoogleSmartCard.PcscLiteServerClientsManagement;
 const DeferredProcessor = GSC.DeferredProcessor;
 const RemoteCallMessage = GSC.RemoteCallMessage;
 
 /**
  * @param {!goog.messaging.AbstractChannel} serverMessageChannel Message channel
  * to the PC/SC server into which the PC/SC requests will be forwarded.
- * @param {!GSC.PcscLiteServerClientsManagement.ReadinessTracker}
- * serverReadinessTracker Tracker of the PC/SC server that allows to delay
+ * @param {!Pcsc.ReadinessTracker} serverReadinessTracker
+ * Tracker of the PC/SC server that allows to delay
  * forwarding of the PC/SC requests to the PC/SC server until it is ready to
  * receive them.
  * @param {string} clientNameForLog
  * @constructor
  * @extends goog.Disposable
  */
-GSC.PcscLiteServerClientsManagement.ServerRequestHandler = function(
+Pcsc.ServerRequestHandler = function(
     serverMessageChannel, serverReadinessTracker, clientNameForLog) {
   ServerRequestHandler.base(this, 'constructor');
 
@@ -152,8 +153,7 @@ GSC.PcscLiteServerClientsManagement.ServerRequestHandler = function(
       this.serverMessageChannelDisposedListener_.bind(this));
 };
 
-const ServerRequestHandler =
-    GSC.PcscLiteServerClientsManagement.ServerRequestHandler;
+const ServerRequestHandler = Pcsc.ServerRequestHandler;
 
 goog.inherits(ServerRequestHandler, goog.Disposable);
 
@@ -204,22 +204,21 @@ ServerRequestHandler.prototype.disposeInternal = function() {
  * containing the request contents.
  * @return {!goog.Promise}
  */
-ServerRequestHandler.prototype.handleRequest =
-    function(remoteCallMessage) {
+ServerRequestHandler.prototype.handleRequest = function(remoteCallMessage) {
   return this.deferredProcessor_.addJob(
       this.postRequestToServer_.bind(this, remoteCallMessage));
-}
+};
 
-    /**
-     * Posts the specified client request to the server.
-     *
-     * The request result will be passed through the returned promise.
-     * @param {!RemoteCallMessage} remoteCallMessage The remote call message
-     * containing the request contents.
-     * @return {!goog.Promise}
-     */
-    ServerRequestHandler.prototype.postRequestToServer_ = function(
-        remoteCallMessage) {
+/**
+ * Posts the specified client request to the server.
+ *
+ * The request result will be passed through the returned promise.
+ * @param {!RemoteCallMessage} remoteCallMessage The remote call message
+ * containing the request contents.
+ * @return {!goog.Promise}
+ */
+ServerRequestHandler.prototype.postRequestToServer_ = function(
+    remoteCallMessage) {
   const requestDump = remoteCallMessage.getDebugRepresentation();
   goog.log.fine(this.logger, `Processing PC/SC call: ${requestDump}`);
 

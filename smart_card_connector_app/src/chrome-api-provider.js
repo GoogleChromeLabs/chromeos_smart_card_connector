@@ -1,4 +1,4 @@
-goog.provide('GoogleSmartCard.ConnectorApp.ChromeAPIProvider');
+goog.provide('GoogleSmartCard.ConnectorApp.ChromeApiProvider');
 
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ServerRequestHandler');
 goog.require('goog.Disposable');
@@ -11,25 +11,25 @@ const Pcsc = GSC.PcscLiteServerClientsManagement;
 
 /**
  * This class provides chrome.smartCardProviderPrivate API with PCSC responses.
- * 
- * On creation, it subscribes to chrome.smartCardProviderPrivate API events, which
- * correspond to different PCSC requests. When an event if fired, ChromeAPIProvider
- * sends a request to Pcsc.ServerRequestHandler and waits for the response. When the
- * response is received, it reports the result back using chrome.smartCardProviderPrivate API.
+ *
+ * On creation, it subscribes to chrome.smartCardProviderPrivate API events,
+ * which correspond to different PCSC requests. When an event if fired,
+ * ChromeApiProvider sends a request to Pcsc.ServerRequestHandler and waits for
+ * the response. When the response is received, it reports the result back using
+ * chrome.smartCardProviderPrivate API.
  */
-GSC.ConnectorApp.ChromeAPIProvider = class extends goog.Disposable {
-/**
- * @param {!goog.messaging.AbstractChannel} serverMessageChannel 
- * @param {!Pcsc.ReadinessTracker} serverReadinessTracker 
- */
+GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
+  /**
+   * @param {!goog.messaging.AbstractChannel} serverMessageChannel
+   * @param {!Pcsc.ReadinessTracker} serverReadinessTracker
+   */
   constructor(serverMessageChannel, serverReadinessTracker) {
     super();
-    this.serverRequester_ =
-        new Pcsc.ServerRequestHandler(
-            serverMessageChannel, serverReadinessTracker, 'chrome');
+    this.serverRequester_ = new Pcsc.ServerRequestHandler(
+        serverMessageChannel, serverReadinessTracker, 'chrome');
 
     chrome.smartCardProviderPrivate.onEstablishContextRequested.addListener(
-        this.webapiEstablishContextListener_.bind(this));
+        this.webApiEstablishContextListener_.bind(this));
 
     // TODO: addOnDisposeCallback
   }
@@ -39,11 +39,10 @@ GSC.ConnectorApp.ChromeAPIProvider = class extends goog.Disposable {
     // TODO: add impl
   }
 
-
   /**
    * @param {number} requestId
-  */
-  async webapiEstablishContextListener_(requestId) {
+   */
+  async webApiEstablishContextListener_(requestId) {
     const callArguments = [2, null, null];
     const remoteCallMessage =
         new GSC.RemoteCallMessage('SCardEstablishContext', callArguments);
@@ -52,15 +51,16 @@ GSC.ConnectorApp.ChromeAPIProvider = class extends goog.Disposable {
     var resultCode = chrome.smartCardProviderPrivate.ResultCode.INTERNAL_ERROR;
     var sCardContext = 0;
     try {
-        const result = await this.serverRequester_.handleRequest(remoteCallMessage);
+      const result =
+          await this.serverRequester_.handleRequest(remoteCallMessage);
 
-        //TODO: map result codes to enum vals.
-        if (result[0] === 0) {
-            resultCode = chrome.smartCardProviderPrivate.ResultCode.SUCCESS;
-        }
-        sCardContext = result[1];
-    } catch(error) {
-        //TODO: log error
+      // TODO: map result codes to enum vals.
+      if (result[0] === 0) {
+        resultCode = chrome.smartCardProviderPrivate.ResultCode.SUCCESS;
+      }
+      sCardContext = result[1];
+    } catch (error) {
+      // TODO: log error
     }
     chrome.smartCardProviderPrivate.reportEstablishContextResult(
         requestId, sCardContext, resultCode);
