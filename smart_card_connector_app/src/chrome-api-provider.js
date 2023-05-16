@@ -58,5 +58,4 @@ ChromeAPIProvider.prototype.webapiEstablishContextListener_ = function(
             chrome.smartCardProviderPrivate.ResultCode.INTERNAL_ERROR);
       });
 };
-
 });  // goog.scope
