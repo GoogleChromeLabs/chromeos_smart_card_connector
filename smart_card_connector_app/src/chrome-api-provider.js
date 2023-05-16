@@ -1,61 +1,69 @@
-goog.provide('GoogleSmartCard.ChromeAPIProvider');
+goog.provide('GoogleSmartCard.ConnectorApp.ChromeAPIProvider');
 
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ServerRequestHandler');
+goog.require('goog.Disposable');
+goog.require('goog.messaging.AbstractChannel');
 
 goog.scope(function() {
 
 const GSC = GoogleSmartCard;
+const Pcsc = GSC.PcscLiteServerClientsManagement;
 
 /**
- * @constructor
- * @extends goog.Disposable
+ * This class provides chrome.smartCardProviderPrivate API with PCSC responses.
+ * 
+ * On creation, it subscribes to chrome.smartCardProviderPrivate API events, which
+ * correspond to different PCSC requests. When an event if fired, ChromeAPIProvider
+ * sends a request to Pcsc.ServerRequestHandler and waits for the response. When the
+ * response is received, it reports the result back using chrome.smartCardProviderPrivate API.
  */
-GSC.ChromeAPIProvider = function(serverMessageChannel, serverReadinessTracker) {
-  this.serverRequester_ =
-      GSC.PcscLiteServerClientsManagement.ServerRequestHandler(
-          serverMessageChannel, serverReadinessTracker, 'chrome');
-
-  chrome.smartCardProviderPrivate.onEstablishContextRequested.addListener(
-      this.webapiEstablishContextListener_.bind(this));
-
-  // TODO: addOnDisposeCallback
-};
-
-goog.inherits(GSC.ChromeAPIProvider, goog.Disposable);
-
-/** @override */
-ChromeAPIProvider.prototype.disposeInternal = function() {
-  // TODO: add impl
-};
-
-
+GSC.ConnectorApp.ChromeAPIProvider = class extends goog.Disposable {
 /**
- * @param {number} requestId
+ * @param {!goog.messaging.AbstractChannel} serverMessageChannel 
+ * @param {!Pcsc.ReadinessTracker} serverReadinessTracker 
  */
-ChromeAPIProvider.prototype.webapiEstablishContextListener_ = function(
-    requestId) {
-  const callArguments = [2, null, null];
-  const remoteCallMessage =
-      new GSC.RemoteCallMessage('SCardEstablishContext', callArguments);
-  // console.log("sending request", callArguments, serverRequestHandler);
-  const promise = this.serverRequester_.handleRequest(remoteCallMessage);
-  // console.log("webapi: SCardEstablishContext()");
-  promise.then(
-      (result) => {
-        // console.log(" fulfilled", result);
-        var resultCode =
-            chrome.smartCardProviderPrivate.ResultCode.INTERNAL_ERROR
+  constructor(serverMessageChannel, serverReadinessTracker) {
+    super();
+    this.serverRequester_ =
+        new Pcsc.ServerRequestHandler(
+            serverMessageChannel, serverReadinessTracker, 'chrome');
+
+    chrome.smartCardProviderPrivate.onEstablishContextRequested.addListener(
+        this.webapiEstablishContextListener_.bind(this));
+
+    // TODO: addOnDisposeCallback
+  }
+
+  /** @override */
+  disposeInternal() {
+    // TODO: add impl
+  }
+
+
+  /**
+   * @param {number} requestId
+  */
+  async webapiEstablishContextListener_(requestId) {
+    const callArguments = [2, null, null];
+    const remoteCallMessage =
+        new GSC.RemoteCallMessage('SCardEstablishContext', callArguments);
+    // console.log("sending request", callArguments, serverRequestHandler);
+    // console.log("webapi: SCardEstablishContext()");
+    var resultCode = chrome.smartCardProviderPrivate.ResultCode.INTERNAL_ERROR;
+    var sCardContext = 0;
+    try {
+        const result = await this.serverRequester_.handleRequest(remoteCallMessage);
+
+        //TODO: map result codes to enum vals.
         if (result[0] === 0) {
-          resultCode = chrome.smartCardProviderPrivate.ResultCode.SUCCESS;
+            resultCode = chrome.smartCardProviderPrivate.ResultCode.SUCCESS;
         }
-        chrome.smartCardProviderPrivate.reportEstablishContextResult(
-            requestId, result[1], resultCode);
-      },
-      (value) => {
-        // console.log("rejected", value);
-        chrome.smartCardProviderPrivate.reportEstablishContextResult(
-            requestId, 0,
-            chrome.smartCardProviderPrivate.ResultCode.INTERNAL_ERROR);
-      });
+        sCardContext = result[1];
+    } catch(error) {
+        //TODO: log error
+    }
+    chrome.smartCardProviderPrivate.reportEstablishContextResult(
+        requestId, sCardContext, resultCode);
+  }
 };
 });  // goog.scope
