@@ -96,7 +96,7 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
   }
 
   /**
-   * Subscribe to chrome.smartCardProviderPrivate events.
+   * Subscribes to chrome.smartCardProviderPrivate events.
    * @private
    */
   subscribeToChromeApiEvents_() {
@@ -108,7 +108,7 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
         this.establishContextListener_.bind(this));
   }
   /**
-   * Unsubscribe from chrome.smartCardProviderPrivate events.
+   * Unsubscribes from chrome.smartCardProviderPrivate events.
    * @private
    */
   unsubscribeFromChromeApiEvents_() {
