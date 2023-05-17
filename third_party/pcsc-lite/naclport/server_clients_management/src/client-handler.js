@@ -109,8 +109,9 @@ function getClientNameForLog(clientOrigin) {
  *    After ensuring that the client has the required permission (see item #1),
  *    the PC/SC requests from the client are being actually executed.
  *
- *    This is performed by forwarding the requests to the PC/SC server (channel
- *    to it is accepted as one of the constructor arguments).
+ *    This is performed by forwarding the requests to the ServerRequestHandler,
+ *    which forwards them to PC/SC server (channel to it is accepted as one of
+ *    the constructor arguments).
  *
  *    The responses from the PC/SC server, once they are received, are forwarded
  *    then back to the client.
@@ -119,18 +120,7 @@ function getClientNameForLog(clientOrigin) {
  *    client message channel and the server message channel.
  *
  * Additionally, this class:
- *
- * *  Generates unique client handler identifiers which are used when talking to
- *    the server (for isolating the clients from each other inside the server
- *    correctly).
- *
- * *  Sends a special message to the server to add a new client handler before
- *    sending any PC/SC requests, and send a special message to remove the
- *    client handler during the disposal process.
- *
  * *  Tracks the lifetimes of the client and the server message channels.
- *
- * *  Delays the execution of the client requests until the server gets ready.
  *
  * *  Destroys the client message channel when the client handler is destroyed
  *    (which may happen due to various reasons, including the reasons making
@@ -310,8 +300,6 @@ ClientHandler.prototype.addChannelDisposedListeners_ = function() {
 ClientHandler.prototype.serverRequesterDisposedListener_ = function() {
   if (this.isDisposed())
     return;
-  goog.log.warning(
-      this.logger, 'Server message channel was disposed, disposing...');
 
   // Note: this assignment is important because it prevents from sending of any
   // messages through the server message channel, which is normally happening

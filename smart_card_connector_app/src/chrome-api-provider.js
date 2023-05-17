@@ -38,7 +38,7 @@ const logger = GSC.Logging.getScopedLogger('ConnectorApp.ChromeApiProvider');
  * corresponds to the given PCSC error.
  * @param {!PcscApi.ERROR_CODE} errorCode
  * @return {!chrome.smartCardProviderPrivate.ResultCode}
- * @throws {Error} Will throw if unknowm error code encountered.
+ * @throws {Error} Will throw if unknown error code encountered.
  */
 function convertErrorCodeToEnum(errorCode) {
   switch (errorCode) {
