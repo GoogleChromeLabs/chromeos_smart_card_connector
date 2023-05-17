@@ -113,7 +113,8 @@ ${endif}
     # the USB communication if we run in-session and the screen is locked).
     "loginState",
 
-    # Power the Web Smart Card API on ChromeOS
+    # Needed to answer to PCSC requests from the browser. This is part of the
+    # Web Smart Card API implementation.
     "smartCardProviderPrivate"
   ],
 
