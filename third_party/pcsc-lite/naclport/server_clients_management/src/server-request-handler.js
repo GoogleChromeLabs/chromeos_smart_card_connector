@@ -98,66 +98,6 @@ const DeferredProcessor = GSC.DeferredProcessor;
 const RemoteCallMessage = GSC.RemoteCallMessage;
 
 /**
- * @param {!goog.messaging.AbstractChannel} serverMessageChannel Message channel
- * to the PC/SC server into which the PC/SC requests will be forwarded.
- * @param {!Pcsc.ReadinessTracker} serverReadinessTracker
- * Tracker of the PC/SC server that allows to delay
- * forwarding of the PC/SC requests to the PC/SC server until it is ready to
- * receive them.
- * @param {string} clientNameForLog
- * @constructor
- * @extends goog.Disposable
- */
-Pcsc.ServerRequestHandler = function(
-    serverMessageChannel, serverReadinessTracker, clientNameForLog) {
-  ServerRequestHandler.base(this, 'constructor');
-
-  /**
-   * @type {string}
-   * @private
-   */
-  this.clientNameForLog_ = clientNameForLog;
-
-  /** @type {number} @const */
-  this.id = idGenerator.next();
-
-  const nameForJsLog =
-      this.clientNameForLog_ ? this.clientNameForLog_ : 'ourselves';
-  /**
-   * @type {!goog.log.Logger}
-   * @const
-   */
-  this.logger = GSC.Logging.getScopedLogger(
-      `Pcsc.ServerRequestHandler<${nameForJsLog}>, id=${this.id}>`);
-
-  /** @private */
-  this.serverMessageChannel_ = serverMessageChannel;
-
-  /** @private */
-  this.serverReadinessTracker_ = serverReadinessTracker;
-
-
-  /**
-   * @type {GSC.Requester?}
-   * @private
-   */
-  this.serverRequester_ = null;
-
-  // The requests processing is deferred until the server readiness is
-  // established.
-  /** @private */
-  this.deferredProcessor_ =
-      new DeferredProcessor(this.serverReadinessTracker_.promise);
-
-  this.serverMessageChannel_.addOnDisposeCallback(
-      this.serverMessageChannelDisposedListener_.bind(this));
-};
-
-const ServerRequestHandler = Pcsc.ServerRequestHandler;
-
-goog.inherits(ServerRequestHandler, goog.Disposable);
-
-/**
  * Generator that is used by the ServerRequestHandler class to generate unique
  * client handler identifiers.
  *
@@ -167,169 +107,246 @@ goog.inherits(ServerRequestHandler, goog.Disposable);
  */
 const idGenerator = goog.iter.count();
 
-/** @override */
-ServerRequestHandler.prototype.disposeInternal = function() {
-  ServerRequestHandler.base(this, 'disposeInternal');
+/**
+ * This class forwards the requests to the PC/SC server (channel to it is
+ * accepted as one of the constructor arguments). The result given by PC/SC
+ * server is returned as a promise (see the handleRequest method).
+ *
+ *
+ * Additionally, this class:
+ *
+ * *  Generates unique client handler identifiers which are used when talking to
+ *    the server (for isolating the clients from each other inside the server
+ *    correctly).
+ *
+ * *  Sends a special message to the server to add a new client handler before
+ *    sending any PC/SC requests, and send a special message to remove the
+ *    client handler during the disposal process.
+ *
+ * *  Tracks the lifetimes of the server message channel.
+ *
+ * *  Delays the execution of the client requests until the server gets ready.
+ */
+Pcsc.ServerRequestHandler = class extends goog.Disposable {
+  /**
+   * @param {!goog.messaging.AbstractChannel} serverMessageChannel Message
+   *     channel
+   * to the PC/SC server into which the PC/SC requests will be forwarded.
+   * @param {!Pcsc.ReadinessTracker} serverReadinessTracker
+   * Tracker of the PC/SC server that allows to delay
+   * forwarding of the PC/SC requests to the PC/SC server until it is ready to
+   * receive them.
+   * @param {string} clientNameForLog
+   */
+  constructor(serverMessageChannel, serverReadinessTracker, clientNameForLog) {
+    super();
 
+    /**
+     * @type {string}
+     * @private
+     */
+    this.clientNameForLog_ = clientNameForLog;
 
-  if (this.serverRequester_) {
-    this.serverRequester_.dispose();
+    /** @type {number} @const */
+    this.id = idGenerator.next();
+
+    const nameForJsLog =
+        this.clientNameForLog_ ? this.clientNameForLog_ : 'ourselves';
+    /**
+     * @type {!goog.log.Logger}
+     * @const
+     */
+    this.logger = GSC.Logging.getScopedLogger(
+        `Pcsc.ServerRequestHandler<${nameForJsLog}>, id=${this.id}>`);
+
+    /** @private */
+    this.serverMessageChannel_ = serverMessageChannel;
+
+    /** @private */
+    this.serverReadinessTracker_ = serverReadinessTracker;
+
+    /**
+     * @type {GSC.Requester?}
+     * @private
+     */
     this.serverRequester_ = null;
 
-    // Having the this.serverRequester_ member initialized means that the
-    // message to add a new client handler has been sent to the server. This is
-    // the right place to send to the server the message to delete the client
-    // handler.
-    //
-    // However, there is an additional condition checked here, which skips
-    // sending the message to the server if this.serverMessageChannel_ is null.
-    // That's because the reason of client handler disposal may be the disposal
-    // of the server message channel, in which case this.serverMessageChannel_
-    // will be cleared before reaching this point (see the
-    // serverMessageChannelDisposedListener_ method).
-    if (this.serverMessageChannel_)
-      this.sendServerDeleteHandlerMessage_();
+    // The requests processing is deferred until the server readiness is
+    // established.
+    /** @private */
+    this.deferredProcessor_ =
+        new DeferredProcessor(this.serverReadinessTracker_.promise);
+
+    this.serverMessageChannel_.addOnDisposeCallback(
+        this.serverMessageChannelDisposedListener_.bind(this));
   }
 
-  this.serverReadinessTracker_ = null;
-
-  // Note that this statement has to be executed after the
-  // sendServerDeleteHandlerMessage_ method is called, because the latter
-  // accesses this member.
-  this.serverMessageChannel_ = null;
-};
-
-/**
- * @param {!RemoteCallMessage} remoteCallMessage The remote call message
- * containing the request contents.
- * @return {!goog.Promise}
- */
-ServerRequestHandler.prototype.handleRequest = function(remoteCallMessage) {
-  return this.deferredProcessor_.addJob(
-      this.postRequestToServer_.bind(this, remoteCallMessage));
-};
-
-/**
- * Posts the specified client request to the server.
- *
- * The request result will be passed through the returned promise.
- * @param {!RemoteCallMessage} remoteCallMessage The remote call message
- * containing the request contents.
- * @return {!goog.Promise}
- */
-ServerRequestHandler.prototype.postRequestToServer_ = function(
-    remoteCallMessage) {
-  const requestDump = remoteCallMessage.getDebugRepresentation();
-  goog.log.fine(this.logger, `Processing PC/SC call: ${requestDump}`);
-
-  this.createRequesterIfNeed_();
-
-  return this.requester_.postRequest(remoteCallMessage.makeRequestPayload())
-      .then(
-          function(result) {
-            const resultDump = GSC.DebugDump.debugDump(result);
-            goog.log.fine(
-                this.logger,
-                `PC/SC call ${requestDump} completed: ${resultDump}`);
-            return result;
-          },
-          function(error) {
-            goog.log.log(
-                this.logger,
-                this.isDisposed() ? goog.log.Level.FINE :
-                                    goog.log.Level.WARNING,
-                `PC/SC call ${requestDump} failed: ${error}`);
-            throw error;
-          },
-          this);
-};
+  /** @override */
+  disposeInternal() {
+    super.disposeInternal();
 
 
-/**
- * Creates, if not created before, the requester that will be used to send
- * client requests to the server.
- *
- * If the requester is created, this method also sends to the server a message
- * that a new client handler has to be created.
- * @private
- */
-ServerRequestHandler.prototype.createRequesterIfNeed_ = function() {
-  if (this.requester_)
-    return;
+    if (this.serverRequester_) {
+      this.serverRequester_.dispose();
+      this.serverRequester_ = null;
 
-  this.sendServerCreateHandlerMessage_();
-  GSC.Logging.checkWithLogger(this.logger, this.serverMessageChannel_ !== null);
-  goog.asserts.assert(this.serverMessageChannel_);
+      // Having the this.serverRequester_ member initialized means that the
+      // message to add a new client handler has been sent to the server. This
+      // is the right place to send to the server the message to delete the
+      // client handler.
+      //
+      // However, there is an additional condition checked here, which skips
+      // sending the message to the server if this.serverMessageChannel_ is
+      // null. That's because the reason of client handler disposal may be the
+      // disposal of the server message channel, in which case
+      // this.serverMessageChannel_ will be cleared before reaching this point
+      // (see the serverMessageChannelDisposedListener_ method).
+      if (this.serverMessageChannel_)
+        this.sendServerDeleteHandlerMessage_();
+    }
 
-  const requesterTitle =
-      goog.string.subs(CALL_FUNCTION_SERVER_REQUESTER_TITLE_FORMAT, this.id);
-  this.requester_ =
-      new GSC.Requester(requesterTitle, this.serverMessageChannel_);
-};
+    this.serverReadinessTracker_ = null;
 
+    // Note that this statement has to be executed after the
+    // sendServerDeleteHandlerMessage_ method is called, because the latter
+    // accesses this member.
+    this.serverMessageChannel_ = null;
+  }
 
-/**
- * Sends a message to the server to create a new client handler.
- *
- * Should be called not more than once for a single client handler instance.
- *
- * No client requests should be sent to the server before this message is sent.
- * @private
- */
-ServerRequestHandler.prototype.sendServerCreateHandlerMessage_ = function() {
-  GSC.Logging.checkWithLogger(this.logger, this.serverMessageChannel_);
-  GSC.Logging.checkWithLogger(
-      this.logger, !this.serverMessageChannel_.isDisposed());
-  const messageData = {};
-  messageData[CLIENT_HANDLER_ID_MESSAGE_KEY] = this.id;
-  messageData[CLIENT_NAME_FOR_LOG_MESSAGE_KEY] = this.clientNameForLog_;
-  this.serverMessageChannel_.send(
-      CREATE_CLIENT_HANDLER_SERVER_MESSAGE_SERVICE_NAME, messageData);
-};
+  /**
+   * Handles a request to PCSC server.
+   *
+   * The request result will be passed through the returned promise.
+   * @param {!RemoteCallMessage} remoteCallMessage The remote call message
+   * containing the request contents.
+   * @return {!goog.Promise}
+   */
+  handleRequest(remoteCallMessage) {
+    return this.deferredProcessor_.addJob(
+        this.postRequestToServer_.bind(this, remoteCallMessage));
+  }
 
+  /**
+   * Posts the specified client request to the server.
+   *
+   * The request result will be passed through the returned promise.
+   * @param {!RemoteCallMessage} remoteCallMessage The remote call message
+   * containing the request contents.
+   * @return {!goog.Promise}
+   * @private
+   */
+  postRequestToServer_(remoteCallMessage) {
+    const requestDump = remoteCallMessage.getDebugRepresentation();
+    goog.log.fine(this.logger, `Processing PC/SC call: ${requestDump}`);
 
-/**
- * Sends a message to the server to delete the client handler.
- *
- * Should be called exactly once, and only if the message to create the new
- * client handler has already been sent.
- *
- * No client requests should be sent to the server after this message is sent.
- * @private
- */
-ServerRequestHandler.prototype.sendServerDeleteHandlerMessage_ = function() {
-  // Note that there are intentionally no checks here whether the self instance
-  // is disposed: this method itself is called inside the disposeInternal
-  // method.
+    this.createRequesterIfNeed_();
 
-  GSC.Logging.checkWithLogger(this.logger, this.serverMessageChannel_);
-  GSC.Logging.checkWithLogger(
-      this.logger, !this.serverMessageChannel_.isDisposed());
-  const messageData =
-      goog.object.create(CLIENT_HANDLER_ID_MESSAGE_KEY, this.id);
-  this.serverMessageChannel_.send(
-      DELETE_CLIENT_HANDLER_SERVER_MESSAGE_SERVICE_NAME, messageData);
-};
+    return this.serverRequester_
+        .postRequest(remoteCallMessage.makeRequestPayload())
+        .then(
+            function(result) {
+              const resultDump = GSC.DebugDump.debugDump(result);
+              goog.log.fine(
+                  this.logger,
+                  `PC/SC call ${requestDump} completed: ${resultDump}`);
+              return result;
+            },
+            function(error) {
+              goog.log.log(
+                  this.logger,
+                  this.isDisposed() ? goog.log.Level.FINE :
+                                      goog.log.Level.WARNING,
+                  `PC/SC call ${requestDump} failed: ${error}`);
+              throw error;
+            },
+            this);
+  }
 
-/**
- * This listener is called when the server message channel is disposed.
- *
- * Disposes self, as it's not possible to process any client requests after this
- * point.
- * @private
- */
-ServerRequestHandler.prototype.serverMessageChannelDisposedListener_ =
-    function() {
-  if (this.isDisposed())
-    return;
-  goog.log.warning(
-      this.logger, 'Server message channel was disposed, disposing...');
+  /**
+   * Creates, if not created before, the requester that will be used to send
+   * client requests to the server.
+   *
+   * If the requester is created, this method also sends to the server a message
+   * that a new client handler has to be created.
+   * @private
+   */
+  createRequesterIfNeed_() {
+    if (this.serverRequester_)
+      return;
 
-  // Note: this assignment is important because it prevents from sending of any
-  // messages through the server message channel, which is normally happening
-  // during the disposal process.
-  this.serverMessageChannel_ = null;
+    this.sendServerCreateHandlerMessage_();
+    GSC.Logging.checkWithLogger(
+        this.logger, this.serverMessageChannel_ !== null);
+    goog.asserts.assert(this.serverMessageChannel_);
 
-  this.dispose();
+    const requesterTitle =
+        goog.string.subs(CALL_FUNCTION_SERVER_REQUESTER_TITLE_FORMAT, this.id);
+    this.serverRequester_ =
+        new GSC.Requester(requesterTitle, this.serverMessageChannel_);
+  }
+
+  /**
+   * Sends a message to the server to create a new client handler.
+   *
+   * Should be called not more than once for a single client handler instance.
+   *
+   * No client requests should be sent to the server before this message is
+   * sent.
+   * @private
+   */
+  sendServerCreateHandlerMessage_() {
+    GSC.Logging.checkWithLogger(this.logger, this.serverMessageChannel_);
+    GSC.Logging.checkWithLogger(
+        this.logger, !this.serverMessageChannel_.isDisposed());
+    const messageData = {};
+    messageData[CLIENT_HANDLER_ID_MESSAGE_KEY] = this.id;
+    messageData[CLIENT_NAME_FOR_LOG_MESSAGE_KEY] = this.clientNameForLog_;
+    this.serverMessageChannel_.send(
+        CREATE_CLIENT_HANDLER_SERVER_MESSAGE_SERVICE_NAME, messageData);
+  }
+
+  /**
+   * Sends a message to the server to delete the client handler.
+   *
+   * Should be called exactly once, and only if the message to create the new
+   * client handler has already been sent.
+   *
+   * No client requests should be sent to the server after this message is sent.
+   * @private
+   */
+  sendServerDeleteHandlerMessage_() {
+    // Note that there are intentionally no checks here whether the self
+    // instance is disposed: this method itself is called inside the
+    // disposeInternal method.
+
+    GSC.Logging.checkWithLogger(this.logger, this.serverMessageChannel_);
+    GSC.Logging.checkWithLogger(
+        this.logger, !this.serverMessageChannel_.isDisposed());
+    const messageData =
+        goog.object.create(CLIENT_HANDLER_ID_MESSAGE_KEY, this.id);
+    this.serverMessageChannel_.send(
+        DELETE_CLIENT_HANDLER_SERVER_MESSAGE_SERVICE_NAME, messageData);
+  }
+
+  /**
+   * This listener is called when the server message channel is disposed.
+   *
+   * Disposes self, as it's not possible to process any client requests after
+   * this point.
+   * @private
+   */
+  serverMessageChannelDisposedListener_() {
+    if (this.isDisposed())
+      return;
+    goog.log.warning(
+        this.logger, 'Server message channel was disposed, disposing...');
+
+    // Note: this assignment is important because it prevents from sending of
+    // any messages through the server message channel, which is normally
+    // happening during the disposal process.
+    this.serverMessageChannel_ = null;
+
+    this.dispose();
+  }
 };
 });  // goog.scope
