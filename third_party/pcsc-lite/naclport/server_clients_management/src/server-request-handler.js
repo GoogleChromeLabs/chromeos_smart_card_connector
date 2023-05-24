@@ -178,7 +178,7 @@ Pcsc.ServerRequestHandler = class extends goog.Disposable {
         new DeferredProcessor(this.serverReadinessTracker_.promise);
 
     this.serverMessageChannel_.addOnDisposeCallback(
-        this.serverMessageChannelDisposedListener_.bind(this));
+        () => this.serverMessageChannelDisposedListener_());
   }
 
   /** @override */
@@ -223,7 +223,7 @@ Pcsc.ServerRequestHandler = class extends goog.Disposable {
    */
   handleRequest(remoteCallMessage) {
     return this.deferredProcessor_.addJob(
-        this.postRequestToServer_.bind(this, remoteCallMessage));
+        () => this.postRequestToServer_(remoteCallMessage));
   }
 
   /**

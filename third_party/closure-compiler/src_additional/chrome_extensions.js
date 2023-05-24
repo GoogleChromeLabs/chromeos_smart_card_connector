@@ -79,7 +79,7 @@ chrome.certificateProvider.ClientCertificateInfo;
  *   certificatesRequestId: (number|undefined),
  *   error: (!chrome.certificateProvider.Error|undefined),
  *   clientCertificates:
- * !Array<!chrome.certificateProvider.ClientCertificateInfo>
+ *       !Array<!chrome.certificateProvider.ClientCertificateInfo>
  * }}
  */
 chrome.certificateProvider.SetCertificatesDetails;

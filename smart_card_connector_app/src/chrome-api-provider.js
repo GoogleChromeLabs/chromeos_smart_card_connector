@@ -46,15 +46,33 @@ function convertErrorCodeToEnum(errorCode) {
       return chrome.smartCardProviderPrivate.ResultCode.INTERNAL_ERROR;
     // TODO(vkovalova): add other error codes
     default:
-      throw new Error('Unknown error code ' + errorCode + ' encountered');
+      throw new Error(`Unknown error code ${errorCode} encountered`);
   }
 }
+
+/**
+ * This class subscribes to the Chrome event with a callback, specified in the
+ * constructor arguments. Unsubscribes on disposal.
+ */
+class ChromeEventListener extends goog.Disposable {
+  constructor(chromeEvent, callback) {
+    super();
+    this.chromeEvent_ = chromeEvent;
+    this.callback_ = callback;
+    this.chromeEvent_.addListener(this.callback_);
+  }
+
+  /** @override */
+  disposeInternal() {
+    this.chromeEvent_.removeListener(this.callback_);
+  }
+};
 
 /**
  * This class provides chrome.smartCardProviderPrivate API with PCSC responses.
  *
  * On creation, it subscribes to chrome.smartCardProviderPrivate API events,
- * which correspond to different PCSC requests. When an event if fired,
+ * which correspond to different PCSC requests. When an event is fired,
  * ChromeApiProvider sends a request to Pcsc.ServerRequestHandler and waits for
  * the response. When the response is received, it reports the result back using
  * chrome.smartCardProviderPrivate API.
@@ -69,30 +87,17 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
     this.serverRequester_ = new Pcsc.ServerRequestHandler(
         serverMessageChannel, serverReadinessTracker, 'chrome');
 
+    this.chromeEventListeners_ = [];
     this.subscribeToChromeApiEvents_();
 
-    this.serverRequester_.addOnDisposeCallback(this.disposeInternal.bind(this));
+    this.serverRequester_.addOnDisposeCallback(() => this.dispose());
   }
 
   /** @override */
   disposeInternal() {
     this.unsubscribeFromChromeApiEvents_();
-    this.serverRequester_.dispose()
-    super.disposeInternal()
-  }
-
-  /**
-   * Checks if chrome.smartCardProviderPrivate is available. Logs if not.
-   * @returns {boolean}
-   * @private
-   */
-  checkChromeAPIAvailable_() {
-    if (chrome.smartCardProviderPrivate === undefined) {
-      goog.log.warning(
-          logger, 'chrome.smartCardProviderPrivate API is not available');
-      return false;
-    }
-    return true;
+    this.serverRequester_.dispose();
+    super.disposeInternal();
   }
 
   /**
@@ -100,24 +105,23 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
    * @private
    */
   subscribeToChromeApiEvents_() {
-    if (!this.checkChromeAPIAvailable_) {
+    if (chrome.smartCardProviderPrivate === undefined) {
+      goog.log.warning(
+          logger,
+          'chrome.smartCardProviderPrivate API is not available, could not subscribe to API events.');
       return;
     }
 
-    chrome.smartCardProviderPrivate.onEstablishContextRequested.addListener(
-        this.establishContextListener_.bind(this));
+    this.chromeEventListeners_.push(new ChromeEventListener(
+        chrome.smartCardProviderPrivate.onEstablishContextRequested,
+        (requestId) => this.establishContextListener_(requestId)));
   }
   /**
    * Unsubscribes from chrome.smartCardProviderPrivate events.
    * @private
    */
   unsubscribeFromChromeApiEvents_() {
-    if (!this.checkChromeAPIAvailable_) {
-      return;
-    }
-
-    chrome.smartCardProviderPrivate.onEstablishContextRequested.removeListener(
-        this.establishContextListener_.bind(this));
+    this.chromeEventListeners_.forEach(listener => listener.dispose());
   }
 
   /**
@@ -149,8 +153,8 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
       goog.log.log(
           logger,
           this.isDisposed() ? goog.log.Level.FINE : goog.log.Level.WARNING,
-          'Failed to process onEstablishContextRequested event' +
-              'with request id ' + requestId + ': ' + error);
+          `Failed to process onEstablishContextRequested event
+           with request id ${requestId}: ${error}`);
     }
 
     chrome.smartCardProviderPrivate.reportEstablishContextResult(

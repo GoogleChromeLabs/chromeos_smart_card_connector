@@ -285,9 +285,9 @@ ClientHandler.prototype.getPermissionsCheckPromise_ = function() {
  */
 ClientHandler.prototype.addChannelDisposedListeners_ = function() {
   this.serverRequester_.addOnDisposeCallback(
-      this.serverRequesterDisposedListener_.bind(this));
+      () => this.serverRequesterDisposedListener_());
   this.clientMessageChannel_.addOnDisposeCallback(
-      this.clientMessageChannelDisposedListener_.bind(this));
+      () => this.clientMessageChannelDisposedListener_());
 };
 
 /**
