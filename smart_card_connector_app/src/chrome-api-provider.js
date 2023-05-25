@@ -51,7 +51,7 @@ function convertErrorCodeToEnum(errorCode) {
 }
 
 /**
- * This class subscribes to the Chrome event with a callback, specified in the
+ * This class subscribes to a Chrome event with a callback, specified in the
  * constructor arguments. Unsubscribes on disposal.
  */
 class ChromeEventListener extends goog.Disposable {
@@ -108,7 +108,8 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
     if (chrome.smartCardProviderPrivate === undefined) {
       goog.log.warning(
           logger,
-          'chrome.smartCardProviderPrivate API is not available, could not subscribe to API events.');
+          'chrome.smartCardProviderPrivate API is not available, ' +
+              'could not subscribe to the API events.');
       return;
     }
 
