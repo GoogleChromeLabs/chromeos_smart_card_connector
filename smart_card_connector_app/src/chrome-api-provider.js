@@ -55,6 +55,11 @@ function convertErrorCodeToEnum(errorCode) {
  * constructor arguments. Unsubscribes on disposal.
  */
 class ChromeEventListener extends goog.Disposable {
+  /**
+   *
+   * @param {!Object} chromeEvent
+   * @param {!Function} callback
+   */
   constructor(chromeEvent, callback) {
     super();
     this.chromeEvent_ = chromeEvent;
@@ -65,6 +70,7 @@ class ChromeEventListener extends goog.Disposable {
   /** @override */
   disposeInternal() {
     this.chromeEvent_.removeListener(this.callback_);
+    this.callback_ = null;
   }
 };
 
@@ -87,6 +93,10 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
     this.serverRequester_ = new Pcsc.ServerRequestHandler(
         serverMessageChannel, serverReadinessTracker, 'chrome');
 
+    /**
+     * @type {!Array<ChromeEventListener>}
+     * @private
+     */
     this.chromeEventListeners_ = [];
     this.subscribeToChromeApiEvents_();
 
@@ -154,8 +164,8 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
       goog.log.log(
           logger,
           this.isDisposed() ? goog.log.Level.FINE : goog.log.Level.WARNING,
-          `Failed to process onEstablishContextRequested event
-           with request id ${requestId}: ${error}`);
+          'Failed to process onEstablishContextRequested event ' +
+              `with request id ${requestId}: ${error}`);
     }
 
     chrome.smartCardProviderPrivate.reportEstablishContextResult(
