@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -77,7 +78,8 @@ chrome.certificateProvider.ClientCertificateInfo;
  * @typedef {{
  *   certificatesRequestId: (number|undefined),
  *   error: (!chrome.certificateProvider.Error|undefined),
- *   clientCertificates: !Array<!chrome.certificateProvider.ClientCertificateInfo>
+ *   clientCertificates:
+ *       !Array<!chrome.certificateProvider.ClientCertificateInfo>
  * }}
  */
 chrome.certificateProvider.SetCertificatesDetails;
@@ -91,7 +93,8 @@ chrome.certificateProvider.CertificatesUpdateRequest = function() {};
 /**
  * @type {number}
  */
-chrome.certificateProvider.CertificatesUpdateRequest.prototype.certificatesRequestId;
+chrome.certificateProvider.CertificatesUpdateRequest.prototype
+    .certificatesRequestId;
 
 
 /**
@@ -175,14 +178,18 @@ chrome.certificateProvider.SignRequest.prototype.certificate;
 chrome.certificateProvider.CertificatesUpdateRequestEvent = function() {};
 
 /**
- * @param {function(!chrome.certificateProvider.CertificatesUpdateRequest)} callback
+ * @param {function(!chrome.certificateProvider.CertificatesUpdateRequest)}
+ *     callback
  */
-chrome.certificateProvider.CertificatesUpdateRequestEvent.prototype.addListener = function(callback) {};
+chrome.certificateProvider.CertificatesUpdateRequestEvent.prototype
+    .addListener = function(callback) {};
 
 /**
- * @param {function(!chrome.certificateProvider.CertificatesUpdateRequest)} callback
+ * @param {function(!chrome.certificateProvider.CertificatesUpdateRequest)}
+ *     callback
  */
-chrome.certificateProvider.CertificatesUpdateRequestEvent.prototype.removeListener = function(callback) {};
+chrome.certificateProvider.CertificatesUpdateRequestEvent.prototype
+    .removeListener = function(callback) {};
 
 /**
  * @type {!chrome.certificateProvider.CertificatesUpdateRequestEvent}
@@ -198,12 +205,14 @@ chrome.certificateProvider.SignatureRequestEvent = function() {};
 /**
  * @param {function(!chrome.certificateProvider.SignatureRequest)} callback
  */
-chrome.certificateProvider.SignatureRequestEvent.prototype.addListener = function(callback) {};
+chrome.certificateProvider.SignatureRequestEvent.prototype.addListener =
+    function(callback) {};
 
 /**
  * @param {function(!chrome.certificateProvider.SignatureRequest)} callback
  */
-chrome.certificateProvider.SignatureRequestEvent.prototype.removeListener = function(callback) {};
+chrome.certificateProvider.SignatureRequestEvent.prototype.removeListener =
+    function(callback) {};
 
 /**
  * @type {!chrome.certificateProvider.SignatureRequestEvent}
@@ -218,15 +227,19 @@ chrome.certificateProvider.CertificatesRequestEvent = function() {};
 
 
 /**
- * @param {function(function((!Array.<!chrome.certificateProvider.CertificateInfo>),function(!Array.<!chrome.certificateProvider.CertificateInfo>)))} callback
+ * @param {function(function((!Array.<!chrome.certificateProvider.CertificateInfo>),function(!Array.<!chrome.certificateProvider.CertificateInfo>)))}
+ *     callback
  */
-chrome.certificateProvider.CertificatesRequestEvent.prototype.addListener = function(callback) {};
+chrome.certificateProvider.CertificatesRequestEvent.prototype.addListener =
+    function(callback) {};
 
 
 /**
- * @param {function(function((!Array.<!chrome.certificateProvider.CertificateInfo>|undefined),function(!Array.<!chrome.certificateProvider.CertificateInfo>)=))} callback
+ * @param {function(function((!Array.<!chrome.certificateProvider.CertificateInfo>|undefined),function(!Array.<!chrome.certificateProvider.CertificateInfo>)=))}
+ *     callback
  */
-chrome.certificateProvider.CertificatesRequestEvent.prototype.removeListener = function(callback) {};
+chrome.certificateProvider.CertificatesRequestEvent.prototype.removeListener =
+    function(callback) {};
 
 
 /**
@@ -242,15 +255,19 @@ chrome.certificateProvider.SignDigestRequestEvent = function() {};
 
 
 /**
- * @param {function(!chrome.certificateProvider.SignRequest, function(!ArrayBuffer=))} callback
+ * @param {function(!chrome.certificateProvider.SignRequest,
+ *     function(!ArrayBuffer=))} callback
  */
-chrome.certificateProvider.SignDigestRequestEvent.prototype.addListener = function(callback) {};
+chrome.certificateProvider.SignDigestRequestEvent.prototype.addListener =
+    function(callback) {};
 
 
 /**
- * @param {function(!chrome.certificateProvider.SignRequest, function(!ArrayBuffer=))} callback
+ * @param {function(!chrome.certificateProvider.SignRequest,
+ *     function(!ArrayBuffer=))} callback
  */
-chrome.certificateProvider.SignDigestRequestEvent.prototype.removeListener = function(callback) {};
+chrome.certificateProvider.SignDigestRequestEvent.prototype.removeListener =
+    function(callback) {};
 
 
 /**
@@ -316,3 +333,27 @@ chrome.loginState.SessionStateEvent = function() {};
  * @type {!chrome.loginState.SessionStateEvent}
  */
 chrome.loginState.onSessionStateChanged;
+
+/**
+ * @const
+ */
+chrome.smartCardProviderPrivate = {};
+
+/** @type {!ChromeBaseEvent<function(!number)>} */
+chrome.smartCardProviderPrivate.onEstablishContextRequested;
+
+/**
+ * @enum {string}
+ */
+chrome.smartCardProviderPrivate.ResultCode = {
+  SUCCESS: 'SUCCESS',
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+};
+
+/**
+ * @param {number} requestId
+ * @param {number} sCardContext
+ * @param {chrome.smartCardProviderPrivate.ResultCode} resultCode
+ */
+chrome.smartCardProviderPrivate.reportEstablishContextResult = function(
+    requestId, sCardContext, resultCode) {};
