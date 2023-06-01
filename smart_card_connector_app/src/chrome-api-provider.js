@@ -56,7 +56,6 @@ function convertErrorCodeToEnum(errorCode) {
  */
 class ChromeEventListener extends goog.Disposable {
   /**
-   *
    * @param {!Object} chromeEvent
    * @param {!Function} callback
    */
