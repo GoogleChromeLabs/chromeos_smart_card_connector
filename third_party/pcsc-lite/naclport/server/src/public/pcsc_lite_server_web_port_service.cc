@@ -144,10 +144,7 @@ void PcscLiteServerDaemonThreadMain() {
   // TODO: Upstream's approach with a magic sleep is flaky: the background
   // thread might be still running after this point, causing crashes. Replace
   // this with a proper waiting mechanism.
-#if defined(__SANITIZE_ADDRESS__) && !defined(NDEBUG)
-  GOOGLE_SMART_CARD_LOG_WARNING << "Sleeping 30 sec";
-  SYS_Sleep(30);
-#elif defined(__SANITIZE_ADDRESS__) && defined(NDEBUG)
+#if __has_feature(address_sanitizer) || defined(__SANITIZE_ADDRESS__)
   GOOGLE_SMART_CARD_LOG_WARNING << "Sleeping 20 sec";
   SYS_Sleep(20);
 #else
