@@ -46,7 +46,7 @@ def create_driver(chromedriver_path):
   service = webdriver.chrome.service.Service(executable_path=chromedriver_path)
   options = webdriver.chrome.options.Options()
   # Collect all JS logs, not only warnings/errors which is the default.
-  options.set_capability('goog:loggingPrefs'], {'browser': 'ALL'})
+  options.set_capability('goog:loggingPrefs', {'browser': 'ALL'})
   return webdriver.Chrome(service=service, options=options)
 
 def load_test_page(driver, test_html_page_path):
