@@ -102,7 +102,7 @@ jobs:
   # Run unit tests under ASan.
   test-asan:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       matrix:
         build-config: [Release, Debug]
@@ -131,7 +131,7 @@ jobs:
       env:
         TOOLCHAIN: asan_testing
         CONFIG: ${{ matrix.build-config }}
-      timeout-minutes: 15
+      timeout-minutes: 30
       run: >
         source env/activate && make test
 

@@ -144,7 +144,7 @@ void PcscLiteServerDaemonThreadMain() {
   // TODO: Upstream's approach with a magic sleep is flaky: the background
   // thread might be still running after this point, causing crashes. Replace
   // this with a proper waiting mechanism.
-#ifdef __SANITIZE_ADDRESS__
+#if __has_feature(address_sanitizer) || defined(__SANITIZE_ADDRESS__)
   SYS_Sleep(20);
 #else
   SYS_Sleep(10);
