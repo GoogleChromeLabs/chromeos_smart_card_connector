@@ -86,11 +86,6 @@ $(GOOGLETEST_LIBS_PATTERN):
 #
 # Explanation of arguments:
 # DISPLAY: Workaround against "Permission denied" Node.js issue.
-# experimental-wasm-threads, experimental-wasm-bulk-memory: Needed for Pthreads
-#   (multi-threading) support.
 run_test: all
 	cd $(OUT_DIR_PATH) && DISPLAY= \
-		node \
-		--experimental-wasm-threads \
-		--experimental-wasm-bulk-memory \
-		$(TARGET).js
+		node $(TARGET).js
