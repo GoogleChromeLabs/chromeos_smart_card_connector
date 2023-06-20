@@ -115,7 +115,11 @@ ${endif}
 
     # Needed to answer to PCSC requests from the browser. This is part of the
     # Web Smart Card API implementation.
-    "smartCardProviderPrivate"
+    "smartCardProviderPrivate",
+
+    # Used for copying the extension's logs into the system log (visible, e.g.,
+    # in Feedback Reports sent by users from Chromebooks).
+    "systemLog"
   ],
 
   # Allow any Extension/App and the specified web page URLs to send messages to

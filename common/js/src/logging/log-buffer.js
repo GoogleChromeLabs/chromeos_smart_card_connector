@@ -216,8 +216,8 @@ GSC.LogBuffer = class extends goog.Disposable {
     for (const observer of this.observers_)
       observer(documentLocation, logRecord);
 
-    const formattedLogRecord =
-        GSC.LogFormatting.formatLogRecordCompact(documentLocation, logRecord);
+    const formattedLogRecord = GSC.LogFormatting.formatLogRecordForExportUi(
+        documentLocation, logRecord);
     this.addFormattedLogRecord_(formattedLogRecord);
   }
 

@@ -33,10 +33,18 @@ const GSC = GoogleSmartCard;
 /**
  * @type {!goog.debug.TextFormatter}
  */
-const textFormatter = new goog.debug.TextFormatter();
-textFormatter.showAbsoluteTime = true;
-textFormatter.showRelativeTime = false;
-textFormatter.showSeverityLevel = true;
+const defaultFormatter = new goog.debug.TextFormatter();
+defaultFormatter.showAbsoluteTime = true;
+defaultFormatter.showRelativeTime = false;
+defaultFormatter.showSeverityLevel = true;
+
+/**
+ * @type {!goog.debug.TextFormatter}
+ */
+const systemLogFormatter = new goog.debug.TextFormatter();
+systemLogFormatter.showAbsoluteTime = false;
+systemLogFormatter.showRelativeTime = false;
+systemLogFormatter.showSeverityLevel = true;
 
 /**
  * @param {string} documentLocation
@@ -79,30 +87,45 @@ function prefixLogRecord(documentLocation, logRecord, isCompact) {
 }
 
 /**
- * Returns a formatted representation of the log record collected at the given
- * document.
+ * Returns a formatted representation of the log record suitable for logging
+ * into NaCl stderr console.
  * @param {string} documentLocation
  * @param {!goog.log.LogRecord} logRecord
  * @return {string}
  */
-GSC.LogFormatting.formatLogRecord = function(documentLocation, logRecord) {
-  return textFormatter.formatRecord(
+GSC.LogFormatting.formatLogRecordForNaclStderr = function(
+    documentLocation, logRecord) {
+  return defaultFormatter.formatRecord(
       prefixLogRecord(documentLocation, logRecord, /*isCompact=*/ false));
 };
 
 /**
- * Returns a formatted compact representation of the log record collected at the
- * given document.
+ * Returns a formatted representation of the log record suitable for the log
+ * dump that can be accessed via the extension's UI.
  *
- * The compact representation omits detailed context information, e.g. the
- * extension ID and the background page label.
+ * The representation omits the extension ID and the background page label.
  * @param {string} documentLocation
  * @param {!goog.log.LogRecord} logRecord
  * @return {string}
  */
-GSC.LogFormatting.formatLogRecordCompact = function(
+GSC.LogFormatting.formatLogRecordForExportUi = function(
     documentLocation, logRecord) {
-  return textFormatter.formatRecord(
+  return defaultFormatter.formatRecord(
+      prefixLogRecord(documentLocation, logRecord, /*isCompact=*/ true));
+};
+
+/**
+ * Returns a formatted representation of the log record suitable for the log
+ * dump that can be accessed via the extension's UI.
+ *
+ * The representation omits time, the extension ID, the background page label.
+ * @param {string} documentLocation
+ * @param {!goog.log.LogRecord} logRecord
+ * @return {string}
+ */
+GSC.LogFormatting.formatLogRecordForSystemLog = function(
+    documentLocation, logRecord) {
+  return systemLogFormatter.formatRecord(
       prefixLogRecord(documentLocation, logRecord, /*isCompact=*/ true));
 };
 });
