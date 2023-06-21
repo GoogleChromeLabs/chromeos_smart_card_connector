@@ -115,8 +115,8 @@ GSC.LogFormatting.formatLogRecordForExportUi = function(
 };
 
 /**
- * Returns a formatted representation of the log record suitable for the log
- * dump that can be accessed via the extension's UI.
+ * Returns a formatted representation of the log record suitable for the system
+ * log (see the `chrome.systemLog` API).
  *
  * The representation omits time, the extension ID, the background page label.
  * @param {string} documentLocation
