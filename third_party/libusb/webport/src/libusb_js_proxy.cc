@@ -1175,7 +1175,7 @@ void LibusbJsProxy::ObtainActiveConfigDescriptor(libusb_device* dev) {
   }
 
   if (!active_js_config) {
-    GOOGLE_SMART_CARD_LOG_WARNING
+    GOOGLE_SMART_CARD_LOG_DEBUG
         << "LibusbGetActiveConfigDescriptor request failed: No active config "
            "descriptors were returned by JS API";
     dev->set_js_config({});
