@@ -69,6 +69,16 @@ GSC.Logging.SELF_RELOAD_ON_FATAL_ERROR =
     goog.define('GoogleSmartCard.Logging.SELF_RELOAD_ON_FATAL_ERROR', false);
 
 /**
+ * @define {boolean} Whether to additionally send logs to the system log (see
+ * the `chrome.systemLog` API).
+ *
+ * The system log can be viewed on ChromeOS at chrome://device-log and is also
+ * included into Feedback Reports sent by users.
+ */
+GSC.Logging.WRITE_TO_SYSTEM_LOG =
+    goog.define('GoogleSmartCard.Logging.WRITE_TO_SYSTEM_LOG', false);
+
+/**
  * Every logger created via this library is created as a child of this logger,
  * as long as the |USE_SCOPED_LOGGERS| constant is true. Ignored when that
  * constant is false.
@@ -150,6 +160,9 @@ GSC.Logging.setupLogging = function() {
     return;
   wasLoggingSetUp = true;
 
+  if (GSC.Logging.WRITE_TO_SYSTEM_LOG) {
+    setupSystemLogLogging();
+  }
   setupConsoleLogging();
   setupRootLoggerLevel();
 
@@ -313,6 +326,26 @@ function reloadApp() {
 
   // This method works only in kiosk mode.
   chrome.runtime.restart();
+}
+
+function setupSystemLogLogging() {
+  // Access the Extension API via string literals, to make sure the Closure
+  // Compiler won't attempt type-checking or optimizations with it.
+  const systemLog = chrome['systemLog'];
+  if (!systemLog) {
+    // The API is unavailable (because the extension lacks the "systemLog"
+    // permission or ChromeOS is too old) - bail out silently.
+    return;
+  }
+  // Cache values that are common across all invocations of the handler below.
+  const systemLogAdd = systemLog['add'];
+  const documentLocation = getDocumentLocation();
+
+  goog.log.addHandler(rootLogger, (logRecord) => {
+    const formattedLogRecord = GSC.LogFormatting.formatLogRecordForSystemLog(
+        documentLocation, logRecord);
+    systemLogAdd({'message': formattedLogRecord});
+  });
 }
 
 function setupConsoleLogging() {

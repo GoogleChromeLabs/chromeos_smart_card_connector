@@ -113,8 +113,8 @@ GSC.LogBufferForwarder = class {
         this.ignoredLoggerNames_.has(logRecord.getLoggerName())) {
       return;
     }
-    const formattedLogRecord =
-        GSC.LogFormatting.formatLogRecord(documentLocation, logRecord);
+    const formattedLogRecord = GSC.LogFormatting.formatLogRecordForNaclStderr(
+        documentLocation, logRecord);
     if (!this.messageChannel_) {
       this.postponedLogRecords_.add(formattedLogRecord);
       return;

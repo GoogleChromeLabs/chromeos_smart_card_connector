@@ -58,8 +58,14 @@ include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/server_clients_management/inc
 
 SOURCES_PATH := ../src
 
+# Explanation of the arguments:
+# * SELF_RELOAD_ON_FATAL_ERROR - make the Smart Card Connector automatically
+#   restart itself whenever a fatal error (e.g., a binary code crash) occurs.
+# * WRITE_TO_SYSTEM_LOG - copy the Smart Card Connector logs to the system log
+#   via the `chrome.systemLog` API (to include them into Feedback Reports).
 JS_COMPILER_FLAGS := \
 	--define='GoogleSmartCard.Logging.SELF_RELOAD_ON_FATAL_ERROR=true' \
+	--define='GoogleSmartCard.Logging.WRITE_TO_SYSTEM_LOG=true' \
 
 
 #
