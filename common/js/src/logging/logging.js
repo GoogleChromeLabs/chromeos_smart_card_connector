@@ -333,7 +333,8 @@ function setupSystemLogLogging() {
   // Compiler won't attempt type-checking or optimizations with it.
   const systemLog = chrome['systemLog'];
   if (!systemLog) {
-    // The API is unavailable - bail out silently.
+    // The API is unavailable (because the extension lacks the "systemLog"
+    // permission or ChromeOS is too old) - bail out silently.
     return;
   }
   // Cache values that are common across all invocations of the handler below.
