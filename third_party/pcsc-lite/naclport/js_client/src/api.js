@@ -2054,7 +2054,7 @@ API.createSCardReaderStateIn = function(
  * @param {string} readerName
  * @param {number} currentState
  * @param {number} eventState
- * @param {!Array.<number>} atr
+ * @param {!ArrayBuffer} atr
  * @param {number=} opt_userData
  * @constructor
  * @dict
@@ -2075,7 +2075,7 @@ goog.exportProperty(API, 'SCARD_READERSTATE_OUT', API.SCARD_READERSTATE_OUT);
  * @param {string} readerName
  * @param {number} currentState
  * @param {number} eventState
- * @param {!Array.<number>} atr
+ * @param {!ArrayBuffer} atr
  * @param {number=} opt_userData
  * @return {!API.SCARD_READERSTATE_OUT}
  */
@@ -2754,7 +2754,7 @@ goog.exportProperty(
  * - {string} readerName Friendly name of the reader
  * - {number} state Current state.
  * - {number} protocol Current protocol
- * - {!Array.<number>} atr ATR
+ * - {!ArrayBuffer} atr ATR
  *
  * Error codes that may be returned:
  * - SCARD_S_SUCCESS Successful
