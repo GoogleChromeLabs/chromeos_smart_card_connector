@@ -2799,7 +2799,7 @@ goog.exportProperty(API, 'SCardStatusResult', API.SCardStatusResult);
 goog.inherits(API.SCardStatusResult, API.ResultOrErrorCode);
 
 /**
- * @param {function(string, number, number, !Array.<number>)=} opt_onSucceeded
+ * @param {function(string, number, number, !ArrayBuffer)=} opt_onSucceeded
  * callback: function(readerName, state, protocol, atr)
  * @param {function(!API.ERROR_CODE)=} opt_onFailed callback:
  * function(errorCode)
@@ -2936,7 +2936,7 @@ goog.exportProperty(
  * that are not normally handled by PC/SC.
  *
  * Values returned asynchronously upon successful execution:
- * - {!Array.<number>} responseData Response from the reader.
+ * - {!ArrayBuffer} responseData Response from the reader.
  *
  * Error codes that may be returned:
  * - SCARD_S_SUCCESS Successful
@@ -2957,7 +2957,7 @@ goog.exportProperty(
  * @param {number} controlCode Control code for the operation. See
  * http://anonscm.debian.org/viewvc/pcsclite/trunk/Drivers/ccid/SCARDCONTOL.txt?view=markup
  * for a list of supported commands by some drivers.
- * @param {!Array.<number>} dataToSend Command to send to the reader.
+ * @param {!ArrayBuffer} dataToSend Command to send to the reader.
  *
  * @return {!goog.Promise.<!API.SCardControlResult>}
  */
@@ -2986,7 +2986,7 @@ goog.exportProperty(API, 'SCardControlResult', API.SCardControlResult);
 goog.inherits(API.SCardControlResult, API.ResultOrErrorCode);
 
 /**
- * @param {function(!Array.<number>)=} opt_onSucceeded callback:
+ * @param {function(!ArrayBuffer)=} opt_onSucceeded callback:
  * function(responseData)
  * @param {function(!API.ERROR_CODE)=} opt_onFailed callback:
  * function(errorCode)
@@ -3054,7 +3054,7 @@ goog.exportProperty(
  * - SCARD_ATTR_VENDOR_NAME
  *
  * Values returned asynchronously upon successful execution:
- * - {!Array.<number>} attr The received attribute.
+ * - {!ArrayBuffer} attr The received attribute.
  *
  * Error codes that may be returned:
  * - SCARD_S_SUCCESS Successful
@@ -3101,7 +3101,7 @@ goog.exportProperty(API, 'SCardGetAttribResult', API.SCardGetAttribResult);
 goog.inherits(API.SCardGetAttribResult, API.ResultOrErrorCode);
 
 /**
- * @param {function(!Array.<number>)=} opt_onSucceeded callback: function(attr)
+ * @param {function(!ArrayBuffer)=} opt_onSucceeded callback: function(attr)
  * @param {function(!API.ERROR_CODE)=} opt_onFailed callback:
  * function(errorCode)
  * @param {*=} opt_context
@@ -3133,7 +3133,7 @@ goog.exportProperty(
  *
  * @param {!API.SCARDHANDLE} sCardHandle Connection made from SCardConnect.
  * @param {number} attrId Identifier for the attribute to set.
- * @param {!Array.<number>} attr Buffer with the attribute.
+ * @param {!ArrayBuffer} attr Buffer with the attribute.
  *
  * @return {!goog.Promise.<!API.SCardSetAttribResult>}
  */
@@ -3185,7 +3185,7 @@ goog.exportProperty(
  * Values returned asynchronously upon successful execution:
  * - {!API.SCARD_IO_REQUEST} responseProtocolInformation Response protocol
  *   information.
- * - {!Array.<number>} responseData Response from the card.
+ * - {!ArrayBuffer} responseData Response from the card.
  *
  * Error codes that may be returned:
  * - SCARD_S_SUCCESS Successful
@@ -3209,7 +3209,7 @@ goog.exportProperty(
  * - SCARD_PCI_T0 - Predefined T=0 PCI structure.
  * - SCARD_PCI_T1 - Predefined T=1 PCI structure.
  * - SCARD_PCI_RAW - Predefined RAW PCI structure.
- * @param {!Array.<number>} dataToSend APDU to send to the card.
+ * @param {!ArrayBuffer} dataToSend APDU to send to the card.
  * @param {!API.SCARD_IO_REQUEST=} opt_receiveProtocolInformation Structure of
  * protocol information.
  *
@@ -3247,7 +3247,7 @@ goog.exportProperty(API, 'SCardTransmitResult', API.SCardTransmitResult);
 goog.inherits(API.SCardTransmitResult, API.ResultOrErrorCode);
 
 /**
- * @param {function(!API.SCARD_IO_REQUEST, !Array.<number>)=} opt_onSucceeded
+ * @param {function(!API.SCARD_IO_REQUEST, !ArrayBuffer)=} opt_onSucceeded
  * callback: function(responseProtocolInformation, responseData)
  * @param {function(!API.ERROR_CODE)=} opt_onFailed callback:
  * function(errorCode)
