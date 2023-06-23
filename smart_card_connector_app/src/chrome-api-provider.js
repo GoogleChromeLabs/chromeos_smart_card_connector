@@ -406,11 +406,10 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
    */
   async getStatusChangeListener_(
       requestId, sCardContext, timeout, readerStates) {
-    const timeout_ms = timeout.milliseconds === undefined ?
-        PcscApi.INFINITE :
-        timeout.milliseconds;
+    const timeoutMs = timeout.milliseconds === undefined ? PcscApi.INFINITE :
+                                                           timeout.milliseconds;
     const readerStatesPcsc = readerStates.map(convertReaderStateIn);
-    const callArguments = [sCardContext, timeout_ms, readerStatesPcsc];
+    const callArguments = [sCardContext, timeoutMs, readerStatesPcsc];
     const remoteCallMessage =
         new GSC.RemoteCallMessage('SCardGetStatusChange', callArguments);
 
