@@ -339,21 +339,136 @@ chrome.loginState.onSessionStateChanged;
  */
 chrome.smartCardProviderPrivate = {};
 
-/** @type {!ChromeBaseEvent<function(!number)>} */
-chrome.smartCardProviderPrivate.onEstablishContextRequested;
-
 /**
  * @enum {string}
  */
 chrome.smartCardProviderPrivate.ResultCode = {
   SUCCESS: 'SUCCESS',
+  REMOVED_CARD: 'REMOVED_CARD',
+  RESET_CARD: 'RESET_CARD',
+  UNPOWERED_CARD: 'UNPOWERED_CARD',
+  UNRESPONSIVE_CARD: 'UNRESPONSIVE_CARD',
+  UNSUPPORTED_CARD: 'UNSUPPORTED_CARD',
+  READER_UNAVAILABLE: 'READER_UNAVAILABLE',
+  SHARING_VIOLATION: 'SHARING_VIOLATION',
+  NOT_TRANSACTED: 'NOT_TRANSACTED',
+  NO_SMARTCARD: 'NO_SMARTCARD',
+  PROTO_MISMATCH: 'PROTO_MISMATCH',
+  SYSTEM_CANCELLED: 'SYSTEM_CANCELLED',
+  NOT_READY: 'NOT_READY',
+  CANCELLED: 'CANCELLED',
+  INSUFFICIENT_BUFFER: 'INSUFFICIENT_BUFFER',
+  INVALID_HANDLE: 'INVALID_HANDLE',
+  INVALID_PARAMETER: 'INVALID_PARAMETER',
+  INVALID_VALUE: 'INVALID_VALUE',
+  NO_MEMORY: 'NO_MEMORY',
+  TIMEOUT: 'TIMEOUT',
+  UNKNOWN_READER: 'UNKNOWN_READER',
+  UNSUPPORTED_FEATURE: 'UNSUPPORTED_FEATURE',
+  NO_READERS_AVAILABLE: 'NO_READERS_AVAILABLE',
+  SERVICE_STOPPED: 'SERVICE_STOPPED',
+  NO_SERVICE: 'NO_SERVICE',
+  COMM_ERROR: 'COMM_ERROR',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
+  UNKNOWN_ERROR: 'UNKNOWN_ERROR',
+  SERVER_TOO_BUSY: 'SERVER_TOO_BUSY',
+  UNEXPECTED: 'UNEXPECTED',
+  SHUTDOWN: 'SHUTDOWN',
 };
+
+/**
+ * @typedef {{
+ *   unaware: (boolean|undefined),
+ *   ignore: (boolean|undefined),
+ *   changed: (boolean|undefined),
+ *   unknown: (boolean|undefined),
+ *   unavailable: (boolean|undefined),
+ *   empty: (boolean|undefined),
+ *   present: (boolean|undefined),
+ *   exclusive: (boolean|undefined),
+ *   inuse: (boolean|undefined),
+ *   mute: (boolean|undefined),
+ *   unpowered: (boolean|undefined),
+ * }}
+ */
+chrome.smartCardProviderPrivate.ReaderStateFlags;
+
+/**
+ * @typedef {{
+ *   reader: string,
+ *   currentState: !chrome.smartCardProviderPrivate.ReaderStateFlags,
+ * }}
+ */
+chrome.smartCardProviderPrivate.ReaderStateIn;
+
+/**
+ * @typedef {{
+ *   reader: string,
+ *   eventState: !chrome.smartCardProviderPrivate.ReaderStateFlags,
+ *   atr: !ArrayBuffer,
+ * }}
+ */
+chrome.smartCardProviderPrivate.ReaderStateOut;
+
+/**
+ * @typedef {{
+ *   milliseconds: (number|undefined),
+ * }}
+ */
+chrome.smartCardProviderPrivate.Timeout;
+
+/** @type {!ChromeBaseEvent<function(number)>} */
+chrome.smartCardProviderPrivate.onEstablishContextRequested;
+
+/** @type {!ChromeBaseEvent<function(number, number)>} */
+chrome.smartCardProviderPrivate.onReleaseContextRequested;
+
+/** @type {!ChromeBaseEvent<function(number, number)>} */
+chrome.smartCardProviderPrivate.onListReadersRequested;
+
+/**
+ * @type {!ChromeBaseEvent<function(number, number,
+ *     !chrome.smartCardProviderPrivate.Timeout,
+ *     !Array<!chrome.smartCardProviderPrivate.ReaderStateIn>)>}
+ */
+chrome.smartCardProviderPrivate.onGetStatusChangeRequested;
+
+/** @type {!ChromeBaseEvent<function(number, number)>} */
+chrome.smartCardProviderPrivate.onCancelRequested;
 
 /**
  * @param {number} requestId
  * @param {number} sCardContext
- * @param {chrome.smartCardProviderPrivate.ResultCode} resultCode
+ * @param {!chrome.smartCardProviderPrivate.ResultCode} resultCode
  */
 chrome.smartCardProviderPrivate.reportEstablishContextResult = function(
     requestId, sCardContext, resultCode) {};
+
+/**
+ * @param {number} requestId
+ * @param {!chrome.smartCardProviderPrivate.ResultCode} resultCode
+ */
+chrome.smartCardProviderPrivate.reportReleaseContextResult = function(
+    requestId, resultCode) {};
+/**
+ * @param {number} requestId
+ * @param {!Array<string>} readers
+ * @param {!chrome.smartCardProviderPrivate.ResultCode} resultCode
+ */
+chrome.smartCardProviderPrivate.reportListReadersResult = function(
+    requestId, readers, resultCode) {};
+
+/**
+ * @param {number} requestId
+ * @param {!Array<!chrome.smartCardProviderPrivate.ReaderStateOut>} readerStates
+ * @param {!chrome.smartCardProviderPrivate.ResultCode} resultCode
+ */
+chrome.smartCardProviderPrivate.reportGetStatusChangeResult = function(
+    requestId, readerStates, resultCode) {};
+
+/**
+ * @param {number} requestId
+ * @param {!chrome.smartCardProviderPrivate.ResultCode} resultCode
+ */
+chrome.smartCardProviderPrivate.reportPlainResult = function(
+    requestId, resultCode) {};
