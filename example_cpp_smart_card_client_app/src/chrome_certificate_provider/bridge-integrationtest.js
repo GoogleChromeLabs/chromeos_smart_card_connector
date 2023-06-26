@@ -77,7 +77,7 @@ function stubSetCertificatesApi(details, callback) {
 }
 
 goog.exportSymbol('testChromeCertificateProviderApiBridge', {
-  setUp: function() {
+  'setUp': function() {
     testController = new GSC.IntegrationTestController();
     return testController.initAsync().then(() => {
       bridgeBackend =
@@ -87,13 +87,15 @@ goog.exportSymbol('testChromeCertificateProviderApiBridge', {
     });
   },
 
-  tearDown: function() {
-    return testController.disposeAsync().thenAlways(() => {
+  'tearDown': async function() {
+    try {
+      await testController.disposeAsync();
+    } finally {
       testController = null;
-    });
+    }
   },
 
-  testSetCertificates_empty: function() {
+  'testSetCertificates_empty': function() {
     setUpApiStubs();
     testController.sendMessageToCppHelper(
         'ChromeCertificateProviderApiBridge',
@@ -103,7 +105,7 @@ goog.exportSymbol('testChromeCertificateProviderApiBridge', {
     });
   },
 
-  testSetCertificates_empty_legacyApi: function() {
+  'testSetCertificates_empty_legacyApi': function() {
     setUpLegacyApiStubs();
     // Just verify that no crash happens.
     return testController.sendMessageToCppHelper(
@@ -111,7 +113,7 @@ goog.exportSymbol('testChromeCertificateProviderApiBridge', {
         /*messageForHelper=*/ 'setCertificates_empty');
   },
 
-  testSetCertificates_fakeCerts: function() {
+  'testSetCertificates_fakeCerts': function() {
     setUpApiStubs();
     testController.sendMessageToCppHelper(
         'ChromeCertificateProviderApiBridge',
@@ -132,7 +134,7 @@ goog.exportSymbol('testChromeCertificateProviderApiBridge', {
     });
   },
 
-  testSetCertificates_noApi: function() {
+  'testSetCertificates_noApi': function() {
     // Note the missing setUpApiStubs() call.
     // Just verify that no crash happens.
     return testController.sendMessageToCppHelper(
