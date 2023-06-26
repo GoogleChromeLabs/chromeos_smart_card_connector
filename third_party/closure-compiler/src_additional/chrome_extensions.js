@@ -378,17 +378,17 @@ chrome.smartCardProviderPrivate.ResultCode = {
 
 /**
  * @typedef {{
- * unaware: (boolean | undefined),
- * ignore: (boolean | undefined),
- * changed: (boolean | undefined),
- * unknown: (boolean | undefined),
- * unavailable: (boolean | undefined),
- * empty: (boolean | undefined),
- * present: (boolean | undefined),
- * exclusive: (boolean | undefined),
- * inuse: (boolean | undefined),
- * mute: (boolean | undefined),
- * unpowered: (boolean | undefined),
+ *   unaware: (boolean|undefined),
+ *   ignore: (boolean|undefined),
+ *   changed: (boolean|undefined),
+ *   unknown: (boolean|undefined),
+ *   unavailable: (boolean|undefined),
+ *   empty: (boolean|undefined),
+ *   present: (boolean|undefined),
+ *   exclusive: (boolean|undefined),
+ *   inuse: (boolean|undefined),
+ *   mute: (boolean|undefined),
+ *   unpowered: (boolean|undefined),
  * }}
  */
 chrome.smartCardProviderPrivate.ReaderStateFlags;
