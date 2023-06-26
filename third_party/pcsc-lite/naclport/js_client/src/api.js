@@ -72,8 +72,8 @@ const castToInt32 = GSC.FixedSizeInteger.castToInt32;
 
 /**
  * JavaScript version of the PC/SC-Lite API (see
- * <a href="http://pcsclite.alioth.debian.org/api/group__API.html">
- * http://pcsclite.alioth.debian.org/api/group__API.html</a>).
+ * <a href="https://pcsclite.apdu.fr/api/group__API.html">
+ * https://pcsclite.apdu.fr/api/group__API.html</a>).
  *
  * The major difference from the original PC/SC-Lite API is the asynchronicity
  * of all blocking API function calls. Most functions in this JavaScript version
@@ -2955,7 +2955,7 @@ goog.exportProperty(
  *
  * @param {!API.SCARDHANDLE} sCardHandle Connection made from SCardConnect.
  * @param {number} controlCode Control code for the operation. See
- * http://anonscm.debian.org/viewvc/pcsclite/trunk/Drivers/ccid/SCARDCONTOL.txt?view=markup
+ * https://salsa.debian.org/rousseau/CCID/-/blob/master/SCARDCONTOL.md
  * for a list of supported commands by some drivers.
  * @param {!ArrayBuffer} dataToSend Command to send to the reader.
  *
