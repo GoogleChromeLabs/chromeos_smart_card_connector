@@ -377,6 +377,25 @@ chrome.smartCardProviderPrivate.ResultCode = {
 };
 
 /**
+ * @enum {string}
+ */
+chrome.smartCardProviderPrivate.ShareMode = {
+  SHARED: 'SHARED',
+  EXCLUSIVE: 'EXCLUSIVE',
+  DIRECT: 'DIRECT',
+};
+
+/**
+ * @enum {string}
+ */
+chrome.smartCardProviderPrivate.Disposition = {
+  LEAVE_CARD: 'LEAVE_CARD',
+  RESET_CARD: 'RESET_CARD',
+  UNPOWER_CARD: 'UNPOWER_CARD',
+  EJECT_CARD: 'EJECT_CARD',
+};
+
+/**
  * @typedef {{
  *   unaware: (boolean|undefined),
  *   ignore: (boolean|undefined),
@@ -392,6 +411,25 @@ chrome.smartCardProviderPrivate.ResultCode = {
  * }}
  */
 chrome.smartCardProviderPrivate.ReaderStateFlags;
+
+/**
+ * @typedef {{
+ *   t0: (boolean|undefined),
+ *   t1: (boolean|undefined),
+ *   raw: (boolean|undefined),
+ * }}
+ */
+chrome.smartCardProviderPrivate.Protocols;
+
+/**
+ * @enum {string}
+ */
+chrome.smartCardProviderPrivate.Protocol = {
+  UNDEFINED: 'UNDEFINED',
+  T0: 'T0',
+  T1: 'T1',
+  RAW: 'RAW',
+};
 
 /**
  * @typedef {{
@@ -437,6 +475,19 @@ chrome.smartCardProviderPrivate.onGetStatusChangeRequested;
 chrome.smartCardProviderPrivate.onCancelRequested;
 
 /**
+ * @type {!ChromeBaseEvent<function(number, number, string,
+ *     !chrome.smartCardProviderPrivate.ShareMode,
+ *     !chrome.smartCardProviderPrivate.Protocols)>}
+ */
+chrome.smartCardProviderPrivate.onConnectRequested;
+
+/**
+ * @type {!ChromeBaseEvent<function(number, number,
+ *     !chrome.smartCardProviderPrivate.Disposition)>}
+ */
+chrome.smartCardProviderPrivate.onDisconnectRequested;
+
+/**
  * @param {number} requestId
  * @param {number} sCardContext
  * @param {!chrome.smartCardProviderPrivate.ResultCode} resultCode
@@ -472,3 +523,12 @@ chrome.smartCardProviderPrivate.reportGetStatusChangeResult = function(
  */
 chrome.smartCardProviderPrivate.reportPlainResult = function(
     requestId, resultCode) {};
+
+/**
+ * @param {number} requestId
+ * @param {number} sCardHandle
+ * @param {!chrome.smartCardProviderPrivate.Protocol} activeProtocol
+ * @param {!chrome.smartCardProviderPrivate.ResultCode} resultCode
+ */
+chrome.smartCardProviderPrivate.reportConnectResult = function(
+    requestId, sCardHandle, activeProtocol, resultCode) {};
