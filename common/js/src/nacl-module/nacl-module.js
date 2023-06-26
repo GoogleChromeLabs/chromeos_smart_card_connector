@@ -131,6 +131,12 @@ GSC.NaclModule = class extends GSC.ExecutableModule {
     GSC.Logging.checkWithLogger(this.logger_, document.body);
     document.body.appendChild(this.element_);
     this.forceElementLoading_();
+    if (!this.isElementProperlyCreated_()) {
+      goog.log.error(
+          this.logger_,
+          'NaCl embed construction failed: Native Client is likely disabled');
+      this.dispose();
+    }
   }
 
   /** @override */
@@ -258,6 +264,20 @@ GSC.NaclModule = class extends GSC.ExecutableModule {
     // Assign the result to a random property, so that Closure Compiler doesn't
     // optimize the "useless" expression away.
     this.element_.style.top = this.element_.offsetTop;
+  }
+
+  /**
+   * @private
+   * @return {boolean}
+   */
+  isElementProperlyCreated_() {
+    if (!this.element_) {
+      return false;
+    }
+    // If the browser doesn't have NaCl plugin installed, it'll silently fall
+    // back to creating the <embed> without any functionality. Detect this case
+    // by checking for an arbitrary NaCl-specific property.
+    return this.element_.hasOwnProperty('postMessage');
   }
 };
 
