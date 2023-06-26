@@ -57,16 +57,17 @@ GSC.IntegrationTestController = class {
     return this.naclModule.getLoadPromise();
   }
 
-  /**
-   * @return {!goog.Promise<void>}
-   */
-  disposeAsync() {
-    return this.callCpp_('TearDownAll', /*functionArguments=*/[])
-        .thenAlways(() => {
-          this.naclModuleRequester_.dispose();
-          this.naclModule.dispose();
-          this.propertyReplacer.reset();
-        });
+  async disposeAsync() {
+    try {
+      if (!this.naclModule.isDisposed()) {
+        await this.callCpp_('TearDownAll', /*functionArguments=*/[]);
+      }
+    }
+    finally {
+      this.naclModuleRequester_.dispose();
+      this.naclModule.dispose();
+      this.propertyReplacer.reset();
+    }
   }
 
   /**
