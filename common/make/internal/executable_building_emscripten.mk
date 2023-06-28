@@ -144,6 +144,10 @@ EMSCRIPTEN_COMMON_FLAGS += \
 # DEMANGLE_SUPPORT: Demangle C++ function names in stack traces.
 # EXCEPTION_DEBUG: Enables printing exceptions coming from the executable.
 # SAFE_HEAP: Enable memory access checks.
+# TOTAL_STACK: Increase the initial stack size (Emscripten's default 64KB are
+#   very tight for Debug builds, and while some code in this project calls
+#   pthread_attr_setstacksize() its parameters aren't chosen with Emscripten
+#   Debug's heavy stack consumption in mind).
 # Wno-limited-postlink-optimizations: Suppress a warning about limited
 #   optimizations.
 EMSCRIPTEN_LINKER_FLAGS += \
@@ -151,6 +155,7 @@ EMSCRIPTEN_LINKER_FLAGS += \
   -s DEMANGLE_SUPPORT=1 \
   -s EXCEPTION_DEBUG=1 \
   -s SAFE_HEAP=1 \
+  -s TOTAL_STACK=1048576 \
   -Wno-limited-postlink-optimizations \
 
 else
