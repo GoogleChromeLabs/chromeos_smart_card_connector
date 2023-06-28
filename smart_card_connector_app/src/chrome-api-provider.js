@@ -190,7 +190,7 @@ function convertReaderStateOut(readerState) {
  * to a PCSC API value.
  * @param {!chrome.smartCardProviderPrivate.ShareMode} shareMode
  * @returns {number}
- * @throws {Error} Throws if unknown share mode in encountered.
+ * @throws {Error} Throws if unknown share mode is encountered.
  */
 function convertShareModeToNumber(shareMode) {
   switch (shareMode) {
@@ -223,10 +223,10 @@ function convertProtocolsToNumber(protocols) {
 }
 
 /**
- * Converts from a PCSC API value to chrome.smartCardProviderPrivate.Protocol.
+ * Converts from a PCSC API value to a chrome.smartCardProviderPrivate.Protocol.
  * @param {number} protocol
  * @returns {!chrome.smartCardProviderPrivate.Protocol}
- * @throws {Error} Throws error if unknown protocol in encountered.
+ * @throws {Error} Throws error if unknown protocol is encountered.
  */
 function convertProtocolToEnum(protocol) {
   switch (protocol) {
@@ -248,7 +248,7 @@ function convertProtocolToEnum(protocol) {
  * to a PCSC API value.
  * @param {!chrome.smartCardProviderPrivate.Disposition} disposition
  * @returns {number}
- * @throws {Error} Throws error if unknown disposition in encountered.
+ * @throws {Error} Throws error if unknown disposition is encountered.
  */
 function convertDispositionToNumber(disposition) {
   switch (disposition) {
@@ -263,6 +263,51 @@ function convertDispositionToNumber(disposition) {
     default:
       throw new Error(`Unknown disposition value ${disposition} encountered`);
   }
+}
+
+/**
+ * Converts a chrome.smartCardProviderPrivate.Protocol to a predefined
+ * Protocol Control Information structure used in PCSC API.
+ * @param {!chrome.smartCardProviderPrivate.Protocol} protocol
+ * @returns {!PcscApi.SCARD_IO_REQUEST}
+ * @throws {Error} Throws error if unknown protocol is encountered.
+ */
+function convertProtocolToPci(protocol) {
+  switch (protocol) {
+    case chrome.smartCardProviderPrivate.Protocol.T0:
+      return PcscApi.SCARD_PCI_T0;
+    case chrome.smartCardProviderPrivate.Protocol.T1:
+      return PcscApi.SCARD_PCI_T1;
+    case chrome.smartCardProviderPrivate.Protocol.RAW:
+      return PcscApi.SCARD_PCI_RAW;
+    default:
+      throw new Error(`No predefined PCI structure for protocol ${protocol}`);
+  }
+}
+
+/**
+ * Converts from a PCSC API value to a
+ * chrome.smartCardProviderPrivate.ConnectionState. We only take the highest bit
+ * of the value, since it contains all the needed information, e.g.
+ * SCARD_NEGOTIABLE implies that SCARD_POWERED and SCARD_PRESENT are also set.
+ * @param {number} state
+ * @returns {!chrome.smartCardProviderPrivate.ConnectionState}
+ * @throws {Error} Throws error if unknown connection state is encountered.
+ */
+function convertConnectionStateToEnum(state) {
+  if (state & PcscApi.SCARD_SPECIFIC)
+    return chrome.smartCardProviderPrivate.ConnectionState.SPECIFIC;
+  if (state & PcscApi.SCARD_NEGOTIABLE)
+    return chrome.smartCardProviderPrivate.ConnectionState.NEGOTIABLE;
+  if (state & PcscApi.SCARD_POWERED)
+    return chrome.smartCardProviderPrivate.ConnectionState.POWERED;
+  if (state & PcscApi.SCARD_SWALLOWED)
+    return chrome.smartCardProviderPrivate.ConnectionState.SWALLOWED;
+  if (state & PcscApi.SCARD_PRESENT)
+    return chrome.smartCardProviderPrivate.ConnectionState.PRESENT;
+  if (state & PcscApi.SCARD_ABSENT)
+    return chrome.smartCardProviderPrivate.ConnectionState.ABSENT;
+  throw new Error(`Unknown connection state value ${state} encountered`);
 }
 
 /**
@@ -361,6 +406,27 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
     this.chromeEventListeners_.push(new ChromeEventListener(
         chrome.smartCardProviderPrivate.onDisconnectRequested,
         (...args) => this.disconnectListener_(...args)));
+    this.chromeEventListeners_.push(new ChromeEventListener(
+        chrome.smartCardProviderPrivate.onTransmitRequested,
+        (...args) => this.transmitListener_(...args)));
+    this.chromeEventListeners_.push(new ChromeEventListener(
+        chrome.smartCardProviderPrivate.onControlRequested,
+        (...args) => this.controlListener_(...args)));
+    this.chromeEventListeners_.push(new ChromeEventListener(
+        chrome.smartCardProviderPrivate.onGetAttribRequested,
+        (...args) => this.getAttribListener_(...args)));
+    this.chromeEventListeners_.push(new ChromeEventListener(
+        chrome.smartCardProviderPrivate.onSetAttribRequested,
+        (...args) => this.setAttribListener_(...args)));
+    this.chromeEventListeners_.push(new ChromeEventListener(
+        chrome.smartCardProviderPrivate.onStatusRequested,
+        (...args) => this.statusListener_(...args)));
+    this.chromeEventListeners_.push(new ChromeEventListener(
+        chrome.smartCardProviderPrivate.onBeginTransactionRequested,
+        (...args) => this.beginTransactionListener_(...args)));
+    this.chromeEventListeners_.push(new ChromeEventListener(
+        chrome.smartCardProviderPrivate.onEndTransactionRequested,
+        (...args) => this.endTransactionListener_(...args)));
   }
 
   /**
@@ -642,6 +708,280 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
           logger,
           this.isDisposed() ? goog.log.Level.FINE : goog.log.Level.WARNING,
           'Failed to process onDisconnectRequested event ' +
+              `with request id ${requestId}: ${error}`);
+    }
+
+    chrome.smartCardProviderPrivate.reportPlainResult(requestId, resultCode);
+  }
+
+  /**
+   * @param {number} requestId
+   * @param {number} sCardHandle
+   * @param {!chrome.smartCardProviderPrivate.Protocol} protocol
+   * @param {!ArrayBuffer} data
+   * @private
+   */
+  async transmitListener_(requestId, sCardHandle, protocol, data) {
+    let resultCode = chrome.smartCardProviderPrivate.ResultCode.INTERNAL_ERROR;
+    /** @type {!ArrayBuffer} */
+    let resultData = new ArrayBuffer(0);
+
+    try {
+      const callArguments =
+          [sCardHandle, convertProtocolToPci(protocol), data, null];
+      const remoteCallMessage =
+          new GSC.RemoteCallMessage('SCardTransmit', callArguments);
+      const responseItems =
+          await this.serverRequester_.handleRequest(remoteCallMessage);
+
+      const result = new PcscApi.SCardTransmitResult(responseItems);
+      result.get(
+          (pci, data) => {
+            resultData = data;
+            resultCode = chrome.smartCardProviderPrivate.ResultCode.SUCCESS;
+          },
+          (errorCode) => {
+            resultCode = convertErrorCodeToEnum(errorCode);
+          });
+    } catch (error) {
+      goog.log.log(
+          logger,
+          this.isDisposed() ? goog.log.Level.FINE : goog.log.Level.WARNING,
+          'Failed to process onTransmitRequested event ' +
+              `with request id ${requestId}: ${error}`);
+    }
+
+    chrome.smartCardProviderPrivate.reportDataResult(
+        requestId, resultData, resultCode);
+  }
+
+  /**
+   * @param {number} requestId
+   * @param {number} sCardHandle
+   * @param {number} controlCode
+   * @param {!ArrayBuffer} data
+   * @private
+   */
+  async controlListener_(requestId, sCardHandle, controlCode, data) {
+    let resultCode = chrome.smartCardProviderPrivate.ResultCode.INTERNAL_ERROR;
+    /** @type {!ArrayBuffer} */
+    let resultData = new ArrayBuffer(0);
+
+    try {
+      const callArguments = [sCardHandle, controlCode, data];
+      const remoteCallMessage =
+          new GSC.RemoteCallMessage('SCardControl', callArguments);
+      const responseItems =
+          await this.serverRequester_.handleRequest(remoteCallMessage);
+
+      const result = new PcscApi.SCardControlResult(responseItems);
+      result.get(
+          (data) => {
+            resultData = data;
+            resultCode = chrome.smartCardProviderPrivate.ResultCode.SUCCESS;
+          },
+          (errorCode) => {
+            resultCode = convertErrorCodeToEnum(errorCode);
+          });
+    } catch (error) {
+      goog.log.log(
+          logger,
+          this.isDisposed() ? goog.log.Level.FINE : goog.log.Level.WARNING,
+          'Failed to process onControlRequested event ' +
+              `with request id ${requestId}: ${error}`);
+    }
+
+    chrome.smartCardProviderPrivate.reportDataResult(
+        requestId, resultData, resultCode);
+  }
+
+  /**
+   * @param {number} requestId
+   * @param {number} sCardHandle
+   * @param {number} attribId
+   * @private
+   */
+  async getAttribListener_(requestId, sCardHandle, attribId) {
+    let resultCode = chrome.smartCardProviderPrivate.ResultCode.INTERNAL_ERROR;
+    /** @type {!ArrayBuffer} */
+    let resultData = new ArrayBuffer(0);
+
+    try {
+      const callArguments = [sCardHandle, attribId];
+      const remoteCallMessage =
+          new GSC.RemoteCallMessage('SCardGetAttrib', callArguments);
+      const responseItems =
+          await this.serverRequester_.handleRequest(remoteCallMessage);
+
+      const result = new PcscApi.SCardGetAttribResult(responseItems);
+      result.get(
+          (data) => {
+            resultData = data;
+            resultCode = chrome.smartCardProviderPrivate.ResultCode.SUCCESS;
+          },
+          (errorCode) => {
+            resultCode = convertErrorCodeToEnum(errorCode);
+          });
+    } catch (error) {
+      goog.log.log(
+          logger,
+          this.isDisposed() ? goog.log.Level.FINE : goog.log.Level.WARNING,
+          'Failed to process onGetAttribRequested event ' +
+              `with request id ${requestId}: ${error}`);
+    }
+
+    chrome.smartCardProviderPrivate.reportDataResult(
+        requestId, resultData, resultCode);
+  }
+
+  /**
+   * @param {number} requestId
+   * @param {number} sCardHandle
+   * @param {number} attribId
+   * @param {!ArrayBuffer} data
+   * @private
+   */
+  async setAttribListener_(requestId, sCardHandle, attribId, data) {
+    let resultCode = chrome.smartCardProviderPrivate.ResultCode.INTERNAL_ERROR;
+
+    try {
+      const callArguments = [sCardHandle, attribId, data];
+      const remoteCallMessage =
+          new GSC.RemoteCallMessage('SCardSetAttrib', callArguments);
+      const responseItems =
+          await this.serverRequester_.handleRequest(remoteCallMessage);
+
+      const result = new PcscApi.SCardSetAttribResult(responseItems);
+      result.get(
+          () => {
+            resultCode = chrome.smartCardProviderPrivate.ResultCode.SUCCESS;
+          },
+          (errorCode) => {
+            resultCode = convertErrorCodeToEnum(errorCode);
+          });
+    } catch (error) {
+      goog.log.log(
+          logger,
+          this.isDisposed() ? goog.log.Level.FINE : goog.log.Level.WARNING,
+          'Failed to process onSetAttribRequested event ' +
+              `with request id ${requestId}: ${error}`);
+    }
+
+    chrome.smartCardProviderPrivate.reportPlainResult(requestId, resultCode);
+  }
+
+  /**
+   * @param {number} requestId
+   * @param {number} sCardHandle
+   * @private
+   */
+  async statusListener_(requestId, sCardHandle) {
+    let resultCode = chrome.smartCardProviderPrivate.ResultCode.INTERNAL_ERROR;
+    /** @type {string} */
+    let resultReaderName = '';
+    /** @type {!chrome.smartCardProviderPrivate.ConnectionState} */
+    let resultState = chrome.smartCardProviderPrivate.ConnectionState.ABSENT;
+    /** @type {!chrome.smartCardProviderPrivate.Protocol} */
+    let resultProtocol = chrome.smartCardProviderPrivate.Protocol.UNDEFINED;
+    /** @type {!ArrayBuffer} */
+    let resultAtr = new ArrayBuffer(0);
+
+    try {
+      const callArguments = [sCardHandle];
+      const remoteCallMessage =
+          new GSC.RemoteCallMessage('SCardStatus', callArguments);
+      const responseItems =
+          await this.serverRequester_.handleRequest(remoteCallMessage);
+
+      const result = new PcscApi.SCardStatusResult(responseItems);
+      result.get(
+          (readerName, state, protocol, atr) => {
+            resultReaderName = readerName;
+            resultState = convertConnectionStateToEnum(state);
+            resultProtocol = convertProtocolToEnum(protocol);
+            resultAtr = atr;
+            resultCode = chrome.smartCardProviderPrivate.ResultCode.SUCCESS;
+          },
+          (errorCode) => {
+            resultCode = convertErrorCodeToEnum(errorCode);
+          });
+    } catch (error) {
+      goog.log.log(
+          logger,
+          this.isDisposed() ? goog.log.Level.FINE : goog.log.Level.WARNING,
+          'Failed to process onStatusRequested event ' +
+              `with request id ${requestId}: ${error}`);
+    }
+
+    chrome.smartCardProviderPrivate.reportStatusResult(
+        requestId, resultReaderName, resultState, resultProtocol, resultAtr,
+        resultCode);
+  }
+
+  /**
+   * @param {number} requestId
+   * @param {number} sCardHandle
+   * @private
+   */
+  async beginTransactionListener_(requestId, sCardHandle) {
+    let resultCode = chrome.smartCardProviderPrivate.ResultCode.INTERNAL_ERROR;
+
+    try {
+      const callArguments = [sCardHandle];
+      const remoteCallMessage =
+          new GSC.RemoteCallMessage('SCardBeginTransaction', callArguments);
+      const responseItems =
+          await this.serverRequester_.handleRequest(remoteCallMessage);
+
+      const result = new PcscApi.SCardBeginTransactionResult(responseItems);
+      result.get(
+          () => {
+            resultCode = chrome.smartCardProviderPrivate.ResultCode.SUCCESS;
+          },
+          (errorCode) => {
+            resultCode = convertErrorCodeToEnum(errorCode);
+          });
+    } catch (error) {
+      goog.log.log(
+          logger,
+          this.isDisposed() ? goog.log.Level.FINE : goog.log.Level.WARNING,
+          'Failed to process onBeginTransactionRequested event ' +
+              `with request id ${requestId}: ${error}`);
+    }
+
+    chrome.smartCardProviderPrivate.reportPlainResult(requestId, resultCode);
+  }
+
+  /**
+   * @param {number} requestId
+   * @param {number} sCardHandle
+   * @param {!chrome.smartCardProviderPrivate.Disposition} disposition
+   * @private
+   */
+  async endTransactionListener_(requestId, sCardHandle, disposition) {
+    let resultCode = chrome.smartCardProviderPrivate.ResultCode.INTERNAL_ERROR;
+
+    try {
+      const callArguments =
+          [sCardHandle, convertDispositionToNumber(disposition)];
+      const remoteCallMessage =
+          new GSC.RemoteCallMessage('SCardEndTransaction', callArguments);
+      const responseItems =
+          await this.serverRequester_.handleRequest(remoteCallMessage);
+
+      const result = new PcscApi.SCardEndTransactionResult(responseItems);
+      result.get(
+          () => {
+            resultCode = chrome.smartCardProviderPrivate.ResultCode.SUCCESS;
+          },
+          (errorCode) => {
+            resultCode = convertErrorCodeToEnum(errorCode);
+          });
+    } catch (error) {
+      goog.log.log(
+          logger,
+          this.isDisposed() ? goog.log.Level.FINE : goog.log.Level.WARNING,
+          'Failed to process onEndTransactionRequested event ' +
               `with request id ${requestId}: ${error}`);
     }
 
