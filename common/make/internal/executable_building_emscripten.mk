@@ -142,8 +142,6 @@ EMSCRIPTEN_COMMON_FLAGS += \
 # Explanation:
 # ASSERTIONS: Enable runtime checks, like for memory allocation errors.
 # DEMANGLE_SUPPORT: Demangle C++ function names in stack traces.
-# EXCEPTION_DEBUG: Enables printing exceptions coming from the executable.
-# RUNTIME_DEBUG: Disables verbose tracing logs.
 # SAFE_HEAP: Enable memory access checks.
 # TOTAL_STACK: Increase the initial stack size (Emscripten's default 64KB are
 #   very tight for Debug builds, and while some code in this project calls
@@ -154,8 +152,6 @@ EMSCRIPTEN_COMMON_FLAGS += \
 EMSCRIPTEN_LINKER_FLAGS += \
   -s ASSERTIONS=2 \
   -s DEMANGLE_SUPPORT=1 \
-  -s EXCEPTION_DEBUG=1 \
-  -s RUNTIME_DEBUG=0 \
   -s SAFE_HEAP=1 \
   -s TOTAL_STACK=1048576 \
   -Wno-limited-postlink-optimizations \
