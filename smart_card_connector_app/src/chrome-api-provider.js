@@ -286,6 +286,15 @@ function convertProtocolToPci(protocol) {
 }
 
 /**
+ * Logs that that the encountered combination of connection state flags
+ * is not expected from PCSC-lite.
+ * @param {number} state
+ */
+function logUnexpectedConnectionState(state) {
+  goog.log.warning(logger, `Unexpected connection state bitmask: ${state}`)
+}
+
+/**
  * Converts from a PCSC API value to a
  * chrome.smartCardProviderPrivate.ConnectionState. We only take the highest bit
  * of the value, since it contains all the needed information, e.g.
@@ -295,18 +304,40 @@ function convertProtocolToPci(protocol) {
  * @throws {Error} Throws error if unknown connection state is encountered.
  */
 function convertConnectionStateToEnum(state) {
-  if (state & PcscApi.SCARD_SPECIFIC)
+  if (state & PcscApi.SCARD_SPECIFIC) {
+    if (state !==
+        (PcscApi.SCARD_SPECIFIC | PcscApi.SCARD_POWERED |
+         PcscApi.SCARD_PRESENT))
+      logUnexpectedConnectionState(state);
     return chrome.smartCardProviderPrivate.ConnectionState.SPECIFIC;
-  if (state & PcscApi.SCARD_NEGOTIABLE)
+  }
+  if (state & PcscApi.SCARD_NEGOTIABLE) {
+    if (state !==
+        (PcscApi.SCARD_NEGOTIABLE | PcscApi.SCARD_POWERED |
+         PcscApi.SCARD_PRESENT))
+      logUnexpectedConnectionState(state);
     return chrome.smartCardProviderPrivate.ConnectionState.NEGOTIABLE;
-  if (state & PcscApi.SCARD_POWERED)
+  }
+  if (state & PcscApi.SCARD_POWERED) {
+    if (state !== (PcscApi.SCARD_POWERED | PcscApi.SCARD_PRESENT))
+      logUnexpectedConnectionState(state);
     return chrome.smartCardProviderPrivate.ConnectionState.POWERED;
-  if (state & PcscApi.SCARD_SWALLOWED)
+  }
+  if (state & PcscApi.SCARD_SWALLOWED) {
+    if (state !== (PcscApi.SCARD_SWALLOWED | PcscApi.SCARD_PRESENT))
+      logUnexpectedConnectionState(state);
     return chrome.smartCardProviderPrivate.ConnectionState.SWALLOWED;
-  if (state & PcscApi.SCARD_PRESENT)
+  }
+  if (state & PcscApi.SCARD_PRESENT) {
+    if (state !== PcscApi.SCARD_PRESENT)
+      logUnexpectedConnectionState(state);
     return chrome.smartCardProviderPrivate.ConnectionState.PRESENT;
-  if (state & PcscApi.SCARD_ABSENT)
+  }
+  if (state & PcscApi.SCARD_ABSENT) {
+    if (state !== PcscApi.SCARD_ABSENT)
+      logUnexpectedConnectionState(state);
     return chrome.smartCardProviderPrivate.ConnectionState.ABSENT;
+  }
   throw new Error(`Unknown connection state value ${state} encountered`);
 }
 
