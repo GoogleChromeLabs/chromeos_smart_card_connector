@@ -396,6 +396,18 @@ chrome.smartCardProviderPrivate.Disposition = {
 };
 
 /**
+ * @enum {string}
+ */
+chrome.smartCardProviderPrivate.ConnectionState = {
+  ABSENT: 'ABSENT',
+  PRESENT: 'PRESENT',
+  SWALLOWED: 'SWALLOWED',
+  POWERED: 'POWERED',
+  NEGOTIABLE: 'NEGOTIABLE',
+  SPECIFIC: 'SPECIFIC',
+};
+
+/**
  * @typedef {{
  *   unaware: (boolean|undefined),
  *   ignore: (boolean|undefined),
@@ -488,6 +500,43 @@ chrome.smartCardProviderPrivate.onConnectRequested;
 chrome.smartCardProviderPrivate.onDisconnectRequested;
 
 /**
+ * @type {!ChromeBaseEvent<function(number, number,
+ *     !chrome.smartCardProviderPrivate.Protocol, !ArrayBuffer)>}
+ */
+chrome.smartCardProviderPrivate.onTransmitRequested;
+
+/**
+ * @type {!ChromeBaseEvent<function(number, number, number, !ArrayBuffer)>}
+ */
+chrome.smartCardProviderPrivate.onControlRequested;
+
+/**
+ * @type {!ChromeBaseEvent<function(number, number, number)>}
+ */
+chrome.smartCardProviderPrivate.onGetAttribRequested;
+
+/**
+ * @type {!ChromeBaseEvent<function(number, number, number, !ArrayBuffer)>}
+ */
+chrome.smartCardProviderPrivate.onSetAttribRequested;
+
+/**
+ * @type {!ChromeBaseEvent<function(number, number)>}
+ */
+chrome.smartCardProviderPrivate.onStatusRequested;
+
+/**
+ * @type {!ChromeBaseEvent<function(number, number)>}
+ */
+chrome.smartCardProviderPrivate.onBeginTransactionRequested;
+
+/**
+ * @type {!ChromeBaseEvent<function(number, number,
+ *     !chrome.smartCardProviderPrivate.Disposition)>}
+ */
+chrome.smartCardProviderPrivate.onEndTransactionRequested;
+
+/**
  * @param {number} requestId
  * @param {number} sCardContext
  * @param {!chrome.smartCardProviderPrivate.ResultCode} resultCode
@@ -532,3 +581,22 @@ chrome.smartCardProviderPrivate.reportPlainResult = function(
  */
 chrome.smartCardProviderPrivate.reportConnectResult = function(
     requestId, sCardHandle, activeProtocol, resultCode) {};
+
+/**
+ * @param {number} requestId
+ * @param {!ArrayBuffer} data
+ * @param {!chrome.smartCardProviderPrivate.ResultCode} resultCode
+ */
+chrome.smartCardProviderPrivate.reportDataResult = function(
+    requestId, data, resultCode) {};
+
+/**
+ * @param {number} requestId
+ * @param {string} readerName
+ * @param {!chrome.smartCardProviderPrivate.ConnectionState} state
+ * @param {!chrome.smartCardProviderPrivate.Protocol} protocol
+ * @param {!ArrayBuffer} atr
+ * @param {!chrome.smartCardProviderPrivate.ResultCode} resultCode
+ */
+chrome.smartCardProviderPrivate.reportStatusResult = function(
+    requestId, readerName, state, protocol, atr, resultCode) {};
