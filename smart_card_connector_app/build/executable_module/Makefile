@@ -16,24 +16,13 @@
 TARGET := executable_module
 
 include ../../../common/make/common.mk
-
 include $(COMMON_DIR_PATH)/make/executable_building.mk
-
 include $(COMMON_DIR_PATH)/cpp/include.mk
-include $(COMMON_DIR_PATH)/cpp/dependency.mk
-
 include $(THIRD_PARTY_DIR_PATH)/ccid/webport/include.mk
-include $(THIRD_PARTY_DIR_PATH)/ccid/webport/dependency.mk
-
 include $(THIRD_PARTY_DIR_PATH)/libusb/webport/include.mk
-include $(THIRD_PARTY_DIR_PATH)/libusb/webport/dependency.mk
-
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/common/include.mk
-include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/common/dependency.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/server/include.mk
-include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/server/dependency.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/server_clients_management/include.mk
-include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/server_clients_management/dependency.mk
 
 
 # Common build definitions:
