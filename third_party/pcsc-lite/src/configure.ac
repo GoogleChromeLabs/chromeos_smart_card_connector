@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.69])
 
-AC_INIT([pcsc-lite],[1.9.9])
+AC_INIT([pcsc-lite],[2.0.0])
 AC_CONFIG_SRCDIR(src/pcscdaemon.c)
 AM_INIT_AUTOMAKE(1.8 dist-bzip2 no-dist-gzip)
 AC_CONFIG_HEADERS([config.h])
@@ -110,6 +110,7 @@ AC_FUNC_ERROR_AT_LINE
 AC_FUNC_STAT
 AC_FUNC_VPRINTF
 AC_CHECK_FUNCS(getopt_long nanosleep strerror vsnprintf getrandom)
+AC_CHECK_FUNCS(secure_getenv issetugid)
 AC_FUNC_ALLOCA
 
 # C Compiler features
@@ -310,6 +311,7 @@ if test "$use_polkit" != "no"; then
 		AC_DEFINE([HAVE_POLKIT], 1, [Build polkit access control support])
 		polkit_policy_dir=$($PKG_CONFIG polkit-gobject-1 --variable=policydir)
 		AC_SUBST(POLICY_DIR, [$polkit_policy_dir])
+		PCSCLITE_FEATURES="${PCSCLITE_FEATURES} polkit"
 	else
 	        use_polkit=no
 	        AC_MSG_ERROR([[
@@ -332,7 +334,7 @@ AM_CONDITIONAL(HAVE_SYSTEMD, [test -n "$with_systemdsystemunitdir" -a "x$with_sy
 
 # --enable-embedded
 AC_ARG_ENABLE(embedded,
-  AS_HELP_STRING([--enable-embedded],[limit RAM and CPU ressources by disabling features (log)]),
+  AS_HELP_STRING([--enable-embedded],[limit RAM and CPU resources by disabling features (log)]),
   [ use_embedded="${enableval}" ])
 
 if test x$use_embedded = xyes; then

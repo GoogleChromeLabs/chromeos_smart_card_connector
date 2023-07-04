@@ -32,7 +32,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /**
  * @file
- * @brief This provides a search API for hot plugable devices using libudev
+ * @brief This provides a search API for hot pluggable devices using libudev
  */
 
 #include "config.h"
@@ -47,6 +47,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <libudev.h>
 #include <poll.h>
 #include <ctype.h>
+#include <stdbool.h>
 
 #include "debuglog.h"
 #include "parser.h"
@@ -66,11 +67,8 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #undef DEBUG_HOTPLUG
 
-#define FALSE			0
-#define TRUE			1
-
-extern char Add_Interface_In_Name;
-extern char Add_Serial_In_Name;
+extern bool Add_Interface_In_Name;
+extern bool Add_Serial_In_Name;
 
 static pthread_t usbNotifyThread;
 static int driverSize = -1;
@@ -107,7 +105,7 @@ static struct _readerTracker
 } readerTracker[PCSCLITE_MAX_READERS_CONTEXTS];
 
 
-static LONG HPReadBundleValues(void)
+static LONG HPReadBundleValues(const char * hpDirPath)
 {
 	LONG rv;
 	DIR *hpDir;
@@ -116,11 +114,11 @@ static LONG HPReadBundleValues(void)
 	char fullLibPath[FILENAME_MAX];
 	int listCount = 0;
 
-	hpDir = opendir(PCSCLITE_HP_DROPDIR);
+	hpDir = opendir(hpDirPath);
 
 	if (NULL == hpDir)
 	{
-		Log1(PCSC_LOG_ERROR, "Cannot open PC/SC drivers directory: " PCSCLITE_HP_DROPDIR);
+		Log2(PCSC_LOG_ERROR, "Cannot open PC/SC drivers directory: %s", hpDirPath);
 		Log1(PCSC_LOG_ERROR, "Disabling USB support for pcscd.");
 		return -1;
 	}
@@ -159,7 +157,7 @@ static LONG HPReadBundleValues(void)
 			 * vendor and product ID's for this particular bundle
 			 */
 			(void)snprintf(fullPath, sizeof(fullPath), "%s/%s/Contents/Info.plist",
-				PCSCLITE_HP_DROPDIR, currFP->d_name);
+				hpDirPath, currFP->d_name);
 			fullPath[sizeof(fullPath) - 1] = '\0';
 
 			rv = bundleParse(fullPath, &plist);
@@ -171,7 +169,7 @@ static LONG HPReadBundleValues(void)
 			libraryPath = list_get_at(values, 0);
 			(void)snprintf(fullLibPath, sizeof(fullLibPath),
 				"%s/%s/Contents/%s/%s",
-				PCSCLITE_HP_DROPDIR, currFP->d_name, PCSC_ARCH,
+				hpDirPath, currFP->d_name, PCSC_ARCH,
 				libraryPath);
 			fullLibPath[sizeof(fullLibPath) - 1] = '\0';
 
@@ -388,7 +386,7 @@ static void HPAddDevice(struct udev_device *dev)
 	devpath = udev_device_get_devnode(parent);
 	if (!devpath)
 	{
-		/* the device disapeared? */
+		/* the device disappeared? */
 		Log1(PCSC_LOG_ERROR, "udev_device_get_devnode() failed");
 		return;
 	}
@@ -661,7 +659,7 @@ static void * HPEstablishUSBNotifications(void *arg)
 /***
  * Start a thread waiting for hotplug events
  */
-LONG HPSearchHotPluggables(void)
+LONG HPSearchHotPluggables(const char * hpDirPath)
 {
 	int i;
 
@@ -672,7 +670,7 @@ LONG HPSearchHotPluggables(void)
 		readerTracker[i].sysname = NULL;
 	}
 
-	return HPReadBundleValues();
+	return HPReadBundleValues(hpDirPath);
 } /* HPSearchHotPluggables */
 
 
@@ -714,15 +712,16 @@ LONG HPStopHotPluggables(void)
 /**
  * Sets up callbacks for device hotplug events.
  */
-ULONG HPRegisterForHotplugEvents(void)
+ULONG HPRegisterForHotplugEvents(const char * hpDirPath)
 {
 	struct udev_monitor *udev_monitor;
 	int r;
 
 	if (driverSize <= 0)
 	{
-		Log1(PCSC_LOG_INFO, "No bundle files in pcsc drivers directory: "
-			PCSCLITE_HP_DROPDIR);
+		(void)hpDirPath;
+		Log2(PCSC_LOG_INFO, "No bundle files in pcsc drivers directory: %s",
+			hpDirPath);
 		Log1(PCSC_LOG_INFO, "Disabling USB support for pcscd");
 		return 0;
 	}
