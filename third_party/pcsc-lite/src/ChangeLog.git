@@ -1,4 +1,726 @@
-commit 15c16c7796607b1c8a2ce253d3f536918ab26b4a (HEAD -> master, origin/master, origin/HEAD)
+commit 549922c1355fdd1e85eb0a952fefda7bb96e286a (HEAD -> master, tag: 2.0.0, zotac/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jun 9 17:05:25 2023 +0200
+
+    Release 2.0.0
+    
+    Signed-off-by: Ludovic Rousseau <ludovic.rousseau@free.fr>
+
+ ChangeLog    | 11 +++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 12 insertions(+), 1 deletion(-)
+
+commit b26a9bf3415089a79b13691021396256b8a521db
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jun 9 17:00:51 2023 +0200
+
+    doxygen.conf.in: upgrade from 1.9.6 to 1.9.7
+    
+    warning: Tag 'HTML_TIMESTAMP' at line 1341 of file 'doc/doxygen.conf' has become obsolete.
+    warning: Tag 'LATEX_TIMESTAMP' at line 2009 of file 'doc/doxygen.conf' has become obsolete.
+
+ doc/doxygen.conf.in | 129 +++++++++++++++++++++++++++++++++-------------------
+ 1 file changed, 82 insertions(+), 47 deletions(-)
+
+commit 92080dcf5a1dc2a844be8274f819d1292f620627 (origin/master, origin/HEAD)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed May 17 17:10:49 2023 +0200
+
+    Reset eventCounter when a reader is removed
+    
+    The eventCounter counts the number of card events.
+    When a reader is removed this field should be reset so that the next
+    time the READER_STATE structure is reused (for another reader) the
+    eventCounter starts at 0.
+
+ src/readerfactory.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit 45f621b3a9e9bdee30429f323d77d54130dfc578
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed May 17 11:55:47 2023 +0200
+
+    Doxygen: document SCARD_E_INVALID_VALUE for some functions
+    
+    SCARD_E_INVALID_VALUE is returned when the reader is removed before the
+    functions SCardBeginTransaction(), SCardEndTransaction(),
+    SCardGetAttrib(), SCardTransmit().
+    
+    For SCardReconnect() the value was already in list of possible returned
+    values.
+
+ src/winscard_clnt.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+commit 8fd87914a2bfc077413bc5f6e07297cb1941eef3 (github/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Apr 9 22:04:42 2023 +0200
+
+    Add "polkit" in "pcscd -v" output if enabled
+    
+    If pcsc-lite is configured with --enable-polkit then this is indicated
+    in "pcscd -v".
+    We have something like:
+    Enabled features: Linux x86_64-pc-linux-gnu libsystemd serial usb libudev polkit usbdropdir=/usr/lib/pcsc/drivers ipcdir=/run/pcscd filter configdir=/etc/reader.conf.d
+
+ configure.ac | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit a9c7c0886acfb6ca4cae1426a623a8cff2e9846c
+Author: Tharre <tharre3@gmail.com>
+Date:   Thu Apr 6 17:59:36 2023 +0200
+
+    Add '--disable-polkit' option
+    
+    On systems with an encrypted root drive, systemd-cryptsetup may be used
+    to handle decrypting the disk with a PKCS#11 token via pcscd. For this
+    to work however, pcscd has to run in the initramfs to handle
+    communications with the smartcard.
+    
+    To avoid having to also add polkitd to the initramfs, or alternatively
+    to avoid having 2 separate versions of pcscd installed on the same
+    system, add a commandline flag to disable polkit authentication for
+    these cases.
+    
+    https://salsa.debian.org/rousseau/PCSC/-/merge_requests/4
+
+ src/auth.c       | 6 ++++++
+ src/pcscdaemon.c | 8 ++++++++
+ 2 files changed, 14 insertions(+)
+
+commit a98d3858602f94c5e9a0876353e02c0f2cd2dcaa
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Mar 8 15:04:18 2023 +0100
+
+    github actions: increase checkout version
+    
+    Fixes:
+    build
+    Node.js 12 actions are deprecated. Please update the following actions to use Node.js 16: actions/checkout@v2. For more information see: https://github.blog/changelog/2022-09-22-github-actions-all-actions-will-begin-running-on-node16-instead-of-node12/.
+
+ .github/workflows/build.yml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 0b918628ab4d62b518cf5bc3fcc8e7580fa4ad86
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 12:15:51 2023 +0100
+
+    Doxygen: do not use \ref for functions
+    
+    src/winscard_clnt.c:3094: warning: unable to resolve reference to 'SCardGetStatusChange()' for \ref command
+    src/winscard_clnt.c:3094: warning: unable to resolve reference to 'SCardGetStatusChange()' for \ref command
+    src/winscard_clnt.c:3094: warning: unable to resolve reference to 'SCardGetStatusChange()' for \ref command
+    src/winscard_clnt.c:3094: warning: unable to resolve reference to 'SCardGetStatusChange()' for \ref command
+    src/winscard_clnt.c:3094: warning: unable to resolve reference to 'SCardGetStatusChange()' for \ref command
+    src/winscard_clnt.c:3094: warning: unable to resolve reference to 'SCardGetStatusChange()' for \ref command
+    src/winscard_clnt.c:3096: warning: unable to resolve reference to 'SCardGetStatusChange()' for \ref command
+    src/winscard_clnt.c:439: warning: unable to resolve reference to 'SCardCancel()' for \ref command
+    src/winscard_clnt.c:440: warning: unable to resolve reference to 'SCardGetStatusChange()' for \ref command
+    src/winscard_clnt.c:2345: warning: unable to resolve reference to 'SCardListReaders()' for \ref command
+    src/winscard_clnt.c:1592: warning: unable to resolve reference to 'SCardCancel()' for \ref command
+
+ src/winscard_clnt.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+commit 46dbef9db9faf82e3fc310ce5305f2a5581bc7d6
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:53:02 2023 +0100
+
+    doxygen.conf.in: upgrade from 1.9.4 to 1.9.6
+    
+    warning: Tag 'CLANG_ASSISTED_PARSING' at line 1150 of file 'doxygen.conf.in' belongs to an option that was not enabled at compile time.
+             This tag has been removed.
+    warning: Tag 'CLANG_ADD_INC_PATHS' at line 1158 of file 'doxygen.conf.in' belongs to an option that was not enabled at compile time.
+             This tag has been removed.
+    warning: Tag 'CLANG_OPTIONS' at line 1166 of file 'doxygen.conf.in' belongs to an option that was not enabled at compile time.
+             This tag has been removed.
+    warning: Tag 'CLANG_DATABASE_PATH' at line 1179 of file 'doxygen.conf.in' belongs to an option that was not enabled at compile time.
+             This tag has been removed.
+    warning: Tag 'FORMULA_TRANSPARENT' at line 1661 of file 'doxygen.conf.in' has become obsolete.
+             This tag has been removed.
+    warning: Tag 'DOT_FONTNAME' at line 2386 of file 'doxygen.conf.in' has become obsolete.
+             This tag has been removed.
+    warning: Tag 'DOT_FONTSIZE' at line 2393 of file 'doxygen.conf.in' has become obsolete.
+             This tag has been removed.
+    warning: Tag 'DOT_TRANSPARENT' at line 2651 of file 'doxygen.conf.in' has become obsolete.
+             This tag has been removed.
+    
+    Configuration file 'doxygen.conf.in' updated.
+
+ doc/doxygen.conf.in | 185 ++++++++++++++++++++++++++--------------------------
+ 1 file changed, 94 insertions(+), 91 deletions(-)
+
+commit ebd760e03e7a416012e3c89de1088783e6df9a54
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:47:59 2023 +0100
+
+    ifdhandler.h: update URL of pcsc-tools
+
+ src/PCSC/ifdhandler.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit abc7b38080a5f8c2505aaa808633b2ca046f0944
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:46:53 2023 +0100
+
+    README: update URL of GemCore based PC/SC reader drivers
+
+ README | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 8a823be867b234f13bef70e12ba19393169ae9fb
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:41:26 2023 +0100
+
+    codespell: configure.ac
+    
+    ./configure.ac:336: ressources ==> resources
+
+ configure.ac | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit fd8f396ed31b4f1bd9a57bac10a9ef8064b3b9b8
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:40:23 2023 +0100
+
+    codespell: ChangeLog
+    
+    ./ChangeLog:156: bloking ==> blocking
+    ./ChangeLog:320: embedd ==> embed
+    ./ChangeLog:893: scritp ==> script
+    ./ChangeLog:960: avaiable ==> available
+    ./ChangeLog:993: bu ==> by, be, but, bug, bun, bud, buy, bum
+    ./ChangeLog:1042: appliation ==> application
+    ./ChangeLog:1087: abscence ==> absence
+    ./ChangeLog:1106: lenth ==> length
+    ./ChangeLog:1170: insead ==> instead
+    ./ChangeLog:1234: negociable ==> negotiable
+    ./ChangeLog:1357: round-robbin ==> round-robin
+    ./ChangeLog:1496: meaningfull ==> meaningful
+
+ ChangeLog | 24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
+
+commit a5f9738639738f2b953d3f9423220d13d655e684
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:36:10 2023 +0100
+
+    codespell: SECURITY
+    
+    ./SECURITY:9: priveledges ==> privileges
+
+ SECURITY | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 18b0c97bdced43b0877d20faaa1ad81e8102534b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:35:39 2023 +0100
+
+    codespell: README
+    
+    ./README:29: vulnerabilites ==> vulnerabilities
+    ./README:60: priveledged ==> privileged
+    ./README:83: priveledged ==> privileged
+    ./README:110: suystems ==> systems
+
+ README | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+commit 74e7b0e3f15ec756da7efaac3263f9b80d9a8187
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:32:43 2023 +0100
+
+    codespell: SCardConnect_DIRECT2.py.py
+    
+    ./UnitaryTests/SCardConnect_DIRECT2.py:22: negociate ==> negotiate
+    ./UnitaryTests/SCardConnect_DIRECT2.py:25: negociate ==> negotiate
+    ./UnitaryTests/SCardConnect_DIRECT2.py:28: negociate ==> negotiate
+
+ UnitaryTests/SCardConnect_DIRECT2.py | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+commit d50267c16cf6a7dbf2cb4e8c3056cd9b91eadf91
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:32:06 2023 +0100
+
+    codespell: exec.c
+    
+    ./UnitaryTests/exec.c:49: bellow ==> below
+
+ UnitaryTests/exec.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 1b7749e2a2c6977a112e67f5b985eae5c988e316
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:31:41 2023 +0100
+
+    codespell: FEATURE_CCID_ESC_COMMAND_Gemalto_features.py
+    
+    ./UnitaryTests/FEATURE_CCID_ESC_COMMAND_Gemalto_features.py:119: unkonwn ==> unknown
+
+ UnitaryTests/FEATURE_CCID_ESC_COMMAND_Gemalto_features.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 717cd47859be5d461534ec2a8d9dde598af10304
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:29:02 2023 +0100
+
+    codespell: SCardConnect_DIRECT.py
+    
+    ./UnitaryTests/SCardConnect_DIRECT.py:22: negociated ==> negotiated
+
+ UnitaryTests/SCardConnect_DIRECT.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit e39e895fd992a4fa1421c1b4a69686b32c5616f9
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:27:50 2023 +0100
+
+    codespell: SCardGetStatusChange.py
+    
+    ./UnitaryTests/SCardGetStatusChange.py:31: failes ==> fails
+
+ UnitaryTests/SCardGetStatusChange.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 772421a9176c6969a14536d7be2d9260da78382f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:27:23 2023 +0100
+
+    codespell: CheckAutoPowerOff.py
+    
+    ./UnitaryTests/CheckAutoPowerOff.py:20: te ==> the, be, we, to
+
+ UnitaryTests/CheckAutoPowerOff.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 3bd05ea7041101968920678040f81129f301bbb6
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:26:09 2023 +0100
+
+    codespell: ifdwrapper.c
+    
+    ./src/ifdwrapper.c:231: Get's ==> Gets
+
+ src/ifdwrapper.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit e1e1458623b84642ae2546fad819a22bd2c6a40f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:25:37 2023 +0100
+
+    codespell: winscard_msg_srv.c
+    
+    ./src/winscard_msg_srv.c:71: comminication ==> communication
+
+ src/winscard_msg_srv.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 412cae658875ae1af23be2809e7d58a745ef8cf4
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:25:12 2023 +0100
+
+    codespell: atrhandler.c
+    
+    ./src/atrhandler.c:94: dependant ==> dependent
+
+ src/atrhandler.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit f084c20b9050b7489517a3b5a6e1510c822e067d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:24:44 2023 +0100
+
+    codespell: winscard.c
+    
+    ./src/winscard.c:74: deamon ==> daemon
+    ./src/winscard.c:445: concurent ==> concurrent
+
+ src/winscard.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 51dd8212383172e4b6c30d39bd6c0f76a3477437
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:24:02 2023 +0100
+
+    codespell: winscard_clnt.c
+    
+    ./src/winscard_clnt.c:1112: serie ==> series
+    ./src/winscard_clnt.c:2085: immediatly ==> immediately
+    ./src/winscard_clnt.c:2578: bellow ==> below
+
+ src/winscard_clnt.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+commit 3130920fe7cdb537719d19cd08a10ede3f9da594
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:22:02 2023 +0100
+
+    codespell: winscard_msg.c
+    
+    ./src/winscard_msg.c:181: reponse ==> response
+    ./src/winscard_msg.c:243: readed ==> read, readd, readded
+    ./src/winscard_msg.c:251: readed ==> read, readd, readded
+    ./src/winscard_msg.c:253: readed ==> read, readd, readded
+    ./src/winscard_msg.c:256: readed ==> read, readd, readded
+    ./src/winscard_msg.c:257: readed ==> read, readd, readded
+    ./src/winscard_msg.c:258: readed ==> read, readd, readded
+    ./src/winscard_msg.c:444: reponse ==> response
+    ./src/winscard_msg.c:483: readed ==> read, readd, readded
+    ./src/winscard_msg.c:491: readed ==> read, readd, readded
+    ./src/winscard_msg.c:493: readed ==> read, readd, readded
+    ./src/winscard_msg.c:496: readed ==> read, readd, readded
+    ./src/winscard_msg.c:497: readed ==> read, readd, readded
+    ./src/winscard_msg.c:498: readed ==> read, readd, readded
+
+ src/winscard_msg.c | 28 ++++++++++++++--------------
+ 1 file changed, 14 insertions(+), 14 deletions(-)
+
+commit 8eda5010f5591d050e0623e38c566653078e3e7b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:19:42 2023 +0100
+
+    codespell: readerfactory.c
+    
+    ./src/readerfactory.c:980: happenned ==> happened
+
+ src/readerfactory.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 68870a885cc083ef899a653e56e93e213c6e083b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:19:07 2023 +0100
+
+    codespell: hotplug_libudev.c
+    
+    ./src/hotplug_libudev.c:35: plugable ==> pluggable
+    ./src/hotplug_libudev.c:389: disapeared ==> disappeared
+
+ src/hotplug_libudev.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 0a2d602c0678935e83831f9c9a0347f11960d207
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:18:05 2023 +0100
+
+    codespell: winscard_svc.c
+    
+    ./src/winscard_svc.c:169: Exceded ==> Exceeded
+    ./src/winscard_svc.c:213: usefull ==> useful
+    ./src/winscard_svc.c:280: avaiable ==> available
+    ./src/winscard_svc.c:686: bellow ==> below
+    ./src/winscard_svc.c:739: bellow ==> below
+    ./src/winscard_svc.c:1055: strucutres ==> structures
+
+ src/winscard_svc.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+commit 8cc0e6dbe303e626ae230ef271de14ad25605d42
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:16:27 2023 +0100
+
+    codespell: pcscdaemon.c
+    
+    ./src/pcscdaemon.c:38: calld ==> called
+    ./src/pcscdaemon.c:198: Reenable ==> Re-enable
+    ./src/pcscdaemon.c:629: containes ==> contains, container, contained
+
+ src/pcscdaemon.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+commit 5f011349be4b8f363451e94566b692e9780cb82b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:15:27 2023 +0100
+
+    codespell: debuglog.c
+    
+    ./src/debuglog.c:101: maxmium ==> maximum
+
+ src/debuglog.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 59495116258e2773233603ec5f5242d10179740f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:14:48 2023 +0100
+
+    codespell: eventhandler.c
+    
+    ./src/eventhandler.c:80: unregisted ==> unregistered
+
+ src/eventhandler.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 7f2c645efdd96c8ef1798ba543aa21a9a9b5752f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:13:58 2023 +0100
+
+    codespell: README_INTERNALS.txt
+    
+    ./src/README_INTERNALS.txt:23: dependant ==> dependent
+    ./src/README_INTERNALS.txt:24: dependant ==> dependent
+    ./src/README_INTERNALS.txt:25: dependant ==> dependent
+    ./src/README_INTERNALS.txt:29: dependant ==> dependent
+    ./src/README_INTERNALS.txt:34: dependant ==> dependent
+    ./src/README_INTERNALS.txt:63: Ressources ==> Resources
+    ./src/README_INTERNALS.txt:94: Ressources ==> Resources
+    ./src/README_INTERNALS.txt:121: differents ==> different, difference
+
+ src/README_INTERNALS.txt | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+commit 54c8d5914e0dfc52c0e1173cf74a93715521e8a7
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:12:48 2023 +0100
+
+    codespell: reader.h
+    
+    ./src/PCSC/reader.h:151: aligment ==> alignment
+
+ src/PCSC/reader.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 5913b25638bbbf47b6103092c62b00d9e964442c
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:11:33 2023 +0100
+
+    codespell: pcsc-spy
+    
+    ./src/spy/pcsc-spy:77: occurences ==> occurrences
+    ./src/spy/pcsc-spy:565: lengh ==> length
+    ./src/spy/pcsc-spy:946: occurences ==> occurrences
+    ./src/spy/pcsc-spy:959: occurences ==> occurrences
+
+ src/spy/pcsc-spy | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+commit d9763649ed9ba1397788f30dcecc20451ddb9eee
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:10:17 2023 +0100
+
+    codespell: ifdhandler.h
+    
+    ./src/PCSC/ifdhandler.h:318: alot ==> a lot, allot
+    ./src/PCSC/ifdhandler.h:462: usefull ==> useful
+
+ src/PCSC/ifdhandler.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit a951e07225b43c813375f68f469f8407df65794f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 11 11:08:31 2023 +0100
+
+    codespell: pcsclite.h.in
+    
+    ./src/PCSC/pcsclite.h.in:61: aligment ==> alignment
+    ./src/PCSC/pcsclite.h.in:295: accomodate ==> accommodate
+
+ src/PCSC/pcsclite.h.in | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit fb336aff211c0a428f040d54a6e2537c90c7d609
+Author: Frank Morgner <frankmorgner@gmail.com>
+Date:   Fri Jan 20 08:47:41 2023 +0100
+
+    Doxygen: fixed broken URL link
+    
+    fixes https://github.com/LudovicRousseau/PCSC/issues/151
+
+ src/winscard_clnt.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit d47fda236fca13d6286ce74034076f418409ba56
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Dec 14 15:47:31 2022 +0100
+
+    UT reset_card.py: display the ATR before and after reset
+    
+    This allows to get the cold and warm ATRs.
+    
+    You need to use reset_card.py with one argument to use
+    SCardReconnect()
+
+ UnitaryTests/reset_card.py | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+commit 601a3e9a9fb1a4826f9e521e4143fdda7ec00c13
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Nov 8 17:18:42 2022 +0100
+
+    macOS: fix build of CCID driver
+    
+    sys_unix.c:55:10: fatal error: 'PCSC/debuglog.h' file not found
+             ^~~~~~~~~~~~~~~~~
+
+ src/sys_unix.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 6486a1420979e6149f70a642fd1ab08b39b5657e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Nov 8 16:58:06 2022 +0100
+
+    macOS: Fix build error
+    
+    hotplug_macosx.c:837:7: error: conflicting types for 'HPRegisterForHotplugEvents'
+    ULONG HPRegisterForHotplugEvents(void)
+          ^
+    ./hotplug.h:57:8: note: previous declaration is here
+            ULONG HPRegisterForHotplugEvents(const char * hpDirPath);
+                  ^
+
+ src/hotplug_macosx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 078fc17e6e2d9d2d2f647d0c9a36d4c56cc554cf
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Nov 8 11:37:02 2022 +0100
+
+    Adjust USB drivers path at run-time via environment variable
+    
+    " Add in the ability to dynamically adjust module path at run-time via
+    system environmental exports
+    
+    Background: While trying to integrate PKCS11+HSM into a build system
+    (Yocto Project), we wanted the build system to be able to use the HSM
+    directly. However, The Yocto Project creates a sandboxed environment for
+    each package which uses pcsc-lite during compilation. This means that
+    the pcsc-lite modules cannot be found from within these sandboxed
+    directories, as their paths are non-determinable at compile time.
+    OpenSSL appears to use OPENSSL_CONF for this sort of dynamic
+    configuration, so I've followed their lead and incorporated a similar
+    HPGetenv() method. "
+    
+    Thanks to Nathan Barrett-Morrison for the initial patch
+    https://github.com/LudovicRousseau/PCSC/pull/150
+
+ src/hotplug.h         |  4 ++--
+ src/hotplug_generic.c |  8 ++++++--
+ src/hotplug_libudev.c | 21 +++++++++++----------
+ src/hotplug_libusb.c  | 22 +++++++++++++---------
+ src/hotplug_macosx.c  |  4 ++--
+ src/pcscdaemon.c      |  9 +++++++--
+ 6 files changed, 41 insertions(+), 27 deletions(-)
+
+commit 6987c800080904da021e9616cb0fb373ac114dc9
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Nov 8 11:14:41 2022 +0100
+
+    Add SYS_GetEnv() function
+    
+    This is a wrapper to use secure_getenv(3) where available or try to mimick
+    it.
+    
+    From secure_getenv(3) manpage:
+        The secure_getenv() function is intended for use in general-purpose
+        libraries to avoid vulnerabilities that could occur if set-user-ID
+        or set-group-ID programs accidentally trusted the environment.
+
+ configure.ac      |  1 +
+ src/sys_generic.h |  4 +++-
+ src/sys_unix.c    | 26 +++++++++++++++++++++++++-
+ 3 files changed, 29 insertions(+), 2 deletions(-)
+
+commit 9d84ae007dbd084e3c34921750f60a4a788afaa8
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Nov 8 10:45:57 2022 +0100
+
+    Doxygen: fix warnings
+    
+    src/atrhandler.c:66: warning: return value '0' of ATRDecodeAtr has multiple documentation sections
+    src/atrhandler.h:47: warning: return value '0' of ATRDecodeAtr has multiple documentation sections
+
+ src/atrhandler.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+commit d8bd3d354780c1aca79354bbf40abdd7cef8cef1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Nov 8 10:39:52 2022 +0100
+
+    Doxygen: fix warning
+    
+    warning: argument 'a4wide' for option PAPER_TYPE is not a valid enum value
+    Using the default: a4!
+
+ doc/doxygen.conf.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit be72fb21ac2fd1e4e52bfe76180068b6ab1d5f8a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Nov 8 10:33:19 2022 +0100
+
+    Update Doxygen config from 1.8.16 to 1.9.4
+    
+    warning: Tag 'OUTPUT_TEXT_DIRECTION' at line 102 of file 'doxygen.conf.in' has become obsolete.
+             This tag has been removed.
+    warning: Tag 'TCL_SUBST' at line 260 of file 'doxygen.conf.in' has become obsolete.
+             This tag has been removed.
+    warning: Tag 'COLS_IN_ALPHA_INDEX' at line 1076 of file 'doxygen.conf.in' has become obsolete.
+             This tag has been removed.
+    warning: Tag 'LATEX_SOURCE_CODE' at line 1806 of file 'doxygen.conf.in' has become obsolete.
+             This tag has been removed.
+    warning: Tag 'RTF_SOURCE_CODE' at line 1896 of file 'doxygen.conf.in' has become obsolete.
+             This tag has been removed.
+    warning: Tag 'DOCBOOK_PROGRAMLISTING' at line 2001 of file 'doxygen.conf.in' has become obsolete.
+             This tag has been removed.
+    warning: Tag 'CLASS_DIAGRAMS' at line 2188 of file 'doxygen.conf.in' has become obsolete.
+             This tag has been removed.
+    
+    Configuration file 'doxygen.conf.in' updated.
+
+ doc/doxygen.conf.in | 562 +++++++++++++++++++++++++++++++++++-----------------
+ 1 file changed, 378 insertions(+), 184 deletions(-)
+
+commit 7e2fee4bc026f382da1fe46a816299e71a6c2906
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Nov 7 18:50:52 2022 +0100
+
+    Use bool, true & false from C99 stdbool.h
+    
+    Modernize the source code to use "recent" version of the C language.
+    See https://en.wikipedia.org/wiki/C_data_types#stdbool.h
+
+ src/debug.c           |  5 +++--
+ src/dyn_generic.h     |  3 ++-
+ src/dyn_hpux.c        |  3 +--
+ src/dyn_macosx.c      |  2 +-
+ src/dyn_unix.c        |  3 ++-
+ src/hotplug_libudev.c |  8 +++-----
+ src/hotplug_libusb.c  | 28 +++++++++++++---------------
+ src/hotplug_macosx.c  |  8 ++++----
+ src/pcscdaemon.c      | 50 +++++++++++++++++++++++---------------------------
+ src/readerfactory.c   | 34 +++++++++++++++-------------------
+ src/winscard.c        | 15 +++++----------
+ src/winscard_clnt.c   | 36 ++++++++++++++++--------------------
+ src/winscard_svc.c    |  3 ++-
+ 13 files changed, 90 insertions(+), 108 deletions(-)
+
+commit df63db029b43471c820c1b0c8da83492cf338785
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Nov 7 17:24:54 2022 +0100
+
+    Fix compiler warning: declaration of 'p' shadows a previous local
+    
+    The warning occurs in CCID driver when configured using: /c.sh --enable-embedded --disable-strict
+    
+    /usr/include/PCSC/debuglog.h:93:51: warning: declaration of 'p' shadows a previous local [-Wshadow]
+       93 | #define Log3(priority, fmt, data1, data2) do {int p = priority; (void)p; } while(0)
+          |                                                   ^
+    debug.h:90:116: note: in expansion of macro 'Log3'
+       90 | #define TO_PCSCD_LOG3(fmt, data1, data2, CCID_LEVEL, PCSCD_LEVEL)  do { if (LogLevel & DEBUG_LEVEL_ ## CCID_LEVEL) Log3(PCSC_LOG_ ## PCSCD_LEVEL, fmt, data1, data2); } while (0)
+          |                                                                                                                    ^~~~
+    debug.h:118:40: note: in expansion of macro 'TO_PCSCD_LOG3'
+      118 | #define DEBUG_COMM3(fmt, data1, data2) TO_PCSCD_LOG3(fmt, data1, data2, COMM, DEBUG)
+          |                                        ^~~~~~~~~~~~~
+    ccid_serial.c:707:9: note: in expansion of macro 'DEBUG_COMM3'
+      707 |         DEBUG_COMM3("Reader index: %X, Device: %s", reader_index, dev_name);
+          |         ^~~~~~~~~~~
+    ccid_serial.c:704:15: note: shadowed declaration is here
+      704 |         char *p;
+          |               ^
+
+ src/PCSC/debuglog.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 15c16c7796607b1c8a2ce253d3f536918ab26b4a (tag: 1.9.9)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Sep 11 16:12:03 2022 +0200
 
@@ -10,7 +732,7 @@ Date:   Sun Sep 11 16:12:03 2022 +0200
  configure.ac |  2 +-
  2 files changed, 11 insertions(+), 1 deletion(-)
 
-commit d069c580b74273bfcf12523b73f71bb6be9378dd (zotac/master, github/master)
+commit d069c580b74273bfcf12523b73f71bb6be9378dd
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Sep 11 13:59:34 2022 +0200
 
@@ -530,7 +1252,7 @@ Date:   Wed May 18 21:38:13 2022 +0200
  src/readerfactory.c | 7 +++----
  1 file changed, 3 insertions(+), 4 deletions(-)
 
-commit e1a0103c0e1e643dd8680610c33da5849c76ce4c (debug/master)
+commit e1a0103c0e1e643dd8680610c33da5849c76ce4c
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri May 13 13:45:44 2022 +0200
 
@@ -766,7 +1488,7 @@ Date:   Sun Apr 3 15:28:41 2022 +0200
  src/winscard_clnt.c | 8 ++++++++
  1 file changed, 8 insertions(+)
 
-commit a07ca483f24bcefcf0c81c4bf497f4225ee9227b
+commit a07ca483f24bcefcf0c81c4bf497f4225ee9227b (debug-zotac/master)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Apr 3 15:12:48 2022 +0200
 
@@ -964,7 +1686,7 @@ Date:   Sat Jan 22 17:19:01 2022 +0100
  src/winscard_clnt.c | 2 ++
  1 file changed, 2 insertions(+)
 
-commit 731e929d2f1c1d6c6db03a6337f35cf4fd1c12fb (debug-zotac/master)
+commit 731e929d2f1c1d6c6db03a6337f35cf4fd1c12fb
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Dec 19 17:42:02 2021 +0100
 

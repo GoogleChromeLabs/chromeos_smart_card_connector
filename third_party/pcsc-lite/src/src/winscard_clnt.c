@@ -114,6 +114,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/time.h>
 #include <pthread.h>
 #include <sys/wait.h>
+#include <stdbool.h>
 
 #include "misc.h"
 #include "pcscd.h"
@@ -134,12 +135,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //#define DO_PROFILE
 
 
-#ifndef TRUE
-#define TRUE 1
-#define FALSE 0
-#endif
-
-static char sharing_shall_block = TRUE;
+static bool sharing_shall_block = true;
 
 #define COLOR_RED "\33[01;31m"
 #define COLOR_GREEN "\33[32m"
@@ -185,14 +181,14 @@ static void trace(const char *func, const char direction, const char *fmt, ...)
 pthread_t threads[MAX_THREADS];
 struct timeval profile_time_start[MAX_THREADS];
 FILE *profile_fd;
-char profile_tty;
+bool profile_tty;
 
 #define PROFILE_START profile_start();
 #define PROFILE_END(rv) profile_end(__FUNCTION__, rv);
 
 static void profile_start(void)
 {
-	static char initialized = FALSE;
+	static bool initialized = false;
 	pthread_t t;
 	int i;
 
@@ -200,7 +196,7 @@ static void profile_start(void)
 	{
 		char filename[80];
 
-		initialized = TRUE;
+		initialized = true;
 		sprintf(filename, "%s-%d", PROFILE_FILE, getuid());
 		profile_fd = fopen(filename, "a+");
 		if (NULL == profile_fd)
@@ -212,9 +208,9 @@ static void profile_start(void)
 		fprintf(profile_fd, "\nStart a new profile\n");
 
 		if (isatty(fileno(stderr)))
-			profile_tty = TRUE;
+			profile_tty = true;
 		else
-			profile_tty = FALSE;
+			profile_tty = false;
 	}
 
 	t = pthread_self();
@@ -314,7 +310,7 @@ struct _psContextMap
 	SCARDCONTEXT hContext;			/**< Application Context ID */
 	pthread_mutex_t mMutex;			/**< Mutex for this context */
 	list_t channelMapList;
-	char cancellable;				/**< We are in a cancellable call */
+	bool cancellable;				/**< We are in a cancellable call */
 };
 /**
  * @brief Represents an Application Context on the Client side.
@@ -418,10 +414,10 @@ inline static void SCardUnlockThread(void)
  *
  * @param[in] hContext Application Context whose index will be find.
  *
- * @return \c TRUE if the context exists
- * @return \c FALSE if the context does not exist
+ * @return \c true if the context exists
+ * @return \c false if the context does not exist
  */
-static int SCardGetContextValidity(SCARDCONTEXT hContext)
+static bool SCardGetContextValidity(SCARDCONTEXT hContext)
 {
 	SCONTEXTMAP * currentContextMap;
 
@@ -440,8 +436,8 @@ static LONG SCardEstablishContextTH(DWORD, LPCVOID, LPCVOID,
  *
  * This must be the first WinSCard function called in a PC/SC application.
  * Each thread of an application shall use its own \ref SCARDCONTEXT, unless
- * calling \ref SCardCancel(), which MUST be called with the same context as the
- * context used to call \ref SCardGetStatusChange().
+ * calling SCardCancel(), which MUST be called with the same context as the
+ * context used to call SCardGetStatusChange().
  *
  * @ingroup API
  * @param[in] dwScope Scope of the establishment.
@@ -576,7 +572,7 @@ static LONG SCardEstablishContextTH(DWORD dwScope,
 		if (getenv("PCSCLITE_NO_BLOCKING"))
 		{
 			Log1(PCSC_LOG_INFO, "Disable shared blocking");
-			sharing_shall_block = FALSE;
+			sharing_shall_block = false;
 		}
 
 		isExecuted = 1;
@@ -922,7 +918,7 @@ end:
  * @retval SCARD_S_SUCCESS Successful (\ref SCARD_S_SUCCESS)
  * @retval SCARD_E_INVALID_HANDLE Invalid \p hCard handle (\ref SCARD_E_INVALID_HANDLE)
  * @retval SCARD_E_INVALID_PARAMETER \p phContext is null. (\ref SCARD_E_INVALID_PARAMETER)
- * @retval SCARD_E_INVALID_VALUE Invalid sharing mode, requested protocol, or reader name (\ref SCARD_E_INVALID_VALUE)
+ * @retval SCARD_E_INVALID_VALUE Invalid \p hCard, sharing mode, requested protocol, or reader name (\ref SCARD_E_INVALID_VALUE)
  * @retval SCARD_E_NO_SERVICE The server is not running (\ref SCARD_E_NO_SERVICE)
  * @retval SCARD_E_NO_SMARTCARD No smart card present (\ref SCARD_E_NO_SMARTCARD)
  * @retval SCARD_E_PROTO_MISMATCH Requested protocol is unknown (\ref SCARD_E_PROTO_MISMATCH)
@@ -1113,7 +1109,7 @@ error:
 
 /**
  * @brief Establishes a temporary exclusive access mode for
- * doing a serie of commands in a transaction.
+ * doing a series of commands in a transaction.
  *
  * You might want to use this when you are selecting a few files and then
  * writing a large file so you can make sure that another application will
@@ -1131,6 +1127,7 @@ error:
  * @retval SCARD_E_READER_UNAVAILABLE The reader has been removed (\ref SCARD_E_READER_UNAVAILABLE)
  * @retval SCARD_E_SHARING_VIOLATION Someone else has exclusive rights (\ref SCARD_E_SHARING_VIOLATION)
  * @retval SCARD_F_COMM_ERROR An internal communications error has been detected (\ref SCARD_F_COMM_ERROR)
+ * @retval SCARD_E_INVALID_VALUE An invalid value is used for \p hCard (for example the reader is no more present) (\ref SCARD_E_INVALID_VALUE)
  *
  * @code
  * SCARDCONTEXT hContext;
@@ -1225,7 +1222,7 @@ LONG SCardBeginTransaction(SCARDHANDLE hCard)
  * @return Error code.
  * @retval SCARD_S_SUCCESS Successful (\ref SCARD_S_SUCCESS)
  * @retval SCARD_E_INVALID_HANDLE Invalid \p hCard handle (\ref SCARD_E_INVALID_HANDLE)
- * @retval SCARD_E_INVALID_VALUE Invalid value for \p dwDisposition (\ref SCARD_E_INVALID_VALUE)
+ * @retval SCARD_E_INVALID_VALUE Invalid value for \p dwDisposition or \p hCard (\ref SCARD_E_INVALID_VALUE)
  * @retval SCARD_E_NO_SERVICE The server is not running (\ref SCARD_E_NO_SERVICE)
  * @retval SCARD_E_READER_UNAVAILABLE The reader has been removed (\ref SCARD_E_READER_UNAVAILABLE)
  * @retval SCARD_E_SHARING_VIOLATION Someone else has exclusive rights (\ref SCARD_E_SHARING_VIOLATION)
@@ -1593,7 +1590,7 @@ end:
  * reader name \c "\\?PnP?\Notification". If a reader event occurs the state of
  * this reader will change and the bit \ref SCARD_STATE_CHANGED will be set.
  *
- * To cancel the ongoing call, use \ref SCardCancel() with the same
+ * To cancel the ongoing call, use SCardCancel() with the same
  * \ref SCARDCONTEXT.
  *
  * @code
@@ -2077,7 +2074,7 @@ LONG SCardGetStatusChange(SCARDCONTEXT hContext, DWORD dwTimeout,
 				waitStatusStruct.rv = SCARD_S_SUCCESS;
 
 				/* another thread can do SCardCancel() */
-				currentContextMap->cancellable = TRUE;
+				currentContextMap->cancellable = true;
 
 				/*
 				 * Read a message from the server
@@ -2086,9 +2083,9 @@ LONG SCardGetStatusChange(SCARDCONTEXT hContext, DWORD dwTimeout,
 					&waitStatusStruct, sizeof(waitStatusStruct),
 					currentContextMap->dwClientID, dwTime);
 
-				/* SCardCancel() will return immediatly with success
+				/* SCardCancel() will return immediately with success
 				 * because something changed on the daemon side. */
-				currentContextMap->cancellable = FALSE;
+				currentContextMap->cancellable = false;
 
 				/* timeout */
 				if (SCARD_E_TIMEOUT == rv)
@@ -2171,7 +2168,7 @@ error:
  * @ingroup API
  * @param[in] hCard Connection made from SCardConnect().
  * @param[in] dwControlCode Control code for the operation.\n
- * <a href="http://anonscm.debian.org/viewvc/pcsclite/trunk/Drivers/ccid/SCARDCONTOL.txt?view=markup">
+ * <a href="https://salsa.debian.org/rousseau/CCID/-/blob/master/SCARDCONTOL.md">
  * Click here</a> for a list of supported commands by some drivers.
  * @param[in] pbSendBuffer Command to send to the reader.
  * @param[in] cbSendLength Length of the command.
@@ -2338,7 +2335,7 @@ end:
  * - \ref SCARD_ATTR_DEVICE_FRIENDLY_NAME
  *   Implemented by pcsc-lite if the IFD Handler (driver) returns \ref
  *   IFD_ERROR_TAG.  pcsc-lite then returns the same reader name as
- *   returned by \ref SCardListReaders().
+ *   returned by SCardListReaders().
  * - \ref SCARD_ATTR_DEVICE_IN_USE
  * - \ref SCARD_ATTR_DEVICE_SYSTEM_NAME
  * - \ref SCARD_ATTR_DEVICE_UNIT
@@ -2384,6 +2381,7 @@ end:
  * @retval SCARD_E_NO_SERVICE The server is not running (\ref SCARD_E_NO_SERVICE)
  * @retval SCARD_E_READER_UNAVAILABLE The reader has been removed (\ref SCARD_E_READER_UNAVAILABLE)
  * @retval SCARD_F_COMM_ERROR An internal communications error has been detected (\ref SCARD_F_COMM_ERROR)
+ * @retval SCARD_E_INVALID_VALUE An invalid value is used for \p hCard (for example the reader is no more present) (\ref SCARD_E_INVALID_VALUE)
  *
  * @code
  * LONG rv;
@@ -2579,7 +2577,7 @@ static LONG SCardGetSetAttrib(SCARDHANDLE hCard, int command, DWORD dwAttrId,
 		if (*pcbAttrLen < scGetSetStruct.cbAttrLen)
 		{
 			/* restrict the value of scGetSetStruct.cbAttrLen to avoid a
-			 * buffer overflow in the memcpy() bellow */
+			 * buffer overflow in the memcpy() below */
 			DWORD correct_value = scGetSetStruct.cbAttrLen;
 			scGetSetStruct.cbAttrLen = *pcbAttrLen;
 			*pcbAttrLen = correct_value;
@@ -2634,7 +2632,7 @@ end:
  * @retval SCARD_E_INSUFFICIENT_BUFFER \p cbRecvLength was not large enough for the card response. The expected size is now in \p cbRecvLength (\ref SCARD_E_INSUFFICIENT_BUFFER)
  * @retval SCARD_E_INVALID_HANDLE Invalid \p hCard handle (\ref SCARD_E_INVALID_HANDLE)
  * @retval SCARD_E_INVALID_PARAMETER \p pbSendBuffer or \p pbRecvBuffer or \p pcbRecvLength or \p pioSendPci is null (\ref SCARD_E_INVALID_PARAMETER)
- * @retval SCARD_E_INVALID_VALUE Invalid Protocol, reader name, etc (\ref SCARD_E_INVALID_VALUE)
+ * @retval SCARD_E_INVALID_VALUE Invalid \p hCard, Protocol, reader name, etc (\ref SCARD_E_INVALID_VALUE)
  * @retval SCARD_E_NO_SERVICE The server is not running (\ref SCARD_E_NO_SERVICE)
  * @retval SCARD_E_NOT_TRANSACTED APDU exchange not successful (\ref SCARD_E_NOT_TRANSACTED)
  * @retval SCARD_E_PROTO_MISMATCH Connect protocol is different than desired (\ref SCARD_E_PROTO_MISMATCH)
@@ -3087,8 +3085,8 @@ end:
 }
 
 /**
- * Cancels a specific blocking \ref SCardGetStatusChange() function.
- * MUST be called with the same \ref SCARDCONTEXT as \ref
+ * Cancels a specific blocking SCardGetStatusChange() function.
+ * MUST be called with the same \ref SCARDCONTEXT as
  * SCardGetStatusChange().
  *
  * @ingroup API
@@ -3123,7 +3121,7 @@ LONG SCardCancel(SCARDCONTEXT hContext)
 	LONG rv = SCARD_S_SUCCESS;
 	uint32_t dwClientID = 0;
 	struct cancel_struct scCancelStruct;
-	char cancellable;
+	bool cancellable;
 
 	PROFILE_START
 	API_TRACE_IN("%ld", hContext)
@@ -3256,7 +3254,7 @@ static LONG SCardAddContext(SCARDCONTEXT hContext, DWORD dwClientID)
 	Log2(PCSC_LOG_DEBUG, "Allocating new SCONTEXTMAP @%p", newContextMap);
 	newContextMap->hContext = hContext;
 	newContextMap->dwClientID = dwClientID;
-	newContextMap->cancellable = FALSE;
+	newContextMap->cancellable = false;
 
 	(void)pthread_mutex_init(&newContextMap->mMutex, NULL);
 
