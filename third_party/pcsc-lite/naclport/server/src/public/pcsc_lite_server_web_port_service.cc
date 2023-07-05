@@ -75,6 +75,13 @@ namespace {
 
 PcscLiteServerWebPortService* g_pcsc_lite_server = nullptr;
 
+// Path to the directory containing driver config files (in case of our webport,
+// it's only CCID driver's one).
+// The path must be relative, so that it works both inside the App/Extension as
+// well as in unit tests executed natively.
+constexpr char kDriverConfigPath[] =
+    "executable-module-filesystem/pcsc/drivers";
+
 constexpr char kLoggingPrefix[] = "[PC/SC-Lite NaCl port] ";
 
 // Constants for message types that are sent to the JavaScript side. These
@@ -245,7 +252,7 @@ void PcscLiteServerWebPortService::InitializeAndRunDaemonThread() {
 
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Performing initial hot "
                               << "plug drivers search...";
-  return_code = ::HPSearchHotPluggables();
+  return_code = ::HPSearchHotPluggables(kDriverConfigPath);
   GOOGLE_SMART_CARD_LOG_DEBUG
       << kLoggingPrefix << "Initial hot plug "
       << "drivers search finished with the following result code: "
@@ -261,7 +268,7 @@ void PcscLiteServerWebPortService::InitializeAndRunDaemonThread() {
   // <https://developer.chrome.com/apps/usb#Events>) and using them in a
   // replacement implementation of the currently used original hotplug_libusb.c
   // source file.
-  return_code = ::HPRegisterForHotplugEvents();
+  return_code = ::HPRegisterForHotplugEvents(kDriverConfigPath);
   GOOGLE_SMART_CARD_LOG_DEBUG
       << kLoggingPrefix << "Registering for hot "
       << "plug events finished with the following result code: " << return_code
