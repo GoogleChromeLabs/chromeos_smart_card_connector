@@ -31,30 +31,11 @@ include $(COMMON_DIR_PATH)/make/executable_building.mk
 
 
 #
-# Add rules for additional dependencies that the including test may have
-# specified through the ADDITIONAL_TEST_DEPS variable (it should contain a
-# space-separated list of dependency names with, optionally, directories
-# specified after a colon).
+# Add rules for additional dependencies of the test runner.
 #
 
-ADDITIONAL_TEST_DEPS ?=
-
-TESTS_RUNNER_DEPS := \
-	ppapi_simple_cpp \
-
-EXTRACT_DEPENDENCY_NAME = $(firstword $(subst :, ,$(1)))
-
-EXTRACT_DEPENDENCY_PATH = $(word 2,$(subst :, ,$(1)))
-
-define DEPEND_RULE_WITH_PATH
-$(eval $(call DEPEND_RULE,$(call EXTRACT_DEPENDENCY_NAME,$(1)),$(call EXTRACT_DEPENDENCY_PATH,$(1))))
-endef
-
-$(foreach dep_with_dir,$(TESTS_RUNNER_DEPS) $(ADDITIONAL_TEST_DEPS),$(eval $(call DEPEND_RULE_WITH_PATH,$(dep_with_dir))))
-
 DEPS := \
-	$(TESTS_RUNNER_DEPS) \
-	$(foreach dep_with_dir,$(ADDITIONAL_TEST_DEPS),$(call EXTRACT_DEPENDENCY_NAME,$(dep_with_dir))) \
+	ppapi_simple_cpp \
 
 
 #

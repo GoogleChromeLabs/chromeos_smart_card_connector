@@ -20,16 +20,10 @@ TARGET := executable_module
 include ../../../common/make/common.mk
 
 include $(COMMON_DIR_PATH)/make/executable_building.mk
-
 include $(COMMON_DIR_PATH)/cpp/include.mk
-include $(COMMON_DIR_PATH)/cpp/dependency.mk
-
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/common/include.mk
-include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/common/dependency.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/cpp_client/include.mk
-include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/cpp_client/dependency.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/cpp_demo/include.mk
-include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/cpp_demo/dependency.mk
 
 
 SOURCES_DIR := ../../src

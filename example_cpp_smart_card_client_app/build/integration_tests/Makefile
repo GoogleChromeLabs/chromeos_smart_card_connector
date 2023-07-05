@@ -24,10 +24,8 @@ include ../../../common/make/common.mk
 include $(COMMON_DIR_PATH)/make/js_building_common.mk
 include $(COMMON_DIR_PATH)/make/executable_building.mk
 include $(COMMON_DIR_PATH)/cpp/include.mk
-include $(COMMON_DIR_PATH)/cpp/dependency.mk
 include $(COMMON_DIR_PATH)/js/include.mk
 include $(COMMON_DIR_PATH)/integration_testing/include.mk
-include $(COMMON_DIR_PATH)/integration_testing/dependency.mk
 
 
 SOURCE_DIR := ../../src/
@@ -52,8 +50,6 @@ LIBS := \
 	$(DEFAULT_NACL_LIBS) \
 
 DEPS := \
-	$(CPP_COMMON_LIB) \
-	$(INTEGRATION_TESTING_LIB) \
 
 CPPFLAGS := \
 	-I$(SOURCE_DIR) \
