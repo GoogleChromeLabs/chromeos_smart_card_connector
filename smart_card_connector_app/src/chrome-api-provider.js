@@ -139,6 +139,9 @@ function convertReaderStateIn(readerState) {
     currentState |= PcscApi.SCARD_STATE_MUTE;
   if (currentStateFlags.unpowered)
     currentState |= PcscApi.SCARD_STATE_UNPOWERED;
+  // The number of events is stored in the upper 16 bits of the current state
+  // value in PCSC API.
+  currentState |= readerState.currentCount << 16;
   return PcscApi.createSCardReaderStateIn(readerState.reader, currentState);
 }
 
@@ -154,8 +157,9 @@ function convertReaderStateIn(readerState) {
 function convertReaderStateOut(readerState) {
   /** @type {!chrome.smartCardProviderPrivate.ReaderStateFlags} */
   let readerStateFlags = {};
+  // Reader state flags are stored in the lower 16 bits of the event state.
   /** @type {number} */
-  let eventState = readerState['event_state'];
+  let eventState = readerState['event_state'] & 0x0000FFFF;
   if (eventState == PcscApi.SCARD_STATE_UNAWARE)
     readerStateFlags.unaware = true;
   if (eventState & PcscApi.SCARD_STATE_IGNORE)
@@ -178,9 +182,13 @@ function convertReaderStateOut(readerState) {
     readerStateFlags.mute = true;
   if (eventState & PcscApi.SCARD_STATE_UNPOWERED)
     readerStateFlags.unpowered = true;
+  // The number of events is stored in the upper 16 bits of the event state.
+  /** @type {number} */
+  let eventCount = readerState['event_state'] >> 16;
   return {
     reader: readerState['reader_name'],
     eventState: readerStateFlags,
+    eventCount: eventCount,
     atr: readerState['atr']
   };
 }

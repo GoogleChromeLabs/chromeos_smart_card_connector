@@ -447,6 +447,7 @@ chrome.smartCardProviderPrivate.Protocol = {
  * @typedef {{
  *   reader: string,
  *   currentState: !chrome.smartCardProviderPrivate.ReaderStateFlags,
+ *   currentCount: number,
  * }}
  */
 chrome.smartCardProviderPrivate.ReaderStateIn;
@@ -455,6 +456,7 @@ chrome.smartCardProviderPrivate.ReaderStateIn;
  * @typedef {{
  *   reader: string,
  *   eventState: !chrome.smartCardProviderPrivate.ReaderStateFlags,
+ *   eventCount: number,
  *   atr: !ArrayBuffer,
  * }}
  */
