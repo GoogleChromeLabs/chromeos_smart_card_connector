@@ -19,7 +19,7 @@ jobs:
   # Build and test in WebAssembly mode.
   build-emscripten:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       matrix:
         build-config: [Release, Debug]
@@ -45,7 +45,7 @@ jobs:
       env:
         TOOLCHAIN: emscripten
         CONFIG: ${{ matrix.build-config }}
-      timeout-minutes: 15
+      timeout-minutes: 30
       run: >
         source env/activate && make test
 
@@ -102,7 +102,7 @@ jobs:
   # Run unit tests under ASan.
   test-asan:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       matrix:
         build-config: [Release, Debug]
@@ -131,7 +131,7 @@ jobs:
       env:
         TOOLCHAIN: asan_testing
         CONFIG: ${{ matrix.build-config }}
-      timeout-minutes: 30
+      timeout-minutes: 45
       run: >
         source env/activate && make test
 
@@ -140,7 +140,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       LINE_COVERAGE_PERCENT: ${{ steps.build-coverage.outputs.LINE_COVERAGE_PERCENT }}
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
     - name: Check out sources
       uses: actions/checkout@v3
