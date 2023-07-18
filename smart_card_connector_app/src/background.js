@@ -321,7 +321,7 @@ function createClientHandler(clientMessageChannel, clientOrigin) {
   // because it manages its lifetime itself, based on the lifetimes of the
   // passed message channels.
   const clientHandler = new GSC.PcscLiteServerClientsManagement.ClientHandler(
-      executableModule.getMessageChannel(), pcscLiteReadinessTracker,
+      executableModule.getMessageChannel(), pcscLiteReadinessTracker.promise,
       clientMessageChannel, clientOrigin);
 
   const logMessage = 'Created a new PC/SC-Lite client handler for ' +

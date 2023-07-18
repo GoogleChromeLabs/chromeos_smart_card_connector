@@ -126,10 +126,9 @@ function getClientNameForLog(clientOrigin) {
  *    handling of the client requests impossible).
  * @param {!goog.messaging.AbstractChannel} serverMessageChannel Message channel
  * to the PC/SC server into which the PC/SC requests will be forwarded.
- * @param {!GSC.PcscLiteServerClientsManagement.ReadinessTracker}
- * serverReadinessTracker Tracker of the PC/SC server that allows to delay
- * forwarding of the PC/SC requests to the PC/SC server until it is ready to
- * receive them.
+ * @param {!goog.Promise} serverReadinessTracker Tracker of the PC/SC server
+ * that allows to delay forwarding of the PC/SC requests to the PC/SC server
+ * until it is ready to receive them.
  * @param {!goog.messaging.AbstractChannel} clientMessageChannel Message channel
  * to the client.
  * @param {string=} clientOrigin Origin of the client that's sending commands
