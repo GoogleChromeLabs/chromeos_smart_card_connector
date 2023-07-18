@@ -44,6 +44,9 @@ const GSC = GoogleSmartCard;
 const PermissionsChecking =
     GSC.PcscLiteServerClientsManagement.PermissionsChecking;
 
+/** @type {!goog.log.Logger} */
+const logger = GSC.Logging.getScopedLogger('Pcsc.PermissionsChecker');
+
 /**
  * Provides an interface for performing permission checks for the given client
  * applications, which gates access to sending PC/SC requests to our Smart Card
@@ -57,93 +60,83 @@ const PermissionsChecking =
  *    "reject" decisions are stored in-memory till the next restart.)
  * 3. Show the dialog to the user and allow/reject the permission based on the
  *    result.
- * @constructor
  */
-PermissionsChecking.Checker = function() {
-  /** @private @const */
-  this.managedRegistry_ = new PermissionsChecking.ManagedRegistry;
-  /** @private @const */
-  this.userPromptingChecker_ = new PermissionsChecking.UserPromptingChecker;
-};
-
-const Checker = PermissionsChecking.Checker;
-
-/**
- * @type {!goog.log.Logger}
- * @const
- */
-Checker.prototype.logger =
-    GSC.Logging.getScopedLogger('Pcsc.PermissionsChecker');
-
-/**
- * Starts the permission check for the given client application.
- *
- * The result is returned asynchronously as a promise (which will be eventually
- * resolved if the permission is granted or rejected otherwise).
- * @param {string|null} clientOrigin Origin of the client application, or null
- * if the client is our own application.
- * @return {!goog.Promise}
- */
-Checker.prototype.check = function(clientOrigin) {
-  goog.log.log(
-      this.logger, goog.log.Level.FINER,
-      'Checking permissions for client ' + GSC.DebugDump.dump(clientOrigin) +
-          '...');
-
-  if (clientOrigin === null) {
-    goog.log.log(
-        this.logger, goog.log.Level.FINER,
-        'Granted permissions for client with null origin');
-    return goog.Promise.resolve();
+PermissionsChecking.Checker = class {
+  constructor() {
+    /** @private @const */
+    this.managedRegistry_ = new PermissionsChecking.ManagedRegistry;
+    /** @private @const */
+    this.userPromptingChecker_ = new PermissionsChecking.UserPromptingChecker;
   }
 
-  const checkPromiseResolver = goog.Promise.withResolver();
+  /**
+   * Starts the permission check for the given client application.
+   *
+   * The result is returned asynchronously as a promise (which will be
+   * eventually resolved if the permission is granted or rejected otherwise).
+   * @param {string|null} clientOrigin Origin of the client application, or null
+   * if the client is our own application.
+   * @return {!goog.Promise}
+   */
+  check(clientOrigin) {
+    goog.log.log(
+        logger, goog.log.Level.FINER,
+        'Checking permissions for client ' + GSC.DebugDump.dump(clientOrigin) +
+            '...');
 
-  this.checkByManagedRegistry_(clientOrigin, checkPromiseResolver);
+    if (clientOrigin === null) {
+      goog.log.log(
+          logger, goog.log.Level.FINER,
+          'Granted permissions for client with null origin');
+      return goog.Promise.resolve();
+    }
 
-  return checkPromiseResolver.promise;
-};
+    const checkPromiseResolver = goog.Promise.withResolver();
 
-/**
- * @param {string} clientOrigin
- * @param {!goog.promise.Resolver} checkPromiseResolver
- * @private
- */
-Checker.prototype.checkByManagedRegistry_ = function(
-    clientOrigin, checkPromiseResolver) {
-  goog.log.log(
-      this.logger, goog.log.Level.FINER,
-      'Checking permissions for the client ' + clientOrigin +
-          ' through the managed registry...');
+    this.checkByManagedRegistry_(clientOrigin, checkPromiseResolver);
 
-  this.managedRegistry_.getByOrigin(clientOrigin)
-      .then(
-          function() {
-            goog.log.log(
-                this.logger, goog.log.Level.FINER,
-                'Granted permissions for client ' + clientOrigin +
-                    ' through the managed registry');
-            checkPromiseResolver.resolve();
-          },
-          function() {
-            goog.log.log(
-                this.logger, goog.log.Level.FINER,
-                'No permissions found for client ' + clientOrigin +
-                    ' through the managed registry');
-            this.checkByUserPromptingChecker_(
-                clientOrigin, checkPromiseResolver);
-          },
-          this);
-};
+    return checkPromiseResolver.promise;
+  }
 
-/**
- * @param {string} clientOrigin
- * @param {!goog.promise.Resolver} checkPromiseResolver
- * @private
- */
-Checker.prototype.checkByUserPromptingChecker_ = function(
-    clientOrigin, checkPromiseResolver) {
-  this.userPromptingChecker_.check(clientOrigin)
-      .then(checkPromiseResolver.resolve, checkPromiseResolver.reject);
+  /**
+   * @param {string} clientOrigin
+   * @param {!goog.promise.Resolver} checkPromiseResolver
+   * @private
+   */
+  checkByManagedRegistry_(clientOrigin, checkPromiseResolver) {
+    goog.log.log(
+        logger, goog.log.Level.FINER,
+        'Checking permissions for the client ' + clientOrigin +
+            ' through the managed registry...');
+
+    this.managedRegistry_.getByOrigin(clientOrigin)
+        .then(
+            function() {
+              goog.log.log(
+                  logger, goog.log.Level.FINER,
+                  'Granted permissions for client ' + clientOrigin +
+                      ' through the managed registry');
+              checkPromiseResolver.resolve();
+            },
+            function() {
+              goog.log.log(
+                  logger, goog.log.Level.FINER,
+                  'No permissions found for client ' + clientOrigin +
+                      ' through the managed registry');
+              this.checkByUserPromptingChecker_(
+                  clientOrigin, checkPromiseResolver);
+            },
+            this);
+  }
+
+  /**
+   * @param {string} clientOrigin
+   * @param {!goog.promise.Resolver} checkPromiseResolver
+   * @private
+   */
+  checkByUserPromptingChecker_(clientOrigin, checkPromiseResolver) {
+    this.userPromptingChecker_.check(clientOrigin)
+        .then(checkPromiseResolver.resolve, checkPromiseResolver.reject);
+  }
 };
 });  // goog.scope
