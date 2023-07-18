@@ -31,6 +31,7 @@ goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.ClientHandler');
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.DeferredProcessor');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.Pcsc.PermissionsChecker');
 goog.require('GoogleSmartCard.Pcsc.PolicyOrPromptingPermissionsChecker');
 goog.require('GoogleSmartCard.PcscLiteCommon.Constants');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ServerRequestHandler');

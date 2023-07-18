@@ -31,6 +31,7 @@ goog.provide('GoogleSmartCard.Pcsc.PolicyOrPromptingPermissionsChecker');
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.MessagingOrigin');
+goog.require('GoogleSmartCard.Pcsc.PermissionsChecker');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.ManagedRegistry');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.UserPromptingChecker');
 goog.require('goog.Promise');
@@ -61,8 +62,10 @@ const logger = GSC.Logging.getScopedLogger('Pcsc.PermissionsChecker');
  * 3. Show the dialog to the user and allow/reject the permission based on the
  *    result.
  */
-GSC.Pcsc.PolicyOrPromptingPermissionsChecker = class {
+GSC.Pcsc.PolicyOrPromptingPermissionsChecker =
+    class extends GSC.Pcsc.PermissionsChecker {
   constructor() {
+    super();
     /** @private @const */
     this.managedRegistry_ = new PermissionsChecking.ManagedRegistry;
     /** @private @const */
@@ -70,13 +73,7 @@ GSC.Pcsc.PolicyOrPromptingPermissionsChecker = class {
   }
 
   /**
-   * Starts the permission check for the given client application.
-   *
-   * The result is returned asynchronously as a promise (which will be
-   * eventually resolved if the permission is granted or rejected otherwise).
-   * @param {string|null} clientOrigin Origin of the client application, or null
-   * if the client is our own application.
-   * @return {!goog.Promise}
+   * @override
    */
   check(clientOrigin) {
     goog.log.log(
