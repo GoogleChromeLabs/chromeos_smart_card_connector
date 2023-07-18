@@ -26,7 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.Checker');
+goog.provide('GoogleSmartCard.Pcsc.PolicyOrPromptingPermissionsChecker');
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
@@ -61,7 +61,7 @@ const logger = GSC.Logging.getScopedLogger('Pcsc.PermissionsChecker');
  * 3. Show the dialog to the user and allow/reject the permission based on the
  *    result.
  */
-PermissionsChecking.Checker = class {
+GSC.Pcsc.PolicyOrPromptingPermissionsChecker = class {
   constructor() {
     /** @private @const */
     this.managedRegistry_ = new PermissionsChecking.ManagedRegistry;

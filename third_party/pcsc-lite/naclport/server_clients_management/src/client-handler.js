@@ -31,8 +31,8 @@ goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.ClientHandler');
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.DeferredProcessor');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.Pcsc.PolicyOrPromptingPermissionsChecker');
 goog.require('GoogleSmartCard.PcscLiteCommon.Constants');
-goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.Checker');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ServerRequestHandler');
 goog.require('GoogleSmartCard.RemoteCallMessage');
 goog.require('GoogleSmartCard.RequestReceiver');
@@ -48,8 +48,6 @@ goog.scope(function() {
 const GSC = GoogleSmartCard;
 const DeferredProcessor = GSC.DeferredProcessor;
 const RemoteCallMessage = GSC.RemoteCallMessage;
-const PermissionsChecking =
-    GSC.PcscLiteServerClientsManagement.PermissionsChecking;
 const ServerRequestHandler =
     GSC.PcscLiteServerClientsManagement.ServerRequestHandler;
 
@@ -92,7 +90,7 @@ function getClientNameForLog(clientOrigin) {
  *    execute requests.
  *
  *    The permission checking is performed using the
- *    GSC.PcscLiteServerClientsManagement.PermissionsChecking.Checker class.
+ *    GSC.Pcsc.PolicyOrPromptingPermissionsChecker class.
  *
  *    During the permission check (which may be a long lasting operation - e.g.
  *    showing a user prompt), all incoming requests are held in an internal
@@ -174,7 +172,7 @@ GSC.PcscLiteServerClientsManagement.ClientHandler = function(
   this.clientMessageChannel_ = clientMessageChannel;
 
   if (!permissionsChecker)
-    permissionsChecker = new PermissionsChecking.Checker;
+    permissionsChecker = new GSC.Pcsc.PolicyOrPromptingPermissionsChecker;
 
   // The requests processing is deferred until the permission check is resolved.
   /** @private */
@@ -197,7 +195,7 @@ goog.inherits(ClientHandler, goog.Disposable);
  *
  * This is a lazily initialized singleton object for the optimization purposes
  * (construction of the checker is a relatively expensive operation).
- * @type {PermissionsChecking.Checker?}
+ * @type {GSC.Pcsc.PolicyOrPromptingPermissionsChecker?}
  */
 let permissionsChecker = null;
 
