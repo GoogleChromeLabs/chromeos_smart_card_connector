@@ -181,7 +181,9 @@ Pcsc.ServerRequestHandler = class extends goog.Disposable {
 
   /** @override */
   disposeInternal() {
-    super.disposeInternal();
+    if (this.isDisposed()) {
+      return;
+    }
 
     if (this.serverRequester_) {
       this.serverRequester_.dispose();
@@ -208,6 +210,8 @@ Pcsc.ServerRequestHandler = class extends goog.Disposable {
     // sendServerDeleteHandlerMessage_ method is called, because the latter
     // accesses this member.
     this.serverMessageChannel_ = null;
+
+    super.disposeInternal();
   }
 
   /**
