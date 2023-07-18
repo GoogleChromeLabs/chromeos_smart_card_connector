@@ -172,9 +172,6 @@ GSC.PcscLiteServerClientsManagement.ClientHandler = function(
   /** @private */
   this.clientMessageChannel_ = clientMessageChannel;
 
-  if (!permissionsChecker)
-    permissionsChecker = new GSC.Pcsc.PolicyOrPromptingPermissionsChecker;
-
   // The requests processing is deferred until the permission check is resolved.
   /** @private */
   this.deferredProcessor_ =
@@ -198,7 +195,31 @@ goog.inherits(ClientHandler, goog.Disposable);
  * (construction of the checker is a relatively expensive operation).
  * @type {GSC.Pcsc.PolicyOrPromptingPermissionsChecker?}
  */
-let permissionsChecker = null;
+let defaultPermissionsChecker = null;
+/**
+ * @type {GSC.Pcsc.PermissionsChecker?}
+ */
+let permissionsCheckerOverrideForTesting = null;
+
+/**
+ * @return {!GSC.Pcsc.PermissionsChecker}
+ */
+function getPermissionsChecker() {
+  if (permissionsCheckerOverrideForTesting)
+    return permissionsCheckerOverrideForTesting;
+  if (!defaultPermissionsChecker) {
+    defaultPermissionsChecker =
+        new GSC.Pcsc.PolicyOrPromptingPermissionsChecker;
+  }
+  return defaultPermissionsChecker;
+}
+
+/**
+ * @param {GSC.Pcsc.PermissionsChecker?} override
+ */
+ClientHandler.overridePermissionsCheckerForTesting = function(override) {
+  permissionsCheckerOverrideForTesting = override;
+};
 
 /** @override */
 ClientHandler.prototype.disposeInternal = function() {
@@ -258,7 +279,7 @@ ClientHandler.prototype.handleRequest_ = function(payload) {
  * @private
  */
 ClientHandler.prototype.getPermissionsCheckPromise_ = function() {
-  return permissionsChecker
+  return getPermissionsChecker()
       .check(this.clientOrigin_ === undefined ? null : this.clientOrigin_)
       .then(
           function() {
