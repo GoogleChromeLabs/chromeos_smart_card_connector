@@ -181,10 +181,6 @@ Pcsc.ServerRequestHandler = class extends goog.Disposable {
 
   /** @override */
   disposeInternal() {
-    if (this.isDisposed()) {
-      return;
-    }
-
     if (this.serverRequester_) {
       this.serverRequester_.dispose();
       this.serverRequester_ = null;

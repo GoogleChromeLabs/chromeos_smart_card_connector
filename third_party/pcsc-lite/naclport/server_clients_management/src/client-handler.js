@@ -318,9 +318,6 @@ ClientHandler.prototype.addChannelDisposedListeners_ = function() {
  * @private
  */
 ClientHandler.prototype.serverRequesterDisposedListener_ = function() {
-  if (this.isDisposed())
-    return;
-
   this.dispose();
 };
 
