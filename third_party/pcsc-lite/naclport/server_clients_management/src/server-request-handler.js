@@ -31,7 +31,6 @@ goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.ServerRequestHandl
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.DeferredProcessor');
 goog.require('GoogleSmartCard.Logging');
-goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
 goog.require('GoogleSmartCard.RemoteCallMessage');
 goog.require('GoogleSmartCard.Requester');
 goog.require('goog.Disposable');
@@ -132,10 +131,9 @@ Pcsc.ServerRequestHandler = class extends goog.Disposable {
    * @param {!goog.messaging.AbstractChannel} serverMessageChannel Message
    *     channel
    * to the PC/SC server into which the PC/SC requests will be forwarded.
-   * @param {!Pcsc.ReadinessTracker} serverReadinessTracker
-   * Tracker of the PC/SC server that allows to delay
-   * forwarding of the PC/SC requests to the PC/SC server until it is ready to
-   * receive them.
+   * @param {!goog.Promise} serverReadinessTracker Tracker of the PC/SC server
+   * that allows to delay forwarding of the PC/SC requests to the PC/SC server
+   * until it is ready to receive them.
    * @param {string} clientNameForLog
    */
   constructor(serverMessageChannel, serverReadinessTracker, clientNameForLog) {
@@ -175,7 +173,7 @@ Pcsc.ServerRequestHandler = class extends goog.Disposable {
     // established.
     /** @private */
     this.deferredProcessor_ =
-        new DeferredProcessor(this.serverReadinessTracker_.promise);
+        new DeferredProcessor(this.serverReadinessTracker_);
 
     this.serverMessageChannel_.addOnDisposeCallback(
         () => this.serverMessageChannelDisposedListener_());
