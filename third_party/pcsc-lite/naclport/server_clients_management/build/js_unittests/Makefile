@@ -23,10 +23,10 @@ TARGET := js_pcsc_lite_server_clients_management_unittests
 
 include ../../../../../../common/make/common.mk
 
-include $(COMMON_DIR_PATH)/make/js_building_common.mk
-
-include $(COMMON_DIR_PATH)/js/include.mk
-include ../../include.mk
+include $(ROOT_PATH)/common/make/js_building_common.mk
+include $(ROOT_PATH)/common/js/include.mk
+include $(ROOT_PATH)/third_party/pcsc-lite/naclport/common/include.mk
+include $(ROOT_PATH)/third_party/pcsc-lite/naclport/server_clients_management/include.mk
 
 
 # Compile all JavaScript files rooting in the tested component's directory
@@ -36,6 +36,7 @@ include ../../include.mk
 # The path constants used below come from the include.mk files.
 JS_COMPILER_INPUT_PATHS := \
 	$(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_SOURCES_PATH) \
+	$(PCSC_LITE_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
 	$(JS_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
 
 $(eval $(call BUILD_JS_UNITTESTS,$(JS_COMPILER_INPUT_PATHS)))
