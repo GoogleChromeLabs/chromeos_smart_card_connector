@@ -192,12 +192,21 @@ initialize_chromedriver() {
   # major-minor-build triple, e.g., 72.0.3626.
   local chrome_version=$(google-chrome --version | cut -f 3 -d ' ' | cut -d '.' -f 1-3)
   # Obtain the matching Chromedriver version.
-  local chromedriver_version=$(curl http://chromedriver.storage.googleapis.com/LATEST_RELEASE_${chrome_version})
+  local chromedriver_version_url="http://chromedriver.storage.googleapis.com/LATEST_RELEASE_${chrome_version}"
+  local chromedriver_version
+  if ! chromedriver_version=$(curl --fail --silent "${chromedriver_version_url}") ; then
+    log_error_message "Failed to fetch chromedriver version at ${chromedriver_version_url} ; skipping chromedriver installation..."
+    return
+  fi
   # Download Chromedriver.
-  wget https://chromedriver.storage.googleapis.com/${chromedriver_version}/chromedriver_linux64.zip
+  local chromedriver_url="https://chromedriver.storage.googleapis.com/${chromedriver_version}/chromedriver_linux64.zip"
+  if ! wget "${chromedriver_url}" ; then
+    log_error_message "Failed to fetch chromedriver at ${chromedriver_url} ; skipping chromedriver installation..."
+    return
+  fi
   unzip -q chromedriver_linux64.zip
   rm -rf chromedriver_linux64.zip
-  log_message "chromedriver was installed successfully."
+  log_message "chromedriver ${chromedriver_version} was installed successfully."
 }
 
 create_activate_script() {
