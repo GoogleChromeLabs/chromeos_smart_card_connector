@@ -17,6 +17,7 @@
 
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ClientHandler');
 goog.require('goog.Promise');
+goog.require('goog.reflect');
 goog.require('goog.testing');
 goog.require('goog.testing.MockControl');
 goog.require('goog.testing.jsunit');
@@ -68,6 +69,36 @@ goog.exportSymbol('testClientHandler', {
         mockClientMessageChannel, EXTENSION_ID_A);
 
     handler.dispose();
+  },
+
+  'testClientChannelDisposed': function() {
+    const handler = new ClientHandler(
+        mockServerMessageChannel, goog.Promise.resolve(),
+        mockClientMessageChannel, EXTENSION_ID_A);
+    mockClientMessageChannel.dispose();
+    // Hack: call the protected disposeInternal() method in order to trigger the
+    // disposal notifications; the MockMessageChannel.dispose() doesn't call
+    // them.
+    mockClientMessageChannel[goog.reflect.objectProperty(
+        'disposeInternal', mockClientMessageChannel)]();
+    assert(
+        'ClientHandler should dispose on client channel disposal',
+        handler.isDisposed());
+  },
+
+  'testServerChannelDisposed': function() {
+    const handler = new ClientHandler(
+        mockServerMessageChannel, goog.Promise.resolve(),
+        mockClientMessageChannel, EXTENSION_ID_A);
+    mockServerMessageChannel.dispose();
+    // Hack: call the protected disposeInternal() method in order to trigger the
+    // disposal notifications; the MockMessageChannel.dispose() doesn't call
+    // them.
+    mockServerMessageChannel[goog.reflect.objectProperty(
+        'disposeInternal', mockServerMessageChannel)]();
+    assert(
+        'ClientHandler should dispose on server channel disposal',
+        handler.isDisposed());
   },
 });
 });  // goog.scope
