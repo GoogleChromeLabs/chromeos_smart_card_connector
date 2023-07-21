@@ -67,7 +67,7 @@ ${endif}
   # WebUSB and WebAssembly are required in this mode and are only stable and
   # reliable on new versions.
 ${if PACKAGING=app}
-  "minimum_chrome_version": "48",
+  "minimum_chrome_version": "81",
 ${endif}
 ${if PACKAGING=extension}
   "minimum_chrome_version": "96",
