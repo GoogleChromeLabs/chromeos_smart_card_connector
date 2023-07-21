@@ -317,7 +317,7 @@ ReaderTrackerThroughPcscApi.prototype.makeReaderStatesPromise_ = function(
                 promiseResolver.resolve.bind(promiseResolver),
                 function(errorCode) {
                   if (errorCode == API.SCARD_E_UNKNOWN_READER) {
-                    goog.log.warning(
+                    goog.log.info(
                         this.logger_,
                         'Getting the statuses of the readers from PC/SC finished ' +
                             'unsuccessfully due to removal of the tracked reader. A ' +
@@ -414,7 +414,7 @@ ReaderTrackerThroughPcscApi.prototype.makeReaderStatesChangePromise_ = function(
                             'within the timeout');
                     promiseResolver.resolve();
                   } else if (errorCode == API.SCARD_E_UNKNOWN_READER) {
-                    goog.log.warning(
+                    goog.log.info(
                         this.logger_,
                         'Waiting for the reader statuses changes from PC/SC finished ' +
                             'unsuccessfully due to removal of the tracked reader');
