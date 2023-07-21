@@ -228,6 +228,7 @@ ClientHandler.prototype.disposeInternal = function() {
   this.deferredProcessor_ = null;
 
   this.serverRequester_.dispose();
+  this.serverRequester_ = null;
 
   this.clientMessageChannel_.dispose();
   this.clientMessageChannel_ = null;
@@ -317,14 +318,6 @@ ClientHandler.prototype.addChannelDisposedListeners_ = function() {
  * @private
  */
 ClientHandler.prototype.serverRequesterDisposedListener_ = function() {
-  if (this.isDisposed())
-    return;
-
-  // Note: this assignment is important because it prevents from sending of any
-  // messages through the server message channel, which is normally happening
-  // during the disposal process.
-  this.serverRequester_ = null;
-
   this.dispose();
 };
 
