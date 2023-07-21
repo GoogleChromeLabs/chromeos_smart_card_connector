@@ -19,6 +19,7 @@ goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ClientHandler');
 goog.require('goog.Promise');
 goog.require('goog.reflect');
 goog.require('goog.testing');
+goog.require('goog.testing.asserts');
 goog.require('goog.testing.MockControl');
 goog.require('goog.testing.jsunit');
 goog.require('goog.testing.messaging.MockMessageChannel');
@@ -44,6 +45,18 @@ let mockControl;
 let mockServerMessageChannel;
 let mockClientMessageChannel;
 const stubPermissionsChecker = new StubPermissionsChecker();
+
+/**
+ * @param {!goog.testing.messaging.MockMessageChannel} mockMessageChannel
+ */
+function disposeOfMockMessageChannel(mockMessageChannel) {
+  mockMessageChannel.dispose();
+  // Hack: call the protected disposeInternal() method in order to trigger the
+  // disposal notifications; the MockMessageChannel.dispose() doesn't call
+  // them.
+  mockMessageChannel[goog.reflect.objectProperty(
+      'disposeInternal', mockMessageChannel)]();
+}
 
 goog.exportSymbol('testClientHandler', {
   'setUp': function() {
@@ -75,12 +88,7 @@ goog.exportSymbol('testClientHandler', {
     const handler = new ClientHandler(
         mockServerMessageChannel, goog.Promise.resolve(),
         mockClientMessageChannel, EXTENSION_ID_A);
-    mockClientMessageChannel.dispose();
-    // Hack: call the protected disposeInternal() method in order to trigger the
-    // disposal notifications; the MockMessageChannel.dispose() doesn't call
-    // them.
-    mockClientMessageChannel[goog.reflect.objectProperty(
-        'disposeInternal', mockClientMessageChannel)]();
+    disposeOfMockMessageChannel(mockClientMessageChannel);
     assert(
         'ClientHandler should dispose on client channel disposal',
         handler.isDisposed());
@@ -90,12 +98,7 @@ goog.exportSymbol('testClientHandler', {
     const handler = new ClientHandler(
         mockServerMessageChannel, goog.Promise.resolve(),
         mockClientMessageChannel, EXTENSION_ID_A);
-    mockServerMessageChannel.dispose();
-    // Hack: call the protected disposeInternal() method in order to trigger the
-    // disposal notifications; the MockMessageChannel.dispose() doesn't call
-    // them.
-    mockServerMessageChannel[goog.reflect.objectProperty(
-        'disposeInternal', mockServerMessageChannel)]();
+    disposeOfMockMessageChannel(mockServerMessageChannel);
     assert(
         'ClientHandler should dispose on server channel disposal',
         handler.isDisposed());
