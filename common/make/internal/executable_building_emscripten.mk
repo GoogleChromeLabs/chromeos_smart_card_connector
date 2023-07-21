@@ -174,18 +174,46 @@ EMSCRIPTEN_COMMON_FLAGS += \
 # Explanation:
 # ASSERTIONS: Enable runtime checks, like for memory allocation errors.
 # DEMANGLE_SUPPORT: Demangle C++ function names in stack traces.
-# SAFE_HEAP: Enable memory access checks.
+# TOTAL_STACK: Increase the initial stack size (Emscripten's default 64KB are
+#   very tight for Debug builds, and while some code in this project calls
+#   pthread_attr_setstacksize() its parameters aren't chosen with Emscripten
+#   Debug's heavy stack consumption in mind).
 # Wno-limited-postlink-optimizations: Suppress a warning about limited
 #   optimizations.
 EMSCRIPTEN_LINKER_FLAGS += \
   -s ASSERTIONS=2 \
   -s DEMANGLE_SUPPORT=1 \
-  -s SAFE_HEAP=1 \
+  -s TOTAL_STACK=1048576 \
   -Wno-limited-postlink-optimizations \
 
 else
 
 $(error Unsupported CONFIG=$(CONFIG) value.)
+
+endif
+
+ifeq ($(TOOLCHAIN),emscripten_asan)
+
+# Add compiler and linker flags specific to Address Sanitizer builds.
+#
+# Explanation:
+# fsanitize=address: Enable ASan.
+# fno-omit-frame-pointer: Improves stack traces in ASan reports.
+EMSCRIPTEN_COMMON_FLAGS += \
+	-fsanitize=address \
+	-fno-omit-frame-pointer \
+
+EMSCRIPTEN_LINKER_FLAGS += \
+  -s TOTAL_STACK=1048576 \
+
+else ifeq ($(CONFIG),Debug)
+
+# Add linker flags for Debug non-sanitizer builds.
+#
+# SAFE_HEAP: Enable memory access checks. (Not allowed to be used with
+#   sanitizers.)
+EMSCRIPTEN_LINKER_FLAGS += \
+  -s SAFE_HEAP=1 \
 
 endif
 

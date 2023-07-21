@@ -39,6 +39,7 @@ const GSC = GoogleSmartCard;
  */
 const Toolchain = {
   EMSCRIPTEN: 'emscripten',
+  EMSCRIPTEN_ASAN: 'emscripten_asan',
   PNACL: 'pnacl',
 };
 

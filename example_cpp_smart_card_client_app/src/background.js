@@ -136,6 +136,7 @@ function createExecutableModule() {
       return new GSC.NaclModule(
           'executable_module.nmf', GSC.NaclModule.Type.PNACL);
     case GSC.ExecutableModule.Toolchain.EMSCRIPTEN:
+    case GSC.ExecutableModule.Toolchain.EMSCRIPTEN_ASAN:
       return new GSC.EmscriptenModule('executable_module');
   }
   GSC.Logging.fail(

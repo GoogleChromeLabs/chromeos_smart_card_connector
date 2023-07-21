@@ -26,6 +26,8 @@ include $(ROOT_PATH)/common/make/executable_building.mk
 # Determine the type of toolchain.
 ifeq ($(TOOLCHAIN),emscripten)
 TOOLCHAIN_TYPE := emscripten
+else ifeq ($(TOOLCHAIN),emscripten_asan)
+TOOLCHAIN_TYPE := emscripten
 else ifeq ($(TOOLCHAIN),asan_testing)
 TOOLCHAIN_TYPE := analysis
 else ifeq ($(TOOLCHAIN),coverage)
@@ -113,7 +115,9 @@ endif
 #
 # In the Emscripten mode, we have to pass "-pthread" explicitly, both as
 # compiler and linker flags.
-ifeq ($(TOOLCHAIN_TYPE),emscripten)
+ifeq ($(TOOLCHAIN),emscripten_asan)
+CMAKE_ENV := CXXFLAGS="-pthread -fsanitize=address" LDFLAGS="-pthread -fsanitize=address"
+else ifeq ($(TOOLCHAIN_TYPE),emscripten)
 CMAKE_ENV := CXXFLAGS="-pthread" LDFLAGS="-pthread"
 else ifeq ($(TOOLCHAIN_TYPE),analysis)
 CMAKE_ENV :=
@@ -128,6 +132,13 @@ endif
 CMAKE_ARGS := \
 	-DCMAKE_BUILD_TYPE=$(CONFIG) \
 	-DGTEST_HAS_PTHREAD=1 \
+
+ifeq ($(TOOLCHAIN),emscripten_asan)
+
+CMAKE_ARGS += \
+	-DCMAKE_CXX_FLAGS="-pthread -fsanitize=address" \
+
+endif
 
 ifeq ($(TOOLCHAIN_TYPE),analysis)
 

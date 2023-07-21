@@ -88,6 +88,7 @@ function createExecutableModule() {
       return new GSC.NaclModule(
           'executable_module.nmf', GSC.NaclModule.Type.PNACL);
     case GSC.ExecutableModule.Toolchain.EMSCRIPTEN:
+    case GSC.ExecutableModule.Toolchain.EMSCRIPTEN_ASAN:
       if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
         // Multi-threading in WebAssembly requires spawning Workers, which for
         // Extensions Manifest v3 is only allowed from an Offscreen Document but

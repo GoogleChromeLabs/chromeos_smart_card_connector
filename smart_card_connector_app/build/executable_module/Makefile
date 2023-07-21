@@ -53,7 +53,7 @@ CXXFLAGS := \
 
 LDFLAGS :=
 
-ifeq ($(TOOLCHAIN),emscripten)
+ifneq (,$(findstring emscripten,$(TOOLCHAIN)))
 
 # Emscripten specific build definitions:
 

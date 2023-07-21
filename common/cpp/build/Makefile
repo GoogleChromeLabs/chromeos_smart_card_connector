@@ -58,7 +58,7 @@ SOURCES += \
 SOURCES += \
 	$(SOURCES_PATH)/public/external_logs_printer.cc \
 
-else ifeq ($(TOOLCHAIN),emscripten)
+else ifneq (,$(findstring emscripten,$(TOOLCHAIN)))
 
 SOURCES += \
 	$(SOURCES_PATH)/public/global_context_impl_emscripten.cc \

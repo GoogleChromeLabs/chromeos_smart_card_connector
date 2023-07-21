@@ -38,7 +38,7 @@ SOURCES := \
 	$(SOURCES_PATH)/public/value_debug_dumping_unittest.cc \
 	$(SOURCES_PATH)/public/value_unittest.cc \
 
-ifeq ($(TOOLCHAIN),emscripten)
+ifneq (,$(findstring emscripten,$(TOOLCHAIN)))
 
 SOURCES += \
 	$(SOURCES_PATH)/public/value_emscripten_val_conversion_unittest.cc \

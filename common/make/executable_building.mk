@@ -57,7 +57,7 @@
 #     runtime.
 
 # Load the toolchain-specific file.
-ifeq ($(TOOLCHAIN),emscripten)
+ifneq (,$(findstring emscripten,$(TOOLCHAIN)))
 include $(COMMON_DIR_PATH)/make/internal/executable_building_emscripten.mk
 else ifeq ($(TOOLCHAIN),pnacl)
 include $(COMMON_DIR_PATH)/make/internal/executable_building_nacl.mk

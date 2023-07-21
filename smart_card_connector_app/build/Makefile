@@ -87,7 +87,7 @@ $(eval $(call BUILD_JS_SCRIPT,background.js,$(JS_COMPILER_BACKGROUND_INPUT_PATHS
 # Rules for compiling the emscripten-offscreen-doc.js file.
 #
 
-ifeq ($(TOOLCHAIN),emscripten)
+ifneq (,$(findstring emscripten,$(TOOLCHAIN)))
 ifeq ($(PACKAGING),extension)
 $(eval $(call BUILD_JS_SCRIPT,emscripten-offscreen-doc.js,$(JS_COMPILER_BACKGROUND_INPUT_PATHS),GoogleSmartCard.EmscriptenInOffscreenDocMain,$(JS_COMPILER_FLAGS)))
 endif
@@ -158,7 +158,7 @@ $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/card-present.png))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/about-window.html))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/about-window.css))
 
-ifeq ($(TOOLCHAIN),emscripten)
+ifneq (,$(findstring emscripten,$(TOOLCHAIN)))
 ifeq ($(PACKAGING),extension)
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(ROOT_PATH)/common/js/src/executable-module/emscripten-offscreen-doc.html))
 endif
@@ -170,7 +170,7 @@ endif
 # for explanation. Here we add rules that compile the .js file for the iframe
 # and copy it, together with an .html file, to the out directory.
 
-ifeq ($(TOOLCHAIN),emscripten)
+ifneq (,$(findstring emscripten,$(TOOLCHAIN)))
 ifneq ($(PACKAGING),extension)
 $(eval $(JS_COMMON_BACKGROUND_PAGE_UNLOAD_PREVENTING_IFRAME_RULE))
 endif
