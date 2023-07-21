@@ -19,8 +19,8 @@ goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ClientHandler');
 goog.require('goog.Promise');
 goog.require('goog.reflect');
 goog.require('goog.testing');
-goog.require('goog.testing.asserts');
 goog.require('goog.testing.MockControl');
+goog.require('goog.testing.asserts');
 goog.require('goog.testing.jsunit');
 goog.require('goog.testing.messaging.MockMessageChannel');
 
