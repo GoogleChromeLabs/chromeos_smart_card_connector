@@ -300,6 +300,13 @@ void FillLibusbInterface(const LibusbJsInterfaceDescriptor& js_interface,
   result->num_altsetting = 1;
 }
 
+void FillEmptyLibusbInterface(libusb_interface* result) {
+  GOOGLE_SMART_CARD_CHECK(result);
+
+  result->altsetting = nullptr;
+  result->num_altsetting = 0;
+}
+
 void FillLibusbConfigDescriptor(
     const LibusbJsConfigurationDescriptor& js_config,
     libusb_config_descriptor* result) {
@@ -313,17 +320,30 @@ void FillLibusbConfigDescriptor(
 
   result->wTotalLength = sizeof(libusb_config_descriptor);
 
-  result->bNumInterfaces = js_config.interfaces.size();
-
   result->bConfigurationValue = js_config.configuration_value;
 
   // TODO(#429): Investigate remote_wakeup, self_powered, max_power flags.
 
-  result->interface = new libusb_interface[js_config.interfaces.size()];
-  for (size_t index = 0; index < js_config.interfaces.size(); ++index) {
-    FillLibusbInterface(
-        js_config.interfaces[index],
-        const_cast<libusb_interface*>(&result->interface[index]));
+  // When converting USB interfaces, backfill the list with empty records in
+  // case some interface numbers aren't present (e.g., because a hook decided to
+  // omit some). This is to satisfy the typical client code expectation that the
+  // maximum interface number corresponds to the number of items.
+  size_t interfaces_to_create = 0;
+  for (const auto& js_interface : js_config.interfaces) {
+    interfaces_to_create =
+        std::max(interfaces_to_create,
+                 static_cast<size_t>(js_interface.interface_number) + 1);
+  }
+  result->bNumInterfaces = interfaces_to_create;
+  result->interface = new libusb_interface[interfaces_to_create];
+  for (size_t index = 0; index < interfaces_to_create; ++index) {
+    auto* item_to_fill =
+        const_cast<libusb_interface*>(&result->interface[index]);
+    if (index < js_config.interfaces.size()) {
+      FillLibusbInterface(js_config.interfaces[index], item_to_fill);
+    } else {
+      FillEmptyLibusbInterface(item_to_fill);
+    }
   }
 
   if (js_config.extra_data)
