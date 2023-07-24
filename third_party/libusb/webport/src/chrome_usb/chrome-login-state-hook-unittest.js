@@ -65,21 +65,23 @@ let sessionStateListeners = [];
 function setUpChromeLoginStateMock(
     propertyReplacer, fakeProfileType, fakeSessionState) {
   propertyReplacer.set(chrome, 'loginState', {
-    getProfileType: function(callback) {
+    'getProfileType': function(callback) {
       callback(fakeProfileType);
     },
-    getSessionState: function(callback) {
+    'getSessionState': function(callback) {
       callback(fakeSessionState);
     },
-    onSessionStateChanged: {
-      addListener: function(callback) {
+    'onSessionStateChanged': {
+      'addListener': function(callback) {
         sessionStateListeners.push(callback);
       }
     },
-    ProfileType:
-        {USER_PROFILE: USER_PROFILE_TYPE, SIGNIN_PROFILE: SIGNIN_PROFILE_TYPE},
-    SessionState:
-        {IN_SESSION: IN_SESSION_STATE, IN_LOCK_SCREEN: IN_LOCK_SCREEN_STATE}
+    'ProfileType': {
+      'USER_PROFILE': USER_PROFILE_TYPE,
+      'SIGNIN_PROFILE': SIGNIN_PROFILE_TYPE
+    },
+    'SessionState':
+        {'IN_SESSION': IN_SESSION_STATE, 'IN_LOCK_SCREEN': IN_LOCK_SCREEN_STATE}
   });
 }
 

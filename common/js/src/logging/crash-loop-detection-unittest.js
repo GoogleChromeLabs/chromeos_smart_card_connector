@@ -88,7 +88,7 @@ function stubChromeStorageLocalSet(items, callback) {
 }
 
 goog.exportSymbol('testCrashLoopDetection', {
-  setUp: function() {
+  'setUp': function() {
     CrashLoopDetection.resetForTesting();
     currentDate = SOME_DATE;
     currentStorage = {};
@@ -100,13 +100,13 @@ goog.exportSymbol('testCrashLoopDetection', {
     propertyReplacer.set(chrome, 'runtime', {'lastError': undefined});
   },
 
-  tearDown: function() {
+  'tearDown': function() {
     propertyReplacer.reset();
     CrashLoopDetection.resetForTesting();
   },
 
   // Test the scenario when a crash happens for the first time.
-  testSingleCrash: function() {
+  'testSingleCrash': function() {
     return CrashLoopDetection.handleImminentCrash().then((isInCrashLoop) => {
       assertFalse(isInCrashLoop);
       assertObjectEquals(
@@ -115,7 +115,7 @@ goog.exportSymbol('testCrashLoopDetection', {
   },
 
   // Test that calls after the first one within a single run are rejected.
-  testExtraCalls: function() {
+  'testExtraCalls': function() {
     return CrashLoopDetection.handleImminentCrash().then(() => {
       return CrashLoopDetection.handleImminentCrash().then(() => {
         fail('Unexpected successful result');
@@ -125,7 +125,7 @@ goog.exportSymbol('testCrashLoopDetection', {
 
   // Test the scenario when a crash happens a sufficiently long time since the
   // previous crash, so that the old crash information is discarded.
-  testDelayedSecondCrash: function() {
+  'testDelayedSecondCrash': function() {
     const ONE_HOUR_AGO = SOME_DATE.getTime() - 60 * 60 * 1000;
     currentStorage = {'crash_timestamps': [ONE_HOUR_AGO]};
     return CrashLoopDetection.handleImminentCrash().then((isInCrashLoop) => {
@@ -137,7 +137,7 @@ goog.exportSymbol('testCrashLoopDetection', {
 
   // Test the scenario when a crash happens quickly after the previous one, so
   // that information about both crashes is preserved.
-  testQuickSecondCrash: function() {
+  'testQuickSecondCrash': function() {
     const ONE_SECOND_AGO = SOME_DATE.getTime() - 1000;
     currentStorage = {'crash_timestamps': [ONE_SECOND_AGO]};
     return CrashLoopDetection.handleImminentCrash().then((isInCrashLoop) => {
@@ -150,7 +150,7 @@ goog.exportSymbol('testCrashLoopDetection', {
 
   // Test the crash loop scenario, where the storage contains information about
   // a big number of recent crashes that were happening every millisecond.
-  testCrashLoop: function() {
+  'testCrashLoop': function() {
     const RECENT_CRASH_COUNT = 5;
     const recentCrashTimestamps = [];
     for (let delta = -RECENT_CRASH_COUNT; delta < 0; ++delta)
@@ -166,7 +166,7 @@ goog.exportSymbol('testCrashLoopDetection', {
   // test simulates slower timing that corresponds to the restrictions hardcoded
   // in Chrome (which, as of 2020-08-13, are "5 reloads, each within 10 seconds
   // after the launch").
-  testCrashLoopNotHitsExtensionThreshold: function() {
+  'testCrashLoopNotHitsExtensionThreshold': function() {
     const TOTAL_CRASH_COUNT = 5;
     const CRASH_INTERVAL = 10 * 1000;
     const recentCrashTimestamps = [];
@@ -185,7 +185,7 @@ goog.exportSymbol('testCrashLoopDetection', {
   // NaCl module due to too many crashes. Unlike the "testCrashLoop" test, this
   // test simulates slower timing that corresponds to the restrictions hardcoded
   // in Chrome (which, as of 2021-06-07, are "3 crashes within 120 seconds").
-  testCrashLoopNotHitsNaClThreshold: function() {
+  'testCrashLoopNotHitsNaClThreshold': function() {
     const TOTAL_CRASH_COUNT = 3;
     const CRASH_INTERVAL = 30 * 1000;
     const recentCrashTimestamps = [];
@@ -203,7 +203,7 @@ goog.exportSymbol('testCrashLoopDetection', {
   // Test the case when the chrome.storage API is not available (e.g., due to a
   // missing permission) - the implementation should still not break in this
   // case (although no crash loop detection is possible).
-  testStorageApiMissing: function() {
+  'testStorageApiMissing': function() {
     propertyReplacer.set(chrome, 'storage', undefined);
     return CrashLoopDetection.handleImminentCrash().then((isInCrashLoop) => {
       assertFalse(isInCrashLoop);
@@ -212,7 +212,7 @@ goog.exportSymbol('testCrashLoopDetection', {
 
   // Test the case when the storage is prepopulated with unexpected data - the
   // implementation should still not break.
-  testStorageCorrupted: function() {
+  'testStorageCorrupted': function() {
     currentStorage = {'crash_timestamps': 'foo'};
     return CrashLoopDetection.handleImminentCrash().then((isInCrashLoop) => {
       assertFalse(isInCrashLoop);
@@ -224,7 +224,7 @@ goog.exportSymbol('testCrashLoopDetection', {
 
   // Test the case when the chrome.storage.local.get() method fails - the
   // implementation should still not break.
-  testStorageGetError: function() {
+  'testStorageGetError': function() {
     simulateStorageGetFailure = true;
     return CrashLoopDetection.handleImminentCrash().then((isInCrashLoop) => {
       assertFalse(isInCrashLoop);
@@ -233,7 +233,7 @@ goog.exportSymbol('testCrashLoopDetection', {
 
   // Test the case when the chrome.storage.local.set() method fails - the
   // implementation should still not break.
-  testStorageSetError: function() {
+  'testStorageSetError': function() {
     simulateStorageSetFailure = true;
     return CrashLoopDetection.handleImminentCrash().then((isInCrashLoop) => {
       assertFalse(isInCrashLoop);
