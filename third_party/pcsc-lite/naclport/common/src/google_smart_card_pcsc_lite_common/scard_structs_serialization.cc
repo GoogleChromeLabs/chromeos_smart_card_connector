@@ -37,6 +37,11 @@ std::vector<uint8_t> GetSCardReaderStateAtr(
     const SCARD_READERSTATE& s_card_reader_state) {
   if (!s_card_reader_state.cbAtr)
     return {};
+  if (s_card_reader_state.cbAtr == MAX_ATR_SIZE + 1) {
+    GOOGLE_SMART_CARD_LOG_INFO
+        << "PC/SC-Lite returned uninitialized ATR size; performing fixup...";
+    return {};
+  }
   GOOGLE_SMART_CARD_CHECK(s_card_reader_state.cbAtr <= MAX_ATR_SIZE);
   return std::vector<uint8_t>(
       s_card_reader_state.rgbAtr,
