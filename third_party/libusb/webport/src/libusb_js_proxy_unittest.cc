@@ -592,6 +592,138 @@ TEST_P(LibusbJsProxyTest, LibusbGetActiveConfigDescriptorScmScr3310) {
   FreeLibusbDevices(devices);
 }
 
+// Test the behavior of `LibusbGetActiveConfigDescriptor()` on the parameters
+// taken from the real Rocketek device. In this case some (non-smart-card) USB
+// interfaces are skipped, hence the result contains sentinel records.
+TEST_P(LibusbJsProxyTest, LibusbGetActiveConfigDescriptorRocketek) {
+  const std::vector<uint8_t> kInterfaceExtraData{
+      0x36, 0x21, 0x00, 0x01, 0x00, 0x01, 0x03, 0x00, 0x00, 0x00, 0xa0,
+      0x0f, 0x00, 0x00, 0xe0, 0x2e, 0x00, 0x00, 0x00, 0x80, 0x25, 0x00,
+      0x00, 0x00, 0xb0, 0x04, 0x00, 0x00, 0xfc, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xba, 0x00, 0x01, 0x00,
+      0x07, 0x01, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0x00, 0x01};
+
+  // Arrange.
+  global_context()->WillReplyToRequestWith(
+      "libusb", "listDevices",
+      /*arguments=*/Value(Value::Type::kArray),
+      /*result_to_reply_with=*/
+      ArrayValueBuilder()
+          .Add(DictValueBuilder()
+                   .Add("deviceId", 123)
+                   .Add("vendorId", 1)
+                   .Add("productId", 2)
+                   .Get())
+          .Get());
+  std::vector<libusb_device*> devices = GetLibusbDevices();
+  ASSERT_THAT(devices, SizeIs(1));
+  global_context()->WillReplyToRequestWith(
+      "libusb", "getConfigurations",
+      /*arguments=*/ArrayValueBuilder().Add(123).Get(),
+      /*result_to_reply_with=*/
+      ArrayValueBuilder()
+          .Add(
+              DictValueBuilder()
+                  .Add("active", true)
+                  .Add("configurationValue", 1)
+                  .Add(
+                      "interfaces",
+                      ArrayValueBuilder()
+                          .Add(
+                              DictValueBuilder()
+                                  .Add("interfaceNumber", 1)
+                                  .Add("interfaceClass", 11)
+                                  .Add("interfaceSubclass", 0)
+                                  .Add("interfaceProtocol", 0)
+                                  .Add("extraData", kInterfaceExtraData)
+                                  .Add("endpoints",
+                                       ArrayValueBuilder()
+                                           .Add(DictValueBuilder()
+                                                    .Add("endpointAddress", 1)
+                                                    .Add("direction", "out")
+                                                    .Add("type", "bulk")
+                                                    .Add("maxPacketSize", 64)
+                                                    .Get())
+                                           .Add(DictValueBuilder()
+                                                    .Add("endpointAddress", 130)
+                                                    .Add("direction", "in")
+                                                    .Add("type", "bulk")
+                                                    .Add("maxPacketSize", 64)
+                                                    .Get())
+                                           .Add(DictValueBuilder()
+                                                    .Add("endpointAddress", 131)
+                                                    .Add("direction", "in")
+                                                    .Add("type", "interrupt")
+                                                    .Add("maxPacketSize", 16)
+                                                    .Get())
+                                           .Get())
+                                  .Get())
+                          .Get())
+                  .Get())
+          .Get());
+
+  // Act.
+  libusb_config_descriptor* descriptor = nullptr;
+  EXPECT_EQ(libusb()->LibusbGetActiveConfigDescriptor(devices[0], &descriptor),
+            LIBUSB_SUCCESS);
+
+  // Assert.
+  ASSERT_TRUE(descriptor);
+  EXPECT_EQ(descriptor->bLength, sizeof(libusb_config_descriptor));
+  EXPECT_EQ(descriptor->bDescriptorType, LIBUSB_DT_CONFIG);
+  EXPECT_EQ(descriptor->wTotalLength, sizeof(libusb_config_descriptor));
+  EXPECT_EQ(descriptor->bConfigurationValue, 1);
+  ASSERT_EQ(descriptor->bNumInterfaces, 2);
+  EXPECT_EQ(descriptor->extra, nullptr);
+  EXPECT_EQ(descriptor->extra_length, 0);
+  const auto& interface0 = descriptor->interface[0];
+  const auto& interface1 = descriptor->interface[1];
+  EXPECT_EQ(interface1.num_altsetting, 0);
+  EXPECT_EQ(interface1.altsetting, nullptr);
+  EXPECT_EQ(interface0.num_altsetting, 1);
+  const auto& interface_descriptor = interface0.altsetting[0];
+  EXPECT_EQ(interface_descriptor.bLength, sizeof(libusb_interface_descriptor));
+  EXPECT_EQ(interface_descriptor.bDescriptorType, LIBUSB_DT_INTERFACE);
+  EXPECT_EQ(interface_descriptor.bInterfaceNumber, 1);
+  ASSERT_EQ(interface_descriptor.bNumEndpoints, 3);
+  EXPECT_EQ(interface_descriptor.bInterfaceClass, 11);
+  EXPECT_EQ(interface_descriptor.bInterfaceSubClass, 0);
+  EXPECT_EQ(interface_descriptor.bInterfaceProtocol, 0);
+  ASSERT_TRUE(interface_descriptor.extra);
+  ASSERT_GT(interface_descriptor.extra_length, 0);
+  EXPECT_EQ(std::vector<uint8_t>(
+                interface_descriptor.extra,
+                interface_descriptor.extra + interface_descriptor.extra_length),
+            kInterfaceExtraData);
+  const auto* endpoint = interface_descriptor.endpoint;
+  ASSERT_TRUE(endpoint);
+  EXPECT_EQ(endpoint[0].bLength, sizeof(libusb_endpoint_descriptor));
+  EXPECT_EQ(endpoint[0].bDescriptorType, LIBUSB_DT_ENDPOINT);
+  EXPECT_EQ(endpoint[0].bEndpointAddress, 1);
+  EXPECT_EQ(endpoint[0].bmAttributes, LIBUSB_TRANSFER_TYPE_BULK);
+  EXPECT_EQ(endpoint[0].wMaxPacketSize, 64);
+  EXPECT_EQ(endpoint[0].extra, nullptr);
+  EXPECT_EQ(endpoint[0].extra_length, 0);
+  EXPECT_EQ(endpoint[1].bLength, sizeof(libusb_endpoint_descriptor));
+  EXPECT_EQ(endpoint[1].bDescriptorType, LIBUSB_DT_ENDPOINT);
+  EXPECT_EQ(endpoint[1].bEndpointAddress, 130);
+  EXPECT_EQ(endpoint[1].bmAttributes, LIBUSB_TRANSFER_TYPE_BULK);
+  EXPECT_EQ(endpoint[1].wMaxPacketSize, 64);
+  EXPECT_EQ(endpoint[1].extra, nullptr);
+  EXPECT_EQ(endpoint[1].extra_length, 0);
+  EXPECT_EQ(endpoint[2].bLength, sizeof(libusb_endpoint_descriptor));
+  EXPECT_EQ(endpoint[2].bDescriptorType, LIBUSB_DT_ENDPOINT);
+  EXPECT_EQ(endpoint[2].bEndpointAddress, 131);
+  EXPECT_EQ(endpoint[2].bmAttributes, LIBUSB_TRANSFER_TYPE_INTERRUPT);
+  EXPECT_EQ(endpoint[2].wMaxPacketSize, 16);
+  EXPECT_EQ(endpoint[2].extra, nullptr);
+  EXPECT_EQ(endpoint[2].extra_length, 0);
+
+  // Cleanup.
+  libusb()->LibusbFreeConfigDescriptor(descriptor);
+  FreeLibusbDevices(devices);
+}
+
 // Test that `LibusbGetBusNumber()` initially returns the default bus number.
 TEST_P(LibusbJsProxyTest, BusNumber) {
   // Arrange.
