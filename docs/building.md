@@ -33,7 +33,7 @@ Connector App and examples of how programs can communicate with the app.
 
 In order to **run** the built apps, you will need *either* of these:
 
-* a **Chromebook** with Chrome OS >= 48.
+* a **Chromebook** with ChromeOS >= 48.
 
   This will provide the closest environment to the real world's one.
 
@@ -52,8 +52,8 @@ In order to **run** the built apps, you will need *either* of these:
   interfering with the real Chrome profile.
 
   One downside of this option is that the desktop Chrome does not provide all
-  the APIs that are provided under Chrome OS. The most noticeable example is the
-  **chrome.certificateProvider** API: it's only available under Chrome OS, so
+  the APIs that are provided under ChromeOS. The most noticeable example is the
+  **chrome.certificateProvider** API: it's only available under ChromeOS, so
   its usages in the apps will have to be stubbed out when executing locally.
 
   Another downside is that the desktop OS may require additional setup in order

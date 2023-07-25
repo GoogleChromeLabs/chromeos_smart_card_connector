@@ -168,7 +168,7 @@ function executableModuleDisposedListener() {
 
 /**
  * Called when the onLaunched event is received (that is, when the user clicks
- * on the app in the Chrome OS app launcher).
+ * on the app in the ChromeOS app launcher).
  */
 function launchedListener() {
   goog.log.fine(logger, 'Received onLaunched event, opening window...');

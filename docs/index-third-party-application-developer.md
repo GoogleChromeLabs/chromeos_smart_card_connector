@@ -1,10 +1,10 @@
-# Documentation for developers of Chrome OS extensions/apps that need the PC/SC API
+# Documentation for developers of ChromeOS extensions/apps that need the PC/SC API
 
 
 ## Background
 
 The Smart Card Connector App acts as the provider of the **PC/SC API** to other
-Chrome OS extensions or apps.
+ChromeOS extensions or apps.
 
 The Smart Card Connector App plays, basically, the same role as the **PC/SC-Lite
 Daemon** does on Linux (see
@@ -15,19 +15,19 @@ Driver** ([https://ccid.apdu.fr/](https://ccid.apdu.fr/)), which means that most
 of CCID-compatible readers are supported.
 
 
-## Providing smart card certificates and keys to Chrome OS
+## Providing smart card certificates and keys to ChromeOS
 
 The Smart Card Connector App itself has no smart card middleware and therefore
-isn't able to provide access to certificates and keys to Chrome OS.
+isn't able to provide access to certificates and keys to ChromeOS.
 
-This role is delegated to separate (first-party or third-party) Chrome OS
+This role is delegated to separate (first-party or third-party) ChromeOS
 extensions and apps that can consume the PC/SC API and use the
 **chrome.certificateProvider** API
 ([https://developer.chrome.com/extensions/certificateProvider](https://developer.chrome.com/extensions/certificateProvider))
-in order to provide them to various Chrome OS components, namely:
+in order to provide them to various ChromeOS components, namely:
 
 * TLS client authentication when visiting Web pages;
-* Chrome OS user authentication (when the SAML-based login is used and the
+* ChromeOS user authentication (when the SAML-based login is used and the
   Identity Provider is configured to use the smart card based authentication).
 
 

@@ -1,6 +1,6 @@
-# Smart Card Connector App for Chrome OS
+# Smart Card Connector App for ChromeOS
 
-This repository contains sources of the Chrome OS **Smart Card Connector App**
+This repository contains sources of the ChromeOS **Smart Card Connector App**
 (distributed at
 [https://chrome.google.com/webstore/detail/smart-card-connector/khpfeaanjngmcnplbdlpegiifgpfgdco](https://chrome.google.com/webstore/detail/smart-card-connector/khpfeaanjngmcnplbdlpegiifgpfgdco))
 and examples how programs can communicate with this app.
@@ -10,17 +10,17 @@ and examples how programs can communicate with this app.
 
 This documentation is split into several parts for different target audiences:
 
-* **Are you a Chrome OS user?**
+* **Are you a ChromeOS user?**
 
   Please refer to this Help Center article:
   [https://support.google.com/chrome/a/answer/7014689](https://support.google.com/chrome/a/answer/7014689).
 
-* **Are you a Chrome OS administrator?**
+* **Are you a ChromeOS administrator?**
 
   Please refer to this Help Center article:
   [https://support.google.com/chrome/a/answer/7014520](https://support.google.com/chrome/a/answer/7014520).
 
-* **Are you a developer of a Chrome OS extension/app that needs to access the
+* **Are you a developer of a ChromeOS extension/app that needs to access the
   PC/SC API in order to talk to smart cards?**
 
   Please refer to this README:
@@ -47,8 +47,8 @@ Yubikey devices (see
 ### Do I need the Smart Card Connector App?
 
 You only need this in case you have a smart card (or a device that emulates it)
-and need to use it on your Chrome OS device for authenticating at web pages,
-remote desktop applications, logging into Chrome OS in enterprise deployments,
+and need to use it on your ChromeOS device for authenticating at web pages,
+remote desktop applications, logging into ChromeOS in enterprise deployments,
 etc.
 
 ### Can I use it with my memory card (microSD, etc.)?

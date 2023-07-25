@@ -33,7 +33,7 @@ The original original PC/SC-Lite project consists of two parts:
 This is how the original PC/SC-Lite service intended to works on \*nix
 and on other platforms.
 
-In order to port PC/SC-Lite onto **Chrome OS**, different circumstances
+In order to port PC/SC-Lite onto **ChromeOS**, different circumstances
 had to be taken into account:
 
 *   Each application (both PC/SC-Lite daemon and the client
@@ -46,7 +46,7 @@ had to be taken into account:
     There is no full analogue of POSIX domain sockets for communication
     between different Apps.
 
-*   In Chrome OS environment, it makes sense to write some client
+*   In ChromeOS environment, it makes sense to write some client
     applications entirely in pure JavaScript.
 
     This implies that the binary protocol that was used by the original
@@ -54,7 +54,7 @@ had to be taken into account:
     for the server App to expose the analog of the client PC/SC-Lite
     API.
 
-As a consequence, it was decided that the server App on Chrome OS should
+As a consequence, it was decided that the server App on ChromeOS should
 consist of **both** the parts of the original PC/SC-Lite daemon and the
 parts of the original PC/SC-Lite client library. This is what the
 presented library consists of.

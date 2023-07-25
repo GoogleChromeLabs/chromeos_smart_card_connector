@@ -151,7 +151,7 @@ function convertReaderStateIn(readerState) {
  * chrome.smartCardProviderPrivate.ReaderStateOut type.
  * This function doesn't handle the API.SCARD_STATE_ATRMATCH flag,
  * since there is no corresponding flag in chrome.smartCardProviderPrivate
- * API and we don't expect it to be used on Chrome OS.
+ * API and we don't expect it to be used on ChromeOS.
  * @param {!PcscApi.SCARD_READERSTATE_OUT} readerState
  * @returns {!chrome.smartCardProviderPrivate.ReaderStateOut}
  */

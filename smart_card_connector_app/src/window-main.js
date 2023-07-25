@@ -74,7 +74,7 @@ function displayNonChromeOsWarningIfNeeded() {
     if (os != 'cros') {
       goog.log.info(
           logger,
-          'Displaying the warning regarding non-Chrome OS system ' +
+          'Displaying the warning regarding non-ChromeOS system ' +
               '(the current OS is "' + os + '")');
       goog.dom.classlist.remove(
           goog.dom.getElement('non-chrome-os-warning'), 'hidden');

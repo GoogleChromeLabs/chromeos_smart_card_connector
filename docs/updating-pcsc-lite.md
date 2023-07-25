@@ -1,12 +1,12 @@
 # Updating the PC/SC-Lite daemon
 
-Note: This page is mainly intended for the Chrome OS Smart Card Connector
+Note: This page is mainly intended for the ChromeOS Smart Card Connector
 project maintainers.
 
 
 ## Background
 
-The Chrome OS Smart Card Connector app is shipped with a specific (pinned)
+The ChromeOS Smart Card Connector app is shipped with a specific (pinned)
 version of the PC/SC-Lite daemon. This daemon exposes the PC/SC API to client
 extensions/apps, transforming this API calls into commands to the drivers
 (currently, we have only one driver - the CCID Free Software driver).
@@ -17,7 +17,7 @@ Reasons for pinning to a specific version of the daemon:
   required after updating to new versions (note that we don't run the daemon
   verbatim, but instead port it under the Native Client technology to run inside
   the JavaScript-based App);
-* We can test the daemon version and assure its quality on Chrome OS.
+* We can test the daemon version and assure its quality on ChromeOS.
 
 However, this approach also implies some amount of maintenance work to update
 the daemon (say, every few months). It also means that the users typically get a

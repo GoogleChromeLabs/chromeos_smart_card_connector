@@ -1,12 +1,12 @@
 # Updating the CCID free software driver
 
-Note: This page is mainly intended for the Chrome OS Smart Card Connector
+Note: This page is mainly intended for the ChromeOS Smart Card Connector
 project maintainers.
 
 
 ## Background
 
-The Chrome OS Smart Card Connector app is shipped with a specific (pinned)
+The ChromeOS Smart Card Connector app is shipped with a specific (pinned)
 version of the CCID free software driver. This is a driver for smart card
 readers (not to be confused with drivers for smart cards, also sometimes called
 middleware).
@@ -17,7 +17,7 @@ Reasons for pinning to a specific version of the driver:
   required after updating to new versions (note that we don't run the driver
   verbatim, but instead port it under the WebAssembly and Native Client
   technologies to run inside the JavaScript-based App);
-* We can test the driver version and assure its quality on Chrome OS.
+* We can test the driver version and assure its quality on ChromeOS.
 
 However, this approach also implies some amount of maintenance work to update
 the driver (say, every few months). It also means that the users typically get a

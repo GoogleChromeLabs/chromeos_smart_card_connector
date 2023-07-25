@@ -1,7 +1,7 @@
 # Running on desktop OS'es
 
 Note: The target platform of the Smart Card Connector App and other code in this
-repository is **only Chrome OS**.
+repository is **only ChromeOS**.
 
 However, for developers there's currently a possibility to run this code on
 desktop OS'es as well (i.e., Linux, Windows, etc.).
@@ -11,7 +11,7 @@ desktop OS'es as well (i.e., Linux, Windows, etc.).
 * **chrome.certificateProvider Chrome API is unavailable**.
 
   This is working as intended. This Chrome API, along with several others, is
-  provided only on Chrome OS (see the Chrome App APIs documentation at
+  provided only on ChromeOS (see the Chrome App APIs documentation at
   [https://developer.chrome.com/apps/api_index](https://developer.chrome.com/apps/api_index)).
 
   The usages of such APIs will have to be stubbed out when running under desktop
