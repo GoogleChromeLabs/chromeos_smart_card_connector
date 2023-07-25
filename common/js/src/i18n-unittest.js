@@ -100,24 +100,24 @@ function checkNodeNotTranslated(element) {
 }
 
 goog.exportSymbol('testI18n', {
-  setUp: function() {
+  'setUp': function() {
     createTestElements();
     propertyReplacer.set(
         chrome, 'i18n', {getMessage: stubChromeI18nGetMessage});
   },
 
-  tearDown: function() {
+  'tearDown': function() {
     propertyReplacer.reset();
     removeTestElements();
   },
 
-  testBulkTranslation: function() {
-    pNode1.dataset.i18n = 'firstString';
-    pNode1.dataset.i18nAriaLabel = 'secondString';
-    pNode2.dataset.i18nAriaLabel = 'secondString';
-    pNode2.dataset.title = 'thirdString';
-    spanNode.dataset.i18n = 'firstString';
-    spanNode.dataset.title = 'thirdString';
+  'testBulkTranslation': function() {
+    pNode1.dataset['i18n'] = 'firstString';
+    pNode1.dataset['i18nAriaLabel'] = 'secondString';
+    pNode2.dataset['i18nAriaLabel'] = 'secondString';
+    pNode2.dataset['title'] = 'thirdString';
+    spanNode.dataset['i18n'] = 'firstString';
+    spanNode.dataset['title'] = 'thirdString';
 
     GSC.I18n.adjustAllElementsTranslation();
 
@@ -126,13 +126,13 @@ goog.exportSymbol('testI18n', {
     checkSpanNodeTranslated();
   },
 
-  testElementTranslation: function() {
-    pNode1.dataset.i18n = 'firstString';
-    pNode1.dataset.i18nAriaLabel = 'secondString';
-    pNode2.dataset.i18nAriaLabel = 'secondString';
-    pNode2.dataset.title = 'thirdString';
-    spanNode.dataset.i18n = 'firstString';
-    spanNode.dataset.title = 'thirdString';
+  'testElementTranslation': function() {
+    pNode1.dataset['i18n'] = 'firstString';
+    pNode1.dataset['i18nAriaLabel'] = 'secondString';
+    pNode2.dataset['i18nAriaLabel'] = 'secondString';
+    pNode2.dataset['title'] = 'thirdString';
+    spanNode.dataset['i18n'] = 'firstString';
+    spanNode.dataset['title'] = 'thirdString';
 
     GSC.I18n.adjustElementTranslation(pNode1);
 
