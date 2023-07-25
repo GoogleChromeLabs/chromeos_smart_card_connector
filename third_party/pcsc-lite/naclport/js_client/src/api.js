@@ -2148,6 +2148,17 @@ goog.exportProperty(
     API.ResultOrErrorCode.prototype.getBase);
 
 /**
+ * @return {!API.ERROR_CODE}
+ */
+API.ResultOrErrorCode.prototype.getErrorCode = function() {
+  return this.errorCode;
+};
+
+goog.exportProperty(
+    API.ResultOrErrorCode.prototype, 'getErrorCode',
+    API.ResultOrErrorCode.prototype.getErrorCode);
+
+/**
  * @return {boolean}
  */
 API.ResultOrErrorCode.prototype.isSuccessful = function() {
