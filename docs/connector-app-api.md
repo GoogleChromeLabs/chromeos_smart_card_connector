@@ -1,6 +1,6 @@
 # API exposed by the Smart Card Connector App
 
-The Smart Card Connector App exposes an API that allows other Chrome OS
+The Smart Card Connector App exposes an API that allows other ChromeOS
 extensions/apps to make PC/SC calls (see the generic specification of this API
 at
 [https://pcsclite.apdu.fr/api/group__API.html](https://pcsclite.apdu.fr/api/group__API.html)).

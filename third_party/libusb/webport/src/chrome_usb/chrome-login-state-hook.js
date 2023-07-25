@@ -53,7 +53,7 @@ GSC.LibusbLoginStateHook = class extends GSC.LibusbProxyHook {
     } else {
       goog.log.info(
           logger,
-          'chrome.loginState API is not available (either the Chrome OS ' +
+          'chrome.loginState API is not available (either the ChromeOS ' +
               'version is too old or a different OS is used). Will skip ' +
               'observing OS session state.');
       this.resolveInitializationPromise_();

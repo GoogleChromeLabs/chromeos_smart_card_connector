@@ -18,7 +18,7 @@ the original documentation of the PC/SC-Lite daemon on Linux:
 The daemon is ported using the Native Client technology for running inside the
 JavaScript-based app.
 
-Our port of the daemon exposes the PC/SC API to other Chrome OS extensions/apps:
+Our port of the daemon exposes the PC/SC API to other ChromeOS extensions/apps:
 see [docs/connector-app-api.md](connector-app-api.md).
 
 ### CCID Free Software Driver
@@ -46,7 +46,7 @@ See [docs/building.md](building.md).
 
   Currently, there's only the CCID Free Software Driver supported. We might want
   to extend this in the future, by exposing a new API that would allow separate
-  Chrome OS extensions/apps to implement drivers for other devices.
+  ChromeOS extensions/apps to implement drivers for other devices.
 
 
 ## Maintenance tasks

@@ -68,8 +68,8 @@ const GSC = GoogleSmartCard;
  *
  * Note: The actual string values are hardcoded below, instead of references to
  * |chrome.certificateProvider|, since the latter will break when run with the
- * API version that doesn't have these (on Chrome OS <=85 or on some future
- * Chrome OS that has the legacy Hash enum deleted from the API).
+ * API version that doesn't have these (on ChromeOS <=85 or on some future
+ * ChromeOS that has the legacy Hash enum deleted from the API).
  * @type {!Map<string,string>}
  */
 const HASH_TO_ALGORITHM_MAPPING = new Map([
@@ -285,7 +285,7 @@ Backend.prototype.handleRequest_ = function(payload) {
   } else {
     promiseResolver.reject(
         'No such function in the API: ' + remoteCallMessage.functionName +
-        '. Please check that the extension is running on Chrome OS and that ' +
+        '. Please check that the extension is running on ChromeOS and that ' +
         'the Chrome version is sufficiently new.');
   }
 
@@ -309,7 +309,7 @@ Backend.prototype.setupApiListeners_ = function() {
           'chrome.certificateProvider API is not available. Providing ' +
               'certificates to the Chrome browser will be impossible. This is ' +
               'just a warning in the Debug build (in order to make some testing ' +
-              'on non-Chrome OS systems possible), but this will be a fatal ' +
+              'on non-ChromeOS systems possible), but this will be a fatal ' +
               'error in the Release build');
     } else {
       goog.log.error(
@@ -331,9 +331,9 @@ Backend.prototype.setupApiListeners_ = function() {
     chrome.certificateProvider.onSignatureRequested.addListener(
         this.signatureRequestListener_);
   } else {
-    // TODO: Remove this branch after support of Chrome OS <=85 is dropped.
+    // TODO: Remove this branch after support of ChromeOS <=85 is dropped.
     // (There's no specific timeline - a conservative approach would be to wait
-    // until all devices released with Chrome OS <=85 reach the auto-update
+    // until all devices released with ChromeOS <=85 reach the auto-update
     // expiration date, which will be roughly in year 2028.)
     goog.log.info(
         this.logger,

@@ -20,8 +20,8 @@
     "description": "The header displayed in the main window"
   },
   "nonChromeOsWarning": {
-    "message": "Warning: The app is intended to be run on Chrome OS only!",
-    "description": "The text that is displayed as a warning when the app is executed on non-Chrome OS systems"
+    "message": "Warning: The app is intended to be run on ChromeOS only!",
+    "description": "The text that is displayed as a warning when the app is executed on non-ChromeOS systems"
   },
   "windowClose": {
     "message": "Close",
