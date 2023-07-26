@@ -308,11 +308,14 @@ function logUnexpectedConnectionState(state) {
  * chrome.smartCardProviderPrivate.ConnectionState. We only take the highest bit
  * of the value, since it contains all the needed information, e.g.
  * SCARD_NEGOTIABLE implies that SCARD_POWERED and SCARD_PRESENT are also set.
- * @param {number} state
+ * @param {number} pcscState
  * @returns {!chrome.smartCardProviderPrivate.ConnectionState}
  * @throws {Error} Throws error if unknown connection state is encountered.
  */
-function convertConnectionStateToEnum(state) {
+function convertConnectionStateToEnum(pcscState) {
+  // Upper 16 bits contains the number of events for the reader and don't have
+  // state flags.
+  state = pcscState & 0x0000FFFF;
   if (state & PcscApi.SCARD_SPECIFIC) {
     if (state !==
         (PcscApi.SCARD_SPECIFIC | PcscApi.SCARD_POWERED |
