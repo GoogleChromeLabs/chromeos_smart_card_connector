@@ -37,6 +37,7 @@ goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ClientHandler');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
 goog.require('GoogleSmartCard.PortMessageChannel');
 goog.require('GoogleSmartCard.SingleMessageBasedChannel');
+goog.require('GoogleSmartCard.SmartCardFilterLibusbHook');
 goog.require('goog.asserts');
 goog.require('goog.log');
 goog.require('goog.log.Logger');
@@ -117,7 +118,16 @@ if (logBufferForwarderToNaclModule) {
 
 const libusbProxyReceiver =
     new GSC.LibusbProxyReceiver(executableModule.getMessageChannel());
+// Disable USB communication for the in-session instance of our extension
+// whenever the ChromeOS Lock Screen is on, to avoid the access conflict with
+// the lock-screen instance of ourselves that might be needed for user
+// authentication.
 libusbProxyReceiver.addHook(new GSC.LibusbLoginStateHook());
+// Ignore non-smart-card USB devices and interfaces. This avoid spurious
+// initialization failures in the CCID driver. Also it's a workaround for the
+// case when attempts to connect to non-smart-card interfaces fail and cause the
+// smart card interface connections to break as well.
+libusbProxyReceiver.addHook(new GSC.SmartCardFilterLibusbHook());
 
 const pcscLiteReadinessTracker =
     new GSC.PcscLiteServerClientsManagement.ReadinessTracker(
