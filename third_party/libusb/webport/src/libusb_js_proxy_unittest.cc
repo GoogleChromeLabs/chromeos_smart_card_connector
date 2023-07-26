@@ -618,6 +618,9 @@ TEST_P(LibusbJsProxyTest, LibusbGetActiveConfigDescriptorDellKeyboard) {
           .Get());
   std::vector<libusb_device*> devices = GetLibusbDevices();
   ASSERT_THAT(devices, SizeIs(1));
+  // Configure mock USB configuration. Note the "interfaceNumber" value that's
+  // equal to "1", as it makes the test different from above by leaving out the
+  // interface "0".
   global_context()->WillReplyToRequestWith(
       "libusb", "getConfigurations",
       /*arguments=*/ArrayValueBuilder().Add(123).Get(),
