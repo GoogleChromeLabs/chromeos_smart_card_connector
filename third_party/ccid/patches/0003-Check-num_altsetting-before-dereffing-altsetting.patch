@@ -1,0 +1,42 @@
+From 283a35d91563c95c3ef097f19e3680e7bd477cd9 Mon Sep 17 00:00:00 2001
+From: Maksim Ivanov <emaxx@google.com>
+Date: Wed, 26 Jul 2023 14:31:55 +0000
+Subject: [PATCH] Check num_altsetting before dereffing altsetting
+
+According to the libusb documentation,
+libusb_interface::num_altsetting must be non-negative, hence it's
+allowed to be zero, in which case dereferencing
+libusb_interface::altsetting isn't allowed. Fix the places in the CCID
+code that do this without proper checks.
+---
+ src/ccid_usb.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/src/ccid_usb.c b/src/ccid_usb.c
+index 984e1f57..13df54cc 100644
+--- a/src/ccid_usb.c
++++ b/src/ccid_usb.c
+@@ -1181,6 +1181,11 @@ const unsigned char *get_ccid_device_descriptor(const struct libusb_interface *u
+ 	uint8_t last_endpoint;
+ #endif
+ 
++	if (0 == usb_interface->num_altsetting) {
++		/* No interface descriptor available. */
++		return NULL;
++	}
++
+ 	if (54 == usb_interface->altsetting->extra_length)
+ 		return usb_interface->altsetting->extra;
+ 
+@@ -1295,6 +1300,10 @@ uint8_t get_ccid_usb_device_address(int reader_index)
+ 	/* if multiple interfaces use the first one with CCID class type */
+ 	for (i = *num; i < desc->bNumInterfaces; i++)
+ 	{
++		if (desc->interface[i].num_altsetting == 0) {
++			/* No interface descriptor available. */
++			continue;
++		}
+ 		/* CCID Class? */
+ 		if (desc->interface[i].altsetting->bInterfaceClass == 0xb
+ #ifdef ALLOW_PROPRIETARY_CLASS
+ 
