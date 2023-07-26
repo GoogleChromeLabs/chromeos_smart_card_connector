@@ -593,15 +593,16 @@ TEST_P(LibusbJsProxyTest, LibusbGetActiveConfigDescriptorScmScr3310) {
 }
 
 // Test the behavior of `LibusbGetActiveConfigDescriptor()` on the parameters
-// taken from the real Rocketek device. In this case some (non-smart-card) USB
-// interfaces are skipped, hence the result contains sentinel records.
-TEST_P(LibusbJsProxyTest, LibusbGetActiveConfigDescriptorRocketek) {
+// taken from the real Dell Smart Card Reader Keyboard. In this case some
+// (non-smart-card) USB interfaces are skipped, hence the result contains
+// sentinel records.
+TEST_P(LibusbJsProxyTest, LibusbGetActiveConfigDescriptorDellKeyboard) {
   const std::vector<uint8_t> kInterfaceExtraData{
-      0x36, 0x21, 0x00, 0x01, 0x00, 0x01, 0x03, 0x00, 0x00, 0x00, 0xa0,
-      0x0f, 0x00, 0x00, 0xe0, 0x2e, 0x00, 0x00, 0x00, 0x80, 0x25, 0x00,
-      0x00, 0x00, 0xb0, 0x04, 0x00, 0x00, 0xfc, 0x00, 0x00, 0x00, 0x00,
-      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xba, 0x00, 0x01, 0x00,
-      0x07, 0x01, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0x00, 0x01};
+      0x36, 0x21, 0x01, 0x01, 0x00, 0x07, 0x03, 0x00, 0x00, 0x00, 0xc0,
+      0x12, 0x00, 0x00, 0xc0, 0x12, 0x00, 0x00, 0x00, 0x67, 0x32, 0x00,
+      0x00, 0xce, 0x99, 0x0c, 0x00, 0x35, 0xfe, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x30, 0x02, 0x01, 0x00,
+      0x0f, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x01};
 
   // Arrange.
   global_context()->WillReplyToRequestWith(
@@ -654,7 +655,7 @@ TEST_P(LibusbJsProxyTest, LibusbGetActiveConfigDescriptorRocketek) {
                                                     .Add("endpointAddress", 131)
                                                     .Add("direction", "in")
                                                     .Add("type", "interrupt")
-                                                    .Add("maxPacketSize", 16)
+                                                    .Add("maxPacketSize", 8)
                                                     .Get())
                                            .Get())
                                   .Get())
@@ -673,9 +674,9 @@ TEST_P(LibusbJsProxyTest, LibusbGetActiveConfigDescriptorRocketek) {
   EXPECT_EQ(descriptor->bDescriptorType, LIBUSB_DT_CONFIG);
   EXPECT_EQ(descriptor->wTotalLength, sizeof(libusb_config_descriptor));
   EXPECT_EQ(descriptor->bConfigurationValue, 1);
-  ASSERT_EQ(descriptor->bNumInterfaces, 2);
   EXPECT_EQ(descriptor->extra, nullptr);
   EXPECT_EQ(descriptor->extra_length, 0);
+  ASSERT_EQ(descriptor->bNumInterfaces, 2);
   const auto& interface0 = descriptor->interface[0];
   const auto& interface1 = descriptor->interface[1];
   EXPECT_EQ(interface1.num_altsetting, 0);
@@ -685,7 +686,6 @@ TEST_P(LibusbJsProxyTest, LibusbGetActiveConfigDescriptorRocketek) {
   EXPECT_EQ(interface_descriptor.bLength, sizeof(libusb_interface_descriptor));
   EXPECT_EQ(interface_descriptor.bDescriptorType, LIBUSB_DT_INTERFACE);
   EXPECT_EQ(interface_descriptor.bInterfaceNumber, 1);
-  ASSERT_EQ(interface_descriptor.bNumEndpoints, 3);
   EXPECT_EQ(interface_descriptor.bInterfaceClass, 11);
   EXPECT_EQ(interface_descriptor.bInterfaceSubClass, 0);
   EXPECT_EQ(interface_descriptor.bInterfaceProtocol, 0);
@@ -695,6 +695,7 @@ TEST_P(LibusbJsProxyTest, LibusbGetActiveConfigDescriptorRocketek) {
                 interface_descriptor.extra,
                 interface_descriptor.extra + interface_descriptor.extra_length),
             kInterfaceExtraData);
+  ASSERT_EQ(interface_descriptor.bNumEndpoints, 3);
   const auto* endpoint = interface_descriptor.endpoint;
   ASSERT_TRUE(endpoint);
   EXPECT_EQ(endpoint[0].bLength, sizeof(libusb_endpoint_descriptor));
@@ -715,7 +716,7 @@ TEST_P(LibusbJsProxyTest, LibusbGetActiveConfigDescriptorRocketek) {
   EXPECT_EQ(endpoint[2].bDescriptorType, LIBUSB_DT_ENDPOINT);
   EXPECT_EQ(endpoint[2].bEndpointAddress, 131);
   EXPECT_EQ(endpoint[2].bmAttributes, LIBUSB_TRANSFER_TYPE_INTERRUPT);
-  EXPECT_EQ(endpoint[2].wMaxPacketSize, 16);
+  EXPECT_EQ(endpoint[2].wMaxPacketSize, 8);
   EXPECT_EQ(endpoint[2].extra, nullptr);
   EXPECT_EQ(endpoint[2].extra_length, 0);
 
