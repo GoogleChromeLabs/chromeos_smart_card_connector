@@ -51,7 +51,7 @@ namespace google_smart_card {
 class TestingSmartCardSimulation final {
  public:
   // Fake device to simulate.
-  enum class DeviceType { kGemaltoPcTwinReader };
+  enum class DeviceType { kGemaltoPcTwinReader, kDellSmartCardReaderKeyboard };
   enum class CardType { kCosmoId70 };
   enum class CardProfile { kCharismathicsPiv };
 
