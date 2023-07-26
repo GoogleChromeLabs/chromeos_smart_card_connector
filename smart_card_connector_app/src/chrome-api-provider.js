@@ -33,6 +33,8 @@ const PcscApi = GSC.PcscLiteClient.API;
 
 /** @type {!goog.log.Logger} */
 const logger = GSC.Logging.getScopedLogger('ConnectorApp.ChromeApiProvider');
+/** @type {number} Bitmask of the bits used to store the state flags. */
+const STATE_FLAGS_MASK = 0x0000FFFF;
 
 /**
  * Returns the result code for chrome.smartCardProviderPrivate API that
@@ -160,7 +162,7 @@ function convertReaderStateOut(readerState) {
   let readerStateFlags = {};
   // Reader state flags are stored in the lower 16 bits of the event state.
   /** @type {number} */
-  let eventState = readerState['event_state'] & 0x0000FFFF;
+  let eventState = readerState['event_state'] & STATE_FLAGS_MASK;
   if (eventState == PcscApi.SCARD_STATE_UNAWARE)
     readerStateFlags.unaware = true;
   if (eventState & PcscApi.SCARD_STATE_IGNORE)
@@ -308,11 +310,14 @@ function logUnexpectedConnectionState(state) {
  * chrome.smartCardProviderPrivate.ConnectionState. We only take the highest bit
  * of the value, since it contains all the needed information, e.g.
  * SCARD_NEGOTIABLE implies that SCARD_POWERED and SCARD_PRESENT are also set.
- * @param {number} state
+ * @param {number} pcscState
  * @returns {!chrome.smartCardProviderPrivate.ConnectionState}
  * @throws {Error} Throws error if unknown connection state is encountered.
  */
-function convertConnectionStateToEnum(state) {
+function convertConnectionStateToEnum(pcscState) {
+  // Upper 16 bits contains the number of events for the reader and don't have
+  // state flags.
+  state = pcscState & STATE_FLAGS_MASK;
   if (state & PcscApi.SCARD_SPECIFIC) {
     if (state !==
         (PcscApi.SCARD_SPECIFIC | PcscApi.SCARD_POWERED |
