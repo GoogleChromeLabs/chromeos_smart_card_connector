@@ -56,6 +56,15 @@
 #include <google_smart_card_common/nacl_io_utils.h>
 #endif  // __native_client__
 
+#ifdef __native_client__
+// Native Client's version of Google Test uses a different name of the macro for
+// parameterized tests.
+#define INSTANTIATE_TEST_SUITE_P INSTANTIATE_TEST_CASE_P
+// Native Client's version of Google Test macro INSTANTIATE_TEST_CASE_P
+// produces this warning when being used without test generator parameters.
+#pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
+#endif  // __native_client__
+
 using testing::AnyOf;
 using testing::ElementsAre;
 using testing::IsEmpty;
@@ -67,11 +76,12 @@ namespace {
 
 // The constant from the PC/SC-Lite API docs.
 constexpr char kPnpNotification[] = R"(\\?PnP?\Notification)";
-// Name of `TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader` as it
-// appears in the PC/SC-Lite API. The "0" suffix corresponds to the "00 00" part
-// that contains nonzeroes in case there are multiple devices with the same
-// name.
+// Names of `TestingSmartCardSimulation::DeviceType` items as they appear in the
+// PC/SC-Lite API. The "0" suffix corresponds to the "00 00" part that contains
+// nonzeroes in case there are multiple devices with the same name.
 constexpr char kGemaltoPcTwinReaderPcscName0[] = "Gemalto PC Twin Reader 00 00";
+constexpr char kDellSmartCardReaderKeyboardPcscName0[] =
+    "Dell Dell Smart Card Reader Keyboard 00 00";
 
 // Records reader_* messages sent to JS and allows to inspect them in tests.
 class ReaderNotificationObserver final {
@@ -1596,6 +1606,140 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
   EXPECT_EQ(return_code, SCARD_E_INVALID_HANDLE);
   EXPECT_EQ(scard_handle, 0);
   EXPECT_EQ(active_protocol, static_cast<DWORD>(0));
+}
+
+namespace {
+
+struct ReaderTestParam {
+  TestingSmartCardSimulation::DeviceType device_type;
+  const char* reader_pcsc_name;
+
+  ReaderTestParam(TestingSmartCardSimulation::DeviceType device_type,
+                  const char* reader_pcsc_name)
+      : device_type(device_type), reader_pcsc_name(reader_pcsc_name) {}
+};
+
+}  // namespace
+
+// Parameterized test fixture that's instantiated for every device that we can
+// emulate. Useful for testing that basic scenarios work across different types
+// of readers (we don't parameterize other tests in this file as this'd make a
+// single test run very long).
+class SmartCardConnectorApplicationReaderCompatibilityTest
+    : public SmartCardConnectorApplicationSingleClientTest,
+      public ::testing::WithParamInterface<ReaderTestParam> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    AllDevices,
+    SmartCardConnectorApplicationReaderCompatibilityTest,
+    ::testing::Values(
+        ReaderTestParam(
+            TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader,
+            kGemaltoPcTwinReaderPcscName0),
+        ReaderTestParam(TestingSmartCardSimulation::DeviceType::
+                            kDellSmartCardReaderKeyboard,
+                        kDellSmartCardReaderKeyboardPcscName0)));
+
+TEST_P(SmartCardConnectorApplicationReaderCompatibilityTest, Basic) {
+  // Start up with no readers.
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+
+  // Plug in the reader.
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = GetParam().device_type;
+  SetUsbDevices({device});
+  // Wait until SCardGetStatusChange reports the change in the list of readers.
+  std::vector<Value> reader_states;
+  EXPECT_EQ(SimulateGetStatusChangeCallFromJsClient(
+                kFakeHandlerId, scard_context(),
+                /*timeout=*/INFINITE,
+                ArrayValueBuilder()
+                    .Add(DictValueBuilder()
+                             .Add("reader_name", kPnpNotification)
+                             .Add("current_state", SCARD_STATE_UNAWARE)
+                             .Get())
+                    .Get(),
+                reader_states),
+            SCARD_S_SUCCESS);
+  // Check that the reader is present in the list now.
+  std::vector<std::string> readers;
+  EXPECT_EQ(SimulateListReadersCallFromJsClient(kFakeHandlerId, scard_context(),
+                                                /*groups=*/Value(), readers),
+            SCARD_S_SUCCESS);
+  EXPECT_THAT(readers, ElementsAre(GetParam().reader_pcsc_name));
+
+  // Insert the smart card.
+  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
+  SetUsbDevices({device});
+  // Wait until SCardGetStatusChange reports the change of the reader state.
+  EXPECT_EQ(SimulateGetStatusChangeCallFromJsClient(
+                kFakeHandlerId, scard_context(),
+                /*timeout=*/INFINITE,
+                ArrayValueBuilder()
+                    .Add(DictValueBuilder()
+                             .Add("reader_name", GetParam().reader_pcsc_name)
+                             .Add("current_state", SCARD_STATE_EMPTY)
+                             .Get())
+                    .Get(),
+                reader_states),
+            SCARD_S_SUCCESS);
+  // Check that the card presence has been reported. The "event_state" field
+  // contains the number of card insertion/removal events in the higher 16 bits.
+  ASSERT_THAT(reader_states, SizeIs(1));
+  EXPECT_THAT(reader_states[0],
+              DictContains("event_state", SCARD_STATE_CHANGED |
+                                              SCARD_STATE_PRESENT | 0x10000));
+  EXPECT_THAT(
+      reader_states[0],
+      DictContains("atr",
+                   TestingSmartCardSimulation::GetCardAtr(
+                       TestingSmartCardSimulation::CardType::kCosmoId70)));
+
+  // Remove the card.
+  device.card_type.reset();
+  SetUsbDevices({device});
+  // Wait until SCardGetStatusChange reports the change of the reader state.
+  EXPECT_EQ(SimulateGetStatusChangeCallFromJsClient(
+                kFakeHandlerId, scard_context(),
+                /*timeout=*/INFINITE,
+                ArrayValueBuilder()
+                    .Add(DictValueBuilder()
+                             .Add("reader_name", GetParam().reader_pcsc_name)
+                             .Add("current_state", SCARD_STATE_PRESENT)
+                             .Get())
+                    .Get(),
+                reader_states),
+            SCARD_S_SUCCESS);
+  // Check that the card absence has been reported.
+  ASSERT_THAT(reader_states, SizeIs(1));
+  // The "event_state" field contains the number of card insertion/removal
+  // events in the higher 16 bits.
+  EXPECT_THAT(reader_states[0],
+              DictContains("event_state",
+                           SCARD_STATE_CHANGED | SCARD_STATE_EMPTY | 0x20000));
+  EXPECT_THAT(reader_states[0], DictContains("atr", Value::Type::kBinary));
+
+  // Unplug the reader.
+  SetUsbDevices({});
+  // Wait until SCardGetStatusChange reports the change in the list of readers.
+  EXPECT_EQ(SimulateGetStatusChangeCallFromJsClient(
+                kFakeHandlerId, scard_context(),
+                /*timeout=*/INFINITE,
+                ArrayValueBuilder()
+                    .Add(DictValueBuilder()
+                             .Add("reader_name", kPnpNotification)
+                             .Add("current_state", SCARD_STATE_UNAWARE)
+                             .Get())
+                    .Get(),
+                reader_states),
+            SCARD_S_SUCCESS);
+  // Check that the reader list is empty now.
+  EXPECT_EQ(SimulateListReadersCallFromJsClient(kFakeHandlerId, scard_context(),
+                                                /*groups=*/Value(), readers),
+            SCARD_E_NO_READERS_AVAILABLE);
 }
 
 // Test fixture that sets up a test reader with a card inserted into it, and a
