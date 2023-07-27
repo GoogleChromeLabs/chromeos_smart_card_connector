@@ -24,9 +24,15 @@ TARGET := js_smart_card_connector_unittests
 include ../../../common/make/common.mk
 include $(COMMON_DIR_PATH)/make/js_building_common.mk
 include $(COMMON_DIR_PATH)/js/include.mk
+include $(ROOT_PATH)/third_party/pcsc-lite/naclport/js_client/include.mk
+include $(ROOT_PATH)/third_party/pcsc-lite/naclport/common/include.mk
+include $(ROOT_PATH)/third_party/pcsc-lite/naclport/server_clients_management/include.mk
 
 JS_COMPILER_INPUT_PATHS := \
   $(JS_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
+  $(PCSC_LITE_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
+  $(PCSC_LITE_JS_CLIENT_COMPILER_INPUT_DIR_PATHS) \
+  $(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_JS_COMPILER_INPUT_DIR_PATHS) \
   ../../../third_party/libusb/webport/src \
   ../../src \
 

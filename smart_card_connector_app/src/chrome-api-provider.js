@@ -317,7 +317,7 @@ function logUnexpectedConnectionState(state) {
 function convertConnectionStateToEnum(pcscState) {
   // Upper 16 bits contains the number of events for the reader and don't have
   // state flags.
-  state = pcscState & STATE_FLAGS_MASK;
+  const state = pcscState & STATE_FLAGS_MASK;
   if (state & PcscApi.SCARD_SPECIFIC) {
     if (state !==
         (PcscApi.SCARD_SPECIFIC | PcscApi.SCARD_POWERED |
