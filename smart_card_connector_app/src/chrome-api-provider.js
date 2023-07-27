@@ -363,11 +363,19 @@ function convertConnectionStateToEnum(pcscState) {
  *
  * This function is safe to be used in Release builds, because all potentially
  * privacy-sensitive data is stripped away from the resulting text.
+ *
+ * For smartCardProviderPrivate API requests and responses all potentially
+ * sensitive data is contained in byte arrays.
  * @param {!Array} arr
  * @returns {string}
  */
 function getArrayDebugRepresentation(arr) {
-  return goog.iter.join(goog.iter.map(arr, GSC.DebugDump.debugDump), ', ');
+  return goog.iter.join(goog.iter.map(arr, (value) => {
+    if ((!goog.DEBUG) && (value instanceof ArrayBuffer)) {
+      return '<stripped value>';
+    }
+    return GSC.DebugDump.dump(value);
+  }), ', ');
 }
 
 /**
@@ -393,13 +401,14 @@ class ChromeEventListener extends goog.Disposable {
 
       const result = await callback(...args);
 
-      goog.log.fine(
+      goog.log.info(
           logger,
           `Reporting result for the event with id ${requestId}, ` +
               `${nameForLogs}(${getArrayDebugRepresentation(args)}): [${
                   getArrayDebugRepresentation(result)}]`);
       reportResultFunction(requestId, ...result);
-    } this.chromeEvent_.addListener(this.callback_);
+    };
+    this.chromeEvent_.addListener(this.callback_);
   }
 
   /** @override */
