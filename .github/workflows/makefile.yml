@@ -177,6 +177,9 @@ jobs:
     runs-on: ubuntu-latest
     # Depend on all other jobs, so that we don't post a PR comment if any fails.
     needs: [build-emscripten, build-nacl, test-asan, collect-coverage]
+    # Skip running this in forks, because it'd fail with "Resource not
+    # accessible by integration".
+    if: github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 5
 
     steps:
