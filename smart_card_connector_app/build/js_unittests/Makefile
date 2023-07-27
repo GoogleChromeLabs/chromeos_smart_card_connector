@@ -31,7 +31,7 @@ include $(ROOT_PATH)/third_party/pcsc-lite/naclport/server_clients_management/in
 JS_COMPILER_INPUT_PATHS := \
   $(JS_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
   $(PCSC_LITE_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
-	$(PCSC_LITE_JS_CLIENT_COMPILER_INPUT_DIR_PATHS) \
+  $(PCSC_LITE_JS_CLIENT_COMPILER_INPUT_DIR_PATHS) \
   $(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_JS_COMPILER_INPUT_DIR_PATHS) \
   ../../../third_party/libusb/webport/src \
   ../../src \
