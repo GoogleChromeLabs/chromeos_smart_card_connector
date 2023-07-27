@@ -394,18 +394,18 @@ class ChromeEventListener extends goog.Disposable {
     super();
     this.chromeEvent_ = chromeEvent;
     this.callback_ = async (requestId, ...args) => {
+      const argsDebug = getArrayDebugRepresentation(args);
       goog.log.fine(
           logger,
-          `Processing an event with id ${requestId}: ${nameForLogs}(${
-              getArrayDebugRepresentation(args)})`);
+          `Processing an event with id ${requestId}: ` +
+              `${nameForLogs}(${argsDebug})`);
 
       const result = await callback(...args);
-
+      const resultDebug = getArrayDebugRepresentation(result);
       goog.log.info(
           logger,
           `Reporting result for the event with id ${requestId}, ` +
-              `${nameForLogs}(${getArrayDebugRepresentation(args)}): [${
-                  getArrayDebugRepresentation(result)}]`);
+              `${nameForLogs}(${argsDebug}): [${resultDebug}]`);
       reportResultFunction(requestId, ...result);
     };
     this.chromeEvent_.addListener(this.callback_);
@@ -548,6 +548,7 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
   }
 
   /**
+   * @returns {!Array}
    * @private
    */
   async establishContext_() {
@@ -585,6 +586,7 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
 
   /**
    * @param {number} sCardContext
+   * @returns {!Array}
    * @private
    */
   async releaseContext_(sCardContext) {
@@ -620,6 +622,7 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
 
   /**
    * @param {number} sCardContext
+   * @returns {!Array}
    * @private
    */
   async listReaders_(sCardContext) {
@@ -661,6 +664,7 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
    * @param {!chrome.smartCardProviderPrivate.Timeout} timeout
    * @param {!Array<!chrome.smartCardProviderPrivate.ReaderStateIn>}
    *     readerStates
+   * @returns {!Array}
    * @private
    */
   async getStatusChange_(sCardContext, timeout, readerStates) {
@@ -702,6 +706,7 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
 
   /**
    * @param {number} sCardContext
+   * @returns {!Array}
    * @private
    */
   async cancel_(sCardContext) {
@@ -740,6 +745,7 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
    * @param {string} reader
    * @param {!chrome.smartCardProviderPrivate.ShareMode} shareMode
    * @param {!chrome.smartCardProviderPrivate.Protocols} preferredProtocols
+   * @returns {!Array}
    * @private
    */
   async connect_(sCardContext, reader, shareMode, preferredProtocols) {
@@ -784,6 +790,7 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
   /**
    * @param {number} sCardHandle
    * @param {!chrome.smartCardProviderPrivate.Disposition} disposition
+   * @returns {!Array}
    * @private
    */
   async disconnect_(sCardHandle, disposition) {
@@ -821,6 +828,7 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
    * @param {number} sCardHandle
    * @param {!chrome.smartCardProviderPrivate.Protocol} protocol
    * @param {!ArrayBuffer} data
+   * @returns {!Array}
    * @private
    */
   async transmit_(sCardHandle, protocol, data) {
@@ -861,6 +869,7 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
    * @param {number} sCardHandle
    * @param {number} controlCode
    * @param {!ArrayBuffer} data
+   * @returns {!Array}
    * @private
    */
   async control_(sCardHandle, controlCode, data) {
@@ -899,6 +908,7 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
   /**
    * @param {number} sCardHandle
    * @param {number} attribId
+   * @returns {!Array}
    * @private
    */
   async getAttrib_(sCardHandle, attribId) {
@@ -938,6 +948,7 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
    * @param {number} sCardHandle
    * @param {number} attribId
    * @param {!ArrayBuffer} data
+   * @returns {!Array}
    * @private
    */
   async setAttrib_(sCardHandle, attribId, data) {
@@ -972,6 +983,7 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
 
   /**
    * @param {number} sCardHandle
+   * @returns {!Array}
    * @private
    */
   async status_(sCardHandle) {
@@ -1020,6 +1032,7 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
 
   /**
    * @param {number} sCardHandle
+   * @returns {!Array}
    * @private
    */
   async beginTransaction_(sCardHandle) {
@@ -1055,6 +1068,7 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
   /**
    * @param {number} sCardHandle
    * @param {!chrome.smartCardProviderPrivate.Disposition} disposition
+   * @returns {!Array}
    * @private
    */
   async endTransaction_(sCardHandle, disposition) {
