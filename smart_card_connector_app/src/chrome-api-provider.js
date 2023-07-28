@@ -17,10 +17,13 @@
 
 goog.provide('GoogleSmartCard.ConnectorApp.ChromeApiProvider');
 
+goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.PcscLiteClient.API');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ServerRequestHandler');
+goog.require('goog.Promise');
 goog.require('goog.Disposable');
 goog.require('goog.Promise');
+goog.require('goog.iter');
 goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
@@ -356,18 +359,55 @@ function convertConnectionStateToEnum(pcscState) {
 }
 
 /**
+ * Generates a debug textual representation of the array of values.
+ *
+ * This function is safe to be used in Release builds, because all potentially
+ * privacy-sensitive data is stripped away from the resulting text.
+ *
+ * For smartCardProviderPrivate API requests and responses all potentially
+ * sensitive data is contained in byte arrays.
+ * @param {!Array} arr
+ * @returns {string}
+ */
+function getArrayDebugRepresentation(arr) {
+  return goog.iter.join(goog.iter.map(arr, (value) => {
+    if ((!goog.DEBUG) && (value instanceof ArrayBuffer)) {
+      return '<stripped value>';
+    }
+    return GSC.DebugDump.dump(value);
+  }), ', ');
+}
+
+/**
  * This class subscribes to a Chrome event with a callback, specified in the
- * constructor arguments. Unsubscribes on disposal.
+ * constructor arguments. Reports the result from the callback to
+ * `reportResultFunction`. Unsubscribes on disposal.
  */
 class ChromeEventListener extends goog.Disposable {
   /**
    * @param {!ChromeBaseEvent<!Function>} chromeEvent
    * @param {!Function} callback
+   * @param {!Function} reportResultFunction
+   * @param {string} nameForLogs
    */
-  constructor(chromeEvent, callback) {
+  constructor(chromeEvent, callback, reportResultFunction, nameForLogs) {
     super();
     this.chromeEvent_ = chromeEvent;
-    this.callback_ = callback;
+    this.callback_ = async (requestId, ...args) => {
+      const argsDebug = getArrayDebugRepresentation(args);
+      goog.log.fine(
+          logger,
+          `Processing an event with id ${requestId}: ` +
+              `${nameForLogs}(${argsDebug})`);
+
+      const result = await callback(...args);
+      const resultDebug = getArrayDebugRepresentation(result);
+      goog.log.info(
+          logger,
+          `Reporting result for the event with id ${requestId}, ` +
+              `${nameForLogs}(${argsDebug}): [${resultDebug}]`);
+      reportResultFunction(requestId, ...result);
+    };
     this.chromeEvent_.addListener(this.callback_);
   }
 
@@ -429,49 +469,74 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
 
     this.chromeEventListeners_.push(new ChromeEventListener(
         chrome.smartCardProviderPrivate.onEstablishContextRequested,
-        (requestId) => this.establishContextListener_(requestId)));
+        () => this.establishContext_(),
+        chrome.smartCardProviderPrivate.reportEstablishContextResult,
+        'onEstablishContextRequested'));
     this.chromeEventListeners_.push(new ChromeEventListener(
         chrome.smartCardProviderPrivate.onReleaseContextRequested,
-        (requestId, sCardContext) =>
-            this.releaseContextListener_(requestId, sCardContext)));
+        (sCardContext) => this.releaseContext_(sCardContext),
+        chrome.smartCardProviderPrivate.reportReleaseContextResult,
+        'onReleaseContextRequested'));
     this.chromeEventListeners_.push(new ChromeEventListener(
         chrome.smartCardProviderPrivate.onListReadersRequested,
-        (requestId, sCardContext) =>
-            this.listReadersListener_(requestId, sCardContext)));
+        (sCardContext) => this.listReaders_(sCardContext),
+        chrome.smartCardProviderPrivate.reportListReadersResult,
+        'onListReadersRequested'));
     this.chromeEventListeners_.push(new ChromeEventListener(
         chrome.smartCardProviderPrivate.onGetStatusChangeRequested,
-        (...args) => this.getStatusChangeListener_(...args)));
+        (...args) => this.getStatusChange_(...args),
+        chrome.smartCardProviderPrivate.reportGetStatusChangeResult,
+        'onGetStatusChangeRequested'));
     this.chromeEventListeners_.push(new ChromeEventListener(
         chrome.smartCardProviderPrivate.onCancelRequested,
-        (requestId, sCardContext) =>
-            this.cancelListener_(requestId, sCardContext)));
+        (sCardContext) => this.cancel_(sCardContext),
+        chrome.smartCardProviderPrivate.reportPlainResult,
+        'onCancelRequested'));
     this.chromeEventListeners_.push(new ChromeEventListener(
         chrome.smartCardProviderPrivate.onConnectRequested,
-        (...args) => this.connectListener_(...args)));
+        (...args) => this.connect_(...args),
+        chrome.smartCardProviderPrivate.reportConnectResult,
+        'onConnectRequested'));
     this.chromeEventListeners_.push(new ChromeEventListener(
         chrome.smartCardProviderPrivate.onDisconnectRequested,
-        (...args) => this.disconnectListener_(...args)));
+        (...args) => this.disconnect_(...args),
+        chrome.smartCardProviderPrivate.reportPlainResult,
+        'onDisconnectRequested'));
     this.chromeEventListeners_.push(new ChromeEventListener(
         chrome.smartCardProviderPrivate.onTransmitRequested,
-        (...args) => this.transmitListener_(...args)));
+        (...args) => this.transmit_(...args),
+        chrome.smartCardProviderPrivate.reportDataResult,
+        'onTransmitRequested'));
     this.chromeEventListeners_.push(new ChromeEventListener(
         chrome.smartCardProviderPrivate.onControlRequested,
-        (...args) => this.controlListener_(...args)));
+        (...args) => this.control_(...args),
+        chrome.smartCardProviderPrivate.reportDataResult,
+        'onControlRequested'));
     this.chromeEventListeners_.push(new ChromeEventListener(
         chrome.smartCardProviderPrivate.onGetAttribRequested,
-        (...args) => this.getAttribListener_(...args)));
+        (...args) => this.getAttrib_(...args),
+        chrome.smartCardProviderPrivate.reportDataResult,
+        'onGetAttribRequested'));
     this.chromeEventListeners_.push(new ChromeEventListener(
         chrome.smartCardProviderPrivate.onSetAttribRequested,
-        (...args) => this.setAttribListener_(...args)));
+        (...args) => this.setAttrib_(...args),
+        chrome.smartCardProviderPrivate.reportPlainResult,
+        'onSetAttribRequested'));
     this.chromeEventListeners_.push(new ChromeEventListener(
         chrome.smartCardProviderPrivate.onStatusRequested,
-        (...args) => this.statusListener_(...args)));
+        (...args) => this.status_(...args),
+        chrome.smartCardProviderPrivate.reportStatusResult,
+        'onStatusRequested'));
     this.chromeEventListeners_.push(new ChromeEventListener(
         chrome.smartCardProviderPrivate.onBeginTransactionRequested,
-        (...args) => this.beginTransactionListener_(...args)));
+        (...args) => this.beginTransaction_(...args),
+        chrome.smartCardProviderPrivate.reportPlainResult,
+        'onBeginTransactionRequested'));
     this.chromeEventListeners_.push(new ChromeEventListener(
         chrome.smartCardProviderPrivate.onEndTransactionRequested,
-        (...args) => this.endTransactionListener_(...args)));
+        (...args) => this.endTransaction_(...args),
+        chrome.smartCardProviderPrivate.reportPlainResult,
+        'onEndTransactionRequested'));
   }
 
   /**
@@ -483,10 +548,10 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
   }
 
   /**
-   * @param {number} requestId
+   * @returns {!Promise<!Array>}
    * @private
    */
-  async establishContextListener_(requestId) {
+  async establishContext_() {
     const callArguments = [PcscApi.SCARD_SCOPE_SYSTEM, null, null];
     const remoteCallMessage =
         new GSC.RemoteCallMessage('SCardEstablishContext', callArguments);
@@ -511,20 +576,20 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
       goog.log.log(
           logger,
           this.isDisposed() ? goog.log.Level.FINE : goog.log.Level.WARNING,
-          'Failed to process onEstablishContextRequested event ' +
-              `with request id ${requestId}: ${error}`);
+          `Failed to process establishContext(${
+              getArrayDebugRepresentation(Array.from(arguments))}) ` +
+              `request: ${error}`);
     }
 
-    chrome.smartCardProviderPrivate.reportEstablishContextResult(
-        requestId, sCardContext, resultCode);
+    return [sCardContext, resultCode];
   }
 
   /**
-   * @param {number} requestId
    * @param {number} sCardContext
+   * @returns {!Promise<!Array>}
    * @private
    */
-  async releaseContextListener_(requestId, sCardContext) {
+  async releaseContext_(sCardContext) {
     const callArguments = [sCardContext];
     const remoteCallMessage =
         new GSC.RemoteCallMessage('SCardReleaseContext', callArguments);
@@ -547,20 +612,20 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
       goog.log.log(
           logger,
           this.isDisposed() ? goog.log.Level.FINE : goog.log.Level.WARNING,
-          'Failed to process onReleaseContextRequested event ' +
-              `with request id ${requestId}: ${error}`);
+          `Failed to process releaseContext(${
+              getArrayDebugRepresentation(Array.from(arguments))}) ` +
+              `request: ${error}`);
     }
 
-    chrome.smartCardProviderPrivate.reportReleaseContextResult(
-        requestId, resultCode);
+    return [resultCode];
   }
 
   /**
-   * @param {number} requestId
    * @param {number} sCardContext
+   * @returns {!Promise<!Array>}
    * @private
    */
-  async listReadersListener_(requestId, sCardContext) {
+  async listReaders_(sCardContext) {
     const callArguments = [sCardContext, null];
     const remoteCallMessage =
         new GSC.RemoteCallMessage('SCardListReaders', callArguments);
@@ -586,24 +651,23 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
       goog.log.log(
           logger,
           this.isDisposed() ? goog.log.Level.FINE : goog.log.Level.WARNING,
-          'Failed to process onListReadersRequested event ' +
-              `with request id ${requestId}: ${error}`);
+          `Failed to process listReaders(${
+              getArrayDebugRepresentation(Array.from(arguments))}) ` +
+              `request: ${error}`);
     }
 
-    chrome.smartCardProviderPrivate.reportListReadersResult(
-        requestId, resultReaders, resultCode);
+    return [resultReaders, resultCode];
   }
 
   /**
-   * @param {number} requestId
    * @param {number} sCardContext
    * @param {!chrome.smartCardProviderPrivate.Timeout} timeout
    * @param {!Array<!chrome.smartCardProviderPrivate.ReaderStateIn>}
    *     readerStates
+   * @returns {!Promise<!Array>}
    * @private
    */
-  async getStatusChangeListener_(
-      requestId, sCardContext, timeout, readerStates) {
+  async getStatusChange_(sCardContext, timeout, readerStates) {
     const timeoutMs = timeout.milliseconds === undefined ? PcscApi.INFINITE :
                                                            timeout.milliseconds;
     const readerStatesPcsc = readerStates.map(convertReaderStateIn);
@@ -632,20 +696,20 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
       goog.log.log(
           logger,
           this.isDisposed() ? goog.log.Level.FINE : goog.log.Level.WARNING,
-          'Failed to process onGetStatusChangeRequested event ' +
-              `with request id ${requestId}: ${error}`);
+          `Failed to process getStatusChange(${
+              getArrayDebugRepresentation(Array.from(arguments))}) ` +
+              `request: ${error}`);
     }
 
-    chrome.smartCardProviderPrivate.reportGetStatusChangeResult(
-        requestId, newReaderStates, resultCode);
+    return [newReaderStates, resultCode];
   }
 
   /**
-   * @param {number} requestId
    * @param {number} sCardContext
+   * @returns {!Promise<!Array>}
    * @private
    */
-  async cancelListener_(requestId, sCardContext) {
+  async cancel_(sCardContext) {
     const callArguments = [sCardContext];
     const remoteCallMessage =
         new GSC.RemoteCallMessage('SCardCancel', callArguments);
@@ -668,23 +732,23 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
       goog.log.log(
           logger,
           this.isDisposed() ? goog.log.Level.FINE : goog.log.Level.WARNING,
-          'Failed to process onCancelRequested event ' +
-              `with request id ${requestId}: ${error}`);
+          `Failed to process cancel(${
+              getArrayDebugRepresentation(Array.from(arguments))}) ` +
+              `request: ${error}`);
     }
 
-    chrome.smartCardProviderPrivate.reportPlainResult(requestId, resultCode);
+    return [resultCode];
   }
 
   /**
-   * @param {number} requestId
    * @param {number} sCardContext
    * @param {string} reader
    * @param {!chrome.smartCardProviderPrivate.ShareMode} shareMode
    * @param {!chrome.smartCardProviderPrivate.Protocols} preferredProtocols
+   * @returns {!Promise<!Array>}
    * @private
    */
-  async connectListener_(
-      requestId, sCardContext, reader, shareMode, preferredProtocols) {
+  async connect_(sCardContext, reader, shareMode, preferredProtocols) {
     let resultCode = chrome.smartCardProviderPrivate.ResultCode.INTERNAL_ERROR;
     /** @type {number} */
     let sCardHandle = 0;
@@ -715,21 +779,21 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
       goog.log.log(
           logger,
           this.isDisposed() ? goog.log.Level.FINE : goog.log.Level.WARNING,
-          'Failed to process onConnectRequested event ' +
-              `with request id ${requestId}: ${error}`);
+          `Failed to process connect(${
+              getArrayDebugRepresentation(Array.from(arguments))}) ` +
+              `request: ${error}`);
     }
 
-    chrome.smartCardProviderPrivate.reportConnectResult(
-        requestId, sCardHandle, activeProtocol, resultCode);
+    return [sCardHandle, activeProtocol, resultCode];
   }
 
   /**
-   * @param {number} requestId
    * @param {number} sCardHandle
    * @param {!chrome.smartCardProviderPrivate.Disposition} disposition
+   * @returns {!Promise<!Array>}
    * @private
    */
-  async disconnectListener_(requestId, sCardHandle, disposition) {
+  async disconnect_(sCardHandle, disposition) {
     let resultCode = chrome.smartCardProviderPrivate.ResultCode.INTERNAL_ERROR;
 
     try {
@@ -752,21 +816,22 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
       goog.log.log(
           logger,
           this.isDisposed() ? goog.log.Level.FINE : goog.log.Level.WARNING,
-          'Failed to process onDisconnectRequested event ' +
-              `with request id ${requestId}: ${error}`);
+          `Failed to process disconnect(${
+              getArrayDebugRepresentation(Array.from(arguments))}) ` +
+              `request: ${error}`);
     }
 
-    chrome.smartCardProviderPrivate.reportPlainResult(requestId, resultCode);
+    return [resultCode];
   }
 
   /**
-   * @param {number} requestId
    * @param {number} sCardHandle
    * @param {!chrome.smartCardProviderPrivate.Protocol} protocol
    * @param {!ArrayBuffer} data
+   * @returns {!Promise<!Array>}
    * @private
    */
-  async transmitListener_(requestId, sCardHandle, protocol, data) {
+  async transmit_(sCardHandle, protocol, data) {
     let resultCode = chrome.smartCardProviderPrivate.ResultCode.INTERNAL_ERROR;
     /** @type {!ArrayBuffer} */
     let resultData = new ArrayBuffer(0);
@@ -792,22 +857,22 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
       goog.log.log(
           logger,
           this.isDisposed() ? goog.log.Level.FINE : goog.log.Level.WARNING,
-          'Failed to process onTransmitRequested event ' +
-              `with request id ${requestId}: ${error}`);
+          `Failed to process transmit(${
+              getArrayDebugRepresentation(Array.from(arguments))}) ` +
+              `request: ${error}`);
     }
 
-    chrome.smartCardProviderPrivate.reportDataResult(
-        requestId, resultData, resultCode);
+    return [resultData, resultCode];
   }
 
   /**
-   * @param {number} requestId
    * @param {number} sCardHandle
    * @param {number} controlCode
    * @param {!ArrayBuffer} data
+   * @returns {!Promise<!Array>}
    * @private
    */
-  async controlListener_(requestId, sCardHandle, controlCode, data) {
+  async control_(sCardHandle, controlCode, data) {
     let resultCode = chrome.smartCardProviderPrivate.ResultCode.INTERNAL_ERROR;
     /** @type {!ArrayBuffer} */
     let resultData = new ArrayBuffer(0);
@@ -832,21 +897,21 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
       goog.log.log(
           logger,
           this.isDisposed() ? goog.log.Level.FINE : goog.log.Level.WARNING,
-          'Failed to process onControlRequested event ' +
-              `with request id ${requestId}: ${error}`);
+          `Failed to process control(${
+              getArrayDebugRepresentation(Array.from(arguments))}) ` +
+              `request: ${error}`);
     }
 
-    chrome.smartCardProviderPrivate.reportDataResult(
-        requestId, resultData, resultCode);
+    return [resultData, resultCode];
   }
 
   /**
-   * @param {number} requestId
    * @param {number} sCardHandle
    * @param {number} attribId
+   * @returns {!Promise<!Array>}
    * @private
    */
-  async getAttribListener_(requestId, sCardHandle, attribId) {
+  async getAttrib_(sCardHandle, attribId) {
     let resultCode = chrome.smartCardProviderPrivate.ResultCode.INTERNAL_ERROR;
     /** @type {!ArrayBuffer} */
     let resultData = new ArrayBuffer(0);
@@ -871,22 +936,22 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
       goog.log.log(
           logger,
           this.isDisposed() ? goog.log.Level.FINE : goog.log.Level.WARNING,
-          'Failed to process onGetAttribRequested event ' +
-              `with request id ${requestId}: ${error}`);
+          `Failed to process getAttrib(${
+              getArrayDebugRepresentation(Array.from(arguments))}) ` +
+              `request: ${error}`);
     }
 
-    chrome.smartCardProviderPrivate.reportDataResult(
-        requestId, resultData, resultCode);
+    return [resultData, resultCode];
   }
 
   /**
-   * @param {number} requestId
    * @param {number} sCardHandle
    * @param {number} attribId
    * @param {!ArrayBuffer} data
+   * @returns {!Promise<!Array>}
    * @private
    */
-  async setAttribListener_(requestId, sCardHandle, attribId, data) {
+  async setAttrib_(sCardHandle, attribId, data) {
     let resultCode = chrome.smartCardProviderPrivate.ResultCode.INTERNAL_ERROR;
 
     try {
@@ -908,19 +973,20 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
       goog.log.log(
           logger,
           this.isDisposed() ? goog.log.Level.FINE : goog.log.Level.WARNING,
-          'Failed to process onSetAttribRequested event ' +
-              `with request id ${requestId}: ${error}`);
+          `Failed to process setAttrib(${
+              getArrayDebugRepresentation(Array.from(arguments))}) ` +
+              `request: ${error}`);
     }
 
-    chrome.smartCardProviderPrivate.reportPlainResult(requestId, resultCode);
+    return [resultCode];
   }
 
   /**
-   * @param {number} requestId
    * @param {number} sCardHandle
+   * @returns {!Promise<!Array>}
    * @private
    */
-  async statusListener_(requestId, sCardHandle) {
+  async status_(sCardHandle) {
     let resultCode = chrome.smartCardProviderPrivate.ResultCode.INTERNAL_ERROR;
     /** @type {string} */
     let resultReaderName = '';
@@ -954,21 +1020,22 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
       goog.log.log(
           logger,
           this.isDisposed() ? goog.log.Level.FINE : goog.log.Level.WARNING,
-          'Failed to process onStatusRequested event ' +
-              `with request id ${requestId}: ${error}`);
+          `Failed to process status(${
+              getArrayDebugRepresentation(Array.from(arguments))}) ` +
+              `request: ${error}`);
     }
 
-    chrome.smartCardProviderPrivate.reportStatusResult(
-        requestId, resultReaderName, resultState, resultProtocol, resultAtr,
-        resultCode);
+    return [
+      resultReaderName, resultState, resultProtocol, resultAtr, resultCode
+    ];
   }
 
   /**
-   * @param {number} requestId
    * @param {number} sCardHandle
+   * @returns {!Promise<!Array>}
    * @private
    */
-  async beginTransactionListener_(requestId, sCardHandle) {
+  async beginTransaction_(sCardHandle) {
     let resultCode = chrome.smartCardProviderPrivate.ResultCode.INTERNAL_ERROR;
 
     try {
@@ -990,20 +1057,21 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
       goog.log.log(
           logger,
           this.isDisposed() ? goog.log.Level.FINE : goog.log.Level.WARNING,
-          'Failed to process onBeginTransactionRequested event ' +
-              `with request id ${requestId}: ${error}`);
+          `Failed to process beginTransaction(${
+              getArrayDebugRepresentation(Array.from(arguments))}) ` +
+              `request: ${error}`);
     }
 
-    chrome.smartCardProviderPrivate.reportPlainResult(requestId, resultCode);
+    return [resultCode];
   }
 
   /**
-   * @param {number} requestId
    * @param {number} sCardHandle
    * @param {!chrome.smartCardProviderPrivate.Disposition} disposition
+   * @returns {!Promise<!Array>}
    * @private
    */
-  async endTransactionListener_(requestId, sCardHandle, disposition) {
+  async endTransaction_(sCardHandle, disposition) {
     let resultCode = chrome.smartCardProviderPrivate.ResultCode.INTERNAL_ERROR;
 
     try {
@@ -1026,11 +1094,12 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
       goog.log.log(
           logger,
           this.isDisposed() ? goog.log.Level.FINE : goog.log.Level.WARNING,
-          'Failed to process onEndTransactionRequested event ' +
-              `with request id ${requestId}: ${error}`);
+          `Failed to process endTransaction(${
+              getArrayDebugRepresentation(Array.from(arguments))}) ` +
+              `request: ${error}`);
     }
 
-    chrome.smartCardProviderPrivate.reportPlainResult(requestId, resultCode);
+    return [resultCode];
   }
 };
 });  // goog.scope
