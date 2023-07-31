@@ -18,15 +18,25 @@
 # Internal constant containing the list of additional C/C++ static libraries to
 # link against.
 #
-# Note: INTEGRATION_TESTING_LIB has to come before CPP_COMMON_LIB, since the
-# former uses symbols from the latter. And DEFAULT_NACL_LIBS is specified twice,
-# because there's a circular dependency between it and INTEGRATION_TESTING_LIB.
+# Notes:
+# * INTEGRATION_TESTING_LIB has to come before CPP_COMMON_LIB, since the
+#   former uses symbols from the latter.
+# * DEFAULT_NACL_LIBS is specified twice, because there's a circular dependency
+#   between it and INTEGRATION_TESTING_LIB:
+#   + ppapi_cpp depends on pp::CreateModule() that's defined by us in
+#     google_smart_card_integration_testing,
+#   + the rest of the code in google_smart_card_integration_testing uses NaCl
+#     symbols and hence depends on ppapi_cpp.
+#   Meanwhile the proper solution would be "-Wl,--start-group"/"end-group", this
+#   is not supported by the NaCl toolchain helpers.
 JS_TO_CXX_TEST_NACL_LIBS := \
 	$(DEFAULT_NACL_LIBS) \
 	$(INTEGRATION_TESTING_LIB) \
 	$(CPP_COMMON_LIB) \
 	$(DEFAULT_NACL_LIBS) \
 
+# Internal constant containing the list of additional JS sources to be passed to
+# Closure Compiler.
 JS_TO_CXX_TEST_JS_COMPILER_INPUTS := \
 	$(INTEGRATION_TESTING_JS_COMPILER_INPUT_DIR_PATHS) \
 	$(JS_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
