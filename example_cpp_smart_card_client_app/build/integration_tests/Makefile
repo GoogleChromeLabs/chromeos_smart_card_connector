@@ -30,28 +30,12 @@ include $(COMMON_DIR_PATH)/integration_testing/include.mk
 
 SOURCE_DIR := ../../src/
 
-CPP_SOURCES := \
+CXX_SOURCES := \
 	$(SOURCE_DIR)/chrome_certificate_provider/api_bridge.cc \
 	$(SOURCE_DIR)/chrome_certificate_provider/api_bridge_integration_test_helper.cc \
 	$(SOURCE_DIR)/chrome_certificate_provider/types.cc \
 
-JS_COMPILER_INPUT_PATHS := \
-	$(INTEGRATION_TESTING_JS_COMPILER_INPUT_DIR_PATHS) \
-	$(JS_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
-	$(SOURCE_DIR) \
-
-# Note: INTEGRATION_TESTING_LIB has to come before CPP_COMMON_LIB, since the
-# former uses symbols from the latter. And DEFAULT_NACL_LIBS is specified twice,
-# because there's a circular dependency between it and INTEGRATION_TESTING_LIB.
-LIBS := \
-	$(DEFAULT_NACL_LIBS) \
-	$(INTEGRATION_TESTING_LIB) \
-	$(CPP_COMMON_LIB) \
-	$(DEFAULT_NACL_LIBS) \
-
-DEPS := \
-
-CPPFLAGS := \
+CXXFLAGS := \
 	-I$(SOURCE_DIR) \
 	-I$(ROOT_PATH)/common/cpp/src \
 	-I$(ROOT_PATH)/common/integration_testing/src \
@@ -62,28 +46,12 @@ CPPFLAGS := \
 	-Wextra \
 	-Wno-zero-length-array \
 
-$(foreach src,$(CPP_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CPPFLAGS))))
-$(eval $(call LINK_EXECUTABLE_RULE,$(CPP_SOURCES),$(LIBS),$(DEPS)))
+LIBS := \
 
-$(eval $(call BUILD_TESTING_JS_SCRIPT,tests.js,$(JS_COMPILER_INPUT_PATHS)))
+JS_SOURCES_PATH := $(SOURCE_DIR)
 
-$(OUT_DIR_PATH)/index.html: $(OUT_DIR_PATH)
-	@echo "<script src='tests.js'></script>" > $(OUT_DIR_PATH)/index.html
-all: $(OUT_DIR_PATH)/index.html
+# Target that compiles C++ files.
+$(foreach src,$(CXX_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 
-# Target that executes the tests by starting a Chrome instance with the test
-# runner's HTML page. A web server is additionally started that serves the page
-# and the NaCl module's files. The user-data-dir, which is passed to Chrome for
-# storing data, is cleared before each run to prevent state leakage.
-#
-# Note: The recipe uses variables that are defined by NaCl's makefiles.
-run_test: all
-	rm -rf user-data-dir
-	$(RUN_PY) \
-		-C $(OUT_DIR_PATH) \
-		-P "index.html?tc=$(TOOLCHAIN)&config=$(CONFIG)" \
-		$(addprefix -E ,$(CHROME_ENV)) \
-		-- \
-		"$(CHROME_PATH)" \
-		$(CHROME_ARGS) \
-		--register-pepper-plugins="$(PPAPI_DEBUG),$(PPAPI_RELEASE)" \
+# Targets that build the resulting executable module and JS tests.
+$(eval $(call BUILD_JS_TO_CXX_TEST,$(CXX_SOURCES),$(LIBS),$(JS_SOURCES_PATH)))

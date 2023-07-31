@@ -12,14 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-#
-# This file contains helper definitions for using this library.
+# This file provides helper definitions for building and running C++ unit tests,
+# written using the GoogleTest framework.
 #
 # /common/make/common.mk and /common/make/executable_building.mk must be
 # included before including this file.
-#
 
+# Common documentation for definitions provided by this file (they are
+# implemented in toolchain-specific .mk files, but share the same interface):
+#
+# * BUILD_JS_TO_CXX_TEST macro:
+#   Compiles the JavaScript test files and links the C/C++ counterpart.
+#   Arguments:
+#   $1 ("CXX_SOURCES"): Paths to C/C++ sources (containing helpers needed for
+#     the test) to link against.
+#   $2 ("LIBS"): C/C++ static libraries to link against.
+#   $3 ("JS_SOURCES"): Paths to JS sources (containing the tests).
+#
+# * run_test target:
+#   A target that executes the tests.
+
+.PHONY: run_test
+
+
+# TODO(emaxx): Drop the constants below.
 
 INTEGRATION_TESTING_LIB := google_smart_card_integration_testing
 
@@ -29,3 +45,11 @@ INTEGRATION_TESTING_DIR_PATH := $(COMMON_DIR_PATH)/integration_testing
 # compiling the code using this library.
 INTEGRATION_TESTING_JS_COMPILER_INPUT_DIR_PATHS := \
 	$(INTEGRATION_TESTING_DIR_PATH) \
+
+
+# Load the toolchain-specific file.
+ifeq ($(TOOLCHAIN),pnacl)
+include $(ROOT_PATH)/common/integration_testing/src/build_nacl.mk
+else
+$(error Unexpected TOOLCHAIN "$(TOOLCHAIN)".)
+endif
