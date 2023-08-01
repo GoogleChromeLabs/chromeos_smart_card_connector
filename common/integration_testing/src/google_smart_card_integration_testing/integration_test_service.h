@@ -45,8 +45,9 @@ class IntegrationTestService final : public RequestHandler {
   // for test helpers.
   void Activate(GlobalContext* global_context,
                 TypedMessageRouter* typed_message_router);
-  // Tears down all previously set up helpers and stops listening for incoming
-  // requests.
+  // Stops listening for incoming requests and clears internal state.
+  //
+  // All previously setup helpers must be torn down before calling this method.
   void Deactivate();
 
   // RequestHandler:

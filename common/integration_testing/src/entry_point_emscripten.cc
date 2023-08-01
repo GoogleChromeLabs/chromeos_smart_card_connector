@@ -66,8 +66,7 @@ class GoogleSmartCardModule final {
   GoogleSmartCardModule& operator=(const GoogleSmartCardModule&) = delete;
 
   ~GoogleSmartCardModule() {
-    // Stop handling incoming requests and tear down all previously setup
-    // helpers, if any.
+    // Stop handling incoming requests and clean up the service state.
     IntegrationTestService::GetInstance()->Deactivate();
   }
 
