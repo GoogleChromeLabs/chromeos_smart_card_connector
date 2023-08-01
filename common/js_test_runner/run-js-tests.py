@@ -57,15 +57,15 @@ def host_on_web_server_if_needed(serve_via_web_server, test_html_page_path):
   address = ('localhost', port)
   Handler = functools.partial(http.server.SimpleHTTPRequestHandler,
                               directory=os.path.dirname(test_html_page_path))
-  server = http.server.ThreadingHTTPServer(address, Handler)
-  server.timeout = 1
+  server = http.server.HTTPServer(address, Handler)
+  server.timeout = 1  # in seconds
   sys.stderr.write('Started web server {}:{}.\n'.format(*server.server_address))
   url = "http://{}:{}/{}".format(*server.server_address,
                                  os.path.basename(test_html_page_path))
   shutdown_event = threading.Event()
   def server_thread():
     while not shutdown_event.is_set():
-      server.handle_request()
+      server.handle_request()  # sleeps at most `server.timeout`
     server.server_close()
   server_thread = threading.Thread(target=server_thread)
   server_thread.start()
