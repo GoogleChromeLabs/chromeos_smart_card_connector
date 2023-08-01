@@ -15,6 +15,14 @@
  * limitations under the License.
  */
 
+/**
+ * @fileoverview This file contains tests for the PC/SC API exposed by Smart
+ * Card Connector.
+ *
+ * TODO(emaxx): This is currently just a boilerplate. Real tests will be added
+ * after needed helpers are implemented.
+ */
+
 goog.require('GoogleSmartCard.IntegrationTestController');
 goog.require('goog.testing');
 goog.require('goog.testing.jsunit');
