@@ -75,13 +75,23 @@ third_party/libusb/webport/build/tests: third_party/libusb/webport/build
 
 TOOLCHAIN ?= pnacl
 
-# Applications are only built in non-sanitizer builds.
+# Applications and JS-to-C++ tests are only built in non-sanitizer builds.
 ifneq ($(TOOLCHAIN),asan_testing)
 
 APPLICATION_TARGETS += \
 	example_cpp_smart_card_client_app/build \
 	example_js_smart_card_client_app/build \
 	smart_card_connector_app/build \
+
+LIBRARY_TARGETS += \
+	common/integration_testing/build \
+
+TEST_TARGETS += \
+	example_cpp_smart_card_client_app/build/integration_tests \
+
+example_cpp_smart_card_client_app/build/integration_tests: common/cpp/build
+example_cpp_smart_card_client_app/build/integration_tests: common/integration_testing/build
+example_cpp_smart_card_client_app/build/integration_tests: example_cpp_smart_card_client_app/build
 
 endif
 
@@ -95,21 +105,6 @@ LIBRARY_TARGETS += \
 common/cpp/build/tests: third_party/googletest/webport/build
 smart_card_connector_app/build/executable_module/cpp_unittests: third_party/googletest/webport/build
 third_party/libusb/webport/build/tests: third_party/googletest/webport/build
-
-endif
-
-# Integration tests are only supported on NaCl at the moment.
-ifeq ($(TOOLCHAIN),pnacl)
-
-LIBRARY_TARGETS += \
-	common/integration_testing/build \
-
-TEST_TARGETS += \
-	example_cpp_smart_card_client_app/build/integration_tests \
-
-example_cpp_smart_card_client_app/build/integration_tests: common/cpp/build
-example_cpp_smart_card_client_app/build/integration_tests: common/integration_testing/build
-example_cpp_smart_card_client_app/build/integration_tests: example_cpp_smart_card_client_app/build
 
 endif
 
