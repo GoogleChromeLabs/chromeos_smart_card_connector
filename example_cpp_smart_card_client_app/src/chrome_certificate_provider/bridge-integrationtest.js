@@ -77,14 +77,13 @@ function stubSetCertificatesApi(details, callback) {
 }
 
 goog.exportSymbol('testChromeCertificateProviderApiBridge', {
-  'setUp': function() {
+  'setUp': async function() {
     testController = new GSC.IntegrationTestController();
-    return testController.initAsync().then(() => {
-      bridgeBackend =
-          new CertificateProviderBridge.Backend(testController.naclModule);
-      return testController.setUpCppHelper(
-          'ChromeCertificateProviderApiBridge', /*helperArgument=*/ {});
-    });
+    await testController.initAsync();
+    bridgeBackend = new CertificateProviderBridge.Backend(
+        testController.naclModule);
+    await testController.setUpCppHelper(
+        'ChromeCertificateProviderApiBridge', /*helperArgument=*/ {});
   },
 
   'tearDown': async function() {
@@ -95,49 +94,53 @@ goog.exportSymbol('testChromeCertificateProviderApiBridge', {
     }
   },
 
-  'testSetCertificates_empty': function() {
+  'testSetCertificates_empty': async function() {
     setUpApiStubs();
-    testController.sendMessageToCppHelper(
+    const request = testController.sendMessageToCppHelper(
         'ChromeCertificateProviderApiBridge',
         /*messageForHelper=*/ 'setCertificates_empty');
-    return setCertificatesApiExpectation.promise.then((details) => {
-      assertObjectEquals(details, {'clientCertificates': []});
-    });
+    const details = await setCertificatesApiExpectation.promise;
+    assertObjectEquals(details, {'clientCertificates': []});
+    // Wait until the whole request-response roundtrip finishes, to check
+    // there's no error occurred there.
+    await request;
   },
 
-  'testSetCertificates_empty_legacyApi': function() {
+  'testSetCertificates_empty_legacyApi': async function() {
     setUpLegacyApiStubs();
     // Just verify that no crash happens.
-    return testController.sendMessageToCppHelper(
+    await testController.sendMessageToCppHelper(
         'ChromeCertificateProviderApiBridge',
         /*messageForHelper=*/ 'setCertificates_empty');
   },
 
-  'testSetCertificates_fakeCerts': function() {
+  'testSetCertificates_fakeCerts': async function() {
     setUpApiStubs();
-    testController.sendMessageToCppHelper(
+    const request = testController.sendMessageToCppHelper(
         'ChromeCertificateProviderApiBridge',
         /*messageForHelper=*/ 'setCertificates_fakeCerts');
-    return setCertificatesApiExpectation.promise.then((details) => {
-      assertObjectEquals(details, {
-        'clientCertificates': [
-          {
-            'certificateChain': [FAKE_CERT_1_DER.buffer],
-            'supportedAlgorithms': FAKE_CERT_1_ALGORITHMS
-          },
-          {
-            'certificateChain': [FAKE_CERT_2_DER.buffer],
-            'supportedAlgorithms': FAKE_CERT_2_ALGORITHMS
-          }
-        ]
-      });
+    const details = await setCertificatesApiExpectation.promise;
+    assertObjectEquals(details, {
+      'clientCertificates': [
+        {
+          'certificateChain': [FAKE_CERT_1_DER.buffer],
+          'supportedAlgorithms': FAKE_CERT_1_ALGORITHMS
+        },
+        {
+          'certificateChain': [FAKE_CERT_2_DER.buffer],
+          'supportedAlgorithms': FAKE_CERT_2_ALGORITHMS
+        }
+      ]
     });
+    // Wait until the whole request-response roundtrip finishes, to check
+    // there's no error occurred there.
+    await request;
   },
 
-  'testSetCertificates_noApi': function() {
+  'testSetCertificates_noApi': async function() {
     // Note the missing setUpApiStubs() call.
     // Just verify that no crash happens.
-    return testController.sendMessageToCppHelper(
+    await testController.sendMessageToCppHelper(
         'ChromeCertificateProviderApiBridge',
         /*messageForHelper=*/ 'setCertificates_empty');
   },
