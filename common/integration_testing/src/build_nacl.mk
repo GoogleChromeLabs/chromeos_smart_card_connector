@@ -21,7 +21,7 @@
 # Note that we don't put this file into a static library, since it'd lead to
 # circular dependencies.
 JS_TO_CXX_TEST_ENTRY_POINT_SOURCE := \
-	$(ROOT_PATH)/common/integration_testing/src/google_smart_card_integration_testing/integration_test_pp_module.cc
+	$(ROOT_PATH)/common/integration_testing/src/entry_point_nacl.cc
 
 JS_TO_CXX_TEST_ENTRY_POINT_FLAGS := \
 	-I$(ROOT_PATH)/common/cpp/src \
