@@ -14,6 +14,7 @@
 
 #include <stdint.h>
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <thread>
@@ -84,7 +85,7 @@ class ApiBridgeIntegrationTestHelper final : public gsc::IntegrationTestHelper {
              gsc::TypedMessageRouter* typed_message_router,
              gsc::Value data,
              gsc::RequestReceiver::ResultCallback result_callback) override;
-  void TearDown() override;
+  void TearDown(std::function<void()> completion_callback) override;
   void OnMessageFromJs(
       gsc::Value data,
       gsc::RequestReceiver::ResultCallback result_callback) override;
@@ -116,9 +117,11 @@ void ApiBridgeIntegrationTestHelper::SetUp(
   result_callback(gsc::GenericRequestResult::CreateSuccessful(gsc::Value()));
 }
 
-void ApiBridgeIntegrationTestHelper::TearDown() {
+void ApiBridgeIntegrationTestHelper::TearDown(
+    std::function<void()> completion_callback) {
   api_bridge_->ShutDown();
   api_bridge_.reset();
+  completion_callback();
 }
 
 void ApiBridgeIntegrationTestHelper::OnMessageFromJs(

@@ -15,6 +15,7 @@
 #ifndef GOOGLE_SMART_CARD_INTEGRATION_TESTING_INTEGRATION_TEST_HELPER_H_
 #define GOOGLE_SMART_CARD_INTEGRATION_TESTING_INTEGRATION_TEST_HELPER_H_
 
+#include <functional>
 #include <string>
 
 #include <google_smart_card_common/global_context.h>
@@ -50,7 +51,7 @@ class IntegrationTestHelper {
                      TypedMessageRouter* typed_message_router,
                      Value data,
                      RequestReceiver::ResultCallback result_callback);
-  virtual void TearDown() {}
+  virtual void TearDown(std::function<void()> completion_callback);
   virtual void OnMessageFromJs(
       Value data,
       RequestReceiver::ResultCallback result_callback) = 0;

@@ -14,6 +14,8 @@
 
 #include <google_smart_card_integration_testing/integration_test_service.h>
 
+#include <atomic>
+#include <functional>
 #include <memory>
 #include <set>
 #include <string>
@@ -37,6 +39,19 @@ namespace google_smart_card {
 namespace {
 
 constexpr char kIntegrationTestServiceRequesterName[] = "integration_test";
+
+// Returns a callback that, after being called exactly `barrier_value` times,
+// runs `original_callback`.
+std::function<void()> MakeBarrierCallback(
+    std::function<void()> original_callback,
+    size_t barrier_value) {
+  GOOGLE_SMART_CARD_CHECK(barrier_value > 0);
+  auto counter = std::make_shared<std::atomic_int>(barrier_value);
+  return [counter, original_callback]() {
+    if (--*counter == 0)
+      original_callback();
+  };
+}
 
 }  // namespace
 
@@ -94,8 +109,7 @@ void IntegrationTestService::HandleRequest(
   if (request.function_name == "TearDownAll") {
     ExtractRemoteCallArgumentsOrDie(std::move(request.function_name),
                                     std::move(request.arguments));
-    TearDownAllHelpers();
-    result_callback(GenericRequestResult::CreateSuccessful(Value()));
+    TearDownAllHelpers(result_callback);
     return;
   }
   if (request.function_name == "HandleMessage") {
@@ -137,9 +151,21 @@ void IntegrationTestService::SetUpHelper(
                 std::move(data_for_helper), result_callback);
 }
 
-void IntegrationTestService::TearDownAllHelpers() {
+void IntegrationTestService::TearDownAllHelpers(
+    RequestReceiver::ResultCallback result_callback) {
+  std::function<void()> canned_callback = [result_callback]() {
+    result_callback(GenericRequestResult::CreateSuccessful(Value()));
+  };
+  if (set_up_helpers_.empty()) {
+    canned_callback();
+    return;
+  }
+  // If there are multiple active helpers, start tearing down each of them.
+  // Report result via the callback once all helpers finish tearing down.
+  auto barrier_callback =
+      MakeBarrierCallback(canned_callback, set_up_helpers_.size());
   for (auto* helper : set_up_helpers_)
-    helper->TearDown();
+    helper->TearDown(barrier_callback);
   set_up_helpers_.clear();
 }
 

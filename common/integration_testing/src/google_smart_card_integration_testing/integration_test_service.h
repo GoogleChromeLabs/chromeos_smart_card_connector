@@ -62,7 +62,7 @@ class IntegrationTestService final : public RequestHandler {
   void SetUpHelper(const std::string& helper_name,
                    Value data_for_helper,
                    RequestReceiver::ResultCallback result_callback);
-  void TearDownAllHelpers();
+  void TearDownAllHelpers(RequestReceiver::ResultCallback result_callback);
   void SendMessageToHelper(const std::string& helper_name,
                            Value message_for_helper,
                            RequestReceiver::ResultCallback result_callback);

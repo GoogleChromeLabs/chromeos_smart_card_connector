@@ -14,6 +14,8 @@
 
 #include <google_smart_card_integration_testing/integration_test_helper.h>
 
+#include <functional>
+
 #include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/requesting/request_receiver.h>
@@ -30,6 +32,11 @@ void IntegrationTestHelper::SetUp(
     Value /*data*/,
     RequestReceiver::ResultCallback result_callback) {
   result_callback(GenericRequestResult::CreateSuccessful(Value()));
+}
+
+void IntegrationTestHelper::TearDown(
+    std::function<void()> completion_callback) {
+  completion_callback();
 }
 
 }  // namespace google_smart_card
