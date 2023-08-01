@@ -147,7 +147,7 @@ def parse_command_line_args():
   parser.add_argument('--serve-via-web-server', action='store_true',
                       help='host the whole directory via localhost webserver '
                            'and navigate to it instead of a file:// URL')
-  parser.add_argument('--chrome-arg', nargs='*', dest='chrome_args',
+  parser.add_argument('--chrome-arg', nargs='*', default=[], dest='chrome_args',
                       help='additional command-line arguments to be passed to '
                            'Chrome')
   parser.add_argument('--timeout', type=int, default=60,
