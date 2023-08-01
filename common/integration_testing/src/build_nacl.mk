@@ -57,7 +57,7 @@ define BUILD_JS_TO_CXX_TEST
 # Target that generates the NaCl executable module containing compiled C/C++
 # helpers.
 $(eval $(call LINK_EXECUTABLE_RULE,$(1) $(JS_TO_CXX_TEST_ENTRY_POINT_SOURCE),\
-	$(JS_TO_CXX_TEST_NACL_LIBS) $(2)))
+	$(2) $(JS_TO_CXX_TEST_NACL_LIBS)))
 
 # Target that generates tests.js containing compiled JS tests and helpers.
 $(eval $(call BUILD_TESTING_JS_SCRIPT,tests.js,\
