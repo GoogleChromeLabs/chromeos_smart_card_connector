@@ -98,8 +98,8 @@ third_party/libusb/webport/build/tests: third_party/googletest/webport/build
 
 endif
 
-# Integration tests are only supported on NaCl at the moment.
-ifeq ($(TOOLCHAIN),pnacl)
+# Enable JS-to-C++ tests in relevant configurations.
+ifneq (,$(findstring $(TOOLCHAIN),pnacl emscripten))
 
 LIBRARY_TARGETS += \
 	common/integration_testing/build \
