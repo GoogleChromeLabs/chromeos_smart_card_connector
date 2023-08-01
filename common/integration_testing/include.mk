@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This file provides helper definitions for building and running C++ unit tests,
-# written using the GoogleTest framework.
+# This file provides helper definitions for building and running JS-to-C++
+# integration-like tests. The JS side orchestrates and contains the actual test
+# cases, meanwhile the C++ side provides neccessary helpers and/or exercised
+# code.
 #
 # /common/make/common.mk and /common/make/executable_building.mk must be
 # included before including this file.
