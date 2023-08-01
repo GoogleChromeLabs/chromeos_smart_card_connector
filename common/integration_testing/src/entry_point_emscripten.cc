@@ -38,12 +38,26 @@ namespace google_smart_card {
 
 namespace {
 
+// This class is exposed to the JS counterpart as the entry point that
+// sends/receives messages.
+//
+// Incoming messages (e.g., requests to enable some test helper) are delivered
+// to the appropriate handler using `typed_message_router_`. Outgoing messages
+// (e.g., responses to the incomign requests) are sent by calling
+// `post_message_callback`.
 class GoogleSmartCardModule final {
  public:
   explicit GoogleSmartCardModule(emscripten::val post_message_callback)
       : global_context_(std::make_shared<GlobalContextImplEmscripten>(
             std::this_thread::get_id(),
             post_message_callback)) {
+    // This service is a small abstraction on top of C++ test helpers: it
+    // registers handlers for "SetUp"/"TearDownAll"/"HandleMessage" incoming
+    // requests, converting them into corresponding method calls on the helpers.
+    //
+    // Note: which helpers are available in a given test depends on what gets
+    // linked into the final executable: see the example in
+    // integration_test_helper.h for how helpers "register" themselves.
     IntegrationTestService::GetInstance()->Activate(global_context_.get(),
                                                     &typed_message_router_);
   }
@@ -52,9 +66,12 @@ class GoogleSmartCardModule final {
   GoogleSmartCardModule& operator=(const GoogleSmartCardModule&) = delete;
 
   ~GoogleSmartCardModule() {
+    // Stop handling incoming requests and tear down all previously setup
+    // helpers, if any.
     IntegrationTestService::GetInstance()->Deactivate();
   }
 
+  // Triggered whenever the JS side sends a message to us.
   void OnMessageReceivedFromJs(emscripten::val message) {
     std::string error_message;
     optional<Value> message_value =
@@ -63,6 +80,7 @@ class GoogleSmartCardModule final {
       GOOGLE_SMART_CARD_LOG_FATAL
           << "Unexpected JS message received - cannot parse: " << error_message;
     }
+    // Parse and route the message to an appropriate C++ handler.
     if (!typed_message_router_.OnMessageReceived(std::move(*message_value),
                                                  &error_message)) {
       GOOGLE_SMART_CARD_LOG_FATAL << "Failure while handling JS message: "
@@ -71,12 +89,18 @@ class GoogleSmartCardModule final {
   }
 
  private:
+  // Provides Emscripten-specific operations for toolchain-agnostic code. Stored
+  // in a shared pointer because its implementation relies on this.
   std::shared_ptr<GlobalContextImplEmscripten> global_context_;
+  // Delivers incoming messages to the previously registered handler. Routing is
+  // based on the "type" field (see typed_message.h).
   TypedMessageRouter typed_message_router_;
 };
 
 }  // namespace
 
+// Expose the class to the JavaScript side of the test. All communication with
+// the JS side happens via `postMessage()` and `post_message_callback`.
 EMSCRIPTEN_BINDINGS(google_smart_card) {
   emscripten::class_<GoogleSmartCardModule>("GoogleSmartCardModule")
       .constructor<emscripten::val>()
