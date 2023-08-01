@@ -17,10 +17,14 @@
 
 goog.provide('GoogleSmartCard.IntegrationTestController');
 
+goog.require('GoogleSmartCard.EmscriptenModule');
+goog.require('GoogleSmartCard.ExecutableModule');
+goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.NaclModule');
 goog.require('GoogleSmartCard.RemoteCallMessage');
 goog.require('GoogleSmartCard.Requester');
 goog.require('goog.Promise');
+goog.require('goog.asserts');
 goog.require('goog.testing.PropertyReplacer');
 
 goog.setTestOnly();
@@ -29,8 +33,7 @@ goog.scope(function() {
 
 const GSC = GoogleSmartCard;
 
-const NACL_MODULE_PATH = 'integration_tests.nmf';
-const INTEGRATION_TEST_NACL_MODULE_REQUESTER_NAME = 'integration_test';
+const INTEGRATION_TEST_REQUESTER_NAME = 'integration_test';
 
 /**
  * Class that encapsulates setup/teardown/communication steps of a
@@ -40,32 +43,30 @@ GSC.IntegrationTestController = class {
   constructor() {
     /** @type {!goog.testing.PropertyReplacer} @const */
     this.propertyReplacer = new goog.testing.PropertyReplacer;
-    /** @type {!GSC.NaclModule} @const */
-    this.naclModule =
-        new GSC.NaclModule(NACL_MODULE_PATH, GSC.NaclModule.Type.PNACL);
+    /** @type {!GSC.ExecutableModule} @const */
+    this.executableModule = createExecutableModule();
     /** @type {!GSC.Requester} @private @const */
-    this.naclModuleRequester_ = new GSC.Requester(
-        INTEGRATION_TEST_NACL_MODULE_REQUESTER_NAME,
-        this.naclModule.getMessageChannel());
+    this.executableModuleRequester_ = new GSC.Requester(
+        INTEGRATION_TEST_REQUESTER_NAME,
+        this.executableModule.getMessageChannel());
   }
 
   /**
    * @return {!goog.Promise<void>}
    */
   initAsync() {
-    this.naclModule.startLoading();
-    return this.naclModule.getLoadPromise();
+    this.executableModule.startLoading();
+    return this.executableModule.getLoadPromise();
   }
 
   async disposeAsync() {
     try {
-      if (!this.naclModule.isDisposed()) {
+      if (!this.executableModule.isDisposed()) {
         await this.callCpp_('TearDownAll', /*functionArguments=*/[]);
       }
-    }
-    finally {
-      this.naclModuleRequester_.dispose();
-      this.naclModule.dispose();
+    } finally {
+      this.executableModuleRequester_.dispose();
+      this.executableModule.dispose();
       this.propertyReplacer.reset();
     }
   }
@@ -94,8 +95,8 @@ GSC.IntegrationTestController = class {
   }
 
   /**
-   * Sends a remote call request to the NaCl module and returns its response via
-   * a promise.
+   * Sends a remote call request to the executable module and returns its
+   * response via a promise.
    * @param {string} functionName
    * @param {!Array.<*>} functionArguments
    * @return {!goog.Promise}
@@ -103,8 +104,26 @@ GSC.IntegrationTestController = class {
   callCpp_(functionName, functionArguments) {
     const remoteCallMessage =
         new GSC.RemoteCallMessage(functionName, functionArguments);
-    return this.naclModuleRequester_.postRequest(
+    return this.executableModuleRequester_.postRequest(
         remoteCallMessage.makeRequestPayload());
   }
 };
+
+/**
+ * Loads the binary executable module depending on the toolchain configuration.
+ * @return {!GSC.ExecutableModule}
+ */
+function createExecutableModule() {
+  switch (GSC.ExecutableModule.TOOLCHAIN) {
+    case GSC.ExecutableModule.Toolchain.PNACL:
+      return new GSC.NaclModule(
+          'integration_tests.nmf', GSC.NaclModule.Type.PNACL);
+    case GSC.ExecutableModule.Toolchain.EMSCRIPTEN:
+      return new GSC.EmscriptenModule('integration_tests');
+  }
+  GSC.Logging.fail(
+      `Cannot load executable module: unknown toolchain ` +
+      `${GSC.ExecutableModule.TOOLCHAIN}`);
+  goog.asserts.fail();
+}
 });

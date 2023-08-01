@@ -81,7 +81,7 @@ goog.exportSymbol('testChromeCertificateProviderApiBridge', {
     testController = new GSC.IntegrationTestController();
     await testController.initAsync();
     bridgeBackend = new CertificateProviderBridge.Backend(
-        testController.naclModule);
+        testController.executableModule);
     await testController.setUpCppHelper(
         'ChromeCertificateProviderApiBridge', /*helperArgument=*/ {});
   },
