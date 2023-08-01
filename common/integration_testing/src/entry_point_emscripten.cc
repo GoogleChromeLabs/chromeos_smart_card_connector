@@ -31,7 +31,6 @@
 #include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/value.h>
-#include <google_smart_card_common/value_debug_dumping.h>
 #include <google_smart_card_common/value_emscripten_val_conversion.h>
 #include <google_smart_card_integration_testing/integration_test_service.h>
 
