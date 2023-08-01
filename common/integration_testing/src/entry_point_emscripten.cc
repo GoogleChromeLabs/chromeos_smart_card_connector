@@ -43,7 +43,7 @@ namespace {
 //
 // Incoming messages (e.g., requests to enable some test helper) are delivered
 // to the appropriate handler using `typed_message_router_`. Outgoing messages
-// (e.g., responses to the incomign requests) are sent by calling
+// (e.g., responses to the incoming requests) are sent by calling
 // `post_message_callback`.
 class GoogleSmartCardModule final {
  public:
