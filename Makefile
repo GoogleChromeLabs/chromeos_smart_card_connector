@@ -106,10 +106,14 @@ LIBRARY_TARGETS += \
 
 TEST_TARGETS += \
 	example_cpp_smart_card_client_app/build/integration_tests \
+	smart_card_connector_app/build/js_to_cxx_tests \
 
 example_cpp_smart_card_client_app/build/integration_tests: common/cpp/build
 example_cpp_smart_card_client_app/build/integration_tests: common/integration_testing/build
 example_cpp_smart_card_client_app/build/integration_tests: example_cpp_smart_card_client_app/build
+smart_card_connector_app/build/js_to_cxx_tests: common/cpp/build
+smart_card_connector_app/build/js_to_cxx_tests: common/integration_testing/build
+smart_card_connector_app/build/js_to_cxx_tests: smart_card_connector_app/build
 
 endif
 
