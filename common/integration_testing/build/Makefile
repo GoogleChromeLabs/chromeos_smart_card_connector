@@ -28,17 +28,6 @@ SOURCES_PATH := $(ROOT_SOURCES_PATH)/$(ROOT_SOURCES_SUBDIR)
 SOURCES := \
 	$(SOURCES_PATH)/integration_test_service.cc \
 
-ifeq ($(TOOLCHAIN),pnacl)
-
-SOURCES += \
-	$(SOURCES_PATH)/integration_test_pp_module.cc \
-
-else
-
-$(error Unexpected TOOLCHAIN "$(TOOLCHAIN)".)
-
-endif
-
 CXXFLAGS := \
 	-I$(ROOT_SOURCES_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src \

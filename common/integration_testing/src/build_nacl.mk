@@ -15,22 +15,32 @@
 # This file contains the implementation of the ../include.mk interface that
 # builds the JS-to-C++ test runner using the Native Client toolchain.
 
+# Below are rules for compiling the "entry point", i.e. our implementation of
+# the interface expected by the NaCl framework (`pp::CreateModule()`).
+#
+# Note that we don't put this file into a static library, since it'd lead to
+# circular dependencies.
+JS_TO_CXX_TEST_ENTRY_POINT_SOURCE := \
+	$(ROOT_PATH)/common/integration_testing/src/google_smart_card_integration_testing/integration_test_pp_module.cc
+
+JS_TO_CXX_TEST_ENTRY_POINT_FLAGS := \
+	-I$(ROOT_PATH)/common/cpp/src \
+	-I$(ROOT_PATH)/common/integration_testing/src \
+	-pedantic \
+	-Wall \
+	-Werror \
+	-Wextra \
+	-std=$(CXX_DIALECT) \
+
+$(eval $(call COMPILE_RULE,$(JS_TO_CXX_TEST_ENTRY_POINT_SOURCE),\
+	$(JS_TO_CXX_TEST_ENTRY_POINT_FLAGS)))
+
 # Internal constant containing the list of additional C/C++ static libraries to
 # link against.
 #
-# Notes:
-# * INTEGRATION_TESTING_LIB has to come before CPP_COMMON_LIB, since the
-#   former uses symbols from the latter.
-# * DEFAULT_NACL_LIBS is specified twice, because there's a circular dependency
-#   between it and INTEGRATION_TESTING_LIB:
-#   + ppapi_cpp depends on pp::CreateModule() that's defined by us in
-#     google_smart_card_integration_testing,
-#   + the rest of the code in google_smart_card_integration_testing uses NaCl
-#     symbols and hence depends on ppapi_cpp.
-#   Meanwhile the proper solution would be "-Wl,--start-group"/"end-group", this
-#   is not supported by the NaCl toolchain helpers.
+# The libraries are listed in the dependency order (i.e., a consumer of some
+# symbols comes before their provider).
 JS_TO_CXX_TEST_NACL_LIBS := \
-	$(DEFAULT_NACL_LIBS) \
 	$(INTEGRATION_TESTING_LIB) \
 	$(CPP_COMMON_LIB) \
 	$(DEFAULT_NACL_LIBS) \
@@ -46,10 +56,12 @@ define BUILD_JS_TO_CXX_TEST
 
 # Target that generates the NaCl executable module containing compiled C/C++
 # helpers.
-$(eval $(call LINK_EXECUTABLE_RULE,$(1),$(JS_TO_CXX_TEST_NACL_LIBS) $(2)))
+$(eval $(call LINK_EXECUTABLE_RULE,$(1) $(JS_TO_CXX_TEST_ENTRY_POINT_SOURCE),\
+	$(JS_TO_CXX_TEST_NACL_LIBS) $(2)))
 
 # Target that generates tests.js containing compiled JS tests and helpers.
-$(eval $(call BUILD_TESTING_JS_SCRIPT,tests.js,$(JS_TO_CXX_TEST_JS_COMPILER_INPUTS) $(3)))
+$(eval $(call BUILD_TESTING_JS_SCRIPT,tests.js,\
+	$(3) $(JS_TO_CXX_TEST_JS_COMPILER_INPUTS)))
 
 endef
 
