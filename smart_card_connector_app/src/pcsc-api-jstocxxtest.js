@@ -42,6 +42,9 @@ goog.exportSymbol('testPcscApi', {
     }
   },
 
-  'testSmoke': async function() {},
+  'testSmoke': async function() {
+    // TODO(emaxx): The test currently does nothing. Add functional tests after
+    // implementing needed C++ helpers.
+  },
 });
 });  // goog.scope
