@@ -1,2 +1,4 @@
 /headers_installed.stamp
+/out/
+/out-artifacts-emscripten/
 /pnacl/
