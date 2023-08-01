@@ -43,12 +43,13 @@ namespace google_smart_card {
 // trick is actually used by Googletest internally.
 class IntegrationTestHelper {
  public:
-  virtual ~IntegrationTestHelper() = default;
+  virtual ~IntegrationTestHelper();
 
   virtual std::string GetName() const = 0;
-  virtual void SetUp(GlobalContext* /*global_context*/,
-                     TypedMessageRouter* /*typed_message_router*/,
-                     Value /*data*/) {}
+  virtual void SetUp(GlobalContext* global_context,
+                     TypedMessageRouter* typed_message_router,
+                     Value data,
+                     RequestReceiver::ResultCallback result_callback);
   virtual void TearDown() {}
   virtual void OnMessageFromJs(
       Value data,

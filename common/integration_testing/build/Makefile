@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This makefile builds the "google_smart_card_integration_testing" static
+# library, which is contains common code for JS-to-C++ tests.
+
 TARGET := google_smart_card_integration_testing
 
 include ../../make/common.mk
@@ -26,6 +29,7 @@ ROOT_SOURCES_SUBDIR := google_smart_card_integration_testing
 SOURCES_PATH := $(ROOT_SOURCES_PATH)/$(ROOT_SOURCES_SUBDIR)
 
 SOURCES := \
+	$(SOURCES_PATH)/integration_test_helper.cc \
 	$(SOURCES_PATH)/integration_test_service.cc \
 
 CXXFLAGS := \

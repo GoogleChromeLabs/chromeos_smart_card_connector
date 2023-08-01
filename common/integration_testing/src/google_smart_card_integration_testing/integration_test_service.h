@@ -58,7 +58,9 @@ class IntegrationTestService final : public RequestHandler {
   ~IntegrationTestService() override;
 
   IntegrationTestHelper* FindHelperByName(const std::string& name);
-  void SetUpHelper(const std::string& helper_name, Value data_for_helper);
+  void SetUpHelper(const std::string& helper_name,
+                   Value data_for_helper,
+                   RequestReceiver::ResultCallback result_callback);
   void TearDownAllHelpers();
   void SendMessageToHelper(const std::string& helper_name,
                            Value message_for_helper,
