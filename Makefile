@@ -99,7 +99,7 @@ third_party/libusb/webport/build/tests: third_party/googletest/webport/build
 endif
 
 # Enable JS-to-C++ tests in relevant configurations.
-ifneq (,$(filter $(TOOLCHAIN),pnacl emscripten))
+ifneq (,$(findstring $(TOOLCHAIN),pnacl emscripten))
 
 LIBRARY_TARGETS += \
 	common/integration_testing/build \
