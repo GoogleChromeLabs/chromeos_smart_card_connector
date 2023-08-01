@@ -31,11 +31,52 @@ Integration).
 """
 
 import argparse
+import contextlib
+import functools
 import os.path
 import pyvirtualdisplay
 from selenium import webdriver
 from selenium.webdriver.support import ui as webdriver_ui
 import sys
+import threading
+
+@contextlib.contextmanager
+def host_on_web_server_if_needed(serve_via_web_server, test_html_page_path):
+  if not serve_via_web_server:
+    # No web server is requested. Hence use the file:// URL.
+    abs_path = os.path.abspath(test_html_page_path)
+    url = "file://%s" % abs_path
+    try:
+      yield url
+    finally:
+      return
+  # Start a web server that hosts the contents of the specified file's parent
+  # directory. The URL will look like "localhost:<port>/<base_file_name>".
+  import http.server
+  port = 0  # means random
+  address = ('localhost', port)
+  Handler = functools.partial(http.server.SimpleHTTPRequestHandler,
+                              directory=os.path.dirname(test_html_page_path))
+  server = http.server.ThreadingHTTPServer(address, Handler)
+  server.timeout = 1
+  sys.stderr.write('Started web server {}:{}.\n'.format(*server.server_address))
+  url = "http://{}:{}/{}".format(*server.server_address,
+                                 os.path.basename(test_html_page_path))
+  shutdown_event = threading.Event()
+  def server_thread():
+    while not shutdown_event.is_set():
+      server.handle_request()
+    server.server_close()
+  server_thread = threading.Thread(target=server_thread)
+  server_thread.start()
+  try:
+    yield url
+  finally:
+    # We use an event instead of doing serve_forever()+shutdown(), because
+    # shutdown() can deadlock if called before serve_forever() gets started on
+    # the server thread.
+    shutdown_event.set()
+    server_thread.join()
 
 def create_virtual_display(show_ui):
   """Returns a virtual display context manager."""
@@ -49,11 +90,9 @@ def create_driver(chromedriver_path):
   options.set_capability('goog:loggingPrefs', {'browser': 'ALL'})
   return webdriver.Chrome(service=service, options=options)
 
-def load_test_page(driver, test_html_page_path):
+def load_test_page(driver, url):
   """Navigates the Chromedriver to the given page."""
-  # An absolute path should be used to construct a file:// URL.
-  abs_path = os.path.abspath(test_html_page_path)
-  driver.get("file://%s" % abs_path)
+  driver.get(url)
 
 def wait_for_test_completion(driver, timeout_seconds):
   """Waits until the Jsunit tests finish in the page opened in Chromedriver."""
@@ -103,6 +142,9 @@ def parse_command_line_args():
                       help='path to the HTML page that bundles the tests')
   parser.add_argument('--chromedriver-path', type=str, required=True,
                       help='path to chromedriver to be used by Selenium')
+  parser.add_argument('--serve-via-web-server', action='store_true',
+                      help='host the whole directory via localhost webserver '
+                           'and navigate to it instead of a file:// URL')
   parser.add_argument('--timeout', type=int, default=60,
                       help='timeout, in seconds, for the tests to run')
   parser.add_argument('--print-js-logs', action='store_true',
@@ -115,17 +157,19 @@ def parse_command_line_args():
 def main():
   args = parse_command_line_args()
   sys.stderr.write('Initializing environment...\n')
-  with create_virtual_display(args.show_ui):
-    with create_driver(args.chromedriver_path) as driver:
-      sys.stderr.write('Starting tests...\n')
-      load_test_page(driver, args.test_html_page_path)
-      sys.stderr.write('Waiting for the test completion...\n')
-      wait_for_test_completion(driver, args.timeout)
-      print(get_js_test_report(driver))
-      if args.print_js_logs:
-        print(get_js_logs(driver))
-      if not is_js_test_successful(driver):
-        return 1
+  with host_on_web_server_if_needed(args.serve_via_web_server,
+                                    args.test_html_page_path) as url:
+    with create_virtual_display(args.show_ui):
+      with create_driver(args.chromedriver_path) as driver:
+        sys.stderr.write('Running {}...\n'.format(url))
+        load_test_page(driver, url)
+        sys.stderr.write('Waiting for the test completion...\n')
+        wait_for_test_completion(driver, args.timeout)
+        print(get_js_test_report(driver))
+        if args.print_js_logs:
+          print(get_js_logs(driver))
+        if not is_js_test_successful(driver):
+          return 1
   return 0
 
 if __name__ == '__main__':
