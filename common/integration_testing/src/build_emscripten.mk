@@ -73,9 +73,15 @@ all: $(OUT_DIR_PATH)/index.html
 # --serve-via-web-server: Run the tests as "localhost:<random_port>/index.html"
 #   instead of just navigating to "file://.../index.html", because Chrome
 #   doesn't allow loading additional JavaScript code on file:// URLs.
+# --chrome-arg:
+#   --enable-features=SharedArrayBuffer: Force-enable SharedArrayBuffer that's
+#     normally disallowed when the page has no CORS headers (which our test
+#     server doesn't). SharedArrayBuffer is needed for multi-threaded
+#     Emscripten modules.
 run_test: all
 	. $(ROOT_PATH)/env/python3_venv/bin/activate && \
 		$(ROOT_PATH)/common/js_test_runner/run-js-tests.py \
 			$(OUT_DIR_PATH)/index.html \
 			--chromedriver-path=$(ROOT_PATH)/env/chromedriver \
-			--serve-via-web-server
+			--serve-via-web-server \
+			--chrome-arg="--enable-features=SharedArrayBuffer"
