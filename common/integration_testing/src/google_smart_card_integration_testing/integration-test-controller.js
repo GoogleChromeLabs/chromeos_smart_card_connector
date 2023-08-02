@@ -50,12 +50,10 @@ const TIMEOUT_MILLISECONDS = 60000;
  */
 GSC.IntegrationTestController = class {
   constructor() {
-    // Customize the framework's test timeout, but remember the original value
-    // to restore it on disposal.
-    const activeTestCase = goog.testing.TestCase.getActiveTestCase();
-    /** @type {!number} @const */
-    this.originalGlobalTestTimeout_ = activeTestCase.promiseTimeout;
-    activeTestCase.promiseTimeout = TIMEOUT_MILLISECONDS;
+    // Customize the framework's test timeout. Note that the framework will
+    // automatically reset the timeout when the subsequent test starts.
+    goog.testing.TestCase.getActiveTestCase().promiseTimeout =
+        TIMEOUT_MILLISECONDS;
 
     /** @type {!goog.testing.PropertyReplacer} @const */
     this.propertyReplacer = new goog.testing.PropertyReplacer;
@@ -84,9 +82,6 @@ GSC.IntegrationTestController = class {
       this.executableModuleRequester_.dispose();
       this.executableModule.dispose();
       this.propertyReplacer.reset();
-
-      goog.testing.TestCase.getActiveTestCase().promiseTimeout =
-          this.originalGlobalTestTimeout_;
     }
   }
 
