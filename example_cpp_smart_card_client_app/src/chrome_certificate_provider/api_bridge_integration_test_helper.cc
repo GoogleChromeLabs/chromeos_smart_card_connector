@@ -82,7 +82,8 @@ class ApiBridgeIntegrationTestHelper final : public gsc::IntegrationTestHelper {
   std::string GetName() const override;
   void SetUp(gsc::GlobalContext* global_context,
              gsc::TypedMessageRouter* typed_message_router,
-             gsc::Value data) override;
+             gsc::Value data,
+             gsc::RequestReceiver::ResultCallback result_callback) override;
   void TearDown() override;
   void OnMessageFromJs(
       gsc::Value data,
@@ -107,10 +108,12 @@ std::string ApiBridgeIntegrationTestHelper::GetName() const {
 void ApiBridgeIntegrationTestHelper::SetUp(
     gsc::GlobalContext* global_context,
     gsc::TypedMessageRouter* typed_message_router,
-    gsc::Value /*data*/) {
+    gsc::Value /*data*/,
+    gsc::RequestReceiver::ResultCallback result_callback) {
   api_bridge_ =
       std::make_shared<ApiBridge>(global_context, typed_message_router,
                                   /*request_handling_mutex=*/nullptr);
+  result_callback(gsc::GenericRequestResult::CreateSuccessful(gsc::Value()));
 }
 
 void ApiBridgeIntegrationTestHelper::TearDown() {

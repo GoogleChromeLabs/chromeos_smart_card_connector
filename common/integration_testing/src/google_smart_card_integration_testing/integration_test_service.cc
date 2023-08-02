@@ -87,8 +87,7 @@ void IntegrationTestService::HandleRequest(
     ExtractRemoteCallArgumentsOrDie(std::move(request.function_name),
                                     std::move(request.arguments), &helper_name,
                                     &data_for_helper);
-    SetUpHelper(helper_name, std::move(data_for_helper));
-    result_callback(GenericRequestResult::CreateSuccessful(Value()));
+    SetUpHelper(helper_name, std::move(data_for_helper), result_callback);
     return;
   }
   if (request.function_name == "TearDownAll") {
@@ -124,15 +123,17 @@ IntegrationTestHelper* IntegrationTestService::FindHelperByName(
   return nullptr;
 }
 
-void IntegrationTestService::SetUpHelper(const std::string& helper_name,
-                                         Value data_for_helper) {
+void IntegrationTestService::SetUpHelper(
+    const std::string& helper_name,
+    Value data_for_helper,
+    RequestReceiver::ResultCallback result_callback) {
   IntegrationTestHelper* helper = FindHelperByName(helper_name);
   if (!helper)
     GOOGLE_SMART_CARD_LOG_FATAL << "Unknown helper " << helper_name;
   GOOGLE_SMART_CARD_CHECK(!set_up_helpers_.count(helper));
   set_up_helpers_.insert(helper);
   helper->SetUp(global_context_, typed_message_router_,
-                std::move(data_for_helper));
+                std::move(data_for_helper), result_callback);
 }
 
 void IntegrationTestService::TearDownAllHelpers() {
