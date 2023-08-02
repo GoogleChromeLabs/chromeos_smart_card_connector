@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # This makefile builds the "google_smart_card_integration_testing" static
-# library, which is contains common code for JS-to-C++ tests.
+# library, which contains common code for JS-to-C++ tests.
 
 TARGET := google_smart_card_integration_testing
 
