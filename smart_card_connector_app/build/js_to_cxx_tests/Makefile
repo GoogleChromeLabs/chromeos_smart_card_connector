@@ -71,7 +71,7 @@ JS_SOURCES_PATHS := \
 # Target that compiles C++ files.
 $(foreach src,$(CXX_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 
-# Package resource files that the tested code needs at runtime:
+# Package resource files that the C/C++ code needs at runtime:
 $(eval $(call ADD_RESOURCE_RULE, \
   $(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src/fake_socket_file, \
   executable-module-filesystem/pcsc/fake_socket_file))
