@@ -50,8 +50,9 @@ const TIMEOUT_MILLISECONDS = 60000;
  */
 GSC.IntegrationTestController = class {
   constructor() {
-    // Customize the framework's test timeout. Note that the framework will
-    // automatically reset the timeout when the subsequent test starts.
+    // Customize the current test timeout. Note that the framework will
+    // automatically reset the timeout to the default value when the subsequent
+    // test starts.
     goog.testing.TestCase.getActiveTestCase().promiseTimeout =
         TIMEOUT_MILLISECONDS;
 
