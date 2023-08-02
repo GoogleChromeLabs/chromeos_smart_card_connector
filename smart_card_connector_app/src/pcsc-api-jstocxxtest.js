@@ -24,8 +24,14 @@
  */
 
 goog.require('GoogleSmartCard.IntegrationTestController');
+goog.require('GoogleSmartCard.MessageChannelPair');
+goog.require('GoogleSmartCard.Pcsc.PermissionsChecker');
+goog.require('GoogleSmartCard.PcscLiteClient.API');
+goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ClientHandler');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
+goog.require('goog.Promise');
 goog.require('goog.testing');
+goog.require('goog.testing.asserts');
 goog.require('goog.testing.jsunit');
 
 goog.setTestOnly();
@@ -33,19 +39,38 @@ goog.setTestOnly();
 goog.scope(function() {
 
 const GSC = GoogleSmartCard;
+const ClientHandler = GSC.PcscLiteServerClientsManagement.ClientHandler;
 const ReadinessTracker = GSC.PcscLiteServerClientsManagement.ReadinessTracker;
+
+/**
+ * Stub that approves any client to make PC/SC calls.
+ */
+class StubPermissionsChecker extends GSC.Pcsc.PermissionsChecker {
+  /** @override */
+  check(clientOrigin) {
+    return goog.Promise.resolve();
+  }
+}
 
 /** @type {GSC.IntegrationTestController?} */
 let testController;
 /** @type {ReadinessTracker?} */
 let pcscReadinessTracker;
+const stubPermissionsChecker = new StubPermissionsChecker();
+/** @type {ClientHandler?} */
+let clientHandler;
+/** @type {GSC.PcscLiteClient.API?} */
+let api;
 
 goog.exportSymbol('testPcscApi', {
   'setUp': async function() {
     testController = new GSC.IntegrationTestController();
     await testController.initAsync();
+    ClientHandler.overridePermissionsCheckerForTesting(stubPermissionsChecker);
     pcscReadinessTracker = new ReadinessTracker(
         testController.executableModule.getMessageChannel());
+    await testController.setUpCppHelper(
+        'SmartCardConnectorApplicationTestHelper', {});
   },
 
   'tearDown': async function() {
@@ -54,15 +79,45 @@ goog.exportSymbol('testPcscApi', {
       pcscReadinessTracker.dispose();
     } finally {
       pcscReadinessTracker = null;
+      ClientHandler.overridePermissionsCheckerForTesting(null);
       testController = null;
     }
   },
 
   // Test that the PC/SC server can successfully start up.
   'testStartup': async function() {
-    await testController.setUpCppHelper(
-        'SmartCardConnectorApplicationTestHelper', {});
     await pcscReadinessTracker.promise;
+  },
+
+  'testWithSingleClient': {
+    'setUp': function() {
+      const apiMessageChannelPair = new GSC.MessageChannelPair();
+      clientHandler = new ClientHandler(
+          testController.executableModule.getMessageChannel(),
+          pcscReadinessTracker.promise, apiMessageChannelPair.getFirst(),
+          /*clientOrigin=*/ undefined);
+      api = new GSC.PcscLiteClient.API(apiMessageChannelPair.getSecond());
+    },
+
+    'tearDown': function() {
+      api.dispose();
+      clientHandler.dispose();
+    },
+
+    // Test `SCardEstablishContext()`.
+    'testScardEstablishContext': async function() {
+      const result = await api.SCardEstablishContext(
+          GSC.PcscLiteClient.API.SCARD_SCOPE_SYSTEM);
+      let sCardContext;
+      result.get(
+          (context) => {
+            sCardContext = context;
+          },
+          (errorCode) => {
+            fail(`Unexpected error ${errorCode}`);
+          });
+      assert(Number.isInteger(sCardContext));
+    },
   },
 });
 });  // goog.scope
