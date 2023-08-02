@@ -26,6 +26,7 @@ goog.require('GoogleSmartCard.Requester');
 goog.require('goog.Promise');
 goog.require('goog.asserts');
 goog.require('goog.testing.PropertyReplacer');
+goog.require('goog.testing.TestCase');
 
 goog.setTestOnly();
 
@@ -36,11 +37,25 @@ const GSC = GoogleSmartCard;
 const INTEGRATION_TEST_REQUESTER_NAME = 'integration_test';
 
 /**
+ * Custom timeout for the tests that use the controller.
+ *
+ * The default timeout in Closure Library, 1 second as of now, is much too small
+ * for tests involving loading nontrivial executable modules.
+ */
+const TIMEOUT_MILLISECONDS = 60000;
+
+/**
  * Class that encapsulates setup/teardown/communication steps of a
  * JavaScript-and-C++ integration test.
  */
 GSC.IntegrationTestController = class {
   constructor() {
+    // Customize the current test timeout. Note that the framework will
+    // automatically reset the timeout to the default value when the subsequent
+    // test starts.
+    goog.testing.TestCase.getActiveTestCase().promiseTimeout =
+        TIMEOUT_MILLISECONDS;
+
     /** @type {!goog.testing.PropertyReplacer} @const */
     this.propertyReplacer = new goog.testing.PropertyReplacer;
     /** @type {!GSC.ExecutableModule} @const */
