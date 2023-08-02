@@ -24,6 +24,7 @@
  */
 
 goog.require('GoogleSmartCard.IntegrationTestController');
+goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
 goog.require('goog.testing');
 goog.require('goog.testing.jsunit');
 
@@ -32,27 +33,36 @@ goog.setTestOnly();
 goog.scope(function() {
 
 const GSC = GoogleSmartCard;
+const ReadinessTracker = GSC.PcscLiteServerClientsManagement.ReadinessTracker;
 
 /** @type {GSC.IntegrationTestController?} */
 let testController;
+/** @type {ReadinessTracker?} */
+let pcscReadinessTracker;
 
 goog.exportSymbol('testPcscApi', {
   'setUp': async function() {
     testController = new GSC.IntegrationTestController();
     await testController.initAsync();
+    pcscReadinessTracker = new ReadinessTracker(
+        testController.executableModule.getMessageChannel());
   },
 
   'tearDown': async function() {
     try {
       await testController.disposeAsync();
+      pcscReadinessTracker.dispose();
     } finally {
+      pcscReadinessTracker = null;
       testController = null;
     }
   },
 
-  'testSmoke': async function() {
-    // TODO(emaxx): The test currently does nothing. Add functional tests after
-    // implementing needed C++ helpers.
+  // Test that the PC/SC server can successfully start up.
+  'testStartup': async function() {
+    await testController.setUpCppHelper(
+        'SmartCardConnectorApplicationTestHelper', {});
+    await pcscReadinessTracker.promise;
   },
 });
 });  // goog.scope
