@@ -26,6 +26,7 @@ include $(ROOT_PATH)/common/integration_testing/include.mk
 include $(ROOT_PATH)/third_party/ccid/webport/include.mk
 include $(ROOT_PATH)/third_party/libusb/webport/include.mk
 include $(ROOT_PATH)/third_party/pcsc-lite/naclport/common/include.mk
+include $(ROOT_PATH)/third_party/pcsc-lite/naclport/js_client/include.mk
 include $(ROOT_PATH)/third_party/pcsc-lite/naclport/server/include.mk
 include $(ROOT_PATH)/third_party/pcsc-lite/naclport/server_clients_management/include.mk
 
@@ -63,10 +64,17 @@ LIBS := \
 
 JS_SOURCES_PATHS := \
   $(SOURCE_DIR)/**-jstocxxtest.js \
+  $(PCSC_LITE_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
+  $(PCSC_LITE_JS_CLIENT_COMPILER_INPUT_DIR_PATHS) \
   $(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_JS_COMPILER_INPUT_DIR_PATHS) \
 
 # Target that compiles C++ files.
 $(foreach src,$(CXX_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
+
+# Package resource files that the tested code needs at runtime:
+$(eval $(call ADD_RESOURCE_RULE, \
+  $(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src/fake_socket_file, \
+  executable-module-filesystem/pcsc/fake_socket_file))
 
 # Targets that build the resulting executable module and JS tests.
 $(eval $(call BUILD_JS_TO_CXX_TEST,$(CXX_SOURCES),$(LIBS),$(JS_SOURCES_PATHS)))
