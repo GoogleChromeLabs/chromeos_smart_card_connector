@@ -23,21 +23,50 @@ include $(ROOT_PATH)/common/make/executable_building.mk
 include $(ROOT_PATH)/common/cpp/include.mk
 include $(ROOT_PATH)/common/js/include.mk
 include $(ROOT_PATH)/common/integration_testing/include.mk
+include $(ROOT_PATH)/third_party/ccid/webport/include.mk
+include $(ROOT_PATH)/third_party/libusb/webport/include.mk
+include $(ROOT_PATH)/third_party/pcsc-lite/naclport/common/include.mk
+include $(ROOT_PATH)/third_party/pcsc-lite/naclport/server/include.mk
+include $(ROOT_PATH)/third_party/pcsc-lite/naclport/server_clients_management/include.mk
 
 
 SOURCE_DIR := $(ROOT_PATH)/smart_card_connector_app/src/
 
-# TODO(emaxx): Add C++ helpers for controlling the PC/SC-Lite server.
+# TODO(emaxx): application.cc is also compiled for other targets
+# (../executable_module/ and ../executable_module/cpp_unittests/). Get rid of
+# duplicate compilation by putting it into a static library.
 CXX_SOURCES := \
+  $(SOURCE_DIR)/application.cc \
+  $(SOURCE_DIR)/application_integration_test_helper.cc \
 
 CXXFLAGS := \
+  -I$(ROOT_PATH) \
+  -I$(ROOT_PATH)/common/cpp/src \
+  -I$(ROOT_PATH)/common/integration_testing/src \
+  -I$(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src \
+  -I$(ROOT_PATH)/third_party/pcsc-lite/naclport/server_clients_management/src \
+  -Wall \
+  -Werror \
+  -Wextra \
+  -Wno-zero-length-array \
+  -pedantic \
+  -std=$(CXX_DIALECT) \
 
 LIBS := \
+  $(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_LIB) \
+  $(PCSC_LITE_SERVER_LIB) \
+  $(PCSC_LITE_COMMON_LIB) \
+  $(CCID_LIB) \
+  $(LIBUSB_LIB) \
+  $(CPP_COMMON_LIB) \
+  $(DEFAULT_NACL_LIBS) \
 
-JS_SOURCES_PATH := $(SOURCE_DIR)/**-jstocxxtest.js
+JS_SOURCES_PATHS := \
+  $(SOURCE_DIR)/**-jstocxxtest.js \
+  $(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_JS_COMPILER_INPUT_DIR_PATHS) \
 
 # Target that compiles C++ files.
 $(foreach src,$(CXX_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 
 # Targets that build the resulting executable module and JS tests.
-$(eval $(call BUILD_JS_TO_CXX_TEST,$(CXX_SOURCES),$(LIBS),$(JS_SOURCES_PATH)))
+$(eval $(call BUILD_JS_TO_CXX_TEST,$(CXX_SOURCES),$(LIBS),$(JS_SOURCES_PATHS)))
