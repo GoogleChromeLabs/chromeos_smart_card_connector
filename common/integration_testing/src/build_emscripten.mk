@@ -73,6 +73,8 @@ all: $(OUT_DIR_PATH)/index.html
 # --serve-via-web-server: Run the tests as "localhost:<random_port>/index.html"
 #   instead of just navigating to "file://.../index.html", because Chrome
 #   doesn't allow loading additional JavaScript code on file:// URLs.
+# --timeout: Specify an increased timeout (in seconds) as the JS-to-C++ tests
+#   are slow to run.
 # --chrome-arg:
 #   --enable-features=SharedArrayBuffer: Force-enable SharedArrayBuffer that's
 #     normally disallowed when the page has no CORS headers (which our test
@@ -84,4 +86,5 @@ run_test: all
 			$(OUT_DIR_PATH)/index.html \
 			--chromedriver-path=$(ROOT_PATH)/env/chromedriver \
 			--serve-via-web-server \
+			--timeout=3600 \
 			--chrome-arg="--enable-features=SharedArrayBuffer"
