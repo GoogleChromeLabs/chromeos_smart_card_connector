@@ -105,7 +105,23 @@ goog.exportSymbol('testPcscApi', {
     },
 
     // Test `SCardEstablishContext()`.
-    'testScardEstablishContext': async function() {
+    '1testScardEstablishContext': async function() {
+      const result = await api.SCardEstablishContext(
+          GSC.PcscLiteClient.API.SCARD_SCOPE_SYSTEM, null, null);
+      let sCardContext;
+      result.get(
+          (context) => {
+            sCardContext = context;
+          },
+          (errorCode) => {
+            fail(`Unexpected error ${errorCode}`);
+          });
+      assert(Number.isInteger(sCardContext));
+    },
+
+    // Test `SCardEstablishContext()` when it's called without providing
+    // optional arguments.
+    '1testScardEstablishContext_omittedOptionalArgs': async function() {
       const result = await api.SCardEstablishContext(
           GSC.PcscLiteClient.API.SCARD_SCOPE_SYSTEM);
       let sCardContext;
