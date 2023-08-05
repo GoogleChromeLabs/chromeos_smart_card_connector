@@ -67,9 +67,9 @@ $(OUT_DIR_PATH)/index.html: $(OUT_DIR_PATH)
 	@echo "<script src='tests.js'></script>" > $(OUT_DIR_PATH)/index.html
 all: $(OUT_DIR_PATH)/index.html
 
-# Target that executes the tests via Chromedriver.
+# Parameters for the script that executes tests (via Chromedriver).
 #
-# Explanation of arguments:
+# Explanation:
 # --serve-via-web-server: Run the tests as "localhost:<random_port>/index.html"
 #   instead of just navigating to "file://.../index.html", because Chrome
 #   doesn't allow loading additional JavaScript code on file:// URLs.
@@ -80,11 +80,30 @@ all: $(OUT_DIR_PATH)/index.html
 #     normally disallowed when the page has no CORS headers (which our test
 #     server doesn't). SharedArrayBuffer is needed for multi-threaded
 #     Emscripten modules.
+JS_TO_CXX_TEST_RUN_PARAMS := \
+	--chromedriver-path=$(ROOT_PATH)/env/chromedriver \
+	--serve-via-web-server \
+	--timeout=3600 \
+	--chrome-arg="--enable-features=SharedArrayBuffer" \
+
+# If MANUAL_TEST_DEBUGGING=1 environment variable is passed, the tests should be
+# run in a way the developer can debug failures.
+#
+# Explanation of arguments added in this case:
+# --show-ui: Run the tests with UI, instead of an invisible virtual display.
+# --pause-after-failure: Don't close the web page with the tests after they
+#   finished with a failure.
+ifneq (,$(MANUAL_TEST_DEBUGGING))
+
+JS_TO_CXX_TEST_RUN_PARAMS += \
+	--show-ui \
+	--pause-after-failure \
+
+endif
+
+# Target that executes the tests via Chromedriver.
 run_test: all
 	. $(ROOT_PATH)/env/python3_venv/bin/activate && \
 		$(ROOT_PATH)/common/js_test_runner/run-js-tests.py \
 			$(OUT_DIR_PATH)/index.html \
-			--chromedriver-path=$(ROOT_PATH)/env/chromedriver \
-			--serve-via-web-server \
-			--timeout=3600 \
-			--chrome-arg="--enable-features=SharedArrayBuffer"
+			$(JS_TO_CXX_TEST_RUN_PARAMS)
