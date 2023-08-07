@@ -92,7 +92,8 @@ goog.exportSymbol('testPcscApi', {
       clientHandler = new ClientHandler(
           testController.executableModule.getMessageChannel(),
           pcscReadinessTracker.promise, apiMessageChannelPair.getFirst(),
-          /*clientOrigin=*/ undefined);
+          /*clientOrigin=*/
+          'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
       api = new GSC.PcscLiteClient.API(apiMessageChannelPair.getSecond());
     },
 
@@ -130,6 +131,33 @@ goog.exportSymbol('testPcscApi', {
             fail(`Unexpected error ${errorCode}`);
           });
       assert(Number.isInteger(sCardContext));
+    },
+
+    'testPerformance': async function() {
+      const ITER = 10000;
+
+      await pcscReadinessTracker.promise;
+      const startTime = performance.now();
+
+      for (let i = 0; i < ITER; ++i) {
+        const result = await api.SCardEstablishContext(
+            GSC.PcscLiteClient.API.SCARD_SCOPE_SYSTEM, null, null);
+        let sCardContext;
+        result.get(
+            (context) => {
+              sCardContext = context;
+            },
+            (errorCode) => {
+              fail(`Unexpected error ${errorCode}`);
+            });
+
+        await api.SCardReleaseContext(sCardContext);
+      }
+
+      const finishTime = performance.now();
+      const duration = finishTime - startTime;
+      const perCall = Math.round(duration * 1.0 / ITER / 2);
+      fail(`TOTAL: ${duration} ms. Per call: ${perCall} ms.`);
     },
   },
 });
