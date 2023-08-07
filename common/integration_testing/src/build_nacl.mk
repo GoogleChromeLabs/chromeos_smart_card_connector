@@ -24,6 +24,7 @@ JS_TO_CXX_TEST_ENTRY_POINT_SOURCE := \
 	$(ROOT_PATH)/common/integration_testing/src/entry_point_nacl.cc
 
 JS_TO_CXX_TEST_ENTRY_POINT_FLAGS := \
+	-I$(ROOT_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src \
 	-I$(ROOT_PATH)/common/integration_testing/src \
 	-pedantic \
