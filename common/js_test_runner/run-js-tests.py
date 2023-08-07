@@ -103,6 +103,17 @@ def wait_for_test_completion(driver, timeout_seconds):
   if is_page_load_failed(driver):
     raise RuntimeError(f'Failed to load the page: {get_page_text(driver)}')
 
+def wait_for_ui_closed(driver):
+  """Waits until the Chromedriver UI is closed (manually by the developer)."""
+  def is_webdriver_alive(driver):
+    try:
+      driver.title
+      return True
+    except:
+      return False
+  webdriver_ui.WebDriverWait(driver, timeout=float("inf")).until_not(
+      is_webdriver_alive)
+
 def is_page_load_failed(driver):
   """Returns whether the page loading failed in Chromedriver (e.g., 404)."""
   # Note that `driver.current_url` wouldn't work here, as it returns the
@@ -157,6 +168,9 @@ def parse_command_line_args():
   parser.add_argument('--show-ui', action='store_true',
                       help="make the launched Chrome visible (and don't use a "
                            "hidden virtual display)")
+  parser.add_argument('--pause-after-failure', action='store_true',
+                      help="don't close the web page or exit if the tests "
+                           "failed")
   return parser.parse_args()
 
 def main():
@@ -174,6 +188,8 @@ def main():
         if args.print_js_logs:
           print(get_js_logs(driver))
         if not is_js_test_successful(driver):
+          if args.pause_after_failure:
+            wait_for_ui_closed(driver)
           return 1
   return 0
 
