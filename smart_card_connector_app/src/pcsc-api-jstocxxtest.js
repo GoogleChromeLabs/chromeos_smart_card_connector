@@ -18,9 +18,6 @@
 /**
  * @fileoverview This file contains tests for the PC/SC API exposed by Smart
  * Card Connector.
- *
- * TODO(emaxx): This is currently just a boilerplate. Real tests will be added
- * after needed helpers are implemented.
  */
 
 goog.require('GoogleSmartCard.IntegrationTestController');
@@ -106,6 +103,22 @@ goog.exportSymbol('testPcscApi', {
 
     // Test `SCardEstablishContext()`.
     'testScardEstablishContext': async function() {
+      const result = await api.SCardEstablishContext(
+          GSC.PcscLiteClient.API.SCARD_SCOPE_SYSTEM, null, null);
+      let sCardContext;
+      result.get(
+          (context) => {
+            sCardContext = context;
+          },
+          (errorCode) => {
+            fail(`Unexpected error ${errorCode}`);
+          });
+      assert(Number.isInteger(sCardContext));
+    },
+
+    // Test `SCardEstablishContext()` when it's called without providing
+    // optional arguments.
+    'testScardEstablishContext_omittedOptionalArgs': async function() {
       const result = await api.SCardEstablishContext(
           GSC.PcscLiteClient.API.SCARD_SCOPE_SYSTEM);
       let sCardContext;
