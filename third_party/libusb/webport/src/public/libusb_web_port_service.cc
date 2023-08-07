@@ -18,10 +18,10 @@
 
 #include <utility>
 
-#include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/requesting/js_requester.h>
-#include <google_smart_card_common/requesting/requester.h>
-#include <google_smart_card_common/unique_ptr_utils.h>
+#include "common/cpp/src/google_smart_card_common/logging/logging.h"
+#include "common/cpp/src/google_smart_card_common/requesting/js_requester.h"
+#include "common/cpp/src/google_smart_card_common/requesting/requester.h"
+#include "common/cpp/src/google_smart_card_common/unique_ptr_utils.h"
 
 #include "libusb_interface.h"
 #include "libusb_js_proxy.h"

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <google_smart_card_common/messaging/typed_message_router.h>
+#include "common/cpp/src/google_smart_card_common/messaging/typed_message_router.h"
 
 #include <string>
 #include <thread>
@@ -21,11 +21,11 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <google_smart_card_common/formatting.h>
-#include <google_smart_card_common/messaging/typed_message.h>
-#include <google_smart_card_common/messaging/typed_message_listener.h>
-#include <google_smart_card_common/value.h>
-#include <google_smart_card_common/value_conversion.h>
+#include "common/cpp/src/google_smart_card_common/formatting.h"
+#include "common/cpp/src/google_smart_card_common/messaging/typed_message.h"
+#include "common/cpp/src/google_smart_card_common/messaging/typed_message_listener.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
+#include "common/cpp/src/google_smart_card_common/value_conversion.h"
 
 // Google Mock doesn't provide the C++11 "override" specifier for the mock
 // method definitions

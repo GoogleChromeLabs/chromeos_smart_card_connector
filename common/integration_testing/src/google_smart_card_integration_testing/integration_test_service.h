@@ -20,10 +20,10 @@
 #include <string>
 #include <vector>
 
-#include <google_smart_card_common/global_context.h>
-#include <google_smart_card_common/messaging/typed_message_listener.h>
-#include <google_smart_card_common/requesting/js_request_receiver.h>
-#include <google_smart_card_common/value.h>
+#include "common/cpp/src/google_smart_card_common/global_context.h"
+#include "common/cpp/src/google_smart_card_common/messaging/typed_message_listener.h"
+#include "common/cpp/src/google_smart_card_common/requesting/js_request_receiver.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
 #include <google_smart_card_integration_testing/integration_test_helper.h>
 
 namespace google_smart_card {

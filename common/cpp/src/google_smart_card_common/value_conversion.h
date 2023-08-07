@@ -49,12 +49,12 @@
 #include <utility>
 #include <vector>
 
-#include <google_smart_card_common/formatting.h>
-#include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/optional.h>
-#include <google_smart_card_common/unique_ptr_utils.h>
-#include <google_smart_card_common/value.h>
-#include <google_smart_card_common/value_debug_dumping.h>
+#include "common/cpp/src/google_smart_card_common/formatting.h"
+#include "common/cpp/src/google_smart_card_common/logging/logging.h"
+#include "common/cpp/src/google_smart_card_common/optional.h"
+#include "common/cpp/src/google_smart_card_common/unique_ptr_utils.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
+#include "common/cpp/src/google_smart_card_common/value_debug_dumping.h"
 
 namespace google_smart_card {
 

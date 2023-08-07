@@ -32,9 +32,9 @@
 #include <winscard.h>
 #include <wintypes.h>
 
-#include <google_smart_card_common/requesting/remote_call_adaptor.h>
-#include <google_smart_card_common/requesting/request_result.h>
-#include <google_smart_card_common/requesting/requester.h>
+#include "common/cpp/src/google_smart_card_common/requesting/remote_call_adaptor.h"
+#include "common/cpp/src/google_smart_card_common/requesting/request_result.h"
+#include "common/cpp/src/google_smart_card_common/requesting/requester.h"
 #include <google_smart_card_pcsc_lite_common/pcsc_lite.h>
 
 namespace google_smart_card {

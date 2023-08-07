@@ -23,13 +23,13 @@
 #include <string>
 #include <thread>
 
-#include <google_smart_card_common/global_context.h>
-#include <google_smart_card_common/messaging/typed_message.h>
-#include <google_smart_card_common/messaging/typed_message_router.h>
-#include <google_smart_card_common/optional.h>
-#include <google_smart_card_common/requesting/request_id.h>
-#include <google_smart_card_common/requesting/requester_message.h>
-#include <google_smart_card_common/value.h>
+#include "common/cpp/src/google_smart_card_common/global_context.h"
+#include "common/cpp/src/google_smart_card_common/messaging/typed_message.h"
+#include "common/cpp/src/google_smart_card_common/messaging/typed_message_router.h"
+#include "common/cpp/src/google_smart_card_common/optional.h"
+#include "common/cpp/src/google_smart_card_common/requesting/request_id.h"
+#include "common/cpp/src/google_smart_card_common/requesting/requester_message.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
 
 namespace google_smart_card {
 

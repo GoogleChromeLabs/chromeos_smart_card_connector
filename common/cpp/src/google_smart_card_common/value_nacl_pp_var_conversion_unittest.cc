@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
+#include "common/cpp/src/google_smart_card_common/value_nacl_pp_var_conversion.h"
 
 #include <stdint.h>
 
@@ -32,9 +32,9 @@
 #include <ppapi/cpp/var_array_buffer.h>
 #include <ppapi/cpp/var_dictionary.h>
 
-#include <google_smart_card_common/optional.h>
-#include <google_smart_card_common/unique_ptr_utils.h>
-#include <google_smart_card_common/value.h>
+#include "common/cpp/src/google_smart_card_common/optional.h"
+#include "common/cpp/src/google_smart_card_common/unique_ptr_utils.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
 
 namespace google_smart_card {
 

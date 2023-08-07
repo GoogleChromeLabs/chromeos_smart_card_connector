@@ -17,11 +17,11 @@
 
 #include <string>
 
-#include <google_smart_card_common/requesting/async_request.h>
-#include <google_smart_card_common/requesting/async_requests_storage.h>
-#include <google_smart_card_common/requesting/request_id.h>
-#include <google_smart_card_common/requesting/request_result.h>
-#include <google_smart_card_common/value.h>
+#include "common/cpp/src/google_smart_card_common/requesting/async_request.h"
+#include "common/cpp/src/google_smart_card_common/requesting/async_requests_storage.h"
+#include "common/cpp/src/google_smart_card_common/requesting/request_id.h"
+#include "common/cpp/src/google_smart_card_common/requesting/request_result.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
 
 namespace google_smart_card {
 

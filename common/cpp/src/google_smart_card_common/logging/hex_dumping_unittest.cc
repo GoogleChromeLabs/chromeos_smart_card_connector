@@ -18,7 +18,7 @@
 
 #include <gtest/gtest.h>
 
-#include <google_smart_card_common/logging/hex_dumping.h>
+#include "common/cpp/src/google_smart_card_common/logging/hex_dumping.h"
 
 namespace google_smart_card {
 

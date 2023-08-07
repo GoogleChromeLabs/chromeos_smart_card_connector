@@ -28,12 +28,12 @@
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
 
-#include <google_smart_card_common/global_context_impl_emscripten.h>
-#include <google_smart_card_common/optional.h>
-#include <google_smart_card_common/messaging/typed_message_router.h>
-#include <google_smart_card_common/value.h>
-#include <google_smart_card_common/value_debug_dumping.h>
-#include <google_smart_card_common/value_emscripten_val_conversion.h>
+#include "common/cpp/src/google_smart_card_common/global_context_impl_emscripten.h"
+#include "common/cpp/src/google_smart_card_common/optional.h"
+#include "common/cpp/src/google_smart_card_common/messaging/typed_message_router.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
+#include "common/cpp/src/google_smart_card_common/value_debug_dumping.h"
+#include "common/cpp/src/google_smart_card_common/value_emscripten_val_conversion.h"
 
 #include "application.h"
 

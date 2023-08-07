@@ -23,11 +23,11 @@
 #include <utility>
 #include <vector>
 
-#include <google_smart_card_common/global_context.h>
-#include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/messaging/typed_message_router.h>
-#include <google_smart_card_common/value.h>
-#include <google_smart_card_common/value_debug_dumping.h>
+#include "common/cpp/src/google_smart_card_common/global_context.h"
+#include "common/cpp/src/google_smart_card_common/logging/logging.h"
+#include "common/cpp/src/google_smart_card_common/messaging/typed_message_router.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
+#include "common/cpp/src/google_smart_card_common/value_debug_dumping.h"
 #include <google_smart_card_pcsc_lite_client/global.h>
 #include <google_smart_card_pcsc_lite_cpp_demo/demo.h>
 

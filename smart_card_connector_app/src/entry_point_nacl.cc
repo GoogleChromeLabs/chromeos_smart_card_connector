@@ -31,15 +31,15 @@
 #include <ppapi/cpp/module.h>
 #include <ppapi/cpp/var.h>
 
-#include <google_smart_card_common/external_logs_printer.h>
-#include <google_smart_card_common/global_context_impl_nacl.h>
-#include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/messaging/typed_message_router.h>
-#include <google_smart_card_common/nacl_io_utils.h>
-#include <google_smart_card_common/optional.h>
-#include <google_smart_card_common/unique_ptr_utils.h>
-#include <google_smart_card_common/value.h>
-#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
+#include "common/cpp/src/google_smart_card_common/external_logs_printer.h"
+#include "common/cpp/src/google_smart_card_common/global_context_impl_nacl.h"
+#include "common/cpp/src/google_smart_card_common/logging/logging.h"
+#include "common/cpp/src/google_smart_card_common/messaging/typed_message_router.h"
+#include "common/cpp/src/google_smart_card_common/nacl_io_utils.h"
+#include "common/cpp/src/google_smart_card_common/optional.h"
+#include "common/cpp/src/google_smart_card_common/unique_ptr_utils.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
+#include "common/cpp/src/google_smart_card_common/value_nacl_pp_var_conversion.h"
 
 #include "application.h"
 

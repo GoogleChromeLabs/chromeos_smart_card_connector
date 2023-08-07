@@ -26,14 +26,14 @@
 #include <string>
 #include <vector>
 
-#include <google_smart_card_common/global_context.h>
-#include <google_smart_card_common/messaging/typed_message_router.h>
-#include <google_smart_card_common/requesting/js_request_receiver.h>
-#include <google_smart_card_common/requesting/js_requester.h>
-#include <google_smart_card_common/requesting/remote_call_adaptor.h>
-#include <google_smart_card_common/requesting/request_handler.h>
-#include <google_smart_card_common/requesting/request_receiver.h>
-#include <google_smart_card_common/value.h>
+#include "common/cpp/src/google_smart_card_common/global_context.h"
+#include "common/cpp/src/google_smart_card_common/messaging/typed_message_router.h"
+#include "common/cpp/src/google_smart_card_common/requesting/js_request_receiver.h"
+#include "common/cpp/src/google_smart_card_common/requesting/js_requester.h"
+#include "common/cpp/src/google_smart_card_common/requesting/remote_call_adaptor.h"
+#include "common/cpp/src/google_smart_card_common/requesting/request_handler.h"
+#include "common/cpp/src/google_smart_card_common/requesting/request_receiver.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
 
 #include "chrome_certificate_provider/types.h"
 

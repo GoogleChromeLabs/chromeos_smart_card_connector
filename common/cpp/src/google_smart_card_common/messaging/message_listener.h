@@ -17,7 +17,7 @@
 
 #include <string>
 
-#include <google_smart_card_common/value.h>
+#include "common/cpp/src/google_smart_card_common/value.h"
 
 namespace google_smart_card {
 

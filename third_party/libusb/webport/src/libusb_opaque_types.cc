@@ -19,7 +19,7 @@
 #include <chrono>
 #include <utility>
 
-#include <google_smart_card_common/logging/logging.h>
+#include "common/cpp/src/google_smart_card_common/logging/logging.h"
 
 void libusb_context::AddAsyncTransferInFlight(
     TransferAsyncRequestStatePtr async_request_state,

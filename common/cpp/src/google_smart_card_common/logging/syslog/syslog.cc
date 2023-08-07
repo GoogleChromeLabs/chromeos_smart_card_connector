@@ -28,13 +28,13 @@
  * SUCH DAMAGE.
  */
 
-#include <google_smart_card_common/logging/syslog/syslog.h>
+#include "common/cpp/src/google_smart_card_common/logging/syslog/syslog.h"
 
 #include <cstdarg>
 #include <string>
 
-#include <google_smart_card_common/formatting.h>
-#include <google_smart_card_common/logging/logging.h>
+#include "common/cpp/src/google_smart_card_common/formatting.h"
+#include "common/cpp/src/google_smart_card_common/logging/logging.h"
 
 void syslog(int priority, const char* format, ...) {
   va_list var_args;

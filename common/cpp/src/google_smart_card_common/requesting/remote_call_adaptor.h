@@ -18,12 +18,12 @@
 #include <string>
 #include <utility>
 
-#include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/requesting/async_request.h>
-#include <google_smart_card_common/requesting/remote_call_arguments_conversion.h>
-#include <google_smart_card_common/requesting/remote_call_message.h>
-#include <google_smart_card_common/requesting/request_result.h>
-#include <google_smart_card_common/requesting/requester.h>
+#include "common/cpp/src/google_smart_card_common/logging/logging.h"
+#include "common/cpp/src/google_smart_card_common/requesting/async_request.h"
+#include "common/cpp/src/google_smart_card_common/requesting/remote_call_arguments_conversion.h"
+#include "common/cpp/src/google_smart_card_common/requesting/remote_call_message.h"
+#include "common/cpp/src/google_smart_card_common/requesting/request_result.h"
+#include "common/cpp/src/google_smart_card_common/requesting/requester.h"
 
 namespace google_smart_card {
 

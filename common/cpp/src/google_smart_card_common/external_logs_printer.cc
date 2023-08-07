@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <google_smart_card_common/external_logs_printer.h>
+#include "common/cpp/src/google_smart_card_common/external_logs_printer.h"
 
 #include <iostream>
 #include <string>
 
-#include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/messaging/typed_message_listener.h>
-#include <google_smart_card_common/value.h>
-#include <google_smart_card_common/value_conversion.h>
+#include "common/cpp/src/google_smart_card_common/logging/logging.h"
+#include "common/cpp/src/google_smart_card_common/messaging/typed_message_listener.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
+#include "common/cpp/src/google_smart_card_common/value_conversion.h"
 
 namespace google_smart_card {
 

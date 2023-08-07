@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <google_smart_card_common/requesting/remote_call_arguments_conversion.h>
+#include "common/cpp/src/google_smart_card_common/requesting/remote_call_arguments_conversion.h"
 
 #include <string>
 #include <utility>
 #include <vector>
 
-#include <google_smart_card_common/formatting.h>
-#include <google_smart_card_common/value.h>
-#include <google_smart_card_common/value_conversion.h>
-#include <google_smart_card_common/value_debug_dumping.h>
+#include "common/cpp/src/google_smart_card_common/formatting.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
+#include "common/cpp/src/google_smart_card_common/value_conversion.h"
+#include "common/cpp/src/google_smart_card_common/value_debug_dumping.h"
 
 namespace google_smart_card {
 

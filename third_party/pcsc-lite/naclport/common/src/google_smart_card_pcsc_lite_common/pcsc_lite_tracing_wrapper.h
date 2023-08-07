@@ -33,7 +33,7 @@
 #include <winscard.h>
 #include <wintypes.h>
 
-#include <google_smart_card_common/logging/logging.h>
+#include "common/cpp/src/google_smart_card_common/logging/logging.h"
 #include <google_smart_card_pcsc_lite_common/pcsc_lite.h>
 
 namespace google_smart_card {

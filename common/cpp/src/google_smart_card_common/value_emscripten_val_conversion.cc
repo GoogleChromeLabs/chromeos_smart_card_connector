@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <google_smart_card_common/value_emscripten_val_conversion.h>
+#include "common/cpp/src/google_smart_card_common/value_emscripten_val_conversion.h"
 
 #include <stdint.h>
 
@@ -25,12 +25,12 @@
 #include <emscripten/val.h>
 #include <emscripten/wire.h>
 
-#include <google_smart_card_common/formatting.h>
-#include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/numeric_conversions.h>
-#include <google_smart_card_common/optional.h>
-#include <google_smart_card_common/unique_ptr_utils.h>
-#include <google_smart_card_common/value.h>
+#include "common/cpp/src/google_smart_card_common/formatting.h"
+#include "common/cpp/src/google_smart_card_common/logging/logging.h"
+#include "common/cpp/src/google_smart_card_common/numeric_conversions.h"
+#include "common/cpp/src/google_smart_card_common/optional.h"
+#include "common/cpp/src/google_smart_card_common/unique_ptr_utils.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
 
 namespace google_smart_card {
 

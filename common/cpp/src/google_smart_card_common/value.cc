@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <google_smart_card_common/value.h>
+#include "common/cpp/src/google_smart_card_common/value.h"
 
 #include <string>
 #include <utility>
 #include <vector>
 
-#include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/unique_ptr_utils.h>
+#include "common/cpp/src/google_smart_card_common/logging/logging.h"
+#include "common/cpp/src/google_smart_card_common/unique_ptr_utils.h"
 
 namespace google_smart_card {
 
