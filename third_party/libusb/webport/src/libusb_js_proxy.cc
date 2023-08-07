@@ -31,13 +31,13 @@
 #include <google_smart_card_common/requesting/request_result.h>
 
 #include "libusb_js_proxy_data_model.h"
+#include "third_party/libusb/webport/src/libusb_js_proxy_constants.h"
 
 namespace google_smart_card {
 
 namespace {
 
 // These constants must match the strings in libusb-proxy-receiver.js.
-constexpr char kJsRequesterName[] = "libusb";
 constexpr char kJsRequestListDevices[] = "listDevices";
 constexpr char kJsRequestGetConfigurations[] = "getConfigurations";
 constexpr char kJsRequestOpenDeviceHandle[] = "openDeviceHandle";
@@ -131,7 +131,9 @@ libusb_context* GetLibusbTransferContextChecked(
 
 LibusbJsProxy::LibusbJsProxy(GlobalContext* global_context,
                              TypedMessageRouter* typed_message_router)
-    : js_requester_(kJsRequesterName, global_context, typed_message_router),
+    : js_requester_(kLibusbJsProxyRequesterName,
+                    global_context,
+                    typed_message_router),
       js_call_adaptor_(&js_requester_),
       default_context_(contexts_storage_.CreateContext()) {}
 

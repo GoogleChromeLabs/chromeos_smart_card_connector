@@ -39,6 +39,7 @@ C_SOURCES := \
 CXX_SOURCES := \
 	$(LIBUSB_NACL_SOURCES_PATH)/libusb_contexts_storage.cc \
 	$(LIBUSB_NACL_SOURCES_PATH)/libusb_js_proxy.cc \
+	$(LIBUSB_NACL_SOURCES_PATH)/libusb_js_proxy_constants.cc \
 	$(LIBUSB_NACL_SOURCES_PATH)/libusb_js_proxy_data_model.cc \
 	$(LIBUSB_NACL_SOURCES_PATH)/libusb_opaque_types.cc \
 	$(LIBUSB_NACL_SOURCES_PATH)/libusb_tracing_wrapper.cc \
@@ -53,6 +54,7 @@ SOURCES := \
 CPPFLAGS := \
 	-I$(LIBUSB_NACL_SOURCES_PATH) \
 	-I$(LIBUSB_SOURCES_PATH)/libusb \
+	-I$(ROOT_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src \
 	-Wall \
 	-Werror \
