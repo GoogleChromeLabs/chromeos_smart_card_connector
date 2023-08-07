@@ -92,8 +92,7 @@ class ReaderNotificationObserver final {
       global_context.RegisterMessageHandler(
           event_name,
           std::bind(&ReaderNotificationObserver::OnMessageToJs, this,
-                    event_name, /*request_payload=*/std::placeholders::_1,
-                    /*request_id=*/std::placeholders::_2));
+                    event_name, /*message_data=*/std::placeholders::_1));
     }
   }
 
@@ -123,13 +122,10 @@ class ReaderNotificationObserver final {
   }
 
  private:
-  void OnMessageToJs(const std::string& event_name,
-                     optional<Value> message_data,
-                     optional<RequestId> /*request_id*/) {
-    ASSERT_TRUE(message_data);
+  void OnMessageToJs(const std::string& event_name, Value message_data) {
     std::string notification =
         event_name + ":" +
-        message_data->GetDictionaryItem("readerName")->GetString();
+        message_data.GetDictionaryItem("readerName")->GetString();
 
     std::unique_lock<std::mutex> lock(mutex_);
     recorded_notifications_.push(notification);
@@ -561,8 +557,8 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
         TestingSmartCardSimulation::kRequesterName,
         std::bind(&TestingSmartCardSimulation::OnRequestToJs,
                   &smart_card_simulation_,
-                  /*request_payload=*/std::placeholders::_1,
-                  /*request_id=*/std::placeholders::_2));
+                  /*request_id=*/std::placeholders::_1,
+                  /*request_payload=*/std::placeholders::_2));
   }
 
   TypedMessageRouter typed_message_router_;
