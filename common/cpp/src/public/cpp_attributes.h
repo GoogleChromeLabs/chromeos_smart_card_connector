@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_CPP_ATTRIBUTES_H_
-#define GOOGLE_SMART_CARD_COMMON_CPP_ATTRIBUTES_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_CPP_ATTRIBUTES_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_CPP_ATTRIBUTES_H_
 
 // Use this to annotate function declarations that the caller must check the
 // returned value.
@@ -23,4 +23,4 @@
 #define GOOGLE_SMART_CARD_WARN_UNUSED_RESULT
 #endif
 
-#endif  // GOOGLE_SMART_CARD_COMMON_CPP_ATTRIBUTES_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_CPP_ATTRIBUTES_H_

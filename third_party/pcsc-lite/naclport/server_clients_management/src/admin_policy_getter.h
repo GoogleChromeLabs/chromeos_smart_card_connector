@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_ADMIN_POLICY_GETTER_H_
-#define GOOGLE_SMART_CARD_COMMON_ADMIN_POLICY_GETTER_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_ADMIN_POLICY_GETTER_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_ADMIN_POLICY_GETTER_H_
 
 #include <condition_variable>
 #include <mutex>
@@ -66,4 +66,4 @@ class AdminPolicyGetter final : public TypedMessageListener {
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_COMMON_ADMIN_POLICY_GETTER_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_ADMIN_POLICY_GETTER_H_

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_NACL_IO_UTILS_H_
-#define GOOGLE_SMART_CARD_COMMON_NACL_IO_UTILS_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_NACL_IO_UTILS_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_NACL_IO_UTILS_H_
 
 #ifndef __native_client__
 #error "This file should only be used in Native Client builds"
@@ -41,4 +41,4 @@ bool UnmountNaclIoFolders();
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_COMMON_NACL_IO_UTILS_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_NACL_IO_UTILS_H_

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_REQUESTING_ASYNC_REQUESTS_STORAGE_H_
-#define GOOGLE_SMART_CARD_COMMON_REQUESTING_ASYNC_REQUESTS_STORAGE_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_REQUESTING_ASYNC_REQUESTS_STORAGE_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_REQUESTING_ASYNC_REQUESTS_STORAGE_H_
 
 #include <memory>
 #include <mutex>
@@ -98,4 +98,4 @@ using GenericAsyncRequestsStorage = AsyncRequestsStorage<Value>;
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_COMMON_REQUESTING_ASYNC_REQUESTS_STORAGE_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_REQUESTING_ASYNC_REQUESTS_STORAGE_H_

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_REQUESTING_REMOTE_CALL_ADAPTOR_H_
-#define GOOGLE_SMART_CARD_COMMON_REQUESTING_REMOTE_CALL_ADAPTOR_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_REQUESTING_REMOTE_CALL_ADAPTOR_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_REQUESTING_REMOTE_CALL_ADAPTOR_H_
 
 #include <string>
 #include <utility>
@@ -110,4 +110,4 @@ class RemoteCallAdaptor final {
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_COMMON_REQUESTING_REMOTE_CALL_ADAPTOR_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_REQUESTING_REMOTE_CALL_ADAPTOR_H_

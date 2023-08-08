@@ -15,8 +15,8 @@
 // Provides helper functions for converting between the `Value` and the
 // Emscripten's `emscripten::val` classes.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_VALUE_EMSCRIPTEN_VAL_CONVERSION_H_
-#define GOOGLE_SMART_CARD_COMMON_VALUE_EMSCRIPTEN_VAL_CONVERSION_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_VALUE_EMSCRIPTEN_VAL_CONVERSION_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_VALUE_EMSCRIPTEN_VAL_CONVERSION_H_
 
 #ifndef __EMSCRIPTEN__
 #error "This file should only be used in Emscripten builds"
@@ -58,4 +58,4 @@ Value ConvertEmscriptenValToValueOrDie(const emscripten::val& val);
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_COMMON_VALUE_EMSCRIPTEN_VAL_CONVERSION_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_VALUE_EMSCRIPTEN_VAL_CONVERSION_H_

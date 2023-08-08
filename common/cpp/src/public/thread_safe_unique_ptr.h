@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_THREAD_SAFE_UNIQUE_PTR_H_
-#define GOOGLE_SMART_CARD_COMMON_THREAD_SAFE_UNIQUE_PTR_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_THREAD_SAFE_UNIQUE_PTR_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_THREAD_SAFE_UNIQUE_PTR_H_
 
 #include <memory>
 #include <mutex>
@@ -122,4 +122,4 @@ class ThreadSafeUniquePtr final {
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_COMMON_THREAD_SAFE_UNIQUE_PTR_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_THREAD_SAFE_UNIQUE_PTR_H_

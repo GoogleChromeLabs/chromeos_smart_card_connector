@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_VALUE_H_
-#define GOOGLE_SMART_CARD_COMMON_VALUE_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_VALUE_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_VALUE_H_
 
 #include <stdint.h>
 
@@ -161,4 +161,4 @@ class Value final {
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_COMMON_VALUE_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_VALUE_H_

@@ -15,8 +15,8 @@
 // This file contains low-level operations for conversions between numeric data
 // types.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_NUMERIC_CONVERSIONS_H_
-#define GOOGLE_SMART_CARD_COMMON_NUMERIC_CONVERSIONS_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_NUMERIC_CONVERSIONS_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_NUMERIC_CONVERSIONS_H_
 
 #include <inttypes.h>
 #include <stdint.h>
@@ -165,4 +165,4 @@ inline void AssignWithTypeSizeCheck(optional<FirstType>* lhs,
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_COMMON_NUMERIC_CONVERSIONS_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_NUMERIC_CONVERSIONS_H_

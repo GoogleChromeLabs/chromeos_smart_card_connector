@@ -14,8 +14,8 @@
 
 // This file contains definitions for describing a result of request.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_REQUESTING_REQUEST_RESULT_H_
-#define GOOGLE_SMART_CARD_COMMON_REQUESTING_REQUEST_RESULT_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_REQUESTING_REQUEST_RESULT_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_REQUESTING_REQUEST_RESULT_H_
 
 #include <string>
 #include <utility>
@@ -139,4 +139,4 @@ using GenericRequestResult = RequestResult<Value>;
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_COMMON_REQUESTING_REQUEST_RESULT_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_REQUESTING_REQUEST_RESULT_H_

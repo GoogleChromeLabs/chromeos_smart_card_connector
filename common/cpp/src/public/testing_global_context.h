@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_TESTING_GLOBAL_CONTEXT_H_
-#define GOOGLE_SMART_CARD_COMMON_TESTING_GLOBAL_CONTEXT_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_TESTING_GLOBAL_CONTEXT_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_TESTING_GLOBAL_CONTEXT_H_
 
 #include <condition_variable>
 #include <deque>
@@ -197,4 +197,4 @@ class TestingGlobalContext final : public GlobalContext {
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_COMMON_TESTING_GLOBAL_CONTEXT_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_TESTING_GLOBAL_CONTEXT_H_

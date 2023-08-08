@@ -14,8 +14,8 @@
 
 // This file contains functions for creating a hexadecimal representation.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_LOGGING_HEX_DUMP_H_
-#define GOOGLE_SMART_CARD_COMMON_LOGGING_HEX_DUMP_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_LOGGING_HEX_DUMP_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_LOGGING_HEX_DUMP_H_
 
 #include <stdint.h>
 
@@ -152,4 +152,4 @@ std::string HexDumpBytes(const std::vector<uint8_t>& bytes);
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_COMMON_LOGGING_HEX_DUMP_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_LOGGING_HEX_DUMP_H_

@@ -22,8 +22,8 @@
 // payload data. The response message data consists of request identifier and
 // either payload data or error message.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_REQUESTING_REQUESTER_MESSAGE_H_
-#define GOOGLE_SMART_CARD_COMMON_REQUESTING_REQUESTER_MESSAGE_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_REQUESTING_REQUESTER_MESSAGE_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_REQUESTING_REQUESTER_MESSAGE_H_
 
 #include <string>
 
@@ -106,4 +106,4 @@ struct ResponseMessageData {
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_COMMON_REQUESTING_REQUESTER_MESSAGE_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_REQUESTING_REQUESTER_MESSAGE_H_

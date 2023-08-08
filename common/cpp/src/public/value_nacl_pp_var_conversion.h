@@ -15,8 +15,8 @@
 // Provides helper functions for converting between the `Value` and the Native
 // Client's `pp::Var` classes.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_VALUE_NACL_PP_VAR_CONVERSION_H_
-#define GOOGLE_SMART_CARD_COMMON_VALUE_NACL_PP_VAR_CONVERSION_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_VALUE_NACL_PP_VAR_CONVERSION_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_VALUE_NACL_PP_VAR_CONVERSION_H_
 
 #ifndef __native_client__
 #error "This file should only be used in Native Client builds"
@@ -48,4 +48,4 @@ Value ConvertPpVarToValueOrDie(const pp::Var& var);
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_COMMON_VALUE_NACL_PP_VAR_CONVERSION_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_VALUE_NACL_PP_VAR_CONVERSION_H_

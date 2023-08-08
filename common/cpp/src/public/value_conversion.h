@@ -37,8 +37,8 @@
 // * a custom struct can be registered via the `StructValueDescriptor` class for
 //   conversion to/from a dictionary `Value`.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_VALUE_CONVERSION_H_
-#define GOOGLE_SMART_CARD_COMMON_VALUE_CONVERSION_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_VALUE_CONVERSION_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_VALUE_CONVERSION_H_
 
 #include <stdint.h>
 
@@ -775,4 +775,4 @@ void StructFromValueConverter<T>::ConvertFieldFromValue(
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_COMMON_VALUE_CONVERSION_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_VALUE_CONVERSION_H_

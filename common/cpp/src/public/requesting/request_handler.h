@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_REQUESTING_REQUEST_HANDLER_H_
-#define GOOGLE_SMART_CARD_COMMON_REQUESTING_REQUEST_HANDLER_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_REQUESTING_REQUEST_HANDLER_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_REQUESTING_REQUEST_HANDLER_H_
 
 #include "common/cpp/src/public/requesting/request_receiver.h"
 #include "common/cpp/src/public/value.h"
@@ -46,4 +46,4 @@ class RequestHandler {
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_COMMON_REQUESTING_REQUEST_HANDLER_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_REQUESTING_REQUEST_HANDLER_H_

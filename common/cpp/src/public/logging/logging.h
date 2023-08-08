@@ -22,8 +22,8 @@
 // * in the stderr stream (which is usually tied to the browser's stderr);
 // * in the JavaScript Console of the page that the NaCl module is attached to.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_LOGGING_LOGGING_H_
-#define GOOGLE_SMART_CARD_COMMON_LOGGING_LOGGING_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_LOGGING_LOGGING_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_LOGGING_LOGGING_H_
 
 #include <sstream>
 #include <string>
@@ -176,4 +176,4 @@ std::string MakeNotreachedMessage(const std::string& file,
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_COMMON_LOGGING_LOGGING_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_LOGGING_LOGGING_H_

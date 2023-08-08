@@ -17,8 +17,8 @@
 // A multi-string is a sequence of zero-terminated strings with an additional
 // zero character appended after the end of the last string.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_MULTI_STRING_H_
-#define GOOGLE_SMART_CARD_COMMON_MULTI_STRING_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_MULTI_STRING_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_MULTI_STRING_H_
 
 #include <string>
 #include <vector>
@@ -34,4 +34,4 @@ std::vector<std::string> ExtractMultiStringElements(const char* multi_string);
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_COMMON_MULTI_STRING_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_MULTI_STRING_H_

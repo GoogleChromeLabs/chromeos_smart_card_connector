@@ -14,8 +14,8 @@
 
 // This file contains helper functions for dumping bit masks.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_LOGGING_MASK_DUMP_H_
-#define GOOGLE_SMART_CARD_COMMON_LOGGING_MASK_DUMP_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_LOGGING_MASK_DUMP_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_LOGGING_MASK_DUMP_H_
 
 #include <string>
 #include <vector>
@@ -58,4 +58,4 @@ inline std::string DumpMask(
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_COMMON_LOGGING_MASK_DUMP_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_LOGGING_MASK_DUMP_H_

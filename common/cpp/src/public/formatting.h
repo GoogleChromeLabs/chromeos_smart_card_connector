@@ -14,8 +14,8 @@
 
 // Helper functions providing printf-style string formatting.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_FORMATTING_H_
-#define GOOGLE_SMART_CARD_COMMON_FORMATTING_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_FORMATTING_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_FORMATTING_H_
 
 #include <cstdarg>
 #include <string>
@@ -35,4 +35,4 @@ void FormatPrintfTemplateAndSet(std::string* output_string,
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_COMMON_FORMATTING_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_FORMATTING_H_

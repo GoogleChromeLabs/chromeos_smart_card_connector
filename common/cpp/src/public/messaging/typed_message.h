@@ -21,8 +21,8 @@
 // with the JavaScript side (looks like the data should always be a non-null
 // Object).
 
-#ifndef GOOGLE_SMART_CARD_COMMON_MESSAGING_TYPED_MESSAGE_H_
-#define GOOGLE_SMART_CARD_COMMON_MESSAGING_TYPED_MESSAGE_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_MESSAGING_TYPED_MESSAGE_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_MESSAGING_TYPED_MESSAGE_H_
 
 #include <string>
 
@@ -60,4 +60,4 @@ struct TypedMessage {
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_COMMON_MESSAGING_TYPED_MESSAGE_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_MESSAGING_TYPED_MESSAGE_H_

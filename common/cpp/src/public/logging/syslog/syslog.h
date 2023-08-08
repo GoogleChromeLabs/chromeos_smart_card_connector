@@ -35,8 +35,8 @@
 // The definitions in this header file follow the definitions in the standard
 // <syslog.h> file.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_LOGGING_SYSLOG_SYSLOG_H_
-#define GOOGLE_SMART_CARD_COMMON_LOGGING_SYSLOG_SYSLOG_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_CPP_SRC_PUBLIC_LOGGING_SYSLOG_SYSLOG_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_CPP_SRC_PUBLIC_LOGGING_SYSLOG_SYSLOG_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -70,4 +70,4 @@ void syslog(int priority, const char* format, ...);
 }  // extern "C"
 #endif  // __cplusplus
 
-#endif  // GOOGLE_SMART_CARD_COMMON_LOGGING_SYSLOG_SYSLOG_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_CPP_SRC_PUBLIC_LOGGING_SYSLOG_SYSLOG_H_

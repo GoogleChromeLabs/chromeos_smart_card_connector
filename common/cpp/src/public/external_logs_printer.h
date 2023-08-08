@@ -15,8 +15,8 @@
 // This file contains definitions that allow handling and printing logs received
 // from an external message pipe.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_EXTERNAL_LOGS_PRINTER_H_
-#define GOOGLE_SMART_CARD_COMMON_EXTERNAL_LOGS_PRINTER_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_EXTERNAL_LOGS_PRINTER_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_EXTERNAL_LOGS_PRINTER_H_
 
 #include <string>
 
@@ -42,4 +42,4 @@ class ExternalLogsPrinter final : public TypedMessageListener {
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_COMMON_EXTERNAL_LOGS_PRINTER_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_EXTERNAL_LOGS_PRINTER_H_

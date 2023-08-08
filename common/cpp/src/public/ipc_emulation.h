@@ -18,8 +18,8 @@
 // of these primitives. The polyfills are also severely simplified, with the
 // main objective to address our use cases in this project.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_IPC_EMULATION_H_
-#define GOOGLE_SMART_CARD_COMMON_IPC_EMULATION_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_IPC_EMULATION_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_IPC_EMULATION_H_
 
 #include <stdint.h>
 #include <sys/types.h>
@@ -166,4 +166,4 @@ int GoogleSmartCardIpcEmulationClose(int fd);
 
 }  // extern "C"
 
-#endif  // GOOGLE_SMART_CARD_COMMON_IPC_EMULATION_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_IPC_EMULATION_H_

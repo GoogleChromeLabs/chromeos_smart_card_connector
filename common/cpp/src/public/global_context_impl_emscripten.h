@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_GLOBAL_CONTEXT_IMPL_EMSCRIPTEN_H_
-#define GOOGLE_SMART_CARD_COMMON_GLOBAL_CONTEXT_IMPL_EMSCRIPTEN_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_GLOBAL_CONTEXT_IMPL_EMSCRIPTEN_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_GLOBAL_CONTEXT_IMPL_EMSCRIPTEN_H_
 
 #ifndef __EMSCRIPTEN__
 #error "This file should only be used in Emscripten builds"
@@ -64,4 +64,4 @@ class GlobalContextImplEmscripten final
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_COMMON_GLOBAL_CONTEXT_IMPL_EMSCRIPTEN_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_GLOBAL_CONTEXT_IMPL_EMSCRIPTEN_H_
