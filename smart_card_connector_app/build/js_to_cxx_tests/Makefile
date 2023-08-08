@@ -72,9 +72,16 @@ JS_SOURCES_PATHS := \
 $(foreach src,$(CXX_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 
 # Package resource files that the C/C++ code needs at runtime:
+# * fake_socket_file: it's needed to trick the PC/SC daemon code into thinking
+#   it can open a socket IPC communication.
 $(eval $(call ADD_RESOURCE_RULE, \
   $(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src/fake_socket_file, \
   executable-module-filesystem/pcsc/fake_socket_file))
+# * Info.plist: it's a driver config for the CCID driver; at runtime, the PC/SC
+#   daemon code reads parameters from this config to call into CCID.
+$(eval $(call ADD_RESOURCE_RULE, \
+  $(ROOT_PATH)/third_party/ccid/webport/build/Info.plist, \
+  executable-module-filesystem/pcsc/drivers/ifd-ccid.bundle/Contents/Info.plist))
 
 # Targets that build the resulting executable module and JS tests.
 $(eval $(call BUILD_JS_TO_CXX_TEST,$(CXX_SOURCES),$(LIBS),$(JS_SOURCES_PATHS)))
