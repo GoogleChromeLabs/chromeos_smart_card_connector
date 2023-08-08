@@ -37,6 +37,7 @@ CXX_SOURCES := \
 
 CXXFLAGS := \
 	-I$(SOURCE_DIR) \
+	-I$(ROOT_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src \
 	-I$(ROOT_PATH)/common/integration_testing/src \
 	-pedantic \

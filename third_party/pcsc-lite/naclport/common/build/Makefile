@@ -45,6 +45,7 @@ SOURCES := \
 CXXFLAGS := \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 	-I$(SOURCES_PATH) \
+	-I$(ROOT_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src \
 	-pedantic \
 	-Wall \

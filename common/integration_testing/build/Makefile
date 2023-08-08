@@ -34,6 +34,7 @@ SOURCES := \
 
 CXXFLAGS := \
 	-I$(ROOT_SOURCES_PATH) \
+	-I$(ROOT_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src \
 	-pedantic \
 	-Wall \
