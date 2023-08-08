@@ -24,13 +24,11 @@
 
 #include <google_smart_card_common/logging/hex_dumping.h>
 #include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/requesting/remote_call_message.h>
-#include <google_smart_card_common/requesting/request_id.h>
+#include <google_smart_card_common/requesting/request_receiver.h>
 #include <google_smart_card_common/requesting/request_result.h>
-#include <google_smart_card_common/requesting/requester_message.h>
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_conversion.h>
 #include <google_smart_card_common/value_debug_dumping.h>
@@ -45,7 +43,8 @@ using CardType = TestingSmartCardSimulation::CardType;
 using CcidIccStatus = TestingSmartCardSimulation::CcidIccStatus;
 using DeviceType = TestingSmartCardSimulation::DeviceType;
 
-const char* TestingSmartCardSimulation::kRequesterName = "libusb";
+const char* TestingSmartCardSimulation::kRequesterName =
+    "testing_smart_card_simulation";
 
 namespace {
 
@@ -521,51 +520,29 @@ std::vector<uint8_t> MakeNotifySlotChangeTransferReply(CcidIccStatus icc_status,
   return {0x50, status_byte};
 }
 
-void PostFakeJsResponse(RequestId request_id,
-                        GenericRequestResult result,
-                        TypedMessageRouter* typed_message_router) {
-  ResponseMessageData response_data;
-  response_data.request_id = request_id;
-  if (result.is_successful()) {
-    response_data.payload =
-        ArrayValueBuilder().Add(std::move(result).TakePayload()).Get();
-  } else {
-    response_data.error_message = result.error_message();
-  }
-
-  TypedMessage response;
-  response.type =
-      GetResponseMessageType(TestingSmartCardSimulation::kRequesterName);
-  response.data = ConvertToValueOrDie(std::move(response_data));
-
-  Value response_value = ConvertToValueOrDie(std::move(response));
-
-  std::string error_message;
-  if (!typed_message_router->OnMessageReceived(std::move(response_value),
-                                               &error_message)) {
-    GOOGLE_SMART_CARD_LOG_FATAL << "Dispatching fake JS reply failed: "
-                                << error_message;
-  }
-}
-
 }  // namespace
 
 TestingSmartCardSimulation::TestingSmartCardSimulation(
-    TypedMessageRouter* typed_message_router)
-    : typed_message_router_(typed_message_router),
-      handler_(typed_message_router_) {}
+    GlobalContext* global_context,
+    TypedMessageRouter* typed_message_router) {
+  GOOGLE_SMART_CARD_CHECK(global_context);
+  GOOGLE_SMART_CARD_CHECK(typed_message_router);
+  js_request_receiver_ = std::make_shared<JsRequestReceiver>(
+      kRequesterName,
+      /*request_handler=*/this, global_context, typed_message_router);
+}
 
 TestingSmartCardSimulation::~TestingSmartCardSimulation() = default;
 
-void TestingSmartCardSimulation::OnRequestToJs(RequestId request_id,
-                                               Value request_payload) {
+void TestingSmartCardSimulation::HandleRequest(
+    Value payload,
+    RequestReceiver::ResultCallback result_callback) {
   // Make the debug dump in advance, before we know whether we need to crash,
   // because we can't dump the value after std::move()'ing it.
-  const std::string payload_debug_dump = DebugDumpValueFull(request_payload);
+  const std::string payload_debug_dump = DebugDumpValueFull(payload);
 
   RemoteCallRequestPayload remote_call =
-      ConvertFromValueOrDie<RemoteCallRequestPayload>(
-          std::move(request_payload));
+      ConvertFromValueOrDie<RemoteCallRequestPayload>(std::move(payload));
   optional<GenericRequestResult> response;
   if (remote_call.function_name == "listDevices") {
     GOOGLE_SMART_CARD_CHECK(remote_call.arguments.empty());
@@ -612,18 +589,27 @@ void TestingSmartCardSimulation::OnRequestToJs(RequestId request_id,
   } else if (remote_call.function_name == "interruptTransfer") {
     GOOGLE_SMART_CARD_CHECK(remote_call.arguments.size() == 3);
     response = handler_.InterruptTransfer(
-        request_id,
         /*device_id=*/remote_call.arguments[0].GetInteger(),
         /*device_handle=*/remote_call.arguments[1].GetInteger(),
         ConvertFromValueOrDie<LibusbJsGenericTransferParameters>(
-            std::move(remote_call.arguments[2])));
+            std::move(remote_call.arguments[2])),
+        result_callback);
   } else {
     GOOGLE_SMART_CARD_LOG_FATAL << "Unexpected request: " << payload_debug_dump;
   }
 
   // Send a fake response if the handler returned any.
   if (response) {
-    PostFakeJsResponse(request_id, std::move(*response), typed_message_router_);
+    // TODO(emaxx): Let each method return an array instead.
+    GenericRequestResult response_as_array =
+        response->is_successful()
+            ? GenericRequestResult::CreateSuccessful(
+                  ArrayValueBuilder()
+                      .Add(std::move(*response).TakePayload())
+                      .Get())
+            : GenericRequestResult::CreateFailed(response->error_message());
+
+    result_callback(std::move(response_as_array));
   }
 }
 
@@ -662,9 +648,7 @@ TestingSmartCardSimulation::GetCardProfileApplicationIdentifier(
   GOOGLE_SMART_CARD_NOTREACHED;
 }
 
-TestingSmartCardSimulation::ThreadSafeHandler::ThreadSafeHandler(
-    TypedMessageRouter* typed_message_router)
-    : typed_message_router_(typed_message_router) {}
+TestingSmartCardSimulation::ThreadSafeHandler::ThreadSafeHandler() = default;
 
 TestingSmartCardSimulation::ThreadSafeHandler::~ThreadSafeHandler() = default;
 
@@ -831,10 +815,10 @@ TestingSmartCardSimulation::ThreadSafeHandler::BulkTransfer(
 
 optional<GenericRequestResult>
 TestingSmartCardSimulation::ThreadSafeHandler::InterruptTransfer(
-    RequestId request_id,
     int64_t device_id,
     int64_t device_handle,
-    LibusbJsGenericTransferParameters params) {
+    LibusbJsGenericTransferParameters params,
+    RequestReceiver::ResultCallback result_callback) {
   std::unique_lock<std::mutex> lock(mutex_);
   DeviceState* device_state =
       FindDeviceStateByIdAndHandle(device_id, device_handle);
@@ -846,7 +830,7 @@ TestingSmartCardSimulation::ThreadSafeHandler::InterruptTransfer(
   }
   // Don't reply immediately: the transfer will be resolved once a card
   // insertion/removal device event is simulated.
-  device_state->pending_interrupt_transfers.push(request_id);
+  device_state->pending_interrupt_transfers.push(result_callback);
   return {};
 }
 
@@ -998,16 +982,15 @@ void TestingSmartCardSimulation::ThreadSafeHandler::NotifySlotChange(
   if (device_state.pending_interrupt_transfers.empty())
     return;
 
-  const RequestId request_id = device_state.pending_interrupt_transfers.front();
+  RequestReceiver::ResultCallback result_callback =
+      device_state.pending_interrupt_transfers.front();
   device_state.pending_interrupt_transfers.pop();
 
   // Resolve the interrupt transfer with a RDR_to_PC_NotifySlotChange message.
   std::vector<uint8_t> transfer_result = MakeNotifySlotChangeTransferReply(
       device_state.icc_status, /*slot0_changed=*/true);
-  PostFakeJsResponse(
-      request_id,
-      GenericRequestResult::CreateSuccessful(Value(std::move(transfer_result))),
-      typed_message_router_);
+  result_callback(GenericRequestResult::CreateSuccessful(
+      Value(std::move(transfer_result))));
 }
 
 }  // namespace google_smart_card

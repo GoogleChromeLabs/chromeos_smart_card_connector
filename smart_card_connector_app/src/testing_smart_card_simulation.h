@@ -17,16 +17,18 @@
 
 #include <stdint.h>
 
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <set>
 #include <string>
 #include <vector>
 
+#include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
-#include <google_smart_card_common/requesting/request_id.h>
+#include <google_smart_card_common/requesting/js_request_receiver.h>
+#include <google_smart_card_common/requesting/request_receiver.h>
 #include <google_smart_card_common/requesting/request_result.h>
-#include <google_smart_card_common/requesting/requester_message.h>
 #include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/value.h>
 
@@ -48,7 +50,7 @@ namespace google_smart_card {
 // for Integrated Circuit(s) Cards Interface Devices", ISO/IEC 7816-3, ISO/IEC
 // 7816-4 and NIST 800-73-4. We focus primarily on flows and commands seen in
 // USB logs sniffed from real devices.
-class TestingSmartCardSimulation final {
+class TestingSmartCardSimulation final : public RequestHandler {
  public:
   // Fake device to simulate.
   enum class DeviceType { kGemaltoPcTwinReader, kDellSmartCardReaderKeyboard };
@@ -76,14 +78,16 @@ class TestingSmartCardSimulation final {
 
   static const char* kRequesterName;
 
-  explicit TestingSmartCardSimulation(TypedMessageRouter* typed_message_router);
+  TestingSmartCardSimulation(GlobalContext* global_context,
+                             TypedMessageRouter* typed_message_router);
   TestingSmartCardSimulation(const TestingSmartCardSimulation&) = delete;
   TestingSmartCardSimulation& operator=(const TestingSmartCardSimulation&) =
       delete;
   ~TestingSmartCardSimulation();
 
-  // Subscribe this to the C++-to-JS message channel.
-  void OnRequestToJs(RequestId request_id, Value request_payload);
+  // RequestHandler:
+  void HandleRequest(Value payload,
+                     RequestReceiver::ResultCallback result_callback) override;
 
   void SetDevices(const std::vector<Device>& devices);
 
@@ -101,7 +105,7 @@ class TestingSmartCardSimulation final {
     optional<int64_t> opened_device_handle;
     std::set<int64_t> claimed_interfaces;
     std::vector<uint8_t> next_bulk_transfer_reply;
-    std::queue<RequestId> pending_interrupt_transfers;
+    std::queue<RequestReceiver::ResultCallback> pending_interrupt_transfers;
     CcidIccStatus icc_status = CcidIccStatus::kNotPresent;
   };
 
@@ -110,7 +114,7 @@ class TestingSmartCardSimulation final {
    public:
     using DeviceState = TestingSmartCardSimulation::DeviceState;
 
-    explicit ThreadSafeHandler(TypedMessageRouter* typed_message_router);
+    ThreadSafeHandler();
     ThreadSafeHandler(const ThreadSafeHandler&) = delete;
     ThreadSafeHandler& operator=(const ThreadSafeHandler&) = delete;
     ~ThreadSafeHandler();
@@ -137,10 +141,10 @@ class TestingSmartCardSimulation final {
                                       int64_t device_handle,
                                       LibusbJsGenericTransferParameters params);
     optional<GenericRequestResult> InterruptTransfer(
-        RequestId request_id,
         int64_t device_id,
         int64_t device_handle,
-        LibusbJsGenericTransferParameters params);
+        LibusbJsGenericTransferParameters params,
+        RequestReceiver::ResultCallback result_callback);
 
    private:
     DeviceState* FindDeviceStateById(int64_t device_id);
@@ -155,13 +159,12 @@ class TestingSmartCardSimulation final {
     GenericRequestResult HandleInputBulkTransfer(int64_t length_to_receive,
                                                  DeviceState& device_state);
 
-    TypedMessageRouter* const typed_message_router_;
     std::mutex mutex_;
     std::vector<DeviceState> device_states_;
     int64_t next_free_device_handle_ = 1;
   };
 
-  TypedMessageRouter* const typed_message_router_;
+  std::shared_ptr<JsRequestReceiver> js_request_receiver_;
   ThreadSafeHandler handler_;
 };
 
