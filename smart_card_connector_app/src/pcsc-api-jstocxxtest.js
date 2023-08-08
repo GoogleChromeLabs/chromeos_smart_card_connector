@@ -21,6 +21,7 @@
  */
 
 goog.require('GoogleSmartCard.IntegrationTestController');
+goog.require('GoogleSmartCard.LibusbProxyReceiver');
 goog.require('GoogleSmartCard.MessageChannelPair');
 goog.require('GoogleSmartCard.Pcsc.PermissionsChecker');
 goog.require('GoogleSmartCard.PcscLiteClient.API');
@@ -52,6 +53,8 @@ class StubPermissionsChecker extends GSC.Pcsc.PermissionsChecker {
 
 /** @type {GSC.IntegrationTestController?} */
 let testController;
+/** @type {GSC.LibusbProxyReceiver?} */
+let libusbProxyReceiver;
 /** @type {ReadinessTracker?} */
 let pcscReadinessTracker;
 const stubPermissionsChecker = new StubPermissionsChecker();
@@ -80,11 +83,17 @@ async function establishContextOrThrow() {
 
 goog.exportSymbol('testPcscApi', {
   'setUp': async function() {
+    // Set up the controller and load the C/C++ executable module.
     testController = new GSC.IntegrationTestController();
     await testController.initAsync();
+    // Stub out necessary globals.
     ClientHandler.overridePermissionsCheckerForTesting(stubPermissionsChecker);
+    libusbProxyReceiver = new GSC.LibusbProxyReceiver(
+        testController.executableModule.getMessageChannel());
+    // Set up observers.
     pcscReadinessTracker = new ReadinessTracker(
         testController.executableModule.getMessageChannel());
+    // Launch the PC/SC server.
     await testController.setUpCppHelper(
         'SmartCardConnectorApplicationTestHelper', {});
   },
