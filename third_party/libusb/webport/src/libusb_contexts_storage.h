@@ -23,7 +23,7 @@
 
 #include <libusb.h>
 
-#include "libusb_opaque_types.h"
+#include "third_party/libusb/webport/src/libusb_opaque_types.h"
 
 namespace google_smart_card {
 

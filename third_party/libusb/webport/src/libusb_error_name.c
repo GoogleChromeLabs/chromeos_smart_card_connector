@@ -22,7 +22,7 @@
 
 #include <libusb.h>
 
-#include "config.h"
+#include "third_party/libusb/webport/src/config.h"
 
 /**
  * This function was borrowed from libusb sources (file libusb/core.c).

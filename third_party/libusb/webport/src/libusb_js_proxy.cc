@@ -14,7 +14,7 @@
 // License along with this library; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#include "libusb_js_proxy.h"
+#include "third_party/libusb/webport/src/libusb_js_proxy.h"
 
 #include <stdlib.h>
 
@@ -30,8 +30,8 @@
 #include "common/cpp/src/public/numeric_conversions.h"
 #include "common/cpp/src/public/requesting/request_result.h"
 
-#include "libusb_js_proxy_data_model.h"
 #include "third_party/libusb/webport/src/libusb_js_proxy_constants.h"
+#include "third_party/libusb/webport/src/libusb_js_proxy_data_model.h"
 
 namespace google_smart_card {
 

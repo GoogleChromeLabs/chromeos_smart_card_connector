@@ -14,7 +14,7 @@
 // License along with this library; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#include "libusb_tracing_wrapper.h"
+#include "third_party/libusb/webport/src/libusb_tracing_wrapper.h"
 
 #include <cstring>
 #include <string>
