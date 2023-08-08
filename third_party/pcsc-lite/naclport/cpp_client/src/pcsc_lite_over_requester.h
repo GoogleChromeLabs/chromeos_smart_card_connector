@@ -35,7 +35,7 @@
 #include "common/cpp/src/public/requesting/remote_call_adaptor.h"
 #include "common/cpp/src/public/requesting/request_result.h"
 #include "common/cpp/src/public/requesting/requester.h"
-#include <google_smart_card_pcsc_lite_common/pcsc_lite.h>
+#include "third_party/pcsc-lite/naclport/common/src/google_smart_card_pcsc_lite_common/pcsc_lite.h"
 
 namespace google_smart_card {
 

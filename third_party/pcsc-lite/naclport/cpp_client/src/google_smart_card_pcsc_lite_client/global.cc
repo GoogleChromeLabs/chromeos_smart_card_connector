@@ -37,10 +37,9 @@
 #include "common/cpp/src/public/requesting/js_requester.h"
 #include "common/cpp/src/public/requesting/requester.h"
 #include "common/cpp/src/public/unique_ptr_utils.h"
-#include <google_smart_card_pcsc_lite_common/pcsc_lite.h>
-#include <google_smart_card_pcsc_lite_common/pcsc_lite_tracing_wrapper.h>
-
-#include "pcsc_lite_over_requester.h"
+#include "third_party/pcsc-lite/naclport/common/src/google_smart_card_pcsc_lite_common/pcsc_lite.h"
+#include "third_party/pcsc-lite/naclport/common/src/google_smart_card_pcsc_lite_common/pcsc_lite_tracing_wrapper.h"
+#include "third_party/pcsc-lite/naclport/cpp_client/src/pcsc_lite_over_requester.h"
 
 namespace {
 

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "admin_policy_getter.h"
+#include "third_party/pcsc-lite/naclport/server_clients_management/src/admin_policy_getter.h"
 
 #include <condition_variable>
 #include <string>

@@ -23,11 +23,10 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 // THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <google_smart_card_pcsc_lite_server_clients_management/backend.h>
-
-#include "clients_manager.h"
+#include "third_party/pcsc-lite/naclport/server_clients_management/src/google_smart_card_pcsc_lite_server_clients_management/backend.h"
 
 #include "common/cpp/src/public/global_context.h"
+#include "third_party/pcsc-lite/naclport/server_clients_management/src/clients_manager.h"
 
 namespace google_smart_card {
 

@@ -60,8 +60,7 @@ extern "C" {
 
 #include "common/cpp/src/public/ipc_emulation.h"
 #include "common/cpp/src/public/logging/logging.h"
-
-#include "server_sockets_manager.h"
+#include "third_party/pcsc-lite/naclport/server/src/server_sockets_manager.h"
 
 using google_smart_card::IpcEmulation;
 

@@ -23,7 +23,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 // THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "pcsc_lite_over_requester.h"
+#include "third_party/pcsc-lite/naclport/cpp_client/src/pcsc_lite_over_requester.h"
 
 #include <stdint.h>
 
@@ -38,7 +38,7 @@
 #include "common/cpp/src/public/logging/logging.h"
 #include "common/cpp/src/public/multi_string.h"
 #include "common/cpp/src/public/requesting/remote_call_arguments_conversion.h"
-#include <google_smart_card_pcsc_lite_common/scard_structs_serialization.h>
+#include "third_party/pcsc-lite/naclport/common/src/google_smart_card_pcsc_lite_common/scard_structs_serialization.h"
 
 namespace google_smart_card {
 
