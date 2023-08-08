@@ -38,6 +38,7 @@ goog.scope(function() {
 const GSC = GoogleSmartCard;
 const ClientHandler = GSC.PcscLiteServerClientsManagement.ClientHandler;
 const ReadinessTracker = GSC.PcscLiteServerClientsManagement.ReadinessTracker;
+const API = GSC.PcscLiteClient.API;
 
 /**
  * Stub that approves any client to make PC/SC calls.
@@ -56,8 +57,26 @@ let pcscReadinessTracker;
 const stubPermissionsChecker = new StubPermissionsChecker();
 /** @type {ClientHandler?} */
 let clientHandler;
-/** @type {GSC.PcscLiteClient.API?} */
+/** @type {API?} */
 let api;
+
+/**
+ * Shorthand for obtaining the PC/SC context.
+ * @return {!Promise<!API.SCARDCONTEXT>}
+ */
+async function establishContextOrThrow() {
+  const result =
+      await api.SCardEstablishContext(API.SCARD_SCOPE_SYSTEM, null, null);
+  let sCardContext;
+  result.get(
+      (context) => {
+        sCardContext = context;
+      },
+      (errorCode) => {
+        fail(`Unexpected error ${errorCode}`);
+      });
+  return sCardContext;
+}
 
 goog.exportSymbol('testPcscApi', {
   'setUp': async function() {
@@ -93,7 +112,7 @@ goog.exportSymbol('testPcscApi', {
           testController.executableModule.getMessageChannel(),
           pcscReadinessTracker.promise, apiMessageChannelPair.getFirst(),
           /*clientOrigin=*/ undefined);
-      api = new GSC.PcscLiteClient.API(apiMessageChannelPair.getSecond());
+      api = new API(apiMessageChannelPair.getSecond());
     },
 
     'tearDown': function() {
@@ -102,9 +121,9 @@ goog.exportSymbol('testPcscApi', {
     },
 
     // Test `SCardEstablishContext()`.
-    'testScardEstablishContext': async function() {
-      const result = await api.SCardEstablishContext(
-          GSC.PcscLiteClient.API.SCARD_SCOPE_SYSTEM, null, null);
+    'testSCardEstablishContext': async function() {
+      const result =
+          await api.SCardEstablishContext(API.SCARD_SCOPE_SYSTEM, null, null);
       let sCardContext;
       result.get(
           (context) => {
@@ -114,13 +133,13 @@ goog.exportSymbol('testPcscApi', {
             fail(`Unexpected error ${errorCode}`);
           });
       assert(Number.isInteger(sCardContext));
+      assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
     },
 
     // Test `SCardEstablishContext()` when it's called without providing
     // optional arguments.
-    'testScardEstablishContext_omittedOptionalArgs': async function() {
-      const result = await api.SCardEstablishContext(
-          GSC.PcscLiteClient.API.SCARD_SCOPE_SYSTEM);
+    'testSCardEstablishContext_omittedOptionalArgs': async function() {
+      const result = await api.SCardEstablishContext(API.SCARD_SCOPE_SYSTEM);
       let sCardContext;
       result.get(
           (context) => {
@@ -130,6 +149,63 @@ goog.exportSymbol('testPcscApi', {
             fail(`Unexpected error ${errorCode}`);
           });
       assert(Number.isInteger(sCardContext));
+      assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
+    },
+
+    // Test `testSCardReleaseContext()` with the correct handle.
+    'testSCardReleaseContext_correct': async function() {
+      const context = await establishContextOrThrow();
+
+      const result = await api.SCardReleaseContext(context);
+      let called = false;
+      result.get(
+          () => {
+            called = true;
+          },
+          (errorCode) => {
+            fail(`Unexpected error ${errorCode}`);
+          });
+      assert(called);
+      assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
+    },
+
+    // Test `testSCardReleaseContext()` fails on a wrong handle when there's no
+    // established handle at all.
+    'testSCardReleaseContext_none': async function() {
+      const BAD_CONTEXT = 123;
+
+      const result = await api.SCardReleaseContext(BAD_CONTEXT);
+      let called = false;
+      result.get(
+          () => {
+            fail('Unexpectedly succeeded');
+          },
+          (errorCode) => {
+            called = true;
+            assertEquals(errorCode, API.SCARD_E_INVALID_HANDLE);
+          });
+      assert(called);
+      assertEquals(result.getErrorCode(), API.SCARD_E_INVALID_HANDLE);
+    },
+
+    // Test `testSCardReleaseContext()` fails on a wrong handle when there's
+    // another established handle.
+    'testSCardReleaseContext_different': async function() {
+      const context = await establishContextOrThrow();
+      const badContext = context ^ 1;
+
+      const result = await api.SCardReleaseContext(badContext);
+      let called = false;
+      result.get(
+          () => {
+            fail('Unexpectedly succeeded');
+          },
+          (errorCode) => {
+            called = true;
+            assertEquals(errorCode, API.SCARD_E_INVALID_HANDLE);
+          });
+      assert(called);
+      assertEquals(result.getErrorCode(), API.SCARD_E_INVALID_HANDLE);
     },
   },
 });
