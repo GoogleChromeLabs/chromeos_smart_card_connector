@@ -557,17 +557,15 @@ TestingSmartCardSimulation::TestingSmartCardSimulation(
 
 TestingSmartCardSimulation::~TestingSmartCardSimulation() = default;
 
-void TestingSmartCardSimulation::OnRequestToJs(optional<Value> request_payload,
-                                               optional<RequestId> request_id) {
-  GOOGLE_SMART_CARD_CHECK(request_payload);
-  GOOGLE_SMART_CARD_CHECK(request_id);
+void TestingSmartCardSimulation::OnRequestToJs(RequestId request_id,
+                                               Value request_payload) {
   // Make the debug dump in advance, before we know whether we need to crash,
   // because we can't dump the value after std::move()'ing it.
-  const std::string payload_debug_dump = DebugDumpValueFull(*request_payload);
+  const std::string payload_debug_dump = DebugDumpValueFull(request_payload);
 
   RemoteCallRequestPayload remote_call =
       ConvertFromValueOrDie<RemoteCallRequestPayload>(
-          std::move(*request_payload));
+          std::move(request_payload));
   optional<GenericRequestResult> response;
   if (remote_call.function_name == "listDevices") {
     GOOGLE_SMART_CARD_CHECK(remote_call.arguments.empty());
@@ -614,7 +612,7 @@ void TestingSmartCardSimulation::OnRequestToJs(optional<Value> request_payload,
   } else if (remote_call.function_name == "interruptTransfer") {
     GOOGLE_SMART_CARD_CHECK(remote_call.arguments.size() == 3);
     response = handler_.InterruptTransfer(
-        *request_id,
+        request_id,
         /*device_id=*/remote_call.arguments[0].GetInteger(),
         /*device_handle=*/remote_call.arguments[1].GetInteger(),
         ConvertFromValueOrDie<LibusbJsGenericTransferParameters>(
@@ -625,8 +623,7 @@ void TestingSmartCardSimulation::OnRequestToJs(optional<Value> request_payload,
 
   // Send a fake response if the handler returned any.
   if (response) {
-    PostFakeJsResponse(*request_id, std::move(*response),
-                       typed_message_router_);
+    PostFakeJsResponse(request_id, std::move(*response), typed_message_router_);
   }
 }
 

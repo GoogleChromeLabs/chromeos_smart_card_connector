@@ -136,14 +136,36 @@ TestingGlobalContext::Waiter::Waiter(
     : typed_message_router_(typed_message_router),
       requester_name_(requester_name) {}
 
-void TestingGlobalContext::Waiter::Resolve(optional<Value> value,
-                                           optional<RequestId> request_id) {
+void TestingGlobalContext::Waiter::ResolveWithMessageData(Value message_data) {
   std::unique_lock<std::mutex> lock(mutex_);
 
   GOOGLE_SMART_CARD_CHECK(!resolved_);
   resolved_ = true;
-  value_ = std::move(value);
+  value_ = std::move(message_data);
+  condition_.notify_one();
+}
+
+void TestingGlobalContext::Waiter::ResolveWithRequestPayload(
+    RequestId request_id,
+    Value request_payload) {
+  std::unique_lock<std::mutex> lock(mutex_);
+
+  GOOGLE_SMART_CARD_CHECK(!resolved_);
+  resolved_ = true;
   request_id_ = request_id;
+  value_ = std::move(request_payload);
+  condition_.notify_one();
+}
+
+void TestingGlobalContext::Waiter::ResolveWithResponsePayload(
+    RequestId request_id,
+    optional<Value> response_payload) {
+  std::unique_lock<std::mutex> lock(mutex_);
+
+  GOOGLE_SMART_CARD_CHECK(!resolved_);
+  resolved_ = true;
+  request_id_ = request_id;
+  value_ = std::move(response_payload);
   condition_.notify_one();
 }
 
@@ -173,20 +195,20 @@ void TestingGlobalContext::ShutDown() {}
 
 void TestingGlobalContext::RegisterMessageHandler(
     const std::string& message_type,
-    Callback callback_to_run) {
+    MessageCallback callback_to_run) {
   Expectation expectation;
   expectation.awaited_message_type = message_type;
-  expectation.callback_to_run = callback_to_run;
+  expectation.callback_storage.message_callback = callback_to_run;
   expectation.once = false;
   AddExpectation(std::move(expectation));
 }
 
 void TestingGlobalContext::RegisterRequestHandler(
     const std::string& requester_name,
-    Callback callback_to_run) {
+    RequestCallback callback_to_run) {
   Expectation expectation;
   expectation.awaited_message_type = GetRequestMessageType(requester_name);
-  expectation.callback_to_run = callback_to_run;
+  expectation.callback_storage.request_callback = callback_to_run;
   expectation.once = false;
   AddExpectation(std::move(expectation));
 }
@@ -199,9 +221,9 @@ TestingGlobalContext::CreateMessageWaiter(
       new Waiter(typed_message_router_, /*requester_name=*/{}));
   Expectation expectation;
   expectation.awaited_message_type = awaited_message_type;
-  expectation.callback_to_run =
-      std::bind(&Waiter::Resolve, waiter.get(), /*value=*/std::placeholders::_1,
-                /*request_id=*/std::placeholders::_2);
+  expectation.callback_storage.message_callback =
+      std::bind(&Waiter::ResolveWithMessageData, waiter.get(),
+                /*message_data=*/std::placeholders::_1);
   AddExpectation(std::move(expectation));
   return waiter;
 }
@@ -214,8 +236,9 @@ TestingGlobalContext::CreateRequestWaiter(const std::string& requester_name,
   std::unique_ptr<Waiter> waiter(
       new Waiter(typed_message_router_, requester_name));
   auto callback_to_run =
-      std::bind(&Waiter::Resolve, waiter.get(), /*value=*/std::placeholders::_1,
-                /*request_id=*/std::placeholders::_2);
+      std::bind(&Waiter::ResolveWithRequestPayload, waiter.get(),
+                /*request_id=*/std::placeholders::_1,
+                /*request_payload=*/std::placeholders::_2);
   AddExpectation(MakeRequestExpectation(requester_name, function_name,
                                         std::move(arguments), callback_to_run));
   return waiter;
@@ -230,9 +253,10 @@ TestingGlobalContext::CreateResponseWaiter(const std::string& requester_name,
   Expectation expectation;
   expectation.awaited_message_type = GetResponseMessageType(requester_name);
   expectation.awaited_request_id = request_id;
-  expectation.callback_to_run =
-      std::bind(&Waiter::Resolve, waiter.get(), /*value=*/std::placeholders::_1,
-                /*request_id=*/std::placeholders::_2);
+  expectation.callback_storage.response_callback =
+      std::bind(&Waiter::ResolveWithResponsePayload, waiter.get(),
+                /*request_id=*/std::placeholders::_1,
+                /*request_payload=*/std::placeholders::_2);
   AddExpectation(std::move(expectation));
   return waiter;
 }
@@ -250,8 +274,8 @@ void TestingGlobalContext::WillReplyToRequestWith(
   auto callback_to_run = std::bind(
       &PostFakeJsReply, typed_message_router_, requester_name,
       payload_shared_ptr, /*error_to_reply_with=*/optional<std::string>(),
-      /*request_payload=*/std::placeholders::_1,
-      /*request_id=*/std::placeholders::_2);
+      /*request_payload=*/std::placeholders::_2,
+      /*request_id=*/std::placeholders::_1);
 
   AddExpectation(MakeRequestExpectation(requester_name, function_name,
                                         std::move(arguments), callback_to_run));
@@ -265,8 +289,8 @@ void TestingGlobalContext::WillReplyToRequestWithError(
   auto callback_to_run = std::bind(
       &PostFakeJsReply, typed_message_router_, requester_name,
       /*payload_to_reply_with=*/std::shared_ptr<Value>(), error_to_reply_with,
-      /*request_payload=*/std::placeholders::_1,
-      /*request_id=*/std::placeholders::_2);
+      /*request_payload=*/std::placeholders::_2,
+      /*request_id=*/std::placeholders::_1);
 
   AddExpectation(MakeRequestExpectation(requester_name, function_name,
                                         std::move(arguments), callback_to_run));
@@ -276,7 +300,7 @@ TestingGlobalContext::Expectation TestingGlobalContext::MakeRequestExpectation(
     const std::string& requester_name,
     const std::string& function_name,
     Value arguments,
-    Callback callback_to_run) {
+    RequestCallback callback_to_run) {
   GOOGLE_SMART_CARD_CHECK(arguments.is_array());
 
   RemoteCallRequestPayload request_payload;
@@ -293,7 +317,7 @@ TestingGlobalContext::Expectation TestingGlobalContext::MakeRequestExpectation(
   expectation.awaited_message_type = GetRequestMessageType(requester_name);
   expectation.awaited_request_payload =
       ConvertToValueOrDie(std::move(request_payload));
-  expectation.callback_to_run = callback_to_run;
+  expectation.callback_storage.request_callback = callback_to_run;
   return expectation;
 }
 
@@ -303,7 +327,7 @@ void TestingGlobalContext::AddExpectation(Expectation expectation) {
   expectations_.push_back(std::move(expectation));
 }
 
-optional<TestingGlobalContext::Callback>
+optional<TestingGlobalContext::CallbackStorage>
 TestingGlobalContext::FindMatchingExpectation(const std::string& message_type,
                                               optional<RequestId> request_id,
                                               const Value* request_payload) {
@@ -335,7 +359,7 @@ TestingGlobalContext::FindMatchingExpectation(const std::string& message_type,
       continue;
     }
     // A match found. Remove the expectation if it's a one-time.
-    Callback result = expectation.callback_to_run;
+    CallbackStorage result = expectation.callback_storage;
     if (expectation.once)
       expectations_.erase(iter);
     return result;
@@ -376,18 +400,30 @@ bool TestingGlobalContext::HandleMessageToJs(Value message) {
 
   // Find the callback for the message type, request ID and, if it's a request
   // message, the request payload.
-  optional<Callback> callback_to_run =
+  optional<CallbackStorage> callback_storage =
       FindMatchingExpectation(typed_message.type, request_id,
                               request_payload ? &*request_payload : nullptr);
-  if (!callback_to_run)
+  if (!callback_storage)
     return false;
 
-  // Run the callback and pass the value (taken from one of three variables,
-  // depending on the branch taken above) to it.
-  (*callback_to_run)(request_payload    ? std::move(request_payload)
-                     : response_payload ? std::move(response_payload)
-                                        : std::move(message_data),
-                     request_id);
+  // Run the provided callback (it's stored in one of the fields of the
+  // union-like struct).
+  if (callback_storage->message_callback) {
+    GOOGLE_SMART_CARD_CHECK(message_data);
+    callback_storage->message_callback(std::move(*message_data));
+  } else if (callback_storage->request_callback) {
+    GOOGLE_SMART_CARD_CHECK(request_id);
+    GOOGLE_SMART_CARD_CHECK(request_payload);
+    callback_storage->request_callback(*request_id,
+                                       std::move(*request_payload));
+  } else if (callback_storage->response_callback) {
+    GOOGLE_SMART_CARD_CHECK(request_id);
+    callback_storage->response_callback(*request_id,
+                                        std::move(response_payload));
+  } else {
+    GOOGLE_SMART_CARD_NOTREACHED;
+  }
+
   return true;
 }
 

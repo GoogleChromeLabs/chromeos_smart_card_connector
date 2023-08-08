@@ -37,11 +37,13 @@ namespace google_smart_card {
 // the messages sent to the JavaScript side and to simulate responses from it.
 class TestingGlobalContext final : public GlobalContext {
  public:
-  // Callback to be run when an expected message is sent to JS. For
-  // request/response messages, the parameters are `RequestMessageData::payload`
-  // and `RequestMessageData::request_id`. For other messages, only
-  // `TypedMessage::data` is passed.
-  using Callback = std::function<void(optional<Value>, optional<RequestId>)>;
+  // Callbacks to be run when an expected message is sent to JS.
+  using MessageCallback = std::function<void(Value message_data)>;
+  using RequestCallback =
+      std::function<void(RequestId request_id, Value request_payload)>;
+  using ResponseCallback =
+      std::function<void(RequestId request_id,
+                         optional<Value> response_payload)>;
 
   // Helper returned by `Create...Waiter()` methods. Allows to wait until the
   // specified C++-to-JS message is sent.
@@ -64,7 +66,10 @@ class TestingGlobalContext final : public GlobalContext {
     Waiter(TypedMessageRouter* typed_message_router,
            const optional<std::string>& requester_name);
 
-    void Resolve(optional<Value> value, optional<RequestId> request_id);
+    void ResolveWithMessageData(Value message_data);
+    void ResolveWithRequestPayload(RequestId request_id, Value request_payload);
+    void ResolveWithResponsePayload(RequestId request_id,
+                                    optional<Value> response_payload);
 
     TypedMessageRouter* const typed_message_router_;
     const optional<std::string> requester_name_;
@@ -94,10 +99,10 @@ class TestingGlobalContext final : public GlobalContext {
   // Set a callback to be called whenever a message with the given type is sent
   // to JS.
   void RegisterMessageHandler(const std::string& message_type,
-                              Callback callback_to_run);
+                              MessageCallback callback_to_run);
   // Set a callback to be called whenever a request is sent to JS.
   void RegisterRequestHandler(const std::string& requester_name,
-                              Callback callback_to_run);
+                              RequestCallback callback_to_run);
 
   // Returns a waiter for when a message with the specified type arrives.
   std::unique_ptr<Waiter> CreateMessageWaiter(
@@ -127,6 +132,14 @@ class TestingGlobalContext final : public GlobalContext {
                                    const std::string& error_to_reply_with);
 
  private:
+  // Stores the passed callback. It's essentially a union, since exactly one of
+  // the fields must be populated.
+  struct CallbackStorage {
+    MessageCallback message_callback;
+    RequestCallback request_callback;
+    ResponseCallback response_callback;
+  };
+
   struct Expectation {
     // Filter fields:
     // * The expectation only matches messages with the given
@@ -140,7 +153,7 @@ class TestingGlobalContext final : public GlobalContext {
     optional<Value> awaited_request_payload;
 
     // The callback to trigger when the expectation is met.
-    Callback callback_to_run;
+    CallbackStorage callback_storage;
 
     // Whether the expectation is a one-time.
     bool once = true;
@@ -149,11 +162,12 @@ class TestingGlobalContext final : public GlobalContext {
   Expectation MakeRequestExpectation(const std::string& requester_name,
                                      const std::string& function_name,
                                      Value arguments,
-                                     Callback callback_to_run);
+                                     RequestCallback callback_to_run);
   void AddExpectation(Expectation expectation);
-  optional<Callback> FindMatchingExpectation(const std::string& message_type,
-                                             optional<RequestId> request_id,
-                                             const Value* request_payload);
+  optional<CallbackStorage> FindMatchingExpectation(
+      const std::string& message_type,
+      optional<RequestId> request_id,
+      const Value* request_payload);
   bool HandleMessageToJs(Value message);
 
   TypedMessageRouter* const typed_message_router_;
