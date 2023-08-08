@@ -27,6 +27,8 @@
 #include <google_smart_card_integration_testing/integration_test_helper.h>
 #include <google_smart_card_integration_testing/integration_test_service.h>
 
+#include "smart_card_connector_app/src/testing_smart_card_simulation.h"
+
 namespace google_smart_card {
 
 // The helper that can be used in JS-to-C++ tests to run the core functionality
@@ -46,6 +48,7 @@ class SmartCardConnectorApplicationTestHelper final
       RequestReceiver::ResultCallback result_callback) override;
 
  private:
+  std::unique_ptr<TestingSmartCardSimulation> smart_card_simulation_;
   std::unique_ptr<Application> application_;
 };
 
@@ -64,6 +67,8 @@ void SmartCardConnectorApplicationTestHelper::SetUp(
     TypedMessageRouter* typed_message_router,
     Value /*data*/,
     RequestReceiver::ResultCallback result_callback) {
+  smart_card_simulation_ = MakeUnique<TestingSmartCardSimulation>(
+      global_context, typed_message_router);
   application_ = MakeUnique<Application>(global_context, typed_message_router,
                                          std::function<void()>());
   // Note: We don't wait until the application completes its initialization on
@@ -79,6 +84,7 @@ void SmartCardConnectorApplicationTestHelper::TearDown(
   std::thread([this, completion_callback] {
     application_->ShutDownAndWait();
     application_.reset();
+    smart_card_simulation_.reset();
     completion_callback();
   }).detach();
 }
