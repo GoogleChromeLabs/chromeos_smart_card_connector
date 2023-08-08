@@ -29,7 +29,7 @@
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_debug_dumping.h"
 #include "common/cpp/src/public/value_nacl_pp_var_conversion.h"
-#include <google_smart_card_integration_testing/integration_test_service.h>
+#include "common/integration_testing/src/google_smart_card_integration_testing/integration_test_service.h"
 
 namespace google_smart_card {
 
