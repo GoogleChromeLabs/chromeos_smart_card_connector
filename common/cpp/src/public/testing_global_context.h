@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef GOOGLE_SMART_CARD_COMMON_TESTING_GLOBAL_CONTEXT_H_
-#define GOOGLE_SMART_CARD_COMMON_TESTING_GLOBAL_CONTEXT_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_TESTING_GLOBAL_CONTEXT_H_
+#define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_TESTING_GLOBAL_CONTEXT_H_
 
 #include <condition_variable>
 #include <deque>
@@ -23,13 +23,13 @@
 #include <string>
 #include <thread>
 
-#include "common/cpp/src/google_smart_card_common/global_context.h"
-#include "common/cpp/src/google_smart_card_common/messaging/typed_message.h"
-#include "common/cpp/src/google_smart_card_common/messaging/typed_message_router.h"
-#include "common/cpp/src/google_smart_card_common/optional.h"
-#include "common/cpp/src/google_smart_card_common/requesting/request_id.h"
-#include "common/cpp/src/google_smart_card_common/requesting/requester_message.h"
-#include "common/cpp/src/google_smart_card_common/value.h"
+#include "common/cpp/src/public/global_context.h"
+#include "common/cpp/src/public/messaging/typed_message.h"
+#include "common/cpp/src/public/messaging/typed_message_router.h"
+#include "common/cpp/src/public/optional.h"
+#include "common/cpp/src/public/requesting/request_id.h"
+#include "common/cpp/src/public/requesting/requester_message.h"
+#include "common/cpp/src/public/value.h"
 
 namespace google_smart_card {
 
@@ -197,4 +197,4 @@ class TestingGlobalContext final : public GlobalContext {
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_COMMON_TESTING_GLOBAL_CONTEXT_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_TESTING_GLOBAL_CONTEXT_H_

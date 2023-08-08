@@ -17,15 +17,15 @@
 #include <thread>
 #include <utility>
 
-#include "common/cpp/src/google_smart_card_common/global_context.h"
-#include "common/cpp/src/google_smart_card_common/logging/function_call_tracer.h"
-#include "common/cpp/src/google_smart_card_common/logging/logging.h"
-#include "common/cpp/src/google_smart_card_common/requesting/remote_call_arguments_conversion.h"
-#include "common/cpp/src/google_smart_card_common/requesting/remote_call_message.h"
-#include "common/cpp/src/google_smart_card_common/requesting/request_result.h"
-#include "common/cpp/src/google_smart_card_common/unique_ptr_utils.h"
-#include "common/cpp/src/google_smart_card_common/value.h"
-#include "common/cpp/src/google_smart_card_common/value_conversion.h"
+#include "common/cpp/src/public/global_context.h"
+#include "common/cpp/src/public/logging/function_call_tracer.h"
+#include "common/cpp/src/public/logging/logging.h"
+#include "common/cpp/src/public/requesting/remote_call_arguments_conversion.h"
+#include "common/cpp/src/public/requesting/remote_call_message.h"
+#include "common/cpp/src/public/requesting/request_result.h"
+#include "common/cpp/src/public/unique_ptr_utils.h"
+#include "common/cpp/src/public/value.h"
+#include "common/cpp/src/public/value_conversion.h"
 
 namespace scc = smart_card_client;
 namespace gsc = google_smart_card;

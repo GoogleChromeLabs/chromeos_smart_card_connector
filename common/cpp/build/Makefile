@@ -21,60 +21,56 @@ include $(COMMON_DIR_PATH)/make/executable_building.mk
 include ../include.mk
 
 
-ROOT_SOURCES_PATH := ../src
-
-ROOT_SOURCES_SUBDIR := google_smart_card_common
-
-SOURCES_PATH := $(ROOT_SOURCES_PATH)/$(ROOT_SOURCES_SUBDIR)
+SOURCES_PATH := ../src
 
 SOURCES := \
-	$(SOURCES_PATH)/formatting.cc \
-	$(SOURCES_PATH)/ipc_emulation.cc \
-	$(SOURCES_PATH)/logging/function_call_tracer.cc \
-	$(SOURCES_PATH)/logging/hex_dumping.cc \
-	$(SOURCES_PATH)/logging/logging.cc \
-	$(SOURCES_PATH)/logging/syslog/syslog.cc \
-	$(SOURCES_PATH)/messaging/typed_message.cc \
-	$(SOURCES_PATH)/messaging/typed_message_router.cc \
-	$(SOURCES_PATH)/multi_string.cc \
-	$(SOURCES_PATH)/numeric_conversions.cc \
-	$(SOURCES_PATH)/requesting/js_request_receiver.cc \
-	$(SOURCES_PATH)/requesting/js_requester.cc \
-	$(SOURCES_PATH)/requesting/remote_call_adaptor.cc \
-	$(SOURCES_PATH)/requesting/remote_call_arguments_conversion.cc \
-	$(SOURCES_PATH)/requesting/remote_call_message.cc \
-	$(SOURCES_PATH)/requesting/request_receiver.cc \
-	$(SOURCES_PATH)/requesting/request_result.cc \
-	$(SOURCES_PATH)/requesting/requester.cc \
-	$(SOURCES_PATH)/requesting/requester_message.cc \
-	$(SOURCES_PATH)/value.cc \
-	$(SOURCES_PATH)/value_conversion.cc \
-	$(SOURCES_PATH)/value_debug_dumping.cc \
-	$(ROOT_SOURCES_PATH)/public/testing_global_context.cc \
-	$(ROOT_SOURCES_PATH)/public/value_builder.cc \
+	$(SOURCES_PATH)/public/formatting.cc \
+	$(SOURCES_PATH)/public/ipc_emulation.cc \
+	$(SOURCES_PATH)/public/logging/function_call_tracer.cc \
+	$(SOURCES_PATH)/public/logging/hex_dumping.cc \
+	$(SOURCES_PATH)/public/logging/logging.cc \
+	$(SOURCES_PATH)/public/logging/syslog/syslog.cc \
+	$(SOURCES_PATH)/public/messaging/typed_message.cc \
+	$(SOURCES_PATH)/public/messaging/typed_message_router.cc \
+	$(SOURCES_PATH)/public/multi_string.cc \
+	$(SOURCES_PATH)/public/numeric_conversions.cc \
+	$(SOURCES_PATH)/public/requesting/js_request_receiver.cc \
+	$(SOURCES_PATH)/public/requesting/js_requester.cc \
+	$(SOURCES_PATH)/public/requesting/remote_call_adaptor.cc \
+	$(SOURCES_PATH)/public/requesting/remote_call_arguments_conversion.cc \
+	$(SOURCES_PATH)/public/requesting/remote_call_message.cc \
+	$(SOURCES_PATH)/public/requesting/request_receiver.cc \
+	$(SOURCES_PATH)/public/requesting/request_result.cc \
+	$(SOURCES_PATH)/public/requesting/requester.cc \
+	$(SOURCES_PATH)/public/requesting/requester_message.cc \
+	$(SOURCES_PATH)/public/testing_global_context.cc \
+	$(SOURCES_PATH)/public/value.cc \
+	$(SOURCES_PATH)/public/value_builder.cc \
+	$(SOURCES_PATH)/public/value_conversion.cc \
+	$(SOURCES_PATH)/public/value_debug_dumping.cc \
 
 ifeq ($(TOOLCHAIN),pnacl)
 
 SOURCES += \
-	$(SOURCES_PATH)/global_context_impl_nacl.cc \
-	$(SOURCES_PATH)/nacl_io_utils.cc \
-	$(SOURCES_PATH)/value_nacl_pp_var_conversion.cc \
+	$(SOURCES_PATH)/public/global_context_impl_nacl.cc \
+	$(SOURCES_PATH)/public/nacl_io_utils.cc \
+	$(SOURCES_PATH)/public/value_nacl_pp_var_conversion.cc \
 
 # TODO(#185): Migrate these to support the Emscripten toolchain as well.
 SOURCES += \
-	$(SOURCES_PATH)/external_logs_printer.cc \
+	$(SOURCES_PATH)/public/external_logs_printer.cc \
 
 else ifeq ($(TOOLCHAIN),emscripten)
 
 SOURCES += \
-	$(SOURCES_PATH)/global_context_impl_emscripten.cc \
-	$(SOURCES_PATH)/value_emscripten_val_conversion.cc \
+	$(SOURCES_PATH)/public/global_context_impl_emscripten.cc \
+	$(SOURCES_PATH)/public/value_emscripten_val_conversion.cc \
 
 endif
 
 CXXFLAGS := \
 	-I$(ROOT_PATH) \
-	-I$(ROOT_SOURCES_PATH)/ \
+	-I$(SOURCES_PATH)/ \
 	-pedantic \
 	-Wall \
 	-Werror \

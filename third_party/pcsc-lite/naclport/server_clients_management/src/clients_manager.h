@@ -32,13 +32,13 @@
 #include <string>
 #include <unordered_map>
 
-#include "common/cpp/src/google_smart_card_common/global_context.h"
-#include "common/cpp/src/google_smart_card_common/messaging/typed_message_listener.h"
-#include "common/cpp/src/google_smart_card_common/messaging/typed_message_router.h"
-#include "common/cpp/src/google_smart_card_common/requesting/js_request_receiver.h"
-#include "common/cpp/src/google_smart_card_common/requesting/request_handler.h"
-#include "common/cpp/src/google_smart_card_common/requesting/request_receiver.h"
-#include "common/cpp/src/google_smart_card_common/value.h"
+#include "common/cpp/src/public/global_context.h"
+#include "common/cpp/src/public/messaging/typed_message_listener.h"
+#include "common/cpp/src/public/messaging/typed_message_router.h"
+#include "common/cpp/src/public/requesting/js_request_receiver.h"
+#include "common/cpp/src/public/requesting/request_handler.h"
+#include "common/cpp/src/public/requesting/request_receiver.h"
+#include "common/cpp/src/public/value.h"
 
 #include "admin_policy_getter.h"
 #include "client_request_processor.h"

@@ -26,9 +26,9 @@
 #include <utility>
 #include <vector>
 
-#include "common/cpp/src/google_smart_card_common/logging/logging.h"
-#include "common/cpp/src/google_smart_card_common/numeric_conversions.h"
-#include "common/cpp/src/google_smart_card_common/requesting/request_result.h"
+#include "common/cpp/src/public/logging/logging.h"
+#include "common/cpp/src/public/numeric_conversions.h"
+#include "common/cpp/src/public/requesting/request_result.h"
 
 #include "libusb_js_proxy_data_model.h"
 #include "third_party/libusb/webport/src/libusb_js_proxy_constants.h"

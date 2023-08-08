@@ -18,14 +18,14 @@
 #include <thread>
 #include <utility>
 
-#include "common/cpp/src/google_smart_card_common/global_context.h"
-#include "common/cpp/src/google_smart_card_common/logging/logging.h"
-#include "common/cpp/src/google_smart_card_common/messaging/typed_message.h"
-#include "common/cpp/src/google_smart_card_common/messaging/typed_message_router.h"
-#include "common/cpp/src/google_smart_card_common/unique_ptr_utils.h"
-#include "common/cpp/src/google_smart_card_common/value.h"
-#include "common/cpp/src/google_smart_card_common/value_conversion.h"
-#include "common/cpp/src/google_smart_card_common/value_debug_dumping.h"
+#include "common/cpp/src/public/global_context.h"
+#include "common/cpp/src/public/logging/logging.h"
+#include "common/cpp/src/public/messaging/typed_message.h"
+#include "common/cpp/src/public/messaging/typed_message_router.h"
+#include "common/cpp/src/public/unique_ptr_utils.h"
+#include "common/cpp/src/public/value.h"
+#include "common/cpp/src/public/value_conversion.h"
+#include "common/cpp/src/public/value_debug_dumping.h"
 
 namespace gsc = google_smart_card;
 

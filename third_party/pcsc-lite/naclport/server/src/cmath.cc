@@ -27,7 +27,7 @@
 
 #include <cmath>
 
-#include "common/cpp/src/google_smart_card_common/logging/logging.h"
+#include "common/cpp/src/public/logging/logging.h"
 
 extern "C" double nexttoward(double /*x*/, long double /*y*/) {
   // FIXME(emaxx): Investigate why does the PNaCl standard library causes the

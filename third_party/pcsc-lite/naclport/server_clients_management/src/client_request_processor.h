@@ -42,13 +42,13 @@
 #include <winscard.h>
 #include <wintypes.h>
 
-#include "common/cpp/src/google_smart_card_common/logging/logging.h"
-#include "common/cpp/src/google_smart_card_common/optional.h"
-#include "common/cpp/src/google_smart_card_common/requesting/remote_call_message.h"
-#include "common/cpp/src/google_smart_card_common/requesting/request_receiver.h"
-#include "common/cpp/src/google_smart_card_common/requesting/request_result.h"
-#include "common/cpp/src/google_smart_card_common/tuple_unpacking.h"
-#include "common/cpp/src/google_smart_card_common/value.h"
+#include "common/cpp/src/public/logging/logging.h"
+#include "common/cpp/src/public/optional.h"
+#include "common/cpp/src/public/requesting/remote_call_message.h"
+#include "common/cpp/src/public/requesting/request_receiver.h"
+#include "common/cpp/src/public/requesting/request_result.h"
+#include "common/cpp/src/public/tuple_unpacking.h"
+#include "common/cpp/src/public/value.h"
 #include <google_smart_card_pcsc_lite_common/scard_structs_serialization.h>
 
 #include "admin_policy_getter.h"

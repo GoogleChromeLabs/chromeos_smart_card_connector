@@ -28,8 +28,8 @@
 
 #include <thread>
 
-#include "common/cpp/src/google_smart_card_common/global_context.h"
-#include "common/cpp/src/google_smart_card_common/value.h"
+#include "common/cpp/src/public/global_context.h"
+#include "common/cpp/src/public/value.h"
 
 namespace google_smart_card {
 

@@ -31,12 +31,12 @@
 #include <ppapi/cpp/module.h>
 #include <ppapi/cpp/var.h>
 
-#include "common/cpp/src/google_smart_card_common/global_context_impl_nacl.h"
-#include "common/cpp/src/google_smart_card_common/logging/logging.h"
-#include "common/cpp/src/google_smart_card_common/messaging/typed_message_router.h"
-#include "common/cpp/src/google_smart_card_common/optional.h"
-#include "common/cpp/src/google_smart_card_common/value.h"
-#include "common/cpp/src/google_smart_card_common/value_nacl_pp_var_conversion.h"
+#include "common/cpp/src/public/global_context_impl_nacl.h"
+#include "common/cpp/src/public/logging/logging.h"
+#include "common/cpp/src/public/messaging/typed_message_router.h"
+#include "common/cpp/src/public/optional.h"
+#include "common/cpp/src/public/value.h"
+#include "common/cpp/src/public/value_nacl_pp_var_conversion.h"
 
 #include "application.h"
 
@@ -90,7 +90,7 @@ class PpInstance final : public pp::Instance {
   // to the objects that subscribed for receiving them. The routing is based on
   // the "type" key of the message (for the description of the typed messages,
   // see header
-  // common/cpp/src/google_smart_card_common/messaging/typed_message.h).
+  // common/cpp/src/public/messaging/typed_message.h).
   //
   // See the `Application` class for the routes added into the router.
   void HandleMessage(const pp::Var& message) override {
@@ -116,7 +116,7 @@ class PpInstance final : public pp::Instance {
   std::unique_ptr<gsc::GlobalContextImplNacl> global_context_;
   // Router of the incoming typed messages that passes incoming messages to the
   // appropriate handlers according the the special type field of the message
-  // (see common/cpp/src/google_smart_card_common/messaging/typed_message.h).
+  // (see common/cpp/src/public/messaging/typed_message.h).
   gsc::TypedMessageRouter typed_message_router_;
   // The core application functionality that is toolchain-independent.
   Application application_;

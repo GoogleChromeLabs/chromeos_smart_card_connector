@@ -18,8 +18,8 @@
 #include <functional>
 #include <memory>
 
-#include "common/cpp/src/google_smart_card_common/global_context.h"
-#include "common/cpp/src/google_smart_card_common/messaging/typed_message_router.h"
+#include "common/cpp/src/public/global_context.h"
+#include "common/cpp/src/public/messaging/typed_message_router.h"
 #include <google_smart_card_pcsc_lite_server_clients_management/backend.h>
 
 #include "third_party/libusb/webport/src/public/libusb_web_port_service.h"
