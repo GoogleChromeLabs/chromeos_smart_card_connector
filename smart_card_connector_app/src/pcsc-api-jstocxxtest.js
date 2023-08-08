@@ -133,6 +133,7 @@ goog.exportSymbol('testPcscApi', {
             fail(`Unexpected error ${errorCode}`);
           });
       assert(Number.isInteger(sCardContext));
+      assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
     },
 
     // Test `SCardEstablishContext()` when it's called without providing
@@ -148,6 +149,7 @@ goog.exportSymbol('testPcscApi', {
             fail(`Unexpected error ${errorCode}`);
           });
       assert(Number.isInteger(sCardContext));
+      assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
     },
 
     // Test `testSCardReleaseContext()` with the correct handle.
@@ -164,10 +166,12 @@ goog.exportSymbol('testPcscApi', {
             fail(`Unexpected error ${errorCode}`);
           });
       assert(called);
+      assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
     },
 
-    // Test `testSCardReleaseContext()` fails on a non-existing handle.
-    'testSCardReleaseContext_nonExisting': async function() {
+    // Test `testSCardReleaseContext()` fails on a wrong handle and there's no
+    // established handle at all.
+    'testSCardReleaseContext_none': async function() {
       const BAD_CONTEXT = 123;
 
       const result = await api.SCardReleaseContext(BAD_CONTEXT);
@@ -181,10 +185,11 @@ goog.exportSymbol('testPcscApi', {
             assertEquals(errorCode, API.SCARD_E_INVALID_HANDLE);
           });
       assert(called);
+      assertEquals(result.getErrorCode(), API.SCARD_E_INVALID_HANDLE);
     },
 
-    // Test `testSCardReleaseContext()` fails on a handle different from
-    // currently obtained one.
+    // Test `testSCardReleaseContext()` fails on a wrong handle, but there's
+    // another established handle.
     'testSCardReleaseContext_different': async function() {
       const context = await establishContextOrThrow();
       const badContext = context ^ 1;
@@ -200,6 +205,7 @@ goog.exportSymbol('testPcscApi', {
             assertEquals(errorCode, API.SCARD_E_INVALID_HANDLE);
           });
       assert(called);
+      assertEquals(result.getErrorCode(), API.SCARD_E_INVALID_HANDLE);
     },
   },
 });
