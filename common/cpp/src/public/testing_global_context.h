@@ -43,7 +43,8 @@ class TestingGlobalContext final : public GlobalContext {
       std::function<void(RequestId request_id, Value request_payload)>;
   using ResponseCallback =
       std::function<void(RequestId request_id,
-                         optional<Value> response_payload)>;
+                         optional<Value> response_payload,
+                         optional<std::string> response_error_message)>;
 
   // Helper returned by `Create...Waiter()` methods. Allows to wait until the
   // specified C++-to-JS message is sent.
@@ -181,7 +182,8 @@ class TestingGlobalContext final : public GlobalContext {
                              Value request_payload);
   void HandleReroutedResponse(const std::string& new_requester_name,
                               RequestId request_id,
-                              optional<Value> response_payload);
+                              optional<Value> response_payload,
+                              optional<std::string> response_error_message);
 
   TypedMessageRouter* const typed_message_router_;
   // ID of the thread on which `this` was created.

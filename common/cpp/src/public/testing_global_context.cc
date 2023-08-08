@@ -232,14 +232,15 @@ void TestingGlobalContext::RegisterRequestRerouter(
       std::bind(&TestingGlobalContext::HandleReroutedRequest, this,
                 /*new_requester_name=*/new_requester_name,
                 /*request_id=*/std::placeholders::_1,
-                /*value=*/std::placeholders::_2));
+                /*request_payload=*/std::placeholders::_2));
   // Reroute responses back to the original name.
   RegisterResponseHandler(
       new_requester_name,
       std::bind(&TestingGlobalContext::HandleReroutedResponse, this,
                 /*new_requester_name=*/original_requester_name,
                 /*request_id=*/std::placeholders::_1,
-                /*value=*/std::placeholders::_2));
+                /*response_payload=*/std::placeholders::_2,
+                /*response_error_message=*/std::placeholders::_3));
 }
 
 std::unique_ptr<TestingGlobalContext::Waiter>
@@ -405,6 +406,7 @@ bool TestingGlobalContext::HandleMessageToJs(Value message) {
   // Only one of these variables will be filled below - depending on the message
   // type.
   optional<Value> request_payload, response_payload, message_data;
+  optional<std::string> response_error_message;
 
   if (LooksLikeRequestMessage(typed_message.type)) {
     // It's a request message; parse its ID and payload for finding the
@@ -422,6 +424,7 @@ bool TestingGlobalContext::HandleMessageToJs(Value message) {
             std::move(typed_message.data));
     request_id = response_data.request_id;
     response_payload = std::move(response_data.payload);
+    response_error_message = std::move(response_data.error_message);
   } else {
     // It's a regular message; find the expectation using just the type.
     message_data = std::move(typed_message.data);
@@ -448,7 +451,8 @@ bool TestingGlobalContext::HandleMessageToJs(Value message) {
   } else if (callback_storage->response_callback) {
     GOOGLE_SMART_CARD_CHECK(request_id);
     callback_storage->response_callback(*request_id,
-                                        std::move(response_payload));
+                                        std::move(response_payload),
+                                        std::move(response_error_message));
   } else {
     GOOGLE_SMART_CARD_NOTREACHED;
   }
@@ -459,10 +463,10 @@ bool TestingGlobalContext::HandleMessageToJs(Value message) {
 void TestingGlobalContext::HandleReroutedRequest(
     const std::string& new_requester_name,
     RequestId request_id,
-    Value payload) {
+    Value request_payload) {
   RequestMessageData new_data;
   new_data.request_id = request_id;
-  new_data.payload = std::move(payload);
+  new_data.payload = std::move(request_payload);
   TypedMessage new_message;
   new_message.type = GetRequestMessageType(new_requester_name);
   new_message.data = ConvertToValueOrDie(std::move(new_data));
@@ -479,10 +483,12 @@ void TestingGlobalContext::HandleReroutedRequest(
 void TestingGlobalContext::HandleReroutedResponse(
     const std::string& new_requester_name,
     RequestId request_id,
-    optional<Value> payload) {
+    optional<Value> response_payload,
+    optional<std::string> response_error_message) {
   ResponseMessageData new_data;
   new_data.request_id = request_id;
-  new_data.payload = std::move(payload);
+  new_data.payload = std::move(response_payload);
+  new_data.error_message = std::move(response_error_message);
   TypedMessage new_message;
   new_message.type = GetResponseMessageType(new_requester_name);
   new_message.data = ConvertToValueOrDie(std::move(new_data));
