@@ -51,6 +51,7 @@
 #include "common/cpp/src/public/testing_global_context.h"
 #include "common/cpp/src/public/value_builder.h"
 #include "smart_card_connector_app/src/testing_smart_card_simulation.h"
+#include "third_party/libusb/webport/src/libusb_js_proxy_constants.h"
 
 #ifdef __native_client__
 #include <google_smart_card_common/nacl_io_utils.h>
@@ -553,18 +554,16 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
 
  private:
   void SetUpUsbSimulation() {
-    global_context_.RegisterRequestHandler(
-        TestingSmartCardSimulation::kRequesterName,
-        std::bind(&TestingSmartCardSimulation::OnRequestToJs,
-                  &smart_card_simulation_,
-                  /*request_id=*/std::placeholders::_1,
-                  /*request_payload=*/std::placeholders::_2));
+    global_context_.RegisterRequestRerouter(
+        /*original_requester_name=*/kLibusbJsProxyRequesterName,
+        /*new_requester_name=*/TestingSmartCardSimulation::kRequesterName);
   }
 
   TypedMessageRouter typed_message_router_;
-  TestingSmartCardSimulation smart_card_simulation_{&typed_message_router_};
-  ReaderNotificationObserver reader_notification_observer_;
   TestingGlobalContext global_context_{&typed_message_router_};
+  TestingSmartCardSimulation smart_card_simulation_{&global_context_,
+                                                    &typed_message_router_};
+  ReaderNotificationObserver reader_notification_observer_;
   std::unique_ptr<Application> application_;
   std::atomic_int request_id_counter_{0};
 };
