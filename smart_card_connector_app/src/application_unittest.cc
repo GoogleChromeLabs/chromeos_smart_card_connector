@@ -555,7 +555,7 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
  private:
   void SetUpUsbSimulation() {
     global_context_.RegisterRequestRerouter(
-        /*oiriginal_requester_name=*/kLibusbJsProxyRequesterName,
+        /*original_requester_name=*/kLibusbJsProxyRequesterName,
         /*new_requester_name=*/TestingSmartCardSimulation::kRequesterName);
   }
 
