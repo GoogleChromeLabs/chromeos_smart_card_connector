@@ -103,6 +103,13 @@ class TestingGlobalContext final : public GlobalContext {
   // Set a callback to be called whenever a request is sent to JS.
   void RegisterRequestHandler(const std::string& requester_name,
                               RequestCallback callback_to_run);
+  // Set a callback to be called whenever a response is sent to JS.
+  void RegisterResponseHandler(const std::string& requester_name,
+                               ResponseCallback callback_to_run);
+  // Handle future requests to `original_requester_name` as if they were sent to
+  // `new_requester_name` instead.
+  void RegisterRequestRerouter(const std::string& original_requester_name,
+                               const std::string& new_requester_name);
 
   // Returns a waiter for when a message with the specified type arrives.
   std::unique_ptr<Waiter> CreateMessageWaiter(
@@ -169,6 +176,12 @@ class TestingGlobalContext final : public GlobalContext {
       optional<RequestId> request_id,
       const Value* request_payload);
   bool HandleMessageToJs(Value message);
+  void HandleReroutedRequest(const std::string& new_requester_name,
+                             RequestId request_id,
+                             Value request_payload);
+  void HandleReroutedResponse(const std::string& new_requester_name,
+                              RequestId request_id,
+                              optional<Value> response_payload);
 
   TypedMessageRouter* const typed_message_router_;
   // ID of the thread on which `this` was created.

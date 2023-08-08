@@ -213,6 +213,35 @@ void TestingGlobalContext::RegisterRequestHandler(
   AddExpectation(std::move(expectation));
 }
 
+void TestingGlobalContext::RegisterResponseHandler(
+    const std::string& requester_name,
+    ResponseCallback callback_to_run) {
+  Expectation expectation;
+  expectation.awaited_message_type = GetResponseMessageType(requester_name);
+  expectation.callback_storage.response_callback = callback_to_run;
+  expectation.once = false;
+  AddExpectation(std::move(expectation));
+}
+
+void TestingGlobalContext::RegisterRequestRerouter(
+    const std::string& original_requester_name,
+    const std::string& new_requester_name) {
+  // Reroute requests to the new name.
+  RegisterRequestHandler(
+      original_requester_name,
+      std::bind(&TestingGlobalContext::HandleReroutedRequest, this,
+                /*new_requester_name=*/new_requester_name,
+                /*request_id=*/std::placeholders::_1,
+                /*value=*/std::placeholders::_2));
+  // Reroute responses back to the original name.
+  RegisterResponseHandler(
+      new_requester_name,
+      std::bind(&TestingGlobalContext::HandleReroutedResponse, this,
+                /*new_requester_name=*/original_requester_name,
+                /*request_id=*/std::placeholders::_1,
+                /*value=*/std::placeholders::_2));
+}
+
 std::unique_ptr<TestingGlobalContext::Waiter>
 TestingGlobalContext::CreateMessageWaiter(
     const std::string& awaited_message_type) {
@@ -425,6 +454,46 @@ bool TestingGlobalContext::HandleMessageToJs(Value message) {
   }
 
   return true;
+}
+
+void TestingGlobalContext::HandleReroutedRequest(
+    const std::string& new_requester_name,
+    RequestId request_id,
+    Value payload) {
+  RequestMessageData new_data;
+  new_data.request_id = request_id;
+  new_data.payload = std::move(payload);
+  TypedMessage new_message;
+  new_message.type = GetRequestMessageType(new_requester_name);
+  new_message.data = ConvertToValueOrDie(std::move(new_data));
+  Value new_request = ConvertToValueOrDie(std::move(new_message));
+
+  std::string error_message;
+  if (!typed_message_router_->OnMessageReceived(std::move(new_request),
+                                                &error_message)) {
+    GOOGLE_SMART_CARD_LOG_FATAL << "Dispatching rerouted JS request failed: "
+                                << error_message;
+  }
+}
+
+void TestingGlobalContext::HandleReroutedResponse(
+    const std::string& new_requester_name,
+    RequestId request_id,
+    optional<Value> payload) {
+  ResponseMessageData new_data;
+  new_data.request_id = request_id;
+  new_data.payload = std::move(payload);
+  TypedMessage new_message;
+  new_message.type = GetResponseMessageType(new_requester_name);
+  new_message.data = ConvertToValueOrDie(std::move(new_data));
+  Value new_response = ConvertToValueOrDie(std::move(new_message));
+
+  std::string error_message;
+  if (!typed_message_router_->OnMessageReceived(std::move(new_response),
+                                                &error_message)) {
+    GOOGLE_SMART_CARD_LOG_FATAL << "Dispatching rerouted JS response failed: "
+                                << error_message;
+  }
 }
 
 }  // namespace google_smart_card
