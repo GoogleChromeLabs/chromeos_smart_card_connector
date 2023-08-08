@@ -85,7 +85,7 @@ CCID_CPPFLAGS := \
 	-D__linux \
 	-I$(CCID_NACL_SOURCES_PATH) \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
-	-I$(ROOT_PATH)/common/cpp/src/google_smart_card_common/logging/syslog \
+	-I$(ROOT_PATH)/common/cpp/src/public/logging/syslog \
 	-I$(ROOT_PATH)/third_party/libusb/src/libusb \
 	-Wno-macro-redefined \
 

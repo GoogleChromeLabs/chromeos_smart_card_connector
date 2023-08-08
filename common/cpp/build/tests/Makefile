@@ -19,36 +19,34 @@
 
 include ../../../cpp_unit_test_runner/include.mk
 
-ROOT_SOURCES_PATH := ../../src
-ROOT_SOURCES_SUBDIR := google_smart_card_common
-SOURCES_PATH := $(ROOT_SOURCES_PATH)/$(ROOT_SOURCES_SUBDIR)
+SOURCES_PATH := ../../src
 
 SOURCES := \
-	$(SOURCES_PATH)/formatting_unittest.cc \
-	$(SOURCES_PATH)/ipc_emulation_unittest.cc \
-	$(SOURCES_PATH)/join_string_unittest.cc \
-	$(SOURCES_PATH)/logging/hex_dumping_unittest.cc \
-	$(SOURCES_PATH)/logging/logging_unittest.cc \
-	$(SOURCES_PATH)/messaging/typed_message_router_unittest.cc \
-	$(SOURCES_PATH)/multi_string_unittest.cc \
-	$(SOURCES_PATH)/numeric_conversions_unittest.cc \
-	$(SOURCES_PATH)/requesting/async_request_unittest.cc \
-	$(SOURCES_PATH)/requesting/async_requests_storage_unittest.cc \
-	$(SOURCES_PATH)/requesting/remote_call_arguments_conversion_unittest.cc \
-	$(SOURCES_PATH)/value_conversion_unittest.cc \
-	$(SOURCES_PATH)/value_debug_dumping_unittest.cc \
-	$(SOURCES_PATH)/value_unittest.cc \
-	$(ROOT_SOURCES_PATH)/public/value_builder_unittest.cc \
+	$(SOURCES_PATH)/public/formatting_unittest.cc \
+	$(SOURCES_PATH)/public/ipc_emulation_unittest.cc \
+	$(SOURCES_PATH)/public/join_string_unittest.cc \
+	$(SOURCES_PATH)/public/logging/hex_dumping_unittest.cc \
+	$(SOURCES_PATH)/public/logging/logging_unittest.cc \
+	$(SOURCES_PATH)/public/messaging/typed_message_router_unittest.cc \
+	$(SOURCES_PATH)/public/multi_string_unittest.cc \
+	$(SOURCES_PATH)/public/numeric_conversions_unittest.cc \
+	$(SOURCES_PATH)/public/requesting/async_request_unittest.cc \
+	$(SOURCES_PATH)/public/requesting/async_requests_storage_unittest.cc \
+	$(SOURCES_PATH)/public/requesting/remote_call_arguments_conversion_unittest.cc \
+	$(SOURCES_PATH)/public/value_builder_unittest.cc \
+	$(SOURCES_PATH)/public/value_conversion_unittest.cc \
+	$(SOURCES_PATH)/public/value_debug_dumping_unittest.cc \
+	$(SOURCES_PATH)/public/value_unittest.cc \
 
 ifeq ($(TOOLCHAIN),emscripten)
 
 SOURCES += \
-	$(SOURCES_PATH)/value_emscripten_val_conversion_unittest.cc \
+	$(SOURCES_PATH)/public/value_emscripten_val_conversion_unittest.cc \
 
 else ifeq ($(TOOLCHAIN),pnacl)
 
 SOURCES += \
-	$(SOURCES_PATH)/value_nacl_pp_var_conversion_unittest.cc \
+	$(SOURCES_PATH)/public/value_nacl_pp_var_conversion_unittest.cc \
 
 endif
 
