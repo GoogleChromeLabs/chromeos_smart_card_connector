@@ -19,14 +19,14 @@
 #include <memory>
 #include <string>
 
-#include <google_smart_card_common/global_context.h>
-#include <google_smart_card_common/messaging/typed_message_listener.h>
-#include <google_smart_card_common/messaging/typed_message_router.h>
-#include <google_smart_card_common/requesting/request_handler.h>
-#include <google_smart_card_common/requesting/request_id.h>
-#include <google_smart_card_common/requesting/request_receiver.h>
-#include <google_smart_card_common/requesting/request_result.h>
-#include <google_smart_card_common/value.h>
+#include "common/cpp/src/google_smart_card_common/global_context.h"
+#include "common/cpp/src/google_smart_card_common/messaging/typed_message_listener.h"
+#include "common/cpp/src/google_smart_card_common/messaging/typed_message_router.h"
+#include "common/cpp/src/google_smart_card_common/requesting/request_handler.h"
+#include "common/cpp/src/google_smart_card_common/requesting/request_id.h"
+#include "common/cpp/src/google_smart_card_common/requesting/request_receiver.h"
+#include "common/cpp/src/google_smart_card_common/requesting/request_result.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
 
 namespace google_smart_card {
 

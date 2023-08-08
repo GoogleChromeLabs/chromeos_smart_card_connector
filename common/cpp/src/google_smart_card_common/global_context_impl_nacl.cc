@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <google_smart_card_common/global_context_impl_nacl.h>
+#include "common/cpp/src/google_smart_card_common/global_context_impl_nacl.h"
 
 #include <mutex>
 
@@ -20,8 +20,8 @@
 #include <ppapi/cpp/instance.h>
 #include <ppapi/cpp/var.h>
 
-#include <google_smart_card_common/value.h>
-#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
+#include "common/cpp/src/google_smart_card_common/value.h"
+#include "common/cpp/src/google_smart_card_common/value_nacl_pp_var_conversion.h"
 
 namespace google_smart_card {
 

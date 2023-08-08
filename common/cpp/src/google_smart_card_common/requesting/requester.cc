@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <google_smart_card_common/requesting/requester.h>
+#include "common/cpp/src/google_smart_card_common/requesting/requester.h"
 
 #include <condition_variable>
 #include <mutex>
 #include <utility>
 
-#include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/optional.h>
-#include <google_smart_card_common/value.h>
+#include "common/cpp/src/google_smart_card_common/logging/logging.h"
+#include "common/cpp/src/google_smart_card_common/optional.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
 
 namespace google_smart_card {
 

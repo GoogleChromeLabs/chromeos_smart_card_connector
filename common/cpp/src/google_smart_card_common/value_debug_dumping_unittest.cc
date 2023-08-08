@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <google_smart_card_common/value_debug_dumping.h>
+#include "common/cpp/src/google_smart_card_common/value_debug_dumping.h"
 
 #include <stdint.h>
 
@@ -23,8 +23,8 @@
 
 #include <gtest/gtest.h>
 
-#include <google_smart_card_common/unique_ptr_utils.h>
-#include <google_smart_card_common/value.h>
+#include "common/cpp/src/google_smart_card_common/unique_ptr_utils.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
 
 namespace google_smart_card {
 

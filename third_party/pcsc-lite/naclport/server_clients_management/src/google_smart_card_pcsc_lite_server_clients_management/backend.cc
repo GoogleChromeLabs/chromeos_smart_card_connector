@@ -27,7 +27,7 @@
 
 #include "clients_manager.h"
 
-#include <google_smart_card_common/global_context.h>
+#include "common/cpp/src/google_smart_card_common/global_context.h"
 
 namespace google_smart_card {
 

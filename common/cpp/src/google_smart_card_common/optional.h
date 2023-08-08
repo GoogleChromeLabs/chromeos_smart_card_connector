@@ -19,7 +19,7 @@
 #include <type_traits>
 #include <utility>
 
-#include <google_smart_card_common/logging/logging.h>
+#include "common/cpp/src/google_smart_card_common/logging/logging.h"
 
 namespace google_smart_card {
 

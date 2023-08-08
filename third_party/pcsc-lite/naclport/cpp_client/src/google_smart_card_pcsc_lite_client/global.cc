@@ -33,10 +33,10 @@
 #include <winscard.h>
 #include <wintypes.h>
 
-#include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/requesting/js_requester.h>
-#include <google_smart_card_common/requesting/requester.h>
-#include <google_smart_card_common/unique_ptr_utils.h>
+#include "common/cpp/src/google_smart_card_common/logging/logging.h"
+#include "common/cpp/src/google_smart_card_common/requesting/js_requester.h"
+#include "common/cpp/src/google_smart_card_common/requesting/requester.h"
+#include "common/cpp/src/google_smart_card_common/unique_ptr_utils.h"
 #include <google_smart_card_pcsc_lite_common/pcsc_lite.h>
 #include <google_smart_card_pcsc_lite_common/pcsc_lite_tracing_wrapper.h>
 

@@ -58,8 +58,8 @@ extern "C" {
 #undef min
 }
 
-#include <google_smart_card_common/ipc_emulation.h>
-#include <google_smart_card_common/logging/logging.h>
+#include "common/cpp/src/google_smart_card_common/ipc_emulation.h"
+#include "common/cpp/src/google_smart_card_common/logging/logging.h"
 
 #include "server_sockets_manager.h"
 

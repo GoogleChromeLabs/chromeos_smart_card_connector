@@ -19,11 +19,11 @@
 #include <utility>
 #include <vector>
 
-#include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/optional.h>
-#include <google_smart_card_common/requesting/remote_call_message.h>
-#include <google_smart_card_common/value.h>
-#include <google_smart_card_common/value_conversion.h>
+#include "common/cpp/src/google_smart_card_common/logging/logging.h"
+#include "common/cpp/src/google_smart_card_common/optional.h"
+#include "common/cpp/src/google_smart_card_common/requesting/remote_call_message.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
+#include "common/cpp/src/google_smart_card_common/value_conversion.h"
 
 namespace google_smart_card {
 

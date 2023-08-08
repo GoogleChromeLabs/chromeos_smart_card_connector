@@ -22,17 +22,16 @@
 #include <utility>
 #include <vector>
 
-#include <google_smart_card_common/logging/hex_dumping.h>
-#include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/messaging/typed_message_router.h>
-#include <google_smart_card_common/optional.h>
-#include <google_smart_card_common/requesting/remote_call_message.h>
-#include <google_smart_card_common/requesting/request_receiver.h>
-#include <google_smart_card_common/requesting/request_result.h>
-#include <google_smart_card_common/value.h>
-#include <google_smart_card_common/value_conversion.h>
-#include <google_smart_card_common/value_debug_dumping.h>
-
+#include "common/cpp/src/google_smart_card_common/logging/hex_dumping.h"
+#include "common/cpp/src/google_smart_card_common/logging/logging.h"
+#include "common/cpp/src/google_smart_card_common/messaging/typed_message_router.h"
+#include "common/cpp/src/google_smart_card_common/optional.h"
+#include "common/cpp/src/google_smart_card_common/requesting/remote_call_message.h"
+#include "common/cpp/src/google_smart_card_common/requesting/request_receiver.h"
+#include "common/cpp/src/google_smart_card_common/requesting/request_result.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
+#include "common/cpp/src/google_smart_card_common/value_conversion.h"
+#include "common/cpp/src/google_smart_card_common/value_debug_dumping.h"
 #include "common/cpp/src/public/value_builder.h"
 #include "third_party/libusb/webport/src/libusb_js_proxy_data_model.h"
 

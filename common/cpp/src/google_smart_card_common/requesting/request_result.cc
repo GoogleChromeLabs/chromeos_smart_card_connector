@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <google_smart_card_common/requesting/request_result.h>
+#include "common/cpp/src/google_smart_card_common/requesting/request_result.h"
 
 namespace google_smart_card {
 

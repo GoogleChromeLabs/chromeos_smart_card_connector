@@ -29,7 +29,7 @@
 #include <string>
 #include <vector>
 
-#include <google_smart_card_common/optional.h>
+#include "common/cpp/src/google_smart_card_common/optional.h"
 
 namespace smart_card_client {
 

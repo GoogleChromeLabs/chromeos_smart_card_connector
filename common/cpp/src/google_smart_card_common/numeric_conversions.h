@@ -25,9 +25,9 @@
 #include <string>
 #include <type_traits>
 
-#include <google_smart_card_common/formatting.h>
-#include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/optional.h>
+#include "common/cpp/src/google_smart_card_common/formatting.h"
+#include "common/cpp/src/google_smart_card_common/logging/logging.h"
+#include "common/cpp/src/google_smart_card_common/optional.h"
 
 namespace google_smart_card {
 

@@ -24,11 +24,11 @@
 
 #include <libusb.h>
 
-#include <google_smart_card_common/global_context.h>
-#include <google_smart_card_common/messaging/typed_message_router.h>
-#include <google_smart_card_common/requesting/js_requester.h>
-#include <google_smart_card_common/requesting/remote_call_adaptor.h>
-#include <google_smart_card_common/requesting/request_result.h>
+#include "common/cpp/src/google_smart_card_common/global_context.h"
+#include "common/cpp/src/google_smart_card_common/messaging/typed_message_router.h"
+#include "common/cpp/src/google_smart_card_common/requesting/js_requester.h"
+#include "common/cpp/src/google_smart_card_common/requesting/remote_call_adaptor.h"
+#include "common/cpp/src/google_smart_card_common/requesting/request_result.h"
 
 #include "libusb_contexts_storage.h"
 #include "libusb_interface.h"

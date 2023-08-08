@@ -28,8 +28,8 @@
 #include <mutex>
 #include <unordered_map>
 
-#include <google_smart_card_common/cpp_attributes.h>
-#include <google_smart_card_common/optional.h>
+#include "common/cpp/src/google_smart_card_common/cpp_attributes.h"
+#include "common/cpp/src/google_smart_card_common/optional.h"
 
 namespace google_smart_card {
 

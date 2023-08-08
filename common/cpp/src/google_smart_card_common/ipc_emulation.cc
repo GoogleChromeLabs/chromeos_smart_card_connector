@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <google_smart_card_common/ipc_emulation.h>
+#include "common/cpp/src/google_smart_card_common/ipc_emulation.h"
 
 #include <errno.h>
 
@@ -22,9 +22,9 @@
 #include <deque>
 #include <limits>
 
-#include <google_smart_card_common/cpp_attributes.h>
-#include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/optional.h>
+#include "common/cpp/src/google_smart_card_common/cpp_attributes.h"
+#include "common/cpp/src/google_smart_card_common/logging/logging.h"
+#include "common/cpp/src/google_smart_card_common/optional.h"
 
 namespace google_smart_card {
 

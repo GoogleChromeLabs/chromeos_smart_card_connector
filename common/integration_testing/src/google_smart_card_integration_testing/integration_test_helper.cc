@@ -16,11 +16,11 @@
 
 #include <functional>
 
-#include <google_smart_card_common/global_context.h>
-#include <google_smart_card_common/messaging/typed_message_router.h>
-#include <google_smart_card_common/requesting/request_receiver.h>
-#include <google_smart_card_common/requesting/request_result.h>
-#include <google_smart_card_common/value.h>
+#include "common/cpp/src/google_smart_card_common/global_context.h"
+#include "common/cpp/src/google_smart_card_common/messaging/typed_message_router.h"
+#include "common/cpp/src/google_smart_card_common/requesting/request_receiver.h"
+#include "common/cpp/src/google_smart_card_common/requesting/request_result.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
 
 namespace google_smart_card {
 

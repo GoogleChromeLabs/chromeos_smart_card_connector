@@ -14,7 +14,7 @@
 
 #include "chrome_certificate_provider/types.h"
 
-#include <google_smart_card_common/value_conversion.h>
+#include "common/cpp/src/google_smart_card_common/value_conversion.h"
 
 namespace ccp = smart_card_client::chrome_certificate_provider;
 

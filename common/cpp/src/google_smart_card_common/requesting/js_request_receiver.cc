@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <google_smart_card_common/requesting/js_request_receiver.h>
+#include "common/cpp/src/google_smart_card_common/requesting/js_request_receiver.h"
 
 #include <utility>
 
-#include <google_smart_card_common/global_context.h>
-#include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/messaging/typed_message.h>
-#include <google_smart_card_common/requesting/requester_message.h>
-#include <google_smart_card_common/value.h>
-#include <google_smart_card_common/value_conversion.h>
+#include "common/cpp/src/google_smart_card_common/global_context.h"
+#include "common/cpp/src/google_smart_card_common/logging/logging.h"
+#include "common/cpp/src/google_smart_card_common/messaging/typed_message.h"
+#include "common/cpp/src/google_smart_card_common/requesting/requester_message.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
+#include "common/cpp/src/google_smart_card_common/value_conversion.h"
 
 namespace google_smart_card {
 

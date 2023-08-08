@@ -15,8 +15,8 @@
 #ifndef GOOGLE_SMART_CARD_COMMON_REQUESTING_REQUEST_HANDLER_H_
 #define GOOGLE_SMART_CARD_COMMON_REQUESTING_REQUEST_HANDLER_H_
 
-#include <google_smart_card_common/requesting/request_receiver.h>
-#include <google_smart_card_common/value.h>
+#include "common/cpp/src/google_smart_card_common/requesting/request_receiver.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
 
 namespace google_smart_card {
 

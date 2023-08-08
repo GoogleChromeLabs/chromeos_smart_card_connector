@@ -19,10 +19,10 @@
 #include <cstring>
 #include <string>
 
-#include <google_smart_card_common/logging/function_call_tracer.h>
-#include <google_smart_card_common/logging/hex_dumping.h>
-#include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/logging/mask_dumping.h>
+#include "common/cpp/src/google_smart_card_common/logging/function_call_tracer.h"
+#include "common/cpp/src/google_smart_card_common/logging/hex_dumping.h"
+#include "common/cpp/src/google_smart_card_common/logging/logging.h"
+#include "common/cpp/src/google_smart_card_common/logging/mask_dumping.h"
 
 namespace google_smart_card {
 

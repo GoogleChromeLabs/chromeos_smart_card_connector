@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <google_smart_card_common/requesting/remote_call_message.h>
+#include "common/cpp/src/google_smart_card_common/requesting/remote_call_message.h"
 
 #include <string>
 
-#include <google_smart_card_common/value_conversion.h>
-#include <google_smart_card_common/value_debug_dumping.h>
+#include "common/cpp/src/google_smart_card_common/value_conversion.h"
+#include "common/cpp/src/google_smart_card_common/value_debug_dumping.h"
 
 namespace google_smart_card {
 

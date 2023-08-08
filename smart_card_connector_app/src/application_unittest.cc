@@ -35,18 +35,18 @@
 #include <reader.h>
 #include <winscard.h>
 
-#include <google_smart_card_common/formatting.h>
-#include <google_smart_card_common/messaging/typed_message.h>
-#include <google_smart_card_common/messaging/typed_message_router.h>
-#include <google_smart_card_common/multi_string.h>
-#include <google_smart_card_common/optional.h>
-#include <google_smart_card_common/optional_test_utils.h>
-#include <google_smart_card_common/requesting/remote_call_message.h>
-#include <google_smart_card_common/requesting/requester_message.h>
-#include <google_smart_card_common/unique_ptr_utils.h>
-#include <google_smart_card_common/value.h>
-#include <google_smart_card_common/value_conversion.h>
-#include <google_smart_card_common/value_test_utils.h>
+#include "common/cpp/src/google_smart_card_common/formatting.h"
+#include "common/cpp/src/google_smart_card_common/messaging/typed_message.h"
+#include "common/cpp/src/google_smart_card_common/messaging/typed_message_router.h"
+#include "common/cpp/src/google_smart_card_common/multi_string.h"
+#include "common/cpp/src/google_smart_card_common/optional.h"
+#include "common/cpp/src/google_smart_card_common/optional_test_utils.h"
+#include "common/cpp/src/google_smart_card_common/requesting/remote_call_message.h"
+#include "common/cpp/src/google_smart_card_common/requesting/requester_message.h"
+#include "common/cpp/src/google_smart_card_common/unique_ptr_utils.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
+#include "common/cpp/src/google_smart_card_common/value_conversion.h"
+#include "common/cpp/src/google_smart_card_common/value_test_utils.h"
 
 #include "common/cpp/src/public/testing_global_context.h"
 #include "common/cpp/src/public/value_builder.h"
@@ -54,7 +54,7 @@
 #include "third_party/libusb/webport/src/libusb_js_proxy_constants.h"
 
 #ifdef __native_client__
-#include <google_smart_card_common/nacl_io_utils.h>
+#include "common/cpp/src/google_smart_card_common/nacl_io_utils.h"
 #endif  // __native_client__
 
 #ifdef __native_client__

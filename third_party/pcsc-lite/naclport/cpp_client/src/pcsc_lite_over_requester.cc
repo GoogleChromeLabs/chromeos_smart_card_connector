@@ -35,9 +35,9 @@
 #include <utility>
 #include <vector>
 
-#include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/multi_string.h>
-#include <google_smart_card_common/requesting/remote_call_arguments_conversion.h>
+#include "common/cpp/src/google_smart_card_common/logging/logging.h"
+#include "common/cpp/src/google_smart_card_common/multi_string.h"
+#include "common/cpp/src/google_smart_card_common/requesting/remote_call_arguments_conversion.h"
 #include <google_smart_card_pcsc_lite_common/scard_structs_serialization.h>
 
 namespace google_smart_card {

@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <google_smart_card_common/logging/hex_dumping.h>
+#include "common/cpp/src/google_smart_card_common/logging/hex_dumping.h"
 
 #include <limits>
 #include <sstream>
 
-#include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/numeric_conversions.h>
+#include "common/cpp/src/google_smart_card_common/logging/logging.h"
+#include "common/cpp/src/google_smart_card_common/numeric_conversions.h"
 
 namespace google_smart_card {
 

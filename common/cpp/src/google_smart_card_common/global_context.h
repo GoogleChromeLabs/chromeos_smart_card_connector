@@ -15,7 +15,7 @@
 #ifndef GOOGLE_SMART_CARD_COMMON_GLOBAL_CONTEXT_H_
 #define GOOGLE_SMART_CARD_COMMON_GLOBAL_CONTEXT_H_
 
-#include <google_smart_card_common/value.h>
+#include "common/cpp/src/google_smart_card_common/value.h"
 
 namespace google_smart_card {
 

@@ -33,8 +33,8 @@
 #include <gtest/gtest.h>
 #include <libusb.h>
 
-#include <google_smart_card_common/messaging/typed_message_router.h>
-#include <google_smart_card_common/value.h>
+#include "common/cpp/src/google_smart_card_common/messaging/typed_message_router.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
 
 #include "common/cpp/src/public/testing_global_context.h"
 #include "common/cpp/src/public/value_builder.h"

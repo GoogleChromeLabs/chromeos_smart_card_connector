@@ -38,17 +38,17 @@
 #include <tuple>
 #include <vector>
 
-#include <google_smart_card_common/formatting.h>
-#include <google_smart_card_common/join_string.h>
-#include <google_smart_card_common/logging/function_call_tracer.h>
-#include <google_smart_card_common/logging/hex_dumping.h>
-#include <google_smart_card_common/multi_string.h>
-#include <google_smart_card_common/requesting/remote_call_arguments_conversion.h>
-#include <google_smart_card_common/requesting/remote_call_message.h>
-#include <google_smart_card_common/unique_ptr_utils.h>
-#include <google_smart_card_common/value.h>
-#include <google_smart_card_common/value_conversion.h>
-#include <google_smart_card_common/value_debug_dumping.h>
+#include "common/cpp/src/google_smart_card_common/formatting.h"
+#include "common/cpp/src/google_smart_card_common/join_string.h"
+#include "common/cpp/src/google_smart_card_common/logging/function_call_tracer.h"
+#include "common/cpp/src/google_smart_card_common/logging/hex_dumping.h"
+#include "common/cpp/src/google_smart_card_common/multi_string.h"
+#include "common/cpp/src/google_smart_card_common/requesting/remote_call_arguments_conversion.h"
+#include "common/cpp/src/google_smart_card_common/requesting/remote_call_message.h"
+#include "common/cpp/src/google_smart_card_common/unique_ptr_utils.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
+#include "common/cpp/src/google_smart_card_common/value_conversion.h"
+#include "common/cpp/src/google_smart_card_common/value_debug_dumping.h"
 #include <google_smart_card_pcsc_lite_common/scard_debug_dump.h>
 
 #include "admin_policy_getter.h"

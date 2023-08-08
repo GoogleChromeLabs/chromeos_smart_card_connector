@@ -24,8 +24,8 @@
 #include <ppapi/cpp/core.h>
 #include <ppapi/cpp/instance.h>
 
-#include <google_smart_card_common/global_context.h>
-#include <google_smart_card_common/value.h>
+#include "common/cpp/src/google_smart_card_common/global_context.h"
+#include "common/cpp/src/google_smart_card_common/value.h"
 
 namespace google_smart_card {
 

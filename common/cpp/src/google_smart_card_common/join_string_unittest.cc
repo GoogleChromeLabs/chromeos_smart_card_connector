@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <google_smart_card_common/join_string.h>
+#include "common/cpp/src/google_smart_card_common/join_string.h"
 
 #include <set>
 #include <string>

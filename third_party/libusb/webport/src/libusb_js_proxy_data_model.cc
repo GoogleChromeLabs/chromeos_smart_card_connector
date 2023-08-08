@@ -16,7 +16,7 @@
 
 #include "libusb_js_proxy_data_model.h"
 
-#include <google_smart_card_common/value_conversion.h>
+#include "common/cpp/src/google_smart_card_common/value_conversion.h"
 
 namespace google_smart_card {
 
