@@ -169,7 +169,7 @@ goog.exportSymbol('testPcscApi', {
       assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
     },
 
-    // Test `testSCardReleaseContext()` fails on a wrong handle and there's no
+    // Test `testSCardReleaseContext()` fails on a wrong handle when there's no
     // established handle at all.
     'testSCardReleaseContext_none': async function() {
       const BAD_CONTEXT = 123;
@@ -188,7 +188,7 @@ goog.exportSymbol('testPcscApi', {
       assertEquals(result.getErrorCode(), API.SCARD_E_INVALID_HANDLE);
     },
 
-    // Test `testSCardReleaseContext()` fails on a wrong handle, but there's
+    // Test `testSCardReleaseContext()` fails on a wrong handle when there's
     // another established handle.
     'testSCardReleaseContext_different': async function() {
       const context = await establishContextOrThrow();
