@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "application.h"
+#include "smart_card_connector_app/src/application.h"
 
 #include <functional>
 #include <memory>

@@ -40,8 +40,7 @@
 #include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_nacl_pp_var_conversion.h"
-
-#include "application.h"
+#include "smart_card_connector_app/src/application.h"
 
 namespace google_smart_card {
 
