@@ -17,10 +17,10 @@
 #include <string>
 #include <utility>
 
-#include "common/cpp/src/google_smart_card_common/global_context.h"
-#include "common/cpp/src/google_smart_card_common/requesting/request_result.h"
-#include "common/cpp/src/google_smart_card_common/value.h"
-#include "common/cpp/src/google_smart_card_common/value_conversion.h"
+#include "common/cpp/src/public/global_context.h"
+#include "common/cpp/src/public/requesting/request_result.h"
+#include "common/cpp/src/public/value.h"
+#include "common/cpp/src/public/value_conversion.h"
 
 namespace gsc = google_smart_card;
 namespace scc = smart_card_client;

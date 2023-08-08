@@ -27,8 +27,8 @@
 
 #include <reader.h>
 
-#include "common/cpp/src/google_smart_card_common/logging/function_call_tracer.h"
-#include "common/cpp/src/google_smart_card_common/logging/hex_dumping.h"
+#include "common/cpp/src/public/logging/function_call_tracer.h"
+#include "common/cpp/src/public/logging/hex_dumping.h"
 #include <google_smart_card_pcsc_lite_common/scard_debug_dump.h>
 
 namespace google_smart_card {

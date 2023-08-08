@@ -17,9 +17,9 @@
 
 #include <string>
 
-#include "common/cpp/src/google_smart_card_common/global_context.h"
-#include "common/cpp/src/google_smart_card_common/messaging/typed_message_router.h"
-#include "common/cpp/src/google_smart_card_common/requesting/js_requester.h"
+#include "common/cpp/src/public/global_context.h"
+#include "common/cpp/src/public/messaging/typed_message_router.h"
+#include "common/cpp/src/public/requesting/js_requester.h"
 
 namespace smart_card_client {
 

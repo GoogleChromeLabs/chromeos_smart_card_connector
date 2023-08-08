@@ -20,10 +20,10 @@
 
 #include <atomic>
 
-#include "common/cpp/src/google_smart_card_common/global_context.h"
-#include "common/cpp/src/google_smart_card_common/messaging/typed_message_listener.h"
-#include "common/cpp/src/google_smart_card_common/messaging/typed_message_router.h"
-#include "common/cpp/src/google_smart_card_common/value.h"
+#include "common/cpp/src/public/global_context.h"
+#include "common/cpp/src/public/messaging/typed_message_listener.h"
+#include "common/cpp/src/public/messaging/typed_message_router.h"
+#include "common/cpp/src/public/value.h"
 
 namespace smart_card_client {
 

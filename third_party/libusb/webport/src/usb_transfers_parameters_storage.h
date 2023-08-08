@@ -24,7 +24,7 @@
 
 #include <libusb.h>
 
-#include "common/cpp/src/google_smart_card_common/requesting/async_request.h"
+#include "common/cpp/src/public/requesting/async_request.h"
 
 #include "libusb_js_proxy_data_model.h"
 #include "usb_transfer_destination.h"

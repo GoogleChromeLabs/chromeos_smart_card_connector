@@ -28,12 +28,12 @@
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
 
-#include "common/cpp/src/google_smart_card_common/global_context_impl_emscripten.h"
-#include "common/cpp/src/google_smart_card_common/optional.h"
-#include "common/cpp/src/google_smart_card_common/messaging/typed_message_router.h"
-#include "common/cpp/src/google_smart_card_common/value.h"
-#include "common/cpp/src/google_smart_card_common/value_debug_dumping.h"
-#include "common/cpp/src/google_smart_card_common/value_emscripten_val_conversion.h"
+#include "common/cpp/src/public/global_context_impl_emscripten.h"
+#include "common/cpp/src/public/optional.h"
+#include "common/cpp/src/public/messaging/typed_message_router.h"
+#include "common/cpp/src/public/value.h"
+#include "common/cpp/src/public/value_debug_dumping.h"
+#include "common/cpp/src/public/value_emscripten_val_conversion.h"
 
 #include "application.h"
 
@@ -86,7 +86,7 @@ class GoogleSmartCardModule final {
   std::shared_ptr<gsc::GlobalContextImplEmscripten> global_context_;
   // Router of the incoming typed messages that passes incoming messages to the
   // appropriate handlers according the the special type field of the message
-  // (see common/cpp/src/google_smart_card_common/messaging/typed_message.h).
+  // (see common/cpp/src/public/messaging/typed_message.h).
   gsc::TypedMessageRouter typed_message_router_;
   // The core application functionality that is toolchain-independent.
   Application application_;

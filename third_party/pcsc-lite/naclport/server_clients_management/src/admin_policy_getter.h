@@ -20,8 +20,8 @@
 #include <string>
 #include <vector>
 
-#include "common/cpp/src/google_smart_card_common/messaging/typed_message_listener.h"
-#include "common/cpp/src/google_smart_card_common/optional.h"
+#include "common/cpp/src/public/messaging/typed_message_listener.h"
+#include "common/cpp/src/public/optional.h"
 
 namespace google_smart_card {
 

@@ -21,14 +21,14 @@
 #include <utility>
 #include <vector>
 
-#include "common/cpp/src/google_smart_card_common/global_context.h"
-#include "common/cpp/src/google_smart_card_common/logging/logging.h"
-#include "common/cpp/src/google_smart_card_common/messaging/typed_message_router.h"
-#include "common/cpp/src/google_smart_card_common/requesting/request_receiver.h"
-#include "common/cpp/src/google_smart_card_common/requesting/request_result.h"
-#include "common/cpp/src/google_smart_card_common/unique_ptr_utils.h"
-#include "common/cpp/src/google_smart_card_common/value.h"
-#include "common/cpp/src/google_smart_card_common/value_conversion.h"
+#include "common/cpp/src/public/global_context.h"
+#include "common/cpp/src/public/logging/logging.h"
+#include "common/cpp/src/public/messaging/typed_message_router.h"
+#include "common/cpp/src/public/requesting/request_receiver.h"
+#include "common/cpp/src/public/requesting/request_result.h"
+#include "common/cpp/src/public/unique_ptr_utils.h"
+#include "common/cpp/src/public/value.h"
+#include "common/cpp/src/public/value_conversion.h"
 #include <google_smart_card_integration_testing/integration_test_helper.h>
 #include <google_smart_card_integration_testing/integration_test_service.h>
 
