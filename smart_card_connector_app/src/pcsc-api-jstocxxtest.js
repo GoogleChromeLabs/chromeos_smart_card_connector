@@ -27,6 +27,7 @@ goog.require('GoogleSmartCard.Pcsc.PermissionsChecker');
 goog.require('GoogleSmartCard.PcscLiteClient.API');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ClientHandler');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
+goog.require('GoogleSmartCard.TestingLibusbSmartCardSimulationHook');
 goog.require('goog.Promise');
 goog.require('goog.testing');
 goog.require('goog.testing.asserts');
@@ -90,6 +91,8 @@ goog.exportSymbol('testPcscApi', {
     ClientHandler.overridePermissionsCheckerForTesting(stubPermissionsChecker);
     libusbProxyReceiver = new GSC.LibusbProxyReceiver(
         testController.executableModule.getMessageChannel());
+    libusbProxyReceiver.addHook(new GSC.TestingLibusbSmartCardSimulationHook(
+        testController.executableModule.getMessageChannel()));
     // Set up observers.
     pcscReadinessTracker = new ReadinessTracker(
         testController.executableModule.getMessageChannel());
