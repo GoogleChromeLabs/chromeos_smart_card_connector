@@ -24,8 +24,8 @@
 #include "common/cpp/src/public/requesting/request_receiver.h"
 #include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
-#include <google_smart_card_integration_testing/integration_test_helper.h>
-#include <google_smart_card_integration_testing/integration_test_service.h>
+#include "common/integration_testing/src/google_smart_card_integration_testing/integration_test_helper.h"
+#include "common/integration_testing/src/google_smart_card_integration_testing/integration_test_service.h"
 
 #include "smart_card_connector_app/src/testing_smart_card_simulation.h"
 

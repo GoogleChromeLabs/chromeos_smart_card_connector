@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <google_smart_card_integration_testing/integration_test_service.h>
+#include "common/integration_testing/src/google_smart_card_integration_testing/integration_test_service.h"
 
 #include <atomic>
 #include <functional>
@@ -32,7 +32,7 @@
 #include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_conversion.h"
-#include <google_smart_card_integration_testing/integration_test_helper.h>
+#include "common/integration_testing/src/google_smart_card_integration_testing/integration_test_helper.h"
 
 namespace google_smart_card {
 
