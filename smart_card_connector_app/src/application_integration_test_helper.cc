@@ -18,15 +18,18 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <utility>
+#include <vector>
 
 #include "common/cpp/src/public/global_context.h"
+#include "common/cpp/src/public/logging/logging.h"
 #include "common/cpp/src/public/messaging/typed_message_router.h"
 #include "common/cpp/src/public/requesting/request_receiver.h"
 #include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
+#include "common/cpp/src/public/value_conversion.h"
 #include "common/integration_testing/src/google_smart_card_integration_testing/integration_test_helper.h"
 #include "common/integration_testing/src/google_smart_card_integration_testing/integration_test_service.h"
-
 #include "smart_card_connector_app/src/testing_smart_card_simulation.h"
 
 namespace google_smart_card {
@@ -48,6 +51,8 @@ class SmartCardConnectorApplicationTestHelper final
       RequestReceiver::ResultCallback result_callback) override;
 
  private:
+  void SetSimulatedUsbDevices(Value devices);
+
   std::unique_ptr<TestingSmartCardSimulation> smart_card_simulation_;
   std::unique_ptr<Application> application_;
 };
@@ -65,10 +70,11 @@ std::string SmartCardConnectorApplicationTestHelper::GetName() const {
 void SmartCardConnectorApplicationTestHelper::SetUp(
     GlobalContext* global_context,
     TypedMessageRouter* typed_message_router,
-    Value /*data*/,
+    Value data,
     RequestReceiver::ResultCallback result_callback) {
   smart_card_simulation_ = MakeUnique<TestingSmartCardSimulation>(
       global_context, typed_message_router);
+  SetSimulatedUsbDevices(std::move(data));
   application_ = MakeUnique<Application>(global_context, typed_message_router,
                                          std::function<void()>());
   // Note: We don't wait until the application completes its initialization on
@@ -90,7 +96,21 @@ void SmartCardConnectorApplicationTestHelper::TearDown(
 }
 
 void SmartCardConnectorApplicationTestHelper::OnMessageFromJs(
-    Value /*data*/,
-    RequestReceiver::ResultCallback /*result_callback*/) {}
+    Value data,
+    RequestReceiver::ResultCallback result_callback) {
+  SetSimulatedUsbDevices(std::move(data));
+  result_callback(GenericRequestResult::CreateSuccessful(Value()));
+}
+
+void SmartCardConnectorApplicationTestHelper::SetSimulatedUsbDevices(
+    Value devices) {
+  std::string error_message;
+  std::vector<TestingSmartCardSimulation::Device> parsed_devices;
+  if (!ConvertFromValue(std::move(devices), &parsed_devices, &error_message)) {
+    GOOGLE_SMART_CARD_LOG_FATAL
+        << "Failed to parse simulation Device array from JS: " << error_message;
+  }
+  smart_card_simulation_->SetDevices(parsed_devices);
+}
 
 }  // namespace google_smart_card

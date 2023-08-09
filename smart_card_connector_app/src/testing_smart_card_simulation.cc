@@ -521,6 +521,42 @@ std::vector<uint8_t> MakeNotifySlotChangeTransferReply(CcidIccStatus icc_status,
 
 }  // namespace
 
+template <>
+EnumValueDescriptor<TestingSmartCardSimulation::DeviceType>::Description
+EnumValueDescriptor<TestingSmartCardSimulation::DeviceType>::GetDescription() {
+  using DeviceType = TestingSmartCardSimulation::DeviceType;
+  return Describe("DeviceType")
+      .WithItem(DeviceType::kGemaltoPcTwinReader, "gemaltoPcTwinReader")
+      .WithItem(DeviceType::kDellSmartCardReaderKeyboard,
+                "dellSmartCardReaderKeyboard");
+}
+
+template <>
+EnumValueDescriptor<TestingSmartCardSimulation::CardType>::Description
+EnumValueDescriptor<TestingSmartCardSimulation::CardType>::GetDescription() {
+  using CardType = TestingSmartCardSimulation::CardType;
+  return Describe("CardType").WithItem(CardType::kCosmoId70, "cosmoId70");
+}
+
+template <>
+EnumValueDescriptor<TestingSmartCardSimulation::CardProfile>::Description
+EnumValueDescriptor<TestingSmartCardSimulation::CardProfile>::GetDescription() {
+  using CardProfile = TestingSmartCardSimulation::CardProfile;
+  return Describe("CardProfile")
+      .WithItem(CardProfile::kCharismathicsPiv, "charismathicsPiv");
+}
+
+template <>
+StructValueDescriptor<TestingSmartCardSimulation::Device>::Description
+StructValueDescriptor<TestingSmartCardSimulation::Device>::GetDescription() {
+  using Device = TestingSmartCardSimulation::Device;
+  return Describe("Device")
+      .WithField(&Device::id, "id")
+      .WithField(&Device::type, "type")
+      .WithField(&Device::card_type, "cardType")
+      .WithField(&Device::card_profile, "cardProfile");
+}
+
 TestingSmartCardSimulation::TestingSmartCardSimulation(
     GlobalContext* global_context,
     TypedMessageRouter* typed_message_router) {
