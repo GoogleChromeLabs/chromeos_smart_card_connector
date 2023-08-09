@@ -30,8 +30,7 @@
 
 #include "common/cpp/src/public/global_context.h"
 #include "common/cpp/src/public/messaging/typed_message_router.h"
-
-#include "admin_policy_getter.h"
+#include "third_party/pcsc-lite/naclport/server_clients_management/src/admin_policy_getter.h"
 
 namespace google_smart_card {
 

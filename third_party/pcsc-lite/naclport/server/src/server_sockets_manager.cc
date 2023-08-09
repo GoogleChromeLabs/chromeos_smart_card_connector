@@ -23,7 +23,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 // THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "server_sockets_manager.h"
+#include "third_party/pcsc-lite/naclport/server/src/server_sockets_manager.h"
 
 #include "common/cpp/src/public/logging/logging.h"
 #include "common/cpp/src/public/optional.h"

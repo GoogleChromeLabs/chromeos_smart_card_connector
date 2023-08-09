@@ -23,7 +23,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 // THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "clients_manager.h"
+#include "third_party/pcsc-lite/naclport/server_clients_management/src/clients_manager.h"
 
 #include <inttypes.h>
 
@@ -38,9 +38,8 @@
 #include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_conversion.h"
-
-#include "admin_policy_getter.h"
-#include "client_request_processor.h"
+#include "third_party/pcsc-lite/naclport/server_clients_management/src/admin_policy_getter.h"
+#include "third_party/pcsc-lite/naclport/server_clients_management/src/client_request_processor.h"
 
 namespace google_smart_card {
 

@@ -39,9 +39,8 @@
 #include "common/cpp/src/public/requesting/request_handler.h"
 #include "common/cpp/src/public/requesting/request_receiver.h"
 #include "common/cpp/src/public/value.h"
-
-#include "admin_policy_getter.h"
-#include "client_request_processor.h"
+#include "third_party/pcsc-lite/naclport/server_clients_management/src/admin_policy_getter.h"
+#include "third_party/pcsc-lite/naclport/server_clients_management/src/client_request_processor.h"
 
 namespace google_smart_card {
 

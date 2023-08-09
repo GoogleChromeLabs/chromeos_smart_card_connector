@@ -23,7 +23,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 // THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "client_handles_registry.h"
+#include "third_party/pcsc-lite/naclport/server_clients_management/src/client_handles_registry.h"
 
 #include <utility>
 

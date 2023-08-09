@@ -39,8 +39,7 @@
 #include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_conversion.h"
-
-#include "server_sockets_manager.h"
+#include "third_party/pcsc-lite/naclport/server/src/server_sockets_manager.h"
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten/version.h>

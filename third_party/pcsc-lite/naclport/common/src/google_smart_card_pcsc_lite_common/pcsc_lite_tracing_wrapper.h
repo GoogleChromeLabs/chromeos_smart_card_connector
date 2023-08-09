@@ -34,7 +34,7 @@
 #include <wintypes.h>
 
 #include "common/cpp/src/public/logging/logging.h"
-#include <google_smart_card_pcsc_lite_common/pcsc_lite.h>
+#include "third_party/pcsc-lite/naclport/common/src/google_smart_card_pcsc_lite_common/pcsc_lite.h"
 
 namespace google_smart_card {
 
