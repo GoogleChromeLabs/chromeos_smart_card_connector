@@ -82,6 +82,15 @@ async function establishContextOrThrow() {
   return sCardContext;
 }
 
+/**
+ * @param {!Array} initialDevices
+ * @return {!Promise}
+ */
+async function launchPcscServer(initialDevices) {
+  await testController.setUpCppHelper(
+      'SmartCardConnectorApplicationTestHelper', initialDevices);
+}
+
 goog.exportSymbol('testPcscApi', {
   'setUp': async function() {
     // Set up the controller and load the C/C++ executable module.
@@ -96,9 +105,6 @@ goog.exportSymbol('testPcscApi', {
     // Set up observers.
     pcscReadinessTracker = new ReadinessTracker(
         testController.executableModule.getMessageChannel());
-    // Launch the PC/SC server.
-    await testController.setUpCppHelper(
-        'SmartCardConnectorApplicationTestHelper', /*initialDevices=*/[]);
   },
 
   'tearDown': async function() {
@@ -114,6 +120,7 @@ goog.exportSymbol('testPcscApi', {
 
   // Test that the PC/SC server can successfully start up.
   'testStartup': async function() {
+    launchPcscServer(/*initialDevices=*/[]);
     await pcscReadinessTracker.promise;
   },
 
@@ -134,6 +141,8 @@ goog.exportSymbol('testPcscApi', {
 
     // Test `SCardEstablishContext()`.
     'testSCardEstablishContext': async function() {
+      await launchPcscServer(/*initialDevices=*/[]);
+
       const result =
           await api.SCardEstablishContext(API.SCARD_SCOPE_SYSTEM, null, null);
       let sCardContext;
@@ -151,6 +160,8 @@ goog.exportSymbol('testPcscApi', {
     // Test `SCardEstablishContext()` when it's called without providing
     // optional arguments.
     'testSCardEstablishContext_omittedOptionalArgs': async function() {
+      await launchPcscServer(/*initialDevices=*/[]);
+
       const result = await api.SCardEstablishContext(API.SCARD_SCOPE_SYSTEM);
       let sCardContext;
       result.get(
@@ -164,8 +175,9 @@ goog.exportSymbol('testPcscApi', {
       assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
     },
 
-    // Test `testSCardReleaseContext()` with the correct handle.
+    // Test `SCardReleaseContext()` with the correct handle.
     'testSCardReleaseContext_correct': async function() {
+      await launchPcscServer(/*initialDevices=*/[]);
       const context = await establishContextOrThrow();
 
       const result = await api.SCardReleaseContext(context);
@@ -181,10 +193,11 @@ goog.exportSymbol('testPcscApi', {
       assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
     },
 
-    // Test `testSCardReleaseContext()` fails on a wrong handle when there's no
+    // Test `SCardReleaseContext()` fails on a wrong handle when there's no
     // established handle at all.
     'testSCardReleaseContext_none': async function() {
       const BAD_CONTEXT = 123;
+      await launchPcscServer(/*initialDevices=*/[]);
 
       const result = await api.SCardReleaseContext(BAD_CONTEXT);
       let called = false;
@@ -200,9 +213,10 @@ goog.exportSymbol('testPcscApi', {
       assertEquals(result.getErrorCode(), API.SCARD_E_INVALID_HANDLE);
     },
 
-    // Test `testSCardReleaseContext()` fails on a wrong handle when there's
+    // Test `SCardReleaseContext()` fails on a wrong handle when there's
     // another established handle.
     'testSCardReleaseContext_different': async function() {
+      await launchPcscServer(/*initialDevices=*/[]);
       const context = await establishContextOrThrow();
       const badContext = context ^ 1;
 
@@ -219,6 +233,46 @@ goog.exportSymbol('testPcscApi', {
       assert(called);
       assertEquals(result.getErrorCode(), API.SCARD_E_INVALID_HANDLE);
     },
+
+    // Test `SCardListReaders()` returns a specific error code when there's no
+    // device attached.
+    'testSCardListReaders_none': async function() {
+      await launchPcscServer(/*initialDevices=*/[]);
+      const context = await establishContextOrThrow();
+
+      const result = await api.SCardListReaders(context, /*groups=*/ null);
+      let called = false;
+      result.get(
+          (readersArg) => {
+            fail('Unexpectedly succeeded');
+          },
+          (errorCode) => {
+            called = true;
+            assertEquals(errorCode, API.SCARD_E_NO_READERS_AVAILABLE);
+          });
+      assert(called);
+      assertEquals(result.getErrorCode(), API.SCARD_E_NO_READERS_AVAILABLE);
+    },
+
+    // Test `SCardListReaders()` returns a one-item list when there's a single
+    // attached device.
+    'testSCardListReaders_singleDevice': async function() {
+      await launchPcscServer(
+          /*initialDevices=*/[{'id': 123, 'type': 'gemaltoPcTwinReader'}]);
+      const context = await establishContextOrThrow();
+
+      const result = await api.SCardListReaders(context, /*groups=*/ null);
+      let readers = null;
+      result.get(
+          (readersArg) => {
+            readers = readersArg;
+          },
+          (errorCode) => {
+            fail(`Unexpected error ${errorCode}`);
+          });
+      assertObjectEquals(readers, ['Gemalto PC Twin Reader 00 00']);
+      assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
+    }
   },
 });
 });  // goog.scope
