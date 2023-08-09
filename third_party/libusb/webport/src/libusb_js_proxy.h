@@ -29,10 +29,9 @@
 #include "common/cpp/src/public/requesting/js_requester.h"
 #include "common/cpp/src/public/requesting/remote_call_adaptor.h"
 #include "common/cpp/src/public/requesting/request_result.h"
-
-#include "libusb_contexts_storage.h"
-#include "libusb_interface.h"
-#include "libusb_opaque_types.h"
+#include "third_party/libusb/webport/src/libusb_contexts_storage.h"
+#include "third_party/libusb/webport/src/libusb_interface.h"
+#include "third_party/libusb/webport/src/libusb_opaque_types.h"
 
 namespace google_smart_card {
 

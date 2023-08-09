@@ -22,7 +22,7 @@
 
 #include <libusb.h>
 
-#include "libusb_interface.h"
+#include "third_party/libusb/webport/src/libusb_interface.h"
 
 namespace google_smart_card {
 

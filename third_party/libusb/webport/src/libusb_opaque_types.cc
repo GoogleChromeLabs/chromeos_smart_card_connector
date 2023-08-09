@@ -14,7 +14,7 @@
 // License along with this library; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#include "libusb_opaque_types.h"
+#include "third_party/libusb/webport/src/libusb_opaque_types.h"
 
 #include <chrono>
 #include <utility>

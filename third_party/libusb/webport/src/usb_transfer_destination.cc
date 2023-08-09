@@ -20,7 +20,7 @@
 // This structure is used for finding matches between transfers and transfer
 // results (see the comments in the libusb_over_chrome_usb.h header).
 
-#include "usb_transfer_destination.h"
+#include "third_party/libusb/webport/src/usb_transfer_destination.h"
 
 #include <stdint.h>
 

@@ -14,7 +14,7 @@
 // License along with this library; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#include "libusb_web_port_service.h"
+#include "third_party/libusb/webport/src/public/libusb_web_port_service.h"
 
 #include <utility>
 
@@ -22,10 +22,9 @@
 #include "common/cpp/src/public/requesting/js_requester.h"
 #include "common/cpp/src/public/requesting/requester.h"
 #include "common/cpp/src/public/unique_ptr_utils.h"
-
-#include "libusb_interface.h"
-#include "libusb_js_proxy.h"
-#include "libusb_tracing_wrapper.h"
+#include "third_party/libusb/webport/src/libusb_interface.h"
+#include "third_party/libusb/webport/src/libusb_js_proxy.h"
+#include "third_party/libusb/webport/src/libusb_tracing_wrapper.h"
 
 namespace {
 

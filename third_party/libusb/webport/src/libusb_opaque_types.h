@@ -39,10 +39,9 @@
 
 #include "common/cpp/src/public/requesting/async_request.h"
 #include "common/cpp/src/public/requesting/request_result.h"
-
-#include "libusb_js_proxy_data_model.h"
-#include "usb_transfer_destination.h"
-#include "usb_transfers_parameters_storage.h"
+#include "third_party/libusb/webport/src/libusb_js_proxy_data_model.h"
+#include "third_party/libusb/webport/src/usb_transfer_destination.h"
+#include "third_party/libusb/webport/src/usb_transfers_parameters_storage.h"
 
 // Definition of the libusb_context type declared in the libusb headers.
 //
