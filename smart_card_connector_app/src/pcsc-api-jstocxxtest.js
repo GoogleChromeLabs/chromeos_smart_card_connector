@@ -98,7 +98,7 @@ goog.exportSymbol('testPcscApi', {
         testController.executableModule.getMessageChannel());
     // Launch the PC/SC server.
     await testController.setUpCppHelper(
-        'SmartCardConnectorApplicationTestHelper', {});
+        'SmartCardConnectorApplicationTestHelper', /*initialDevices=*/[]);
   },
 
   'tearDown': async function() {
