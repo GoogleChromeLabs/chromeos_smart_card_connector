@@ -28,12 +28,20 @@ include $(ROOT_PATH)/third_party/pcsc-lite/naclport/js_client/include.mk
 include $(ROOT_PATH)/third_party/pcsc-lite/naclport/common/include.mk
 include $(ROOT_PATH)/third_party/pcsc-lite/naclport/server_clients_management/include.mk
 
+# The list of source paths that Closure Compiler should compile for these unit
+# tests.
+# At high level, it's:
+# * Code-under-test and its tests under smart_card_connector_app/.
+# * All libraries it uses (including transitive dependencies).
+# * Exclusion pattern for C++-to-JS tests (they're run in a separate target with
+#   special setup).
 JS_COMPILER_INPUT_PATHS := \
   $(JS_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
   $(PCSC_LITE_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
   $(PCSC_LITE_JS_CLIENT_COMPILER_INPUT_DIR_PATHS) \
   $(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_JS_COMPILER_INPUT_DIR_PATHS) \
-  ../../../third_party/libusb/webport/src \
-  ../../src \
+  $(ROOT_PATH)/third_party/libusb/webport/src \
+  $(ROOT_PATH)/smart_card_connector_app/src \
+  !$(ROOT_PATH)/smart_card_connector_app/src/!**jstocxxtest.js \
 
 $(eval $(call BUILD_JS_UNITTESTS,$(JS_COMPILER_INPUT_PATHS)))
