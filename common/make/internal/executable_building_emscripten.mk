@@ -102,6 +102,9 @@ EMSCRIPTEN_COMPILER_FLAGS := \
 # MODULARIZE: Puts Emscripten module JavaScript loading code into a factory
 #   function, in order to control its loading from other JS code and to avoid
 #   name conflicts with unrelated code.
+# PTHREAD_POOL_SIZE_STRICT: Suppress runtime warnings when a new worker has to
+#   start for a new thread (this warning is confusing and is mostly useful in
+#   early days of development).
 # no-pthreads-mem-growth: Suppress the linker warning about the performance of
 #   the "Pthreads + ALLOW_MEMORY_GROWTH" combination.
 EMSCRIPTEN_LINKER_FLAGS := \
@@ -117,6 +120,7 @@ EMSCRIPTEN_LINKER_FLAGS := \
   -s MIN_IE_VERSION=-1 \
   -s MIN_SAFARI_VERSION=-1 \
   -s MODULARIZE=1 \
+  -s PTHREAD_POOL_SIZE_STRICT=0 \
   -Wno-pthreads-mem-growth \
 
 ifeq ($(CONFIG),Release)
