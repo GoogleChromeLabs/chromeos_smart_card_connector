@@ -16,7 +16,7 @@
  */
 
 goog.require('GoogleSmartCard.ConnectorApp.ChromeApiProvider');
-goog.require('GoogleSmartCard.ConnectorApp.ChromeApiTestUtils');
+goog.require('GoogleSmartCard.ConnectorApp.MockChromeApi');
 goog.require('goog.Promise');
 goog.require('goog.testing');
 goog.require('goog.testing.MockControl');
@@ -30,23 +30,28 @@ goog.scope(function() {
 
 const GSC = GoogleSmartCard;
 const ChromeApiProvider = GSC.ConnectorApp.ChromeApiProvider;
-const TestUtils = GSC.ConnectorApp.ChromeApiTestUtils;
+const MockChromeApi = GSC.ConnectorApp.MockChromeApi;
 
 const propertyReplacer = new goog.testing.PropertyReplacer();
 /** @type {!goog.testing.MockControl|undefined} */
 let mockControl;
 let mockServerMessageChannel;
+/** @type {MockChromeApi?} */
+let mockChromeApi;
 
 goog.exportSymbol('testChromeApiProvider', {
   'setUp': function() {
     mockControl = new goog.testing.MockControl();
     mockServerMessageChannel =
         new goog.testing.messaging.MockMessageChannel(mockControl);
-    TestUtils.setUpMockForExtensionApi(mockControl, propertyReplacer);
+    // Set up chrome API mocks and set expectations that each event will be
+    // subscribed to by some listener.
+    mockChromeApi = new MockChromeApi(propertyReplacer);
   },
 
   'tearDown': function() {
     // Check all mock expectations are satisfied.
+    mockChromeApi.dispose();
     mockControl.$verifyAll();
 
     propertyReplacer.reset();
