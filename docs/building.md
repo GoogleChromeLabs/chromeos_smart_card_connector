@@ -123,7 +123,7 @@ A sample command for an incremental build in the WebAssembly mode:
 
 ```shell
 TOOLCHAIN=emscripten make -j30
-````
+```
 
 A command for an incremental build in the NaCl mode includes activating a
 Python 2 virtual environment (which we don't enable by default due to the sunset
@@ -131,7 +131,7 @@ of Python 2):
 
 ```shell
 (source env/python2_venv/bin/activate && TOOLCHAIN=pnacl make -j30)
-````
+```
 
 (Note the brackets above - they are important so that the command runs in a
 subshell and you don't need to execute `deactivate` in order to exit the
