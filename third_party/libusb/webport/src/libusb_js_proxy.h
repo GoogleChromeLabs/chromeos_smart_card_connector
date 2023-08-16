@@ -36,11 +36,9 @@
 namespace google_smart_card {
 
 // This class provides an implementation for the libusb library interface that
-// forwards all requests to the chrome.usb JavaScript API (see
-// <https://developer.chrome.com/apps/usb>).
+// forwards all requests to a JavaScript API (e.g., WebUSB or chrome.usb).
 //
-// For the details of the integration with the chrome.usb JavaScript API, see
-// the chrome_usb/api_bridge.h file.
+// See libusb-proxy-receiver.js for the JavaScript counterpart implementation.
 class LibusbJsProxy final : public LibusbInterface {
  public:
   using TransferRequestResult = RequestResult<LibusbJsTransferResult>;
