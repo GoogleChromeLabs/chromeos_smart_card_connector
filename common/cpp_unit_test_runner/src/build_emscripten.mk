@@ -42,11 +42,14 @@ TEST_ADDITIONAL_CXXFLAGS := \
 # PROXY_TO_PTHREAD: Run the main() function, and hence all test bodies, in a
 #   separate thread. Otherwise, multi-threaded tests will hang as background
 #   tests aren't created until the main thread yields.
+# ENVIRONMENT: Generate support code for running in the Node.js environment.
+#   (This overrides the default setting in executable_building_emscripten.mk.)
 TEST_ADDITIONAL_LDFLAGS := \
 	-s EXIT_RUNTIME \
 	-s EXPORT_NAME=Module \
 	-s MODULARIZE=0 \
 	-s PROXY_TO_PTHREAD \
+  -s ENVIRONMENT=node \
 
 # Documented in ../include.mk.
 TEST_RUNNER_SOURCES :=

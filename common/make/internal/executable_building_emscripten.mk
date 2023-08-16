@@ -92,6 +92,8 @@ EMSCRIPTEN_COMPILER_FLAGS := \
 # DYNAMIC_EXECUTION: Disable dynamic code execution in Emscripten JavaScript
 #   code (not doing this will cause "unsafe-eval" Content Security Policy
 #   violations when running this code inside Chrome Apps/Extensions).
+# ENVIRONMENT: Only generate support code for running in needed Web environments
+#   and skip support for others.
 # EXPORT_NAME: Name of the JavaScript function that loads the Emscripten module.
 # MODULARIZE: Puts Emscripten module JavaScript loading code into a factory
 #   function, in order to control its loading from other JS code and to avoid
@@ -103,6 +105,7 @@ EMSCRIPTEN_LINKER_FLAGS := \
   -s ABORTING_MALLOC=1 \
   -s ALLOW_MEMORY_GROWTH=1 \
   -s DYNAMIC_EXECUTION=0 \
+  -s ENVIRONMENT=web,worker \
   -s 'EXPORT_NAME="loadEmscriptenModule_$(TARGET)"' \
   -s MODULARIZE=1 \
   -Wno-pthreads-mem-growth \
