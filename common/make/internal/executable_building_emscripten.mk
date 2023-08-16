@@ -95,6 +95,8 @@ EMSCRIPTEN_COMPILER_FLAGS := \
 # ENVIRONMENT: Only generate support code for running in needed Web environments
 #   and skip support for others.
 # EXPORT_NAME: Name of the JavaScript function that loads the Emscripten module.
+# INCOMING_MODULE_JS_API: Names of Emscripten Module attributes that we need at
+#   runtime (code for other attributes is optimized away).
 # MIN_*_VERSION: Disable support code for non-Chrome browsers as we're never
 #   expected to run anywhere besides Chrome.
 # MODULARIZE: Puts Emscripten module JavaScript loading code into a factory
@@ -109,6 +111,7 @@ EMSCRIPTEN_LINKER_FLAGS := \
   -s DYNAMIC_EXECUTION=0 \
   -s ENVIRONMENT=web,worker \
   -s 'EXPORT_NAME="loadEmscriptenModule_$(TARGET)"' \
+  -s INCOMING_MODULE_JS_API=[buffer,instantiateWasm,onAbort,preRun,print,printErr,wasmMemory] \
   -s MIN_EDGE_VERSION=-1 \
   -s MIN_FIREFOX_VERSION=-1 \
   -s MIN_IE_VERSION=-1 \
