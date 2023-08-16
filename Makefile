@@ -73,7 +73,7 @@ third_party/libusb/webport/build/tests: third_party/libusb/webport/build
 
 # Toolchain related definitions #################
 
-TOOLCHAIN ?= pnacl
+TOOLCHAIN ?= emscripten
 
 # Applications are only built in non-sanitizer builds.
 ifneq ($(TOOLCHAIN),asan_testing)
