@@ -49,7 +49,7 @@ TEST_ADDITIONAL_LDFLAGS := \
 	-s EXPORT_NAME=Module \
 	-s MODULARIZE=0 \
 	-s PROXY_TO_PTHREAD \
-  -s ENVIRONMENT=node \
+	-s ENVIRONMENT=node \
 
 # Documented in ../include.mk.
 TEST_RUNNER_SOURCES :=

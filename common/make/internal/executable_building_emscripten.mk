@@ -105,7 +105,7 @@ EMSCRIPTEN_LINKER_FLAGS := \
   -s ABORTING_MALLOC=1 \
   -s ALLOW_MEMORY_GROWTH=1 \
   -s DYNAMIC_EXECUTION=0 \
-	-s ENVIRONMENT=web,worker \
+  -s ENVIRONMENT=web,worker \
   -s 'EXPORT_NAME="loadEmscriptenModule_$(TARGET)"' \
   -s MODULARIZE=1 \
   -Wno-pthreads-mem-growth \
