@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef GOOGLE_SMART_CARD_INTEGRATION_TESTING_INTEGRATION_TEST_SERVICE_H_
-#define GOOGLE_SMART_CARD_INTEGRATION_TESTING_INTEGRATION_TEST_SERVICE_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_INTEGRATION_TESTING_SRC_PUBLIC_INTEGRATION_TEST_SERVICE_H_
+#define GOOGLE_SMART_CARD_COMMON_INTEGRATION_TESTING_SRC_PUBLIC_INTEGRATION_TEST_SERVICE_H_
 
 #include <memory>
 #include <set>
@@ -24,7 +24,7 @@
 #include "common/cpp/src/public/messaging/typed_message_listener.h"
 #include "common/cpp/src/public/requesting/js_request_receiver.h"
 #include "common/cpp/src/public/value.h"
-#include "common/integration_testing/src/google_smart_card_integration_testing/integration_test_helper.h"
+#include "common/integration_testing/src/public/integration_test_helper.h"
 
 namespace google_smart_card {
 
@@ -76,4 +76,4 @@ class IntegrationTestService final : public RequestHandler {
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_INTEGRATION_TESTING_INTEGRATION_TEST_SERVICE_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_INTEGRATION_TESTING_SRC_PUBLIC_INTEGRATION_TEST_SERVICE_H_
