@@ -23,6 +23,7 @@ goog.require('GoogleSmartCard.ConnectorApp.ChromeApiTestUtils');
 goog.require('GoogleSmartCard.IntegrationTestController');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
 goog.require('goog.testing.MockControl');
+goog.require('goog.testing.asserts');
 goog.require('goog.testing.jsunit');
 
 goog.setTestOnly();
@@ -83,7 +84,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     try {
       await testController.disposeAsync();
       pcscReadinessTracker.dispose();
-      assertTrue(chromeApiProvider.isDisposed())
+      assertTrue(chromeApiProvider.isDisposed());
     } finally {
       // Check all mock expectations are satisfied.
       mockControl.$verifyAll();

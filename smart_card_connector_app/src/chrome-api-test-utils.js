@@ -22,6 +22,8 @@ goog.require('goog.testing.PropertyReplacer');
 goog.require('goog.testing.StrictMock');
 goog.require('goog.testing.mockmatchers');
 
+goog.setTestOnly();
+
 goog.scope(function() {
 
 const EXTENSION_API_EVENTS = [
