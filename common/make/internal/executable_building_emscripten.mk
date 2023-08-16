@@ -126,6 +126,14 @@ EMSCRIPTEN_COMMON_FLAGS += \
 EMSCRIPTEN_COMPILER_FLAGS += \
   -DNDEBUG \
 
+# Add linker flags specific to release builds.
+#
+# Explanation:
+# closure=1: Enable Closure Compiler based optimizations of the JavaScript code
+#   emitted by Emscripten.
+EMSCRIPTEN_LINKER_FLAGS += \
+	--closure=1 \
+
 else ifeq ($(CONFIG),Debug)
 
 # Add compiler and linker flags specific to debug builds.
