@@ -95,6 +95,10 @@ EMSCRIPTEN_COMPILER_FLAGS := \
 # ENVIRONMENT: Only generate support code for running in needed Web environments
 #   and skip support for others.
 # EXPORT_NAME: Name of the JavaScript function that loads the Emscripten module.
+# MIN_CHROME_VERSION: Skip generating Emscripten support code for very old
+#   Chrome versions. (The exact boundary is chosen similarly to
+#   minimum_chrome_version in
+#   smart_card_connector_app/src/manifest.json.template.)
 # MODULARIZE: Puts Emscripten module JavaScript loading code into a factory
 #   function, in order to control its loading from other JS code and to avoid
 #   name conflicts with unrelated code.
@@ -107,6 +111,7 @@ EMSCRIPTEN_LINKER_FLAGS := \
   -s DYNAMIC_EXECUTION=0 \
   -s ENVIRONMENT=web,worker \
   -s 'EXPORT_NAME="loadEmscriptenModule_$(TARGET)"' \
+  -s MIN_CHROME_VERSION=96 \
   -s MODULARIZE=1 \
   -Wno-pthreads-mem-growth \
 
