@@ -19,10 +19,9 @@
  * @fileoverview This file contains integration tests for ChromeApiProvider.
  */
 goog.require('GoogleSmartCard.ConnectorApp.ChromeApiProvider');
-goog.require('GoogleSmartCard.ConnectorApp.ChromeApiTestUtils');
+goog.require('GoogleSmartCard.ConnectorApp.MockChromeApi');
 goog.require('GoogleSmartCard.IntegrationTestController');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
-goog.require('goog.testing.MockControl');
 goog.require('goog.testing.asserts');
 goog.require('goog.testing.jsunit');
 
@@ -32,8 +31,8 @@ goog.scope(function() {
 
 const GSC = GoogleSmartCard;
 const ChromeApiProvider = GSC.ConnectorApp.ChromeApiProvider;
+const MockChromeApi = GSC.ConnectorApp.MockChromeApi;
 const ReadinessTracker = GSC.PcscLiteServerClientsManagement.ReadinessTracker;
-const TestUtils = GSC.ConnectorApp.ChromeApiTestUtils;
 
 /** @type {GSC.IntegrationTestController?} */
 let testController;
@@ -43,8 +42,8 @@ let libusbProxyReceiver;
 let pcscReadinessTracker;
 /** @type {ChromeApiProvider?} */
 let chromeApiProvider;
-/** @type {!goog.testing.MockControl|undefined} */
-let mockControl;
+/** @type {MockChromeApi?} */
+let mockChromeApi;
 
 /**
  * @param {!Array} initialDevices
@@ -70,10 +69,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     pcscReadinessTracker = new ReadinessTracker(
         testController.executableModule.getMessageChannel());
     // Mock chrome.smartCardProviderPrivate API.
-    mockControl = new goog.testing.MockControl();
-    TestUtils.setUpMockForExtensionApi(
-        mockControl, testController.propertyReplacer);
-    mockControl.$replayAll();
+    mockChromeApi = new MockChromeApi(testController.propertyReplacer);
 
     chromeApiProvider = new ChromeApiProvider(
         testController.executableModule.getMessageChannel(),
@@ -82,12 +78,12 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
 
   'tearDown': async function() {
     try {
+      chromeApiProvider.dispose();
       await testController.disposeAsync();
       pcscReadinessTracker.dispose();
-      assertTrue(chromeApiProvider.isDisposed());
     } finally {
       // Check all mock expectations are satisfied.
-      mockControl.$verifyAll();
+      mockChromeApi.dispose();
       chromeApiProvider = null;
       pcscReadinessTracker = null;
       testController = null;
