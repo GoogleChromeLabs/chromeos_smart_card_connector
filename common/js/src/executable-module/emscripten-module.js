@@ -168,6 +168,9 @@ GSC.EmscriptenModule = class extends GSC.ExecutableModule {
    * @private
    */
   getEmscriptenApiModuleSettings_() {
+    // Note: If you add a new key here don't forget to include it into the
+    // "INCOMING_MODULE_JS_API" build-time setting in
+    // executable_building_emscripten.mk.
     return {
       'onAbort': () => {
         this.onModuleCrashed_();
