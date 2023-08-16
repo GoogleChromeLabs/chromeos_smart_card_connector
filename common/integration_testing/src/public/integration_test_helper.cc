@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "common/integration_testing/src/google_smart_card_integration_testing/integration_test_helper.h"
+#include "common/integration_testing/src/public/integration_test_helper.h"
 
 #include <functional>
 

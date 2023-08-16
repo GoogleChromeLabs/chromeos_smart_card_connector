@@ -24,16 +24,14 @@ include $(COMMON_DIR_PATH)/make/executable_building.mk
 include ../include.mk
 
 
-ROOT_SOURCES_PATH := ../src
-ROOT_SOURCES_SUBDIR := google_smart_card_integration_testing
-SOURCES_PATH := $(ROOT_SOURCES_PATH)/$(ROOT_SOURCES_SUBDIR)
+SOURCES_PATH := ../src
 
 SOURCES := \
-	$(SOURCES_PATH)/integration_test_helper.cc \
-	$(SOURCES_PATH)/integration_test_service.cc \
+	$(SOURCES_PATH)/public/integration_test_helper.cc \
+	$(SOURCES_PATH)/public/integration_test_service.cc \
 
 CXXFLAGS := \
-	-I$(ROOT_SOURCES_PATH) \
+	-I$(SOURCES_PATH) \
 	-I$(ROOT_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src \
 	-pedantic \
