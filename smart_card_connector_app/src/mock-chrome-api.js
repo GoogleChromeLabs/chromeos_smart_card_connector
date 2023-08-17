@@ -180,11 +180,11 @@ GoogleSmartCard.ConnectorApp.MockChromeApi = class {
    * @param {string} eventName
    * @param  {...*} args
    */
-  async dispatchEvent(eventName, ...args) {
+  dispatchEvent(eventName, ...args) {
     assertEquals(
         'No listener to dispatch event to', 'function',
         typeof this.listeners_[eventName]);
-    await this.listeners_[eventName](...args);
+    this.listeners_[eventName](...args);
   }
 };
 });
