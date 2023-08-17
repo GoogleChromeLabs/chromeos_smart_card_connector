@@ -19,7 +19,7 @@
  * @fileoverview This file contains integration tests for ChromeApiProvider.
  */
 goog.require('GoogleSmartCard.ConnectorApp.ChromeApiProvider');
-goog.require('GoogleSmartCard.ConnectorApp.ChromeApiTestUtils');
+goog.require('GoogleSmartCard.ConnectorApp.MockChromeApi');
 goog.require('GoogleSmartCard.IntegrationTestController');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
 goog.require('goog.testing.MockControl');
@@ -32,8 +32,8 @@ goog.scope(function() {
 
 const GSC = GoogleSmartCard;
 const ChromeApiProvider = GSC.ConnectorApp.ChromeApiProvider;
+const MockChromeApi = GSC.ConnectorApp.MockChromeApi;
 const ReadinessTracker = GSC.PcscLiteServerClientsManagement.ReadinessTracker;
-const TestUtils = GSC.ConnectorApp.ChromeApiTestUtils;
 
 /** @type {GSC.IntegrationTestController?} */
 let testController;
@@ -43,6 +43,8 @@ let libusbProxyReceiver;
 let pcscReadinessTracker;
 /** @type {ChromeApiProvider?} */
 let chromeApiProvider;
+/** @type {MockChromeApi?} */
+let mockChromeApi;
 /** @type {!goog.testing.MockControl|undefined} */
 let mockControl;
 
@@ -71,20 +73,14 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         testController.executableModule.getMessageChannel());
     // Mock chrome.smartCardProviderPrivate API.
     mockControl = new goog.testing.MockControl();
-    TestUtils.setUpMockForExtensionApi(
-        mockControl, testController.propertyReplacer);
-    mockControl.$replayAll();
-
-    chromeApiProvider = new ChromeApiProvider(
-        testController.executableModule.getMessageChannel(),
-        pcscReadinessTracker.promise);
+    mockChromeApi =
+        new MockChromeApi(mockControl, testController.propertyReplacer);
   },
 
   'tearDown': async function() {
     try {
       await testController.disposeAsync();
       pcscReadinessTracker.dispose();
-      assertTrue(chromeApiProvider.isDisposed());
     } finally {
       // Check all mock expectations are satisfied.
       mockControl.$verifyAll();
@@ -95,7 +91,11 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
   },
 
   'testSmoke': async function() {
+    mockControl.$replayAll();
     launchPcscServer(/*initialDevices=*/[]);
+    chromeApiProvider = new ChromeApiProvider(
+        testController.executableModule.getMessageChannel(),
+        pcscReadinessTracker.promise);
     await pcscReadinessTracker.promise;
   }
 });
