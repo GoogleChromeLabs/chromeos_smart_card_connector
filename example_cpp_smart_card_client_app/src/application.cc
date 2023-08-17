@@ -28,7 +28,7 @@
 #include "common/cpp/src/public/messaging/typed_message_router.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_debug_dumping.h"
-#include <google_smart_card_pcsc_lite_client/global.h>
+#include "third_party/pcsc-lite/naclport/cpp_client/src/google_smart_card_pcsc_lite_client/global.h"
 #include <google_smart_card_pcsc_lite_cpp_demo/demo.h>
 
 #include "built_in_pin_dialog/built_in_pin_dialog_server.h"

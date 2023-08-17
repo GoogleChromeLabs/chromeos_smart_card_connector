@@ -23,7 +23,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 // THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <google_smart_card_pcsc_lite_client/global.h>
+#include "third_party/pcsc-lite/naclport/cpp_client/src/google_smart_card_pcsc_lite_client/global.h"
 
 #include <string>
 #include <utility>

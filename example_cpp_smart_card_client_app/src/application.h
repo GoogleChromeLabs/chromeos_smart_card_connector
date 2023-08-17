@@ -20,7 +20,7 @@
 
 #include "common/cpp/src/public/global_context.h"
 #include "common/cpp/src/public/messaging/typed_message_router.h"
-#include <google_smart_card_pcsc_lite_client/global.h>
+#include "third_party/pcsc-lite/naclport/cpp_client/src/google_smart_card_pcsc_lite_client/global.h"
 
 #include "built_in_pin_dialog/built_in_pin_dialog_server.h"
 #include "chrome_certificate_provider/api_bridge.h"
