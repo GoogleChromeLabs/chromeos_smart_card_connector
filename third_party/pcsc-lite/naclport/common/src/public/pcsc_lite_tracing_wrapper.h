@@ -23,8 +23,8 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 // THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#ifndef GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_COMMON_PCSC_LITE_TRACING_WRAPPER_H_
-#define GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_COMMON_PCSC_LITE_TRACING_WRAPPER_H_
+#ifndef GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_COMMON_SRC_PUBLIC_PCSC_LITE_TRACING_WRAPPER_H_
+#define GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_COMMON_SRC_PUBLIC_PCSC_LITE_TRACING_WRAPPER_H_
 
 #include <string>
 
@@ -34,7 +34,7 @@
 #include <wintypes.h>
 
 #include "common/cpp/src/public/logging/logging.h"
-#include "third_party/pcsc-lite/naclport/common/src/google_smart_card_pcsc_lite_common/pcsc_lite.h"
+#include "third_party/pcsc-lite/naclport/common/src/public/pcsc_lite.h"
 
 namespace google_smart_card {
 
@@ -121,4 +121,4 @@ class PcscLiteTracingWrapper final : public PcscLite {
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_COMMON_PCSC_LITE_TRACING_WRAPPER_H_
+#endif  // GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_COMMON_SRC_PUBLIC_PCSC_LITE_TRACING_WRAPPER_H_

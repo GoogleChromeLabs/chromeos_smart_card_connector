@@ -42,7 +42,7 @@
 #include "common/cpp/src/public/logging/hex_dumping.h"
 #include "common/cpp/src/public/logging/logging.h"
 #include "common/cpp/src/public/multi_string.h"
-#include "third_party/pcsc-lite/naclport/common/src/google_smart_card_pcsc_lite_common/scard_debug_dump.h"
+#include "third_party/pcsc-lite/naclport/common/src/public/scard_debug_dump.h"
 
 namespace google_smart_card {
 

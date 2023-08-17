@@ -38,9 +38,9 @@ include ../include.mk
 SOURCES_PATH := ../src
 
 SOURCES := \
-	$(SOURCES_PATH)/google_smart_card_pcsc_lite_common/pcsc_lite_tracing_wrapper.cc \
-	$(SOURCES_PATH)/google_smart_card_pcsc_lite_common/scard_debug_dump.cc \
-	$(SOURCES_PATH)/google_smart_card_pcsc_lite_common/scard_structs_serialization.cc \
+	$(SOURCES_PATH)/public/pcsc_lite_tracing_wrapper.cc \
+	$(SOURCES_PATH)/public/scard_debug_dump.cc \
+	$(SOURCES_PATH)/public/scard_structs_serialization.cc \
 
 CXXFLAGS := \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \

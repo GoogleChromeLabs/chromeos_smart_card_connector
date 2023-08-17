@@ -26,8 +26,8 @@
 // This file contains helper functions for making debug dumps of the PC/SC-Lite
 // API values (error codes, bit masks, structures, etc.).
 
-#ifndef GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_COMMON_SCARD_DEBUG_DUMP_H_
-#define GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_COMMON_SCARD_DEBUG_DUMP_H_
+#ifndef GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_COMMON_SRC_PUBLIC_SCARD_DEBUG_DUMP_H_
+#define GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_COMMON_SRC_PUBLIC_SCARD_DEBUG_DUMP_H_
 
 #include <stdint.h>
 
@@ -97,4 +97,4 @@ std::string DebugDumpSCardOutputMultiStringBuffer(LPCSTR buffer,
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_COMMON_SCARD_DEBUG_DUMP_H_
+#endif  // GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_COMMON_SRC_PUBLIC_SCARD_DEBUG_DUMP_H_
