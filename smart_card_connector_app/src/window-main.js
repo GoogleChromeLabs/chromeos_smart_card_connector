@@ -26,12 +26,12 @@ goog.require('GoogleSmartCard.ConnectorApp.Window.AppsDisplaying');
 goog.require('GoogleSmartCard.ConnectorApp.Window.DevicesDisplaying');
 goog.require('GoogleSmartCard.ConnectorApp.Window.HelpShowing');
 goog.require('GoogleSmartCard.ConnectorApp.Window.LogsExporting');
+goog.require('GoogleSmartCard.ConnectorApp.Window.StatusDisplaying');
 goog.require('GoogleSmartCard.I18n');
 goog.require('GoogleSmartCard.InPopupMainScript');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.Packaging');
 goog.require('goog.dom');
-goog.require('goog.dom.classlist');
 goog.require('goog.events');
 goog.require('goog.events.EventType');
 goog.require('goog.log');
@@ -55,30 +55,14 @@ GSC.ConnectorApp.Window.AppsDisplaying.initialize();
 GSC.ConnectorApp.Window.DevicesDisplaying.initialize();
 GSC.ConnectorApp.Window.HelpShowing.initialize();
 GSC.ConnectorApp.Window.LogsExporting.initialize();
+GSC.ConnectorApp.Window.StatusDisplaying.initialize();
 
 GSC.I18n.adjustAllElementsTranslation();
 
 if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP)
   GSC.InPopupMainScript.showWindow();
 
-displayNonChromeOsWarningIfNeeded();
-
 function closeWindowClickListener() {
   window.close();
-}
-
-function displayNonChromeOsWarningIfNeeded() {
-  chrome.runtime.getPlatformInfo(function(platformInfo) {
-    /** @type {string} */
-    const os = platformInfo['os'];
-    if (os != 'cros') {
-      goog.log.info(
-          logger,
-          'Displaying the warning regarding non-ChromeOS system ' +
-              '(the current OS is "' + os + '")');
-      goog.dom.classlist.remove(
-          goog.dom.getElement('non-chrome-os-warning'), 'hidden');
-    }
-  });
 }
 });  // goog.scope
