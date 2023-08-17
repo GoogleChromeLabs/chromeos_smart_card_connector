@@ -22,9 +22,8 @@
 
 goog.provide('GoogleSmartCard.ConnectorApp.MockChromeApi');
 
-goog.require('goog.Disposable');
-goog.require('goog.asserts');
 goog.require('goog.testing');
+goog.require('goog.testing.asserts');
 goog.require('goog.testing.MockControl');
 goog.require('goog.testing.PropertyReplacer');
 goog.require('goog.testing.StrictMock');
@@ -113,32 +112,28 @@ const RESULT_CODES = [
  * Sets up mocks for
  * chrome.smartCardProviderPrivate.*.addListener()/removeListener(),
  * report*Result functions. Checks that all events have a subscriber and that
- * this subscriber is removed properly. Checks that all the expectations are
- * satisfied on disposal.
+ * this subscriber is removed properly.
  */
-GoogleSmartCard.ConnectorApp.MockChromeApi = class extends goog.Disposable {
+GoogleSmartCard.ConnectorApp.MockChromeApi = class {
   /**
+   * @param {!goog.testing.MockControl} mockControl
    * @param {!goog.testing.PropertyReplacer} propertyReplacer
    */
-  constructor(propertyReplacer) {
-    super();
+  constructor(mockControl, propertyReplacer) {
     /** @type {Object.<string, Function>} */
     this.listeners_ = {};
-    this.listenersMockControl_ = new goog.testing.MockControl();
     for (const event of EXTENSION_API_EVENTS) {
       // Mock chrome.smartCardProviderPrivate.*.addListener()/removeListener().
       // Cast is to work around the issue that the return type of
       // createFunctionMock() is too generic (as it depends on the value of the
       // optional second argument).
       const mockedAddListener = /** @type {!goog.testing.StrictMock} */ (
-          this.listenersMockControl_.createFunctionMock(
-              `${event}.addListener`));
+          mockControl.createFunctionMock(`${event}.addListener`));
       propertyReplacer.setPath(
           `chrome.smartCardProviderPrivate.${event}.addListener`,
           mockedAddListener);
       const mockedRemoveListener = /** @type {!goog.testing.StrictMock} */ (
-          this.listenersMockControl_.createFunctionMock(
-              `${event}.removeListener`));
+          mockControl.createFunctionMock(`${event}.removeListener`));
       propertyReplacer.setPath(
           `chrome.smartCardProviderPrivate.${event}.removeListener`,
           mockedRemoveListener);
@@ -147,31 +142,26 @@ GoogleSmartCard.ConnectorApp.MockChromeApi = class extends goog.Disposable {
       // will be removed.
       chrome.smartCardProviderPrivate[event].addListener(
           goog.testing.mockmatchers.isFunction);
-      let listener;
-      mockedAddListener.$once().$does((actual_listener) => {
-        listener = actual_listener;
+      mockedAddListener.$once().$does((listener) => {
         this.listeners_[event] = listener;
       });
 
-      const argumentMatcher =
-          new goog.testing.mockmatchers.ArgumentMatcher(function(value) {
-            return value === listener;
-          }, 'verifySameListener');
-      chrome.smartCardProviderPrivate[event]
-          .removeListener(argumentMatcher)
-          .$once();
-
-      this.listenersMockControl_.$replayAll();
+      chrome.smartCardProviderPrivate[event].removeListener(
+          goog.testing.mockmatchers.isFunction);
+      mockedRemoveListener.$once().$does((listener) => {
+        assertEquals(
+            'Failed to remove listener', listener, this.listeners_[event]);
+        delete this.listeners_[event];
+      });
     }
 
-    this.functionsMockControl_ = new goog.testing.MockControl();
     // Mock chrome.smartCardProviderPrivate.report*Result functions.
     for (const reportFunction of EXTENSION_FUNCTIONS) {
       // Cast is to work around the issue that the return type of
       // createFunctionMock() is too generic (as it depends on the value of the
       // optional second argument).
       const mockedReport = /** @type {!goog.testing.StrictMock} */ (
-          this.functionsMockControl_.createFunctionMock(`${reportFunction}`));
+          mockControl.createFunctionMock(`${reportFunction}`));
       propertyReplacer.setPath(
           `chrome.smartCardProviderPrivate.${reportFunction}`, mockedReport);
     }
@@ -184,13 +174,6 @@ GoogleSmartCard.ConnectorApp.MockChromeApi = class extends goog.Disposable {
     }
   }
 
-  /** @override */
-  disposeInternal() {
-    this.listenersMockControl_.$verifyAll();
-    this.functionsMockControl_.$verifyAll();
-    super.disposeInternal();
-  }
-
   /**
    * Dispatches the specified chrome.smartCardProviderPrivate API event with
    * `args`.
@@ -198,7 +181,9 @@ GoogleSmartCard.ConnectorApp.MockChromeApi = class extends goog.Disposable {
    * @param  {...*} args
    */
   async dispatchEvent(eventName, ...args) {
-    goog.asserts.assertFunction(this.listeners_[eventName]);
+    assertEquals(
+        'No listener to dispatch event to', 'function',
+        typeof this.listeners_[eventName]);
     await this.listeners_[eventName](...args);
   }
 };

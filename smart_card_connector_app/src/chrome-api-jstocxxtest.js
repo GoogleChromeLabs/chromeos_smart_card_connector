@@ -22,6 +22,7 @@ goog.require('GoogleSmartCard.ConnectorApp.ChromeApiProvider');
 goog.require('GoogleSmartCard.ConnectorApp.MockChromeApi');
 goog.require('GoogleSmartCard.IntegrationTestController');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
+goog.require('goog.testing.MockControl');
 goog.require('goog.testing.asserts');
 goog.require('goog.testing.jsunit');
 
@@ -44,6 +45,8 @@ let pcscReadinessTracker;
 let chromeApiProvider;
 /** @type {MockChromeApi?} */
 let mockChromeApi;
+/** @type {!goog.testing.MockControl|undefined} */
+let mockControl;
 
 /**
  * @param {!Array} initialDevices
@@ -69,11 +72,9 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     pcscReadinessTracker = new ReadinessTracker(
         testController.executableModule.getMessageChannel());
     // Mock chrome.smartCardProviderPrivate API.
-    mockChromeApi = new MockChromeApi(testController.propertyReplacer);
-
-    chromeApiProvider = new ChromeApiProvider(
-        testController.executableModule.getMessageChannel(),
-        pcscReadinessTracker.promise);
+    mockControl = new goog.testing.MockControl();
+    mockChromeApi =
+        new MockChromeApi(mockControl, testController.propertyReplacer);
   },
 
   'tearDown': async function() {
@@ -83,7 +84,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
       pcscReadinessTracker.dispose();
     } finally {
       // Check all mock expectations are satisfied.
-      mockChromeApi.dispose();
+      mockControl.$verifyAll();
       chromeApiProvider = null;
       pcscReadinessTracker = null;
       testController = null;
@@ -91,7 +92,11 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
   },
 
   'testSmoke': async function() {
+    mockControl.$replayAll();
     launchPcscServer(/*initialDevices=*/[]);
+    chromeApiProvider = new ChromeApiProvider(
+        testController.executableModule.getMessageChannel(),
+        pcscReadinessTracker.promise);
     await pcscReadinessTracker.promise;
   }
 });

@@ -46,12 +46,11 @@ goog.exportSymbol('testChromeApiProvider', {
         new goog.testing.messaging.MockMessageChannel(mockControl);
     // Set up chrome API mocks and set expectations that each event will be
     // subscribed to by some listener.
-    mockChromeApi = new MockChromeApi(propertyReplacer);
+    mockChromeApi = new MockChromeApi(mockControl, propertyReplacer);
   },
 
   'tearDown': function() {
     // Check all mock expectations are satisfied.
-    mockChromeApi.dispose();
     mockControl.$verifyAll();
 
     propertyReplacer.reset();
