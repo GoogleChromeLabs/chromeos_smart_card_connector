@@ -114,7 +114,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         pcscReadinessTracker.promise);
     mockChromeApi.dispatchEvent(
         'onEstablishContextRequested', /*requestId=*/ 123);
-    chrome.smartCardProviderPrivate['reportEstablishContextResult']
+    await chrome.smartCardProviderPrivate['reportEstablishContextResult']
         .$waitAndVerify();
   }
 });
