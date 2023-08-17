@@ -25,6 +25,7 @@ goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker')
 goog.require('goog.testing.MockControl');
 goog.require('goog.testing.asserts');
 goog.require('goog.testing.jsunit');
+goog.require('goog.testing.mockmatchers');
 
 goog.setTestOnly();
 
@@ -97,6 +98,24 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         testController.executableModule.getMessageChannel(),
         pcscReadinessTracker.promise);
     await pcscReadinessTracker.promise;
+  },
+
+  'testEstablishContext': async function() {
+    chrome
+        .smartCardProviderPrivate['reportEstablishContextResult'](
+            /*requestId=*/ 123,
+            /*scardContext=*/ goog.testing.mockmatchers.isNumber, 'SUCCESS')
+        .$once();
+    mockControl.$replayAll();
+
+    launchPcscServer(/*initialDevices=*/[]);
+    chromeApiProvider = new ChromeApiProvider(
+        testController.executableModule.getMessageChannel(),
+        pcscReadinessTracker.promise);
+    mockChromeApi.dispatchEvent(
+        'onEstablishContextRequested', /*requestId=*/ 123);
+    await chrome.smartCardProviderPrivate['reportEstablishContextResult']
+        .$waitAndVerify();
   }
 });
 });  // goog.scope
