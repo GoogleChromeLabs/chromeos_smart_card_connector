@@ -79,7 +79,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
 
   'tearDown': async function() {
     try {
-      chromeApiProvider.dispose();
       await testController.disposeAsync();
       pcscReadinessTracker.dispose();
     } finally {

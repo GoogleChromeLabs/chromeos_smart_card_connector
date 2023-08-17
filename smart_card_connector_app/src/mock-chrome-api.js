@@ -23,11 +23,11 @@
 goog.provide('GoogleSmartCard.ConnectorApp.MockChromeApi');
 
 goog.require('goog.testing');
-goog.require('goog.testing.asserts');
 goog.require('goog.testing.MockControl');
 goog.require('goog.testing.PropertyReplacer');
 goog.require('goog.testing.StrictMock');
 goog.require('goog.testing.mockmatchers');
+goog.require('goog.testing.asserts');
 
 goog.setTestOnly();
 
