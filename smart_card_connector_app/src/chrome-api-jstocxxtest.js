@@ -196,7 +196,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
   // Test that releasing bogus context returns INVALID_HANDLE error.
   'testReleaseContext_none': async function() {
     const BAD_CONTEXT = 123;
-    expectReportReleaseContext(/*requestId=*/ 42, 'INVALID_HANDLE')
+    expectReportReleaseContext(/*requestId=*/ 42, 'INVALID_HANDLE');
     mockControl.$replayAll();
 
     launchPcscServer(/*initialDevices=*/[]);
@@ -234,8 +234,8 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     let establishContextResult = EMPTY_CONTEXT_RESULT;
     expectReportEstablishContext(
         /*requestId=*/ 123, 'SUCCESS', establishContextResult);
-    expectReportReleaseContext(/*requestId=*/ 124, 'SUCCESS')
-    expectReportListReaders(/*requestId=*/ 125, [], 'INVALID_HANDLE')
+    expectReportReleaseContext(/*requestId=*/ 124, 'SUCCESS');
+    expectReportListReaders(/*requestId=*/ 125, [], 'INVALID_HANDLE');
     mockControl.$replayAll();
 
     launchPcscServer(/*initialDevices=*/[]);
