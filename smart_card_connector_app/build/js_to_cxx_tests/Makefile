@@ -67,7 +67,8 @@ LIBS := \
 JS_SOURCES_PATHS := \
   $(SOURCE_DIR) \
   $(SOURCE_DIR)/**-jstocxxtest.js \
-  $(LIBUSB_JS_COMPILER_INPUT_DIR_PATHS) \
+  $(ROOT_PATH)/third_party/libusb/webport/src \
+  !$(ROOT_PATH)/third_party/libusb/webport/src/**test.js \
   $(PCSC_LITE_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
   $(PCSC_LITE_JS_CLIENT_COMPILER_INPUT_DIR_PATHS) \
   $(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_JS_COMPILER_INPUT_DIR_PATHS) \
