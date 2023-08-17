@@ -49,7 +49,7 @@
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_conversion.h"
 #include "common/cpp/src/public/value_debug_dumping.h"
-#include "third_party/pcsc-lite/naclport/common/src/google_smart_card_pcsc_lite_common/scard_debug_dump.h"
+#include "third_party/pcsc-lite/naclport/common/src/public/scard_debug_dump.h"
 #include "third_party/pcsc-lite/naclport/server_clients_management/src/admin_policy_getter.h"
 
 namespace google_smart_card {

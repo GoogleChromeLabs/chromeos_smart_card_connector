@@ -49,7 +49,7 @@
 #include "common/cpp/src/public/requesting/request_result.h"
 #include "common/cpp/src/public/tuple_unpacking.h"
 #include "common/cpp/src/public/value.h"
-#include "third_party/pcsc-lite/naclport/common/src/google_smart_card_pcsc_lite_common/scard_structs_serialization.h"
+#include "third_party/pcsc-lite/naclport/common/src/public/scard_structs_serialization.h"
 #include "third_party/pcsc-lite/naclport/server_clients_management/src/admin_policy_getter.h"
 #include "third_party/pcsc-lite/naclport/server_clients_management/src/client_handles_registry.h"
 

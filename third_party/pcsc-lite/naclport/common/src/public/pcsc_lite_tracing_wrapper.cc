@@ -23,13 +23,13 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 // THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "third_party/pcsc-lite/naclport/common/src/google_smart_card_pcsc_lite_common/pcsc_lite_tracing_wrapper.h"
+#include "third_party/pcsc-lite/naclport/common/src/public/pcsc_lite_tracing_wrapper.h"
 
 #include <reader.h>
 
 #include "common/cpp/src/public/logging/function_call_tracer.h"
 #include "common/cpp/src/public/logging/hex_dumping.h"
-#include "third_party/pcsc-lite/naclport/common/src/google_smart_card_pcsc_lite_common/scard_debug_dump.h"
+#include "third_party/pcsc-lite/naclport/common/src/public/scard_debug_dump.h"
 
 namespace google_smart_card {
 
