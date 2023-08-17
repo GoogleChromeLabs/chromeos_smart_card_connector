@@ -68,6 +68,13 @@ body {
   -webkit-user-select: none;
 }
 
+#crash-warning {
+  color: red;
+  font-size: 15px;
+  font-weight: 600;
+  margin-top: 15px;
+}
+
 #non-chrome-os-warning {
   color: red;
   font-size: 15px;
