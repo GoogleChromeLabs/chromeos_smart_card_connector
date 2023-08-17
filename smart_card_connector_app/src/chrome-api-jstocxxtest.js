@@ -164,6 +164,96 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         'onReleaseContextRequested', /*requestId=*/ 42, BAD_CONTEXT);
     await chrome.smartCardProviderPrivate['reportReleaseContextResult']
         .$waitAndVerify();
-  }
+  },
+
+  // Test ListReaders with no readers attached.
+  'testListReaders_none': async function() {
+    let sCardContext = 0;
+    chrome
+        .smartCardProviderPrivate['reportEstablishContextResult'](
+            /*requestId=*/ 123,
+            /*scardContext=*/ goog.testing.mockmatchers.isNumber, 'SUCCESS')
+        .$once()
+        .$does((requestId, context, resultCode) => {sCardContext = context});
+    chrome
+        .smartCardProviderPrivate['reportListReadersResult'](
+            /*requestId=*/ 124, [], 'NO_READERS_AVAILABLE')
+        .$once();
+    mockControl.$replayAll();
+
+    launchPcscServer(/*initialDevices=*/[]);
+    createChromeApiProvider();
+    mockChromeApi.dispatchEvent(
+        'onEstablishContextRequested', /*requestId=*/ 123);
+    await chrome.smartCardProviderPrivate['reportEstablishContextResult']
+        .$waitAndVerify();
+    mockChromeApi.dispatchEvent(
+        'onListReadersRequested', /*requestId=*/ 124, sCardContext);
+    await chrome.smartCardProviderPrivate['reportListReadersResult']
+        .$waitAndVerify();
+  },
+
+  // Test that ListReaders requested with already released context returns INVALID_HANDLE error.
+  'testListReaders_releasedContext': async function() {
+    let sCardContext = 0;
+    chrome
+        .smartCardProviderPrivate['reportEstablishContextResult'](
+            /*requestId=*/ 123,
+            /*scardContext=*/ goog.testing.mockmatchers.isNumber, 'SUCCESS')
+        .$once()
+        .$does((requestId, context, resultCode) => {sCardContext = context});
+    chrome
+        .smartCardProviderPrivate['reportReleaseContextResult'](
+            /*requestId=*/ 124, 'SUCCESS')
+        .$once();
+    chrome
+        .smartCardProviderPrivate['reportListReadersResult'](
+            /*requestId=*/ 125, [], 'INVALID_HANDLE')
+        .$once();
+    mockControl.$replayAll();
+
+    launchPcscServer(/*initialDevices=*/[]);
+    createChromeApiProvider();
+    mockChromeApi.dispatchEvent(
+        'onEstablishContextRequested', /*requestId=*/ 123);
+    await chrome.smartCardProviderPrivate['reportEstablishContextResult']
+        .$waitAndVerify();
+    mockChromeApi.dispatchEvent(
+        'onReleaseContextRequested', /*requestId=*/ 124, sCardContext);
+    await chrome.smartCardProviderPrivate['reportReleaseContextResult']
+        .$waitAndVerify();
+    mockChromeApi.dispatchEvent(
+        'onListReadersRequested', /*requestId=*/ 125, sCardContext);
+    await chrome.smartCardProviderPrivate['reportListReadersResult']
+        .$waitAndVerify();
+  },
+
+  // Test ListReaders returns a one-item list when there's a single attached device.
+  'testListReaders_singleDevice': async function() {
+    let sCardContext = 0;
+    chrome
+        .smartCardProviderPrivate['reportEstablishContextResult'](
+            /*requestId=*/ 123,
+            /*scardContext=*/ goog.testing.mockmatchers.isNumber, 'SUCCESS')
+        .$once()
+        .$does((requestId, context, resultCode) => {sCardContext = context});
+    chrome
+        .smartCardProviderPrivate['reportListReadersResult'](
+            /*requestId=*/ 124, ['Gemalto PC Twin Reader 00 00'],'SUCCESS')
+        .$once();
+    mockControl.$replayAll();
+
+    launchPcscServer(
+        /*initialDevices=*/[{'id': 123, 'type': 'gemaltoPcTwinReader'}]);
+    createChromeApiProvider();
+    mockChromeApi.dispatchEvent(
+        'onEstablishContextRequested', /*requestId=*/ 123);
+    await chrome.smartCardProviderPrivate['reportEstablishContextResult']
+        .$waitAndVerify();
+    mockChromeApi.dispatchEvent(
+        'onListReadersRequested', /*requestId=*/ 124, sCardContext);
+    await chrome.smartCardProviderPrivate['reportListReadersResult']
+        .$waitAndVerify();
+  },
 });
 });  // goog.scope
