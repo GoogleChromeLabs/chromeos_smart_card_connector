@@ -52,6 +52,12 @@ class StubPermissionsChecker extends GSC.Pcsc.PermissionsChecker {
   }
 }
 
+/**
+ * @typedef {{apiMessageChannelPair: !GSC.MessageChannelPair, clientHandler:
+ * !ClientHandler, api: !API}}
+ */
+let FakeClient;
+
 /** @type {GSC.IntegrationTestController?} */
 let testController;
 /** @type {GSC.LibusbProxyReceiver?} */
@@ -59,18 +65,16 @@ let libusbProxyReceiver;
 /** @type {ReadinessTracker?} */
 let pcscReadinessTracker;
 const stubPermissionsChecker = new StubPermissionsChecker();
-/** @type {ClientHandler?} */
-let clientHandler;
-/** @type {API?} */
-let api;
+/** @type {FakeClient?} */
+let client;
 
 /**
  * Shorthand for obtaining the PC/SC context.
  * @return {!Promise<!API.SCARDCONTEXT>}
  */
 async function establishContextOrThrow() {
-  const result =
-      await api.SCardEstablishContext(API.SCARD_SCOPE_SYSTEM, null, null);
+  const result = await client.api.SCardEstablishContext(
+      API.SCARD_SCOPE_SYSTEM, null, null);
   let sCardContext;
   result.get(
       (context) => {
@@ -89,6 +93,28 @@ async function establishContextOrThrow() {
 async function launchPcscServer(initialDevices) {
   await testController.setUpCppHelper(
       'SmartCardConnectorApplicationTestHelper', initialDevices);
+}
+
+/**
+ * @return {!FakeClient}
+ */
+function createFakeClient() {
+  const apiMessageChannelPair = new GSC.MessageChannelPair();
+  const clientHandler = new ClientHandler(
+      testController.executableModule.getMessageChannel(),
+      pcscReadinessTracker.promise, apiMessageChannelPair.getFirst(),
+      /*clientOrigin=*/ undefined);
+  const api = new API(apiMessageChannelPair.getSecond());
+  return {apiMessageChannelPair, clientHandler, api};
+}
+
+/**
+ * @param {!FakeClient} fakeClient
+ */
+function disposeFakeClient(fakeClient) {
+  fakeClient.api.dispose();
+  fakeClient.clientHandler.dispose();
+  fakeClient.apiMessageChannelPair.dispose();
 }
 
 goog.exportSymbol('testPcscApi', {
@@ -124,27 +150,25 @@ goog.exportSymbol('testPcscApi', {
     await pcscReadinessTracker.promise;
   },
 
+  // A group of tests that simulate a single client making PC/SC calls.
   'testWithSingleClient': {
     'setUp': function() {
-      const apiMessageChannelPair = new GSC.MessageChannelPair();
-      clientHandler = new ClientHandler(
-          testController.executableModule.getMessageChannel(),
-          pcscReadinessTracker.promise, apiMessageChannelPair.getFirst(),
-          /*clientOrigin=*/ undefined);
-      api = new API(apiMessageChannelPair.getSecond());
+      client = createFakeClient();
     },
 
     'tearDown': function() {
-      api.dispose();
-      clientHandler.dispose();
+      if (client) {
+        disposeFakeClient(client);
+        client = null;
+      }
     },
 
     // Test `SCardEstablishContext()`.
     'testSCardEstablishContext': async function() {
       await launchPcscServer(/*initialDevices=*/[]);
 
-      const result =
-          await api.SCardEstablishContext(API.SCARD_SCOPE_SYSTEM, null, null);
+      const result = await client.api.SCardEstablishContext(
+          API.SCARD_SCOPE_SYSTEM, null, null);
       let sCardContext;
       result.get(
           (context) => {
@@ -162,7 +186,8 @@ goog.exportSymbol('testPcscApi', {
     'testSCardEstablishContext_omittedOptionalArgs': async function() {
       await launchPcscServer(/*initialDevices=*/[]);
 
-      const result = await api.SCardEstablishContext(API.SCARD_SCOPE_SYSTEM);
+      const result =
+          await client.api.SCardEstablishContext(API.SCARD_SCOPE_SYSTEM);
       let sCardContext;
       result.get(
           (context) => {
@@ -180,7 +205,7 @@ goog.exportSymbol('testPcscApi', {
       await launchPcscServer(/*initialDevices=*/[]);
       const context = await establishContextOrThrow();
 
-      const result = await api.SCardReleaseContext(context);
+      const result = await client.api.SCardReleaseContext(context);
       let called = false;
       result.get(
           () => {
@@ -199,7 +224,7 @@ goog.exportSymbol('testPcscApi', {
       const BAD_CONTEXT = 123;
       await launchPcscServer(/*initialDevices=*/[]);
 
-      const result = await api.SCardReleaseContext(BAD_CONTEXT);
+      const result = await client.api.SCardReleaseContext(BAD_CONTEXT);
       let called = false;
       result.get(
           () => {
@@ -220,7 +245,7 @@ goog.exportSymbol('testPcscApi', {
       const context = await establishContextOrThrow();
       const badContext = context ^ 1;
 
-      const result = await api.SCardReleaseContext(badContext);
+      const result = await client.api.SCardReleaseContext(badContext);
       let called = false;
       result.get(
           () => {
@@ -240,7 +265,8 @@ goog.exportSymbol('testPcscApi', {
       await launchPcscServer(/*initialDevices=*/[]);
       const context = await establishContextOrThrow();
 
-      const result = await api.SCardListReaders(context, /*groups=*/ null);
+      const result =
+          await client.api.SCardListReaders(context, /*groups=*/ null);
       let called = false;
       result.get(
           (readersArg) => {
@@ -261,7 +287,8 @@ goog.exportSymbol('testPcscApi', {
           /*initialDevices=*/[{'id': 123, 'type': 'gemaltoPcTwinReader'}]);
       const context = await establishContextOrThrow();
 
-      const result = await api.SCardListReaders(context, /*groups=*/ null);
+      const result =
+          await client.api.SCardListReaders(context, /*groups=*/ null);
       let readers = null;
       result.get(
           (readersArg) => {
@@ -273,6 +300,25 @@ goog.exportSymbol('testPcscApi', {
       assertObjectEquals(readers, ['Gemalto PC Twin Reader 00 00']);
       assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
     }
+  },
+
+  // Test that the PC/SC server can shut down successfully when there's an
+  // active client.
+  'testShutdownWithActiveClient': async function() {
+    launchPcscServer(/*initialDevices=*/[]);
+    createFakeClient();
+    await pcscReadinessTracker.promise;
+    // Intentionally don't dispose the client.
+  },
+
+  // Same as above, but the client additionally made an API call.
+  // This verifies any lazily created internal state doesn't cause problems.
+  'testShutdownWithActiveClientAfterApiCall': async function() {
+    const BAD_CONTEXT = 123;
+    launchPcscServer(/*initialDevices=*/[]);
+    const localClient = createFakeClient();
+    await localClient.api.SCardIsValidContext(BAD_CONTEXT);
+    // Intentionally don't dispose the client.
   },
 });
 });  // goog.scope

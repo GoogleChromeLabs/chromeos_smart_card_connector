@@ -801,6 +801,24 @@ TEST_F(SmartCardConnectorApplicationTest, AutoCleanupContext) {
   });
 }
 
+// Regression test for the shutdown crashes in case there's an active JS client.
+TEST_F(SmartCardConnectorApplicationTest, ShutdownWithActiveClient) {
+  constexpr int kHandlerId = 1234;
+
+  // Arrange:
+  StartApplication();
+  SimulateJsClientAdded(kHandlerId, /*client_name_for_log=*/"foo");
+  SCARDCONTEXT scard_context = 0;
+  EXPECT_EQ(SimulateEstablishContextCallFromJsClient(
+                kHandlerId, SCARD_SCOPE_SYSTEM,
+                /*reserved1=*/Value(),
+                /*reserved2=*/Value(), scard_context),
+            SCARD_S_SUCCESS);
+
+  // No act/assert sections, since we just want to check the teardown doesn't
+  // crash.
+}
+
 // Test fixture that simplifies simulating commands from a single client
 // application.
 class SmartCardConnectorApplicationSingleClientTest

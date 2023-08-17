@@ -48,6 +48,7 @@ Application::Application(
 }
 
 void Application::ShutDownAndWait() {
+  pcsc_lite_server_clients_management_backend_.reset();
   pcsc_lite_server_web_port_service_->ShutDownAndWait();
   libusb_web_port_service_->ShutDown();
 }
