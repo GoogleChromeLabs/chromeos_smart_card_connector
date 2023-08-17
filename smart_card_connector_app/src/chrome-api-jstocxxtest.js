@@ -103,7 +103,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
   'testEstablishContext': async function() {
     chrome
         .smartCardProviderPrivate['reportEstablishContextResult'](
-            /*requestId=*/ 1,
+            /*requestId=*/ 123,
             /*scardContext=*/ goog.testing.mockmatchers.isNumber, 'SUCCESS')
         .$once();
     mockControl.$replayAll();
@@ -113,8 +113,9 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         testController.executableModule.getMessageChannel(),
         pcscReadinessTracker.promise);
     mockChromeApi.dispatchEvent(
-        'onEstablishContextRequested', /*requestId=*/ 1);
-    chrome.smartCardProviderPrivate['reportEstablishContextResult'].$waitAndVerify();
+        'onEstablishContextRequested', /*requestId=*/ 123);
+    chrome.smartCardProviderPrivate['reportEstablishContextResult']
+        .$waitAndVerify();
   }
 });
 });  // goog.scope
