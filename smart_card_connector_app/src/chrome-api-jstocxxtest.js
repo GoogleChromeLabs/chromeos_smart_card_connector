@@ -42,8 +42,6 @@ let testController;
 let libusbProxyReceiver;
 /** @type {ReadinessTracker?} */
 let pcscReadinessTracker;
-/** @type {ChromeApiProvider?} */
-let chromeApiProvider;
 /** @type {MockChromeApi?} */
 let mockChromeApi;
 /** @type {!goog.testing.MockControl|undefined} */
@@ -58,6 +56,14 @@ async function launchPcscServer(initialDevices) {
       'SmartCardConnectorApplicationTestHelper', initialDevices);
 }
 
+function createChromeApiProvider() {
+  // Note: the reference to the created provider is not stored anywhere,
+  // because it manages its lifetime itself, based on the lifetime of the
+  // passed message channel.
+  new ChromeApiProvider(
+      testController.executableModule.getMessageChannel(),
+      pcscReadinessTracker.promise);
+}
 
 goog.exportSymbol('testChromeApiProviderToCpp', {
   'setUp': async function() {
@@ -85,7 +91,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     } finally {
       // Check all mock expectations are satisfied.
       mockControl.$verifyAll();
-      chromeApiProvider = null;
       pcscReadinessTracker = null;
       testController = null;
     }
@@ -94,12 +99,11 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
   'testSmoke': async function() {
     mockControl.$replayAll();
     launchPcscServer(/*initialDevices=*/[]);
-    chromeApiProvider = new ChromeApiProvider(
-        testController.executableModule.getMessageChannel(),
-        pcscReadinessTracker.promise);
+    createChromeApiProvider();
     await pcscReadinessTracker.promise;
   },
 
+  // Test a single `onEstablishContextRequested` event.
   'testEstablishContext': async function() {
     chrome
         .smartCardProviderPrivate['reportEstablishContextResult'](
@@ -109,12 +113,54 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     mockControl.$replayAll();
 
     launchPcscServer(/*initialDevices=*/[]);
-    chromeApiProvider = new ChromeApiProvider(
-        testController.executableModule.getMessageChannel(),
-        pcscReadinessTracker.promise);
+    createChromeApiProvider();
     mockChromeApi.dispatchEvent(
         'onEstablishContextRequested', /*requestId=*/ 123);
     await chrome.smartCardProviderPrivate['reportEstablishContextResult']
+        .$waitAndVerify();
+  },
+
+  // Test releasing the established context.
+  'testReleaseContext': async function() {
+    let sCardContext = 0;
+    chrome
+        .smartCardProviderPrivate['reportEstablishContextResult'](
+            /*requestId=*/ 123,
+            /*scardContext=*/ goog.testing.mockmatchers.isNumber, 'SUCCESS')
+        .$once()
+        .$does((requestId, context, resultCode) => {sCardContext = context});
+    chrome
+        .smartCardProviderPrivate['reportReleaseContextResult'](
+            /*requestId=*/ 124, 'SUCCESS')
+        .$once();
+    mockControl.$replayAll();
+
+    launchPcscServer(/*initialDevices=*/[]);
+    createChromeApiProvider();
+    mockChromeApi.dispatchEvent(
+        'onEstablishContextRequested', /*requestId=*/ 123);
+    await chrome.smartCardProviderPrivate['reportEstablishContextResult']
+        .$waitAndVerify();
+    mockChromeApi.dispatchEvent(
+        'onReleaseContextRequested', /*requestId=*/ 124, sCardContext);
+    await chrome.smartCardProviderPrivate['reportReleaseContextResult']
+        .$waitAndVerify();
+  },
+
+  // Test that releasing bogus context returns INVALID_HANDLE error.
+  'testReleaseContext_none': async function() {
+    const BAD_CONTEXT = 123;
+    chrome
+        .smartCardProviderPrivate['reportReleaseContextResult'](
+            /*requestId=*/ 42, 'INVALID_HANDLE')
+        .$once();
+    mockControl.$replayAll();
+
+    launchPcscServer(/*initialDevices=*/[]);
+    createChromeApiProvider();
+    mockChromeApi.dispatchEvent(
+        'onReleaseContextRequested', /*requestId=*/ 42, BAD_CONTEXT);
+    await chrome.smartCardProviderPrivate['reportReleaseContextResult']
         .$waitAndVerify();
   }
 });
