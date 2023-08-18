@@ -164,7 +164,7 @@ goog.exportSymbol('testSingleMessageBasedChannel', {
     const waiter = new Waiter();
     testChannel = new GSC.SingleMessageBasedChannel(
         EXTENSION_ID, /* opt_onEstablished= */
-        () => {fail('Unexpectedly established')});
+        () => {fail('Unexpectedly established');});
     testChannel.addOnDisposeCallback(waiter.callback);
     await waiter.promise;
   },

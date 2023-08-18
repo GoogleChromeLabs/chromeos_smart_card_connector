@@ -305,7 +305,7 @@ function convertProtocolToPci(protocol) {
  * @param {number} state
  */
 function logUnexpectedConnectionState(state) {
-  goog.log.warning(logger, `Unexpected connection state bitmask: ${state}`)
+  goog.log.warning(logger, `Unexpected connection state bitmask: ${state}`);
 }
 
 /**

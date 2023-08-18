@@ -110,5 +110,5 @@ GSC.TestingLibusbSmartCardSimulationHook = class extends GSC.LibusbProxyHook {
     GSC.Logging.check(outputs.length == 1);
     return outputs[0];
   }
-}
+};
 });
