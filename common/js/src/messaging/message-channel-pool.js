@@ -137,7 +137,7 @@ GSC.MessageChannelPool = class {
         // break our caller and also to still notify the remaining listeners.
         setTimeout(() => {
           throw exc;
-        })
+        });
       }
     }
   }
