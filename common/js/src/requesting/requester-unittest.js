@@ -57,7 +57,7 @@ class PromiseTracker {
     this.isResolved = true;
     this.isRejected = true;
   }
-};
+}
 
 goog.exportSymbol('testRequester', function() {
   const REQUESTER_NAME = 'test-requester';

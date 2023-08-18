@@ -73,7 +73,7 @@ class State {
     result += suffix;
     return result;
   }
-};
+}
 
 goog.exportProperty(State.prototype, 'getAsText', State.prototype.getAsText);
 

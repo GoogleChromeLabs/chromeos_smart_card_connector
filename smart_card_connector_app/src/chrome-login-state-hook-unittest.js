@@ -170,7 +170,7 @@ class FakeLibusbProxyHookDelegate extends GSC.LibusbToJsApiAdaptor {
     fail('Unexpected call');
     goog.asserts.fail();
   }
-};
+}
 
 /**
  * Simulates Chrome changing the session state.

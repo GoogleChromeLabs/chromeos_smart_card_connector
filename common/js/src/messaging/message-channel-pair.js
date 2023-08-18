@@ -154,5 +154,5 @@ class MessageChannelPairItem extends goog.messaging.AbstractChannel {
     GSC.Logging.checkWithLogger(logger, !this.isDisposed());
     this.deliver(serviceName, payload);
   }
-};
+}
 });  // goog.scope

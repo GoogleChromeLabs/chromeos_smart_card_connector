@@ -416,7 +416,7 @@ class ChromeEventListener extends goog.Disposable {
     this.chromeEvent_.removeListener(this.callback_);
     this.callback_ = null;
   }
-};
+}
 
 /**
  * This class provides chrome.smartCardProviderPrivate API with PCSC responses.

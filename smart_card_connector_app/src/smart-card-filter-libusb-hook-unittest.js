@@ -96,7 +96,7 @@ class FakeLibusbProxyHookDelegate extends GSC.LibusbToJsApiAdaptor {
     fail('Unexpected call');
     goog.asserts.fail();
   }
-};
+}
 
 /** @type {!FakeLibusbProxyHookDelegate|undefined} */
 let fakeDelegate;
