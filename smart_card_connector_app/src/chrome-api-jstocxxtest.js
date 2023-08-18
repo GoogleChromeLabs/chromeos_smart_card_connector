@@ -128,7 +128,9 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
             /*requestId=*/ 123,
             /*scardContext=*/ goog.testing.mockmatchers.isNumber, 'SUCCESS')
         .$once()
-        .$does((requestId, context, resultCode) => {sCardContext = context;});
+        .$does((requestId, context, resultCode) => {
+          sCardContext = context;
+        });
     chrome
         .smartCardProviderPrivate['reportReleaseContextResult'](
             /*requestId=*/ 124, 'SUCCESS')
