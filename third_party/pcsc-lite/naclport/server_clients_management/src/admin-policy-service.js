@@ -131,6 +131,9 @@ AdminPolicyService.prototype.loadManagedStorage_ = function() {
  * @private
  */
 AdminPolicyService.prototype.managedStorageLoadedCallback_ = function(items) {
+  if (this.isDisposed()) {
+    return;
+  }
   goog.log.info(
       this.logger,
       'Loaded the following data from the managed storage: ' +
