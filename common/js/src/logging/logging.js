@@ -213,7 +213,8 @@ GSC.Logging.getScopedLogger = function(name, opt_level) {
  * @return {!goog.log.Logger}
  */
 GSC.Logging.getChildLogger = function(parentLogger, relativeName, opt_level) {
-  return GSC.Logging.getLogger(parentLogger.getName() + '.' + relativeName);
+  return GSC.Logging.getLogger(
+      parentLogger.getName() + '.' + relativeName, opt_level);
 };
 
 /**
