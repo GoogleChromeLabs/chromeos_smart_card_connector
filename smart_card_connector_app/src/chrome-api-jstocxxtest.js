@@ -46,7 +46,8 @@ let pcscReadinessTracker;
 let mockChromeApi;
 /** @type {!goog.testing.MockControl|undefined} */
 let mockControl;
-
+/** @type {ChromeApiProvider?} */
+let chromeApiProvider;
 /**
  * @param {!Array} initialDevices
  * @return {!Promise}
@@ -57,10 +58,7 @@ async function launchPcscServer(initialDevices) {
 }
 
 function createChromeApiProvider() {
-  // Note: the reference to the created provider is not stored anywhere,
-  // because it manages its lifetime itself, based on the lifetime of the
-  // passed message channel.
-  new ChromeApiProvider(
+  chromeApiProvider = new ChromeApiProvider(
       testController.executableModule.getMessageChannel(),
       pcscReadinessTracker.promise);
 }
@@ -91,6 +89,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     } finally {
       // Check all mock expectations are satisfied.
       mockControl.$verifyAll();
+      assertTrue(chromeApiProvider.isDisposed());
       pcscReadinessTracker = null;
       testController = null;
     }
