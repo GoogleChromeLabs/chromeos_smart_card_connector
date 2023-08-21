@@ -168,7 +168,7 @@ if (GSC.ExecutableModule.TOOLCHAIN ===
 
 if (chrome.smartCardProviderPrivate !== undefined) {
   const HANDLE_CHROME_REQUESTS = 'handle_requests_from_chrome_smart_card_api';
-  chrome.storage.managed.get(HANDLE_CHROME_REQUESTS).then((policies) => {
+  chrome.storage.managed.get(HANDLE_CHROME_REQUESTS, (policies) => {
     if (policies[HANDLE_CHROME_REQUESTS] === true) {
       new GSC.ConnectorApp.ChromeApiProvider(
           executableModule.getMessageChannel(),
