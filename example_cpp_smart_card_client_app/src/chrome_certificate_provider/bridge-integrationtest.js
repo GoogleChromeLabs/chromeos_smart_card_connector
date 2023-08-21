@@ -88,8 +88,8 @@ goog.exportSymbol('testChromeCertificateProviderApiBridge', {
 
   'tearDown': async function() {
     try {
-      await testController.disposeAsync();
       bridgeBackend.dispose();
+      await testController.disposeAsync();
     } finally {
       bridgeBackend = null;
       testController = null;
