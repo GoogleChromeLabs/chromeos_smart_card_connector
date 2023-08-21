@@ -177,6 +177,19 @@ function executableModuleDisposedListener() {
 }
 
 /**
+ * Schedules the listener to be called when the executable module gets disposed
+ * of (e.g., because of a crash).
+ *
+ * The listener is called immediately if this already happened.
+ * @param {!function()} listener
+ */
+function addOnExecutableModuleDisposedListener(listener) {
+  executableModule.addOnDisposeCallback(() => {
+    listener();
+  });
+}
+
+/**
  * Called when the onLaunched event is received (that is, when the user clicks
  * on the app in the ChromeOS app launcher).
  */
@@ -346,6 +359,8 @@ function createClientHandler(clientMessageChannel, clientOrigin) {
  * Sets global variables to be used by the main window (once it's opened).
  */
 function exposeGlobalsForMainWindow() {
+  goog.global['googleSmartCard_executableModuleDisposalSubscriber'] =
+      addOnExecutableModuleDisposedListener;
   goog.global['googleSmartCard_clientAppListUpdateSubscriber'] =
       messageChannelPool.addOnUpdateListener.bind(messageChannelPool);
   goog.global['googleSmartCard_clientAppListUpdateUnsubscriber'] =

@@ -23,6 +23,8 @@
 goog.provide('GoogleSmartCard.ConnectorApp.Window.StatusDisplaying');
 
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.ObjectHelpers');
+goog.require('goog.asserts');
 goog.require('goog.dom');
 goog.require('goog.dom.classlist');
 goog.require('goog.log');
@@ -49,7 +51,36 @@ function displayNonChromeOsWarningIfNeeded() {
   });
 }
 
+/**
+ * @param {!Window=} backgroundPage
+ */
+function initializeWithBackgroundPage(backgroundPage) {
+  GSC.Logging.checkWithLogger(logger, backgroundPage);
+  goog.asserts.assert(backgroundPage);
+
+  /**
+   * Points to the "addOnExecutableModuleDisposedListener" method from the
+   * background page.
+   */
+  const executableModuleDisposalSubscriber =
+      /** @type {function(function())} */
+      (GSC.ObjectHelpers.extractKey(
+          backgroundPage,
+          'googleSmartCard_executableModuleDisposalSubscriber'));
+  // Start tracking the disposal status. Note that the callback is called
+  // immediately if the executable module is already disposed of.
+  executableModuleDisposalSubscriber(onExecutableModuleDisposed);
+}
+
+/**
+ * Called when the C/C++ executable module gets disposed of.
+ */
+function onExecutableModuleDisposed() {
+  goog.dom.classlist.remove(goog.dom.getElement('crash-warning'), 'hidden');
+}
+
 GSC.ConnectorApp.Window.StatusDisplaying.initialize = function() {
   displayNonChromeOsWarningIfNeeded();
+  chrome.runtime.getBackgroundPage(initializeWithBackgroundPage);
 };
 });

@@ -19,6 +19,10 @@
     "message": "Smart Card Connector",
     "description": "The header displayed in the main window"
   },
+  "crashWarning": {
+    "message": "Error: The application crashed. Please submit a feedback report (press Alt+Shift+i).",
+    "description": "The text that is displayed as a warning when the app entered a crash loop"
+  },
   "nonChromeOsWarning": {
     "message": "Warning: The app is intended to be run on ChromeOS only!",
     "description": "The text that is displayed as a warning when the app is executed on non-ChromeOS systems"
