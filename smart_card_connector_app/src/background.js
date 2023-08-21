@@ -185,18 +185,17 @@ if (chrome.smartCardProviderPrivate !== undefined) {
 function updateChromeApiProviderAvailability() {
   const EXPOSE_CHROME_REQUESTS = 'expose_chrome_smart_card_api';
   chrome.storage.managed.get(EXPOSE_CHROME_REQUESTS, (policies) => {
-    const policyEnabled = policies[EXPOSE_CHROME_REQUESTS] === true
+    const policyEnabled = policies[EXPOSE_CHROME_REQUESTS] === true;
     if (policyEnabled && !chromeApiProvider) {
-        chromeApiProvider = new GSC.ConnectorApp.ChromeApiProvider(
-            executableModule.getMessageChannel(),
-            pcscLiteReadinessTracker.promise);
-      }
+      chromeApiProvider = new GSC.ConnectorApp.ChromeApiProvider(
+          executableModule.getMessageChannel(),
+          pcscLiteReadinessTracker.promise);
     }
     if (!policyEnabled && chromeApiProvider) {
-        goog.log.fine(
-            logger, 'Disposing ChromeApiProvider based on the policy change.');
-        chromeApiProvider.dispose();
-        chromeApiProvider = null;
+      goog.log.fine(
+          logger, 'Disposing ChromeApiProvider based on the policy change.');
+      chromeApiProvider.dispose();
+      chromeApiProvider = null;
     }
   });
 }
