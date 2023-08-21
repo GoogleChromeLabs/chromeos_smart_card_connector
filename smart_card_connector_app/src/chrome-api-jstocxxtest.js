@@ -86,10 +86,11 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     try {
       await testController.disposeAsync();
       pcscReadinessTracker.dispose();
-    } finally {
+      assertTrue(chromeApiProvider.isDisposed());
       // Check all mock expectations are satisfied.
       mockControl.$verifyAll();
-      assertTrue(chromeApiProvider.isDisposed());
+    } finally {
+      chromeApiProvider = null;
       pcscReadinessTracker = null;
       testController = null;
     }
