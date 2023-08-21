@@ -74,7 +74,7 @@ const isPingMessageMatcher =
 const propertyReplacer = new goog.testing.PropertyReplacer();
 /** @type {!goog.testing.MockControl|undefined} */
 let mockControl;
-/** @type {!GSC.SingleMessageBasedChannel|undefined} */
+/** @type {!SingleMessageBasedChannel|undefined} */
 let testChannel;
 /** @type {!goog.testing.StrictMock|undefined} */
 let mockedSendMessage;
@@ -141,7 +141,7 @@ goog.exportSymbol('testSingleMessageBasedChannel', {
     // Act: instantiate a channel and wait till it switches into the
     // "established" state.
     const waiter = new Waiter();
-    testChannel = new GSC.SingleMessageBasedChannel(
+    testChannel = new SingleMessageBasedChannel(
         EXTENSION_ID, /* opt_onEstablished= */ waiter.callback);
     await waiter.promise;
 
@@ -162,7 +162,7 @@ goog.exportSymbol('testSingleMessageBasedChannel', {
     // Act: create a channel and wait until it switches into the "disposed"
     // state.
     const waiter = new Waiter();
-    testChannel = new GSC.SingleMessageBasedChannel(
+    testChannel = new SingleMessageBasedChannel(
         EXTENSION_ID, /* opt_onEstablished= */
         () => {
           fail('Unexpectedly established');
@@ -190,7 +190,7 @@ goog.exportSymbol('testSingleMessageBasedChannel', {
     // Act: create a channel, and wait until it switches into the "established"
     // state.
     const waiter = new Waiter();
-    testChannel = new GSC.SingleMessageBasedChannel(
+    testChannel = new SingleMessageBasedChannel(
         EXTENSION_ID, /* opt_onEstablished= */ waiter.callback);
     await waiter.promise;
     // Send test messages through the channel.
@@ -222,7 +222,7 @@ goog.exportSymbol('testSingleMessageBasedChannel', {
     // Act: create a channel, and wait until it switches into the "established"
     // state.
     const waiter = new Waiter();
-    testChannel = new GSC.SingleMessageBasedChannel(
+    testChannel = new SingleMessageBasedChannel(
         EXTENSION_ID, /* opt_onEstablished= */ waiter.callback);
     await waiter.promise;
     // Send a test message with an array buffer through the channel.
@@ -243,7 +243,7 @@ goog.exportSymbol('testSingleMessageBasedChannel', {
     // Act: create a channel, and wait until it switches into the "established"
     // state.
     const waiter = new Waiter();
-    testChannel = new GSC.SingleMessageBasedChannel(
+    testChannel = new SingleMessageBasedChannel(
         EXTENSION_ID, /* opt_onEstablished= */ waiter.callback);
     await waiter.promise;
     // Set up an observer for incoming messages.
@@ -286,7 +286,7 @@ goog.exportSymbol('testSingleMessageBasedChannel', {
     // Act: create a channel, and wait until it switches into the "established"
     // state.
     const waiter = new Waiter();
-    testChannel = new GSC.SingleMessageBasedChannel(
+    testChannel = new SingleMessageBasedChannel(
         EXTENSION_ID, /* opt_onEstablished= */ waiter.callback);
     await waiter.promise;
     // Wait until the channel switches into the "disposed" state.

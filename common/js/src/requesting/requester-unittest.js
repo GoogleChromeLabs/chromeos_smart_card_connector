@@ -74,7 +74,7 @@ goog.exportSymbol('testRequester', function() {
       new goog.testing.messaging.MockMessageChannel(mockControl);
   /** @type {?} */ mockMessageChannel.send;
 
-  const requester = new GSC.Requester(REQUESTER_NAME, mockMessageChannel);
+  const requester = new Requester(REQUESTER_NAME, mockMessageChannel);
 
   // Set up expectation for three request messages.
   mockMessageChannel.send(
@@ -154,7 +154,7 @@ goog.exportSymbol('testRequester_disposed', function() {
       new goog.testing.messaging.MockMessageChannel(mockControl);
   /** @type {?} */ mockMessageChannel.send;
 
-  const requester = new GSC.Requester(REQUESTER_NAME, mockMessageChannel);
+  const requester = new Requester(REQUESTER_NAME, mockMessageChannel);
   requester.dispose();
 
   const requestPromise = requester.postRequest({});
