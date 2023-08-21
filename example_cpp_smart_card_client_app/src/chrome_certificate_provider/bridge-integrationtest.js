@@ -80,8 +80,8 @@ goog.exportSymbol('testChromeCertificateProviderApiBridge', {
   'setUp': async function() {
     testController = new GSC.IntegrationTestController();
     await testController.initAsync();
-    bridgeBackend = new CertificateProviderBridge.Backend(
-        testController.executableModule);
+    bridgeBackend =
+        new CertificateProviderBridge.Backend(testController.executableModule);
     await testController.setUpCppHelper(
         'ChromeCertificateProviderApiBridge', /*helperArgument=*/ {});
   },
@@ -89,7 +89,9 @@ goog.exportSymbol('testChromeCertificateProviderApiBridge', {
   'tearDown': async function() {
     try {
       await testController.disposeAsync();
+      bridgeBackend.dispose();
     } finally {
+      bridgeBackend = null;
       testController = null;
     }
   },
