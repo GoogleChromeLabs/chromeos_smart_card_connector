@@ -73,7 +73,8 @@ GSC.LogBufferForwarder = class {
      */
     this.logCapturingEnabled_ = true;
     /** @type {!goog.structs.CircularBuffer<string>} @private @const */
-    this.postponedLogRecords_ = new goog.structs.CircularBuffer();
+    this.postponedLogRecords_ =
+        new goog.structs.CircularBuffer(POSTPONING_BUFFER_CAPACITY);
 
     logBuffer.addObserver(this.onLogRecordObserved_.bind(this));
   }
