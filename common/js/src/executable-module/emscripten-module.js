@@ -190,6 +190,11 @@ GSC.EmscriptenModule = class extends GSC.ExecutableModule {
    */
   onModuleCrashed_() {
     goog.log.error(this.logger_, 'The Emscripten module crashed');
+
+    // Drop the "module" object reference, because trying to call its destructor
+    // in `disposeInternal()` would likely cause new exceptions.
+    this.googleSmartCardModule_ = null;
+
     this.dispose();
   }
 
@@ -271,6 +276,9 @@ class EmscriptenModuleMessageChannel extends goog.messaging.AbstractChannel {
    * @package
    */
   onMessageFromModule(message) {
+    if (this.isDisposed()) {
+      return;
+    }
     const typedMessage = GSC.TypedMessage.parseTypedMessage(message);
     if (!typedMessage) {
       GSC.Logging.fail(
