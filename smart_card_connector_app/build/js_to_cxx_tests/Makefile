@@ -66,6 +66,7 @@ LIBS := \
 
 JS_SOURCES_PATHS := \
   $(SOURCE_DIR) \
+  !$(SOURCE_DIR)/**-unittest.js \
   $(SOURCE_DIR)/**-jstocxxtest.js \
   $(ROOT_PATH)/third_party/libusb/webport/src \
   !$(ROOT_PATH)/third_party/libusb/webport/src/**test.js \
