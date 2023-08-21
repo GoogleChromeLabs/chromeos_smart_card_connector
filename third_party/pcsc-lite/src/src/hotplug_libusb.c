@@ -447,30 +447,6 @@ static void HPRescanUsbBus(void)
 
 	/* free the libusb allocated list & devices */
 	libusb_free_device_list(devs, 1);
-
-	if (AraKiriHotPlug)
-	{
-		int retval;
-
-		for (i=0; i<PCSCLITE_MAX_READERS_CONTEXTS; i++)
-		{
-			if (readerTracker[i].fullName != NULL)
-				HPCleanupHotPluggable(i);
-		}
-
-		for (i=0; i<driverSize; i++)
-		{
-			/* free strings allocated by strdup() */
-			free(driverTracker[i].bundleName);
-			free(driverTracker[i].libraryPath);
-			free(driverTracker[i].readerName);
-			free(driverTracker[i].CFBundleName);
-		}
-		free(driverTracker);
-
-		Log1(PCSC_LOG_INFO, "Hotplug stopped");
-		pthread_exit(&retval);
-	}
 }
 
 static void * HPEstablishUSBNotifications(int pipefd[2])
@@ -490,6 +466,13 @@ static void * HPEstablishUSBNotifications(int pipefd[2])
 
 	/* scan the USB bus for devices at startup */
 	HPRescanUsbBus();
+
+	char dummy;
+	if (pipe(rescan_pipe) == -1)
+	{
+		Log2(PCSC_LOG_ERROR, "pipe: %s", strerror(errno));
+		return NULL;
+	}
 
 	/* signal that the initially connected readers are now visible */
 	if (write(pipefd[1], &c, 1) == -1)
@@ -526,17 +509,9 @@ static void * HPEstablishUSBNotifications(int pipefd[2])
 			SYS_Sleep(HPForceReaderPolling);
 			HPRescanUsbBus();
 		}
-		libusb_exit(ctx);
 	}
 	else
 	{
-		char dummy;
-
-		if (pipe(rescan_pipe) == -1)
-		{
-			Log2(PCSC_LOG_ERROR, "pipe: %s", strerror(errno));
-			return NULL;
-		}
 		while (read(rescan_pipe[0], &dummy, sizeof(dummy)) > 0)
 		{
 			Log1(PCSC_LOG_INFO, "Reload serial configuration");
@@ -546,9 +521,30 @@ static void * HPEstablishUSBNotifications(int pipefd[2])
 #endif
 			Log1(PCSC_LOG_INFO, "End reload serial configuration");
 		}
-		close(rescan_pipe[0]);
-		rescan_pipe[0] = -1;
 	}
+
+	for (int i=0; i<PCSCLITE_MAX_READERS_CONTEXTS; i++)
+	{
+		if (readerTracker[i].fullName != NULL)
+			HPCleanupHotPluggable(i);
+	}
+
+	libusb_exit(ctx);
+
+	for (int i=0; i<driverSize; i++)
+	{
+		/* free strings allocated by strdup() */
+		free(driverTracker[i].bundleName);
+		free(driverTracker[i].libraryPath);
+		free(driverTracker[i].readerName);
+		free(driverTracker[i].CFBundleName);
+	}
+	free(driverTracker);
+
+	Log1(PCSC_LOG_INFO, "Hotplug stopped");
+
+	if (write(rescan_pipe[0], &dummy, sizeof(dummy)) == -1)
+		Log2(PCSC_LOG_ERROR, "write: %s", strerror(errno));
 
 	return NULL;
 }
@@ -599,6 +595,10 @@ LONG HPStopHotPluggables(void)
 	AraKiriHotPlug = true;
 	if (rescan_pipe[1] >= 0)
 	{
+		char dummy;
+		read(rescan_pipe[1], &dummy, sizeof(dummy));
+		close(rescan_pipe[0]);
+		rescan_pipe[0] = -1;
 		close(rescan_pipe[1]);
 		rescan_pipe[1] = -1;
 	}
