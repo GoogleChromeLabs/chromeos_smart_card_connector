@@ -64,7 +64,7 @@ function stubChromeStorageLocalGet(key, callback) {
     return;
   }
   const resultItems = {};
-  if (currentStorage.hasOwnProperty(key))
+  if (Object.prototype.hasOwnProperty.call(currentStorage, key))
     resultItems[key] = currentStorage[key];
   callback(resultItems);
 }

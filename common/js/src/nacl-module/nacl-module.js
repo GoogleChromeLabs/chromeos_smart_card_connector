@@ -277,7 +277,7 @@ GSC.NaclModule = class extends GSC.ExecutableModule {
     // If the browser doesn't have NaCl plugin installed, it'll silently fall
     // back to creating the <embed> without any functionality. Detect this case
     // by checking for an arbitrary NaCl-specific property.
-    return this.element_.hasOwnProperty('postMessage');
+    return Object.prototype.hasOwnProperty.call(this.element_, 'postMessage');
   }
 };
 
