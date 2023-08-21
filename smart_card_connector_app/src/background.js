@@ -187,7 +187,7 @@ function updateChromeApiProviderAvailability() {
   chrome.storage.managed.get(EXPOSE_CHROME_REQUESTS, (policies) => {
     if (policies[EXPOSE_CHROME_REQUESTS] === true) {
       if (!chromeApiProvider) {
-        chromeApiProvider = GSC.ConnectorApp.ChromeApiProvider(
+        chromeApiProvider = new GSC.ConnectorApp.ChromeApiProvider(
             executableModule.getMessageChannel(),
             pcscLiteReadinessTracker.promise);
       }
