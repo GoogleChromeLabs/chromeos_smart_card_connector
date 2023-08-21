@@ -146,12 +146,10 @@ function getDialogMock(mockControl, mockedBehavior) {
       return function() {
         return goog.Promise.resolve(true);
       };
-      break;
     case MockedDialogBehavior.USER_DENIES:
       return function() {
         return goog.Promise.resolve(false);
       };
-      break;
     case MockedDialogBehavior.USER_CANCELS:
       return function() {
         return goog.Promise.reject();
