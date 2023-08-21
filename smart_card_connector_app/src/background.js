@@ -17,9 +17,9 @@
 
 goog.provide('GoogleSmartCard.ConnectorApp.BackgroundMain');
 
-goog.require('GoogleSmartCard.ConnectorApp.ChromeApiProvider');
 goog.require('GoogleSmartCard.BackgroundPageUnloadPreventing');
 goog.require('GoogleSmartCard.ConnectorApp.Background.MainWindowManaging');
+goog.require('GoogleSmartCard.ConnectorApp.ChromeApiProvider');
 goog.require('GoogleSmartCard.EmscriptenModule');
 goog.require('GoogleSmartCard.ExecutableModule');
 goog.require('GoogleSmartCard.LibusbLoginStateHook');
@@ -166,26 +166,40 @@ if (GSC.ExecutableModule.TOOLCHAIN ===
   GSC.BackgroundPageUnloadPreventing.enable();
 }
 
+/** @type {GSC.ConnectorApp.ChromeApiProvider?} */
+chromeApiProvider = null;
+
 if (chrome.smartCardProviderPrivate !== undefined) {
-  const HANDLE_CHROME_REQUESTS = 'handle_requests_from_chrome_smart_card_api';
-  chrome.storage.managed.get(HANDLE_CHROME_REQUESTS, (policies) => {
-    if (policies[HANDLE_CHROME_REQUESTS] === true) {
-      new GSC.ConnectorApp.ChromeApiProvider(
-          executableModule.getMessageChannel(),
-          pcscLiteReadinessTracker.promise);
-    } else {
-      goog.log.fine(
-          logger,
-          `Handling of chrome.smartCardProviderPrivate requests wasn't ` +
-              `explicitly enabled by extension policy. Requests from ` +
-              `Web Smart Card API will not be handled.`);
-    }
-  });
+  updateChromeApiProviderAvailability();
+  chrome.storage.onChanged.addListener(updateChromeApiProviderAvailability);
 } else {
   goog.log.fine(
       logger,
       `chrome.smartCardProviderPrivate is not available. ` +
           `Requests from Web Smart Card API will not be handled.`);
+}
+
+/**
+ * Updates the Chrome API provider availability based on extension policy.
+ */
+function updateChromeApiProviderAvailability() {
+  const EXPOSE_CHROME_REQUESTS = 'expose_chrome_smart_card_api';
+  chrome.storage.managed.get(EXPOSE_CHROME_REQUESTS, (policies) => {
+    if (policies[EXPOSE_CHROME_REQUESTS] === true) {
+      if (!chromeApiProvider) {
+        chromeApiProvider = GSC.ConnectorApp.ChromeApiProvider(
+            executableModule.getMessageChannel(),
+            pcscLiteReadinessTracker.promise);
+      }
+    } else {
+      if (chromeApiProvider) {
+        goog.log.fine(
+            logger, 'Disposing ChromeApiProvider based on the policy change.');
+        chromeApiProvider.dispose();
+        chromeApiProvider = null;
+      }
+    }
+  });
 }
 
 /**

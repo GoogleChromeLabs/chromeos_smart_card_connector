@@ -1,6 +1,11 @@
 {
   "type": "object",
   "properties": {
+    "expose_chrome_smart_card_api": {
+      "title": "Handle requests from chrome.smartCardProviderPrivate API.",
+      "description": "If set to true, the app will subscribe to chrome.smartCardProviderPrivate API events and handle the requests. This is needed for Web Smart Card API.",
+      "type": "boolean"
+    },
     "force_allowed_client_app_ids": {
       "title": "Force allowed client App identifiers.",
       "description": "List of client App identifiers that are force allowed to talk to the Smart Card Connector App. No user prompts or notifications are shown for these Apps by the Smart Card Connector App.",
@@ -10,11 +15,6 @@
         "minLength": 32,
         "maxLength": 32
       }
-    },
-    "handle_requests_from_chrome_smart_card_api": {
-      "title": "Handle requests from chrome.smartCardProviderPrivate API.",
-      "description": "If set to true, the app will subscribe to chrome.smartCardProviderPrivate API events and handle the requests. This is needed for Web Smart Card API.",
-      "type": "boolean"
     },
     "scard_disconnect_fallback_client_app_ids": {
       "title": "Client App identifiers using the SCardDisconnect fallback.",
