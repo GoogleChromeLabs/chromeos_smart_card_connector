@@ -58,8 +58,6 @@ const UNTRUSTED_CLASS = 'untrusted';
 
 const GSC = GoogleSmartCard;
 
-const urlParams = new URLSearchParams(window.location.search);
-
 /** @type {!goog.log.Logger} */
 const logger = GSC.Logging.getScopedLogger('Pcsc.PermissionsDialog');
 
