@@ -110,7 +110,7 @@ function loadRecentCrashTimestamps() {
   return new Promise(resolve => {
     chrome.storage.local.get(STORAGE_KEY, function(loadedStorage) {
       if (chrome.runtime.lastError ||
-          !loadedStorage.hasOwnProperty(STORAGE_KEY) ||
+          !Object.prototype.hasOwnProperty.call(loadedStorage, STORAGE_KEY) ||
           !Array.isArray(loadedStorage[STORAGE_KEY])) {
         resolve([]);
         return;
