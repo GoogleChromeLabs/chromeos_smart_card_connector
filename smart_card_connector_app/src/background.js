@@ -167,7 +167,7 @@ if (GSC.ExecutableModule.TOOLCHAIN ===
 }
 
 /** @type {GSC.ConnectorApp.ChromeApiProvider?} */
-chromeApiProvider = null;
+let chromeApiProvider = null;
 
 if (chrome.smartCardProviderPrivate !== undefined) {
   updateChromeApiProviderAvailability();
