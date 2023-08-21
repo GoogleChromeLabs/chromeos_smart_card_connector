@@ -467,6 +467,13 @@ static void * HPEstablishUSBNotifications(int pipefd[2])
 	/* scan the USB bus for devices at startup */
 	HPRescanUsbBus();
 
+	char dummy;
+	if (pipe(rescan_pipe) == -1)
+	{
+		Log2(PCSC_LOG_ERROR, "pipe: %s", strerror(errno));
+		return NULL;
+	}
+
 	/* signal that the initially connected readers are now visible */
 	if (write(pipefd[1], &c, 1) == -1)
 	{
@@ -493,13 +500,6 @@ static void * HPEstablishUSBNotifications(int pipefd[2])
 		Log2(PCSC_LOG_INFO,
 				"Polling forced every %d second(s)", HPForceReaderPolling);
 		do_polling = true;
-	}
-
-	char dummy;
-	if (pipe(rescan_pipe) == -1)
-	{
-		Log2(PCSC_LOG_ERROR, "pipe: %s", strerror(errno));
-		return NULL;
 	}
 
 	if (do_polling)
