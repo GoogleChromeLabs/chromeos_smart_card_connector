@@ -48,6 +48,7 @@ let mockChromeApi;
 let mockControl;
 /** @type {ChromeApiProvider?} */
 let chromeApiProvider;
+
 /**
  * @param {!Array} initialDevices
  * @return {!Promise}
