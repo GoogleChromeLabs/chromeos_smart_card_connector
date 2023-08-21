@@ -19,6 +19,7 @@ goog.provide('GoogleSmartCard.ConnectorApp.BackgroundMain');
 
 goog.require('GoogleSmartCard.BackgroundPageUnloadPreventing');
 goog.require('GoogleSmartCard.ConnectorApp.Background.MainWindowManaging');
+goog.require('GoogleSmartCard.ConnectorApp.ChromeApiProvider');
 goog.require('GoogleSmartCard.EmscriptenModule');
 goog.require('GoogleSmartCard.ExecutableModule');
 goog.require('GoogleSmartCard.LibusbLoginStateHook');
@@ -163,6 +164,40 @@ if (GSC.ExecutableModule.TOOLCHAIN ===
   // This trick wasn't needed for NaCl, since Chrome was keeping the extension's
   // page alive as long as the NaCl module is running.
   GSC.BackgroundPageUnloadPreventing.enable();
+}
+
+/** @type {GSC.ConnectorApp.ChromeApiProvider?} */
+let chromeApiProvider = null;
+
+if (chrome.smartCardProviderPrivate !== undefined) {
+  updateChromeApiProviderAvailability();
+  chrome.storage.onChanged.addListener(updateChromeApiProviderAvailability);
+} else {
+  goog.log.fine(
+      logger,
+      `chrome.smartCardProviderPrivate is not available. ` +
+          `Requests from Web Smart Card API will not be handled.`);
+}
+
+/**
+ * Updates the Chrome API provider availability based on extension policy.
+ */
+function updateChromeApiProviderAvailability() {
+  const EXPOSE_CHROME_REQUESTS = 'expose_chrome_smart_card_api';
+  chrome.storage.managed.get(EXPOSE_CHROME_REQUESTS, (policies) => {
+    const policyEnabled = policies[EXPOSE_CHROME_REQUESTS] === true;
+    if (policyEnabled && !chromeApiProvider) {
+      chromeApiProvider = new GSC.ConnectorApp.ChromeApiProvider(
+          executableModule.getMessageChannel(),
+          pcscLiteReadinessTracker.promise);
+    }
+    if (!policyEnabled && chromeApiProvider) {
+      goog.log.fine(
+          logger, 'Disposing ChromeApiProvider based on the policy change.');
+      chromeApiProvider.dispose();
+      chromeApiProvider = null;
+    }
+  });
 }
 
 /**
