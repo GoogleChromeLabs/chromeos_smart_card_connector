@@ -36,6 +36,15 @@ const ChromeApiProvider = GSC.ConnectorApp.ChromeApiProvider;
 const MockChromeApi = GSC.ConnectorApp.MockChromeApi;
 const ReadinessTracker = GSC.PcscLiteServerClientsManagement.ReadinessTracker;
 
+/**
+ * @typedef {{sCardContext: number}}
+ */
+let EstablishContextResult;
+
+const EMPTY_CONTEXT_RESULT = {
+  'sCardContext': 0
+};
+
 /** @type {GSC.IntegrationTestController?} */
 let testController;
 /** @type {GSC.LibusbProxyReceiver?} */
@@ -63,6 +72,51 @@ function createChromeApiProvider() {
   new ChromeApiProvider(
       testController.executableModule.getMessageChannel(),
       pcscReadinessTracker.promise);
+}
+
+/**
+ * Sets expectation that reportEstablishContextResult will be called for given
+ * `requestId` with result code equal to `resultCode`. Sets the received result
+ * to `outResult`.
+ * @param {number} requestId
+ * @param {string} resultCode
+ * @param {!EstablishContextResult} outResult
+ */
+function expectReportEstablishContext(requestId, resultCode, outResult) {
+  chrome
+      .smartCardProviderPrivate['reportEstablishContextResult'](
+          requestId, goog.testing.mockmatchers.isNumber, resultCode)
+      .$once()
+      .$does(
+          (requestId, context,
+           resultCode) => {outResult.sCardContext = context});
+}
+
+/**
+ * Sets expectation that reportEstablishContextResult will be called for given
+ * `requestId` with result code equal to `resultCode`.
+ * @param {number} requestId
+ * @param {string} resultCode
+ */
+function expectReportReleaseContext(requestId, resultCode) {
+  chrome
+      .smartCardProviderPrivate['reportReleaseContextResult'](
+          requestId, resultCode)
+      .$once()
+}
+
+/**
+ * Sets expectation that reportListReadersResult will be called with given
+ * parameters.
+ * @param {number} requestId
+ * @param {Array.<string>} readers
+ * @param {string} resultCode
+ */
+function expectReportListReaders(requestId, readers, resultCode) {
+  chrome
+      .smartCardProviderPrivate['reportListReadersResult'](
+          requestId, readers, resultCode)
+      .$once();
 }
 
 goog.exportSymbol('testChromeApiProviderToCpp', {
@@ -105,11 +159,9 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
 
   // Test a single `onEstablishContextRequested` event.
   'testEstablishContext': async function() {
-    chrome
-        .smartCardProviderPrivate['reportEstablishContextResult'](
-            /*requestId=*/ 123,
-            /*scardContext=*/ goog.testing.mockmatchers.isNumber, 'SUCCESS')
-        .$once();
+    let establishContextResult = EMPTY_CONTEXT_RESULT;
+    expectReportEstablishContext(
+        /*requestId=*/ 123, 'SUCCESS', establishContextResult);
     mockControl.$replayAll();
 
     launchPcscServer(/*initialDevices=*/[]);
@@ -122,19 +174,10 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
 
   // Test releasing the established context.
   'testReleaseContext': async function() {
-    let sCardContext = 0;
-    chrome
-        .smartCardProviderPrivate['reportEstablishContextResult'](
-            /*requestId=*/ 123,
-            /*scardContext=*/ goog.testing.mockmatchers.isNumber, 'SUCCESS')
-        .$once()
-        .$does((requestId, context, resultCode) => {
-          sCardContext = context;
-        });
-    chrome
-        .smartCardProviderPrivate['reportReleaseContextResult'](
-            /*requestId=*/ 124, 'SUCCESS')
-        .$once();
+    let establishContextResult = EMPTY_CONTEXT_RESULT;
+    expectReportEstablishContext(
+        /*requestId=*/ 123, 'SUCCESS', establishContextResult);
+    expectReportReleaseContext(/*requestId=*/ 124, 'SUCCESS');
     mockControl.$replayAll();
 
     launchPcscServer(/*initialDevices=*/[]);
@@ -144,7 +187,8 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     await chrome.smartCardProviderPrivate['reportEstablishContextResult']
         .$waitAndVerify();
     mockChromeApi.dispatchEvent(
-        'onReleaseContextRequested', /*requestId=*/ 124, sCardContext);
+        'onReleaseContextRequested', /*requestId=*/ 124,
+        establishContextResult.sCardContext);
     await chrome.smartCardProviderPrivate['reportReleaseContextResult']
         .$waitAndVerify();
   },
@@ -152,10 +196,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
   // Test that releasing bogus context returns INVALID_HANDLE error.
   'testReleaseContext_none': async function() {
     const BAD_CONTEXT = 123;
-    chrome
-        .smartCardProviderPrivate['reportReleaseContextResult'](
-            /*requestId=*/ 42, 'INVALID_HANDLE')
-        .$once();
+    expectReportReleaseContext(/*requestId=*/ 42, 'INVALID_HANDLE');
     mockControl.$replayAll();
 
     launchPcscServer(/*initialDevices=*/[]);
@@ -164,6 +205,111 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         'onReleaseContextRequested', /*requestId=*/ 42, BAD_CONTEXT);
     await chrome.smartCardProviderPrivate['reportReleaseContextResult']
         .$waitAndVerify();
-  }
+  },
+
+  // Test ListReaders with no readers attached.
+  'testListReaders_none': async function() {
+    let establishContextResult = EMPTY_CONTEXT_RESULT;
+    expectReportEstablishContext(
+        /*requestId=*/ 123, 'SUCCESS', establishContextResult);
+    expectReportListReaders(/*requestId=*/ 124, [], 'NO_READERS_AVAILABLE');
+    mockControl.$replayAll();
+
+    launchPcscServer(/*initialDevices=*/[]);
+    createChromeApiProvider();
+    mockChromeApi.dispatchEvent(
+        'onEstablishContextRequested', /*requestId=*/ 123);
+    await chrome.smartCardProviderPrivate['reportEstablishContextResult']
+        .$waitAndVerify();
+    mockChromeApi.dispatchEvent(
+        'onListReadersRequested', /*requestId=*/ 124,
+        establishContextResult.sCardContext);
+    await chrome.smartCardProviderPrivate['reportListReadersResult']
+        .$waitAndVerify();
+  },
+
+  // Test that ListReaders requested with already released context returns
+  // INVALID_HANDLE error.
+  'testListReaders_releasedContext': async function() {
+    let establishContextResult = EMPTY_CONTEXT_RESULT;
+    expectReportEstablishContext(
+        /*requestId=*/ 123, 'SUCCESS', establishContextResult);
+    expectReportReleaseContext(/*requestId=*/ 124, 'SUCCESS');
+    expectReportListReaders(/*requestId=*/ 125, [], 'INVALID_HANDLE');
+    mockControl.$replayAll();
+
+    launchPcscServer(/*initialDevices=*/[]);
+    createChromeApiProvider();
+    mockChromeApi.dispatchEvent(
+        'onEstablishContextRequested', /*requestId=*/ 123);
+    await chrome.smartCardProviderPrivate['reportEstablishContextResult']
+        .$waitAndVerify();
+    mockChromeApi.dispatchEvent(
+        'onReleaseContextRequested', /*requestId=*/ 124,
+        establishContextResult.sCardContext);
+    await chrome.smartCardProviderPrivate['reportReleaseContextResult']
+        .$waitAndVerify();
+    mockChromeApi.dispatchEvent(
+        'onListReadersRequested', /*requestId=*/ 125,
+        establishContextResult.sCardContext);
+    await chrome.smartCardProviderPrivate['reportListReadersResult']
+        .$waitAndVerify();
+  },
+
+  // Test ListReaders returns a one-item list when there's a single attached
+  // device.
+  'testListReaders_singleDevice': async function() {
+    let establishContextResult = EMPTY_CONTEXT_RESULT;
+    expectReportEstablishContext(
+        /*requestId=*/ 123, 'SUCCESS', establishContextResult);
+    expectReportListReaders(
+        /*requestId=*/ 124, ['Gemalto PC Twin Reader 00 00'], 'SUCCESS');
+    mockControl.$replayAll();
+
+    launchPcscServer(
+        /*initialDevices=*/[{'id': 123, 'type': 'gemaltoPcTwinReader'}]);
+    createChromeApiProvider();
+    mockChromeApi.dispatchEvent(
+        'onEstablishContextRequested', /*requestId=*/ 123);
+    await chrome.smartCardProviderPrivate['reportEstablishContextResult']
+        .$waitAndVerify();
+    mockChromeApi.dispatchEvent(
+        'onListReadersRequested', /*requestId=*/ 124,
+        establishContextResult.sCardContext);
+    await chrome.smartCardProviderPrivate['reportListReadersResult']
+        .$waitAndVerify();
+  },
+
+
+  // Test ListReaders returns a two-item list when there're two attached device.
+  'testListReaders_twoDevices': async function() {
+    let establishContextResult = EMPTY_CONTEXT_RESULT;
+    expectReportEstablishContext(
+        /*requestId=*/ 123, 'SUCCESS', establishContextResult);
+    expectReportListReaders(
+        /*requestId=*/ 124,
+        [
+          'Gemalto PC Twin Reader 00 00',
+          'Dell Dell Smart Card Reader Keyboard 01 00'
+        ],
+        'SUCCESS');
+    mockControl.$replayAll();
+
+    launchPcscServer(
+        /*initialDevices=*/[
+          {'id': 101, 'type': 'gemaltoPcTwinReader'},
+          {'id': 102, 'type': 'dellSmartCardReaderKeyboard'}
+        ]);
+    createChromeApiProvider();
+    mockChromeApi.dispatchEvent(
+        'onEstablishContextRequested', /*requestId=*/ 123);
+    await chrome.smartCardProviderPrivate['reportEstablishContextResult']
+        .$waitAndVerify();
+    mockChromeApi.dispatchEvent(
+        'onListReadersRequested', /*requestId=*/ 124,
+        establishContextResult.sCardContext);
+    await chrome.smartCardProviderPrivate['reportListReadersResult']
+        .$waitAndVerify();
+  },
 });
 });  // goog.scope
