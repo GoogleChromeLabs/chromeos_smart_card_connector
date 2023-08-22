@@ -33,8 +33,8 @@ const GSC = GoogleSmartCard;
  * @return {!Object}
  */
 GSC.ContainerHelpers.buildObjectFromMap = function(map) {
-  let obj = {};
-  for (let [key, value] of map) {
+  const obj = {};
+  for (const [key, value] of map) {
     GSC.Logging.check(
         typeof key === 'string' || typeof key === 'number',
         'Invalid type for object key');

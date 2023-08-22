@@ -74,7 +74,7 @@ GSC.MockPort = class extends goog.Disposable {
     GSC.Logging.checkWithLogger(
         logger, !this.isDisposed() && this.isConnected_,
         'Trying to fire onMessage for closed mock port');
-    for (let listener of this.getListeners_('onMessage'))
+    for (const listener of this.getListeners_('onMessage'))
       listener(message);
   }
 
@@ -125,7 +125,7 @@ GSC.MockPort = class extends goog.Disposable {
     if (!this.isConnected_)
       return;
     this.isConnected_ = false;
-    for (let listener of this.getListeners_('onDisconnect'))
+    for (const listener of this.getListeners_('onDisconnect'))
       listener();
   }
 
@@ -154,7 +154,7 @@ GSC.MockPort = class extends goog.Disposable {
    */
   getListeners_(type) {
     const result = [];
-    for (let listenerKey of this.listenerMap_.getListeners(type, false)) {
+    for (const listenerKey of this.listenerMap_.getListeners(type, false)) {
       if (goog.functions.isFunction(listenerKey.listener))
         result.push(listenerKey.listener);
     }

@@ -185,7 +185,7 @@ ReaderTracker.prototype.fireOnUpdateListeners_ = function() {
       this.logger_,
       'Firing readers updated listeners with data ' +
           GSC.DebugDump.dump(readers));
-  for (let listener of this.updateListeners_) {
+  for (const listener of this.updateListeners_) {
     try {
       listener(readers);
     } catch (exc) {

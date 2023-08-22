@@ -160,7 +160,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
 
   // Test a single `onEstablishContextRequested` event.
   'testEstablishContext': async function() {
-    let establishContextResult = EMPTY_CONTEXT_RESULT;
+    const establishContextResult = EMPTY_CONTEXT_RESULT;
     expectReportEstablishContext(
         /*requestId=*/ 123, 'SUCCESS', establishContextResult);
     mockControl.$replayAll();
@@ -175,7 +175,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
 
   // Test releasing the established context.
   'testReleaseContext': async function() {
-    let establishContextResult = EMPTY_CONTEXT_RESULT;
+    const establishContextResult = EMPTY_CONTEXT_RESULT;
     expectReportEstablishContext(
         /*requestId=*/ 123, 'SUCCESS', establishContextResult);
     expectReportReleaseContext(/*requestId=*/ 124, 'SUCCESS');
@@ -210,7 +210,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
 
   // Test ListReaders with no readers attached.
   'testListReaders_none': async function() {
-    let establishContextResult = EMPTY_CONTEXT_RESULT;
+    const establishContextResult = EMPTY_CONTEXT_RESULT;
     expectReportEstablishContext(
         /*requestId=*/ 123, 'SUCCESS', establishContextResult);
     expectReportListReaders(/*requestId=*/ 124, [], 'NO_READERS_AVAILABLE');
@@ -232,7 +232,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
   // Test that ListReaders requested with already released context returns
   // INVALID_HANDLE error.
   'testListReaders_releasedContext': async function() {
-    let establishContextResult = EMPTY_CONTEXT_RESULT;
+    const establishContextResult = EMPTY_CONTEXT_RESULT;
     expectReportEstablishContext(
         /*requestId=*/ 123, 'SUCCESS', establishContextResult);
     expectReportReleaseContext(/*requestId=*/ 124, 'SUCCESS');
@@ -260,7 +260,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
   // Test ListReaders returns a one-item list when there's a single attached
   // device.
   'testListReaders_singleDevice': async function() {
-    let establishContextResult = EMPTY_CONTEXT_RESULT;
+    const establishContextResult = EMPTY_CONTEXT_RESULT;
     expectReportEstablishContext(
         /*requestId=*/ 123, 'SUCCESS', establishContextResult);
     expectReportListReaders(
@@ -284,7 +284,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
 
   // Test ListReaders returns a two-item list when there're two attached device.
   'testListReaders_twoDevices': async function() {
-    let establishContextResult = EMPTY_CONTEXT_RESULT;
+    const establishContextResult = EMPTY_CONTEXT_RESULT;
     expectReportEstablishContext(
         /*requestId=*/ 123, 'SUCCESS', establishContextResult);
     expectReportListReaders(

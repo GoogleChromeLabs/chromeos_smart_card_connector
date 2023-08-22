@@ -194,7 +194,7 @@ goog.exportSymbol('testSingleMessageBasedChannel', {
         EXTENSION_ID, /* opt_onEstablished= */ waiter.callback);
     await waiter.promise;
     // Send test messages through the channel.
-    for (let testMessage of TEST_MESSAGES)
+    for (const testMessage of TEST_MESSAGES)
       testChannel.send(testMessage.type, testMessage.data);
 
     // Assert.
@@ -248,14 +248,14 @@ goog.exportSymbol('testSingleMessageBasedChannel', {
     await waiter.promise;
     // Set up an observer for incoming messages.
     const receivedMessages = [];
-    for (let testMessage of TEST_MESSAGES) {
+    for (const testMessage of TEST_MESSAGES) {
       testChannel.registerService(testMessage.type, function(messageData) {
         goog.asserts.assert(goog.isObject(messageData));
         receivedMessages.push(new TypedMessage(testMessage.type, messageData));
       }, /* opt_objectPayload= */ true);
     }
     // Simulate incoming test messages.
-    for (let testMessage of TEST_MESSAGES)
+    for (const testMessage of TEST_MESSAGES)
       testChannel.deliverMessage(testMessage.makeMessage());
 
     // Assert: check all messages were received and in the correct order.
