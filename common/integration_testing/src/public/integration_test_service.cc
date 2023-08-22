@@ -88,6 +88,7 @@ void IntegrationTestService::Deactivate() {
   GOOGLE_SMART_CARD_CHECK(js_request_receiver_);
   // It's expected that all helpers have been torn down.
   GOOGLE_SMART_CARD_CHECK(set_up_helpers_.empty());
+  js_request_receiver_->ShutDown();
   js_request_receiver_.reset();
   typed_message_router_ = nullptr;
 }
