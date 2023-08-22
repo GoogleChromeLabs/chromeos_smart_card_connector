@@ -41,7 +41,8 @@ JS_COMPILER_INPUT_PATHS := \
   $(PCSC_LITE_JS_CLIENT_COMPILER_INPUT_DIR_PATHS) \
   $(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_JS_COMPILER_INPUT_DIR_PATHS) \
   $(ROOT_PATH)/third_party/libusb/webport/src \
+  !$(ROOT_PATH)/third_party/libusb/webport/src/**test.js \
   $(ROOT_PATH)/smart_card_connector_app/src \
-  !$(ROOT_PATH)/smart_card_connector_app/src/!**jstocxxtest.js \
+  !$(ROOT_PATH)/smart_card_connector_app/src/**jstocxxtest.js \
 
 $(eval $(call BUILD_JS_UNITTESTS,$(JS_COMPILER_INPUT_PATHS)))
