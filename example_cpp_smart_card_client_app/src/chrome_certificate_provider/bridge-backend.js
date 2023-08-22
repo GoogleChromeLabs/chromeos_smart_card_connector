@@ -307,10 +307,10 @@ Backend.prototype.setupApiListeners_ = function() {
       goog.log.warning(
           this.logger,
           'chrome.certificateProvider API is not available. Providing ' +
-              'certificates to the Chrome browser will be impossible. This is ' +
-              'just a warning in the Debug build (in order to make some testing ' +
-              'on non-ChromeOS systems possible), but this will be a fatal ' +
-              'error in the Release build');
+              'certificates to the Chrome browser will be impossible. This ' +
+              'is just a warning in the Debug build (in order to make some ' +
+              'testing on non-ChromeOS systems possible), but this will be a ' +
+              'fatal error in the Release build');
     } else {
       goog.log.error(
           this.logger,
@@ -537,8 +537,8 @@ Backend.prototype.processSignDigestRequest_ = function(
         const signature = results[0];
         goog.log.info(
             this.logger,
-            'Responding to the digest sign request with the created signature: ' +
-                GSC.DebugDump.debugDump(signature));
+            'Responding to the digest sign request with the created ' +
+                'signature: ' + GSC.DebugDump.debugDump(signature));
         reportCallback(signature);
       },
       function() {
