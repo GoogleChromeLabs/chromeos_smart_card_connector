@@ -64,10 +64,10 @@ LIBS := \
   $(CPP_COMMON_LIB) \
   $(DEFAULT_NACL_LIBS) \
 
+# Include *-jstocxxtest.js and non-test files needed for them.
 JS_SOURCES_PATHS := \
   $(SOURCE_DIR) \
   !$(SOURCE_DIR)/**-unittest.js \
-  $(SOURCE_DIR)/**-jstocxxtest.js \
   $(ROOT_PATH)/third_party/libusb/webport/src \
   !$(ROOT_PATH)/third_party/libusb/webport/src/**test.js \
   $(PCSC_LITE_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
