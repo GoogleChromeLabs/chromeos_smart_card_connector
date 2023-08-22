@@ -185,9 +185,10 @@ def main():
         sys.stderr.write('Waiting for the test completion...\n')
         wait_for_test_completion(driver, args.timeout)
         print(get_js_test_report(driver))
-        if args.print_js_logs:
+        success = is_js_test_successful(driver)
+        if args.print_js_logs or not success:
           print(get_js_logs(driver))
-        if not is_js_test_successful(driver):
+        if not success:
           if args.pause_after_failure:
             wait_for_ui_closed(driver)
           return 1
