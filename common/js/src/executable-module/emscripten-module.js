@@ -64,7 +64,7 @@ GSC.EmscriptenModule = class extends GSC.ExecutableModule {
     GSC.PromiseHelpers.suppressUnhandledRejectionError(
         this.loadPromiseResolver_.promise);
     /** @type {!EmscriptenModuleMessageChannel} @const @private */
-    this.messageChannel_ = new EmscriptenModuleMessageChannel;
+    this.messageChannel_ = new EmscriptenModuleMessageChannel();
     // Object that is an entry point on the C++ side and is used for exchanging
     // messages with it. Untyped, since the class "GoogleSmartCardModule" is
     // defined within the Emscripten module (using Embind) and therefore isn't

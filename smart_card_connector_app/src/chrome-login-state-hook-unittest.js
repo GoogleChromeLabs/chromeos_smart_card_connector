@@ -97,7 +97,7 @@ function setUpChromeLoginStateMock(
  */
 function makeTest(fakeProfileType, fakeSessionState, testCallback) {
   return function() {
-    const propertyReplacer = new goog.testing.PropertyReplacer;
+    const propertyReplacer = new goog.testing.PropertyReplacer();
 
     function cleanup() {
       propertyReplacer.reset();

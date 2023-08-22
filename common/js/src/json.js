@@ -35,7 +35,7 @@ const GSC = GoogleSmartCard;
  * @return {!goog.Promise.<*>}
  */
 GSC.Json.parse = function(jsonString) {
-  const processor = new goog.json.NativeJsonProcessor;
+  const processor = new goog.json.NativeJsonProcessor();
   /** @preserveTry */
   try {
     return goog.Promise.resolve(processor.parse(jsonString));

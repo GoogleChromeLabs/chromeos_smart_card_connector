@@ -83,7 +83,7 @@ PermissionsChecking.UserPromptingChecker = function() {
   this.localStoragePromise_ = this.loadLocalStorage_();
 
   /** @type {!Map.<string, !Promise<void>>} @private @const */
-  this.checkPromiseMap_ = new Map;
+  this.checkPromiseMap_ = new Map();
 };
 
 const UserPromptingChecker = PermissionsChecking.UserPromptingChecker;
@@ -276,7 +276,7 @@ function fixupLegacyStoredIdentifier(identifier) {
 UserPromptingChecker.prototype.parseLocalStorageUserSelections_ = function(
     rawData) {
   /** @type {!Map.<string, boolean>} */
-  const storedUserSelections = new Map;
+  const storedUserSelections = new Map();
   if (!rawData[LOCAL_STORAGE_KEY])
     return storedUserSelections;
   const contents = rawData[LOCAL_STORAGE_KEY];

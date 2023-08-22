@@ -30,7 +30,7 @@ const SOME_DATE = new Date(
     /*year=*/ 2001, /*monthIndex=*/ 2, /*day=*/ 3, /*hours=*/ 4, /*minutes=*/ 5,
     /*seconds=*/ 6, /*milliseconds=*/ 7);
 
-const propertyReplacer = new goog.testing.PropertyReplacer;
+const propertyReplacer = new goog.testing.PropertyReplacer();
 
 /** @type {!Date} */
 let currentDate = SOME_DATE;

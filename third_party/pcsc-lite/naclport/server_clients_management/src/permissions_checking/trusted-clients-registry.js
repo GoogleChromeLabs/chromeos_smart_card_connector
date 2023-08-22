@@ -227,7 +227,7 @@ TrustedClientsRegistryImpl.prototype.jsonLoadedCallback_ = function(e) {
  */
 TrustedClientsRegistryImpl.prototype.parseJsonAndApply_ = function(json) {
   /** @type {!Map.<string, !TrustedClientInfo>} */
-  const originToInfoMap = new Map;
+  const originToInfoMap = new Map();
   let success = true;
   goog.object.forEach(json, function(value, key) {
     const info = this.tryParseTrustedClientInfo_(key, value);

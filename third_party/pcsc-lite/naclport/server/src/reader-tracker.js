@@ -220,7 +220,7 @@ function TrackerThroughPcscServerHook(
    * @type {!Map.<number, !ReaderInfo>}
    * @private @const
    */
-  this.portToReaderInfoMap_ = new Map;
+  this.portToReaderInfoMap_ = new Map();
 
   serverMessageChannel.registerService(
       'reader_init_add', this.readerInitAddListener_.bind(this), true);

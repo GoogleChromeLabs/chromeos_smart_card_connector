@@ -82,7 +82,7 @@ GSC.Requester = class extends goog.Disposable {
      * @type {Map.<number, !goog.promise.Resolver>?}
      * @private
      */
-    this.requestIdToPromiseResolverMap_ = new Map;
+    this.requestIdToPromiseResolverMap_ = new Map();
 
     this.registerResponseMessagesService_();
     this.addChannelDisposedListener_();
