@@ -102,7 +102,7 @@ constructor(awaitedPromise) {
   this.isCurrentlyFlushingJobs_ = false;
 
   /** @type {!goog.structs.Queue.<!Job>} @private @const */
-  this.jobsQueue_ = new goog.structs.Queue;
+  this.jobsQueue_ = new goog.structs.Queue();
 
   awaitedPromise.then(
       this.promiseResolvedListener_.bind(this),

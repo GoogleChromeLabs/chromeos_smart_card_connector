@@ -57,7 +57,7 @@ GSC.IntegrationTestController = class {
         TIMEOUT_MILLISECONDS;
 
     /** @type {!goog.testing.PropertyReplacer} @const */
-    this.propertyReplacer = new goog.testing.PropertyReplacer;
+    this.propertyReplacer = new goog.testing.PropertyReplacer();
     /** @type {!GSC.ExecutableModule} @const */
     this.executableModule = createExecutableModule();
     /** @type {!GSC.Requester} @private @const */

@@ -350,7 +350,7 @@ function setupSystemLogLogging() {
 }
 
 function setupConsoleLogging() {
-  const console = new goog.debug.Console;
+  const console = new goog.debug.Console();
   const formatter = console.getFormatter();
   formatter.showAbsoluteTime = true;
   formatter.showRelativeTime = false;

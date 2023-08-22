@@ -67,9 +67,9 @@ GSC.Pcsc.PolicyOrPromptingPermissionsChecker =
   constructor() {
     super();
     /** @private @const */
-    this.managedRegistry_ = new PermissionsChecking.ManagedRegistry;
+    this.managedRegistry_ = new PermissionsChecking.ManagedRegistry();
     /** @private @const */
-    this.userPromptingChecker_ = new PermissionsChecking.UserPromptingChecker;
+    this.userPromptingChecker_ = new PermissionsChecking.UserPromptingChecker();
   }
 
   /**

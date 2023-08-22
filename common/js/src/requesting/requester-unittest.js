@@ -69,7 +69,7 @@ goog.exportSymbol('testRequester', function() {
   const REQUEST_1_ERROR_MESSAGE = 'test error';
   const REQUEST_2_RESPONSE_PAYLOAD = {some_result: 123};
 
-  const mockControl = new goog.testing.MockControl;
+  const mockControl = new goog.testing.MockControl();
   const mockMessageChannel =
       new goog.testing.messaging.MockMessageChannel(mockControl);
   /** @type {?} */ mockMessageChannel.send;
@@ -149,7 +149,7 @@ goog.exportSymbol('testRequester', function() {
 goog.exportSymbol('testRequester_disposed', function() {
   const REQUESTER_NAME = 'test-requester';
 
-  const mockControl = new goog.testing.MockControl;
+  const mockControl = new goog.testing.MockControl();
   const mockMessageChannel =
       new goog.testing.messaging.MockMessageChannel(mockControl);
   /** @type {?} */ mockMessageChannel.send;

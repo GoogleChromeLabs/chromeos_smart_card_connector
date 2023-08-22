@@ -27,7 +27,7 @@ goog.scope(function() {
 
 const GSC = GoogleSmartCard;
 
-const propertyReplacer = new goog.testing.PropertyReplacer;
+const propertyReplacer = new goog.testing.PropertyReplacer();
 /** @type {Element?} */
 let pNode1;
 /** @type {Element?} */

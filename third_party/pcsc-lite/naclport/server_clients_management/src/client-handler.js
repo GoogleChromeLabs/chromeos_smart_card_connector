@@ -208,7 +208,7 @@ function getPermissionsChecker() {
     return permissionsCheckerOverrideForTesting;
   if (!defaultPermissionsChecker) {
     defaultPermissionsChecker =
-        new GSC.Pcsc.PolicyOrPromptingPermissionsChecker;
+        new GSC.Pcsc.PolicyOrPromptingPermissionsChecker();
   }
   return defaultPermissionsChecker;
 }

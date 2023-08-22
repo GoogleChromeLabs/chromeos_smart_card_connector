@@ -115,7 +115,7 @@ GSC.PcscLiteClient.NaclClientBackend = class {
     this.api_ = null;
 
     /** @type {!goog.structs.Queue.<!BufferedRequest>} @private @const */
-    this.bufferedRequestsQueue_ = new goog.structs.Queue;
+    this.bufferedRequestsQueue_ = new goog.structs.Queue();
 
     /**
      * @type {number|null}

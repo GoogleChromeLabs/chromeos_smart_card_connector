@@ -28,7 +28,7 @@ const substituteArrayBuffersRecursively =
     GSC.ContainerHelpers.substituteArrayBuffersRecursively;
 
 goog.exportSymbol('testBuildObjectFromMap', function() {
-  assertObjectEquals(buildObjectFromMap(new Map), {});
+  assertObjectEquals(buildObjectFromMap(new Map()), {});
   assertObjectEquals(
       buildObjectFromMap(new Map([['key', 'value']])), {'key': 'value'});
   assertObjectEquals(

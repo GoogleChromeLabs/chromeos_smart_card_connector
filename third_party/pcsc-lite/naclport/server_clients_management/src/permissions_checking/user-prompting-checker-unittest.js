@@ -196,8 +196,8 @@ function makeTest(
     fakeInitialStorageData, expectedStorageDataToBeWritten,
     mockedDialogBehavior, testCallback) {
   return function() {
-    const mockControl = new goog.testing.MockControl;
-    const propertyReplacer = new goog.testing.PropertyReplacer;
+    const mockControl = new goog.testing.MockControl();
+    const propertyReplacer = new goog.testing.PropertyReplacer();
 
     function cleanup() {
       mockControl.$tearDown();
@@ -230,7 +230,7 @@ function makeTest(
     let testPromise;
     /** @preserveTry */
     try {
-      testPromise = testCallback(new UserPromptingChecker);
+      testPromise = testCallback(new UserPromptingChecker());
     } catch (exc) {
       // Cleanup after the test fatally failed synchronously.
       cleanup();

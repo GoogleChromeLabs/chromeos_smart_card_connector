@@ -58,7 +58,7 @@ PermissionsChecking.ManagedRegistry = function() {
    * @type {!Set.<string>}
    * @private
    */
-  this.allowedClientOrigins_ = new Set;
+  this.allowedClientOrigins_ = new Set();
 
   this.loadManagedStorage_();
   this.listenForStorageChanging_();
@@ -185,7 +185,7 @@ ManagedRegistry.prototype.setAllowedClientOriginsFromStorageData_ = function(
     return false;
   }
 
-  const newAllowedClientOrigins = new Set;
+  const newAllowedClientOrigins = new Set();
   let success = true;
   goog.array.forEach(/** @type {!Array} */ (storageData), function(item) {
     if (typeof item !== 'string') {
