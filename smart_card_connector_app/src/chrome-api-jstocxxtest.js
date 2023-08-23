@@ -86,9 +86,9 @@ function expectReportEstablishContext(requestId, resultCode, outResult) {
       .smartCardProviderPrivate['reportEstablishContextResult'](
           requestId, goog.testing.mockmatchers.isNumber, resultCode)
       .$once()
-      .$does(
-          (requestId, context,
-           resultCode) => {outResult.sCardContext = context});
+      .$does((requestId, context, resultCode) => {
+        outResult.sCardContext = context;
+      });
 }
 
 /**
@@ -101,7 +101,7 @@ function expectReportReleaseContext(requestId, resultCode) {
   chrome
       .smartCardProviderPrivate['reportReleaseContextResult'](
           requestId, resultCode)
-      .$once()
+      .$once();
 }
 
 /**
