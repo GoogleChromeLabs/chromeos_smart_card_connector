@@ -32,7 +32,6 @@ const GSC = GoogleSmartCard;
  * Disables for the specified promise throwing of an error when it's rejected
  * with no rejection callback attached to it.
  * @param {!goog.Promise} promise
- * @return {?}
  */
 GSC.PromiseHelpers.suppressUnhandledRejectionError = function(promise) {
   promise.thenCatch(function() {});
