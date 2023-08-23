@@ -292,7 +292,8 @@ ClientHandler.prototype.getPermissionsCheckPromise_ = function() {
           function(error) {
             goog.log.warning(
                 this.logger,
-                'Client permission denied. All PC/SC requests will be rejected');
+                'Client permission denied. All PC/SC requests will be ' +
+                    'rejected');
             throw error;
           },
           this);

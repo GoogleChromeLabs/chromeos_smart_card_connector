@@ -307,7 +307,8 @@ function scheduleSelfReloadIfAllowed() {
           goog.log.info(
               rootLogger,
               'Crash loop detected. The application is defunct, but the ' +
-                  'execution state is kept in order to retain the failure logs.');
+                  'execution state is kept in order to retain the failure ' +
+                  'logs.');
           return;
         }
         goog.log.info(

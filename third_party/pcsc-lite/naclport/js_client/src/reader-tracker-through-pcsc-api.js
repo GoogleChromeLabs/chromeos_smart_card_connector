@@ -277,8 +277,8 @@ ReaderTrackerThroughPcscApi.prototype.makeReaderNamesPromise_ = function(
                     promiseResolver.resolve([]);
                   } else {
                     promiseResolver.reject(new Error(
-                        'Failed to get the list of readers from PC/SC with error ' +
-                        'code ' + GSC.DebugDump.dump(errorCode)));
+                        'Failed to get the list of readers from PC/SC with ' +
+                        'error code ' + GSC.DebugDump.dump(errorCode)));
                   }
                 });
           },
@@ -319,14 +319,15 @@ ReaderTrackerThroughPcscApi.prototype.makeReaderStatesPromise_ = function(
                   if (errorCode == API.SCARD_E_UNKNOWN_READER) {
                     goog.log.info(
                         this.logger_,
-                        'Getting the statuses of the readers from PC/SC finished ' +
-                            'unsuccessfully due to removal of the tracked reader. A ' +
-                            'retry will be attempted after some delay');
+                        'Getting the statuses of the readers from PC/SC ' +
+                            'finished unsuccessfully due to removal of the ' +
+                            'tracked reader. A retry will be attempted after ' +
+                            'some delay');
                     promiseResolver.resolve(null);
                   } else {
                     promiseResolver.reject(new Error(
-                        'Failed to get the reader statuses from PC/SC with error ' +
-                        'code ' + GSC.DebugDump.dump(errorCode)));
+                        'Failed to get the reader statuses from PC/SC with ' +
+                        'error code ' + GSC.DebugDump.dump(errorCode)));
                   }
                 },
                 this);
@@ -416,13 +417,15 @@ ReaderTrackerThroughPcscApi.prototype.makeReaderStatesChangePromise_ = function(
                   } else if (errorCode == API.SCARD_E_UNKNOWN_READER) {
                     goog.log.info(
                         this.logger_,
-                        'Waiting for the reader statuses changes from PC/SC finished ' +
-                            'unsuccessfully due to removal of the tracked reader');
+                        'Waiting for the reader statuses changes from PC/SC ' +
+                            'finished unsuccessfully due to removal of the ' +
+                            'tracked reader');
                     promiseResolver.resolve();
                   } else {
                     promiseResolver.reject(new Error(
-                        'Failed to wait for the reader statuses change from PC/SC with ' +
-                        'error code ' + GSC.DebugDump.dump(errorCode)));
+                        'Failed to wait for the reader statuses change from ' +
+                        'PC/SC with error code ' +
+                        GSC.DebugDump.dump(errorCode)));
                   }
                 },
                 this);

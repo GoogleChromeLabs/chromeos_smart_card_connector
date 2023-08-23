@@ -117,7 +117,8 @@ TrustedClientsRegistry.prototype.tryGetByOrigins = function(originList) {};
  */
 GSC.PcscLiteServer.TrustedClientsRegistryImpl = function() {
   /**
-   * @type {!goog.promise.Resolver.<!Map.<string,!TrustedClientInfo>>} @private @const
+   * @type {!goog.promise.Resolver.<!Map.<string,!TrustedClientInfo>>} @private
+   *     @const
    */
   this.promiseResolver_ = goog.Promise.withResolver();
 
@@ -214,9 +215,9 @@ TrustedClientsRegistryImpl.prototype.jsonLoadedCallback_ = function(e) {
                 new Error('Failed to load the trusted clients registry'));
             GSC.Logging.failWithLogger(
                 this.logger,
-                'Failed to load the trusted clients registry from JSON file (URL: "' +
-                    JSON_CONFIG_URL + '"): parsing failed with the ' +
-                    'following error: ' + exc);
+                'Failed to load the trusted clients registry from JSON file ' +
+                    '(URL: "' + JSON_CONFIG_URL +
+                    '"): parsing failed with the following error: ' + exc);
           },
           this);
 };
@@ -236,8 +237,8 @@ TrustedClientsRegistryImpl.prototype.parseJsonAndApply_ = function(json) {
     } else {
       goog.log.warning(
           this.logger,
-          'Failed to parse the following trusted clients registry JSON item: key="' +
-              key + '", value=' + GSC.DebugDump.dump(value));
+          'Failed to parse the following trusted clients registry JSON item: ' +
+              'key="' + key + '", value=' + GSC.DebugDump.dump(value));
       success = false;
     }
   }, this);
@@ -254,8 +255,8 @@ TrustedClientsRegistryImpl.prototype.parseJsonAndApply_ = function(json) {
     GSC.Logging.failWithLogger(
         this.logger,
         'Failed to load the trusted clients registry from JSON file (URL: "' +
-            JSON_CONFIG_URL + '"): parsing of some of the items ' +
-            'finished with errors');
+            JSON_CONFIG_URL + '"): parsing of some of the items finished ' +
+            'with errors');
   }
 };
 
