@@ -71,7 +71,7 @@ class DeviceState {
      */
     this.closeOperationPromise = null;
   }
-};
+}
 
 /**
  * Implements the Libusb requests via the WebUSB API.
