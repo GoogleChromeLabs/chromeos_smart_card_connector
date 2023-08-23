@@ -122,7 +122,7 @@ function convertErrorCodeToEnum(errorCode) {
 function convertReaderStateIn(readerState) {
   let currentState = 0;
   /** @type {!chrome.smartCardProviderPrivate.ReaderStateFlags} */
-  let currentStateFlags = readerState.currentState;
+  const currentStateFlags = readerState.currentState;
   if (currentStateFlags.unaware)
     currentState |= PcscApi.SCARD_STATE_UNAWARE;
   if (currentStateFlags.ignore)
@@ -162,10 +162,10 @@ function convertReaderStateIn(readerState) {
  */
 function convertReaderStateOut(readerState) {
   /** @type {!chrome.smartCardProviderPrivate.ReaderStateFlags} */
-  let readerStateFlags = {};
+  const readerStateFlags = {};
   // Reader state flags are stored in the lower 16 bits of the event state.
   /** @type {number} */
-  let eventState = readerState['event_state'] & STATE_FLAGS_MASK;
+  const eventState = readerState['event_state'] & STATE_FLAGS_MASK;
   if (eventState == PcscApi.SCARD_STATE_UNAWARE)
     readerStateFlags.unaware = true;
   if (eventState & PcscApi.SCARD_STATE_IGNORE)
@@ -190,7 +190,7 @@ function convertReaderStateOut(readerState) {
     readerStateFlags.unpowered = true;
   // The number of events is stored in the upper 16 bits of the event state.
   /** @type {number} */
-  let eventCount = readerState['event_state'] >> 16;
+  const eventCount = readerState['event_state'] >> 16;
   return {
     reader: readerState['reader_name'],
     eventState: readerStateFlags,

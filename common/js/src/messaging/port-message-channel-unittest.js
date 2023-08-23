@@ -150,7 +150,7 @@ goog.exportSymbol('testPortMessageChannelMessageSending', function() {
 
   const mockPort = new GSC.MockPort('mock port');
   setUpPingRespondingForMockPort(mockPort);
-  for (let testMessage of TEST_MESSAGES) {
+  for (const testMessage of TEST_MESSAGES) {
     mockPort
         .postMessage(new goog.testing.mockmatchers.ObjectEquals(
             testMessage.makeMessage()))
@@ -159,7 +159,7 @@ goog.exportSymbol('testPortMessageChannelMessageSending', function() {
   mockPort.postMessage.$replay();
 
   function onPortMessageChannelEstablished() {
-    for (let testMessage of TEST_MESSAGES)
+    for (const testMessage of TEST_MESSAGES)
       portMessageChannel.send(testMessage.type, testMessage.data);
 
     mockPort.postMessage.$verify();
@@ -218,7 +218,7 @@ goog.exportSymbol('testPortMessageChannelMessageReceiving', function() {
   function onPortMessageChannelEstablished() {
     const receivedMessages = [];
 
-    for (let testMessage of TEST_MESSAGES) {
+    for (const testMessage of TEST_MESSAGES) {
       portMessageChannel.registerService(
           testMessage.type, function(messageData) {
             GSC.Logging.check(goog.isObject(messageData));
@@ -228,7 +228,7 @@ goog.exportSymbol('testPortMessageChannelMessageReceiving', function() {
           }, true);
     }
 
-    for (let testMessage of TEST_MESSAGES)
+    for (const testMessage of TEST_MESSAGES)
       mockPort.fireOnMessage(testMessage.makeMessage());
 
     assertObjectEquals(TEST_MESSAGES, receivedMessages);

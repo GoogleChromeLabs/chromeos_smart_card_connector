@@ -63,7 +63,7 @@ function transformElement(element, attribute, transformFunction) {
  */
 function transformAllElements(attribute, transformFunction) {
   const selector = '[' + attribute + ']';
-  for (let element of document.querySelectorAll(selector)) {
+  for (const element of document.querySelectorAll(selector)) {
     transformElement(element, attribute, transformFunction);
   }
 }

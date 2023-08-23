@@ -122,7 +122,7 @@ function displayReaderList(readers) {
           ' card reader(s): ' + GSC.DebugDump.dump(readers));
   goog.dom.removeChildren(readersListElement);
 
-  for (let reader of readers) {
+  for (const reader of readers) {
     GSC.Logging.checkWithLogger(logger, readersListElement !== null);
     goog.asserts.assert(readersListElement);
 
@@ -150,7 +150,7 @@ function displayReaderList(readers) {
 }
 
 function makeReaderNameForDisplaying(readerName) {
-  for (let suffixToRemove of READER_NAME_SUFFIXES_TO_REMOVE) {
+  for (const suffixToRemove of READER_NAME_SUFFIXES_TO_REMOVE) {
     if (goog.string.endsWith(readerName, suffixToRemove)) {
       const newReaderName =
           readerName.substr(0, readerName.length - suffixToRemove.length);

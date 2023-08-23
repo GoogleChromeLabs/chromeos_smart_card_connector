@@ -87,7 +87,7 @@ GSC.MessageChannelPair = class extends goog.Disposable {
 
   /** @override */
   disposeInternal() {
-    for (let item of this.items_)
+    for (const item of this.items_)
       item.dispose();
     this.items_ = [];
     super.disposeInternal();

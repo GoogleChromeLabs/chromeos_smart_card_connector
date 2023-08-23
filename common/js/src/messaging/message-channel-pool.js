@@ -129,7 +129,7 @@ GSC.MessageChannelPool = class {
    */
   fireOnUpdateListeners_() {
     goog.log.fine(this.logger, 'Firing channel update listeners');
-    for (let listener of this.onUpdateListeners_) {
+    for (const listener of this.onUpdateListeners_) {
       try {
         listener(this.getMessagingOrigins());
       } catch (exc) {
