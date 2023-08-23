@@ -255,8 +255,8 @@ function convertChromeUsbDeviceToLibusb(chromeUsbDevice) {
     'manufacturerName': chromeUsbDevice.manufacturerName,
     'serialNumber': chromeUsbDevice.serialNumber,
   };
-  if (typeof chromeUsbDevice.version !== undefined &&
-      typeof chromeUsbDevice.version !== null) {
+  if (chromeUsbDevice.version !== undefined &&
+      chromeUsbDevice.version !== null) {
     // The "version" field was only added in Chrome 51.
     libusbJsDevice['version'] = chromeUsbDevice.version;
   }
