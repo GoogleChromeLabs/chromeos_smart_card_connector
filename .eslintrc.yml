@@ -1,0 +1,16 @@
+env:
+  browser: true
+  es2020: true
+extends: eslint:recommended
+rules:
+  # Disabled as the linter doesn't understand Closure Compiler style imports
+  # ("goog.require") and Closure Library's global symbols.
+  no-undef: off
+  # Disabled as causes spurious errors on Closure Compiler typedefs and casts.
+  no-unused-vars: off
+overrides:
+  # Parse specific files as ES Modules (the standard parser would fail).
+  - files:
+      example_js_standalone_smart_card_client_library/src/es-module-exports.js
+    parserOptions:
+      sourceType: module
