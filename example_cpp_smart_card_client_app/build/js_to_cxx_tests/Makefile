@@ -36,10 +36,8 @@ CXX_SOURCES := \
 	$(SOURCE_DIR)/chrome_certificate_provider/types.cc \
 
 CXXFLAGS := \
-	-I$(SOURCE_DIR) \
 	-I$(ROOT_PATH) \
-	-I$(ROOT_PATH)/common/cpp/src \
-	-I$(ROOT_PATH)/common/integration_testing/src \
+	-I$(SOURCE_DIR) \
 	-pedantic \
 	-std=$(CXX_DIALECT) \
 	-Wall \

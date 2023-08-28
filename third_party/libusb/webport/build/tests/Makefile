@@ -28,8 +28,6 @@ SOURCES := \
 
 CXXFLAGS := \
 	-I$(ROOT_PATH) \
-	-I$(SOURCES_PATH) \
-	-I$(ROOT_PATH)/common/cpp/src \
 	-I$(ROOT_PATH)/third_party/libusb/src/libusb \
 	-pedantic \
 	-Wall \

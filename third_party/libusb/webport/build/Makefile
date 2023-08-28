@@ -52,10 +52,9 @@ SOURCES := \
 	$(CXX_SOURCES) \
 
 CPPFLAGS := \
+	-I$(ROOT_PATH) \
 	-I$(LIBUSB_NACL_SOURCES_PATH) \
 	-I$(LIBUSB_SOURCES_PATH)/libusb \
-	-I$(ROOT_PATH) \
-	-I$(ROOT_PATH)/common/cpp/src \
 	-Wall \
 	-Werror \
 	-Wextra \

@@ -70,7 +70,6 @@ endif
 
 CXXFLAGS := \
 	-I$(ROOT_PATH) \
-	-I$(SOURCES_PATH)/ \
 	-pedantic \
 	-Wall \
 	-Werror \

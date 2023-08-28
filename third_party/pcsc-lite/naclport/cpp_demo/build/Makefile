@@ -43,11 +43,8 @@ SOURCES := \
 	$(SOURCES_PATH)/google_smart_card_pcsc_lite_cpp_demo/demo.cc \
 
 CXXFLAGS := \
-	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 	-I$(ROOT_PATH) \
-	-I$(ROOT_PATH)/common/cpp/src \
-	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/common/src \
-	-I$(SOURCES_PATH) \
+	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 	-std=$(CXX_DIALECT) \
 
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))

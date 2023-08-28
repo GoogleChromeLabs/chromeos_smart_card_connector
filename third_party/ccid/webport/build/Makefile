@@ -53,8 +53,6 @@ COMMON_CPPFLAGS := \
 	-Dlog_msg=ccid_log_msg \
 	-Dlog_xxd=ccid_log_xxd \
 	-DPCSCLITE_HP_DROPDIR='"executable-module-filesystem/pcsc/drivers"' \
-	-I$(CCID_SOURCES_PATH) \
-	-I$(ROOT_PATH)/common/cpp/src \
 	-Wall \
 
 CCID_SOURCES := \
@@ -99,6 +97,7 @@ CCID_OPENCT_SOURCES := \
 CCID_OPENCT_CPPFLAGS := \
 	$(COMMON_CPPFLAGS) \
 	-I$(CCID_NACL_SOURCES_PATH) \
+	-I$(CCID_SOURCES_PATH) \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 
 $(foreach src,$(CCID_OPENCT_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CCID_OPENCT_CPPFLAGS))))
@@ -128,6 +127,7 @@ CCID_TOWITOKO_SOURCES := \
 CCID_TOWITOKO_CPPFLAGS := \
 	$(COMMON_CPPFLAGS) \
 	-I$(CCID_NACL_SOURCES_PATH) \
+	-I$(CCID_SOURCES_PATH) \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 	-I$(ROOT_PATH)/third_party/libusb/src/libusb \
 

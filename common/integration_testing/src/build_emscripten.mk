@@ -25,8 +25,6 @@ JS_TO_CXX_TEST_ENTRY_POINT_SOURCE := \
 
 JS_TO_CXX_TEST_ENTRY_POINT_FLAGS := \
 	-I$(ROOT_PATH) \
-	-I$(ROOT_PATH)/common/cpp/src \
-	-I$(ROOT_PATH)/common/integration_testing/src \
 	-pedantic \
 	-Wall \
 	-Werror \
