@@ -28,10 +28,8 @@ set -eu
 # Go to the root directory of the repository.
 cd $(dirname $(realpath ${0}))
 
-# Find all relevant touched files. Bail out if nothing is found.
-# Note: "d" in --diff-filter means excluding deleted files - otherwise
-# clang-format fails on these non-existing files.
-FILES=$(git diff --name-only --diff-filter=d main -- "*.cc" "*.h" "*.js")
+# Find all relevant files to be checked. Bail out if nothing is found.
+FILES=$(scripts/internal/find-files-for-linting.sh "*.cc" "*.h" "*.js")
 [ "${FILES}" ] || exit 0
 
 # Run clang-format on every found file.
