@@ -44,10 +44,6 @@ CXX_SOURCES := \
 
 CXXFLAGS := \
   -I$(ROOT_PATH) \
-  -I$(ROOT_PATH)/common/cpp/src \
-  -I$(ROOT_PATH)/common/integration_testing/src \
-  -I$(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src \
-  -I$(ROOT_PATH)/third_party/pcsc-lite/naclport/server_clients_management/src \
   -Wall \
   -Werror \
   -Wextra \

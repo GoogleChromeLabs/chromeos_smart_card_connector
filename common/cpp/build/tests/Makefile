@@ -52,7 +52,6 @@ endif
 
 CXXFLAGS := \
 	-I$(ROOT_PATH) \
-	-I$(ROOT_SOURCES_PATH)/ \
 	-pedantic \
 	-Wall \
 	-Werror \

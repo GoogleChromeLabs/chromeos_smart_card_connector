@@ -59,11 +59,8 @@ PCSC_LITE_SOURCES_PATH := $(PCSC_LITE_DIR_PATH)/src/src
 #   the Smart Card Connector app and in unit tests.
 COMMON_CPPFLAGS := \
 	-DFAKE_PCSC_NACL_SOCKET_FILE_NAME='"executable-module-filesystem/pcsc/fake_socket_file"' \
-	-I$(SOURCES_PATH) \
-	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
-	-I$(PCSC_LITE_SOURCES_PATH) \
 	-I$(ROOT_PATH) \
-	-I$(ROOT_PATH)/common/cpp/src \
+	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 
 # * DEBUG_HOTPLUG definition enables debug logging for the reader drivers
 #   loading code in the original PC/SC-Lite code;
@@ -120,6 +117,7 @@ PCSC_LITE_SERVER_CPPFLAGS := \
 	-DSCardSetAttrib=SCardSetAttribServer \
 	-DSCardStatus=SCardStatusServer \
 	-DSCardTransmit=SCardTransmitServer \
+	-I$(SOURCES_PATH) \
 
 $(foreach src,$(PCSC_LITE_SERVER_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_CPPFLAGS))))
 
@@ -205,6 +203,7 @@ PCSC_LITE_CLIENT_SOURCES := \
 
 PCSC_LITE_SERVER_CLIENT_CPPFLAGS := \
 	$(PCSC_LITE_COMMON_CPPFLAGS) \
+	-I$(SOURCES_PATH) \
 
 $(foreach src,$(PCSC_LITE_CLIENT_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_CLIENT_CPPFLAGS))))
 
@@ -228,6 +227,7 @@ PCSC_LITE_SERVER_NACL_SOURCES := \
 
 PCSC_LITE_SERVER_NACL_CXXFLAGS := \
 	$(COMMON_CPPFLAGS) \
+	-I$(PCSC_LITE_SOURCES_PATH) \
 	-std=$(CXX_DIALECT) \
 
 $(foreach src,$(PCSC_LITE_SERVER_NACL_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_NACL_CXXFLAGS))))

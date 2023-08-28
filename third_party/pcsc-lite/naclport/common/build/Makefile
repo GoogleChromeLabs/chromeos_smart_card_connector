@@ -43,10 +43,8 @@ SOURCES := \
 	$(SOURCES_PATH)/public/scard_structs_serialization.cc \
 
 CXXFLAGS := \
-	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
-	-I$(SOURCES_PATH) \
 	-I$(ROOT_PATH) \
-	-I$(ROOT_PATH)/common/cpp/src \
+	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 	-pedantic \
 	-Wall \
 	-Werror \
