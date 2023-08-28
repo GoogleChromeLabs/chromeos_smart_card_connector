@@ -21,15 +21,15 @@
 # "./activate" file), so it's safe to run this script multiple times. Add the
 # "-f" flag in order to enforce overwriting the existing state.
 #
-# Pass "-t <toolchain>" in order to initialize only dependencies needed for
-# building with the toolchain ("<toolchain>" can be one of "emscripten", "pnacl"
-# or "coverage").
+# Pass "-t <target>" in order to initialize only dependencies needed for
+# building with the target ("<target>" can be one of "emscripten", "pnacl"
+# or "eslint").
 
 
 set -eu
 
 force_reinitialization=0
-toolchain=
+target=
 
 
 log_message() {
@@ -165,9 +165,10 @@ initialize_webports() {
   gclient runhooks
   cd src
   local failed_targets=
-  for target in ${WEBPORTS_TARGETS}; do
-    if ! NACL_ARCH=pnacl TOOLCHAIN=pnacl make ${target} ; then
-      local failed_targets="${failed_targets} ${target}"
+  local webport_target
+  for webport_target in ${WEBPORTS_TARGETS}; do
+    if ! NACL_ARCH=pnacl TOOLCHAIN=pnacl make ${webport_target} ; then
+      local failed_targets="${failed_targets} ${webport_target}"
     fi
   done
   cd ${SCRIPTPATH}
@@ -179,6 +180,19 @@ initialize_webports() {
   else
     log_message "webports were installed successfully."
   fi
+}
+
+initialize_npm() {
+  if [ -d ./node_modules -a "${force_reinitialization}" -eq "0" ]; then
+    log_message "npm already present, skipping."
+    return
+  fi
+  rm -rf node_modules package.json package-lock.json
+  npm init --yes
+  # Not strictly necessary, but works as a smoke test (and will be installed
+  # anyway when installing eslint later).
+  npm install js-yaml
+  log_message "npm was installed successfully."
 }
 
 initialize_chromedriver() {
@@ -212,10 +226,10 @@ create_activate_script() {
   # scripts still use Python 2.
   log_message "Creating \"activate\" script..."
   echo > activate
-  if [[ "${toolchain}" == "" || "${toolchain}" == "pnacl" ]]; then
+  if [[ "${target}" == "" || "${target}" == "pnacl" ]]; then
     echo "export NACL_SDK_ROOT=${NACL_SDK_ROOT}" >> activate
   fi
-  if [[ "${toolchain}" == "" || "${toolchain}" == "emscripten" ]]; then
+  if [[ "${target}" == "" || "${target}" == "emscripten" ]]; then
     echo "source ${SCRIPTPATH}/emsdk/emsdk_env.sh" >> activate
   fi
   log_message "\"activate\" script was created successfully. Run \"source $(dirname ${0})/activate\" in order to trigger all necessary environment definitions."
@@ -233,7 +247,7 @@ while getopts ":ft:" opt; do
       force_reinitialization=1
       ;;
     t)
-      toolchain=$OPTARG
+      target=$OPTARG
       ;;
     \?)
       echo "Invalid option: -$OPTARG" >&2
@@ -244,17 +258,21 @@ done
 
 initialize_python3_venv
 
-if [[ "${toolchain}" == "" || "${toolchain}" == "emscripten" ]]; then
+if [[ "${target}" == "" || "${target}" == "emscripten" ]]; then
   initialize_emscripten
 fi
 
-if [[ "${toolchain}" == "" || "${toolchain}" == "pnacl" ]]; then
+if [[ "${target}" == "" || "${target}" == "pnacl" ]]; then
   initialize_depot_tools
   initialize_python2
   # Depends on depot_tools and python2.
   initialize_nacl_sdk
   # Depends on nacl_sdk and python2.
   initialize_webports
+fi
+
+if [[ "${target}" == "" || "${target}" == "eslint" ]]; then
+  initialize_npm
 fi
 
 initialize_chromedriver
