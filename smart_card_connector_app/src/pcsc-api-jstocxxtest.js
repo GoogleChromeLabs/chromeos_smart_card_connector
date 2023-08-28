@@ -259,6 +259,65 @@ goog.exportSymbol('testPcscApi', {
       assertEquals(result.getErrorCode(), API.SCARD_E_INVALID_HANDLE);
     },
 
+    // Test `SCardIsValidContext()` with the correct handle.
+    'testSCardIsValidContext_correct': async function() {
+      await launchPcscServer(/*initialDevices=*/[]);
+      const context = await establishContextOrThrow();
+
+      const result = await client.api.SCardIsValidContext(context);
+      let called = false;
+      result.get(
+          () => {
+            called = true;
+          },
+          (errorCode) => {
+            fail(`Unexpected error ${errorCode}`);
+          });
+      assert(called);
+      assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
+    },
+
+    // Test `SCardIsValidContext()` errors out on a wrong handle when there's no
+    // established handle at all.
+    'testSCardIsValidContext_none': async function() {
+      const BAD_CONTEXT = 123;
+      await launchPcscServer(/*initialDevices=*/[]);
+
+      const result = await client.api.SCardIsValidContext(BAD_CONTEXT);
+      let called = false;
+      result.get(
+          () => {
+            fail('Unexpectedly succeeded');
+          },
+          (errorCode) => {
+            called = true;
+            assertEquals(errorCode, API.SCARD_E_INVALID_HANDLE);
+          });
+      assert(called);
+      assertEquals(result.getErrorCode(), API.SCARD_E_INVALID_HANDLE);
+    },
+
+    // Test `SCardIsValidContext()` errors out on a wrong handle when there's
+    // another established handle.
+    'testSCardIsValidContext_different': async function() {
+      await launchPcscServer(/*initialDevices=*/[]);
+      const context = await establishContextOrThrow();
+      const badContext = context ^ 1;
+
+      const result = await client.api.SCardIsValidContext(badContext);
+      let called = false;
+      result.get(
+          () => {
+            fail('Unexpectedly succeeded');
+          },
+          (errorCode) => {
+            called = true;
+            assertEquals(errorCode, API.SCARD_E_INVALID_HANDLE);
+          });
+      assert(called);
+      assertEquals(result.getErrorCode(), API.SCARD_E_INVALID_HANDLE);
+    },
+
     // Test `SCardListReaders()` returns a specific error code when there's no
     // device attached.
     'testSCardListReaders_none': async function() {
