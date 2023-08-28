@@ -197,6 +197,15 @@ initialize_npm() {
   log_message "npm was installed successfully."
 }
 
+initialize_eslint() {
+  if npm list eslint >/dev/null; then
+    log_message "eslint already present, skipping."
+    return
+  fi
+  npm install eslint
+  log_message "eslint was installed successfully."
+}
+
 initialize_chromedriver() {
   if [ -f ./chromedriver -a "${force_reinitialization}" -eq "0" ]; then
     log_message "chromedriver already present, skipping."
@@ -275,6 +284,8 @@ fi
 
 if [[ "${target}" == "" || "${target}" == "eslint" ]]; then
   initialize_npm
+  # Depends on npm.
+  initialize_eslint
 fi
 
 initialize_chromedriver
