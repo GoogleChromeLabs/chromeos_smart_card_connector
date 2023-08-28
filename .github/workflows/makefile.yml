@@ -135,6 +135,31 @@ jobs:
       run: >
         source env/activate && make test
 
+  # Run ESLint for JavaScript code.
+  lint-js:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    # Check out with additionally pulling the "main" branch, so that the script
+    # can build diff against it.
+    - name: Check out sources
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - name: Create extra checkout branches
+      run: >
+        git branch main origin/main
+
+    - name: Install dependencies
+      uses: ./.github/actions/build-dependencies-installation
+      with:
+        toolchain: eslint
+
+    - name: Run ESLint
+      run: >
+        scripts/eslint.sh
+
   # Collect code coverage statistics.
   collect-coverage:
     runs-on: ubuntu-latest
@@ -176,7 +201,7 @@ jobs:
   post-results-comment:
     runs-on: ubuntu-latest
     # Depend on all other jobs, so that we don't post a PR comment if any fails.
-    needs: [build-emscripten, build-nacl, test-asan, collect-coverage]
+    needs: [build-emscripten, build-nacl, test-asan, collect-coverage, lint-js]
     # Skip running this in forks, because it'd fail with "Resource not
     # accessible by integration".
     if: github.event.pull_request.head.repo.full_name == github.repository
