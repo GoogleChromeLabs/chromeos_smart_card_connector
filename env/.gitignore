@@ -5,6 +5,9 @@
 /depot_tools/
 /emsdk/
 /nacl_sdk/
+/node_modules/
+/package.json
+/package-lock.json
 /python2/
 /python2_venv/
 /python3_venv/
