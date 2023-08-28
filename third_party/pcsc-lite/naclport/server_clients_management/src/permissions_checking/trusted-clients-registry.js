@@ -191,14 +191,16 @@ TrustedClientsRegistryImpl.prototype.jsonLoadedCallback_ = function(e) {
   /** @type {!goog.net.XhrIo} */
   const xhrio = e.target;
 
-  if (!xhrio.isSuccess()) {
+  if (!xhrio.isSuccess() || !xhrio.getResponseText()) {
     this.promiseResolver_.reject(
         new Error('Failed to load the trusted clients registry'));
+    const errorReason = xhrio.isSuccess() ?
+        'the request completed with no data' :
+        xhrio.getLastError();
     GSC.Logging.failWithLogger(
         this.logger,
-        'Failed to load the trusted clients registry from JSON file (URL: "' +
-            JSON_CONFIG_URL +
-            '") with the following error: ' + xhrio.getLastError());
+        `Failed to load the trusted clients registry from JSON file (URL: "${
+            JSON_CONFIG_URL}") with the following error: ${errorReason}`);
   }
 
   // Note: not using the xhrio.getResponseJson method as it breaks in the Chrome
