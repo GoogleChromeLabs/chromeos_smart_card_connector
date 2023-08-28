@@ -43,7 +43,7 @@ goog.require('goog.asserts');
 goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
-
+some change
 goog.scope(function() {
 
 const GSC = GoogleSmartCard;
