@@ -299,7 +299,34 @@ goog.exportSymbol('testPcscApi', {
           });
       assertObjectEquals(readers, ['Gemalto PC Twin Reader 00 00']);
       assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
-    }
+    },
+
+    // Test `SCardListReaders()` returns two items when there're two attached
+    // devices.
+    'testSCardListReaders_twoDevices': async function() {
+      await launchPcscServer(
+          /*initialDevices=*/[
+            {'id': 123, 'type': 'gemaltoPcTwinReader'},
+            {'id': 124, 'type': 'dellSmartCardReaderKeyboard'},
+          ]);
+      const context = await establishContextOrThrow();
+
+      const result =
+          await client.api.SCardListReaders(context, /*groups=*/ null);
+      let readers = null;
+      result.get(
+          (readersArg) => {
+            readers = readersArg;
+          },
+          (errorCode) => {
+            fail(`Unexpected error ${errorCode}`);
+          });
+      assertObjectEquals(readers, [
+        'Gemalto PC Twin Reader 00 00',
+        'Dell Dell Smart Card Reader Keyboard 01 00'
+      ]);
+      assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
+    },
   },
 
   // Test that the PC/SC server can shut down successfully when there's an
