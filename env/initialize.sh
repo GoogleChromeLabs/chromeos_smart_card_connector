@@ -188,9 +188,11 @@ initialize_npm() {
     return
   fi
   rm -rf node_modules package.json package-lock.json
+  # Initializes NPM (i.e., creates package.json). The "--yes" flag is used to
+  # suppress interactive questions (about "package name", "version", etc.).
   npm init --yes
-  # Not strictly necessary, but works as a smoke test (and will be installed
-  # anyway when installing eslint later).
+  # Not strictly necessary, but works as a smoke test that NPM works fine (and
+  # this package will be installed anyway when installing eslint later).
   npm install js-yaml
   log_message "npm was installed successfully."
 }
