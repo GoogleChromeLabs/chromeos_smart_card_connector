@@ -111,6 +111,12 @@ jobs:
     steps:
     - name: Check out sources
       uses: actions/checkout@v3
+      with:
+        fetch-depth: 2
+
+    - name: Git log DEBUG
+      run: >
+        git diff HEAD^1 HEAD
 
     - name: Install build dependencies
       uses: ./.github/actions/build-dependencies-installation
