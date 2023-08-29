@@ -22,7 +22,7 @@ set -eu
 cd $(dirname $(realpath ${0}))/..
 
 # Find all relevant touched files. Bail out if nothing is found.
-FILES=$(scripts/internal/find-files-for-linting.sh "*.js")
+FILES=$(scripts/internal/find-files-for-linting.py "*.js")
 [ "${FILES}" ] || exit 0
 
 # Run ESLint on every found file.

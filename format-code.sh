@@ -29,7 +29,7 @@ set -eu
 cd $(dirname $(realpath ${0}))
 
 # Find all relevant files to be checked. Bail out if nothing is found.
-FILES=$(scripts/internal/find-files-for-linting.sh "*.cc" "*.h" "*.js")
+FILES=$(scripts/internal/find-files-for-linting.py "*.cc" "*.h" "*.js")
 [ "${FILES}" ] || exit 0
 
 # Run clang-format on every found file.
