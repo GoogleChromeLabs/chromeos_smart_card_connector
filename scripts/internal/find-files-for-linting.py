@@ -28,15 +28,27 @@ def parse_command_line_args():
       description='Returns paths to files to be linted/reformatted/etc.')
   parser.add_argument('patterns', type=str, nargs='*',
                       help='return only files satisfying at least one pattern')
+  parser.add_argument('--base', type=str, default='main',
+                      help='Git ref to diff against, or "none" if the whole '
+                           'repository is to be checked (default: %(default)s)')
   return parser.parse_args()
+
+def get_git_command_prefix(base_arg):
+  if base_arg == 'none':
+    # "ls-files" is a fast way to list all files.
+    # Note: "--full-name" is used to not depend on the work directory.
+    return ['git', 'ls-files', '--full-name']
+  # Use "diff" to list files between the given base and the current state.
+  # Note: "d" in --diff-filter means excluding deleted files - they don't need
+  # to be linted.
+  return ['git', 'diff', '--name-only', '--diff-filter=d', base_arg]
 
 def main():
   args = parse_command_line_args()
-  # Note: "d" in --diff-filter means excluding deleted files - they don't need
-  # to be linted.
-  return subprocess.check_call(
-      ['git', 'diff', '--name-only', '--diff-filter=d', 'main', '--'] +
-          args.patterns)
+  # Note: ":/" is used to not depend on the work directory.
+  command = (get_git_command_prefix(args.base) + ['--'] +
+             [f':/{pattern}' for pattern in args.patterns])
+  return subprocess.check_call(command)
 
 if __name__ == '__main__':
   sys.exit(main())
