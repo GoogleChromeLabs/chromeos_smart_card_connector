@@ -20,8 +20,29 @@ It's the files that are manually maintained as part of this repository.
 """
 
 import argparse
+import os.path
 import subprocess
 import sys
+
+# Manually maintained list of subtrees not intended for linting (mostly because
+# they contain third-party code).
+BLOCKLIST = [
+  'third_party/ccid/src/',
+  'third_party/closure-compiler-binary/src/',
+  'third_party/closure-compiler/src/',
+  'third_party/closure-library/src/',
+  'third_party/googletest/src/',
+  'third_party/libusb/src/',
+  'third_party/nacl_sdk/nacl_sdk/',
+  'third_party/pcsc-lite/src/',
+  'third_party/webports/src/',
+]
+
+def is_suitable(path):
+  return not any(is_parent_child(block, path) for block in BLOCKLIST)
+
+def is_parent_child(parent, child):
+  return os.path.commonpath([parent, child]) == os.path.commonpath([parent])
 
 def parse_command_line_args():
   parser = argparse.ArgumentParser(
@@ -48,7 +69,11 @@ def main():
   # Note: ":/" is used to not depend on the work directory.
   command = (get_git_command_prefix(args.base) + ['--'] +
              [f':/{pattern}' for pattern in args.patterns])
-  return subprocess.check_call(command)
+  output = subprocess.check_output(command)
+  for line in output.splitlines():
+    path = line.strip().decode()
+    if is_suitable(path):
+      print(path)
 
 if __name__ == '__main__':
   sys.exit(main())
