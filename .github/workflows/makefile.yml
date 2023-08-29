@@ -141,24 +141,24 @@ jobs:
     timeout-minutes: 10
 
     steps:
-    # Check out with additionally pulling the "main" branch, so that the script
-    # can build diff against it.
+    # Check out with additionally pulling the parent commit. (In case of Pull
+    # Requests, it's pointing to the base branch's head.)
     - name: Check out sources
       uses: actions/checkout@v3
       with:
-        fetch-depth: 0
-    - name: Create extra checkout branches
-      run: >
-        git branch main origin/main
+        fetch-depth: 2
 
     - name: Install dependencies
       uses: ./.github/actions/build-dependencies-installation
       with:
         toolchain: eslint
 
+    # Run the linter on suitable files. For PR's, only look at the diff against
+    # the parent commit (which, as Github executes the action on the merge
+    # commit, is the base branch). Otherwise, all files are linted.
     - name: Run ESLint
       run: >
-        scripts/eslint.sh
+        scripts/eslint.py --base="${{ github.event_name == 'pull_request' && 'HEAD^1' || 'none' }}"
 
   # Collect code coverage statistics.
   collect-coverage:
