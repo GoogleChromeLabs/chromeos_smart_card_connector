@@ -19,6 +19,7 @@ goog.provide('GoogleSmartCard.TestingLibusbSmartCardSimulationHook');
 
 goog.require('GoogleSmartCard.LibusbProxyHook');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.PromiseHelpers');
 goog.require('GoogleSmartCard.Requester');
 goog.require('GoogleSmartCard.RemoteCallMessage');
 goog.require('goog.Promise');
@@ -105,8 +106,14 @@ GSC.TestingLibusbSmartCardSimulationHook = class extends GSC.LibusbProxyHook {
   async callCpp_(functionName, functionArguments) {
     const remoteCallMessage =
         new GSC.RemoteCallMessage(functionName, functionArguments);
-    const outputs = await this.executableModuleRequester_.postRequest(
+    const outputsPromise = this.executableModuleRequester_.postRequest(
         remoteCallMessage.makeRequestPayload());
+    // Hack to prevent spurious "UnhandledPromiseRejection" errors, which happen
+    // when using the native `await` against Closure Library's (now-deprecated)
+    // `goog.Promise` if the latter is rejected.
+    GSC.PromiseHelpers.suppressUnhandledRejectionError(outputsPromise);
+
+    const outputs = await outputsPromise;
     GSC.Logging.check(outputs.length == 1);
     return outputs[0];
   }
