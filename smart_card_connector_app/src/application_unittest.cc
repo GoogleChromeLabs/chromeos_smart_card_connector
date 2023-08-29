@@ -880,6 +880,62 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardEstablishContext) {
   TearDownSCardContext();
 }
 
+// `SCardReleaseContext()` call from JS fails on a wrong context when there's no
+// established contexts at all.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       SCardReleaseContextErrorNone) {
+  const SCARDCONTEXT kBadContext = 12345;
+
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+
+  // Act:
+  const LONG return_code =
+      SimulateReleaseContextCallFromJsClient(kFakeHandlerId, kBadContext);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_E_INVALID_HANDLE);
+}
+
+// `SCardReleaseContext()` call from JS fails on a wrong context when there's
+// another established context.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       SCardReleaseContextErrorDifferent) {
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+
+  // Act:
+  const SCARDCONTEXT bad_context = scard_context() ^ 1;
+  const LONG return_code =
+      SimulateReleaseContextCallFromJsClient(kFakeHandlerId, bad_context);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_E_INVALID_HANDLE);
+}
+
+// `SCardReleaseContext()` call from JS fails to release a context more than
+// once.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       SCardReleaseContextErrorAlreadyReleased) {
+  // Arrange. Remember the established context `scard_context_` before it's
+  // released and this variable is cleared.
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+  const SCARDCONTEXT local_scard_context = scard_context();
+  TearDownSCardContext();
+
+  // Act:
+  const LONG return_code = SimulateReleaseContextCallFromJsClient(
+      kFakeHandlerId, local_scard_context);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_E_INVALID_HANDLE);
+}
+
 MATCHER(IsPrintableNonEmptyString, "") {
   if (arg.empty())
     return false;
