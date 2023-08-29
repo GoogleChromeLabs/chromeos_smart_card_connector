@@ -42,6 +42,16 @@ const ClientHandler = GSC.PcscLiteServerClientsManagement.ClientHandler;
 const ReadinessTracker = GSC.PcscLiteServerClientsManagement.ReadinessTracker;
 const API = GSC.PcscLiteClient.API;
 
+const TEST_HELPER_NAME = 'SmartCardConnectorApplicationTestHelper';
+
+// The constant from the PC/SC-Lite API docs.
+const PNP_NOTIFICATION = String.raw`\\?PnP?\Notification`;
+
+// Names of simulated smart card readers as they appear in the PC/SC-Lite API.
+// The "0" suffix corresponds to the "00 00" part that contains nonzeroes in
+// case there are multiple devices with the same name.
+const GEMALTO_PC_TWIN_READER_PCSC_NAME0 = 'Gemalto PC Twin Reader 00 00';
+
 /**
  * Stub that approves any client to make PC/SC calls.
  */
@@ -91,8 +101,15 @@ async function establishContextOrThrow() {
  * @return {!Promise}
  */
 async function launchPcscServer(initialDevices) {
-  await testController.setUpCppHelper(
-      'SmartCardConnectorApplicationTestHelper', initialDevices);
+  await testController.setUpCppHelper(TEST_HELPER_NAME, initialDevices);
+}
+
+/**
+ * @param {!Array} devices
+ * @return {!Promise}
+ */
+async function setSimulatedDevices(devices) {
+  await testController.sendMessageToCppHelper(TEST_HELPER_NAME, devices);
 }
 
 /**
@@ -381,9 +398,77 @@ goog.exportSymbol('testPcscApi', {
             fail(`Unexpected error ${errorCode}`);
           });
       assertObjectEquals(readers, [
-        'Gemalto PC Twin Reader 00 00',
+        GEMALTO_PC_TWIN_READER_PCSC_NAME0,
         'Dell Dell Smart Card Reader Keyboard 01 00'
       ]);
+      assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
+    },
+
+    // Test `SCardGetStatusChange()` detects when a reader is plugged in.
+    'testSCardGetStatusChange_deviceAppearing': async function() {
+      await launchPcscServer(/*initialDevices=*/[]);
+      const context = await establishContextOrThrow();
+
+      const resultPromise = client.api.SCardGetStatusChange(
+          context, API.INFINITE,
+          [new API.SCARD_READERSTATE_IN(
+              PNP_NOTIFICATION, API.SCARD_STATE_UNAWARE)]);
+      setSimulatedDevices([{'id': 123, 'type': 'gemaltoPcTwinReader'}]);
+      const result = await resultPromise;
+
+      let readerStates = null;
+      result.get(
+          (readerStatesArg) => {
+            readerStates = readerStatesArg;
+          },
+          (errorCode) => {
+            fail(`Unexpected error ${errorCode}`);
+          });
+      assertEquals(readerStates.length, 1);
+      const state = readerStates[0];
+      assertEquals(state['reader_name'], PNP_NOTIFICATION);
+      assertEquals(state['current_state'], API.SCARD_STATE_UNAWARE);
+      assertEquals(state['event_state'], API.SCARD_STATE_CHANGED);
+      assertObjectEquals(state['atr'], new ArrayBuffer(0));
+      assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
+    },
+
+    // Test `SCardGetStatusChange()` detects when a reader is unplugged.
+    'testSCardGetStatusChange_deviceRemoving': async function() {
+      await launchPcscServer(
+          /*initialDevices=*/[{'id': 123, 'type': 'gemaltoPcTwinReader'}]);
+      const context = await establishContextOrThrow();
+
+      const resultPromise = client.api.SCardGetStatusChange(
+          context, API.INFINITE,
+          [new API.SCARD_READERSTATE_IN(
+              GEMALTO_PC_TWIN_READER_PCSC_NAME0, API.SCARD_STATE_EMPTY)]);
+      setSimulatedDevices([]);
+      const result = await resultPromise;
+
+      let readerStates = null;
+      result.get(
+          (readerStatesArg) => {
+            readerStates = readerStatesArg;
+          },
+          (errorCode) => {
+            fail(`Unexpected error ${errorCode}`);
+          });
+      assertEquals(readerStates.length, 1);
+      const state = readerStates[0];
+      assertEquals(state['reader_name'], GEMALTO_PC_TWIN_READER_PCSC_NAME0);
+      assertEquals(state['current_state'], API.SCARD_STATE_EMPTY);
+      assertObjectEquals(state['atr'], new ArrayBuffer(0));
+      // Depending on the timing, PC/SC may or may not report the
+      // `SCARD_STATE_UNKNOWN` flag (this depends on whether it already removed
+      // the "dead" reader from internal lists by the time SCardGetStatusChange
+      // is replied to).
+      assertContains(state['event_state'], [
+        API.SCARD_STATE_CHANGED | API.SCARD_STATE_UNKNOWN |
+            API.SCARD_STATE_UNAVAILABLE,
+        API.SCARD_STATE_CHANGED | API.SCARD_STATE_UNAVAILABLE
+      ]);
+
       assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
     },
   },
