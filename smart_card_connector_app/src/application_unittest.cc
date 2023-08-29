@@ -1355,7 +1355,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
   EXPECT_THAT(reader_states, IsEmpty());
 }
 
-// `SCardCancel()` call from JS terminates a running `ScardGetStatusChange()`
+// `SCardCancel()` call from JS terminates a running `SCardGetStatusChange()`
 // call.
 TEST_F(SmartCardConnectorApplicationSingleClientTest, Cancel) {
   // Arrange:
