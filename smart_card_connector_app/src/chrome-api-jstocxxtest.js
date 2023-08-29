@@ -167,9 +167,8 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
 
     launchPcscServer(/*initialDevices=*/[]);
     createChromeApiProvider();
-    mockChromeApi.dispatchEvent(
-        'onEstablishContextRequested', /*requestId=*/ 123);
-    await chrome.smartCardProviderPrivate['reportEstablishContextResult']
+    await mockChromeApi
+        .dispatchEvent('onEstablishContextRequested', /*requestId=*/ 123)
         .$waitAndVerify();
   },
 
@@ -183,14 +182,13 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
 
     launchPcscServer(/*initialDevices=*/[]);
     createChromeApiProvider();
-    mockChromeApi.dispatchEvent(
-        'onEstablishContextRequested', /*requestId=*/ 123);
-    await chrome.smartCardProviderPrivate['reportEstablishContextResult']
+    await mockChromeApi
+        .dispatchEvent('onEstablishContextRequested', /*requestId=*/ 123)
         .$waitAndVerify();
-    mockChromeApi.dispatchEvent(
-        'onReleaseContextRequested', /*requestId=*/ 124,
-        establishContextResult.sCardContext);
-    await chrome.smartCardProviderPrivate['reportReleaseContextResult']
+    await mockChromeApi
+        .dispatchEvent(
+            'onReleaseContextRequested', /*requestId=*/ 124,
+            establishContextResult.sCardContext)
         .$waitAndVerify();
   },
 
@@ -202,9 +200,9 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
 
     launchPcscServer(/*initialDevices=*/[]);
     createChromeApiProvider();
-    mockChromeApi.dispatchEvent(
-        'onReleaseContextRequested', /*requestId=*/ 42, BAD_CONTEXT);
-    await chrome.smartCardProviderPrivate['reportReleaseContextResult']
+    await mockChromeApi
+        .dispatchEvent(
+            'onReleaseContextRequested', /*requestId=*/ 42, BAD_CONTEXT)
         .$waitAndVerify();
   },
 
@@ -218,14 +216,13 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
 
     launchPcscServer(/*initialDevices=*/[]);
     createChromeApiProvider();
-    mockChromeApi.dispatchEvent(
-        'onEstablishContextRequested', /*requestId=*/ 123);
-    await chrome.smartCardProviderPrivate['reportEstablishContextResult']
+    await mockChromeApi
+        .dispatchEvent('onEstablishContextRequested', /*requestId=*/ 123)
         .$waitAndVerify();
-    mockChromeApi.dispatchEvent(
-        'onListReadersRequested', /*requestId=*/ 124,
-        establishContextResult.sCardContext);
-    await chrome.smartCardProviderPrivate['reportListReadersResult']
+    await mockChromeApi
+        .dispatchEvent(
+            'onListReadersRequested', /*requestId=*/ 124,
+            establishContextResult.sCardContext)
         .$waitAndVerify();
   },
 
@@ -241,19 +238,18 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
 
     launchPcscServer(/*initialDevices=*/[]);
     createChromeApiProvider();
-    mockChromeApi.dispatchEvent(
-        'onEstablishContextRequested', /*requestId=*/ 123);
-    await chrome.smartCardProviderPrivate['reportEstablishContextResult']
+    await mockChromeApi
+        .dispatchEvent('onEstablishContextRequested', /*requestId=*/ 123)
         .$waitAndVerify();
-    mockChromeApi.dispatchEvent(
-        'onReleaseContextRequested', /*requestId=*/ 124,
-        establishContextResult.sCardContext);
-    await chrome.smartCardProviderPrivate['reportReleaseContextResult']
+    await mockChromeApi
+        .dispatchEvent(
+            'onReleaseContextRequested', /*requestId=*/ 124,
+            establishContextResult.sCardContext)
         .$waitAndVerify();
-    mockChromeApi.dispatchEvent(
-        'onListReadersRequested', /*requestId=*/ 125,
-        establishContextResult.sCardContext);
-    await chrome.smartCardProviderPrivate['reportListReadersResult']
+    await mockChromeApi
+        .dispatchEvent(
+            'onListReadersRequested', /*requestId=*/ 125,
+            establishContextResult.sCardContext)
         .$waitAndVerify();
   },
 
@@ -270,14 +266,13 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     launchPcscServer(
         /*initialDevices=*/[{'id': 123, 'type': 'gemaltoPcTwinReader'}]);
     createChromeApiProvider();
-    mockChromeApi.dispatchEvent(
-        'onEstablishContextRequested', /*requestId=*/ 123);
-    await chrome.smartCardProviderPrivate['reportEstablishContextResult']
+    await mockChromeApi
+        .dispatchEvent('onEstablishContextRequested', /*requestId=*/ 123)
         .$waitAndVerify();
-    mockChromeApi.dispatchEvent(
-        'onListReadersRequested', /*requestId=*/ 124,
-        establishContextResult.sCardContext);
-    await chrome.smartCardProviderPrivate['reportListReadersResult']
+    await mockChromeApi
+        .dispatchEvent(
+            'onListReadersRequested', /*requestId=*/ 124,
+            establishContextResult.sCardContext)
         .$waitAndVerify();
   },
 
@@ -302,14 +297,13 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
           {'id': 102, 'type': 'dellSmartCardReaderKeyboard'}
         ]);
     createChromeApiProvider();
-    mockChromeApi.dispatchEvent(
-        'onEstablishContextRequested', /*requestId=*/ 123);
-    await chrome.smartCardProviderPrivate['reportEstablishContextResult']
+    await mockChromeApi
+        .dispatchEvent('onEstablishContextRequested', /*requestId=*/ 123)
         .$waitAndVerify();
-    mockChromeApi.dispatchEvent(
-        'onListReadersRequested', /*requestId=*/ 124,
-        establishContextResult.sCardContext);
-    await chrome.smartCardProviderPrivate['reportListReadersResult']
+    await mockChromeApi
+        .dispatchEvent(
+            'onListReadersRequested', /*requestId=*/ 124,
+            establishContextResult.sCardContext)
         .$waitAndVerify();
   },
 });

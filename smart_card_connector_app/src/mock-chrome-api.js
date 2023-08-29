@@ -70,6 +70,27 @@ const EXTENSION_FUNCTIONS = [
 ];
 
 /**
+ * Contains the map from all the event names to the corresponding
+ * report...Result functions.
+ */
+const EVENT_TO_RESULT_MAP = {
+  'onEstablishContextRequested': 'reportEstablishContextResult',
+  'onReleaseContextRequested': 'reportReleaseContextResult',
+  'onListReadersRequested': 'reportListReadersResult',
+  'onGetStatusChangeRequested': 'reportGetStatusChangeResult',
+  'onCancelRequested': 'reportPlainResult',
+  'onConnectRequested': 'reportConnectResult',
+  'onDisconnectRequested': 'reportPlainResult',
+  'onTransmitRequested': 'reportDataResult',
+  'onControlRequested': 'reportDataResult',
+  'onGetAttribRequested': 'reportDataResult',
+  'onSetAttribRequested': 'reportPlainResult',
+  'onStatusRequested': 'reportStatusResult',
+  'onBeginTransactionRequested': 'reportPlainResult',
+  'onEndTransactionRequested': 'reportPlainResult',
+};
+
+/**
  * Contains the ResultCode enum values exposed by
  * chrome.smartCardProviderPrivate API.
  */
@@ -176,15 +197,20 @@ GoogleSmartCard.ConnectorApp.MockChromeApi = class {
 
   /**
    * Dispatches the specified chrome.smartCardProviderPrivate API event with
-   * `args`.
+   * `args`. Returns a mock of the corresponding report...Result function.
    * @param {string} eventName
    * @param  {...*} args
+   * @returns {!goog.testing.StrictMock}
    */
   dispatchEvent(eventName, ...args) {
     assertEquals(
         'No listener to dispatch event to', 'function',
         typeof this.listeners_[eventName]);
     this.listeners_[eventName](...args);
+    assertNotUndefined(
+        EVENT_TO_RESULT_MAP[eventName],
+        `Event to result function map does not have ${eventName}`);
+    return chrome.smartCardProviderPrivate[EVENT_TO_RESULT_MAP[eventName]];
   }
 };
 });
