@@ -29,6 +29,7 @@ goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ClientHandler');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
 goog.require('GoogleSmartCard.TestingLibusbSmartCardSimulationHook');
 goog.require('goog.Promise');
+goog.require('goog.Thenable');
 goog.require('goog.testing');
 goog.require('goog.testing.asserts');
 goog.require('goog.testing.jsunit');
@@ -132,6 +133,34 @@ function disposeFakeClient(fakeClient) {
   fakeClient.api.dispose();
   fakeClient.clientHandler.dispose();
   fakeClient.apiMessageChannelPair.dispose();
+}
+
+/**
+ * @param {number} timeoutMillis
+ * @return {!Promise}
+ */
+async function sleep(timeoutMillis) {
+  return new Promise(resolve => setTimeout(resolve, timeoutMillis));
+}
+
+/**
+ * @param {!goog.Thenable} promise
+ * @param {number} timeoutMillis
+ * @return {!Promise}
+ */
+async function assertRemainsPending(promise, timeoutMillis) {
+  let sleeping = true;
+  promise.then(
+      () => {
+        if (sleeping)
+          fail(`Unexpectedly resolved within ${timeoutMillis} ms`);
+      },
+      () => {
+        if (sleeping)
+          fail(`Unexpectedly rejected within ${timeoutMillis} ms`);
+      });
+  await sleep(timeoutMillis);
+  sleeping = false;
 }
 
 goog.exportSymbol('testPcscApi', {
@@ -470,6 +499,52 @@ goog.exportSymbol('testPcscApi', {
       ]);
 
       assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
+    },
+
+    // Test `SCardCancel()` terminates a running `SCardGetStatusChange()` call.
+    'testSCardCancel_success': async function() {
+      await launchPcscServer(/*initialDevices=*/[]);
+      const context = await establishContextOrThrow();
+
+      // Start the long-running call.
+      const statusPromise = client.api.SCardGetStatusChange(
+          context, API.INFINITE,
+          [new API.SCARD_READERSTATE_IN(
+              /*readerName=*/ PNP_NOTIFICATION, API.SCARD_STATE_UNAWARE)]);
+      // Check that the call is actually blocked (either until a reader event or
+      // cancellation happen). The exact interval isn't important here - we just
+      // want some reasonably big probability of catching a bug if it's
+      // introduced.
+      await assertRemainsPending(statusPromise, /*timeoutMillis=*/ 1000);
+
+      // Trigger `SCardCancel()` to abort the long-running call.
+      const cancelResult = await client.api.SCardCancel(context);
+      // Wait until the `SCardGetStatusChange()` call completes.
+      const statusResult = await statusPromise;
+
+      // Check `SCardCancel()` result.
+      let called = false;
+      cancelResult.get(
+          () => {
+            called = true;
+          },
+          (errorCode) => {
+            fail(`Unexpected error ${errorCode} in SCardCancel`);
+          });
+      assertTrue(called);
+      assertEquals(cancelResult.getErrorCode(), API.SCARD_S_SUCCESS);
+      // Check `SCardGetStatusChange()` result.
+      called = false;
+      statusResult.get(
+          () => {
+            fail('Unexpectedly succeeded in SCardGetStatusChange');
+          },
+          (errorCode) => {
+            called = true;
+            assertEquals(errorCode, API.SCARD_E_CANCELLED);
+          });
+      assertTrue(called);
+      assertEquals(statusResult.getErrorCode(), API.SCARD_E_CANCELLED);
     },
   },
 
