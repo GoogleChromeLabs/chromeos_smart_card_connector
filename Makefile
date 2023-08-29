@@ -71,6 +71,17 @@ third_party/libusb/webport/build/tests: third_party/libusb/webport/build
 
 TOOLCHAIN ?= emscripten
 
+# Applications with C/C++ code are built in all non-sanitizer build modes
+# ("emscripten"/"pnacl" are production-suitable; "coverage" needs the built
+# binaries to catch parts of the code that aren't unit-tested but still linked
+# into production programs).
+ifneq ($(TOOLCHAIN),asan_testing)
+
+	example_cpp_smart_card_client_app/build \
+	smart_card_connector_app/build \
+
+endif
+
 # Use our checkout of Googletest for tests in all toolchains except NaCl (whose
 # SDK provides its own version).
 ifneq ($(TOOLCHAIN),pnacl)
@@ -84,13 +95,11 @@ third_party/libusb/webport/build/tests: third_party/googletest/webport/build
 
 endif
 
-# Enable JS and application targets in relevant configurations.
+# Enable JS targets in relevant configurations.
 ifneq (,$(findstring $(TOOLCHAIN),pnacl emscripten))
 
 APPLICATION_TARGETS += \
-	example_cpp_smart_card_client_app/build \
 	example_js_smart_card_client_app/build \
-	smart_card_connector_app/build \
 
 LIBRARY_TARGETS += \
 	common/integration_testing/build \
