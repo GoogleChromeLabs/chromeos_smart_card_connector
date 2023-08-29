@@ -77,6 +77,7 @@ TOOLCHAIN ?= emscripten
 # into production programs).
 ifneq ($(TOOLCHAIN),asan_testing)
 
+APPLICATION_TARGETS += \
 	example_cpp_smart_card_client_app/build \
 	smart_card_connector_app/build \
 
