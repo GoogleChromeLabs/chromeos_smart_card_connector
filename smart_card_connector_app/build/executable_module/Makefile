@@ -30,9 +30,9 @@ include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/server_clients_management/inc
 SOURCES_DIR := ../../src
 
 SOURCES := \
-	$(SOURCES_DIR)/application.cc \
 
 LIBS := \
+	smart_card_connector_application \
 	$(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_LIB) \
 	$(PCSC_LITE_SERVER_LIB) \
 	$(PCSC_LITE_COMMON_LIB) \
@@ -45,9 +45,6 @@ DEPS :=
 
 CXXFLAGS := \
 	-I$(ROOT_PATH) \
-	-I$(ROOT_PATH)/common/cpp/src \
-	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src \
-	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/server_clients_management/src \
 	-Wall \
 	-Werror \
 	-Wextra \

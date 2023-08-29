@@ -31,6 +31,7 @@ APPLICATION_TARGETS :=
 
 LIBRARY_TARGETS := \
 	common/cpp/build \
+	smart_card_connector_app/build/cpp_lib \
 	third_party/ccid/webport/build \
 	third_party/libusb/webport/build \
 	third_party/pcsc-lite/naclport/build_configuration \
@@ -45,6 +46,7 @@ example_cpp_smart_card_client_app/build: third_party/pcsc-lite/naclport/common/b
 example_cpp_smart_card_client_app/build: third_party/pcsc-lite/naclport/cpp_client/build
 example_cpp_smart_card_client_app/build: third_party/pcsc-lite/naclport/cpp_demo/build
 smart_card_connector_app/build: common/cpp/build
+smart_card_connector_app/build: smart_card_connector_app/build/cpp_lib
 smart_card_connector_app/build: third_party/ccid/webport/build
 smart_card_connector_app/build: third_party/libusb/webport/build
 smart_card_connector_app/build: third_party/pcsc-lite/naclport/common/build
@@ -63,7 +65,13 @@ TEST_TARGETS := \
 	third_party/libusb/webport/build/tests \
 
 common/cpp/build/tests: common/cpp/build
-smart_card_connector_app/build/executable_module/cpp_unittests: smart_card_connector_app/build
+smart_card_connector_app/build/executable_module/cpp_unittests: common/cpp/build
+smart_card_connector_app/build/executable_module/cpp_unittests: smart_card_connector_app/build/cpp_lib
+smart_card_connector_app/build/executable_module/cpp_unittests: third_party/ccid/webport/build
+smart_card_connector_app/build/executable_module/cpp_unittests: third_party/libusb/webport/build
+smart_card_connector_app/build/executable_module/cpp_unittests: third_party/pcsc-lite/naclport/common/build
+smart_card_connector_app/build/executable_module/cpp_unittests: third_party/pcsc-lite/naclport/server/build
+smart_card_connector_app/build/executable_module/cpp_unittests: third_party/pcsc-lite/naclport/server_clients_management/build
 third_party/libusb/webport/build/tests: common/cpp/build
 third_party/libusb/webport/build/tests: third_party/libusb/webport/build
 
@@ -119,7 +127,12 @@ example_cpp_smart_card_client_app/build/js_to_cxx_tests: common/integration_test
 example_cpp_smart_card_client_app/build/js_to_cxx_tests: example_cpp_smart_card_client_app/build
 smart_card_connector_app/build/js_to_cxx_tests: common/cpp/build
 smart_card_connector_app/build/js_to_cxx_tests: common/integration_testing/build
-smart_card_connector_app/build/js_to_cxx_tests: smart_card_connector_app/build
+smart_card_connector_app/build/js_to_cxx_tests: smart_card_connector_app/build/cpp_lib
+smart_card_connector_app/build/js_to_cxx_tests: third_party/ccid/webport/build
+smart_card_connector_app/build/js_to_cxx_tests: third_party/libusb/webport/build
+smart_card_connector_app/build/js_to_cxx_tests: third_party/pcsc-lite/naclport/common/build
+smart_card_connector_app/build/js_to_cxx_tests: third_party/pcsc-lite/naclport/server/build
+smart_card_connector_app/build/js_to_cxx_tests: third_party/pcsc-lite/naclport/server_clients_management/build
 
 endif
 

@@ -33,12 +33,10 @@ include $(ROOT_PATH)/third_party/pcsc-lite/naclport/server_clients_management/in
 
 SOURCE_DIR := $(ROOT_PATH)/smart_card_connector_app/src/
 
-# TODO(emaxx): application.cc and testing_smart_card_simulation.cc are also
-# compiled for other targets (both for ../executable_module/ and the latter for
-# ../executable_module/cpp_unittests/). Get rid of duplicate compilation by
-# putting them into static libraries.
+# TODO(emaxx): testing_smart_card_simulation.cc is also compiled for other
+# targets (for ../executable_module/cpp_unittests/). Get rid of duplicate
+# compilation by putting them into static libraries.
 CXX_SOURCES := \
-  $(SOURCE_DIR)/application.cc \
   $(SOURCE_DIR)/application_integration_test_helper.cc \
   $(SOURCE_DIR)/testing_smart_card_simulation.cc \
 
@@ -52,6 +50,7 @@ CXXFLAGS := \
   -std=$(CXX_DIALECT) \
 
 LIBS := \
+  smart_card_connector_application \
   $(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_LIB) \
   $(PCSC_LITE_SERVER_LIB) \
   $(PCSC_LITE_COMMON_LIB) \
