@@ -31,7 +31,6 @@ APPLICATION_TARGETS :=
 
 LIBRARY_TARGETS := \
 	common/cpp/build \
-	example_js_standalone_smart_card_client_library \
 	third_party/ccid/webport/build \
 	third_party/libusb/webport/build \
 	third_party/pcsc-lite/naclport/build_configuration \
@@ -60,12 +59,8 @@ third_party/pcsc-lite/naclport/server_clients_management/build: third_party/pcsc
 
 TEST_TARGETS := \
 	common/cpp/build/tests \
-	common/js/build/unittests \
 	smart_card_connector_app/build/executable_module/cpp_unittests \
-	smart_card_connector_app/build/js_unittests \
-	third_party/libusb/webport/build/js_unittests \
 	third_party/libusb/webport/build/tests \
-	third_party/pcsc-lite/naclport/server_clients_management/build/js_unittests \
 
 common/cpp/build/tests: common/cpp/build
 smart_card_connector_app/build/executable_module/cpp_unittests: smart_card_connector_app/build
@@ -99,15 +94,20 @@ third_party/libusb/webport/build/tests: third_party/googletest/webport/build
 
 endif
 
-# Enable JS-to-C++ tests in relevant configurations.
+# Enable JS targets in relevant configurations.
 ifneq (,$(findstring $(TOOLCHAIN),pnacl emscripten))
 
 LIBRARY_TARGETS += \
 	common/integration_testing/build \
+	example_js_standalone_smart_card_client_library \
 
 TEST_TARGETS += \
+	common/js/build/unittests \
 	example_cpp_smart_card_client_app/build/js_to_cxx_tests \
 	smart_card_connector_app/build/js_to_cxx_tests \
+	smart_card_connector_app/build/js_unittests \
+	third_party/libusb/webport/build/js_unittests \
+	third_party/pcsc-lite/naclport/server_clients_management/build/js_unittests \
 
 example_cpp_smart_card_client_app/build/js_to_cxx_tests: common/cpp/build
 example_cpp_smart_card_client_app/build/js_to_cxx_tests: common/integration_testing/build
