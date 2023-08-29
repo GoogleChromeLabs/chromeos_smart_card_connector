@@ -267,7 +267,9 @@ while getopts ":ft:" opt; do
   esac
 done
 
-initialize_python3_venv
+if [[ "${target}" == "" || "${target}" == "emscripten" || "${target}" == "pnacl" ]]; then
+  initialize_python3_venv
+fi
 
 if [[ "${target}" == "" || "${target}" == "emscripten" ]]; then
   initialize_emscripten
@@ -288,6 +290,8 @@ if [[ "${target}" == "" || "${target}" == "eslint" ]]; then
   initialize_eslint
 fi
 
-initialize_chromedriver
+if [[ "${target}" == "" || "${target}" == "emscripten" || "${target}" == "pnacl" ]]; then
+  initialize_chromedriver
+fi
 
 create_activate_script
