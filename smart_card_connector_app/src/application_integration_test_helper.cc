@@ -32,6 +32,12 @@
 #include "common/integration_testing/src/public/integration_test_service.h"
 #include "smart_card_connector_app/src/testing_smart_card_simulation.h"
 
+#ifdef __native_client__
+#include <ppapi/cpp/instance.h>
+#include <ppapi/cpp/module.h>
+#include "common/cpp/src/public/nacl_io_utils.h"
+#endif  // __native_client__
+
 namespace google_smart_card {
 
 // The helper that can be used in JS-to-C++ tests to run the core functionality
@@ -51,6 +57,7 @@ class SmartCardConnectorApplicationTestHelper final
       RequestReceiver::ResultCallback result_callback) override;
 
  private:
+  void InitializeOnBackgroundThread();
   void SetSimulatedUsbDevices(Value devices);
 
   std::unique_ptr<TestingSmartCardSimulation> smart_card_simulation_;
@@ -75,8 +82,11 @@ void SmartCardConnectorApplicationTestHelper::SetUp(
   smart_card_simulation_ = MakeUnique<TestingSmartCardSimulation>(
       global_context, typed_message_router);
   SetSimulatedUsbDevices(std::move(data));
-  application_ = MakeUnique<Application>(global_context, typed_message_router,
-                                         std::function<void()>());
+  application_ = MakeUnique<Application>(
+      global_context, typed_message_router,
+      std::bind(&SmartCardConnectorApplicationTestHelper::
+                    InitializeOnBackgroundThread,
+                this));
   // Note: We don't wait until the application completes its initialization on
   // background threads, but the test can wait for it via ReadinessTracker.
   result_callback(GenericRequestResult::CreateSuccessful(Value()));
@@ -91,6 +101,9 @@ void SmartCardConnectorApplicationTestHelper::TearDown(
     application_->ShutDownAndWait();
     application_.reset();
     smart_card_simulation_.reset();
+#ifdef __native_client__
+    UnmountNaclIoFolders();
+#endif  // __native_client__
     completion_callback();
   }).detach();
 }
@@ -100,6 +113,14 @@ void SmartCardConnectorApplicationTestHelper::OnMessageFromJs(
     RequestReceiver::ResultCallback result_callback) {
   SetSimulatedUsbDevices(std::move(data));
   result_callback(GenericRequestResult::CreateSuccessful(Value()));
+}
+
+void SmartCardConnectorApplicationTestHelper::InitializeOnBackgroundThread() {
+#ifdef __native_client__
+  // Make resource files accessible.
+  InitializeNaclIo(*pp::Module::Get()->current_instances().begin()->second);
+  MountNaclIoFolders();
+#endif  // __native_client__
 }
 
 void SmartCardConnectorApplicationTestHelper::SetSimulatedUsbDevices(
