@@ -40,7 +40,7 @@ include ../include.mk
 SOURCES_PATH := ../src
 
 SOURCES := \
-	$(SOURCES_PATH)/google_smart_card_pcsc_lite_cpp_demo/demo.cc \
+	$(SOURCES_PATH)/public/demo.cc \
 
 CXXFLAGS := \
 	-I$(ROOT_PATH) \
