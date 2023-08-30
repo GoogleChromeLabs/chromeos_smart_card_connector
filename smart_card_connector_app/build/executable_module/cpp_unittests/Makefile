@@ -19,10 +19,7 @@
 
 include ../../../../common/cpp_unit_test_runner/include.mk
 
-# TODO: application.cc is also compiled by ../Makefile; consider avoiding the
-# duplication.
 SOURCES := \
-	../../../src/application.cc \
 	../../../src/application_unittest.cc \
 	../../../src/testing_smart_card_simulation.cc \
 
@@ -30,9 +27,6 @@ SOURCES := \
 # -Wno-zero-length-array: Suppress warnings in the third-party reader.h file.
 CXXFLAGS := \
 	-I$(ROOT_PATH) \
-	-I$(ROOT_PATH)/common/cpp/src \
-	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src \
-	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/server_clients_management/src \
 	-I$(ROOT_PATH)/third_party/pcsc-lite/src/src/PCSC \
 	-pedantic \
 	-Wall \
@@ -45,6 +39,7 @@ CXXFLAGS := \
 # The libraries are listed in the topological order: a library should only use
 # symbols from subsequent ones.
 LIBS := \
+  smart_card_connector_application \
   google_smart_card_pcsc_lite_server_clients_management \
   google_smart_card_pcsc_lite_server \
   google_smart_card_pcsc_lite_common \
