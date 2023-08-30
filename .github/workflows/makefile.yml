@@ -135,6 +135,31 @@ jobs:
       run: >
         source env/activate && make test
 
+  # Run ESLint for JavaScript code.
+  lint-js:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    # Check out with additionally pulling the parent commit. (In case of Pull
+    # Requests, it's pointing to the base branch's head.)
+    - name: Check out sources
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 2
+
+    - name: Install dependencies
+      uses: ./.github/actions/build-dependencies-installation
+      with:
+        toolchain: eslint
+
+    # Run the linter on suitable files. For PR's, only look at the diff against
+    # the parent commit (which, as Github executes the action on the merge
+    # commit, is the base branch). Otherwise, all files are linted.
+    - name: Run ESLint
+      run: >
+        scripts/eslint.py --base="${{ github.event_name == 'pull_request' && 'HEAD^1' || 'none' }}"
+
   # Collect code coverage statistics.
   collect-coverage:
     runs-on: ubuntu-latest
@@ -176,7 +201,7 @@ jobs:
   post-results-comment:
     runs-on: ubuntu-latest
     # Depend on all other jobs, so that we don't post a PR comment if any fails.
-    needs: [build-emscripten, build-nacl, test-asan, collect-coverage]
+    needs: [build-emscripten, build-nacl, test-asan, collect-coverage, lint-js]
     # Skip running this in forks, because it'd fail with "Resource not
     # accessible by integration".
     if: github.event.pull_request.head.repo.full_name == github.repository
