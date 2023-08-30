@@ -59,6 +59,14 @@ LIBS := \
   $(CPP_COMMON_LIB) \
   $(DEFAULT_NACL_LIBS) \
 
+# In NaCl builds, extra libraries are needed.
+ifeq ($(TOOLCHAIN),pnacl)
+
+LIBS += nacl_io
+$(eval $(call DEPEND_RULE,nacl_io))
+
+endif
+
 # Include *-jstocxxtest.js and non-test files needed for them.
 JS_SOURCES_PATHS := \
   $(SOURCE_DIR) \
