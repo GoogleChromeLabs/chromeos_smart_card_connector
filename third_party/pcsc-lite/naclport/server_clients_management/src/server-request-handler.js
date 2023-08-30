@@ -241,22 +241,21 @@ Pcsc.ServerRequestHandler = class extends goog.Disposable {
     return this.serverRequester_
         .postRequest(remoteCallMessage.makeRequestPayload())
         .then(
-            function(result) {
+            (result) => {
               const resultDump = GSC.DebugDump.debugDump(result);
               goog.log.fine(
                   this.logger,
                   `PC/SC call ${requestDump} completed: ${resultDump}`);
               return result;
             },
-            function(error) {
+            (error) => {
               goog.log.log(
                   this.logger,
                   this.isDisposed() ? goog.log.Level.FINE :
                                       goog.log.Level.WARNING,
                   `PC/SC call ${requestDump} failed: ${error}`);
               throw error;
-            },
-            this);
+            });
   }
 
   /**

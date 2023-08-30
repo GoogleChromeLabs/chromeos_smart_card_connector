@@ -108,22 +108,21 @@ GSC.Pcsc.PolicyOrPromptingPermissionsChecker =
 
     this.managedRegistry_.getByOrigin(clientOrigin)
         .then(
-            function() {
+            () => {
               goog.log.log(
                   logger, goog.log.Level.FINER,
                   'Granted permissions for client ' + clientOrigin +
                       ' through the managed registry');
               checkPromiseResolver.resolve();
             },
-            function() {
+            () => {
               goog.log.log(
                   logger, goog.log.Level.FINER,
                   'No permissions found for client ' + clientOrigin +
                       ' through the managed registry');
               this.checkByUserPromptingChecker_(
                   clientOrigin, checkPromiseResolver);
-            },
-            this);
+            });
   }
 
   /**

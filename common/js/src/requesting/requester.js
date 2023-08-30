@@ -135,12 +135,12 @@ GSC.Requester = class extends goog.Disposable {
     const runningRequestIds =
         Array.from(this.requestIdToPromiseResolverMap_.keys());
     goog.array.sort(runningRequestIds);
-    goog.array.forEach(runningRequestIds, function(requestId) {
+    goog.array.forEach(runningRequestIds, (requestId) => {
       // FIXME(emaxx): Probably add the disposal reason information into the
       // message?
       this.rejectRequest_(
           goog.string.parseInt(requestId), 'The requester is disposed');
-    }, this);
+    });
     this.requestIdToPromiseResolverMap_ = null;
 
     this.messageChannel_ = null;
