@@ -20,6 +20,7 @@
  * Card Connector.
  */
 
+goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.IntegrationTestController');
 goog.require('GoogleSmartCard.LibusbProxyReceiver');
 goog.require('GoogleSmartCard.MessageChannelPair');
@@ -28,8 +29,11 @@ goog.require('GoogleSmartCard.PcscLiteClient.API');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ClientHandler');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
 goog.require('GoogleSmartCard.TestingLibusbSmartCardSimulationHook');
+goog.require('GoogleSmartCard.TestingLibusbSmartCardSimulationConstants');
 goog.require('goog.Promise');
 goog.require('goog.Thenable');
+goog.require('goog.iter');
+goog.require('goog.object');
 goog.require('goog.testing');
 goog.require('goog.testing.asserts');
 goog.require('goog.testing.jsunit');
@@ -42,16 +46,11 @@ const GSC = GoogleSmartCard;
 const ClientHandler = GSC.PcscLiteServerClientsManagement.ClientHandler;
 const ReadinessTracker = GSC.PcscLiteServerClientsManagement.ReadinessTracker;
 const API = GSC.PcscLiteClient.API;
-
-const TEST_HELPER_NAME = 'SmartCardConnectorApplicationTestHelper';
+const SimulationConstants = GSC.TestingLibusbSmartCardSimulationConstants;
+const dump = GSC.DebugDump.dump;
 
 // The constant from the PC/SC-Lite API docs.
 const PNP_NOTIFICATION = String.raw`\\?PnP?\Notification`;
-
-// Names of simulated smart card readers as they appear in the PC/SC-Lite API.
-// The "0" suffix corresponds to the "00 00" part that contains nonzeroes in
-// case there are multiple devices with the same name.
-const GEMALTO_PC_TWIN_READER_PCSC_NAME0 = 'Gemalto PC Twin Reader 00 00';
 
 /**
  * Stub that approves any client to make PC/SC calls.
@@ -102,7 +101,8 @@ async function establishContextOrThrow() {
  * @return {!Promise}
  */
 async function launchPcscServer(initialDevices) {
-  await testController.setUpCppHelper(TEST_HELPER_NAME, initialDevices);
+  await testController.setUpCppHelper(
+      SimulationConstants.CPP_HELPER_NAME, initialDevices);
 }
 
 /**
@@ -110,7 +110,8 @@ async function launchPcscServer(initialDevices) {
  * @return {!Promise}
  */
 async function setSimulatedDevices(devices) {
-  await testController.sendMessageToCppHelper(TEST_HELPER_NAME, devices);
+  await testController.sendMessageToCppHelper(
+      SimulationConstants.CPP_HELPER_NAME, devices);
 }
 
 /**
@@ -161,6 +162,28 @@ async function assertRemainsPending(promise, timeoutMillis) {
       });
   await sleep(timeoutMillis);
   sleeping = false;
+}
+
+/**
+ * @param {!API.SCARD_READERSTATE_OUT} a
+ * @param {!API.SCARD_READERSTATE_OUT} b
+ * @return {boolean}
+ */
+function readerStateEquals(a, b) {
+  // Note the "atr" fields cannot be compared via "===" as they're ArrayBuffers.
+  return a['reader_name'] === b['reader_name'] &&
+      a['current_state'] === b['current_state'] &&
+      a['event_state'] === b['event_state'] &&
+      goog.iter.equals(new Uint8Array(a['atr']), new Uint8Array(b['atr'])) &&
+      a['user_data'] === b['user_data'];
+}
+
+/**
+ * @param {!API.SCARD_READERSTATE_OUT} a
+ * @param {!API.SCARD_READERSTATE_OUT} b
+ */
+function assertReaderStateEquals(a, b) {
+  assertTrue(`${dump(a)} != ${dump(b)}`, readerStateEquals(a, b));
 }
 
 goog.exportSymbol('testPcscApi', {
@@ -427,7 +450,7 @@ goog.exportSymbol('testPcscApi', {
             fail(`Unexpected error ${errorCode}`);
           });
       assertObjectEquals(readers, [
-        GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+        SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
         'Dell Dell Smart Card Reader Keyboard 01 00'
       ]);
       assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
@@ -454,11 +477,13 @@ goog.exportSymbol('testPcscApi', {
             fail(`Unexpected error ${errorCode}`);
           });
       assertEquals(readerStates.length, 1);
-      const state = readerStates[0];
-      assertEquals(state['reader_name'], PNP_NOTIFICATION);
-      assertEquals(state['current_state'], API.SCARD_STATE_UNAWARE);
-      assertEquals(state['event_state'], API.SCARD_STATE_CHANGED);
-      assertObjectEquals(state['atr'], new ArrayBuffer(0));
+      assertReaderStateEquals(
+          readerStates[0],
+          new API.SCARD_READERSTATE_OUT(
+              /*readerName=*/ PNP_NOTIFICATION,
+              /*currentState=*/ API.SCARD_STATE_UNAWARE,
+              /*eventState=*/ API.SCARD_STATE_CHANGED,
+              /*atr=*/ new ArrayBuffer(0)));
       assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
     },
 
@@ -471,7 +496,8 @@ goog.exportSymbol('testPcscApi', {
       const resultPromise = client.api.SCardGetStatusChange(
           context, API.INFINITE,
           [new API.SCARD_READERSTATE_IN(
-              GEMALTO_PC_TWIN_READER_PCSC_NAME0, API.SCARD_STATE_EMPTY)]);
+              SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+              API.SCARD_STATE_EMPTY)]);
       setSimulatedDevices([]);
       const result = await resultPromise;
 
@@ -484,20 +510,140 @@ goog.exportSymbol('testPcscApi', {
             fail(`Unexpected error ${errorCode}`);
           });
       assertEquals(readerStates.length, 1);
-      const state = readerStates[0];
-      assertEquals(state['reader_name'], GEMALTO_PC_TWIN_READER_PCSC_NAME0);
-      assertEquals(state['current_state'], API.SCARD_STATE_EMPTY);
-      assertObjectEquals(state['atr'], new ArrayBuffer(0));
+      const readerState = readerStates[0];
       // Depending on the timing, PC/SC may or may not report the
       // `SCARD_STATE_UNKNOWN` flag (this depends on whether it already removed
       // the "dead" reader from internal lists by the time SCardGetStatusChange
       // is replied to).
-      assertContains(state['event_state'], [
-        API.SCARD_STATE_CHANGED | API.SCARD_STATE_UNKNOWN |
-            API.SCARD_STATE_UNAVAILABLE,
-        API.SCARD_STATE_CHANGED | API.SCARD_STATE_UNAVAILABLE
-      ]);
+      const expected1 = new API.SCARD_READERSTATE_OUT(
+          SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+          /*currentState=*/ API.SCARD_STATE_EMPTY,
+          /*eventState=*/ API.SCARD_STATE_CHANGED | API.SCARD_STATE_UNKNOWN |
+              API.SCARD_STATE_UNAVAILABLE,
+          /*atr=*/ new ArrayBuffer(0));
+      const expected2 = new API.SCARD_READERSTATE_OUT(
+          SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+          /*currentState=*/ API.SCARD_STATE_EMPTY,
+          /*eventState=*/ API.SCARD_STATE_CHANGED | API.SCARD_STATE_UNAVAILABLE,
+          /*atr=*/ new ArrayBuffer(0));
+      assertTrue(
+          `${dump(readerState)} equals neither ${dump(expected1)} nor ${
+              dump(expected2)}`,
+          readerStateEquals(readerState, expected1) ||
+              readerStateEquals(readerState, expected2));
 
+      assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
+    },
+
+    // Test `SCardGetStatusChange()` returns the reader and card information.
+    'testSCardGetStatusChange_withCardInitially': async function() {
+      await launchPcscServer(/*initialDevices=*/[
+        {'id': 123, 'type': 'gemaltoPcTwinReader', 'cardType': 'cosmoId70'}
+      ]);
+      const context = await establishContextOrThrow();
+
+      const result = await client.api.SCardGetStatusChange(
+          context, API.INFINITE,
+          [new API.SCARD_READERSTATE_IN(
+              SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+              API.SCARD_STATE_UNKNOWN)]);
+
+      let readerStates = null;
+      result.get(
+          (readerStatesArg) => {
+            readerStates = readerStatesArg;
+          },
+          (errorCode) => {
+            fail(`Unexpected error ${errorCode}`);
+          });
+      assertEquals(readerStates.length, 1);
+      assertReaderStateEquals(
+          readerStates[0],
+          new API.SCARD_READERSTATE_OUT(
+              SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+              /*currentState=*/ API.SCARD_STATE_UNKNOWN,
+              /*eventState=*/ API.SCARD_STATE_CHANGED | API.SCARD_STATE_PRESENT,
+              SimulationConstants.COSMO_ID_70_ATR));
+      assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
+    },
+
+    // Test `SCardGetStatusChange()` detects when a card is inserted.
+    'testSCardGetStatusChange_cardInserting': async function() {
+      // Start with a connected empty reader.
+      await launchPcscServer(
+          /*initialDevices=*/[{'id': 123, 'type': 'gemaltoPcTwinReader'}]);
+      const context = await establishContextOrThrow();
+
+      const resultPromise = client.api.SCardGetStatusChange(
+          context, API.INFINITE,
+          [new API.SCARD_READERSTATE_IN(
+              SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+              API.SCARD_STATE_EMPTY)]);
+      // Simulate card insertion.
+      setSimulatedDevices([
+        {'id': 123, 'type': 'gemaltoPcTwinReader', 'cardType': 'cosmoId70'}
+      ]);
+      const result = await resultPromise;
+
+      let readerStates = null;
+      result.get(
+          (readerStatesArg) => {
+            readerStates = readerStatesArg;
+          },
+          (errorCode) => {
+            fail(`Unexpected error ${errorCode}`);
+          });
+      assertEquals(readerStates.length, 1);
+      // The "eventState" field contains the number of card insertion/removal
+      // events in the higher 16 bits.
+      assertReaderStateEquals(
+          readerStates[0],
+          new API.SCARD_READERSTATE_OUT(
+              SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+              /*currentState=*/ API.SCARD_STATE_EMPTY,
+              /*eventState=*/ API.SCARD_STATE_CHANGED |
+                  API.SCARD_STATE_PRESENT | 0x10000,
+              SimulationConstants.COSMO_ID_70_ATR));
+      assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
+    },
+
+    // Test `SCardGetStatusChange()` detects when a card is removed.
+    'testSCardGetStatusChange_cardRemoving': async function() {
+      // Start with a connected reader and a card.
+      await launchPcscServer(
+          /*initialDevices=*/[
+            {'id': 123, 'type': 'gemaltoPcTwinReader', 'cardType': 'cosmoId70'}
+          ]);
+      const context = await establishContextOrThrow();
+
+      const resultPromise = client.api.SCardGetStatusChange(
+          context, API.INFINITE,
+          [new API.SCARD_READERSTATE_IN(
+              SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+              API.SCARD_STATE_PRESENT)]);
+      // Simulate the card removal.
+      setSimulatedDevices([{'id': 123, 'type': 'gemaltoPcTwinReader'}]);
+      const result = await resultPromise;
+
+      let readerStates = null;
+      result.get(
+          (readerStatesArg) => {
+            readerStates = readerStatesArg;
+          },
+          (errorCode) => {
+            fail(`Unexpected error ${errorCode}`);
+          });
+      assertEquals(readerStates.length, 1);
+      // The "event_state" field contains the number of card insertion/removal
+      // events in the higher 16 bits.
+      assertReaderStateEquals(
+          readerStates[0],
+          new API.SCARD_READERSTATE_OUT(
+              SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+              /*currentState=*/ API.SCARD_STATE_PRESENT,
+              /*eventState=*/ API.SCARD_STATE_CHANGED | API.SCARD_STATE_EMPTY |
+                  0x10000,
+              /*atr=*/ new ArrayBuffer(0)));
       assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
     },
 
