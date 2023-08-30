@@ -22,6 +22,7 @@ goog.require('GoogleSmartCard.ConnectorApp.ChromeApiProvider');
 goog.require('GoogleSmartCard.ConnectorApp.MockChromeApi');
 goog.require('GoogleSmartCard.IntegrationTestController');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
+goog.require('GoogleSmartCard.TestingLibusbSmartCardSimulationConstants');
 goog.require('goog.testing.MockControl');
 goog.require('goog.testing.asserts');
 goog.require('goog.testing.jsunit');
@@ -35,6 +36,7 @@ const GSC = GoogleSmartCard;
 const ChromeApiProvider = GSC.ConnectorApp.ChromeApiProvider;
 const MockChromeApi = GSC.ConnectorApp.MockChromeApi;
 const ReadinessTracker = GSC.PcscLiteServerClientsManagement.ReadinessTracker;
+const SimulationConstants = GSC.TestingLibusbSmartCardSimulationConstants;
 
 /**
  * @typedef {{sCardContext: number}}
@@ -64,7 +66,16 @@ let chromeApiProvider;
  */
 async function launchPcscServer(initialDevices) {
   await testController.setUpCppHelper(
-      'SmartCardConnectorApplicationTestHelper', initialDevices);
+      SimulationConstants.CPP_HELPER_NAME, initialDevices);
+}
+
+/**
+ * @param {!Array} devices
+ * @return {!Promise}
+ */
+async function setSimulatedDevices(devices) {
+  await testController.sendMessageToCppHelper(
+      SimulationConstants.CPP_HELPER_NAME, devices);
 }
 
 function createChromeApiProvider() {
@@ -108,13 +119,27 @@ function expectReportReleaseContext(requestId, resultCode) {
  * Sets expectation that reportListReadersResult will be called with given
  * parameters.
  * @param {number} requestId
- * @param {Array.<string>} readers
+ * @param {!Array.<string>} readers
  * @param {string} resultCode
  */
 function expectReportListReaders(requestId, readers, resultCode) {
   chrome
       .smartCardProviderPrivate['reportListReadersResult'](
           requestId, readers, resultCode)
+      .$once();
+}
+
+/**
+ * Sets expectation that reportGetStatusChangeResult will be called with given
+ * parameters.
+ * @param {number} requestId
+ * @param {!Array<!chrome.smartCardProviderPrivate.ReaderStateOut>} readerStates
+ * @param {string} resultCode
+ */
+function expectReportGetStatusChange(requestId, readerStates, resultCode) {
+  chrome
+      .smartCardProviderPrivate['reportGetStatusChangeResult'](
+          requestId, readerStates, resultCode)
       .$once();
 }
 
@@ -305,6 +330,41 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
             'onListReadersRequested', /*requestId=*/ 124,
             establishContextResult.sCardContext)
         .$waitAndVerify();
+  },
+
+  // Test GetStatusChange with `\\?PnP?\Notification` to get the reader added
+  // event.
+  'testGetStatusChange_deviceAppearing': async function() {
+    const establishContextResult = EMPTY_CONTEXT_RESULT;
+    expectReportEstablishContext(
+        /*requestId=*/ 123, 'SUCCESS', establishContextResult);
+    expectReportGetStatusChange(
+        /*requestId=*/ 124, [{
+          'reader': SimulationConstants.PNP_NOTIFICATION,
+          'eventState': {'changed': true},
+          'eventCount': 0,
+          'atr': new ArrayBuffer(0)
+        }],
+        'SUCCESS');
+    mockControl.$replayAll();
+
+    launchPcscServer(/*initialDevices=*/[]);
+    createChromeApiProvider();
+    await mockChromeApi
+        .dispatchEvent('onEstablishContextRequested', /*requestId=*/ 123)
+        .$waitAndVerify();
+    const verifyResult =
+        mockChromeApi
+            .dispatchEvent(
+                'onGetStatusChangeRequested', /*requestId=*/ 124,
+                establishContextResult.sCardContext, /*timeout*/ {}, [{
+                  'reader': SimulationConstants.PNP_NOTIFICATION,
+                  'currentState': {'unaware': true},
+                  'currentCount': 0
+                }])
+            .$waitAndVerify();
+    setSimulatedDevices([{'id': 123, 'type': 'gemaltoPcTwinReader'}]);
+    await verifyResult;
   },
 });
 });  // goog.scope

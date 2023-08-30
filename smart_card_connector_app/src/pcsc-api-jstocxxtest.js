@@ -51,9 +51,6 @@ const API = GSC.PcscLiteClient.API;
 const SimulationConstants = GSC.TestingLibusbSmartCardSimulationConstants;
 const dump = GSC.DebugDump.dump;
 
-// The constant from the PC/SC-Lite API docs.
-const PNP_NOTIFICATION = String.raw`\\?PnP?\Notification`;
-
 const PCSC_REQUEST_MESSAGE_TYPE = GSC.RequesterMessage.getRequestMessageType(
     GSC.PcscLiteCommon.Constants.REQUESTER_TITLE);
 
@@ -471,7 +468,7 @@ goog.exportSymbol('testPcscApi', {
       const resultPromise = client.api.SCardGetStatusChange(
           context, API.INFINITE,
           [new API.SCARD_READERSTATE_IN(
-              PNP_NOTIFICATION, API.SCARD_STATE_UNAWARE)]);
+              SimulationConstants.PNP_NOTIFICATION, API.SCARD_STATE_UNAWARE)]);
       setSimulatedDevices([{'id': 123, 'type': 'gemaltoPcTwinReader'}]);
       const result = await resultPromise;
 
@@ -487,7 +484,7 @@ goog.exportSymbol('testPcscApi', {
       assertReaderStateEquals(
           readerStates[0],
           new API.SCARD_READERSTATE_OUT(
-              /*readerName=*/ PNP_NOTIFICATION,
+              /*readerName=*/ SimulationConstants.PNP_NOTIFICATION,
               /*currentState=*/ API.SCARD_STATE_UNAWARE,
               /*eventState=*/ API.SCARD_STATE_CHANGED,
               /*atr=*/ new ArrayBuffer(0)));
@@ -783,7 +780,8 @@ goog.exportSymbol('testPcscApi', {
       const statusPromise = client.api.SCardGetStatusChange(
           context, API.INFINITE,
           [new API.SCARD_READERSTATE_IN(
-              /*readerName=*/ PNP_NOTIFICATION, API.SCARD_STATE_UNAWARE)]);
+              /*readerName=*/ SimulationConstants.PNP_NOTIFICATION,
+              API.SCARD_STATE_UNAWARE)]);
       // Check that the call is actually blocked (either until a reader event or
       // cancellation happen). The exact interval isn't important here - we just
       // want some reasonably big probability of catching a bug if it's
