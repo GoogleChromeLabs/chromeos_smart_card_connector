@@ -153,12 +153,20 @@ jobs:
       with:
         toolchain: eslint
 
-    # Run the linter on suitable files. For PR's, only look at the diff against
-    # the parent commit (which, as Github executes the action on the merge
-    # commit, is the base branch). Otherwise, all files are linted.
+    # Determine the set of files to be linted. For PR's that don't touch linter
+    # config or helper scripts, only look at the diff against the parent commit
+    # (which, as Github executes the action on the merge commit, is the base
+    # branch). Otherwise, all files are to be linted.
+    - name: Determine lint scope
+      id: lint-scope
+      if: ${{ github.event_name == 'pull_request' }}
+      run: |
+        export LINTER_CHANGES=$(git diff --name-only HEAD^1 HEAD | grep -E 'eslint|.github|scripts')
+        [ -n "$LINTER_CHANGES" ] || (echo "only_diff_to_parent=1" >> "$GITHUB_OUTPUT")
+
     - name: Run ESLint
       run: >
-        scripts/eslint.py --base="${{ github.event_name == 'pull_request' && 'HEAD^1' || 'none' }}"
+        scripts/eslint.py --base="${{ steps.lint-scope.outputs.only_diff_to_parent && 'HEAD^1' || 'none' }}"
 
   # Collect code coverage statistics.
   collect-coverage:
