@@ -14,6 +14,7 @@ rules:
     - ignoreComments: true
       ignoreUrls: true
       ignorePattern: ^(goog\.require|goog\.provide)\(.*\);$
+  guard-for-in: error
   new-parens: error
   no-constant-binary-expression: error
   no-constructor-return: error
