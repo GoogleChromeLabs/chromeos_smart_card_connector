@@ -21,6 +21,7 @@
 goog.require('GoogleSmartCard.ConnectorApp.ChromeApiProvider');
 goog.require('GoogleSmartCard.ConnectorApp.MockChromeApi');
 goog.require('GoogleSmartCard.IntegrationTestController');
+goog.require('GoogleSmartCard.PcscLiteCommon.Constants');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
 goog.require('GoogleSmartCard.TestingLibusbSmartCardSimulationConstants');
 goog.require('goog.testing.MockControl');
@@ -37,6 +38,8 @@ const ChromeApiProvider = GSC.ConnectorApp.ChromeApiProvider;
 const MockChromeApi = GSC.ConnectorApp.MockChromeApi;
 const ReadinessTracker = GSC.PcscLiteServerClientsManagement.ReadinessTracker;
 const SimulationConstants = GSC.TestingLibusbSmartCardSimulationConstants;
+
+const PNP_NOTIFICATION = GSC.PcscLiteCommon.Constants.PNP_NOTIFICATION;
 
 /**
  * @typedef {{sCardContext: number}}
@@ -340,7 +343,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         /*requestId=*/ 123, 'SUCCESS', establishContextResult);
     expectReportGetStatusChange(
         /*requestId=*/ 124, [{
-          'reader': SimulationConstants.PNP_NOTIFICATION,
+          'reader': PNP_NOTIFICATION,
           'eventState': {'changed': true},
           'eventCount': 0,
           'atr': new ArrayBuffer(0)
@@ -358,7 +361,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
             .dispatchEvent(
                 'onGetStatusChangeRequested', /*requestId=*/ 124,
                 establishContextResult.sCardContext, /*timeout*/ {}, [{
-                  'reader': SimulationConstants.PNP_NOTIFICATION,
+                  'reader': PNP_NOTIFICATION,
                   'currentState': {'unaware': true},
                   'currentCount': 0
                 }])
