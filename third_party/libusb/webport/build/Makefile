@@ -69,14 +69,3 @@ $(foreach src,$(CXX_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CPPFLAGS) $(CXX
 
 
 $(eval $(call LIB_RULE,$(TARGET),$(SOURCES)))
-
-
-test:: all
-	+$(MAKE) --directory tests run_test
-	+$(MAKE) --directory js_unittests run_test
-
-tests_clean::
-	+$(MAKE) --directory tests clean
-	+$(MAKE) --directory js_unittests clean
-
-clean: tests_clean

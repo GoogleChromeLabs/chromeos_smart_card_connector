@@ -157,15 +157,3 @@ $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/about-window.css))
 ifeq ($(TOOLCHAIN),emscripten)
 $(eval $(JS_COMMON_BACKGROUND_PAGE_UNLOAD_PREVENTING_IFRAME_RULE))
 endif
-
-
-# Rules for running unit tests.
-# We run C++ and JS tests sequentially to avoid any runtime conflict.
-test:: all
-	+$(MAKE) --directory executable_module test
-	+$(MAKE) --directory js_unittests run_test
-
-# Rules for cleaning unit test build artifacts on "make clean".
-js_unittests_clean::
-	+$(MAKE) --directory js_unittests clean
-clean: js_unittests_clean
