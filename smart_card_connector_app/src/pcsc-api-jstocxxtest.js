@@ -782,8 +782,7 @@ goog.exportSymbol('testPcscApi', {
       const statusPromise = client.api.SCardGetStatusChange(
           context, API.INFINITE,
           [new API.SCARD_READERSTATE_IN(
-              /*readerName=*/ PNP_NOTIFICATION,
-              API.SCARD_STATE_UNAWARE)]);
+              /*readerName=*/ PNP_NOTIFICATION, API.SCARD_STATE_UNAWARE)]);
       // Check that the call is actually blocked (either until a reader event or
       // cancellation happen). The exact interval isn't important here - we just
       // want some reasonably big probability of catching a bug if it's
