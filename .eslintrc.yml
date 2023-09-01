@@ -19,22 +19,41 @@ rules:
     - allow:
       - ^opt_
       properties: never
+  block-scoped-var: error
   new-parens: error
+  no-array-constructor: error
+  no-confusing-arrow: error
   no-constant-binary-expression: error
   no-constructor-return: error
   no-duplicate-imports: error
+  no-eq-null: error
+  no-extend-native: error
   no-invalid-this: error
+  no-lone-blocks: error
+  no-multi-assign: error
   no-new-native-nonconstructor: error
+  no-octal-escape: error
   no-promise-executor-return: error
+  no-return-assign: error
   no-self-compare: error
+  no-sequences: error
   no-template-curly-in-string: error
+  no-throw-literal: error
   no-unmodified-loop-condition: error
+  no-unneeded-ternary: error
   no-unreachable-loop: error
   no-unused-private-class-members: error
+  no-useless-computed-key: error
+  no-useless-concat: error
+  no-useless-constructor: error
+  no-useless-rename: error
+  no-useless-return: error
+  no-var: error
   prefer-const: error
-  semi: error
+  prefer-promise-reject-errors: error
   semi-spacing: error
   semi-style: error
+  semi: error
 overrides:
   # Parse specific files as ES Modules (the standard parser would fail).
   - files:
