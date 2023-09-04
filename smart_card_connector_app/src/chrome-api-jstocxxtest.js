@@ -24,6 +24,7 @@ goog.require('GoogleSmartCard.IntegrationTestController');
 goog.require('GoogleSmartCard.PcscLiteCommon.Constants');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
 goog.require('GoogleSmartCard.TestingLibusbSmartCardSimulationConstants');
+goog.require('goog.Thenable');
 goog.require('goog.testing.MockControl');
 goog.require('goog.testing.asserts');
 goog.require('goog.testing.jsunit');
@@ -88,6 +89,36 @@ function createChromeApiProvider() {
 }
 
 /**
+ * @param {number} timeoutMillis
+ * @return {!Promise}
+ */
+async function sleep(timeoutMillis) {
+  return new Promise(resolve => {
+    setTimeout(resolve, timeoutMillis);
+  });
+}
+
+/**
+ * @param {!goog.Thenable} promise
+ * @param {number} timeoutMillis
+ * @return {!Promise}
+ */
+async function assertRemainsPending(promise, timeoutMillis) {
+  let sleeping = true;
+  promise.then(
+      () => {
+        if (sleeping)
+          fail(`Unexpectedly resolved within ${timeoutMillis} ms`);
+      },
+      () => {
+        if (sleeping)
+          fail(`Unexpectedly rejected within ${timeoutMillis} ms`);
+      });
+  await sleep(timeoutMillis);
+  sleeping = false;
+}
+
+/**
  * Sets expectation that reportEstablishContextResult will be called for given
  * `requestId` with result code equal to `resultCode`. Sets the received result
  * to `outResult`.
@@ -143,6 +174,17 @@ function expectReportGetStatusChange(requestId, readerStates, resultCode) {
   chrome
       .smartCardProviderPrivate['reportGetStatusChangeResult'](
           requestId, readerStates, resultCode)
+      .$once();
+}
+
+/**
+ * Sets expectation that reportPlaintResult will be called with given
+ * parameters.
+ * @param {number} requestId
+ * @param {string} resultCode
+ */
+function expectReportPlainResult(requestId, resultCode) {
+  chrome.smartCardProviderPrivate['reportPlainResult'](requestId, resultCode)
       .$once();
 }
 
@@ -480,5 +522,48 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
             }])
         .$waitAndVerify();
   },
+
+  // Test Cancel terminates a running GetStatusChange call.
+  'testCancel': async function() {
+    const establishContextResult = EMPTY_CONTEXT_RESULT;
+    expectReportEstablishContext(
+        /*requestId=*/ 123, 'SUCCESS', establishContextResult);
+    expectReportGetStatusChange(/*requestId=*/ 124, [], 'CANCELLED');
+    expectReportPlainResult(/*requestId=*/ 125, 'SUCCESS');
+    mockControl.$replayAll();
+
+    launchPcscServer(/*initialDevices=*/[
+      {'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}
+    ]);
+    createChromeApiProvider();
+    await mockChromeApi
+        .dispatchEvent('onEstablishContextRequested', /*requestId=*/ 123)
+        .$waitAndVerify();
+    const statusPromise =
+        mockChromeApi
+            .dispatchEvent(
+                'onGetStatusChangeRequested', /*requestId=*/ 124,
+                establishContextResult.sCardContext,
+                /*timeout*/ {}, [{
+                  'reader':
+                      SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+                  'currentState': {'empty': true},
+                  'currentCount': 0
+                }])
+            .$waitAndVerify();
+    // Check that the call is actually blocked (either until a reader event or
+    // cancellation happen). The exact interval isn't important here - we just
+    // want some reasonably big probability of catching a bug if it's
+    // introduced.
+    await assertRemainsPending(statusPromise, /*timeoutMillis=*/ 1000);
+    // Trigger Cancel to abort the long-running call.
+    await mockChromeApi
+        .dispatchEvent(
+            'onCancelRequested', /*requestId=*/ 125,
+            establishContextResult.sCardContext)
+        .$waitAndVerify();
+    // Wait until GetStatusChange returns and result is verified.
+    await statusPromise;
+  }
 });
 });  // goog.scope
