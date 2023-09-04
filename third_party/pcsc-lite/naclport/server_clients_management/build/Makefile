@@ -76,12 +76,3 @@ JS_COMPILER_FLAGS := \
 	--define='GoogleSmartCard.Logging.SELF_RELOAD_ON_FATAL_ERROR=true' \
 
 $(eval $(call BUILD_JS_SCRIPT,pcsc_lite_server_clients_management/user-prompt-dialog.js,$(JS_COMPILER_INPUT_PATHS),GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.UserPromptDialog.Main,$(JS_COMPILER_FLAGS)))
-
-
-test:: all
-	+$(MAKE) --directory js_unittests run_test
-
-tests_clean::
-	+$(MAKE) --directory js_unittests clean
-
-clean: tests_clean
