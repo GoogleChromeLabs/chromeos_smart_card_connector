@@ -36,8 +36,6 @@ const propertyReplacer = new goog.testing.PropertyReplacer();
 /** @type {!goog.testing.MockControl|undefined} */
 let mockControl;
 let mockServerMessageChannel;
-/** @type {MockChromeApi?} */
-let mockChromeApi;
 
 goog.exportSymbol('testChromeApiProvider', {
   'setUp': function() {
@@ -46,7 +44,7 @@ goog.exportSymbol('testChromeApiProvider', {
         new goog.testing.messaging.MockMessageChannel(mockControl);
     // Set up chrome API mocks and set expectations that each event will be
     // subscribed to by some listener.
-    mockChromeApi = new MockChromeApi(mockControl, propertyReplacer);
+    new MockChromeApi(mockControl, propertyReplacer);
   },
 
   'tearDown': function() {
