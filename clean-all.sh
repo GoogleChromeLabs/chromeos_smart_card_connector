@@ -45,7 +45,7 @@ clean_dir_with_toolchain_and_config() {
 	if [ "${toolchain}" = pnacl ]; then
 		# NaCl build scripts still use Python 2, so enter the virtual environment.
 		VENV_ACTIVATE="env/python2_venv/bin/activate"
-		if [-f "$VENV_ACTIVATE"]; then
+		if [ -f "$VENV_ACTIVATE" ]; then
 		 	source $VENV_ACTIVATE
 		else
 			log_message "Skipping \"pnacl\" \"${config}\" clean, virtual environment was not initialized."
