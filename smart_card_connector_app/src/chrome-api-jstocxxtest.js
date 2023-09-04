@@ -369,5 +369,106 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     setSimulatedDevices([{'id': 123, 'type': 'gemaltoPcTwinReader'}]);
     await verifyResult;
   },
+
+  // Test GetStatusChange returns the reader and card information.
+  'testGetStatusChange_withCardInitially': async function() {
+    const establishContextResult = EMPTY_CONTEXT_RESULT;
+    expectReportEstablishContext(
+        /*requestId=*/ 123, 'SUCCESS', establishContextResult);
+    expectReportGetStatusChange(
+        /*requestId=*/ 124, [{
+          'reader': SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+          'eventState': {'changed': true, 'present': true},
+          'eventCount': 0,
+          'atr': SimulationConstants.COSMO_ID_70_ATR
+        }],
+        'SUCCESS');
+    mockControl.$replayAll();
+
+    launchPcscServer(/*initialDevices=*/[
+      {'id': 123, 'type': 'gemaltoPcTwinReader', 'cardType': 'cosmoId70'}
+    ]);
+    createChromeApiProvider();
+    await mockChromeApi
+        .dispatchEvent('onEstablishContextRequested', /*requestId=*/ 123)
+        .$waitAndVerify();
+    await mockChromeApi
+        .dispatchEvent(
+            'onGetStatusChangeRequested', /*requestId=*/ 124,
+            establishContextResult.sCardContext, /*timeout*/ {}, [{
+              'reader': SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+              'currentState': {'unknown': true},
+              'currentCount': 0
+            }])
+        .$waitAndVerify();
+  },
+
+  // Test GetStatusChange detects when a card is removed.
+  'testGetStatusChange_cardRemoving': async function() {
+    const establishContextResult = EMPTY_CONTEXT_RESULT;
+    expectReportEstablishContext(
+        /*requestId=*/ 123, 'SUCCESS', establishContextResult);
+    expectReportGetStatusChange(
+        /*requestId=*/ 124, [{
+          'reader': SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+          'eventState': {'changed': true, 'empty': true},
+          /*corresponds to the number of card insertions/removals*/
+          'eventCount': 1,
+          'atr': new ArrayBuffer(0)
+        }],
+        'SUCCESS');
+    mockControl.$replayAll();
+
+    launchPcscServer(/*initialDevices=*/[
+      {'id': 123, 'type': 'gemaltoPcTwinReader', 'cardType': 'cosmoId70'}
+    ]);
+    createChromeApiProvider();
+    await mockChromeApi
+        .dispatchEvent('onEstablishContextRequested', /*requestId=*/ 123)
+        .$waitAndVerify();
+    const verifyResult =
+        mockChromeApi
+            .dispatchEvent(
+                'onGetStatusChangeRequested', /*requestId=*/ 124,
+                establishContextResult.sCardContext, /*timeout*/ {}, [{
+                  'reader':
+                      SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+                  'currentState': {'present': true},
+                  'currentCount': 0
+                }])
+            .$waitAndVerify();
+    // Simulate the card removal.
+    setSimulatedDevices([{'id': 123, 'type': 'gemaltoPcTwinReader'}]);
+    await verifyResult;
+  },
+
+  // Test GetStatusChange with timeout parameter will return even if status
+  // is not changing.
+  'testGetStatusChange_withTimeout': async function() {
+    const establishContextResult = EMPTY_CONTEXT_RESULT;
+    expectReportEstablishContext(
+        /*requestId=*/ 123, 'SUCCESS', establishContextResult);
+    expectReportGetStatusChange(
+        /*requestId=*/ 124, [], 'TIMEOUT');
+    mockControl.$replayAll();
+
+    launchPcscServer(/*initialDevices=*/[
+      {'id': 123, 'type': 'gemaltoPcTwinReader', 'cardType': 'cosmoId70'}
+    ]);
+    createChromeApiProvider();
+    await mockChromeApi
+        .dispatchEvent('onEstablishContextRequested', /*requestId=*/ 123)
+        .$waitAndVerify();
+    await mockChromeApi
+        .dispatchEvent(
+            'onGetStatusChangeRequested', /*requestId=*/ 124,
+            establishContextResult.sCardContext,
+            /*timeout*/ {'milliseconds': 10}, [{
+              'reader': SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+              'currentState': {'present': true},
+              'currentCount': 0
+            }])
+        .$waitAndVerify();
+  },
 });
 });  // goog.scope
