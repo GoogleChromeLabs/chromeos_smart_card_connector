@@ -20,6 +20,7 @@ rules:
       - ^opt_
       properties: never
   block-scoped-var: error
+  guard-for-in: error
   new-parens: error
   no-array-constructor: error
   no-confusing-arrow: error

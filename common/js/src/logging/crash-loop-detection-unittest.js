@@ -82,8 +82,11 @@ function stubChromeStorageLocalSet(items, callback) {
     propertyReplacer.set(chrome, 'runtime', {'lastError': undefined});
     return;
   }
-  for (const key in items)
-    currentStorage[key] = items[key];
+  for (const key in items) {
+    if (Object.prototype.hasOwnProperty.call(items, key)) {
+      currentStorage[key] = items[key];
+    }
+  }
   callback();
 }
 
