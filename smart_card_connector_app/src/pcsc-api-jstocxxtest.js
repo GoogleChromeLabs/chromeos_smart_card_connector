@@ -51,11 +51,10 @@ const API = GSC.PcscLiteClient.API;
 const SimulationConstants = GSC.TestingLibusbSmartCardSimulationConstants;
 const dump = GSC.DebugDump.dump;
 
-// The constant from the PC/SC-Lite API docs.
-const PNP_NOTIFICATION = String.raw`\\?PnP?\Notification`;
-
 const PCSC_REQUEST_MESSAGE_TYPE = GSC.RequesterMessage.getRequestMessageType(
     GSC.PcscLiteCommon.Constants.REQUESTER_TITLE);
+
+const PNP_NOTIFICATION = GSC.PcscLiteCommon.Constants.PNP_NOTIFICATION;
 
 /**
  * Stub that approves any client to make PC/SC calls.

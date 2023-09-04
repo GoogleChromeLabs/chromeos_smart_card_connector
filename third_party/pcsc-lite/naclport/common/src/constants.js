@@ -48,4 +48,8 @@ goog.exportSymbol(
 
 /** @const */
 Constants.REQUESTER_TITLE = 'pcsc_lite_function_call';
+
+// The constant from the PC/SC-Lite API docs.
+/** @const */
+Constants.PNP_NOTIFICATION = String.raw`\\?PnP?\Notification`;
 });  // goog.scope
