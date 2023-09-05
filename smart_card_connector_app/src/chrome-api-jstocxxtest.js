@@ -292,7 +292,9 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     mockControl.$replayAll();
 
     launchPcscServer(
-        /*initialDevices=*/[{'id': 123, 'type': 'gemaltoPcTwinReader'}]);
+        /*initialDevices=*/[
+          {'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}
+        ]);
     createChromeApiProvider();
     await mockChromeApi
         .dispatchEvent('onEstablishContextRequested', /*requestId=*/ 123)
@@ -321,8 +323,8 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
 
     launchPcscServer(
         /*initialDevices=*/[
-          {'id': 101, 'type': 'gemaltoPcTwinReader'},
-          {'id': 102, 'type': 'dellSmartCardReaderKeyboard'}
+          {'id': 101, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE},
+          {'id': 102, 'type': SimulationConstants.DELL_DEVICE_TYPE}
         ]);
     createChromeApiProvider();
     await mockChromeApi
@@ -366,7 +368,8 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
                   'currentCount': 0
                 }])
             .$waitAndVerify();
-    setSimulatedDevices([{'id': 123, 'type': 'gemaltoPcTwinReader'}]);
+    setSimulatedDevices(
+        [{'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}]);
     await verifyResult;
   },
 
@@ -385,9 +388,11 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         'SUCCESS');
     mockControl.$replayAll();
 
-    launchPcscServer(/*initialDevices=*/[
-      {'id': 123, 'type': 'gemaltoPcTwinReader', 'cardType': 'cosmoId70'}
-    ]);
+    launchPcscServer(/*initialDevices=*/[{
+      'id': 123,
+      'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
+      'cardType': SimulationConstants.COSMO_CARD_TYPE
+    }]);
     createChromeApiProvider();
     await mockChromeApi
         .dispatchEvent('onEstablishContextRequested', /*requestId=*/ 123)
@@ -419,9 +424,11 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         'SUCCESS');
     mockControl.$replayAll();
 
-    launchPcscServer(/*initialDevices=*/[
-      {'id': 123, 'type': 'gemaltoPcTwinReader', 'cardType': 'cosmoId70'}
-    ]);
+    launchPcscServer(/*initialDevices=*/[{
+      'id': 123,
+      'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
+      'cardType': SimulationConstants.COSMO_CARD_TYPE
+    }]);
     createChromeApiProvider();
     await mockChromeApi
         .dispatchEvent('onEstablishContextRequested', /*requestId=*/ 123)
@@ -438,7 +445,8 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
                 }])
             .$waitAndVerify();
     // Simulate the card removal.
-    setSimulatedDevices([{'id': 123, 'type': 'gemaltoPcTwinReader'}]);
+    setSimulatedDevices(
+        [{'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}]);
     await verifyResult;
   },
 
@@ -452,9 +460,11 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         /*requestId=*/ 124, [], 'TIMEOUT');
     mockControl.$replayAll();
 
-    launchPcscServer(/*initialDevices=*/[
-      {'id': 123, 'type': 'gemaltoPcTwinReader', 'cardType': 'cosmoId70'}
-    ]);
+    launchPcscServer(/*initialDevices=*/[{
+      'id': 123,
+      'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
+      'cardType': SimulationConstants.COSMO_CARD_TYPE
+    }]);
     createChromeApiProvider();
     await mockChromeApi
         .dispatchEvent('onEstablishContextRequested', /*requestId=*/ 123)

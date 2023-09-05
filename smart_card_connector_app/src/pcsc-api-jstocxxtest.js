@@ -418,7 +418,9 @@ goog.exportSymbol('testPcscApi', {
     // attached device.
     'testSCardListReaders_singleDevice': async function() {
       await launchPcscServer(
-          /*initialDevices=*/[{'id': 123, 'type': 'gemaltoPcTwinReader'}]);
+          /*initialDevices=*/[
+            {'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}
+          ]);
       const context = await establishContextOrThrow();
 
       const result =
@@ -440,8 +442,8 @@ goog.exportSymbol('testPcscApi', {
     'testSCardListReaders_twoDevices': async function() {
       await launchPcscServer(
           /*initialDevices=*/[
-            {'id': 123, 'type': 'gemaltoPcTwinReader'},
-            {'id': 124, 'type': 'dellSmartCardReaderKeyboard'},
+            {'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE},
+            {'id': 124, 'type': SimulationConstants.DELL_DEVICE_TYPE},
           ]);
       const context = await establishContextOrThrow();
 
@@ -471,7 +473,8 @@ goog.exportSymbol('testPcscApi', {
           context, API.INFINITE,
           [new API.SCARD_READERSTATE_IN(
               PNP_NOTIFICATION, API.SCARD_STATE_UNAWARE)]);
-      setSimulatedDevices([{'id': 123, 'type': 'gemaltoPcTwinReader'}]);
+      setSimulatedDevices(
+          [{'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}]);
       const result = await resultPromise;
 
       let readerStates = null;
@@ -496,7 +499,9 @@ goog.exportSymbol('testPcscApi', {
     // Test `SCardGetStatusChange()` detects when a reader is unplugged.
     'testSCardGetStatusChange_deviceRemoving': async function() {
       await launchPcscServer(
-          /*initialDevices=*/[{'id': 123, 'type': 'gemaltoPcTwinReader'}]);
+          /*initialDevices=*/[
+            {'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}
+          ]);
       const context = await establishContextOrThrow();
 
       const resultPromise = client.api.SCardGetStatusChange(
@@ -543,9 +548,11 @@ goog.exportSymbol('testPcscApi', {
 
     // Test `SCardGetStatusChange()` returns the reader and card information.
     'testSCardGetStatusChange_withCardInitially': async function() {
-      await launchPcscServer(/*initialDevices=*/[
-        {'id': 123, 'type': 'gemaltoPcTwinReader', 'cardType': 'cosmoId70'}
-      ]);
+      await launchPcscServer(/*initialDevices=*/[{
+        'id': 123,
+        'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
+        'cardType': SimulationConstants.COSMO_CARD_TYPE
+      }]);
       const context = await establishContextOrThrow();
 
       const result = await client.api.SCardGetStatusChange(
@@ -577,7 +584,9 @@ goog.exportSymbol('testPcscApi', {
     'testSCardGetStatusChange_cardInserting': async function() {
       // Start with a connected empty reader.
       await launchPcscServer(
-          /*initialDevices=*/[{'id': 123, 'type': 'gemaltoPcTwinReader'}]);
+          /*initialDevices=*/[
+            {'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}
+          ]);
       const context = await establishContextOrThrow();
 
       const resultPromise = client.api.SCardGetStatusChange(
@@ -586,9 +595,11 @@ goog.exportSymbol('testPcscApi', {
               SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
               API.SCARD_STATE_EMPTY)]);
       // Simulate card insertion.
-      setSimulatedDevices([
-        {'id': 123, 'type': 'gemaltoPcTwinReader', 'cardType': 'cosmoId70'}
-      ]);
+      setSimulatedDevices([{
+        'id': 123,
+        'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
+        'cardType': SimulationConstants.COSMO_CARD_TYPE
+      }]);
       const result = await resultPromise;
 
       let readerStates = null;
@@ -617,9 +628,11 @@ goog.exportSymbol('testPcscApi', {
     'testSCardGetStatusChange_cardRemoving': async function() {
       // Start with a connected reader and a card.
       await launchPcscServer(
-          /*initialDevices=*/[
-            {'id': 123, 'type': 'gemaltoPcTwinReader', 'cardType': 'cosmoId70'}
-          ]);
+          /*initialDevices=*/[{
+            'id': 123,
+            'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
+            'cardType': SimulationConstants.COSMO_CARD_TYPE
+          }]);
       const context = await establishContextOrThrow();
 
       const resultPromise = client.api.SCardGetStatusChange(
@@ -628,7 +641,8 @@ goog.exportSymbol('testPcscApi', {
               SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
               API.SCARD_STATE_PRESENT)]);
       // Simulate the card removal.
-      setSimulatedDevices([{'id': 123, 'type': 'gemaltoPcTwinReader'}]);
+      setSimulatedDevices(
+          [{'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}]);
       const result = await resultPromise;
 
       let readerStates = null;

@@ -27,6 +27,22 @@ const GSC = GoogleSmartCard;
 GSC.TestingLibusbSmartCardSimulationConstants.CPP_HELPER_NAME =
     'SmartCardConnectorApplicationTestHelper';
 
+// Names of the device types defined by TestingSmartCardSimulation.
+// These strings need to match the string description of DeviceType values
+// defined in `testing_smart_card_simulation.cc`.
+/** @const */
+GSC.TestingLibusbSmartCardSimulationConstants.GEMALTO_DEVICE_TYPE =
+    'gemaltoPcTwinReader';
+/** @const */
+GSC.TestingLibusbSmartCardSimulationConstants.DELL_DEVICE_TYPE =
+    'dellSmartCardReaderKeyboard';
+
+// Name of the card type defined by TestingSmartCardSimulation.
+// This string needs to match the string description of CardType values defined
+// in `testing_smart_card_simulation.cc`.
+/** @const */
+GSC.TestingLibusbSmartCardSimulationConstants.COSMO_CARD_TYPE = 'cosmoId70';
+
 // Names of simulated smart card readers as they appear in the PC/SC-Lite API.
 // The "0" suffix corresponds to the "00 00" part that contains nonzeroes in
 // case there are multiple devices with the same name.
