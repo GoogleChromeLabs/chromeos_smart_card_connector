@@ -33,6 +33,8 @@ goog.setTestOnly();
 
 goog.scope(function() {
 
+const GSC = GoogleSmartCard;
+
 /**
  * Contains the names of all events exposed by chrome.smartCardProviderPrivate
  * API.
@@ -130,12 +132,24 @@ const RESULT_CODES = [
 ];
 
 /**
+ * Contains the ShareMode enum values exposed by
+ * chrome.smartCardProviderPrivate API.
+ */
+const SHARE_MODES = ['SHARED', 'EXCLUSIVE', 'DIRECT'];
+
+/**
+ * Contains the Protocol enum values exposed by
+ * chrome.smartCardProviderPrivate API.
+ */
+const PROTOCOLS = ['UNDEFINED', 'T0', 'T1', 'RAW'];
+
+/**
  * Sets up mocks for
  * chrome.smartCardProviderPrivate.*.addListener()/removeListener(),
  * report*Result functions. Checks that all events have a subscriber and that
  * this subscriber is removed properly.
  */
-GoogleSmartCard.ConnectorApp.MockChromeApi = class {
+GSC.ConnectorApp.MockChromeApi = class {
   /**
    * @param {!goog.testing.MockControl} mockControl
    * @param {!goog.testing.PropertyReplacer} propertyReplacer
@@ -192,6 +206,18 @@ GoogleSmartCard.ConnectorApp.MockChromeApi = class {
       propertyReplacer.setPath(
           `chrome.smartCardProviderPrivate.ResultCode.${resultCode}`,
           resultCode);
+    }
+
+    // Mock ShareMode enum.
+    for (const shareMode of SHARE_MODES) {
+      propertyReplacer.setPath(
+          `chrome.smartCardProviderPrivate.ShareMode.${shareMode}`, shareMode);
+    }
+
+    // Mock Protocol enum.
+    for (const protocol of PROTOCOLS) {
+      propertyReplacer.setPath(
+          `chrome.smartCardProviderPrivate.Protocol.${protocol}`, protocol);
     }
   }
 
