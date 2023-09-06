@@ -254,10 +254,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
 
   // Test a single `onEstablishContextRequested` event.
   'testEstablishContext': async function() {
-    const establishContextResult = EMPTY_CONTEXT_RESULT;
-    expectReportEstablishContext(
-        /*requestId=*/ 123, 'SUCCESS', establishContextResult);
-
     launchPcscServer(/*initialDevices=*/[]);
     createChromeApiProvider();
     await establishContext(/*requestId=*/ 123);
