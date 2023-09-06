@@ -127,13 +127,14 @@ async function assertRemainsPending(promise, timeoutMillis) {
  * @param {!EstablishContextResult} outResult
  */
 function expectReportEstablishContext(requestId, resultCode, outResult) {
-  chrome
-      .smartCardProviderPrivate['reportEstablishContextResult'](
+  mockChromeApi
+      .record('reportEstablishContextResult')(
           requestId, goog.testing.mockmatchers.isNumber, resultCode)
       .$once()
       .$does((requestId, context, resultCode) => {
         outResult.sCardContext = context;
-      });
+      })
+      .$replay();
 }
 
 /**
@@ -143,10 +144,9 @@ function expectReportEstablishContext(requestId, resultCode, outResult) {
  * @param {string} resultCode
  */
 function expectReportReleaseContext(requestId, resultCode) {
-  chrome
-      .smartCardProviderPrivate['reportReleaseContextResult'](
-          requestId, resultCode)
-      .$once();
+  mockChromeApi.record('reportReleaseContextResult')(requestId, resultCode)
+      .$once()
+      .$replay();
 }
 
 /**
@@ -157,10 +157,10 @@ function expectReportReleaseContext(requestId, resultCode) {
  * @param {string} resultCode
  */
 function expectReportListReaders(requestId, readers, resultCode) {
-  chrome
-      .smartCardProviderPrivate['reportListReadersResult'](
-          requestId, readers, resultCode)
-      .$once();
+  mockChromeApi
+      .record('reportListReadersResult')(requestId, readers, resultCode)
+      .$once()
+      .$replay();
 }
 
 /**
@@ -171,10 +171,11 @@ function expectReportListReaders(requestId, readers, resultCode) {
  * @param {string} resultCode
  */
 function expectReportGetStatusChange(requestId, readerStates, resultCode) {
-  chrome
-      .smartCardProviderPrivate['reportGetStatusChangeResult'](
+  mockChromeApi
+      .record('reportGetStatusChangeResult')(
           requestId, readerStates, resultCode)
-      .$once();
+      .$once()
+      .$replay();
 }
 
 /**
@@ -184,8 +185,9 @@ function expectReportGetStatusChange(requestId, readerStates, resultCode) {
  * @param {string} resultCode
  */
 function expectReportPlainResult(requestId, resultCode) {
-  chrome.smartCardProviderPrivate['reportPlainResult'](requestId, resultCode)
-      .$once();
+  mockChromeApi.record('reportPlainResult')(requestId, resultCode)
+      .$once()
+      .$replay();
 }
 
 /**
@@ -196,12 +198,13 @@ function expectReportPlainResult(requestId, resultCode) {
  * @param {string} resultCode
  */
 function expectReportConnectResult(requestId, activeProtocol, resultCode) {
-  chrome
-      .smartCardProviderPrivate['reportConnectResult'](
+  mockChromeApi
+      .record('reportConnectResult')(
           requestId,
           /*scardHandle=*/ goog.testing.mockmatchers.isNumber, activeProtocol,
           resultCode)
-      .$once();
+      .$once()
+      .$replay();
 }
 
 goog.exportSymbol('testChromeApiProviderToCpp', {
@@ -221,6 +224,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     mockControl = new goog.testing.MockControl();
     mockChromeApi =
         new MockChromeApi(mockControl, testController.propertyReplacer);
+    mockControl.$replayAll();
   },
 
   'tearDown': async function() {
@@ -238,7 +242,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
   },
 
   'testSmoke': async function() {
-    mockControl.$replayAll();
     launchPcscServer(/*initialDevices=*/[]);
     createChromeApiProvider();
     await pcscReadinessTracker.promise;
@@ -249,7 +252,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     const establishContextResult = EMPTY_CONTEXT_RESULT;
     expectReportEstablishContext(
         /*requestId=*/ 123, 'SUCCESS', establishContextResult);
-    mockControl.$replayAll();
 
     launchPcscServer(/*initialDevices=*/[]);
     createChromeApiProvider();
@@ -264,7 +266,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     expectReportEstablishContext(
         /*requestId=*/ 123, 'SUCCESS', establishContextResult);
     expectReportReleaseContext(/*requestId=*/ 124, 'SUCCESS');
-    mockControl.$replayAll();
 
     launchPcscServer(/*initialDevices=*/[]);
     createChromeApiProvider();
@@ -282,7 +283,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
   'testReleaseContext_none': async function() {
     const BAD_CONTEXT = 123;
     expectReportReleaseContext(/*requestId=*/ 42, 'INVALID_HANDLE');
-    mockControl.$replayAll();
 
     launchPcscServer(/*initialDevices=*/[]);
     createChromeApiProvider();
@@ -298,7 +298,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     expectReportEstablishContext(
         /*requestId=*/ 123, 'SUCCESS', establishContextResult);
     expectReportListReaders(/*requestId=*/ 124, [], 'NO_READERS_AVAILABLE');
-    mockControl.$replayAll();
 
     launchPcscServer(/*initialDevices=*/[]);
     createChromeApiProvider();
@@ -320,7 +319,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         /*requestId=*/ 123, 'SUCCESS', establishContextResult);
     expectReportReleaseContext(/*requestId=*/ 124, 'SUCCESS');
     expectReportListReaders(/*requestId=*/ 125, [], 'INVALID_HANDLE');
-    mockControl.$replayAll();
 
     launchPcscServer(/*initialDevices=*/[]);
     createChromeApiProvider();
@@ -347,7 +345,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         /*requestId=*/ 123, 'SUCCESS', establishContextResult);
     expectReportListReaders(
         /*requestId=*/ 124, ['Gemalto PC Twin Reader 00 00'], 'SUCCESS');
-    mockControl.$replayAll();
 
     launchPcscServer(
         /*initialDevices=*/[
@@ -377,7 +374,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
           'Dell Dell Smart Card Reader Keyboard 01 00'
         ],
         'SUCCESS');
-    mockControl.$replayAll();
 
     launchPcscServer(
         /*initialDevices=*/[
@@ -409,7 +405,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
           'atr': new ArrayBuffer(0)
         }],
         'SUCCESS');
-    mockControl.$replayAll();
 
     launchPcscServer(/*initialDevices=*/[]);
     createChromeApiProvider();
@@ -444,7 +439,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
           'atr': SimulationConstants.COSMO_ID_70_ATR
         }],
         'SUCCESS');
-    mockControl.$replayAll();
 
     launchPcscServer(/*initialDevices=*/[{
       'id': 123,
@@ -480,7 +474,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
           'atr': new ArrayBuffer(0)
         }],
         'SUCCESS');
-    mockControl.$replayAll();
 
     launchPcscServer(/*initialDevices=*/[{
       'id': 123,
@@ -516,7 +509,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         /*requestId=*/ 123, 'SUCCESS', establishContextResult);
     expectReportGetStatusChange(
         /*requestId=*/ 124, [], 'TIMEOUT');
-    mockControl.$replayAll();
 
     launchPcscServer(/*initialDevices=*/[{
       'id': 123,
@@ -546,7 +538,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         /*requestId=*/ 123, 'SUCCESS', establishContextResult);
     expectReportGetStatusChange(/*requestId=*/ 124, [], 'CANCELLED');
     expectReportPlainResult(/*requestId=*/ 125, 'SUCCESS');
-    mockControl.$replayAll();
 
     launchPcscServer(/*initialDevices=*/[
       {'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}
@@ -590,7 +581,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     expectReportConnectResult(
         /*requestId=*/ 124, chrome.smartCardProviderPrivate.Protocol.UNDEFINED,
         'NO_SMARTCARD');
-    mockControl.$replayAll();
 
     launchPcscServer(/*initialDevices=*/[
       {'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}
