@@ -188,6 +188,22 @@ function expectReportPlainResult(requestId, resultCode) {
       .$once();
 }
 
+/**
+ * Sets expectation that reportConnectResult will be called with given
+ * parameters.
+ * @param {number} requestId
+ * @param {!chrome.smartCardProviderPrivate.Protocol} activeProtocol
+ * @param {string} resultCode
+ */
+function expectReportConnectResult(requestId, activeProtocol, resultCode) {
+  chrome
+      .smartCardProviderPrivate['reportConnectResult'](
+          requestId,
+          /*scardHandle=*/ goog.testing.mockmatchers.isNumber, activeProtocol,
+          resultCode)
+      .$once();
+}
+
 goog.exportSymbol('testChromeApiProviderToCpp', {
   'setUp': async function() {
     // Set up the controller and load the C/C++ executable module.
@@ -564,6 +580,33 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         .$waitAndVerify();
     // Wait until GetStatusChange returns and result is verified.
     await statusPromise;
+  },
+
+  // Test Connect fails when there's no card inserted.
+  'testConnect_errorNoCard': async function() {
+    const establishContextResult = EMPTY_CONTEXT_RESULT;
+    expectReportEstablishContext(
+        /*requestId=*/ 123, 'SUCCESS', establishContextResult);
+    expectReportConnectResult(
+        /*requestId=*/ 124, chrome.smartCardProviderPrivate.Protocol.UNDEFINED,
+        'NO_SMARTCARD');
+    mockControl.$replayAll();
+
+    launchPcscServer(/*initialDevices=*/[
+      {'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}
+    ]);
+    createChromeApiProvider();
+    await mockChromeApi
+        .dispatchEvent('onEstablishContextRequested', /*requestId=*/ 123)
+        .$waitAndVerify();
+    await mockChromeApi
+        .dispatchEvent(
+            'onConnectRequested', /*requestId=*/ 124,
+            establishContextResult.sCardContext,
+            SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+            chrome.smartCardProviderPrivate.ShareMode.SHARED,
+            /*preferredProtocols*/ {'t0': true, 't1': true})
+        .$waitAndVerify();
   }
 });
 });  // goog.scope
