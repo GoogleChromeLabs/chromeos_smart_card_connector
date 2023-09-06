@@ -213,11 +213,15 @@ initialize_chromedriver() {
   fi
   log_message "Installing chromedriver..."
   rm -rf ./chromedriver
-  # Determine the currently installed version of Chrome. Leave only the numbers,
-  # e.g., 72.0.3626.0.
-  local chrome_version=$(google-chrome --version | cut -f 3 -d ' ')
-  # Download Chromedriver. As of now, the maintainers guarantee that there's a
-  # matching Chromedriver artifact for every publicly released Chrome version.
+  # Determine the version of the latest available stable chromedriver.
+  # The link is taken from here https://github.com/GoogleChromeLabs/chrome-for-testing#other-api-endpoints.
+  local chromedriver_version_url="https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_STABLE"
+  local chrome_version=$(wget -qO- "${chromedriver_version_url}")
+  if [[ ${chrome_version} == "" ]] ; then 
+    log_error_message "Failed to fetch chromedriver version at ${chromedriver_version_url} ; skipping chromedriver installation..."
+    return
+  fi
+  # Download Chromedriver.
   local chromedriver_url="https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${chrome_version}/linux64/chromedriver-linux64.zip"
   if ! wget "${chromedriver_url}" ; then
     log_error_message "Failed to fetch chromedriver at ${chromedriver_url} ; skipping chromedriver installation..."
