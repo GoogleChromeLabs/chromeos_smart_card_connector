@@ -128,7 +128,7 @@ async function assertRemainsPending(promise, timeoutMillis) {
  */
 function expectReportEstablishContext(requestId, resultCode, outResult) {
   mockChromeApi
-      .record('reportEstablishContextResult')(
+      .getFreshMock('reportEstablishContextResult')(
           requestId, goog.testing.mockmatchers.isNumber, resultCode)
       .$once()
       .$does((requestId, context, resultCode) => {
@@ -144,7 +144,8 @@ function expectReportEstablishContext(requestId, resultCode, outResult) {
  * @param {string} resultCode
  */
 function expectReportReleaseContext(requestId, resultCode) {
-  mockChromeApi.record('reportReleaseContextResult')(requestId, resultCode)
+  mockChromeApi
+      .getFreshMock('reportReleaseContextResult')(requestId, resultCode)
       .$once()
       .$replay();
 }
@@ -158,7 +159,7 @@ function expectReportReleaseContext(requestId, resultCode) {
  */
 function expectReportListReaders(requestId, readers, resultCode) {
   mockChromeApi
-      .record('reportListReadersResult')(requestId, readers, resultCode)
+      .getFreshMock('reportListReadersResult')(requestId, readers, resultCode)
       .$once()
       .$replay();
 }
@@ -172,7 +173,7 @@ function expectReportListReaders(requestId, readers, resultCode) {
  */
 function expectReportGetStatusChange(requestId, readerStates, resultCode) {
   mockChromeApi
-      .record('reportGetStatusChangeResult')(
+      .getFreshMock('reportGetStatusChangeResult')(
           requestId, readerStates, resultCode)
       .$once()
       .$replay();
@@ -185,7 +186,7 @@ function expectReportGetStatusChange(requestId, readerStates, resultCode) {
  * @param {string} resultCode
  */
 function expectReportPlainResult(requestId, resultCode) {
-  mockChromeApi.record('reportPlainResult')(requestId, resultCode)
+  mockChromeApi.getFreshMock('reportPlainResult')(requestId, resultCode)
       .$once()
       .$replay();
 }
@@ -199,7 +200,7 @@ function expectReportPlainResult(requestId, resultCode) {
  */
 function expectReportConnectResult(requestId, activeProtocol, resultCode) {
   mockChromeApi
-      .record('reportConnectResult')(
+      .getFreshMock('reportConnectResult')(
           requestId,
           /*scardHandle=*/ goog.testing.mockmatchers.isNumber, activeProtocol,
           resultCode)

@@ -245,7 +245,7 @@ GSC.ConnectorApp.MockChromeApi = class {
    * @param {string} functionName
    * @returns {Function} Mocked function object.
    */
-  record(functionName) {
+  getFreshMock(functionName) {
     const mock = chrome.smartCardProviderPrivate[functionName];
     assertEquals(
         `No mocked function ${functionName} found`, 'function', typeof mock);
