@@ -146,6 +146,37 @@ async function establishContext(requestId) {
 }
 
 /**
+ * Dispatches `onConnectRequested` and checks that result was reported
+ * correctly.
+ * @param {number} requestId
+ * @param {number} sCardContext
+ * @param {string} reader
+ * @param {!chrome.smartCardProviderPrivate.ShareMode} shareMode
+ * @param {!chrome.smartCardProviderPrivate.Protocols} preferredProtocols
+ * @param {!chrome.smartCardProviderPrivate.Protocol} expectedProtocol
+ * @returns {!Promise<!number>} Established connection handle.
+ */
+async function connect(
+    requestId, sCardContext, reader, shareMode, preferredProtocols,
+    expectedProtocol) {
+  let sCardHandle = 0;
+  getFreshMock('reportConnectResult')(
+          requestId, goog.testing.mockmatchers.isNumber, expectedProtocol,
+          'SUCCESS')
+      .$once()
+      .$does((_0, handle, _1, _2) => {
+        sCardHandle = handle;
+      })
+      .$replay();
+  await mockChromeApi
+      .dispatchEvent(
+          'onConnectRequested', requestId, sCardContext, reader, shareMode,
+          preferredProtocols)
+      .$waitAndVerify();
+  return sCardHandle;
+}
+
+/**
  * Sets expectation that reportEstablishContextResult will be called for given
  * `requestId` with result code equal to `resultCode`.
  * @param {number} requestId
@@ -378,7 +409,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         mockChromeApi
             .dispatchEvent(
                 'onGetStatusChangeRequested', /*requestId=*/ 124, sCardContext,
-                /*timeout*/ {}, [{
+                /*timeout=*/ {}, [{
                   'reader': PNP_NOTIFICATION,
                   'currentState': {'unaware': true},
                   'currentCount': 0
@@ -410,7 +441,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     await mockChromeApi
         .dispatchEvent(
             'onGetStatusChangeRequested', /*requestId=*/ 124, sCardContext,
-            /*timeout*/ {}, [{
+            /*timeout=*/ {}, [{
               'reader': SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
               'currentState': {'unknown': true},
               'currentCount': 0
@@ -441,7 +472,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         mockChromeApi
             .dispatchEvent(
                 'onGetStatusChangeRequested', /*requestId=*/ 124, sCardContext,
-                /*timeout*/ {}, [{
+                /*timeout=*/ {}, [{
                   'reader':
                       SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
                   'currentState': {'present': true},
@@ -470,7 +501,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     await mockChromeApi
         .dispatchEvent(
             'onGetStatusChangeRequested', /*requestId=*/ 124, sCardContext,
-            /*timeout*/ {'milliseconds': 10}, [{
+            /*timeout=*/ {'milliseconds': 10}, [{
               'reader': SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
               'currentState': {'present': true},
               'currentCount': 0
@@ -492,7 +523,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         mockChromeApi
             .dispatchEvent(
                 'onGetStatusChangeRequested', /*requestId=*/ 124, sCardContext,
-                /*timeout*/ {}, [{
+                /*timeout=*/ {}, [{
                   'reader':
                       SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
                   'currentState': {'empty': true},
@@ -528,7 +559,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
             'onConnectRequested', /*requestId=*/ 124, sCardContext,
             SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
             chrome.smartCardProviderPrivate.ShareMode.SHARED,
-            /*preferredProtocols*/ {'t0': true, 't1': true})
+            /*preferredProtocols=*/ {'t0': true, 't1': true})
         .$waitAndVerify();
   },
 
@@ -548,7 +579,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
             'onConnectRequested', /*requestId=*/ 124, sCardContext,
             SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
             chrome.smartCardProviderPrivate.ShareMode.DIRECT,
-            /*preferredProtocols*/ {})
+            /*preferredProtocols=*/ {})
         .$waitAndVerify();
   },
 
@@ -569,7 +600,45 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
             'onConnectRequested', /*requestId=*/ 124, sCardContext,
             SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
             chrome.smartCardProviderPrivate.ShareMode.SHARED,
-            /*preferredProtocols*/ {'t1': true})
+            /*preferredProtocols=*/ {'t1': true})
+        .$waitAndVerify();
+  },
+
+  // Test Disconnect succeeds with correct handle.
+  'testDisconnect_simple': async function() {
+    launchPcscServer(/*initialDevices=*/[{
+      'id': 123,
+      'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
+      'cardType': SimulationConstants.COSMO_CARD_TYPE
+    }]);
+    createChromeApiProvider();
+    const sCardContext = await establishContext(/*requestId=*/ 111);
+    const sCardHandle = await connect(
+        /*requestId=*/ 112, sCardContext,
+        SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+        chrome.smartCardProviderPrivate.ShareMode.SHARED,
+        /*preferredProtocols=*/ {'t1': true},
+        /*expectedProtocol=*/ chrome.smartCardProviderPrivate.Protocol.T1);
+    expectReportPlainResult(/*requestId=*/ 113, 'SUCCESS');
+    mockChromeApi.dispatchEvent(
+        'onDisconnectRequested', /*requestId=*/ 113, sCardHandle,
+        chrome.smartCardProviderPrivate.Disposition.LEAVE_CARD);
+  },
+
+  // Test Disconnect fails with invalid handle.
+  'testDisconnect_invalid': async function() {
+    launchPcscServer(/*initialDevices=*/[{
+      'id': 123,
+      'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
+      'cardType': SimulationConstants.COSMO_CARD_TYPE
+    }]);
+    createChromeApiProvider();
+    const BAD_HANDLE = 12228;
+    expectReportPlainResult(/*requestId=*/ 113, 'INVALID_HANDLE');
+    await mockChromeApi
+        .dispatchEvent(
+            'onDisconnectRequested', /*requestId=*/ 113, BAD_HANDLE,
+            chrome.smartCardProviderPrivate.Disposition.LEAVE_CARD)
         .$waitAndVerify();
   }
 });
