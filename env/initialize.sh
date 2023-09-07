@@ -213,23 +213,20 @@ initialize_chromedriver() {
   fi
   log_message "Installing chromedriver..."
   rm -rf ./chromedriver
-  # Determine the currently installed version of Chrome, e.g., "72".
-  # The program's output format is "Google Chrome 72.0.3626.0", of which we take
-  # the third space-separated token and grab its first dot-separated part.
-  local chrome_milestone=$(google-chrome --version | cut -f 3 -d ' ' |
-    cut -f 1 -d '.')
-  # Download Chromedriver's releases information.
-  local chromedriver_releases_url="https://googlechromelabs.github.io/chrome-for-testing/latest-versions-per-milestone-with-downloads.json"
-  if ! wget "${chromedriver_releases_url}" ; then
-    log_error_message "Failed to fetch chromedriver releases at ${chromedriver_releases_url} ; skipping chromedriver installation..."
+  # Determine the currently installed version of Chrome, in the
+  # major-minor-build format, e.g., 72.0.3626. (# The program's output format is
+  # "Google Chrome 72.0.3626.0").
+  local chrome_version=$(google-chrome --version | cut -f 3 -d ' ' |
+    cut -d '.' -f 1-3)
+  # Obtain the matching Chromedriver version.
+  local chromedriver_version_url="https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_${chrome_version}"
+  local chromedriver_version
+  if ! chromedriver_version=$(curl --fail --silent "${chromedriver_version_url}") ; then
+    log_error_message "Failed to fetch chromedriver version at ${chromedriver_version_url} ; skipping chromedriver installation..."
     return
   fi
-  # Parse the JSON to get the needed milestone's Chromedriver download URL.
-  local chromedriver_url=$(jq -r ".milestones[] | \
-    select(.milestone == \"${chrome_milestone}\") | .downloads | \
-    .chromedriver[] | select(.platform == \"linux64\") | .url" \
-    latest-versions-per-milestone-with-downloads.json)
   # Download Chromedriver.
+  local chromedriver_url="https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${chromedriver_version}/linux64/chromedriver-linux64.zip"
   if ! wget "${chromedriver_url}" ; then
     log_error_message "Failed to fetch chromedriver at ${chromedriver_url} ; skipping chromedriver installation..."
     return
@@ -241,7 +238,7 @@ initialize_chromedriver() {
   fi
   rm -f latest-versions-per-milestone-with-downloads.json
   rm -f chromedriver-linux64.zip
-  log_message "chromedriver ${chrome_milestone} was installed successfully."
+  log_message "chromedriver ${chromedriver_version} was installed successfully."
 }
 
 create_activate_script() {
