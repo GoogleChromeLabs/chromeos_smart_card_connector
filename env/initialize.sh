@@ -214,7 +214,7 @@ initialize_chromedriver() {
   log_message "Installing chromedriver..."
   rm -rf ./chromedriver
   # Determine the currently installed version of Chrome, in the
-  # major-minor-build format, e.g., 72.0.3626. (# The program's output format is
+  # major-minor-build format, e.g., 72.0.3626. (The program's output format is
   # "Google Chrome 72.0.3626.0").
   local chrome_version=$(google-chrome --version | cut -f 3 -d ' ' |
     cut -d '.' -f 1-3)
@@ -236,7 +236,6 @@ initialize_chromedriver() {
     log_error_message "Failed to unpack chromedriver executable; skipping chromedriver installation..."
     return
   fi
-  rm -f latest-versions-per-milestone-with-downloads.json
   rm -f chromedriver-linux64.zip
   log_message "chromedriver ${chromedriver_version} was installed successfully."
 }
