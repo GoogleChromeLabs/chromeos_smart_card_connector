@@ -832,6 +832,64 @@ goog.exportSymbol('testPcscApi', {
       assertTrue(called);
       assertEquals(statusResult.getErrorCode(), API.SCARD_E_CANCELLED);
     },
+
+    // Test `SCardConnect()` succeeds for dwShareMode `SCARD_SHARE_DIRECT` even
+    // when there's no card inserted.
+    'testSCardConnect_successDirectNoCard': async function() {
+      await launchPcscServer(
+          /*initialDevices=*/[
+            {'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}
+          ]);
+      const context = await establishContextOrThrow();
+
+      const result = await client.api.SCardConnect(
+          context, SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+          API.SCARD_SHARE_DIRECT, /*preferred_protocols=*/ 0);
+
+      let called = false;
+      result.get(
+          (sCardHandle, activeProtocol) => {
+            called = true;
+            assert(Number.isInteger(sCardHandle));
+            assertNotEquals(sCardHandle, 0);
+            assertEquals(activeProtocol, 0);
+          },
+          (errorCode) => {
+            fail(`Unexpected error ${errorCode}`);
+          });
+      assert(called);
+      assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
+    },
+
+    // Test `SCardConnect()` successfully connects to a card using the "T1"
+    // protocol.
+    'testSCardConnect_successT1Card': async function() {
+      await launchPcscServer(
+          /*initialDevices=*/[{
+            'id': 123,
+            'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
+            'cardType': SimulationConstants.COSMO_CARD_TYPE
+          }]);
+      const context = await establishContextOrThrow();
+
+      const result = await client.api.SCardConnect(
+          context, SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+          API.SCARD_SHARE_SHARED, API.SCARD_PROTOCOL_ANY);
+
+      let called = false;
+      result.get(
+          (sCardHandle, activeProtocol) => {
+            called = true;
+            assert(Number.isInteger(sCardHandle));
+            assertNotEquals(sCardHandle, 0);
+            assertEquals(activeProtocol, API.SCARD_PROTOCOL_T1);
+          },
+          (errorCode) => {
+            fail(`Unexpected error ${errorCode}`);
+          });
+      assert(called);
+      assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
+    },
   },
 
   // Test that the PC/SC server can shut down successfully when there's an
