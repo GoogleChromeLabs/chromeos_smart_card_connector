@@ -28,7 +28,6 @@ runs:
     uses: actions/setup-python@v3.1.2
     with:
       python-version: 3.9
-      cache: pip
 
   - name: Initialize env
     shell: bash
