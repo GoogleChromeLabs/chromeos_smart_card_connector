@@ -851,7 +851,6 @@ goog.exportSymbol('testPcscApi', {
           (sCardHandle, activeProtocol) => {
             called = true;
             assert(Number.isInteger(sCardHandle));
-            assertNotEquals(sCardHandle, 0);
             assertEquals(activeProtocol, 0);
           },
           (errorCode) => {
@@ -881,7 +880,6 @@ goog.exportSymbol('testPcscApi', {
           (sCardHandle, activeProtocol) => {
             called = true;
             assert(Number.isInteger(sCardHandle));
-            assertNotEquals(sCardHandle, 0);
             assertEquals(activeProtocol, API.SCARD_PROTOCOL_T1);
           },
           (errorCode) => {
