@@ -213,12 +213,20 @@ initialize_chromedriver() {
   fi
   log_message "Installing chromedriver..."
   rm -rf ./chromedriver
-  # Determine the currently installed version of Chrome. Leave only the numbers,
-  # e.g., 72.0.3626.0.
-  local chrome_version=$(google-chrome --version | cut -f 3 -d ' ')
-  # Download Chromedriver. As of now, the maintainers guarantee that there's a
-  # matching Chromedriver artifact for every publicly released Chrome version.
-  local chromedriver_url="https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${chrome_version}/linux64/chromedriver-linux64.zip"
+  # Determine the currently installed version of Chrome, in the
+  # major-minor-build format, e.g., 72.0.3626. (The program's output format is
+  # "Google Chrome 72.0.3626.0").
+  local chrome_version=$(google-chrome --version | cut -f 3 -d ' ' |
+    cut -d '.' -f 1-3)
+  # Obtain the matching Chromedriver version.
+  local chromedriver_version_url="https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_${chrome_version}"
+  local chromedriver_version
+  if ! chromedriver_version=$(curl --fail --silent "${chromedriver_version_url}") ; then
+    log_error_message "Failed to fetch chromedriver version at ${chromedriver_version_url} ; skipping chromedriver installation..."
+    return
+  fi
+  # Download Chromedriver.
+  local chromedriver_url="https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${chromedriver_version}/linux64/chromedriver-linux64.zip"
   if ! wget "${chromedriver_url}" ; then
     log_error_message "Failed to fetch chromedriver at ${chromedriver_url} ; skipping chromedriver installation..."
     return
@@ -228,8 +236,8 @@ initialize_chromedriver() {
     log_error_message "Failed to unpack chromedriver executable; skipping chromedriver installation..."
     return
   fi
-  rm -rf chromedriver-linux64.zip
-  log_message "chromedriver ${chrome_version} was installed successfully."
+  rm -f chromedriver-linux64.zip
+  log_message "chromedriver ${chromedriver_version} was installed successfully."
 }
 
 create_activate_script() {
