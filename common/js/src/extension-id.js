@@ -31,5 +31,4 @@ const GSC = GoogleSmartCard;
 GSC.ExtensionId.looksLikeExtensionId = function(string) {
   return string.length === 32 && !!string.match(/[a-p]/i);
 };
-
 });  // goog.scope

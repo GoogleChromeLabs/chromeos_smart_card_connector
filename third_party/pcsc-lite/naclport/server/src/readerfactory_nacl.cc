@@ -39,7 +39,7 @@ LONG RFAddReaderOriginal(const char* reader_name,
                          int port,
                          const char* library,
                          const char* device);
-LONG RFRemoveReaderOriginal(const char *reader_name, int port, int flags);
+LONG RFRemoveReaderOriginal(const char* reader_name, int port, int flags);
 }
 
 LONG RFAddReader(const char* reader_name,
@@ -62,7 +62,7 @@ LONG RFAddReader(const char* reader_name,
 // so it actually works when the function is called from outside the file where
 // it is defined, but not from inside (readerfactory). Sometimes it may get
 // called from the inside, and that call won't be intercepted, but that is fine.
-LONG RFRemoveReader(const char *reader_name, int port, int flags) {
+LONG RFRemoveReader(const char* reader_name, int port, int flags) {
   google_smart_card::PcscLiteServerWebPortService::GetInstance()
       ->PostReaderRemoveMessage(reader_name, port);
 

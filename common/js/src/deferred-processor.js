@@ -42,17 +42,18 @@ const suppressUnhandledRejectionError =
  * @struct
  */
 class Job {
-/**
- * @param {function()} jobFunction The job function that needs to be executed.
- * @param {!goog.promise.Resolver} promiseResolver The promise (with methods to
- * resolve it) which should be used for returning the job result.
- */
-constructor(jobFunction, promiseResolver) {
-  /** @const */
-  this.jobFunction = jobFunction;
-  /** @const */
-  this.promiseResolver = promiseResolver;
-}
+  /**
+   * @param {function()} jobFunction The job function that needs to be executed.
+   * @param {!goog.promise.Resolver} promiseResolver The promise (with methods
+   *     to
+   * resolve it) which should be used for returning the job result.
+   */
+  constructor(jobFunction, promiseResolver) {
+    /** @const */
+    this.jobFunction = jobFunction;
+    /** @const */
+    this.promiseResolver = promiseResolver;
+  }
 }
 
 const logger = GSC.Logging.getScopedLogger('DeferredProcessor');
@@ -78,128 +79,125 @@ const logger = GSC.Logging.getScopedLogger('DeferredProcessor');
  * be called from inside another job.
  */
 GSC.DeferredProcessor = class extends goog.Disposable {
-
-/**
- * @param {!goog.Promise} awaitedPromise
- */
-constructor(awaitedPromise) {
-  super();
-
   /**
-   * This flag gets true once the awaited promise is resolved, or once the self
-   * instance gets disposed (whichever happens first).
-   * @type {boolean}
-   * @private
+   * @param {!goog.Promise} awaitedPromise
    */
-  this.isSettled_ = false;
+  constructor(awaitedPromise) {
+    super();
 
-  /**
-   * This flag allows to detect whether the execution is nested into a jobs
-   * flushing loop upper in the stack.
-   * @type {boolean}
-   * @private
-   */
-  this.isCurrentlyFlushingJobs_ = false;
+    /**
+     * This flag gets true once the awaited promise is resolved, or once the
+     * self instance gets disposed (whichever happens first).
+     * @type {boolean}
+     * @private
+     */
+    this.isSettled_ = false;
 
-  /** @type {!goog.structs.Queue.<!Job>} @private @const */
-  this.jobsQueue_ = new goog.structs.Queue();
+    /**
+     * This flag allows to detect whether the execution is nested into a jobs
+     * flushing loop upper in the stack.
+     * @type {boolean}
+     * @private
+     */
+    this.isCurrentlyFlushingJobs_ = false;
 
-  awaitedPromise.then(
-      this.promiseResolvedListener_.bind(this),
-      this.promiseRejectedListener_.bind(this));
-}
+    /** @type {!goog.structs.Queue.<!Job>} @private @const */
+    this.jobsQueue_ = new goog.structs.Queue();
 
-/**
- * Adds a new job, whose result will eventually be passed through the returned
- * promise.
- *
- * The job may be executed immediately, if the awaited promise is already
- * fulfilled (though this is not guaranteed to happen immediately). Otherwise,
- * the job will buffered, will be and executed only after the awaited promise
- * gets fulfilled. If the awaited promise gets rejected, or if the deferred
- * processor gets disposed, then the returned promise will be rejected.
- * @param {function()} jobFunction
- * @return {!goog.Promise}
- */
-addJob(jobFunction) {
-  // Enqueue the job regardless of the state. This allows to deal nicely with
-  // the nested cases.
-  const promiseResolver = goog.Promise.withResolver();
-  suppressUnhandledRejectionError(promiseResolver.promise);
-  this.jobsQueue_.enqueue(new Job(jobFunction, promiseResolver));
-  if (this.isSettled_)
-    this.flushEnqueuedJobs_();
-  return promiseResolver.promise;
-}
-
-/** @override */
-disposeInternal() {
-  this.isSettled_ = true;
-  this.flushEnqueuedJobs_();
-
-  goog.log.fine(logger, 'Disposed');
-
-  super.disposeInternal();
-}
-
-/** @private */
-promiseResolvedListener_() {
-  if (this.isDisposed())
-    return;
-  if (this.isSettled_)
-    return;
-  this.isSettled_ = true;
-  goog.log.fine(logger, 'The awaited promise was resolved');
-  this.flushEnqueuedJobs_();
-}
-
-/** @private */
-promiseRejectedListener_() {
-  if (this.isDisposed())
-    return;
-  goog.log.fine(logger, 'The awaited promise was rejected, disposing...');
-  this.dispose();
-}
-
-/** @private */
-flushEnqueuedJobs_() {
-  GSC.Logging.checkWithLogger(logger, this.isSettled_);
-
-  // Use a flag to prevent nested loops of jobs flushing.
-  if (this.isCurrentlyFlushingJobs_) {
-    // If the flag is already raised, then all jobs will be processed by the
-    // flushEnqueuedJobs_() call upper in the stack, so no work has be done
-    // here.
-    return;
+    awaitedPromise.then(
+        this.promiseResolvedListener_.bind(this),
+        this.promiseRejectedListener_.bind(this));
   }
-  this.isCurrentlyFlushingJobs_ = true;
 
-  while (!this.jobsQueue_.isEmpty()) {
-    const job = this.jobsQueue_.dequeue();
-    // Note that it's crucial to check isDisposed() on each loop iteration, as
-    // the disposal may happen any time during a job execution.
-    if (this.isDisposed()) {
-      job.promiseResolver.reject(new Error(
-          'Deferred job was skipped: the job processor has been disposed'));
-    } else {
-      // Run the job inside a try-catch statement in order to treat exceptions
-      // during job execution as the job failure. Also this makes sure that the
-      // self instance is not left in a broken state.
-      /** @preserveTry */
-      try {
-        job.promiseResolver.resolve(job.jobFunction());
-      } catch (exc) {
-        job.promiseResolver.reject(exc);
+  /**
+   * Adds a new job, whose result will eventually be passed through the returned
+   * promise.
+   *
+   * The job may be executed immediately, if the awaited promise is already
+   * fulfilled (though this is not guaranteed to happen immediately). Otherwise,
+   * the job will buffered, will be and executed only after the awaited promise
+   * gets fulfilled. If the awaited promise gets rejected, or if the deferred
+   * processor gets disposed, then the returned promise will be rejected.
+   * @param {function()} jobFunction
+   * @return {!goog.Promise}
+   */
+  addJob(jobFunction) {
+    // Enqueue the job regardless of the state. This allows to deal nicely with
+    // the nested cases.
+    const promiseResolver = goog.Promise.withResolver();
+    suppressUnhandledRejectionError(promiseResolver.promise);
+    this.jobsQueue_.enqueue(new Job(jobFunction, promiseResolver));
+    if (this.isSettled_)
+      this.flushEnqueuedJobs_();
+    return promiseResolver.promise;
+  }
+
+  /** @override */
+  disposeInternal() {
+    this.isSettled_ = true;
+    this.flushEnqueuedJobs_();
+
+    goog.log.fine(logger, 'Disposed');
+
+    super.disposeInternal();
+  }
+
+  /** @private */
+  promiseResolvedListener_() {
+    if (this.isDisposed())
+      return;
+    if (this.isSettled_)
+      return;
+    this.isSettled_ = true;
+    goog.log.fine(logger, 'The awaited promise was resolved');
+    this.flushEnqueuedJobs_();
+  }
+
+  /** @private */
+  promiseRejectedListener_() {
+    if (this.isDisposed())
+      return;
+    goog.log.fine(logger, 'The awaited promise was rejected, disposing...');
+    this.dispose();
+  }
+
+  /** @private */
+  flushEnqueuedJobs_() {
+    GSC.Logging.checkWithLogger(logger, this.isSettled_);
+
+    // Use a flag to prevent nested loops of jobs flushing.
+    if (this.isCurrentlyFlushingJobs_) {
+      // If the flag is already raised, then all jobs will be processed by the
+      // flushEnqueuedJobs_() call upper in the stack, so no work has be done
+      // here.
+      return;
+    }
+    this.isCurrentlyFlushingJobs_ = true;
+
+    while (!this.jobsQueue_.isEmpty()) {
+      const job = this.jobsQueue_.dequeue();
+      // Note that it's crucial to check isDisposed() on each loop iteration, as
+      // the disposal may happen any time during a job execution.
+      if (this.isDisposed()) {
+        job.promiseResolver.reject(new Error(
+            'Deferred job was skipped: the job processor has been disposed'));
+      } else {
+        // Run the job inside a try-catch statement in order to treat exceptions
+        // during job execution as the job failure. Also this makes sure that
+        // the self instance is not left in a broken state.
+        /** @preserveTry */
+        try {
+          job.promiseResolver.resolve(job.jobFunction());
+        } catch (exc) {
+          job.promiseResolver.reject(exc);
+        }
       }
     }
+
+    GSC.Logging.checkWithLogger(logger, this.isCurrentlyFlushingJobs_);
+    this.isCurrentlyFlushingJobs_ = false;
   }
-
-  GSC.Logging.checkWithLogger(logger, this.isCurrentlyFlushingJobs_);
-  this.isCurrentlyFlushingJobs_ = false;
-}
-
 };
 
 GSC.DeferredProcessor.logger = logger;
-
 });  // goog.scope

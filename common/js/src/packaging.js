@@ -49,5 +49,4 @@ GSC.Logging.check(
  * @const
  */
 GSC.Packaging.MODE = /** @type {!GSC.Packaging.Mode} */ (MODE);
-
 });  // goog.scope
