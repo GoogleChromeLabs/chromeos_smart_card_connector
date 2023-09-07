@@ -25,6 +25,7 @@ runs:
       pkg-config
 
   - name: Set up Python 3
+    if: ${{ inputs.toolchain == 'emscripten' || inputs.toolchain == 'pnacl' }}
     uses: actions/setup-python@v3.1.2
     with:
       python-version: 3.9
