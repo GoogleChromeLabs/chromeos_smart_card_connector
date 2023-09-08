@@ -21,7 +21,6 @@ goog.require('goog.Promise');
 goog.require('goog.json');
 goog.require('goog.net.HttpStatus');
 goog.require('goog.testing');
-goog.require('goog.testing.PropertyReplacer');
 goog.require('goog.testing.jsunit');
 goog.require('goog.testing.net.XhrIo');
 
@@ -41,19 +40,8 @@ const FAKE_TRUSTED_CLIENTS = {
   [FAKE_APP_1_ORIGIN]: {'name': FAKE_APP_1_NAME},
 };
 
-const propertyReplacer = new goog.testing.PropertyReplacer();
 /** @type {TrustedClientsRegistryImpl?} */
 let registry;
-
-/**
- * Set up the mock for goog.net.XhrIo.
- *
- * This allows mocking out network requests.
- * @param {!goog.testing.PropertyReplacer} propertyReplacer
- */
-function setUpXhrioMock(propertyReplacer) {
-  propertyReplacer.setPath('goog.net.XhrIo.send', goog.testing.net.XhrIo.send);
-}
 
 /**
  * Simulates the response delivery for a previously created mock Xhrio request.
@@ -73,17 +61,15 @@ function simulateXhrioResponse() {
 
 goog.exportSymbol('testTrustedClientsRegistry', {
   'setUp': function() {
-    const propertyReplacer = new goog.testing.PropertyReplacer();
-    setUpXhrioMock(propertyReplacer);
-
+    TrustedClientsRegistryImpl.overrideSendForTesting(
+        goog.testing.net.XhrIo.send);
     registry = new TrustedClientsRegistryImpl();
-
     simulateXhrioResponse();
   },
 
   'tearDown': function() {
     registry = null;
-    propertyReplacer.reset();
+    TrustedClientsRegistryImpl.overrideSendForTesting(null);
   },
 
   'testGetByOrigin_success': async function() {

@@ -53,6 +53,12 @@ const AUTOAPPROVE_FIELD = 'autoapprove';
 const GSC = GoogleSmartCard;
 
 /**
+ * Test-only override of `goog.net.XhrIo.send()`.
+ * @type {function(string, function(this: goog.net.XhrIo))|null}
+ */
+let sendOverrideForTesting;
+
+/**
  * This structure holds the information about a trusted client.
  * @param {string} origin
  * @param {string} name
@@ -178,12 +184,20 @@ TrustedClientsRegistryImpl.prototype.tryGetByOrigins = function(originList) {
   return promiseResolver.promise;
 };
 
+/**
+ * @param {function(string, function(this: goog.net.XhrIo))|null} sendOverride
+ */
+TrustedClientsRegistryImpl.overrideSendForTesting = function(sendOverride) {
+  sendOverrideForTesting = sendOverride;
+};
+
 /** @private */
 TrustedClientsRegistryImpl.prototype.startLoadingJson_ = function() {
   goog.log.fine(
       this.logger,
       'Loading registry from JSON file (URL: "' + JSON_CONFIG_URL + '")...');
-  goog.net.XhrIo.send(JSON_CONFIG_URL, this.jsonLoadedCallback_.bind(this));
+  const sender = sendOverrideForTesting || goog.net.XhrIo.send;
+  sender(JSON_CONFIG_URL, this.jsonLoadedCallback_.bind(this));
 };
 
 /** @private */
