@@ -14,24 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script formats the modified C++/JS files via clang-format according to
-# the Chromium Style Guides.
-# Only files that are known to Git and belong to the diff of the "main" branch
-# are considered.
-#
-# Note: Sorting of C/C++ #include's is currently disabled, since the standard
-# algorithm reorders them incorrectly (e.g., it puts includes within our project
-# into the same group as C system headers).
-
 set -eu
 
-# Go to the root directory of the repository.
-cd $(dirname $(realpath ${0}))
+>&2 echo "WARNING: The script has been moved. Use scripts/format-code.py instead."
 
-# Find all relevant files to be checked. Bail out if nothing is found.
-FILES=$(scripts/internal/find-files-for-linting.py "*.cc" "*.h" "*.js")
-[ "${FILES}" ] || exit 0
-
-# Run clang-format on every found file.
-echo "${FILES}" | \
-  xargs clang-format -i --style=Chromium --sort-includes=false
+$(dirname $(realpath ${0}))/scripts/format-code.py
