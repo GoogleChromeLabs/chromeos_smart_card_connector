@@ -620,7 +620,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         /*preferredProtocols=*/ {'t1': true},
         /*expectedProtocol=*/ chrome.smartCardProviderPrivate.Protocol.T1);
     expectReportPlainResult(/*requestId=*/ 113, 'SUCCESS');
-    mockChromeApi.dispatchEvent(
+    await mockChromeApi.dispatchEvent(
         'onDisconnectRequested', /*requestId=*/ 113, sCardHandle,
         chrome.smartCardProviderPrivate.Disposition.LEAVE_CARD);
   },
