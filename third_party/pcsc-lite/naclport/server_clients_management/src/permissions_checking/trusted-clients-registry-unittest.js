@@ -29,20 +29,14 @@ goog.setTestOnly();
 
 goog.scope(function() {
 
-/** @const */
 const GSC = GoogleSmartCard;
 
-/** @const */
 const TrustedClientsRegistryImpl =
     GSC.PcscLiteServer.TrustedClientsRegistryImpl;
 
-/** @const */
 const FAKE_APP_1_ID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
-/** @const */
 const FAKE_APP_1_NAME = 'App Name 1';
-/** @const */
 const FAKE_APP_2_ID = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
-/** @const */
 const FAKE_TRUSTED_CLIENTS = {
   [FAKE_APP_1_ID]: {'name': FAKE_APP_1_NAME}
 };
