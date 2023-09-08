@@ -95,6 +95,8 @@ endif
 # Add common Closure Compiler flags.
 #
 # Explanation:
+# browser_featureset_year: Specify the year that's appropriate for the oldest
+#   still supported Chrome release - currently "81" for pnacl-in-App builds.
 # dependency_mode=PRUNE: Skip unused JS code.
 # jscomp_error *: Enable all warning classes and treat them as errors by
 #   default. Note: To be on the safe side, we're specifying all possible warning
@@ -120,6 +122,7 @@ endif
 # use_types_for_optimization: Allow compiler to do code optimizations based on
 #   type annotations.
 JS_BUILD_COMPILATION_FLAGS += \
+	--browser_featureset_year=2020 \
 	--define='GoogleSmartCard.ExecutableModule.TOOLCHAIN=$(TOOLCHAIN)' \
 	--define='GoogleSmartCard.Logging.USE_SCOPED_LOGGERS=false' \
 	--define='GoogleSmartCard.Packaging.MODE=$(PACKAGING)' \
@@ -133,36 +136,6 @@ JS_BUILD_COMPILATION_FLAGS += \
 	--jscomp_off unknownDefines \
 	--use_types_for_optimization=true \
 	--warning_level=VERBOSE \
-
-ifeq ($(PACKAGING) $(TOOLCHAIN),app pnacl)
-
-# Add Closure Compiler flags specific to App builds.
-#
-# Note that PACKAGING=app TOOLCHAIN=pnacl builds keep backwards compatibility
-# with all versions of Chrome since the start of this project, which is 2015.
-#
-# browser_featureset_year: Specify the year that's appropriate for the oldest
-#   Chrome release still supported by the NaCl builds, which is 2012.
-JS_BUILD_COMPILATION_FLAGS += \
-	--browser_featureset_year=2012 \
-
-else
-
-# Add Closure Compiler flags in the generic (non-App-with-PNaCl) case.
-#
-# Note that we're only guaranteeing backwards compatibility with Chrome >=96,
-# since it's the first version that made the PACKAGING=extension version of the
-# Smart Card Connector workable:
-# <https://bugs.chromium.org/p/chromium/issues/detail?id=1233881>. WebAssembly
-# builds are generally workable with earlier versions, however older Chrome
-# versions had a few critical bugs, so for simplicity we assume >=96 as well.
-#
-# browser_featureset_year: Specify the year that's appropriate for the oldest
-#   still supported Chrome release, which is 2020.
-JS_BUILD_COMPILATION_FLAGS += \
-	--browser_featureset_year=2020 \
-
-endif
 
 
 # Closure Compiler compilation flags that should be additionally specified when
