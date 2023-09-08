@@ -65,6 +65,9 @@ GSC.EmscriptenModule = class extends GSC.ExecutableModule {
         this.loadPromiseResolver_.promise);
     /** @type {!EmscriptenModuleMessageChannel} @const @private */
     this.messageChannel_ = new EmscriptenModuleMessageChannel();
+    // The "Module" object exposed by the Emscripten framework.
+    /** @type {!Object|null} @private */
+    this.emscriptenApiModule_ = null;
     // Object that is an entry point on the C++ side and is used for exchanging
     // messages with it. Untyped, since the class "GoogleSmartCardModule" is
     // defined within the Emscripten module (using Embind) and therefore isn't
@@ -113,6 +116,12 @@ GSC.EmscriptenModule = class extends GSC.ExecutableModule {
       this.googleSmartCardModule_['delete']();
       delete this.googleSmartCardModule_;
     }
+    if (this.emscriptenApiModule_) {
+      // Force-shutdown threads and worker pools that Emscripten may have
+      // reserved.
+      this.emscriptenApiModule_['PThread']['terminateAllThreads']();
+      delete this.emscriptenApiModule_;
+    }
     this.messageChannel_.dispose();
     super.disposeInternal();
   }
@@ -143,14 +152,15 @@ GSC.EmscriptenModule = class extends GSC.ExecutableModule {
     GSC.Logging.checkWithLogger(
         this.logger_, factoryFunction,
         'Emscripten factory function not defined');
-    const emscriptenApiModule =
+    this.emscriptenApiModule_ =
         await factoryFunction(this.getEmscriptenApiModuleSettings_());
 
     // Third step: Create the object that serves as an entry point on the C++
     // side and is used for exchanging messages with it. By convention (see the
     // entry_point_emscripten.cc files), the class is named
     // GoogleSmartCardModule.
-    const GoogleSmartCardModule = emscriptenApiModule['GoogleSmartCardModule'];
+    const GoogleSmartCardModule =
+        this.emscriptenApiModule_['GoogleSmartCardModule'];
     GSC.Logging.checkWithLogger(
         this.logger_, GoogleSmartCardModule,
         'GoogleSmartCardModule class not defined');
