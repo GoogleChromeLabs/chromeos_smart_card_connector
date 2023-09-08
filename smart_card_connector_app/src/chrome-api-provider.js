@@ -379,6 +379,32 @@ function getArrayDebugRepresentation(arr) {
 }
 
 /**
+ * Wraps a callback that processes the actual PCSC requests.
+ * Logs the received request and result.
+ * Reports the result through the `reportResultFunction`.
+ * @param {Function} callback
+ * @param {Function} reportResultFunction
+ * @param {string} nameForLogs
+ */
+function createRequestListener(callback, reportResultFunction, nameForLogs) {
+  return async (requestId, ...args) => {
+    const argsDebug = getArrayDebugRepresentation(args);
+    goog.log.fine(
+        logger,
+        `Processing an event with id ${requestId}: ` +
+            `${nameForLogs}(${argsDebug})`);
+
+    const result = await callback(...args);
+    const resultDebug = getArrayDebugRepresentation(result);
+    goog.log.info(
+        logger,
+        `Reporting result for the event with id ${requestId}, ` +
+            `${nameForLogs}(${argsDebug}): [${resultDebug}]`);
+    reportResultFunction(requestId, ...result);
+  };
+}
+
+/**
  * This class subscribes to a Chrome event with a callback, specified in the
  * constructor arguments. Reports the result from the callback to
  * `reportResultFunction`. Unsubscribes on disposal.
@@ -393,28 +419,24 @@ class ChromeEventListener extends goog.Disposable {
   constructor(chromeEvent, callback, reportResultFunction, nameForLogs) {
     super();
     this.chromeEvent_ = chromeEvent;
-    this.callback_ = async (requestId, ...args) => {
-      const argsDebug = getArrayDebugRepresentation(args);
-      goog.log.fine(
-          logger,
-          `Processing an event with id ${requestId}: ` +
-              `${nameForLogs}(${argsDebug})`);
-
-      const result = await callback(...args);
-      const resultDebug = getArrayDebugRepresentation(result);
-      goog.log.info(
-          logger,
-          `Reporting result for the event with id ${requestId}, ` +
-              `${nameForLogs}(${argsDebug}): [${resultDebug}]`);
-      reportResultFunction(requestId, ...result);
-    };
-    this.chromeEvent_.addListener(this.callback_);
+    this.callback_ =
+        createRequestListener(callback, reportResultFunction, nameForLogs);
+    try {
+      this.chromeEvent_.addListener(this.callback_);
+    } catch (error) {
+      this.callback_ = null;
+      goog.log.warning(
+          logger, `Failed to subscribe to the event ${nameForLogs}: ${error}`);
+    }
   }
 
   /** @override */
   disposeInternal() {
-    this.chromeEvent_.removeListener(this.callback_);
-    this.callback_ = null;
+    // If subscribed to chrome event, unsubscribe.
+    if (this.callback_) {
+      this.chromeEvent_.removeListener(this.callback_);
+      this.callback_ = null;
+    }
   }
 }
 
