@@ -11,10 +11,14 @@ runs:
   # stalled, causing 404 errors when trying to install packages later.
   - name: Apt update
     shell: bash
+    env:
+      DEBIAN_FRONTEND: noninteractive
     run: sudo apt-get update
 
   - name: Install dependencies
     shell: bash
+    env:
+      DEBIAN_FRONTEND: noninteractive
     run: >
       sudo apt-get install -y
       autoconf
@@ -25,7 +29,7 @@ runs:
       pkg-config
 
   - name: Set up Python 3
-    uses: actions/setup-python@v3.1.2
+    uses: actions/setup-python@v4
     with:
       python-version: 3.9
 
@@ -39,6 +43,8 @@ runs:
   - name: Install LLVM toolchain
     if: ${{ inputs.toolchain == 'asan_testing' || inputs.toolchain == 'coverage' }}
     shell: bash
+    env:
+      DEBIAN_FRONTEND: noninteractive
     run: >
       sudo apt-get install -y
       build-essential

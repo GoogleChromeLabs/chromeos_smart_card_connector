@@ -27,7 +27,9 @@ jobs:
 
     steps:
     - name: Check out sources
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
+      with:
+        show-progress: false
 
     - name: Install build dependencies
       uses: ./.github/actions/build-dependencies-installation
@@ -78,7 +80,9 @@ jobs:
 
     steps:
     - name: Check out sources
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
+      with:
+        show-progress: false
 
     - name: Install build dependencies
       uses: ./.github/actions/build-dependencies-installation
@@ -110,7 +114,9 @@ jobs:
 
     steps:
     - name: Check out sources
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
+      with:
+        show-progress: false
 
     - name: Install build dependencies
       uses: ./.github/actions/build-dependencies-installation
@@ -144,8 +150,9 @@ jobs:
     # Check out with additionally pulling the parent commit. (In case of Pull
     # Requests, it's pointing to the base branch's head.)
     - name: Check out sources
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
+        show-progress: false
         fetch-depth: 2
 
     - name: Install dependencies
@@ -176,7 +183,9 @@ jobs:
     timeout-minutes: 60
     steps:
     - name: Check out sources
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
+      with:
+        show-progress: false
 
     - name: Install build dependencies
       uses: ./.github/actions/build-dependencies-installation
@@ -218,7 +227,7 @@ jobs:
     steps:
     - name: Comment on pull request
       if: github.event.pull_request
-      uses: peter-evans/create-or-update-comment@v2
+      uses: peter-evans/create-or-update-comment@v3
       with:
         issue-number: ${{ github.event.pull_request.number }}
         body: |
