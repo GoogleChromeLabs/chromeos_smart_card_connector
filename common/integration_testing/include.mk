@@ -17,8 +17,9 @@
 # cases, meanwhile the C++ side provides neccessary helpers and/or exercised
 # code.
 #
-# /common/make/common.mk and /common/make/executable_building.mk must be
-# included before including this file.
+# /common/make/common.mk, common/make/js_building_common.mk and
+# /common/make/executable_building.mk must be included before including this
+# file.
 
 # Common documentation for definitions provided by this file (they are
 # implemented in toolchain-specific .mk files, but share the same interface):

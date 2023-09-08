@@ -1,0 +1,5 @@
+/js_build/
+/out/
+/out-artifacts-emscripten/
+/pnacl/
+/user-data-dir/
