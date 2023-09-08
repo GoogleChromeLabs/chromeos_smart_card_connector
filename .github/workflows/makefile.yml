@@ -12,6 +12,7 @@ on:
     - cron: "0 0 * * *"
 
 env:
+  LLVM_VERSION: 15
   # The version of libstdc++ to install for analysis builds.
   ANALYSIS_LIBSTDCPP_VERSION: 12
 
@@ -141,10 +142,38 @@ jobs:
       run: >
         source env/activate && make test
 
-  # Run ESLint for JavaScript code.
-  lint-js:
+  # Determine the set of files to be linted or checked for formatting. For PR's
+  # that don't touch CI configs or helper scripts, only look at the diff (which,
+  # as Github executes the action on the merge commit, is the base branch).
+  # Otherwise, all files are to be examined.
+  lint-scope-check:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      only_diff_to_parent: ${{ steps.diff-to-parent.outputs.only_diff_to_parent }}
+      base_to_diff_against: ${{ steps.diff-to-parent.outputs.only_diff_to_parent && 'HEAD^1' || 'none' }}
+
+    steps:
+    # Check out with additionally pulling the parent commit. (In case of Pull
+    # Requests, it's pointing to the base branch's head.)
+    - name: Check out sources
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+        show-progress: false
+
+    - name: Determine lint scope
+      id: diff-to-parent
+      if: ${{ github.event_name == 'pull_request' }}
+      run: |
+        export LINTER_CHANGES=$(git diff --name-only HEAD^1 HEAD | grep -E 'eslint|.github|scripts')
+        [ -n "$LINTER_CHANGES" ] || (echo "only_diff_to_parent=1" >> "$GITHUB_OUTPUT")
+
+  # Do clang-format dry-run for C++/JavaScript code.
+  check-formatting:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [lint-scope-check]
 
     steps:
     # Check out with additionally pulling the parent commit. (In case of Pull
@@ -153,27 +182,42 @@ jobs:
       uses: actions/checkout@v4
       with:
         show-progress: false
-        fetch-depth: 2
+
+    - name: Install dependencies
+      uses: ./.github/actions/build-dependencies-installation
+      with:
+        toolchain: clang-format
+
+    - name: clang-format version
+      run: clang-format --version
+
+    - name: clang-format config
+      run: clang-format -style=Chromium -dump-config
+
+    - name: Check code format
+      run: >
+        scripts/format-code.py --check-only --llvm-version=${LLVM_VERSION} --base="${{ needs.lint-scope-check.outputs.base_to_diff_against }}"
+
+  # Run ESLint for JavaScript code.
+  lint-js:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [lint-scope-check]
+
+    steps:
+    - name: Check out sources
+      uses: actions/checkout@v4
+      with:
+        show-progress: false
 
     - name: Install dependencies
       uses: ./.github/actions/build-dependencies-installation
       with:
         toolchain: eslint
 
-    # Determine the set of files to be linted. For PR's that don't touch linter
-    # config or helper scripts, only look at the diff against the parent commit
-    # (which, as Github executes the action on the merge commit, is the base
-    # branch). Otherwise, all files are to be linted.
-    - name: Determine lint scope
-      id: lint-scope
-      if: ${{ github.event_name == 'pull_request' }}
-      run: |
-        export LINTER_CHANGES=$(git diff --name-only HEAD^1 HEAD | grep -E 'eslint|.github|scripts')
-        [ -n "$LINTER_CHANGES" ] || (echo "only_diff_to_parent=1" >> "$GITHUB_OUTPUT")
-
     - name: Run ESLint
       run: >
-        scripts/eslint.py --base="${{ steps.lint-scope.outputs.only_diff_to_parent && 'HEAD^1' || 'none' }}"
+        scripts/eslint.py --base="${{ needs.lint-scope-check.outputs.base_to_diff_against }}"
 
   # Collect code coverage statistics.
   collect-coverage:
@@ -218,7 +262,13 @@ jobs:
   post-results-comment:
     runs-on: ubuntu-latest
     # Depend on all other jobs, so that we don't post a PR comment if any fails.
-    needs: [build-emscripten, build-nacl, test-asan, collect-coverage, lint-js]
+    needs:
+    - build-emscripten
+    - build-nacl
+    - test-asan
+    - collect-coverage
+    - check-formatting
+    - lint-js
     # Skip running this in forks, because it'd fail with "Resource not
     # accessible by integration".
     if: github.event.pull_request.head.repo.full_name == github.repository
