@@ -144,6 +144,12 @@ const SHARE_MODES = ['SHARED', 'EXCLUSIVE', 'DIRECT'];
 const PROTOCOLS = ['UNDEFINED', 'T0', 'T1', 'RAW'];
 
 /**
+ * Contains the Disposition enum values exposed by
+ * chrome.smartCardProviderPrivate API.
+ */
+const DISPOSITIONS = ['LEAVE_CARD', 'RESET_CARD', 'UNPOWER_CARD', 'EJECT_CARD'];
+
+/**
  * Sets up mocks for
  * chrome.smartCardProviderPrivate.*.addListener()/removeListener(),
  * report*Result functions. Checks that all events have a subscriber and that
@@ -218,6 +224,13 @@ GSC.ConnectorApp.MockChromeApi = class {
     for (const protocol of PROTOCOLS) {
       propertyReplacer.setPath(
           `chrome.smartCardProviderPrivate.Protocol.${protocol}`, protocol);
+    }
+
+    // Mock Disposition enum.
+    for (const disposition of DISPOSITIONS) {
+      propertyReplacer.setPath(
+          `chrome.smartCardProviderPrivate.Disposition.${disposition}`,
+          disposition);
     }
   }
 
