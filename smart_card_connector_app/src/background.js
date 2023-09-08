@@ -173,7 +173,7 @@ if (chrome.smartCardProviderPrivate !== undefined) {
   updateChromeApiProviderAvailability();
   chrome.storage.onChanged.addListener(updateChromeApiProviderAvailability);
 } else {
-  goog.log.fine(
+  goog.log.info(
       logger,
       `chrome.smartCardProviderPrivate is not available. ` +
           `Requests from Web Smart Card API will not be handled.`);
@@ -187,12 +187,16 @@ function updateChromeApiProviderAvailability() {
   chrome.storage.managed.get(EXPOSE_CHROME_REQUESTS, (policies) => {
     const policyEnabled = policies[EXPOSE_CHROME_REQUESTS] === true;
     if (policyEnabled && !chromeApiProvider) {
+      goog.log.info(
+          logger,
+          'Creating ChromeApiProvider since expose_chrome_smart_card_api ' +
+              'is set to true.');
       chromeApiProvider = new GSC.ConnectorApp.ChromeApiProvider(
           executableModule.getMessageChannel(),
           pcscLiteReadinessTracker.promise);
     }
     if (!policyEnabled && chromeApiProvider) {
-      goog.log.fine(
+      goog.log.info(
           logger, 'Disposing ChromeApiProvider based on the policy change.');
       chromeApiProvider.dispose();
       chromeApiProvider = null;
