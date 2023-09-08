@@ -34,11 +34,11 @@ const GSC = GoogleSmartCard;
 const TrustedClientsRegistryImpl =
     GSC.PcscLiteServer.TrustedClientsRegistryImpl;
 
-const FAKE_APP_1_ID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+const FAKE_APP_1_ORIGIN = 'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const FAKE_APP_1_NAME = 'App Name 1';
-const FAKE_APP_2_ID = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+const FAKE_APP_2_ORIGIN = `chrome-extension://bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb`;
 const FAKE_TRUSTED_CLIENTS = {
-  [FAKE_APP_1_ID]: {'name': FAKE_APP_1_NAME}
+  [FAKE_APP_1_ORIGIN]: {'name': FAKE_APP_1_NAME}
 };
 
 /**
@@ -76,9 +76,9 @@ goog.exportSymbol(
 
       simulateXhrioResponse();
 
-      const requestPromise = registry.getByOrigin(FAKE_APP_1_ID);
+      const requestPromise = registry.getByOrigin(FAKE_APP_1_ORIGIN);
       const testAssertionPromise = requestPromise.then(function(trustedClient) {
-        assertEquals(trustedClient.origin, FAKE_APP_1_ID);
+        assertEquals(trustedClient.origin, FAKE_APP_1_ORIGIN);
         assertEquals(trustedClient.name, FAKE_APP_1_NAME);
       });
 
@@ -95,7 +95,7 @@ goog.exportSymbol(
 
       simulateXhrioResponse();
 
-      const requestPromise = registry.getByOrigin(FAKE_APP_2_ID);
+      const requestPromise = registry.getByOrigin(FAKE_APP_2_ORIGIN);
       const testAssertionPromise = requestPromise.then(
           function() {
             fail('Unexpected successful response');
@@ -115,10 +115,10 @@ goog.exportSymbol('test_TrustedClientsRegistry_TryGetByOrigins', function() {
   simulateXhrioResponse();
 
   const requestPromise =
-      registry.tryGetByOrigins([FAKE_APP_1_ID, FAKE_APP_2_ID]);
+      registry.tryGetByOrigins([FAKE_APP_1_ORIGIN, FAKE_APP_2_ORIGIN]);
   const testAssertionPromise = requestPromise.then(function(trustedClients) {
     assertEquals(trustedClients.length, 2);
-    assertEquals(trustedClients[0].origin, FAKE_APP_1_ID);
+    assertEquals(trustedClients[0].origin, FAKE_APP_1_ORIGIN);
     assertEquals(trustedClients[0].name, FAKE_APP_1_NAME);
     assertNull(trustedClients[1]);
   });
