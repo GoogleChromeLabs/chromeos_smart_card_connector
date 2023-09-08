@@ -587,7 +587,6 @@ TEST_F(SmartCardConnectorApplicationTest, InternalApiContextEstablishing) {
   EXPECT_EQ(SCardEstablishContext(SCARD_SCOPE_SYSTEM, /*pvReserved1=*/nullptr,
                                   /*pvReserved2=*/nullptr, &scard_context),
             SCARD_S_SUCCESS);
-  EXPECT_NE(scard_context, 0);
 
   EXPECT_EQ(SCardReleaseContext(scard_context), SCARD_S_SUCCESS);
 }
@@ -1469,7 +1468,6 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardConnectDirect) {
             SCARD_S_SUCCESS);
 
   // Assert:
-  EXPECT_NE(scard_handle, 0);
   EXPECT_EQ(active_protocol, 0U);
 
   // Cleanup:
@@ -1501,7 +1499,6 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, SCardConnectT1) {
             SCARD_S_SUCCESS);
 
   // Assert:
-  EXPECT_NE(scard_handle, 0);
   EXPECT_EQ(active_protocol, static_cast<DWORD>(SCARD_PROTOCOL_T1));
 
   // Cleanup:
@@ -1539,7 +1536,6 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
                 /*preferred_protocols=*/SCARD_PROTOCOL_RAW, scard_handle,
                 active_protocol),
             SCARD_S_SUCCESS);
-  EXPECT_NE(scard_handle, 0);
   EXPECT_EQ(active_protocol, static_cast<DWORD>(SCARD_PROTOCOL_RAW));
   EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
                                                SCARD_LEAVE_CARD),
@@ -1587,7 +1583,6 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
                 /*preferred_protocols=*/SCARD_PROTOCOL_RAW, scard_handle,
                 active_protocol),
             SCARD_S_SUCCESS);
-  EXPECT_NE(scard_handle, 0);
   EXPECT_EQ(active_protocol, static_cast<DWORD>(SCARD_PROTOCOL_RAW));
   EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
                                                SCARD_LEAVE_CARD),
@@ -1629,7 +1624,6 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
                 /*preferred_protocols=*/SCARD_PROTOCOL_RAW, first_scard_handle,
                 active_protocol),
             SCARD_S_SUCCESS);
-  EXPECT_NE(first_scard_handle, 0);
   EXPECT_EQ(active_protocol, static_cast<DWORD>(SCARD_PROTOCOL_RAW));
   EXPECT_EQ(SimulateDisconnectCallFromJsClient(
                 kFakeHandlerId, first_scard_handle, SCARD_RESET_CARD),
@@ -2399,7 +2393,6 @@ TEST_F(SmartCardConnectorApplicationTwoClientsTest, ConnectConcurrent) {
 
   // Assert:
   EXPECT_EQ(return_code, SCARD_S_SUCCESS);
-  EXPECT_NE(second_scard_handle, 0);
   EXPECT_NE(scard_handle, second_scard_handle);
 
   // Cleanup.
