@@ -95,9 +95,36 @@ async function establishContextOrThrow() {
         sCardContext = context;
       },
       (errorCode) => {
-        fail(`Unexpected error ${errorCode}`);
+        fail(`Unexpected SCardEstablishContext error ${errorCode}`);
       });
   return sCardContext;
+}
+
+/**
+ * Shorthand for obtaining the PC/SC card handle.
+ * @param {!API.SCARDCONTEXT} sCardContext
+ * @param {string} readerName
+ * @param {number} shareMode
+ * @param {number} preferredProtocols
+ * @param {number} assertResultProtocol
+ * @return {!Promise<!API.SCARDHANDLE>}
+ */
+async function connectToCardOrThrow(
+    sCardContext, readerName, shareMode, preferredProtocols,
+    assertResultProtocol) {
+  const result = await client.api.SCardConnect(
+      sCardContext, readerName, shareMode, preferredProtocols);
+  let sCardHandle;
+  result.get(
+      (sCardHandleArg, activeProtocol) => {
+        assert(Number.isInteger(sCardHandleArg));
+        sCardHandle = sCardHandleArg;
+        assertEquals(activeProtocol, assertResultProtocol);
+      },
+      (errorCode) => {
+        fail(`Unexpected SCardConnect error ${errorCode}`);
+      });
+  return sCardHandle;
 }
 
 /**
@@ -936,6 +963,37 @@ goog.exportSymbol('testPcscApi', {
             called = true;
             assert(Number.isInteger(sCardHandle));
             assertEquals(activeProtocol, API.SCARD_PROTOCOL_T1);
+          },
+          (errorCode) => {
+            fail(`Unexpected error ${errorCode}`);
+          });
+      assert(called);
+      assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
+    },
+
+    // Test `SCardDisconnect()` succeeds for a handle previously obtained via an
+    // `SCardConnect()` call.
+    'testSCardDisconnect_successLeave': async function() {
+      await launchPcscServer(
+          /*initialDevices=*/[{
+            'id': 123,
+            'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
+            'cardType': SimulationConstants.COSMO_CARD_TYPE
+          }]);
+      const context = await establishContextOrThrow();
+      const cardHandle = await connectToCardOrThrow(
+          context, SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+          API.SCARD_SHARE_SHARED,
+          /*preferredProtocols=*/ API.SCARD_PROTOCOL_T1,
+          /*assertResultProtocol=*/ API.SCARD_PROTOCOL_T1);
+
+      const result =
+          await client.api.SCardDisconnect(cardHandle, API.SCARD_LEAVE_CARD);
+
+      let called = false;
+      result.get(
+          () => {
+            called = true;
           },
           (errorCode) => {
             fail(`Unexpected error ${errorCode}`);
