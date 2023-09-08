@@ -1001,6 +1001,39 @@ goog.exportSymbol('testPcscApi', {
       assert(called);
       assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
     },
+
+    // Test `SCardReconnect()` succeeds when using the same parameters as the
+    // previous `SCardConnect()` call.
+    'testSCardReconnect_success': async function() {
+      await launchPcscServer(
+          /*initialDevices=*/[{
+            'id': 123,
+            'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
+            'cardType': SimulationConstants.COSMO_CARD_TYPE
+          }]);
+      const context = await establishContextOrThrow();
+      const cardHandle = await connectToCardOrThrow(
+          context, SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+          API.SCARD_SHARE_SHARED,
+          /*preferredProtocols=*/ API.SCARD_PROTOCOL_ANY,
+          /*assertResultProtocol=*/ API.SCARD_PROTOCOL_T1);
+
+      const result = await client.api.SCardReconnect(
+          cardHandle, API.SCARD_SHARE_SHARED,
+          /*preferredProtocols=*/ API.SCARD_PROTOCOL_ANY, API.SCARD_LEAVE_CARD);
+
+      let called = false;
+      result.get(
+          (activeProtocol) => {
+            called = true;
+            assertEquals(activeProtocol, API.SCARD_PROTOCOL_T1);
+          },
+          (errorCode) => {
+            fail(`Unexpected SCardReconnect error ${errorCode}`);
+          });
+      assert(called);
+      assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
+    },
   },
 
   // Test that the PC/SC server can shut down successfully when there's an
