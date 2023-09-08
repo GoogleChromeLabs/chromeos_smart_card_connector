@@ -194,9 +194,9 @@ jobs:
       run: >
         set -o pipefail &&
         (./coverage-report.sh | tee coverage-output.txt) &&
-        echo "::set-output name=LINE_COVERAGE_PERCENT::$(
+        echo "LINE_COVERAGE_PERCENT=$(
           scripts/parse-coverage-output.py < coverage-output.txt
-        )"
+        )" >> $GITHUB_OUTPUT
 
     - name: Upload coverage report
       uses: actions/upload-artifact@v3
