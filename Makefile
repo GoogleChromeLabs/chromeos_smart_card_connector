@@ -115,6 +115,7 @@ LIBRARY_TARGETS += \
 	example_js_standalone_smart_card_client_library \
 
 TEST_TARGETS += \
+	common/js/build/js_to_cxx_tests \
 	common/js/build/unittests \
 	example_cpp_smart_card_client_app/build/js_to_cxx_tests \
 	smart_card_connector_app/build/js_to_cxx_tests \
@@ -122,6 +123,8 @@ TEST_TARGETS += \
 	third_party/libusb/webport/build/js_unittests \
 	third_party/pcsc-lite/naclport/server_clients_management/build/js_unittests \
 
+common/js/build/js_to_cxx_tests: common/cpp/build
+common/js/build/js_to_cxx_tests: common/integration_testing/build
 example_cpp_smart_card_client_app/build/js_to_cxx_tests: common/cpp/build
 example_cpp_smart_card_client_app/build/js_to_cxx_tests: common/integration_testing/build
 example_cpp_smart_card_client_app/build/js_to_cxx_tests: example_cpp_smart_card_client_app/build

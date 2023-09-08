@@ -22,7 +22,12 @@ include $(COMMON_DIR_PATH)/make/js_building_common.mk
 include $(COMMON_DIR_PATH)/js/include.mk
 
 
+# Include *-unittest.js and non-test files needed for them.
+#
+# Note: "jstocxxtest" files are compiled and executed differently, via
+# //common/js/build/js_to_cxx_tests/.
 JS_COMPILER_INPUT_PATHS := \
-	$(JS_COMMON_SOURCES_PATH)
+	$(ROOT_PATH)/common/js/src \
+	!$(ROOT_PATH)/common/js/src/**-jstocxxtest.js \
 
 $(eval $(call BUILD_JS_UNITTESTS,$(JS_COMPILER_INPUT_PATHS)))
