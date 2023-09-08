@@ -238,20 +238,5 @@ GSC.ConnectorApp.MockChromeApi = class {
         `Event to result function map does not have ${eventName}`);
     return chrome.smartCardProviderPrivate[EVENT_TO_RESULT_MAP[eventName]];
   }
-
-  /**
-   * Switches the mocked function back to record mode.
-   * Verifies that there were no unmet expectations before switching.
-   * @param {string} functionName
-   * @returns {Function} Mocked function object.
-   */
-  getFreshMock(functionName) {
-    const mock = chrome.smartCardProviderPrivate[functionName];
-    assertEquals(
-        `No mocked function ${functionName} found`, 'function', typeof mock);
-    mock.$verify();
-    mock.$reset();
-    return mock;
-  }
 };
 });

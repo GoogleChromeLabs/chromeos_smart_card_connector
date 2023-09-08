@@ -119,6 +119,22 @@ async function assertRemainsPending(promise, timeoutMillis) {
 }
 
 /**
+ * Switches the mocked chrome.smartCardProviderPrivate function back
+ * to record mode.
+ * Verifies that there were no unmet expectations before switching.
+ * @param {string} functionName
+ * @returns {Function} Mocked function object.
+ */
+function getFreshMock(functionName) {
+  const mock = chrome.smartCardProviderPrivate[functionName];
+  assertEquals(
+      `No mocked function ${functionName} found`, 'function', typeof mock);
+  mock.$verify();
+  mock.$reset();
+  return mock;
+}
+
+/**
  * Sets expectation that reportEstablishContextResult will be called for given
  * `requestId` with result code equal to `resultCode`. Sets the received result
  * to `outResult`.
@@ -127,8 +143,7 @@ async function assertRemainsPending(promise, timeoutMillis) {
  * @param {!EstablishContextResult} outResult
  */
 function expectReportEstablishContext(requestId, resultCode, outResult) {
-  mockChromeApi
-      .getFreshMock('reportEstablishContextResult')(
+  getFreshMock('reportEstablishContextResult')(
           requestId, goog.testing.mockmatchers.isNumber, resultCode)
       .$once()
       .$does((requestId, context, resultCode) => {
@@ -144,8 +159,7 @@ function expectReportEstablishContext(requestId, resultCode, outResult) {
  * @param {string} resultCode
  */
 function expectReportReleaseContext(requestId, resultCode) {
-  mockChromeApi
-      .getFreshMock('reportReleaseContextResult')(requestId, resultCode)
+  getFreshMock('reportReleaseContextResult')(requestId, resultCode)
       .$once()
       .$replay();
 }
@@ -158,8 +172,7 @@ function expectReportReleaseContext(requestId, resultCode) {
  * @param {string} resultCode
  */
 function expectReportListReaders(requestId, readers, resultCode) {
-  mockChromeApi
-      .getFreshMock('reportListReadersResult')(requestId, readers, resultCode)
+  getFreshMock('reportListReadersResult')(requestId, readers, resultCode)
       .$once()
       .$replay();
 }
@@ -172,8 +185,7 @@ function expectReportListReaders(requestId, readers, resultCode) {
  * @param {string} resultCode
  */
 function expectReportGetStatusChange(requestId, readerStates, resultCode) {
-  mockChromeApi
-      .getFreshMock('reportGetStatusChangeResult')(
+  getFreshMock('reportGetStatusChangeResult')(
           requestId, readerStates, resultCode)
       .$once()
       .$replay();
@@ -186,7 +198,7 @@ function expectReportGetStatusChange(requestId, readerStates, resultCode) {
  * @param {string} resultCode
  */
 function expectReportPlainResult(requestId, resultCode) {
-  mockChromeApi.getFreshMock('reportPlainResult')(requestId, resultCode)
+  getFreshMock('reportPlainResult')(requestId, resultCode)
       .$once()
       .$replay();
 }
@@ -199,8 +211,7 @@ function expectReportPlainResult(requestId, resultCode) {
  * @param {string} resultCode
  */
 function expectReportConnectResult(requestId, activeProtocol, resultCode) {
-  mockChromeApi
-      .getFreshMock('reportConnectResult')(
+  getFreshMock('reportConnectResult')(
           requestId,
           /*scardHandle=*/ goog.testing.mockmatchers.isNumber, activeProtocol,
           resultCode)
