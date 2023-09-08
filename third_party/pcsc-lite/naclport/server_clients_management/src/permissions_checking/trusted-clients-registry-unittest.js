@@ -38,8 +38,12 @@ const FAKE_APP_1_ORIGIN = 'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const FAKE_APP_1_NAME = 'App Name 1';
 const FAKE_APP_2_ORIGIN = `chrome-extension://bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb`;
 const FAKE_TRUSTED_CLIENTS = {
-  [FAKE_APP_1_ORIGIN]: {'name': FAKE_APP_1_NAME}
+  [FAKE_APP_1_ORIGIN]: {'name': FAKE_APP_1_NAME},
 };
+
+const propertyReplacer = new goog.testing.PropertyReplacer();
+/** @type {TrustedClientsRegistryImpl?} */
+let registry;
 
 /**
  * Set up the mock for goog.net.XhrIo.
@@ -67,63 +71,45 @@ function simulateXhrioResponse() {
   xhrio.simulateResponse(goog.net.HttpStatus.OK, response);
 }
 
-goog.exportSymbol(
-    'test_TrustedClientsRegistry_GetByOrigin_Success', function() {
-      const propertyReplacer = new goog.testing.PropertyReplacer();
-      setUpXhrioMock(propertyReplacer);
+goog.exportSymbol('testTrustedClientsRegistry', {
+  'setUp': function() {
+    const propertyReplacer = new goog.testing.PropertyReplacer();
+    setUpXhrioMock(propertyReplacer);
 
-      const registry = new TrustedClientsRegistryImpl();
+    registry = new TrustedClientsRegistryImpl();
 
-      simulateXhrioResponse();
+    simulateXhrioResponse();
+  },
 
-      const requestPromise = registry.getByOrigin(FAKE_APP_1_ORIGIN);
-      const testAssertionPromise = requestPromise.then(function(trustedClient) {
-        assertEquals(trustedClient.origin, FAKE_APP_1_ORIGIN);
-        assertEquals(trustedClient.name, FAKE_APP_1_NAME);
-      });
+  'tearDown': function() {
+    registry = null;
+    propertyReplacer.reset();
+  },
 
-      return testAssertionPromise.thenAlways(
-          propertyReplacer.reset, propertyReplacer);
-    });
+  'testGetByOrigin_success': async function() {
+    const trustedClient = await registry.getByOrigin(FAKE_APP_1_ORIGIN);
+    assertEquals(trustedClient.origin, FAKE_APP_1_ORIGIN);
+    assertEquals(trustedClient.name, FAKE_APP_1_NAME);
+  },
 
-goog.exportSymbol(
-    'test_TrustedClientsRegistry_GetByOrigin_Failure', function() {
-      const propertyReplacer = new goog.testing.PropertyReplacer();
-      setUpXhrioMock(propertyReplacer);
+  'testGetByOrigin_failure': async function() {
+    try {
+      await registry.getByOrigin(FAKE_APP_2_ORIGIN);
+    } catch (e) {
+      // Expected branch - complete the test.
+      return;
+    }
+    // Unexpected branch - abort the test.
+    fail('Unexpected successful response');
+  },
 
-      const registry = new TrustedClientsRegistryImpl();
-
-      simulateXhrioResponse();
-
-      const requestPromise = registry.getByOrigin(FAKE_APP_2_ORIGIN);
-      const testAssertionPromise = requestPromise.then(
-          function() {
-            fail('Unexpected successful response');
-          },
-          function() {});
-
-      return testAssertionPromise.thenAlways(
-          propertyReplacer.reset, propertyReplacer);
-    });
-
-goog.exportSymbol('test_TrustedClientsRegistry_TryGetByOrigins', function() {
-  const propertyReplacer = new goog.testing.PropertyReplacer();
-  setUpXhrioMock(propertyReplacer);
-
-  const registry = new TrustedClientsRegistryImpl();
-
-  simulateXhrioResponse();
-
-  const requestPromise =
-      registry.tryGetByOrigins([FAKE_APP_1_ORIGIN, FAKE_APP_2_ORIGIN]);
-  const testAssertionPromise = requestPromise.then(function(trustedClients) {
+  'testTryGetByOrigins': async function() {
+    const trustedClients =
+        await registry.tryGetByOrigins([FAKE_APP_1_ORIGIN, FAKE_APP_2_ORIGIN]);
     assertEquals(trustedClients.length, 2);
     assertEquals(trustedClients[0].origin, FAKE_APP_1_ORIGIN);
     assertEquals(trustedClients[0].name, FAKE_APP_1_NAME);
     assertNull(trustedClients[1]);
-  });
-
-  return testAssertionPromise.thenAlways(
-      propertyReplacer.reset, propertyReplacer);
+  },
 });
 });  // goog.scope
