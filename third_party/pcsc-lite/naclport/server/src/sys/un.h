@@ -22,10 +22,9 @@
 #define GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_SYS_UN_H_
 
 /* Structure describing the address of an AF_LOCAL (aka AF_UNIX) socket.  */
-struct sockaddr_un
-  {
-    unsigned short int sun_family;
-    char sun_path[108];     /* Path name.  */
-  };
+struct sockaddr_un {
+  unsigned short int sun_family;
+  char sun_path[108]; /* Path name.  */
+};
 
 #endif  // GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_SYS_UN_H_
