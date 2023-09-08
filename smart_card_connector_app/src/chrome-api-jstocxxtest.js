@@ -261,6 +261,8 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     mockChromeApi =
         new MockChromeApi(mockControl, testController.propertyReplacer);
     mockControl.$replayAll();
+
+    createChromeApiProvider();
   },
 
   'tearDown': async function() {
@@ -279,14 +281,12 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
 
   'testSmoke': async function() {
     launchPcscServer(/*initialDevices=*/[]);
-    createChromeApiProvider();
     await pcscReadinessTracker.promise;
   },
 
   // Test a single `onEstablishContextRequested` event.
   'testEstablishContext': async function() {
     launchPcscServer(/*initialDevices=*/[]);
-    createChromeApiProvider();
     await establishContext(/*requestId=*/ 123);
   },
 
@@ -295,7 +295,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     expectReportReleaseContext(/*requestId=*/ 124, 'SUCCESS');
 
     launchPcscServer(/*initialDevices=*/[]);
-    createChromeApiProvider();
     const sCardContext = await establishContext(/*requestId=*/ 123);
     await mockChromeApi
         .dispatchEvent(
@@ -309,7 +308,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     expectReportReleaseContext(/*requestId=*/ 42, 'INVALID_HANDLE');
 
     launchPcscServer(/*initialDevices=*/[]);
-    createChromeApiProvider();
     await mockChromeApi
         .dispatchEvent(
             'onReleaseContextRequested', /*requestId=*/ 42, BAD_CONTEXT)
@@ -321,7 +319,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     expectReportListReaders(/*requestId=*/ 124, [], 'NO_READERS_AVAILABLE');
 
     launchPcscServer(/*initialDevices=*/[]);
-    createChromeApiProvider();
     const sCardContext = await establishContext(/*requestId=*/ 123);
     await mockChromeApi
         .dispatchEvent(
@@ -336,7 +333,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     expectReportListReaders(/*requestId=*/ 125, [], 'INVALID_HANDLE');
 
     launchPcscServer(/*initialDevices=*/[]);
-    createChromeApiProvider();
     const sCardContext = await establishContext(/*requestId=*/ 123);
     await mockChromeApi
         .dispatchEvent(
@@ -358,7 +354,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         /*initialDevices=*/[
           {'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}
         ]);
-    createChromeApiProvider();
     const sCardContext = await establishContext(/*requestId=*/ 123);
     await mockChromeApi
         .dispatchEvent(
@@ -382,7 +377,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
           {'id': 101, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE},
           {'id': 102, 'type': SimulationConstants.DELL_DEVICE_TYPE}
         ]);
-    createChromeApiProvider();
     const sCardContext = await establishContext(/*requestId=*/ 123);
     await mockChromeApi
         .dispatchEvent(
@@ -403,7 +397,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         'SUCCESS');
 
     launchPcscServer(/*initialDevices=*/[]);
-    createChromeApiProvider();
     const sCardContext = await establishContext(/*requestId=*/ 123);
     const verifyResult =
         mockChromeApi
@@ -436,7 +429,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
       'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
       'cardType': SimulationConstants.COSMO_CARD_TYPE
     }]);
-    createChromeApiProvider();
     const sCardContext = await establishContext(/*requestId=*/ 123);
     await mockChromeApi
         .dispatchEvent(
@@ -466,7 +458,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
       'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
       'cardType': SimulationConstants.COSMO_CARD_TYPE
     }]);
-    createChromeApiProvider();
     const sCardContext = await establishContext(/*requestId=*/ 123);
     const verifyResult =
         mockChromeApi
@@ -496,7 +487,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
       'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
       'cardType': SimulationConstants.COSMO_CARD_TYPE
     }]);
-    createChromeApiProvider();
     const sCardContext = await establishContext(/*requestId=*/ 123);
     await mockChromeApi
         .dispatchEvent(
@@ -517,7 +507,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     launchPcscServer(/*initialDevices=*/[
       {'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}
     ]);
-    createChromeApiProvider();
     const sCardContext = await establishContext(/*requestId=*/ 123);
     const statusPromise =
         mockChromeApi
@@ -552,7 +541,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     launchPcscServer(/*initialDevices=*/[
       {'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}
     ]);
-    createChromeApiProvider();
     const sCardContext = await establishContext(/*requestId=*/ 123);
     await mockChromeApi
         .dispatchEvent(
@@ -569,7 +557,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     launchPcscServer(/*initialDevices=*/[
       {'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}
     ]);
-    createChromeApiProvider();
     const sCardContext = await establishContext(/*requestId=*/ 123);
     expectReportConnectResult(
         /*requestId=*/ 124, chrome.smartCardProviderPrivate.Protocol.UNDEFINED,
@@ -590,7 +577,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
       'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
       'cardType': SimulationConstants.COSMO_CARD_TYPE
     }]);
-    createChromeApiProvider();
     const sCardContext = await establishContext(/*requestId=*/ 123);
     expectReportConnectResult(
         /*requestId=*/ 124, chrome.smartCardProviderPrivate.Protocol.T1,
@@ -611,7 +597,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
       'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
       'cardType': SimulationConstants.COSMO_CARD_TYPE
     }]);
-    createChromeApiProvider();
     const sCardContext = await establishContext(/*requestId=*/ 111);
     const sCardHandle = await connect(
         /*requestId=*/ 112, sCardContext,
@@ -634,7 +619,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
       'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
       'cardType': SimulationConstants.COSMO_CARD_TYPE
     }]);
-    createChromeApiProvider();
     const BAD_HANDLE = 12228;
     expectReportPlainResult(/*requestId=*/ 113, 'INVALID_HANDLE');
     await mockChromeApi
