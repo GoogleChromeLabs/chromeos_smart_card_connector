@@ -530,6 +530,47 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
             chrome.smartCardProviderPrivate.ShareMode.SHARED,
             /*preferredProtocols*/ {'t0': true, 't1': true})
         .$waitAndVerify();
+  },
+
+  // Test Connect succeeds with `ShareMode.DIRECT` even when there's no card
+  // inserted.
+  'testConnect_direct': async function() {
+    launchPcscServer(/*initialDevices=*/[
+      {'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}
+    ]);
+    createChromeApiProvider();
+    const sCardContext = await establishContext(/*requestId=*/ 123);
+    expectReportConnectResult(
+        /*requestId=*/ 124, chrome.smartCardProviderPrivate.Protocol.UNDEFINED,
+        'SUCCESS');
+    await mockChromeApi
+        .dispatchEvent(
+            'onConnectRequested', /*requestId=*/ 124, sCardContext,
+            SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+            chrome.smartCardProviderPrivate.ShareMode.DIRECT,
+            /*preferredProtocols*/ {})
+        .$waitAndVerify();
+  },
+
+  // Test Connect successfully connects to a card using the "T1" protocol.
+  'testConnect_t1': async function() {
+    launchPcscServer(/*initialDevices=*/[{
+      'id': 123,
+      'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
+      'cardType': SimulationConstants.COSMO_CARD_TYPE
+    }]);
+    createChromeApiProvider();
+    const sCardContext = await establishContext(/*requestId=*/ 123);
+    expectReportConnectResult(
+        /*requestId=*/ 124, chrome.smartCardProviderPrivate.Protocol.T1,
+        'SUCCESS');
+    await mockChromeApi
+        .dispatchEvent(
+            'onConnectRequested', /*requestId=*/ 124, sCardContext,
+            SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+            chrome.smartCardProviderPrivate.ShareMode.SHARED,
+            /*preferredProtocols*/ {'t1': true})
+        .$waitAndVerify();
   }
 });
 });  // goog.scope
