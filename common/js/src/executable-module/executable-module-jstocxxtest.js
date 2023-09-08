@@ -48,8 +48,6 @@ goog.exportSymbol('testExecutableModule', {
     }
   },
 
-  'testSmoke': function() {
-  },
+  'testSmoke': function() {},
 });
-
 });
