@@ -1024,8 +1024,10 @@ void TestingSmartCardSimulation::ThreadSafeHandler::NotifySlotChange(
   // Resolve the interrupt transfer with a RDR_to_PC_NotifySlotChange message.
   std::vector<uint8_t> transfer_result = MakeNotifySlotChangeTransferReply(
       device_state.icc_status, /*slot0_changed=*/true);
-  result_callback(GenericRequestResult::CreateSuccessful(
-      Value(std::move(transfer_result))));
+  Value result_value =
+      ArrayValueBuilder().Add(std::move(transfer_result)).Get();
+  result_callback(
+      GenericRequestResult::CreateSuccessful(std::move(result_value)));
 }
 
 }  // namespace google_smart_card
