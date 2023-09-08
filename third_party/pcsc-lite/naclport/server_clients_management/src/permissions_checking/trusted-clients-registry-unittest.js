@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2019 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,22 +30,21 @@ goog.setTestOnly();
 goog.scope(function() {
 
 /** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /** @const */
-var TrustedClientsRegistryImpl = GSC.PcscLiteServer.TrustedClientsRegistryImpl;
+const TrustedClientsRegistryImpl =
+    GSC.PcscLiteServer.TrustedClientsRegistryImpl;
 
 /** @const */
-var FAKE_APP_1_ID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+const FAKE_APP_1_ID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 /** @const */
-var FAKE_APP_1_NAME = 'App Name 1';
+const FAKE_APP_1_NAME = 'App Name 1';
 /** @const */
-var FAKE_APP_2_ID = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+const FAKE_APP_2_ID = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
 /** @const */
-var FAKE_TRUSTED_CLIENTS = {
-  [FAKE_APP_1_ID]: {
-    'name': FAKE_APP_1_NAME
-  }
+const FAKE_TRUSTED_CLIENTS = {
+  [FAKE_APP_1_ID]: {'name': FAKE_APP_1_NAME}
 };
 
 /**
@@ -63,60 +63,66 @@ function setUpXhrioMock(propertyReplacer) {
  * The response contains a fake trusted clients JSON.
  */
 function simulateXhrioResponse() {
-  var sentXhrios = goog.testing.net.XhrIo.getSendInstances();
+  const sentXhrios = goog.testing.net.XhrIo.getSendInstances();
   assertEquals(1, sentXhrios.length);
-  var xhrio = sentXhrios[0];
-  assertEquals(xhrio.getLastUri(),
-               'pcsc_lite_server_clients_management/known_client_apps.json');
-  var response = goog.json.serialize(FAKE_TRUSTED_CLIENTS);
+  const xhrio = sentXhrios[0];
+  assertEquals(
+      xhrio.getLastUri(),
+      'pcsc_lite_server_clients_management/known_client_apps.json');
+  const response = goog.json.serialize(FAKE_TRUSTED_CLIENTS);
   xhrio.simulateResponse(goog.net.HttpStatus.OK, response);
 }
 
-goog.exportSymbol('test_TrustedClientsRegistry_GetByOrigin_Success', function() {
-  var propertyReplacer = new goog.testing.PropertyReplacer;
-  setUpXhrioMock(propertyReplacer);
+goog.exportSymbol(
+    'test_TrustedClientsRegistry_GetByOrigin_Success', function() {
+      const propertyReplacer = new goog.testing.PropertyReplacer();
+      setUpXhrioMock(propertyReplacer);
 
-  var registry = new TrustedClientsRegistryImpl;
+      const registry = new TrustedClientsRegistryImpl();
 
-  simulateXhrioResponse();
+      simulateXhrioResponse();
 
-  var requestPromise = registry.getByOrigin(FAKE_APP_1_ID);
-  var testAssertionPromise = requestPromise.then(function(trustedClient) {
-    assertEquals(trustedClient.origin, FAKE_APP_1_ID);
-    assertEquals(trustedClient.name, FAKE_APP_1_NAME);
-  });
+      const requestPromise = registry.getByOrigin(FAKE_APP_1_ID);
+      const testAssertionPromise = requestPromise.then(function(trustedClient) {
+        assertEquals(trustedClient.origin, FAKE_APP_1_ID);
+        assertEquals(trustedClient.name, FAKE_APP_1_NAME);
+      });
 
-  return testAssertionPromise.thenAlways(
-      propertyReplacer.reset, propertyReplacer);
-});
+      return testAssertionPromise.thenAlways(
+          propertyReplacer.reset, propertyReplacer);
+    });
 
-goog.exportSymbol('test_TrustedClientsRegistry_GetByOrigin_Failure', function() {
-  var propertyReplacer = new goog.testing.PropertyReplacer;
-  setUpXhrioMock(propertyReplacer);
+goog.exportSymbol(
+    'test_TrustedClientsRegistry_GetByOrigin_Failure', function() {
+      const propertyReplacer = new goog.testing.PropertyReplacer();
+      setUpXhrioMock(propertyReplacer);
 
-  var registry = new TrustedClientsRegistryImpl;
+      const registry = new TrustedClientsRegistryImpl();
 
-  simulateXhrioResponse();
+      simulateXhrioResponse();
 
-  var requestPromise = registry.getByOrigin(FAKE_APP_2_ID);
-  var testAssertionPromise = requestPromise.then(function() {
-    fail('Unexpected successful response');
-  }, function() {});
+      const requestPromise = registry.getByOrigin(FAKE_APP_2_ID);
+      const testAssertionPromise = requestPromise.then(
+          function() {
+            fail('Unexpected successful response');
+          },
+          function() {});
 
-  return testAssertionPromise.thenAlways(
-      propertyReplacer.reset, propertyReplacer);
-});
+      return testAssertionPromise.thenAlways(
+          propertyReplacer.reset, propertyReplacer);
+    });
 
 goog.exportSymbol('test_TrustedClientsRegistry_TryGetByOrigins', function() {
-  var propertyReplacer = new goog.testing.PropertyReplacer;
+  const propertyReplacer = new goog.testing.PropertyReplacer();
   setUpXhrioMock(propertyReplacer);
 
-  var registry = new TrustedClientsRegistryImpl;
+  const registry = new TrustedClientsRegistryImpl();
 
   simulateXhrioResponse();
 
-  var requestPromise = registry.tryGetByOrigins([FAKE_APP_1_ID, FAKE_APP_2_ID]);
-  var testAssertionPromise = requestPromise.then(function(trustedClients) {
+  const requestPromise =
+      registry.tryGetByOrigins([FAKE_APP_1_ID, FAKE_APP_2_ID]);
+  const testAssertionPromise = requestPromise.then(function(trustedClients) {
     assertEquals(trustedClients.length, 2);
     assertEquals(trustedClients[0].origin, FAKE_APP_1_ID);
     assertEquals(trustedClients[0].name, FAKE_APP_1_NAME);
@@ -126,5 +132,4 @@ goog.exportSymbol('test_TrustedClientsRegistry_TryGetByOrigins', function() {
   return testAssertionPromise.thenAlways(
       propertyReplacer.reset, propertyReplacer);
 });
-
 });  // goog.scope
