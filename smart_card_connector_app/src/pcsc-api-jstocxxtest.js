@@ -833,6 +833,61 @@ goog.exportSymbol('testPcscApi', {
       assertEquals(statusResult.getErrorCode(), API.SCARD_E_CANCELLED);
     },
 
+    // Test `SCardCancel()` succeeds even when there's no pending
+    // `SCardGetStatusChange()` call.
+    'testSCardCancel_successNoOp': async function() {
+      await launchPcscServer(/*initialDevices=*/[]);
+      const context = await establishContextOrThrow();
+
+      const result = await client.api.SCardCancel(context);
+
+      assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
+    },
+
+    // Test `SCardCancel()` fails when no contexts are obtained.
+    'testSCardCancel_errorNoContext': async function() {
+      const BAD_CONTEXT = 123;
+      await launchPcscServer(/*initialDevices=*/[]);
+
+      const result = await client.api.SCardCancel(BAD_CONTEXT);
+
+      let called = false;
+      result.get(
+          () => {
+            fail('Unexpectedly succeeded');
+          },
+          (errorCode) => {
+            called = true;
+            assertEquals(errorCode, API.SCARD_E_INVALID_HANDLE);
+          });
+      assert(called);
+      assertEquals(result.getErrorCode(), API.SCARD_E_INVALID_HANDLE);
+    },
+
+    // Test `SCardCancel()` fails on a wrong context when there's another
+    // established context.
+    'testSCardCancel_errorDifferentContext': async function() {
+      await launchPcscServer(/*initialDevices=*/[]);
+      const context = await establishContextOrThrow();
+      const badContext = context ^ 1;
+
+      const result = await client.api.SCardCancel(badContext);
+
+      assertEquals(result.getErrorCode(), API.SCARD_E_INVALID_HANDLE);
+    },
+
+    // Test `SCardCancel()` fails on an already released context.
+    'testSCardCancel_errorAlreadyReleasedContext': async function() {
+      await launchPcscServer(/*initialDevices=*/[]);
+      const context = await establishContextOrThrow();
+      const releaseResult = await client.api.SCardReleaseContext(context);
+      assertTrue(releaseResult.isSuccessful());
+
+      const cancelResult = await client.api.SCardCancel(context);
+
+      assertEquals(cancelResult.getErrorCode(), API.SCARD_E_INVALID_HANDLE);
+    },
+
     // Test `SCardConnect()` succeeds for dwShareMode `SCARD_SHARE_DIRECT` even
     // when there's no card inserted.
     'testSCardConnect_successDirectNoCard': async function() {
