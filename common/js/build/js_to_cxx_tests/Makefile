@@ -19,6 +19,7 @@ TARGET := integration_tests
 include ../../../../common/make/common.mk
 include $(ROOT_PATH)/common/make/executable_building.mk
 include $(ROOT_PATH)/common/cpp/include.mk
+include $(ROOT_PATH)/common/make/js_building_common.mk
 include $(ROOT_PATH)/common/integration_testing/include.mk
 
 
