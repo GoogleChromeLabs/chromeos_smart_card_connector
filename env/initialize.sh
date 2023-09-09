@@ -202,7 +202,7 @@ initialize_eslint() {
     log_message "eslint already present, skipping."
     return
   fi
-  npm install eslint
+  npm install eslint eslint-plugin-no-floating-promise
   log_message "eslint was installed successfully."
 }
 

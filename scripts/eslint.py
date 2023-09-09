@@ -39,9 +39,9 @@ def get_file_paths(args):
           in subprocess.check_output(command).splitlines()]
 
 def run_linter(path, args):
-  command = ['npm', 'exec', '--prefix',
-             os.path.join(os.path.dirname(__file__), '../env/'), 'eslint', '--',
-             path]
+  env_path = os.path.join(os.path.dirname(__file__), '../env/')
+  command = ['npm', 'exec', '--prefix', env_path, 'eslint', '--', path,
+             '--resolve-plugins-relative-to', env_path]
   if args.fix:
     command += ['--fix']
   return subprocess.call(command) == 0

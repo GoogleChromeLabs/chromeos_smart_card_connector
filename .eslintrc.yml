@@ -2,6 +2,8 @@ env:
   browser: true
   es2020: true
 extends: eslint:recommended
+plugins:
+  - no-floating-promise
 rules:
   # Disabled as the linter doesn't understand Closure Compiler style imports
   # ("goog.require") and Closure Library's global symbols.
@@ -55,6 +57,7 @@ rules:
   semi-spacing: error
   semi-style: error
   semi: error
+  no-floating-promise/no-floating-promise: error
 overrides:
   # Parse specific files as ES Modules (the standard parser would fail).
   - files:
