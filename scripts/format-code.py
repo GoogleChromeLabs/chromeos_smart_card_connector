@@ -28,6 +28,7 @@ FORMAT_OPTIONS = [
   # the headers maintained in this project.
   '--sort-includes=false',
 ]
+CHECK_ONLY_OPTIONS = ['--dry-run', '-Werror']
 
 def parse_command_line_args():
   parser = argparse.ArgumentParser(
@@ -36,6 +37,11 @@ def parse_command_line_args():
       '--base', type=str, default='main',
       help='Git ref to diff against, or "none" if the whole repository is to '
            'be reformatted (default: %(default)s)')
+  parser.add_argument(
+      '--check-only', action='store_true',
+      help='When specified, files are only checked for formatting, but no '
+           'edits are made automatically. Non-zero exit code will indicate at '
+           'least one formatting issue.')
   return parser.parse_args()
 
 def get_file_paths(args):
@@ -46,7 +52,10 @@ def get_file_paths(args):
           in subprocess.check_output(command).splitlines()]
 
 def run_clang_format(path, args):
-  command = ['clang-format', '-i'] + FORMAT_OPTIONS + [path]
+  command = ['clang-format', '-i'] + FORMAT_OPTIONS
+  if args.check_only:
+    command += CHECK_ONLY_OPTIONS
+  command += [path]
   return subprocess.call(command) == 0
 
 def main():
