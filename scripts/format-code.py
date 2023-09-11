@@ -17,6 +17,7 @@
 """Runs clang-format on all relevant C++/JavaScript files in the repository."""
 
 import argparse
+from internal import find_files_for_linting
 import os.path
 import subprocess
 import sys
@@ -45,11 +46,8 @@ def parse_command_line_args():
   return parser.parse_args()
 
 def get_file_paths(args):
-  command = [os.path.join(os.path.dirname(__file__),
-                          'internal/find-files-for-linting.py'),
-             '--base', args.base] + FILE_MASKS
-  return [line.strip().decode() for line
-          in subprocess.check_output(command).splitlines()]
+  return find_files_for_linting.find_files_for_linting(
+      patterns=FILE_MASKS, diff_base=args.base)
 
 def run_clang_format(path, args):
   command = ['clang-format', '-i'] + FORMAT_OPTIONS
