@@ -26,7 +26,7 @@ import sys
 
 # Manually maintained list of subtrees not intended for linting (mostly because
 # they contain third-party code).
-BLOCKLIST = [
+_BLOCKLIST = [
   'third_party/ccid/src/',
   'third_party/closure-compiler-binary/src/',
   'third_party/closure-compiler/src/',
@@ -38,23 +38,28 @@ BLOCKLIST = [
   'third_party/webports/src/',
 ]
 
-def is_suitable(path):
-  return not any(is_parent_child(block, path) for block in BLOCKLIST)
+def find_files_for_linting(patterns=(), diff_base='main'):
+  """Returns paths to files to be linted/reformatted/etc.
 
-def is_parent_child(parent, child):
+  Args:
+      patterns: If nonempty, return only files satisfying at least one pattern.
+      diff_base: Git ref to diff against, or "none" if the whole repository is
+        to be checked.
+  """
+  # Note: ":/" is used to not depend on the work directory.
+  command = (_get_git_command_prefix(diff_base) + ['--'] +
+             [f':/{pattern}' for pattern in patterns])
+  output = subprocess.check_output(command)
+  paths = [line.strip().decode() for line in output.splitlines()]
+  return [p for p in paths if _is_suitable(p)]
+
+def _is_suitable(path):
+  return not any(_is_parent_child(block, path) for block in _BLOCKLIST)
+
+def _is_parent_child(parent, child):
   return os.path.commonpath([parent, child]) == os.path.commonpath([parent])
 
-def parse_command_line_args():
-  parser = argparse.ArgumentParser(
-      description='Returns paths to files to be linted/reformatted/etc.')
-  parser.add_argument('patterns', type=str, nargs='*',
-                      help='return only files satisfying at least one pattern')
-  parser.add_argument('--base', type=str, default='main',
-                      help='Git ref to diff against, or "none" if the whole '
-                           'repository is to be checked (default: %(default)s)')
-  return parser.parse_args()
-
-def get_git_command_prefix(base_arg):
+def _get_git_command_prefix(base_arg):
   if base_arg == 'none':
     # "ls-files" is a fast way to list all files.
     # Note: "--full-name" is used to not depend on the work directory.
@@ -64,16 +69,20 @@ def get_git_command_prefix(base_arg):
   # to be linted.
   return ['git', 'diff', '--name-only', '--diff-filter=d', base_arg]
 
-def main():
-  args = parse_command_line_args()
-  # Note: ":/" is used to not depend on the work directory.
-  command = (get_git_command_prefix(args.base) + ['--'] +
-             [f':/{pattern}' for pattern in args.patterns])
-  output = subprocess.check_output(command)
-  for line in output.splitlines():
-    path = line.strip().decode()
-    if is_suitable(path):
-      print(path)
+def _parse_command_line_args():
+  parser = argparse.ArgumentParser(
+      description='Returns paths to files to be linted/reformatted/etc.')
+  parser.add_argument('patterns', type=str, nargs='*',
+                      help='return only files satisfying at least one pattern')
+  parser.add_argument('--base', type=str, default='main',
+                      help='Git ref to diff against, or "none" if the whole '
+                           'repository is to be checked (default: %(default)s)')
+  return parser.parse_args()
+
+def _main():
+  args = _parse_command_line_args()
+  for path in find_files_for_linting(args.patterns, args.base):
+    print(path)
 
 if __name__ == '__main__':
-  sys.exit(main())
+  sys.exit(_main())
