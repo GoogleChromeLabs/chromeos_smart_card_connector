@@ -45,8 +45,8 @@ const LibusbJsTransferRecipient =
 const LibusbJsTransferRequestType =
     GSC.LibusbProxyDataModel.LibusbJsTransferRequestType;
 const LibusbJsTransferResult = GSC.LibusbProxyDataModel.LibusbJsTransferResult;
-const debugDump = GSC.DebugDump.debugDump;
-const dump = GSC.DebugDump.dump;
+const debugDumpSanitized = GSC.DebugDump.debugDumpSanitized;
+const debugDumpFull = GSC.DebugDump.debugDumpFull;
 
 const logger = GSC.Logging.getScopedLogger('LibusbToWebusbAdaptor');
 /**
@@ -402,7 +402,7 @@ async function callWebusbGetDevices() {
   goog.log.fine(logger, 'getDevices(): called');
   try {
     const devices = await navigator['usb']['getDevices']();
-    goog.log.fine(logger, `getDevices(): returned ${dump(devices)}`);
+    goog.log.fine(logger, `getDevices(): returned ${debugDumpFull(devices)}`);
     return devices;
   } catch (exc) {
     // This is the only WebUSB function whose failure we're logging at warning
@@ -418,8 +418,8 @@ async function callWebusbGetDevices() {
  * @return {string}
  */
 function dumpWebusbDeviceForLog(webusbDevice) {
-  const vendorString = dump(webusbDevice['vendorId']);
-  const productString = dump(webusbDevice['productId']);
+  const vendorString = debugDumpFull(webusbDevice['vendorId']);
+  const productString = debugDumpFull(webusbDevice['productId']);
   return `<vendor=${vendorString} product=${productString}>`;
 }
 
@@ -471,7 +471,7 @@ async function callWebusbDeviceClaimInterface(webusbDevice, interfaceNumber) {
   const functionLogTitle =
       `${dumpWebusbDeviceForLog(webusbDevice)}.claimInterface`;
   goog.log.info(
-      logger, `${functionLogTitle}(${dump(interfaceNumber)}): called`);
+      logger, `${functionLogTitle}(${debugDumpFull(interfaceNumber)}): called`);
   try {
     await webusbDevice['claimInterface'](interfaceNumber);
     goog.log.info(logger, `${functionLogTitle}(): succeeded`);
@@ -490,7 +490,7 @@ async function callWebusbDeviceReleaseInterface(webusbDevice, interfaceNumber) {
   const functionLogTitle =
       `${dumpWebusbDeviceForLog(webusbDevice)}.releaseInterface`;
   goog.log.info(
-      logger, `${functionLogTitle}(${dump(interfaceNumber)}): called`);
+      logger, `${functionLogTitle}(${debugDumpFull(interfaceNumber)}): called`);
   try {
     await webusbDevice['releaseInterface'](interfaceNumber);
     goog.log.info(logger, `${functionLogTitle}(): succeeded`);
@@ -521,10 +521,10 @@ async function callWebusbDeviceReset(webusbDevice) {
  * @return {string}
  */
 function dumpWebusbInTransferResultForLog(inTransferResult) {
-  // The data is passed through `debugDump()`, since we shouldn't log
+  // The data is passed through `debugDumpSanitized()`, since we shouldn't log
   // (potentially) security/privacy sensitive data in Release mode.
   return `status=${inTransferResult['status']} data=${
-      debugDump(inTransferResult['data'])}`;
+      debugDumpSanitized(inTransferResult['data'])}`;
 }
 
 /**
@@ -551,7 +551,8 @@ async function callWebusbDeviceControlTransferIn(webusbDevice, setup, length) {
       `${dumpWebusbDeviceForLog(webusbDevice)}.controlTransferIn#${
           transferLogNumber}`;
   goog.log.info(
-      logger, `${functionLogTitle}(${dump(setup)}, ${length}): called`);
+      logger,
+      `${functionLogTitle}(${debugDumpFull(setup)}, ${length}): called`);
   try {
     const transferResult =
         await webusbDevice['controlTransferIn'](setup, length);
@@ -578,11 +579,12 @@ async function callWebusbDeviceControlTransferOut(webusbDevice, setup, data) {
   const functionLogTitle =
       `${dumpWebusbDeviceForLog(webusbDevice)}.controlTransferOut#${
           transferLogNumber}`;
-  // Pass the data through `debugDump()`, so that this potentially
+  // Pass the data through `debugDumpSanitized()`, so that this potentially
   // security/privacy sensitive information isn't logged in Release mode.
   goog.log.info(
       logger,
-      `${functionLogTitle}(${dump(setup)}, ${debugDump(data)}): called`);
+      `${functionLogTitle}(${debugDumpFull(setup)}, ${
+          debugDumpSanitized(data)}): called`);
   try {
     const transferResult =
         await webusbDevice['controlTransferOut'](setup, data);
@@ -611,7 +613,8 @@ async function callWebusbDeviceTransferIn(
       `${dumpWebusbDeviceForLog(webusbDevice)}.transferIn#${transferLogNumber}`;
   goog.log.info(
       logger,
-      `${functionLogTitle}(${dump(endpointNumber)}, ${length}): called`);
+      `${functionLogTitle}(${debugDumpFull(endpointNumber)}, ${
+          length}): called`);
   try {
     const transferResult =
         await webusbDevice['transferIn'](endpointNumber, length);
@@ -637,12 +640,12 @@ async function callWebusbDeviceTransferOut(webusbDevice, endpointNumber, data) {
   ++transferLogCounter;
   const functionLogTitle = `${
       dumpWebusbDeviceForLog(webusbDevice)}.transferOut#${transferLogNumber}`;
-  // Pass the data through `debugDump()`, so that this potentially
+  // Pass the data through `debugDumpSanitized()`, so that this potentially
   // security/privacy sensitive information isn't logged in Release mode.
   goog.log.info(
       logger,
-      `${functionLogTitle}(${dump(endpointNumber)}, ${
-          debugDump(data)}): called`);
+      `${functionLogTitle}(${debugDumpFull(endpointNumber)}, ${
+          debugDumpSanitized(data)}): called`);
   try {
     const transferResult =
         await webusbDevice['transferOut'](endpointNumber, data);

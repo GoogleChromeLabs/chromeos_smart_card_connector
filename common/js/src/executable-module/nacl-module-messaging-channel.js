@@ -81,7 +81,8 @@ GSC.NaclModuleMessageChannel = class extends goog.messaging.AbstractChannel {
       return;
     goog.log.log(
         this.logger_, goog.log.Level.FINEST,
-        'Sending message to NaCl module: ' + GSC.DebugDump.debugDump(message));
+        'Sending message to NaCl module: ' +
+            GSC.DebugDump.debugDumpSanitized(message));
     this.naclModuleElement_['postMessage'](message);
   }
 
@@ -105,13 +106,13 @@ GSC.NaclModuleMessageChannel = class extends goog.messaging.AbstractChannel {
       GSC.Logging.failWithLogger(
           this.logger_,
           'Failed to parse message received from NaCl module: ' +
-              GSC.DebugDump.debugDump(messageData));
+              GSC.DebugDump.debugDumpSanitized(messageData));
     }
 
     goog.log.log(
         this.logger_, goog.log.Level.FINEST,
         'Received a message from NaCl module: ' +
-            GSC.DebugDump.debugDump(messageData));
+            GSC.DebugDump.debugDumpSanitized(messageData));
     this.deliver(typedMessage.type, typedMessage.data);
   }
 
@@ -120,7 +121,8 @@ GSC.NaclModuleMessageChannel = class extends goog.messaging.AbstractChannel {
     GSC.Logging.failWithLogger(
         this.logger_,
         'Unhandled message received from NaCl module: serviceName="' +
-            serviceName + '", payload=' + GSC.DebugDump.debugDump(payload));
+            serviceName +
+            '", payload=' + GSC.DebugDump.debugDumpSanitized(payload));
   }
 };
 });  // goog.scope

@@ -283,7 +283,7 @@ class EmscriptenModuleMessageChannel extends goog.messaging.AbstractChannel {
     if (!typedMessage) {
       GSC.Logging.fail(
           'Failed to parse message received from Emscripten module: ' +
-          GSC.DebugDump.debugDump(message));
+          GSC.DebugDump.debugDumpSanitized(message));
     }
     this.deliver(typedMessage.type, typedMessage.data);
   }

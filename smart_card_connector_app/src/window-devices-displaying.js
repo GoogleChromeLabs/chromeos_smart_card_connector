@@ -119,7 +119,7 @@ function displayReaderList(readers) {
   goog.log.info(
       logger,
       'Displaying ' + readers.length +
-          ' card reader(s): ' + GSC.DebugDump.dump(readers));
+          ' card reader(s): ' + GSC.DebugDump.debugDumpFull(readers));
   goog.dom.removeChildren(readersListElement);
 
   for (const reader of readers) {

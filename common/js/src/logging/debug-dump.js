@@ -349,11 +349,12 @@ function dump(value, recursionParentObjects) {
  * Generates a debug textual representation of the passed value.
  *
  * Note that in the cases when the passed value may contain privacy-sensitive
- * data, the GoogleSmartCard.DebugDump.debugDump method should be used instead.
+ * data, the GoogleSmartCard.DebugDump.debugDumpSanitized method should be used
+ * instead.
  * @param {?} value
  * @return {string}
  */
-GSC.DebugDump.dump = function(value) {
+GSC.DebugDump.debugDumpFull = function(value) {
   const recursionParentObjects = new WeakSet();
   if (goog.DEBUG) {
     return dump(value, recursionParentObjects);
@@ -375,9 +376,9 @@ GSC.DebugDump.dump = function(value) {
  * @param {*} value
  * @return {string}
  */
-GSC.DebugDump.debugDump = function(value) {
+GSC.DebugDump.debugDumpSanitized = function(value) {
   if (goog.DEBUG)
-    return GSC.DebugDump.dump(value);
+    return GSC.DebugDump.debugDumpFull(value);
   else
     return '<stripped value>';
 };

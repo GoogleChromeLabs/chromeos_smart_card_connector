@@ -53,7 +53,7 @@ function nonFatalDefaultServiceCallback(channel, serviceName, payload) {
   goog.log.warning(
       LOGGER,
       'Unhandled message received: serviceName="' + serviceName +
-          '", payload=' + GSC.DebugDump.debugDump(payload));
+          '", payload=' + GSC.DebugDump.debugDumpSanitized(payload));
   channel.dispose();
 }
 

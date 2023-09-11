@@ -144,7 +144,7 @@ GSC.PcscLiteClient.NaclClientBackend = class {
       GSC.Logging.failWithLogger(
           logger,
           'Failed to parse the remote call message: ' +
-              GSC.DebugDump.debugDump(payload));
+              GSC.DebugDump.debugDumpSanitized(payload));
     }
 
     goog.log.fine(

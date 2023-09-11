@@ -114,7 +114,7 @@ GSC.PortMessageChannel = class extends goog.messaging.AbstractChannel {
     const message = typedMessage.makeMessage();
     goog.log.log(
         this.logger, goog.log.Level.FINEST,
-        'Posting a message: ' + GSC.DebugDump.debugDump(message));
+        'Posting a message: ' + GSC.DebugDump.debugDumpSanitized(message));
 
     if (this.isDisposed()) {
       GSC.Logging.failWithLogger(
@@ -172,14 +172,14 @@ GSC.PortMessageChannel = class extends goog.messaging.AbstractChannel {
   messageEventHandler_(message) {
     goog.log.log(
         this.logger, goog.log.Level.FINEST,
-        'Received a message: ' + GSC.DebugDump.debugDump(message));
+        'Received a message: ' + GSC.DebugDump.debugDumpSanitized(message));
 
     const typedMessage = GSC.TypedMessage.parseTypedMessage(message);
     if (!typedMessage) {
       GSC.Logging.failWithLogger(
           this.logger,
           'Failed to parse the received message: ' +
-              GSC.DebugDump.debugDump(message));
+              GSC.DebugDump.debugDumpSanitized(message));
     }
 
     this.deliver(typedMessage.type, typedMessage.data);
@@ -194,7 +194,7 @@ GSC.PortMessageChannel = class extends goog.messaging.AbstractChannel {
     GSC.Logging.failWithLogger(
         this.logger,
         'Unhandled message received: serviceName="' + serviceName +
-            '", payload=' + GSC.DebugDump.debugDump(payload));
+            '", payload=' + GSC.DebugDump.debugDumpSanitized(payload));
   }
 };
 });  // goog.scope

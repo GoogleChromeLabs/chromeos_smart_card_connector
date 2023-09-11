@@ -45,7 +45,7 @@ GSC.ObjectHelpers.extractKey = function(object, key) {
     GSC.Logging.failWithLogger(
         LOGGER,
         'Key "' + key + '" not present in object ' +
-            GSC.DebugDump.debugDump(object));
+            GSC.DebugDump.debugDumpSanitized(object));
   }
 
   return object[key];

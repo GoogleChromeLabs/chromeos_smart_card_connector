@@ -76,7 +76,8 @@ GSC.RemoteCallMessage = class {
     return goog.string.subs(
         '%s(%s)', this.functionName,
         goog.iter.join(
-            goog.iter.map(this.functionArguments, GSC.DebugDump.debugDump),
+            goog.iter.map(
+                this.functionArguments, GSC.DebugDump.debugDumpSanitized),
             ', '));
   }
 };

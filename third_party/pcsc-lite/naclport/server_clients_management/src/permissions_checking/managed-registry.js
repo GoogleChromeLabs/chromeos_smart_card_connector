@@ -123,14 +123,14 @@ ManagedRegistry.prototype.managedStorageLoadedCallback_ = function(items) {
   goog.log.fine(
       this.logger,
       'Loaded the following data from the managed storage: ' +
-          GSC.DebugDump.dump(items));
+          GSC.DebugDump.debugDumpFull(items));
 
   if (this.setAllowedClientOriginsFromStorageData_(
           goog.object.get(items, MANAGED_STORAGE_KEY, []))) {
     goog.log.info(
         this.logger,
         'Loaded managed storage data with the allowed client origins: ' +
-            GSC.DebugDump.dump(this.allowedClientOrigins_));
+            GSC.DebugDump.debugDumpFull(this.allowedClientOrigins_));
     this.managedStoragePromiseResolver_.resolve();
   } else {
     this.managedStoragePromiseResolver_.reject(new Error(
@@ -156,7 +156,7 @@ ManagedRegistry.prototype.storageChangedListener_ = function(
   goog.log.fine(
       this.logger,
       'Received the managed storage update event: ' +
-          GSC.DebugDump.dump(changes));
+          GSC.DebugDump.debugDumpFull(changes));
 
   if (changes[MANAGED_STORAGE_KEY]) {
     if (this.setAllowedClientOriginsFromStorageData_(
@@ -164,7 +164,8 @@ ManagedRegistry.prototype.storageChangedListener_ = function(
       goog.log.info(
           this.logger,
           'Loaded the updated managed storage data with the allowed client ' +
-              'origins: ' + GSC.DebugDump.dump(this.allowedClientOrigins_));
+              'origins: ' +
+              GSC.DebugDump.debugDumpFull(this.allowedClientOrigins_));
     }
   }
 };
@@ -181,7 +182,7 @@ ManagedRegistry.prototype.setAllowedClientOriginsFromStorageData_ = function(
         this.logger,
         'Failed to load the allowed client origins data from the managed ' +
             'storage: expected an array, instead got: ' +
-            GSC.DebugDump.dump(storageData));
+            GSC.DebugDump.debugDumpFull(storageData));
     return false;
   }
 
@@ -193,7 +194,7 @@ ManagedRegistry.prototype.setAllowedClientOriginsFromStorageData_ = function(
           this.logger,
           'Failed to load the allowed client origin from the managed ' +
               'storage item: expected a string, instead got: ' +
-              GSC.DebugDump.dump(item));
+              GSC.DebugDump.debugDumpFull(item));
       success = false;
       return;
     }

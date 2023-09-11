@@ -184,7 +184,7 @@ ReaderTracker.prototype.fireOnUpdateListeners_ = function() {
   goog.log.fine(
       this.logger_,
       'Firing readers updated listeners with data ' +
-          GSC.DebugDump.dump(readers));
+          GSC.DebugDump.debugDumpFull(readers));
   for (const listener of this.updateListeners_) {
     try {
       listener(readers);
@@ -284,7 +284,7 @@ TrackerThroughPcscServerHook.prototype.readerFinishAddListener_ = function(
   /** @type {number} */
   const returnCode = GSC.MessagingCommon.extractKey(message, 'returnCode');
 
-  const returnCodeHex = GSC.DebugDump.dump(returnCode);
+  const returnCodeHex = GSC.DebugDump.debugDumpFull(returnCode);
 
   /** @type {!ReaderInfo} */
   let readerInfo = new ReaderInfo(name, ReaderStatus.SUCCESS);

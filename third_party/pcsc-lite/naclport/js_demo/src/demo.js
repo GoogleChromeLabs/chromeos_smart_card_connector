@@ -50,7 +50,7 @@ const SPECIAL_READER_NAME = '\\\\?PnP?\\Notification';
 const GSC = GoogleSmartCard;
 const Demo = GSC.PcscLiteClient.Demo;
 const API = GoogleSmartCard.PcscLiteClient.API;
-const dump = GSC.DebugDump.dump;
+const debugDumpFull = GSC.DebugDump.debugDumpFull;
 
 /**
  * @type {!goog.log.Logger}
@@ -84,7 +84,8 @@ function establishContext(api, onDemoSucceeded, onDemoFailed) {
 
 function onContextEstablished(
     api, onDemoSucceeded, onDemoFailed, sCardContext) {
-  goog.log.info(logger, 'Established a new context: ' + dump(sCardContext));
+  goog.log.info(
+      logger, 'Established a new context: ' + debugDumpFull(sCardContext));
   validateContext(api, onDemoSucceeded, onDemoFailed, sCardContext);
 }
 
@@ -169,7 +170,8 @@ function onReadersChanged(
     onDemoFailed();
     return;
   }
-  goog.log.info(logger, 'Caught readers change: ' + dump(readerStates));
+  goog.log.info(
+      logger, 'Caught readers change: ' + debugDumpFull(readerStates));
   listReaderGroups(api, onDemoSucceeded, onDemoFailed, sCardContext);
 }
 
@@ -198,7 +200,7 @@ function onReaderGroupsListed(
   goog.log.info(
       logger,
       'Listed reader groups: ' +
-          goog.iter.join(goog.iter.map(readerGroups, dump), ', '));
+          goog.iter.join(goog.iter.map(readerGroups, debugDumpFull), ', '));
   if (!readerGroups) {
     goog.log.warning(logger, 'failed: no reader groups found');
     onDemoFailed();
@@ -221,7 +223,8 @@ function onReadersListed(
     api, onDemoSucceeded, onDemoFailed, sCardContext, readers) {
   goog.log.info(
       logger,
-      'Listed readers: ' + goog.iter.join(goog.iter.map(readers, dump), ', '));
+      'Listed readers: ' +
+          goog.iter.join(goog.iter.map(readers, debugDumpFull), ', '));
   if (!readers) {
     goog.log.warning(logger, 'failed: no readers found');
     onDemoFailed();
@@ -236,7 +239,7 @@ function waitForCardRemoval(
   goog.log.info(
       logger,
       'Waiting ' + TIMEOUT_SECONDS + ' seconds for card removal ' +
-          'from ' + dump(readerName) + ' reader...');
+          'from ' + debugDumpFull(readerName) + ' reader...');
   api.SCardGetStatusChange(
          sCardContext, TIMEOUT_SECONDS * 1000,
          [API.createSCardReaderStateIn(readerName, API.SCARD_STATE_PRESENT)])
@@ -254,7 +257,7 @@ function waitForCardRemoval(
 function onCardRemoved(
     api, onDemoSucceeded, onDemoFailed, sCardContext, readerName,
     readerStates) {
-  goog.log.info(logger, 'Caught card removal: ' + dump(readerStates));
+  goog.log.info(logger, 'Caught card removal: ' + debugDumpFull(readerStates));
   waitForCardInsertion(
       api, onDemoSucceeded, onDemoFailed, sCardContext, readerName);
 }
@@ -275,7 +278,7 @@ function waitForCardInsertion(
   goog.log.info(
       logger,
       'Waiting ' + TIMEOUT_SECONDS + ' seconds for card insertion ' +
-          'into ' + dump(readerName) + ' reader...');
+          'into ' + debugDumpFull(readerName) + ' reader...');
   api.SCardGetStatusChange(
          sCardContext, TIMEOUT_SECONDS * 1000,
          [API.createSCardReaderStateIn(readerName, API.SCARD_STATE_EMPTY)])
@@ -291,7 +294,8 @@ function waitForCardInsertion(
 function onCardInserted(
     api, onDemoSucceeded, onDemoFailed, sCardContext, readerName,
     readerStates) {
-  goog.log.info(logger, 'Caught card insertion: ' + dump(readerStates));
+  goog.log.info(
+      logger, 'Caught card insertion: ' + debugDumpFull(readerStates));
   waitAndCancel(api, onDemoSucceeded, onDemoFailed, sCardContext, readerName);
 }
 
@@ -299,7 +303,7 @@ function waitAndCancel(
     api, onDemoSucceeded, onDemoFailed, sCardContext, readerName) {
   goog.log.info(
       logger,
-      'Started waiting for card removal from ' + dump(readerName) +
+      'Started waiting for card removal from ' + debugDumpFull(readerName) +
           ' reader...');
   api.SCardGetStatusChange(
          sCardContext, TIMEOUT_SECONDS * 1000,
@@ -342,7 +346,8 @@ function onCancelSucceeded() {
 }
 
 function connect(api, onDemoSucceeded, onDemoFailed, sCardContext, readerName) {
-  goog.log.info(logger, 'Connecting to the reader ' + dump(readerName) + '...');
+  goog.log.info(
+      logger, 'Connecting to the reader ' + debugDumpFull(readerName) + '...');
   api.SCardConnect(
          sCardContext, readerName, API.SCARD_SHARE_SHARED,
          API.SCARD_PROTOCOL_ANY)
@@ -359,7 +364,7 @@ function onConnected(
     activeProtocol) {
   goog.log.info(
       logger,
-      'Successfully connected, handle is: ' + dump(sCardHandle) +
+      'Successfully connected, handle is: ' + debugDumpFull(sCardHandle) +
           ', active protocol is: ' +
           getProtocolDebugRepresentation(activeProtocol));
   reconnect(api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle);
@@ -403,9 +408,11 @@ function onStatusGot(
     state, protocol, atr) {
   goog.log.info(
       logger,
-      'Card status obtained: reader name is ' + dump(readerName) + ', ' +
-          'state is ' + dump(state) + ', protocol is ' +
-          getProtocolDebugRepresentation(protocol) + ', atr is ' + dump(atr));
+      'Card status obtained: reader name is ' + debugDumpFull(readerName) +
+          ', ' +
+          'state is ' + debugDumpFull(state) + ', protocol is ' +
+          getProtocolDebugRepresentation(protocol) + ', atr is ' +
+          debugDumpFull(atr));
   getAttrs(
       api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle, protocol,
       0);
@@ -422,14 +429,15 @@ function getAttrs(
     return;
   }
   const attrName = attrNames[attrIndex];
-  goog.log.fine(logger, 'Requesting the ' + dump(attrName) + ' attribute...');
+  goog.log.fine(
+      logger, 'Requesting the ' + debugDumpFull(attrName) + ' attribute...');
   api.SCardGetAttrib(sCardHandle, API[attrName]).then(function(result) {
     result.get(
         function(attrValue) {
           goog.log.info(
               logger,
-              'The ' + dump(attrName) +
-                  ' attribute value is: ' + dump(attrValue));
+              'The ' + debugDumpFull(attrName) +
+                  ' attribute value is: ' + debugDumpFull(attrValue));
           getAttrs(
               api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle,
               protocol, attrIndex + 1);
@@ -454,7 +462,8 @@ function setAttr(
   const ATTR_VALUE = [0x54, 0x65, 0x73, 0x74];
   goog.log.info(
       logger,
-      'Setting the ' + dump(ATTR_NAME) + ' attribute to ' + dump(ATTR_VALUE));
+      'Setting the ' + debugDumpFull(ATTR_NAME) + ' attribute to ' +
+          debugDumpFull(ATTR_VALUE));
   api.SCardSetAttrib(sCardHandle, API[ATTR_NAME], ATTR_VALUE)
       .then(function(result) {
         result.get(
@@ -479,8 +488,8 @@ function onAttrSetFailed(
     errorCode) {
   goog.log.info(
       logger,
-      'The attribute set was unsuccessful (error code: ' + dump(errorCode) +
-          ')');
+      'The attribute set was unsuccessful (error code: ' +
+          debugDumpFull(errorCode) + ')');
   beginTransaction(
       api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle, protocol);
 }
@@ -524,7 +533,7 @@ function onControlCommandSent(
   goog.log.info(
       logger,
       'The CM_IOCTL_GET_FEATURE_REQUEST control command returned: ' +
-          dump(responseData));
+          debugDumpFull(responseData));
   sendTransmitCommand(
       api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle, protocol);
 }
@@ -535,7 +544,7 @@ function sendTransmitCommand(
   goog.log.info(
       logger,
       'Sending the transmit command with "list dir" APDU ' +
-          dump(LIST_DIR_APDU) + '...');
+          debugDumpFull(LIST_DIR_APDU) + '...');
   api.SCardTransmit(
          sCardHandle,
          protocol == API.SCARD_PROTOCOL_T0 ? API.SCARD_PCI_T0 :
@@ -555,9 +564,10 @@ function onTransmitCommandSent(
     responseProtocolInformation, responseData) {
   goog.log.info(
       logger,
-      'The transmit command returned: ' + dump(responseData) + ', the ' +
+      'The transmit command returned: ' + debugDumpFull(responseData) +
+          ', the ' +
           'response protocol information is: ' +
-          dump(responseProtocolInformation));
+          debugDumpFull(responseProtocolInformation));
   endTransaction(api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle);
 }
 
@@ -611,7 +621,8 @@ function onContextReleased(api, onDemoSucceeded, onDemoFailed) {
 }
 
 function onPcscLiteError(api, onDemoFailed, errorCode) {
-  goog.log.warning(logger, 'failed: PC/SC-Lite error: ' + dump(errorCode));
+  goog.log.warning(
+      logger, 'failed: PC/SC-Lite error: ' + debugDumpFull(errorCode));
   api.pcsc_stringify_error(errorCode).then(
       function(errorText) {
         goog.log.warning(logger, 'PC/SC-Lite error text: ' + errorText);
@@ -639,6 +650,6 @@ function getProtocolDebugRepresentation(protocol) {
   if (protocol == API.SCARD_PROTOCOL_T1)
     return 'T1';
   GSC.Logging.failWithLogger(
-      logger, 'Unknown protocol value: ' + dump(protocol));
+      logger, 'Unknown protocol value: ' + debugDumpFull(protocol));
 }
 });  // goog.scope

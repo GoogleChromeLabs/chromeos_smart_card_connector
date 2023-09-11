@@ -242,7 +242,7 @@ Pcsc.ServerRequestHandler = class extends goog.Disposable {
         .postRequest(remoteCallMessage.makeRequestPayload())
         .then(
             (result) => {
-              const resultDump = GSC.DebugDump.debugDump(result);
+              const resultDump = GSC.DebugDump.debugDumpSanitized(result);
               goog.log.fine(
                   this.logger,
                   `PC/SC call ${requestDump} completed: ${resultDump}`);

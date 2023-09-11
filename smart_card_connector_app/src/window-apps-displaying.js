@@ -92,7 +92,8 @@ function onUpdateListener(clientOriginList) {
   goog.log.fine(
       logger,
       'Application list updated, refreshing the view. ' +
-          'New list of origins: ' + GSC.DebugDump.dump(sortedClientOriginList));
+          'New list of origins: ' +
+          GSC.DebugDump.debugDumpFull(sortedClientOriginList));
 
   const trustedClientInfosPromise =
       trustedClientsRegistry.tryGetByOrigins(sortedClientOriginList);
