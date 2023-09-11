@@ -1,7 +1,7 @@
 name: 'Install build dependencies'
 inputs:
   toolchain:
-    description: '"emscripten", "pnacl", "asan_testing", "coverage" or "eslint"'
+    description: '"emscripten", "pnacl", "asan_testing", "coverage", "clang-format" or "eslint"'
     required: true
 timeout-minutes: 10
 runs:
@@ -13,9 +13,14 @@ runs:
     shell: bash
     env:
       DEBIAN_FRONTEND: noninteractive
-    run: sudo apt-get update
+    run: |
+      export DISTRIB_CODENAME=$(. /etc/lsb-release && echo $DISTRIB_CODENAME)
+      wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+      sudo add-apt-repository "deb http://apt.llvm.org/${DISTRIB_CODENAME}/ llvm-toolchain-${DISTRIB_CODENAME}-${LLVM_VERSION} main"
+      sudo apt-get update
 
-  - name: Install dependencies
+  - name: Install build dependencies
+    if: ${{ inputs.toolchain != 'clang-format' && inputs.toolchain != 'eslint' }}
     shell: bash
     env:
       DEBIAN_FRONTEND: noninteractive
@@ -27,6 +32,14 @@ runs:
       libsystemd-dev
       libudev-dev
       pkg-config
+
+  - name: Install build dependencies
+    if: ${{ inputs.toolchain == 'clang-format' }}
+    shell: bash
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    run: |
+      sudo apt-get install -y clang-format-${LLVM_VERSION}
 
   - name: Set up Python 3
     uses: actions/setup-python@v4
@@ -48,7 +61,7 @@ runs:
     run: >
       sudo apt-get install -y
       build-essential
-      llvm
-      clang
+      llvm-${LLVM_VERSION}
+      clang-${LLVM_VERSION}
       libc6-dev-i386
       libstdc++-${ANALYSIS_LIBSTDCPP_VERSION}-dev-i386-cross
