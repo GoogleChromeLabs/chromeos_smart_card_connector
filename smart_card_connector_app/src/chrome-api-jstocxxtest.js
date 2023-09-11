@@ -280,13 +280,13 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
   },
 
   'testSmoke': async function() {
-    launchPcscServer(/*initialDevices=*/[]);
+    await launchPcscServer(/*initialDevices=*/[]);
     await pcscReadinessTracker.promise;
   },
 
   // Test a single `onEstablishContextRequested` event.
   'testEstablishContext': async function() {
-    launchPcscServer(/*initialDevices=*/[]);
+    await launchPcscServer(/*initialDevices=*/[]);
     await establishContext(/*requestId=*/ 123);
   },
 
@@ -294,7 +294,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
   'testReleaseContext': async function() {
     expectReportReleaseContext(/*requestId=*/ 124, 'SUCCESS');
 
-    launchPcscServer(/*initialDevices=*/[]);
+    await launchPcscServer(/*initialDevices=*/[]);
     const sCardContext = await establishContext(/*requestId=*/ 123);
     await mockChromeApi
         .dispatchEvent(
@@ -307,7 +307,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     const BAD_CONTEXT = 123;
     expectReportReleaseContext(/*requestId=*/ 42, 'INVALID_HANDLE');
 
-    launchPcscServer(/*initialDevices=*/[]);
+    await launchPcscServer(/*initialDevices=*/[]);
     await mockChromeApi
         .dispatchEvent(
             'onReleaseContextRequested', /*requestId=*/ 42, BAD_CONTEXT)
@@ -318,7 +318,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
   'testListReaders_none': async function() {
     expectReportListReaders(/*requestId=*/ 124, [], 'NO_READERS_AVAILABLE');
 
-    launchPcscServer(/*initialDevices=*/[]);
+    await launchPcscServer(/*initialDevices=*/[]);
     const sCardContext = await establishContext(/*requestId=*/ 123);
     await mockChromeApi
         .dispatchEvent(
@@ -332,7 +332,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     expectReportReleaseContext(/*requestId=*/ 124, 'SUCCESS');
     expectReportListReaders(/*requestId=*/ 125, [], 'INVALID_HANDLE');
 
-    launchPcscServer(/*initialDevices=*/[]);
+    await launchPcscServer(/*initialDevices=*/[]);
     const sCardContext = await establishContext(/*requestId=*/ 123);
     await mockChromeApi
         .dispatchEvent(
@@ -350,7 +350,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     expectReportListReaders(
         /*requestId=*/ 124, ['Gemalto PC Twin Reader 00 00'], 'SUCCESS');
 
-    launchPcscServer(
+    await launchPcscServer(
         /*initialDevices=*/[
           {'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}
         ]);
@@ -372,7 +372,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         ],
         'SUCCESS');
 
-    launchPcscServer(
+    await launchPcscServer(
         /*initialDevices=*/[
           {'id': 101, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE},
           {'id': 102, 'type': SimulationConstants.DELL_DEVICE_TYPE}
@@ -396,7 +396,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         }],
         'SUCCESS');
 
-    launchPcscServer(/*initialDevices=*/[]);
+    await launchPcscServer(/*initialDevices=*/[]);
     const sCardContext = await establishContext(/*requestId=*/ 123);
     const verifyResult =
         mockChromeApi
@@ -408,7 +408,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
                   'currentCount': 0
                 }])
             .$waitAndVerify();
-    setSimulatedDevices(
+    await setSimulatedDevices(
         [{'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}]);
     await verifyResult;
   },
@@ -424,7 +424,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         }],
         'SUCCESS');
 
-    launchPcscServer(/*initialDevices=*/[{
+    await launchPcscServer(/*initialDevices=*/[{
       'id': 123,
       'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
       'cardType': SimulationConstants.COSMO_CARD_TYPE
@@ -453,7 +453,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         }],
         'SUCCESS');
 
-    launchPcscServer(/*initialDevices=*/[{
+    await launchPcscServer(/*initialDevices=*/[{
       'id': 123,
       'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
       'cardType': SimulationConstants.COSMO_CARD_TYPE
@@ -471,7 +471,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
                 }])
             .$waitAndVerify();
     // Simulate the card removal.
-    setSimulatedDevices(
+    await setSimulatedDevices(
         [{'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}]);
     await verifyResult;
   },
@@ -482,7 +482,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     expectReportGetStatusChange(
         /*requestId=*/ 124, [], 'TIMEOUT');
 
-    launchPcscServer(/*initialDevices=*/[{
+    await launchPcscServer(/*initialDevices=*/[{
       'id': 123,
       'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
       'cardType': SimulationConstants.COSMO_CARD_TYPE
@@ -504,7 +504,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     expectReportGetStatusChange(/*requestId=*/ 124, [], 'CANCELLED');
     expectReportPlainResult(/*requestId=*/ 125, 'SUCCESS');
 
-    launchPcscServer(/*initialDevices=*/[
+    await launchPcscServer(/*initialDevices=*/[
       {'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}
     ]);
     const sCardContext = await establishContext(/*requestId=*/ 123);
@@ -538,7 +538,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         /*requestId=*/ 124, chrome.smartCardProviderPrivate.Protocol.UNDEFINED,
         'NO_SMARTCARD');
 
-    launchPcscServer(/*initialDevices=*/[
+    await launchPcscServer(/*initialDevices=*/[
       {'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}
     ]);
     const sCardContext = await establishContext(/*requestId=*/ 123);
@@ -554,7 +554,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
   // Test Connect succeeds with `ShareMode.DIRECT` even when there's no card
   // inserted.
   'testConnect_direct': async function() {
-    launchPcscServer(/*initialDevices=*/[
+    await launchPcscServer(/*initialDevices=*/[
       {'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}
     ]);
     const sCardContext = await establishContext(/*requestId=*/ 123);
@@ -572,7 +572,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
 
   // Test Connect successfully connects to a card using the "T1" protocol.
   'testConnect_t1': async function() {
-    launchPcscServer(/*initialDevices=*/[{
+    await launchPcscServer(/*initialDevices=*/[{
       'id': 123,
       'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
       'cardType': SimulationConstants.COSMO_CARD_TYPE
@@ -592,7 +592,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
 
   // Test Disconnect succeeds with correct handle.
   'testDisconnect_simple': async function() {
-    launchPcscServer(/*initialDevices=*/[{
+    await launchPcscServer(/*initialDevices=*/[{
       'id': 123,
       'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
       'cardType': SimulationConstants.COSMO_CARD_TYPE
@@ -614,7 +614,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
 
   // Test Disconnect fails with invalid handle.
   'testDisconnect_invalid': async function() {
-    launchPcscServer(/*initialDevices=*/[{
+    await launchPcscServer(/*initialDevices=*/[{
       'id': 123,
       'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
       'cardType': SimulationConstants.COSMO_CARD_TYPE

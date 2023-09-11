@@ -249,7 +249,7 @@ goog.exportSymbol('testPcscApi', {
 
   // Test that the PC/SC server can successfully start up.
   'testStartup': async function() {
-    launchPcscServer(/*initialDevices=*/[]);
+    await launchPcscServer(/*initialDevices=*/[]);
     await pcscReadinessTracker.promise;
   },
 
@@ -501,7 +501,7 @@ goog.exportSymbol('testPcscApi', {
           context, API.INFINITE,
           [new API.SCARD_READERSTATE_IN(
               PNP_NOTIFICATION, API.SCARD_STATE_UNAWARE)]);
-      setSimulatedDevices(
+      await setSimulatedDevices(
           [{'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}]);
       const result = await resultPromise;
 
@@ -537,7 +537,7 @@ goog.exportSymbol('testPcscApi', {
           [new API.SCARD_READERSTATE_IN(
               SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
               API.SCARD_STATE_EMPTY)]);
-      setSimulatedDevices([]);
+      await setSimulatedDevices([]);
       const result = await resultPromise;
 
       let readerStates = null;
@@ -623,7 +623,7 @@ goog.exportSymbol('testPcscApi', {
               SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
               API.SCARD_STATE_EMPTY)]);
       // Simulate card insertion.
-      setSimulatedDevices([{
+      await setSimulatedDevices([{
         'id': 123,
         'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
         'cardType': SimulationConstants.COSMO_CARD_TYPE
@@ -669,7 +669,7 @@ goog.exportSymbol('testPcscApi', {
               SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
               API.SCARD_STATE_PRESENT)]);
       // Simulate the card removal.
-      setSimulatedDevices(
+      await setSimulatedDevices(
           [{'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}]);
       const result = await resultPromise;
 
@@ -1040,7 +1040,7 @@ goog.exportSymbol('testPcscApi', {
   // Test that the PC/SC server can shut down successfully when there's an
   // active client.
   'testShutdownWithActiveClient': async function() {
-    launchPcscServer(/*initialDevices=*/[]);
+    await launchPcscServer(/*initialDevices=*/[]);
     createFakeClient();
     await pcscReadinessTracker.promise;
     // Intentionally don't dispose the client.
@@ -1050,7 +1050,7 @@ goog.exportSymbol('testPcscApi', {
   // This verifies any lazily created internal state doesn't cause problems.
   'testShutdownWithActiveClientAfterApiCall': async function() {
     const BAD_CONTEXT = 123;
-    launchPcscServer(/*initialDevices=*/[]);
+    await launchPcscServer(/*initialDevices=*/[]);
     const localClient = createFakeClient();
     await localClient.api.SCardIsValidContext(BAD_CONTEXT);
     // Intentionally don't dispose the client.
