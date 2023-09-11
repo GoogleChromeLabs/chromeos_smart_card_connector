@@ -113,6 +113,7 @@ EMSCRIPTEN_COMPILER_FLAGS := \
 #   the "Pthreads + ALLOW_MEMORY_GROWTH" combination.
 EMSCRIPTEN_LINKER_FLAGS := \
   --bind \
+  --post-js=$(ROOT_PATH)/common/js/src/executable-module/emscripten-module-js-epilog.js.inc \
   -s ABORTING_MALLOC=1 \
   -s ALLOW_MEMORY_GROWTH=1 \
   -s DYNAMIC_EXECUTION=0 \
