@@ -2194,18 +2194,19 @@ goog.exportProperty(
  */
 API.ResultOrErrorCode.prototype.getDebugRepresentation = function() {
   if (this.errorCode == API.SCARD_S_SUCCESS) {
-    // Apply debugDump() to all result values except the error code, since they
-    // can contain sensitive information in them (like the contents of the
-    // digital signature). The debugDump() function dumps the values only when
-    // goog.DEBUG is true, and otherwise shows only the number of values.
+    // Apply debugDumpSanitized() to all result values except the error code,
+    // since they can contain sensitive information in them (like the contents
+    // of the digital signature). The debugDumpSanitized() function dumps the
+    // values only when goog.DEBUG is true, and otherwise shows only the number
+    // of values.
     const dumpedItems = this.resultItems && this.resultItems.length ?
-        ' ' + GSC.DebugDump.debugDump(this.resultItems) :
+        ' ' + GSC.DebugDump.debugDumpSanitized(this.resultItems) :
         '';
     return 'SCARD_S_SUCCESS' + dumpedItems;
   }
   // Dump the error code regardless of whether the mode is Debug or Release,
   // since there's no sensitive information in it.
-  return 'error ' + GSC.DebugDump.dump(this.errorCode);
+  return 'error ' + GSC.DebugDump.debugDumpFull(this.errorCode);
 };
 
 goog.exportProperty(

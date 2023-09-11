@@ -374,7 +374,7 @@ function getArrayDebugRepresentation(arr) {
     if ((!goog.DEBUG) && (value instanceof ArrayBuffer)) {
       return '<stripped value>';
     }
-    return GSC.DebugDump.dump(value);
+    return GSC.DebugDump.debugDumpFull(value);
   }), ', ');
 }
 

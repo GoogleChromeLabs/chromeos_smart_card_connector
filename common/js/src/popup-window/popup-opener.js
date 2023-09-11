@@ -86,8 +86,8 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
   goog.log.fine(
       logger,
       'Creating a popup window with url="' + url +
-          '", options=' + GSC.DebugDump.debugDump(windowOptions) +
-          ', data=' + GSC.DebugDump.debugDump(opt_data));
+          '", options=' + GSC.DebugDump.debugDumpSanitized(windowOptions) +
+          ', data=' + GSC.DebugDump.debugDumpSanitized(opt_data));
 
   /** @preserveTry */
   try {
@@ -118,7 +118,8 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
     GSC.Logging.failWithLogger(
         logger,
         'Failed to create the popup window with URL "' + url + '" and ' +
-            'options ' + GSC.DebugDump.debugDump(windowOptions) + ': ' + exc);
+            'options ' + GSC.DebugDump.debugDumpSanitized(windowOptions) +
+            ': ' + exc);
   }
 };
 
@@ -187,7 +188,7 @@ function createWindowCallback(createdWindowExtends, createdWindow) {
       logger, goog.log.Level.FINER,
       'The popup window callback is executed, injecting the following data ' +
           'into the created window: ' +
-          GSC.DebugDump.debugDump(createdWindowExtends));
+          GSC.DebugDump.debugDumpSanitized(createdWindowExtends));
   Object.assign(createdWindowScope, createdWindowExtends);
 }
 });  // goog.scope

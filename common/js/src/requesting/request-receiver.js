@@ -109,7 +109,7 @@ GSC.RequestReceiver = class {
     GSC.Logging.checkWithLogger(this.logger, goog.isObject(messageData));
     goog.asserts.assertObject(messageData);
 
-    const debugDump = GSC.DebugDump.debugDump(messageData);
+    const debugDump = GSC.DebugDump.debugDumpSanitized(messageData);
 
     const requestMessageData = RequestMessageData.parseMessageData(messageData);
     if (requestMessageData === null) {
@@ -152,7 +152,7 @@ GSC.RequestReceiver = class {
       return;
     }
 
-    const debugDump = GSC.DebugDump.debugDump(payload);
+    const debugDump = GSC.DebugDump.debugDumpSanitized(payload);
     goog.log.fine(
         this.logger,
         `Sending result for requestId ${requestMessageData.requestId}: ` +

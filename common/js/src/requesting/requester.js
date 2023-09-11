@@ -107,7 +107,7 @@ GSC.Requester = class extends goog.Disposable {
     goog.log.fine(
         this.logger,
         'Starting a request with identifier ' + requestId +
-            ', the payload is: ' + GSC.DebugDump.debugDump(payload));
+            ', the payload is: ' + GSC.DebugDump.debugDumpSanitized(payload));
 
     const promiseResolver = goog.Promise.withResolver();
 
@@ -190,7 +190,7 @@ GSC.Requester = class extends goog.Disposable {
       GSC.Logging.failWithLogger(
           this.logger,
           'Failed to parse the received response message: ' +
-              GSC.DebugDump.debugDump(messageData));
+              GSC.DebugDump.debugDumpSanitized(messageData));
     }
     const requestId = responseMessageData.requestId;
 
@@ -216,7 +216,7 @@ GSC.Requester = class extends goog.Disposable {
     goog.log.fine(
         this.logger,
         'The request with identifier ' + requestId + ' succeeded with the ' +
-            'following result: ' + GSC.DebugDump.debugDump(payload));
+            'following result: ' + GSC.DebugDump.debugDumpSanitized(payload));
     this.popRequestPromiseResolver_(requestId).resolve(payload);
   }
 

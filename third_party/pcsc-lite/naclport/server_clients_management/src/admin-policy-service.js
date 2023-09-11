@@ -137,7 +137,7 @@ AdminPolicyService.prototype.managedStorageLoadedCallback_ = function(items) {
   goog.log.info(
       this.logger,
       'Loaded the following data from the managed storage: ' +
-          GSC.DebugDump.dump(items));
+          GSC.DebugDump.debugDumpFull(items));
 
   this.updateAdminPolicyFromStorageData_(items);
 };

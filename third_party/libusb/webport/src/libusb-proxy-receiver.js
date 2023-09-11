@@ -37,7 +37,7 @@ goog.scope(function() {
 const EXECUTABLE_MODULE_REQUESTER_NAME = 'libusb';
 
 const GSC = GoogleSmartCard;
-const debugDump = GSC.DebugDump.debugDump;
+const debugDumpSanitized = GSC.DebugDump.debugDumpSanitized;
 
 const logger = GSC.Logging.getScopedLogger('LibusbProxyReceiver');
 
@@ -96,7 +96,8 @@ GSC.LibusbProxyReceiver = class {
     if (!remoteCallMessage) {
       GSC.Logging.failWithLogger(
           logger,
-          'Failed to parse the remote call message: ' + debugDump(payload));
+          'Failed to parse the remote call message: ' +
+              debugDumpSanitized(payload));
     }
     goog.log.fine(
         logger,

@@ -257,7 +257,7 @@ ClientHandler.prototype.handleRequest_ = function(payload) {
     goog.log.warning(
         this.logger,
         'Failed to parse the received request payload: ' +
-            GSC.DebugDump.debugDump(payload));
+            GSC.DebugDump.debugDumpSanitized(payload));
     return goog.Promise.reject(
         new Error('Failed to parse the received request payload'));
   }

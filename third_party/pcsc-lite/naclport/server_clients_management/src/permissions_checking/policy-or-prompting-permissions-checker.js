@@ -78,8 +78,8 @@ GSC.Pcsc.PolicyOrPromptingPermissionsChecker =
   check(clientOrigin) {
     goog.log.log(
         logger, goog.log.Level.FINER,
-        'Checking permissions for client ' + GSC.DebugDump.dump(clientOrigin) +
-            '...');
+        'Checking permissions for client ' +
+            GSC.DebugDump.debugDumpFull(clientOrigin) + '...');
 
     if (clientOrigin === null) {
       goog.log.log(

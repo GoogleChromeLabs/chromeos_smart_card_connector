@@ -174,7 +174,7 @@ ReaderTrackerThroughPcscApi.prototype.makeSCardContextPromise_ = function(api) {
                 function(errorCode) {
                   promiseResolver.reject(new Error(
                       'Failed to establish a PC/SC context with error code ' +
-                      GSC.DebugDump.dump(errorCode)));
+                      GSC.DebugDump.debugDumpFull(errorCode)));
                 });
           },
           function(error) {
@@ -278,7 +278,8 @@ ReaderTrackerThroughPcscApi.prototype.makeReaderNamesPromise_ = function(
                   } else {
                     promiseResolver.reject(new Error(
                         'Failed to get the list of readers from PC/SC with ' +
-                        'error code ' + GSC.DebugDump.dump(errorCode)));
+                        'error code ' +
+                        GSC.DebugDump.debugDumpFull(errorCode)));
                   }
                 });
           },
@@ -327,7 +328,8 @@ ReaderTrackerThroughPcscApi.prototype.makeReaderStatesPromise_ = function(
                   } else {
                     promiseResolver.reject(new Error(
                         'Failed to get the reader statuses from PC/SC with ' +
-                        'error code ' + GSC.DebugDump.dump(errorCode)));
+                        'error code ' +
+                        GSC.DebugDump.debugDumpFull(errorCode)));
                   }
                 },
                 this);
@@ -393,7 +395,7 @@ ReaderTrackerThroughPcscApi.prototype.makeReaderStatesChangePromise_ = function(
   goog.log.fine(
       this.logger_,
       'Waiting for the reader statuses change from PC/SC with the following ' +
-          'data: ' + GSC.DebugDump.dump(readerStatesIn) + '...');
+          'data: ' + GSC.DebugDump.debugDumpFull(readerStatesIn) + '...');
 
   api.SCardGetStatusChange(
          sCardContext, READER_STATUS_QUERY_TIMEOUT_MILLISECONDS, readerStatesIn)
@@ -404,7 +406,7 @@ ReaderTrackerThroughPcscApi.prototype.makeReaderStatesChangePromise_ = function(
                   goog.log.fine(
                       this.logger_,
                       'Received a reader statuses change event from PC/SC: ' +
-                          GSC.DebugDump.dump(readerStatesOut));
+                          GSC.DebugDump.debugDumpFull(readerStatesOut));
                   promiseResolver.resolve();
                 },
                 function(errorCode) {
@@ -425,7 +427,7 @@ ReaderTrackerThroughPcscApi.prototype.makeReaderStatesChangePromise_ = function(
                     promiseResolver.reject(new Error(
                         'Failed to wait for the reader statuses change from ' +
                         'PC/SC with error code ' +
-                        GSC.DebugDump.dump(errorCode)));
+                        GSC.DebugDump.debugDumpFull(errorCode)));
                   }
                 },
                 this);

@@ -212,7 +212,7 @@ UserPromptingChecker.prototype.loadLocalStorage_ = async function() {
   goog.log.log(
       this.logger, goog.log.Level.FINER,
       'Loaded the following data from the local storage: ' +
-          GSC.DebugDump.dump(rawData));
+          GSC.DebugDump.debugDumpFull(rawData));
 
   const storedUserSelections = this.parseLocalStorageUserSelections_(rawData);
 
@@ -284,7 +284,7 @@ UserPromptingChecker.prototype.parseLocalStorageUserSelections_ = function(
     goog.log.warning(
         this.logger,
         'Corrupted local storage data - expected an object, received: ' +
-            GSC.DebugDump.dump(contents));
+            GSC.DebugDump.debugDumpFull(contents));
     return storedUserSelections;
   }
   goog.object.forEach(contents, function(userSelection, identifier) {
@@ -292,7 +292,8 @@ UserPromptingChecker.prototype.parseLocalStorageUserSelections_ = function(
       goog.log.warning(
           this.logger,
           'Corrupted local storage entry - expected the object value to ' +
-              'be a boolean, received: ' + GSC.DebugDump.dump(userSelection));
+              'be a boolean, received: ' +
+              GSC.DebugDump.debugDumpFull(userSelection));
       return;
     }
     const clientOrigin = fixupLegacyStoredIdentifier(identifier);
@@ -441,7 +442,7 @@ UserPromptingChecker.prototype.storeUserApproval_ =
   goog.log.log(
       this.logger, goog.log.Level.FINER,
       'Storing the following data in the local storage: ' +
-          GSC.DebugDump.dump(dumpedValue));
+          GSC.DebugDump.debugDumpFull(dumpedValue));
   chrome.storage.local.set(goog.object.create(LOCAL_STORAGE_KEY, dumpedValue));
 };
 });  // goog.scope

@@ -49,7 +49,7 @@ const ClientHandler = GSC.PcscLiteServerClientsManagement.ClientHandler;
 const ReadinessTracker = GSC.PcscLiteServerClientsManagement.ReadinessTracker;
 const API = GSC.PcscLiteClient.API;
 const SimulationConstants = GSC.TestingLibusbSmartCardSimulationConstants;
-const dump = GSC.DebugDump.dump;
+const debugDumpFull = GSC.DebugDump.debugDumpFull;
 
 const PCSC_REQUEST_MESSAGE_TYPE = GSC.RequesterMessage.getRequestMessageType(
     GSC.PcscLiteCommon.Constants.REQUESTER_TITLE);
@@ -216,7 +216,8 @@ function readerStateEquals(a, b) {
  * @param {!API.SCARD_READERSTATE_OUT} b
  */
 function assertReaderStateEquals(a, b) {
-  assertTrue(`${dump(a)} != ${dump(b)}`, readerStateEquals(a, b));
+  assertTrue(
+      `${debugDumpFull(a)} != ${debugDumpFull(b)}`, readerStateEquals(a, b));
 }
 
 goog.exportSymbol('testPcscApi', {
@@ -565,8 +566,8 @@ goog.exportSymbol('testPcscApi', {
           /*eventState=*/ API.SCARD_STATE_CHANGED | API.SCARD_STATE_UNAVAILABLE,
           /*atr=*/ new ArrayBuffer(0));
       assertTrue(
-          `${dump(readerState)} equals neither ${dump(expected1)} nor ${
-              dump(expected2)}`,
+          `${debugDumpFull(readerState)} equals neither ${
+              debugDumpFull(expected1)} nor ${debugDumpFull(expected2)}`,
           readerStateEquals(readerState, expected1) ||
               readerStateEquals(readerState, expected2));
 

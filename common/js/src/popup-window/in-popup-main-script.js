@@ -79,7 +79,7 @@ GSC.InPopupMainScript.resolveModalDialog = function(result) {
   goog.log.fine(
       logger,
       'The modal dialog is resolved with the following result: ' +
-          GSC.DebugDump.debugDump(result));
+          GSC.DebugDump.debugDumpSanitized(result));
 
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
     const callback = popUpData['resolveModalDialog'];

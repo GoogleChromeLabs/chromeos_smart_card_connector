@@ -254,7 +254,7 @@ TrustedClientsRegistryImpl.prototype.parseJsonAndApply_ = function(json) {
       goog.log.warning(
           this.logger,
           'Failed to parse the following trusted clients registry JSON item: ' +
-              'key="' + key + '", value=' + GSC.DebugDump.dump(value));
+              'key="' + key + '", value=' + GSC.DebugDump.debugDumpFull(value));
       success = false;
     }
   }, this);
@@ -263,7 +263,7 @@ TrustedClientsRegistryImpl.prototype.parseJsonAndApply_ = function(json) {
     goog.log.fine(
         this.logger,
         'Successfully loaded registry from JSON file: ' +
-            GSC.DebugDump.dump(originToInfoMap));
+            GSC.DebugDump.debugDumpFull(originToInfoMap));
     this.promiseResolver_.resolve(originToInfoMap);
   } else {
     this.promiseResolver_.reject(

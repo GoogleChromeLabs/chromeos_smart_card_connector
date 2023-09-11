@@ -251,7 +251,7 @@ Backend.prototype.handleRequest_ = function(payload) {
     GSC.Logging.failWithLogger(
         this.logger,
         'Failed to parse the remote call message: ' +
-            GSC.DebugDump.debugDump(payload));
+            GSC.DebugDump.debugDumpSanitized(payload));
   }
 
   const debugRepresentation = 'chrome.certificateProvider.' +
@@ -410,7 +410,8 @@ Backend.prototype.processCertificatesUpdateRequest_ = function(request) {
         goog.log.info(
             this.logger,
             'Setting the certificate list with ' + certificates.length +
-                ' certificates: ' + GSC.DebugDump.debugDump(certificates));
+                ' certificates: ' +
+                GSC.DebugDump.debugDumpSanitized(certificates));
         chrome.certificateProvider.setCertificates({
           certificatesRequestId: request.certificatesRequestId,
           clientCertificates: certificates
@@ -437,8 +438,9 @@ Backend.prototype.processSignatureRequest_ = function(request) {
       this.logger,
       'Started handling signature request. The request contents are: ' +
           'algorithm is "' + request.algorithm + '", input is ' +
-          GSC.DebugDump.debugDump(request.input) + ', certificate is ' +
-          GSC.DebugDump.debugDump(request.certificate));
+          GSC.DebugDump.debugDumpSanitized(request.input) +
+          ', certificate is ' +
+          GSC.DebugDump.debugDumpSanitized(request.certificate));
   /** @type {!ExecutableModuleSignatureRequest} */
   const executableRequest = {
     signRequestId: request.signRequestId,
@@ -458,7 +460,7 @@ Backend.prototype.processSignatureRequest_ = function(request) {
         goog.log.info(
             this.logger,
             'Responding to the signature request with the created signature: ' +
-                GSC.DebugDump.debugDump(signature));
+                GSC.DebugDump.debugDumpSanitized(signature));
         chrome.certificateProvider.reportSignature(
             {signRequestId: request.signRequestId, signature: signature});
       },
@@ -492,8 +494,8 @@ Backend.prototype.processCertificatesRequest_ = function(reportCallback) {
         goog.log.info(
             this.logger,
             'Responding to the certificates request with ' +
-                certificates.length +
-                ' certificates: ' + GSC.DebugDump.debugDump(certificates));
+                certificates.length + ' certificates: ' +
+                GSC.DebugDump.debugDumpSanitized(certificates));
         reportCallback(
             certificates, this.rejectedCertificatesCallback_.bind(this));
       },
@@ -517,8 +519,9 @@ Backend.prototype.processSignDigestRequest_ = function(
       this.logger,
       'Started handling digest signing request. The request contents are: ' +
           'hash is "' + request.hash + '", digest is ' +
-          GSC.DebugDump.debugDump(request.digest) + ', certificate is ' +
-          GSC.DebugDump.debugDump(request.certificate));
+          GSC.DebugDump.debugDumpSanitized(request.digest) +
+          ', certificate is ' +
+          GSC.DebugDump.debugDumpSanitized(request.certificate));
   /** @type {!ExecutableModuleSignatureRequest} */
   const executableRequest = {
     signRequestId: request.signRequestId,
@@ -538,7 +541,7 @@ Backend.prototype.processSignDigestRequest_ = function(
         goog.log.info(
             this.logger,
             'Responding to the digest sign request with the created ' +
-                'signature: ' + GSC.DebugDump.debugDump(signature));
+                'signature: ' + GSC.DebugDump.debugDumpSanitized(signature));
         reportCallback(signature);
       },
       function() {
@@ -561,7 +564,8 @@ Backend.prototype.rejectedCertificatesCallback_ = function(
   goog.log.warning(
       this.logger,
       'chrome.certificateProvider API rejected ' + rejectedCertificates.length +
-          ' certificates: ' + GSC.DebugDump.debugDump(rejectedCertificates));
+          ' certificates: ' +
+          GSC.DebugDump.debugDumpSanitized(rejectedCertificates));
 };
 
 /**
