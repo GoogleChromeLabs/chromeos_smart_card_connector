@@ -29,19 +29,26 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.javascript.jscomp.AbstractCompiler;
 import com.google.javascript.jscomp.SourceFile;
+import com.google.javascript.jscomp.SourceMapInput;
+import com.google.javascript.jscomp.SourceMapResolver;
 import com.google.javascript.jscomp.colors.ColorRegistry;
+import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.ExtensionRegistry;
+import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.WireFormat;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** Deserializes a list of TypedAst protos into the JSCompiler AST structure. */
 @GwtIncompatible("protobuf.lite")
@@ -51,15 +58,17 @@ public final class TypedAstDeserializer {
   private final SourceFile syntheticExterns;
   private final Optional<ColorPool.Builder> colorPoolBuilder;
 
+  private final Optional<ImmutableSet<SourceFile>> requiredInputFiles;
   private final LinkedHashMap<String, SourceFile> filePoolBuilder = new LinkedHashMap<>();
-  private final LinkedHashMap<SourceFile, Supplier<Node>> typedAstFilesystem =
-      new LinkedHashMap<>();
+  private final ConcurrentMap<SourceFile, Supplier<Node>> typedAstFilesystem =
+      new ConcurrentHashMap<>();
   private final ImmutableSet.Builder<String> externProperties = ImmutableSet.builder();
   private final ArrayList<ScriptNodeDeserializer> syntheticExternsDeserializers = new ArrayList<>();
 
   private TypedAstDeserializer(
       SourceFile syntheticExterns,
       Optional<ColorPool.Builder> existingColorPool,
+      Optional<ImmutableSet<SourceFile>> requiredInputFiles,
       Mode mode,
       boolean includeTypeInformation) {
     this.syntheticExterns = syntheticExterns;
@@ -69,6 +78,7 @@ public final class TypedAstDeserializer {
     } else {
       this.colorPoolBuilder = Optional.absent();
     }
+    this.requiredInputFiles = requiredInputFiles;
   }
 
   private enum Mode {
@@ -77,70 +87,89 @@ public final class TypedAstDeserializer {
   }
 
   /**
-   * Transforms a given TypedAst.List stream into a compiler AST
+   * Transforms a given TypedAst delimited stream into a compiler AST
    *
-   * @param existingSourceFiles TypedAst nodes referencing a named SourceFile in this list will use
-   *     the SourceFile object rather than creating a new SourceFile instance. AST references to
-   *     SourceFiles not in this list will always create new SourceFile instances.
-   * @param includeTypeInformation whether to deserialize the "Typed" half of a "TypedAst". If false
-   *     ignores the TypePool, any TypePointers on AstNodes, and does not create a ColorRegistry
+   * @param requiredInputFiles All SourceFiles that should go into the typedAstFilesystem. If a
+   *     TypedAst contains a file not in this set, that file will not be added to the
+   *     typedAstFilesystem to avoid wasting memory.
+   * @param includeTypeInformation Whether to deserialize the "Typed" half of a "TypedAst". If false
+   *     ignores the TypePool, any TypePointers on AstNodes, and does not create a ColorRegistry.
+   * @param resolveSourceMapAnnotations Whether to create and register a SourceMapInput for a given
+   *     `//# sourceMappingURL` (stored in LazyAst) when deserializing.
+   * @param parseInlineSourceMaps Whether a given `//# sourceMappingURL` should be registered as a
+   *     Base64 encoded source map.
    */
   public static DeserializedAst deserializeFullAst(
       AbstractCompiler compiler,
       SourceFile syntheticExterns,
-      ImmutableList<SourceFile> existingSourceFiles,
+      ImmutableSet<SourceFile> requiredInputFiles,
       InputStream typedAstsStream,
-      boolean includeTypeInformation) {
+      boolean includeTypeInformation,
+      boolean resolveSourceMapAnnotations,
+      boolean parseInlineSourceMaps) {
     ImmutableMap<String, SourceFile> sourceFilesByName =
-        existingSourceFiles.stream()
+        requiredInputFiles.stream()
             .collect(toImmutableMap(SourceFile::getName, Function.identity()));
     return deserialize(
         compiler,
         syntheticExterns,
+        Optional.of(requiredInputFiles),
         sourceFilesByName,
         Optional.absent(),
         typedAstsStream,
         Mode.FULL_AST,
-        includeTypeInformation);
+        includeTypeInformation,
+        resolveSourceMapAnnotations,
+        parseInlineSourceMaps);
   }
 
   /**
    * Transforms the special runtime library TypedAst
    *
-   * @param colorPoolBuilder a ColorPool.Builder holding the colors on the full AST. We want to
-   *     merge these colors with the runtime library colors to allow injecting runtime libraries
-   *     without re-typechecking them.
+   * @param colorPool a ColorPool.Builder holding the colors on the full AST. We want to merge these
+   *     colors with the runtime library colors to allow injecting runtime libraries without
+   *     re-typechecking them.
    */
   public static DeserializedAst deserializeRuntimeLibraries(
       AbstractCompiler compiler,
       SourceFile syntheticExterns,
       Optional<ColorPool.Builder> colorPool,
-      InputStream typedAstsStream) {
+      InputStream typedAstsStream,
+      boolean resolveSourceMapAnnotations,
+      boolean parseInlineSourceMaps) {
     return deserialize(
         compiler,
         syntheticExterns,
+        // we don't a priori know the SourceFiles corresponding to the runtime libraries like we
+        // do for normal CompilerInputs
+        Optional.absent(),
         ImmutableMap.of(),
         colorPool,
         typedAstsStream,
         Mode.RUNTIME_LIBRARY_ONLY,
-        colorPool.isPresent());
+        colorPool.isPresent(),
+        resolveSourceMapAnnotations,
+        parseInlineSourceMaps);
   }
 
   private static DeserializedAst deserialize(
       AbstractCompiler compiler,
       SourceFile syntheticExterns,
+      Optional<ImmutableSet<SourceFile>> requiredInputFiles,
       ImmutableMap<String, SourceFile> scriptSourceFiles,
       Optional<ColorPool.Builder> colorPool,
       InputStream typedAstStream,
       Mode mode,
-      boolean includeTypeInformation) {
+      boolean includeTypeInformation,
+      boolean resolveSourceMapAnnotations,
+      boolean parseInlineSourceMaps) {
     checkArgument(
         colorPool.isPresent() == (mode.equals(Mode.RUNTIME_LIBRARY_ONLY) && includeTypeInformation),
         "ColorPool.Builder required iff deserializing runtime libraries & including types");
-    List<TypedAst> typedAstProtos = deserializeTypedAsts(typedAstStream);
 
     TypedAstDeserializer deserializer =
-        new TypedAstDeserializer(syntheticExterns, colorPool, mode, includeTypeInformation);
+        new TypedAstDeserializer(
+            syntheticExterns, colorPool, requiredInputFiles, mode, includeTypeInformation);
     deserializer.filePoolBuilder.put(syntheticExterns.getName(), syntheticExterns);
     deserializer.filePoolBuilder.putAll(scriptSourceFiles);
 
@@ -150,22 +179,50 @@ public final class TypedAstDeserializer {
       compiler.initRuntimeLibraryTypedAsts(deserializer.colorPoolBuilder);
     }
 
-    for (TypedAst typedAstProto : typedAstProtos) {
-      deserializer.deserializeSingleTypedAst(typedAstProto);
-    }
+    deserializeTypedAsts(
+        typedAstStream, deserializer, compiler, resolveSourceMapAnnotations, parseInlineSourceMaps);
 
     deserializer.typedAstFilesystem.put(
         syntheticExterns,
-        () -> {
-          Node script = IR.script();
-          script.setStaticSourceFile(syntheticExterns);
-          for (ScriptNodeDeserializer d : deserializer.syntheticExternsDeserializers) {
-            script.addChildrenToBack(d.deserializeNew().removeChildren());
-          }
-          return script;
-        });
+        new SyntheticExternsDeserializer(
+                syntheticExterns, deserializer.syntheticExternsDeserializers)
+            ::deserialize);
 
     return deserializer.toDeserializedAst();
+  }
+
+  /**
+   * Helper class that is a lazy deserializer for the synthetic externs script
+   *
+   * <p>The "checks" phase of JSCompiler may synthesize new extern nodes. This means that if we are
+   * merging multiple TypedAST shards from different independent "checks" phases, each shard may
+   * have its own synthetic externs script. This class concatenates each synthetic externs script
+   * into one.
+   *
+   * <p>Note: while it's possible that other files appear in multiple TypedAST shards, we assume
+   * that those files are identical, and arbitrarily choose one copy of each file. The synthetic
+   * externs are the only case where we concatenate multiple versions of the same file rather than
+   * just choosing one.
+   */
+  private static final class SyntheticExternsDeserializer {
+    private final SourceFile syntheticExterns;
+    private final ArrayList<ScriptNodeDeserializer> syntheticExternsDeserializers;
+
+    SyntheticExternsDeserializer(
+        SourceFile syntheticExterns,
+        ArrayList<ScriptNodeDeserializer> syntheticExternsDeserializers) {
+      this.syntheticExterns = syntheticExterns;
+      this.syntheticExternsDeserializers = syntheticExternsDeserializers;
+    }
+
+    Node deserialize() {
+      Node script = IR.script();
+      script.setStaticSourceFile(syntheticExterns);
+      for (ScriptNodeDeserializer d : this.syntheticExternsDeserializers) {
+        script.addChildrenToBack(d.deserializeNew().removeChildren());
+      }
+      return script;
+    }
   }
 
   private DeserializedAst toDeserializedAst() {
@@ -173,41 +230,100 @@ public final class TypedAstDeserializer {
         this.mode.equals(Mode.RUNTIME_LIBRARY_ONLY) || !this.colorPoolBuilder.isPresent()
             ? Optional.absent()
             : Optional.of(colorPoolBuilder.get().build().getRegistry());
-    return DeserializedAst.create(
-        ImmutableMap.copyOf(typedAstFilesystem),
-        registry,
-        externProperties.build());
+    return DeserializedAst.create(typedAstFilesystem, registry, externProperties.build());
   }
 
-  private void deserializeSingleTypedAst(TypedAst typedAstProto) {
-    ImmutableList.Builder<SourceFile> fileShardBuilder = ImmutableList.builder();
+  private void deserializeTypedAst(
+      TypedAst typedAstProto,
+      AbstractCompiler compiler,
+      boolean resolveSourceMapAnnotations,
+      boolean parseInlineSourceMaps) {
+    ImmutableList<SourceFile> fileShard = toFileShard(typedAstProto);
+
+    if (this.mode.equals(Mode.FULL_AST)) {
+      // Exclude any TypedAST shards passed to the compiler that don't contain any actual
+      // sources we care about. For example: if we're passed "--js=a.js --js=b.js", and see a
+      // TypedAST only containing ["c.js", "synthetic:externs"], it's a drain on performance to
+      // include it.
+      boolean containsRequiredInput = false;
+      for (LazyAst lazyAst :
+          Iterables.concat(typedAstProto.getExternAstList(), typedAstProto.getCodeAstList())) {
+        SourceFile file = fileShard.get(lazyAst.getSourceFile() - 1);
+        if (requiredInputFiles.get().contains(file)) {
+          containsRequiredInput = true;
+          break;
+        }
+      }
+      if (!containsRequiredInput) {
+        return;
+      }
+    }
+
+    // TODO(b/248351234): can we avoid some of this work if the shard only contains weak srcs?
+    // one risk: could checks passes synthesize new externProperties even for weak srcs?
     StringPool stringShard = StringPool.fromProto(typedAstProto.getStringPool());
     Optional<ColorPool.ShardView> colorShard =
         colorPoolBuilder.transform(
             (builder) -> builder.addShard(typedAstProto.getTypePool(), stringShard));
-
-    for (SourceFileProto p : typedAstProto.getSourceFilePool().getSourceFileList()) {
-      fileShardBuilder.add(
-          filePoolBuilder.computeIfAbsent(p.getFilename(), (n) -> SourceFile.fromProto(p)));
-    }
-    ImmutableList<SourceFile> fileShard = fileShardBuilder.build();
-
     for (int x : typedAstProto.getExternsSummary().getPropNamePtrList()) {
       externProperties.add(stringShard.get(x));
     }
 
     for (LazyAst lazyAst :
         Iterables.concat(typedAstProto.getExternAstList(), typedAstProto.getCodeAstList())) {
-      initLazyAstDeserializer(lazyAst, fileShard, colorShard, stringShard);
+      initLazyAstDeserializer(
+          lazyAst,
+          fileShard,
+          colorShard,
+          stringShard,
+          compiler,
+          resolveSourceMapAnnotations,
+          parseInlineSourceMaps);
     }
+  }
+
+  private ImmutableList<SourceFile> toFileShard(TypedAst typedAstProto) {
+    ImmutableList.Builder<SourceFile> fileShardBuilder = ImmutableList.builder();
+    List<SourceFileProto> protos = typedAstProto.getSourceFilePool().getSourceFileList();
+    for (int i = 0; i < protos.size(); i++) {
+      SourceFileProto p = protos.get(i);
+
+      SourceFile existingFile = filePoolBuilder.get(p.getFilename());
+      if (existingFile != null) {
+        // Merge the existing SourceFile with the information serialized in the TypedAST.
+        existingFile.restoreCachedStateFrom(p);
+        fileShardBuilder.add(existingFile);
+      } else {
+        SourceFile protoFile = SourceFile.fromProto(p);
+        fileShardBuilder.add(protoFile);
+      }
+    }
+    return fileShardBuilder.build();
   }
 
   private void initLazyAstDeserializer(
       LazyAst lazyAst,
       ImmutableList<SourceFile> fileShard,
       Optional<ColorPool.ShardView> colorShard,
-      StringPool stringShard) {
+      StringPool stringShard,
+      AbstractCompiler compiler,
+      boolean resolveSourceMapAnnotations,
+      boolean parseInlineSourceMaps) {
     SourceFile file = fileShard.get(lazyAst.getSourceFile() - 1);
+
+    if (requiredInputFiles.isPresent()
+        && !requiredInputFiles.get().contains(file)
+        // Synthetic externs bypass the normal dependency system and are always included in a
+        // compilation.
+        && !identical(syntheticExterns, file)) {
+      return;
+    }
+
+    if (file.isWeak()) {
+      typedAstFilesystem.computeIfAbsent(file, TypedAstDeserializer::createStubWeakScriptNode);
+      return;
+    }
+
     ScriptNodeDeserializer deserializer =
         new ScriptNodeDeserializer(lazyAst, stringShard, colorShard, fileShard);
 
@@ -216,14 +332,91 @@ public final class TypedAstDeserializer {
     } else {
       typedAstFilesystem.computeIfAbsent(file, (f) -> deserializer::deserializeNew);
     }
+
+    addInputSourceMap(deserializer, compiler, resolveSourceMapAnnotations, parseInlineSourceMaps);
+  }
+
+  /**
+   * While deserializing a TypedAST script, if it has a corresponding sourceMappingURL, create a
+   * SourceMapInput and register it.
+   *
+   * @param resolveSourceMapAnnotations Whether to create and register a SourceMapInput for a given
+   *     `//# sourceMappingURL` (stored in LazyAst) when deserializing.
+   * @param parseInlineSourceMaps Whether a given `//# sourceMappingURL` should be registered as a
+   *     Base64 encoded source map.
+   */
+  private static void addInputSourceMap(
+      ScriptNodeDeserializer deserializer,
+      AbstractCompiler compiler,
+      boolean resolveSourceMapAnnotations,
+      boolean parseInlineSourceMaps) {
+    SourceFile sourceFile = deserializer.getSourceFile();
+    String sourceMappingURL = deserializer.getSourceMappingURL(); // This is the encoded source map.
+
+    if (sourceMappingURL != null && sourceMappingURL.length() > 0 && resolveSourceMapAnnotations) {
+      // base64EncodedSourceMap adds "data:application/json;base64," prefix to the sourceMappingURL
+      String base64EncodedSourceMap =
+          SourceMapResolver.addBase64PrefixToEncodedSourceMap(sourceMappingURL);
+      SourceFile sourceMapSourceFile =
+          SourceMapResolver.extractSourceMap(
+              sourceFile, base64EncodedSourceMap, parseInlineSourceMaps);
+      if (sourceMapSourceFile != null) {
+        compiler.addInputSourceMap(sourceFile.getName(), new SourceMapInput(sourceMapSourceFile));
+      }
+    }
+  }
+
+  /**
+   * Adds a stub deserializer for weak files to the typed ast files system.
+   *
+   * <p>Weak files don't actually need to be deserialized. They're only needed for typechecking and
+   * by definition a TypedAST has already been typechecked.
+   */
+  private static Supplier<Node> createStubWeakScriptNode(SourceFile file) {
+    return () -> {
+      Node stubScript = IR.script().setStaticSourceFile(file);
+      stubScript.putProp(Node.FEATURE_SET, FeatureSet.BARE_MINIMUM);
+      return stubScript;
+    };
   }
 
   @GwtIncompatible("ObjectInputStream")
-  private static List<TypedAst> deserializeTypedAsts(InputStream typedAstsStream) {
+  private static void deserializeTypedAsts(
+      InputStream typedAstsStream,
+      TypedAstDeserializer deserializer,
+      AbstractCompiler compiler,
+      boolean resolveSourceMapAnnotations,
+      boolean parseInlineSourceMaps) {
     try {
       CodedInputStream codedInput = CodedInputStream.newInstance(typedAstsStream);
-      return TypedAst.List.parseFrom(codedInput, ExtensionRegistry.getEmptyRegistry())
-          .getTypedAstsList();
+      // The typedAstsStream is an encoded 'TypedAst.List' message:
+      //  message TypedAst {
+      //    // (other fields)
+      //   message List {
+      //     repeated TypedAst typed_asts = 1;
+      //   }
+      // }
+      // We could use the Java proto API to create a TypedAst.List object from this stream. However,
+      // in some compiler modes the TypedAst.List may contain thousands of TypedAst objects, and
+      // pulling them all into memory at once is unnecessarily expensive. Instead we read a single
+      // TypedAst object at a time from the stream.
+      TypedAst.Builder typedAstBuilder = TypedAst.newBuilder();
+      while (!codedInput.isAtEnd()) {
+        int tag = codedInput.readTag();
+        if (WireFormat.getTagFieldNumber(tag) != TypedAst.List.TYPED_ASTS_FIELD_NUMBER
+            || WireFormat.getTagWireType(tag) != WireFormat.WIRETYPE_LENGTH_DELIMITED) {
+          throw new InvalidProtocolBufferException(
+              "Unexpected field number "
+                  + WireFormat.getTagFieldNumber(tag)
+                  + " or wire type "
+                  + WireFormat.getTagWireType(tag));
+        }
+        codedInput.readMessage(typedAstBuilder, ExtensionRegistry.getEmptyRegistry());
+        TypedAst typedAst = typedAstBuilder.build();
+        typedAstBuilder.clear();
+        deserializer.deserializeTypedAst(
+            typedAst, compiler, resolveSourceMapAnnotations, parseInlineSourceMaps);
+      }
     } catch (IOException ex) {
       throw new IllegalArgumentException("Cannot read from TypedAST input stream", ex);
     }
@@ -238,7 +431,7 @@ public final class TypedAstDeserializer {
      *
      * <p>The supplier creates a new Node whenever called (but the results should be .equals)
      */
-    public abstract ImmutableMap<SourceFile, Supplier<Node>> getFilesystem();
+    public abstract ConcurrentMap<SourceFile, Supplier<Node>> getFilesystem();
 
     /**
      * The built ColorRegistry.
@@ -254,11 +447,10 @@ public final class TypedAstDeserializer {
      * Returns a list of all known extern properties, including properties that were present in type
      * annotations in source code but not serialized on the AST
      */
-    @Nullable
-    public abstract ImmutableSet<String> getExternProperties();
+    public abstract @Nullable ImmutableSet<String> getExternProperties();
 
     private static DeserializedAst create(
-        ImmutableMap<SourceFile, Supplier<Node>> filesystem,
+        ConcurrentMap<SourceFile, Supplier<Node>> filesystem,
         Optional<ColorRegistry> colorRegistry,
         ImmutableSet<String> externProperties) {
       return new AutoValue_TypedAstDeserializer_DeserializedAst(

@@ -22,12 +22,15 @@ import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.rhino.Node;
+import org.jspecify.nullness.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** @author johnlenz@google.com (John Lenz) */
+/**
+ * @author johnlenz@google.com (John Lenz)
+ */
 @RunWith(JUnit4.class)
 public final class FunctionToBlockMutatorTest {
 
@@ -42,52 +45,34 @@ public final class FunctionToBlockMutatorTest {
 
   @Test
   public void testMutateNoReturnWithoutResultAssignment() {
-    helperMutate(
-        "function foo(){}; foo();",
-        "{}",
-        "foo");
+    helperMutate("function foo(){}; foo();", "{}", "foo");
   }
 
   @Test
   public void testMutateNoReturnWithResultAssignment() {
     needsDefaultResult = true;
-    helperMutate(
-        "function foo(){}; var result = foo();",
-        "{result = void 0}",
-        "foo");
+    helperMutate("function foo(){}; var result = foo();", "{result = void 0}", "foo");
   }
 
   @Test
   public void testMutateNoValueReturnWithoutResultAssignment() {
-    helperMutate(
-        "function foo(){return;}; foo();",
-        "{}",
-        "foo", null);
+    helperMutate("function foo(){return;}; foo();", "{}", "foo", null);
   }
 
   @Test
   public void testMutateNoValueReturnWithResultAssignment() {
-    helperMutate(
-        "function foo(){return;}; var result = foo();",
-        "{result = void 0}",
-        "foo");
+    helperMutate("function foo(){return;}; var result = foo();", "{result = void 0}", "foo");
   }
 
   @Test
   public void testMutateValueReturnWithoutResultAssignment() {
-    helperMutate(
-        "function foo(){return true;}; foo();",
-        "{true;}",
-        "foo", null);
+    helperMutate("function foo(){return true;}; foo();", "{true;}", "foo", null);
   }
 
   @Test
   public void testMutateValueReturnWithResultAssignment() {
     needsDefaultResult = true;
-    helperMutate(
-        "function foo(){return true;}; var x=foo();",
-        "{x=true}",
-        "foo", "x");
+    helperMutate("function foo(){return true;}; var x=foo();", "{x=true}", "foo", "x");
   }
 
   @Test
@@ -114,28 +99,19 @@ public final class FunctionToBlockMutatorTest {
   @Test
   public void testMutateWithParameters1() {
     // Simple call with useless parameter
-    helperMutate(
-        "function foo(a){return true;}; foo(x);",
-        "{true}",
-        "foo", null);
+    helperMutate("function foo(a){return true;}; foo(x);", "{true}", "foo", null);
   }
 
   @Test
   public void testMutateWithParameters2() {
     // Simple call with parameter
-    helperMutate(
-        "function foo(a){return x;}; foo(x);",
-        "{x}",
-        "foo", null);
+    helperMutate("function foo(a){return x;}; foo(x);", "{x}", "foo", null);
   }
 
   @Test
   public void testMutateWithParameters3() {
     // Parameter has side-effects.
-    helperMutate(
-        "function foo(a){return a;}; function x() { foo(x++); }",
-        "{x++;}",
-        "foo", null);
+    helperMutate("function foo(a){return a;}; function x() { foo(x++); }", "{x++;}", "foo", null);
   }
 
   @Test
@@ -144,7 +120,8 @@ public final class FunctionToBlockMutatorTest {
     helperMutate(
         "function foo(a){return a+a;}; foo(x++);",
         "{var a$jscomp$inline_0 = x++; a$jscomp$inline_0 + a$jscomp$inline_0;}",
-        "foo", null);
+        "foo",
+        null);
   }
 
   @Test
@@ -206,28 +183,15 @@ public final class FunctionToBlockMutatorTest {
 
   @Test
   public void testMutateCallInLoopVars1() {
-    String src = lines(
-        "function foo(a) {",
-        "  var B = bar();",
-        "  a;",
-        "};",
-        "foo(1);");
+    String src = lines("function foo(a) {", "  var B = bar();", "  a;", "};", "foo(1);");
 
     // baseline: outside a loop, the constant remains constant.
     isCallInLoop = false;
-    helperMutate(
-        src,
-        "{var B$jscomp$inline_1 = bar(); 1;}",
-        "foo",
-        null);
+    helperMutate(src, "{var B$jscomp$inline_1 = bar(); 1;}", "foo", null);
     // ... in a loop, the constant-ness is removed.
     // TODO(johnlenz): update this test to look for the const annotation.
     isCallInLoop = true;
-    helperMutate(
-        src,
-        "{var B$jscomp$inline_1 = bar(); 1;}",
-        "foo",
-        null);
+    helperMutate(src, "{var B$jscomp$inline_1 = bar(); 1;}", "foo", null);
   }
 
   @Test
@@ -273,11 +237,12 @@ public final class FunctionToBlockMutatorTest {
     helperMutate(code, expectedResult, fnName, "result");
   }
 
-  public void helperMutate(String code, String expectedResult, String fnName, String resultName) {
+  public void helperMutate(
+      String code, String expectedResult, String fnName, @Nullable String resultName) {
     final Compiler compiler = new Compiler();
     compiler.initCompilerOptionsIfTesting();
-    final FunctionToBlockMutator mutator = new FunctionToBlockMutator(
-        compiler, compiler.getUniqueNameIdSupplier());
+    final FunctionToBlockMutator mutator =
+        new FunctionToBlockMutator(compiler, compiler.getUniqueNameIdSupplier());
 
     compiler.init(
         ImmutableList.of(),
@@ -286,7 +251,8 @@ public final class FunctionToBlockMutatorTest {
     compiler.parse();
     Node script = compiler.getRoot().getSecondChild().getFirstChild();
 
-    new Normalize(compiler, false).process(compiler.getExternsRoot(), compiler.getJsRoot());
+    Normalize.createNormalizeForOptimizations(compiler)
+        .process(compiler.getExternsRoot(), compiler.getJsRoot());
     GatherGetterAndSetterProperties.update(
         compiler, compiler.getExternsRoot(), compiler.getJsRoot());
     new PureFunctionIdentifier.Driver(compiler)
@@ -330,8 +296,7 @@ public final class FunctionToBlockMutatorTest {
     }
 
     @Override
-    public boolean shouldTraverse(
-        NodeTraversal nodeTraversal, Node n, Node parent) {
+    public boolean shouldTraverse(NodeTraversal nodeTraversal, Node n, Node parent) {
       return !complete;
     }
 

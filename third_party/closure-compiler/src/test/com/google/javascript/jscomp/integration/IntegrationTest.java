@@ -19,8 +19,8 @@ package com.google.javascript.jscomp.integration;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.javascript.jscomp.base.JSCompStrings.lines;
-import static com.google.javascript.rhino.testing.Asserts.assertThrows;
 import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.annotations.GwtIncompatible;
 import com.google.common.collect.ImmutableList;
@@ -34,6 +34,7 @@ import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.CompilerOptions;
 import com.google.javascript.jscomp.CompilerOptions.AliasStringsMode;
 import com.google.javascript.jscomp.CompilerOptions.DevMode;
+import com.google.javascript.jscomp.CompilerOptions.ExperimentalForceTranspile;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.CompilerOptions.PropertyCollapseLevel;
 import com.google.javascript.jscomp.CompilerOptions.Reach;
@@ -79,7 +80,7 @@ public final class IntegrationTest extends IntegrationTestCase {
   public void testSubstituteEs6Syntax() {
     CompilerOptions options = createCompilerOptions();
     CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
-    options.setLanguageIn(LanguageMode.ECMASCRIPT_NEXT_IN);
+    options.setLanguageIn(LanguageMode.UNSTABLE);
     options.setLanguageOut(LanguageMode.ECMASCRIPT_NEXT);
 
     externs =
@@ -100,7 +101,7 @@ public final class IntegrationTest extends IntegrationTestCase {
   public void testNewDotTargetTranspilation() {
     CompilerOptions options = createCompilerOptions();
     CompilationLevel.SIMPLE_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
-    options.setLanguageIn(LanguageMode.ECMASCRIPT_NEXT_IN);
+    options.setLanguageIn(LanguageMode.UNSTABLE);
     options.setLanguageOut(LanguageMode.ECMASCRIPT5_STRICT);
     test(
         options,
@@ -127,7 +128,7 @@ public final class IntegrationTest extends IntegrationTestCase {
   public void testNumericSeparator() {
     CompilerOptions options = createCompilerOptions();
     CompilationLevel.SIMPLE_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
-    options.setLanguageIn(LanguageMode.ECMASCRIPT_NEXT_IN);
+    options.setLanguageIn(LanguageMode.UNSTABLE);
     options.setLanguageOut(LanguageMode.ECMASCRIPT_NEXT);
     test(options, "1_000", "1000");
   }
@@ -309,7 +310,7 @@ public final class IntegrationTest extends IntegrationTestCase {
             "  case 0:",
             "    { var x = 3; break; }",
             "  case 1:",
-            "    { var x$0 = 5; break; }",
+            "    { var x$jscomp$1 = 5; break; }",
             "}");
     test(options, before, after);
   }
@@ -458,6 +459,214 @@ public final class IntegrationTest extends IntegrationTestCase {
             + "};";
 
     test(options, code, DiagnosticGroups.ES5_STRICT);
+  }
+
+  @Test
+  public void testCheckProvideAlias() {
+    CompilerOptions options = createCompilerOptions();
+
+    WarningLevel.VERBOSE.setOptionsForWarningLevel(options);
+    options.setChecksOnly(true);
+    options.setWarningLevel(DiagnosticGroups.CHECK_TYPES, CheckLevel.ERROR);
+    options.setClosurePass(true);
+    options.setBadRewriteModulesBeforeTypecheckingThatWeWantToGetRidOf(false);
+
+    externs =
+        ImmutableList.of(
+            SourceFile.fromCode("externs", lines("var arguments;", "arguments.callee;")));
+
+    String base = TestExternsBuilder.getClosureExternsAsSource();
+
+    String code =
+        lines(
+            "goog.provide('cycle.a.Widget');",
+            "goog.provide('cycle.a.Widget.Item');",
+            "",
+            "cycle.a.Widget = class {};",
+            "cycle.a.Widget.Item = class {};",
+            "",
+            "goog.provide('a.Widget');",
+            "/** @provideAlreadyProvided */",
+            "goog.provide('a.Widget.Item');",
+            "",
+            "/** @const */",
+            "a.Widget = cycle.a.Widget;",
+            "",
+            "(() => {",
+            "  const Item = goog.module.get('a.Widget.Item');",
+            "",
+            "  /** @const {typeof cycle.a.Widget.Item} */",
+            "  const x = a.Widget.Item;",
+            "})();",
+            "");
+
+    String result =
+        lines(
+            "goog.provide('cycle.a.Widget');",
+            "goog.provide('cycle.a.Widget.Item');",
+            "",
+            "cycle.a.Widget = class {};",
+            "cycle.a.Widget.Item = class {};",
+            "",
+            "goog.provide('a.Widget');",
+            "/** @provideAlreadyProvided */",
+            "goog.provide('a.Widget.Item');",
+            "",
+            "a.Widget = cycle.a.Widget;",
+            "",
+            "(() => {",
+            "  const Item = a.Widget.Item;",
+            "  const x = a.Widget.Item;",
+            "})();",
+            "");
+
+    test(options, new String[] {base, code}, new String[] {base, result});
+  }
+
+  @Test
+  public void testCheckProvideAlias2() {
+    CompilerOptions options = createCompilerOptions();
+
+    WarningLevel.VERBOSE.setOptionsForWarningLevel(options);
+    options.setChecksOnly(true);
+    options.setWarningLevel(DiagnosticGroups.CHECK_TYPES, CheckLevel.ERROR);
+    options.setClosurePass(true);
+    options.setBadRewriteModulesBeforeTypecheckingThatWeWantToGetRidOf(false);
+
+    externs =
+        ImmutableList.of(
+            SourceFile.fromCode("externs", lines("var arguments;", "arguments.callee;")));
+
+    String base = TestExternsBuilder.getClosureExternsAsSource();
+    String code =
+        lines(
+            "goog.provide('cycle.a.Widget');",
+            "goog.provide('cycle.a.Widget.Item');",
+            "",
+            "cycle.a.Widget = class {};",
+            "cycle.a.Widget.Item = class {};",
+            "",
+            "goog.provide('a.Widget');",
+            "/** @provideAlreadyProvided */",
+            "goog.provide('a.Widget.Item');",
+            "",
+            "/** @const */",
+            "a.Widget = cycle.a.Widget;",
+            "",
+            "/** @param {!null} a */ function fn(a) {}",
+            "fn(goog.module.get('a.Widget.Item'));",
+            "");
+
+    // Expect:
+    // JSC_TYPE_MISMATCH. actual parameter 1 of fn does not match formal parameter
+    // found   : (typeof cycle.a.Widget.Item)
+    // required: None
+    test(options, new String[] {base, code}, DiagnosticGroups.CHECK_TYPES);
+    assertThat(lastCompiler.getErrors().get(0).getDescription())
+        .contains("found   : (typeof cycle.a.Widget.Item)");
+  }
+
+  @Test
+  public void testCheckProvideAlias3() {
+    CompilerOptions options = createCompilerOptions();
+
+    WarningLevel.VERBOSE.setOptionsForWarningLevel(options);
+    options.setChecksOnly(true);
+    options.setWarningLevel(DiagnosticGroups.CHECK_TYPES, CheckLevel.ERROR);
+    options.setClosurePass(true);
+    options.setBadRewriteModulesBeforeTypecheckingThatWeWantToGetRidOf(false);
+
+    externs =
+        ImmutableList.of(
+            SourceFile.fromCode("externs", lines("var arguments;", "arguments.callee;")));
+
+    String base = TestExternsBuilder.getClosureExternsAsSource();
+    String code1 =
+        lines(
+            "goog.provide('cycle.a.Widget');",
+            "goog.provide('cycle.a.Widget.Item');",
+            "",
+            "cycle.a.Widget = class {};",
+            "cycle.a.Widget.Item = class {};",
+            "",
+            "");
+    String code2 =
+        lines(
+            "goog.provide('a.Widget');",
+            "/** @provideAlreadyProvided */",
+            "goog.provide('a.Widget.Item');",
+            "",
+            "/** @const */",
+            "a.Widget = cycle.a.Widget;",
+            "");
+    String code3 =
+        lines(
+            "goog.module('usage');",
+            "const Item = goog.require('a.Widget.Item');",
+            "",
+            "/** @param {!null} a */ function fn(a) {}",
+            "fn(Item);",
+            "");
+
+    // Expect:
+    // JSC_TYPE_MISMATCH. actual parameter 1 of fn does not match formal parameter
+    // found   : (typeof cycle.a.Widget.Item)
+    // required: None
+
+    test(options, new String[] {base, code1, code2, code3}, DiagnosticGroups.CHECK_TYPES);
+    assertThat(lastCompiler.getErrors().get(0).getDescription())
+        .contains("found   : (typeof cycle.a.Widget.Item)");
+  }
+
+  @Test
+  public void testCheckProvideAlias_requireTypedInModule() {
+    CompilerOptions options = createCompilerOptions();
+
+    WarningLevel.VERBOSE.setOptionsForWarningLevel(options);
+    options.setChecksOnly(true);
+    options.setWarningLevel(DiagnosticGroups.CHECK_TYPES, CheckLevel.ERROR);
+    options.setClosurePass(true);
+    options.setBadRewriteModulesBeforeTypecheckingThatWeWantToGetRidOf(false);
+
+    externs =
+        ImmutableList.of(
+            SourceFile.fromCode("externs", lines("var arguments;", "arguments.callee;")));
+
+    String base = TestExternsBuilder.getClosureExternsAsSource();
+    String code1 =
+        lines(
+            "goog.module('usage');",
+            "const Item = goog.requireType('a.Widget.Item');",
+            "",
+            "/** @param {!Item} a */ function fn(a) {}",
+            "fn(null);",
+            "");
+    String code2 =
+        lines(
+            "goog.provide('cycle.a.Widget');",
+            "goog.provide('cycle.a.Widget.Item');",
+            "",
+            "cycle.a.Widget = class {};",
+            "cycle.a.Widget.Item = class {};",
+            "",
+            "");
+    String code3 =
+        lines(
+            "goog.provide('a.Widget');",
+            "/** @provideAlreadyProvided */",
+            "goog.provide('a.Widget.Item');",
+            "",
+            "/** @const */",
+            "a.Widget = cycle.a.Widget;",
+            "");
+
+    // Expect:
+    // JSC_TYPE_MISMATCH. actual parameter 1 of fn does not match formal parameter
+    // found   : null
+    // required: cycle.a.Widget.Item
+    test(options, new String[] {base, code1, code2, code3}, DiagnosticGroups.CHECK_TYPES);
+    assertThat(lastCompiler.getErrors().get(0).getDescription())
+        .contains("required: cycle.a.Widget.Item");
   }
 
   @Test
@@ -1028,7 +1237,7 @@ public final class IntegrationTest extends IntegrationTestCase {
             + "}",
         "var COMPILED = true;\n" + "function getCss() {\n" + "  return 'bar';" + "}");
 
-    assertThat(lastCompiler.getResult().cssNames).containsExactly("foo", 1);
+    assertThat(lastCompiler.getResult().cssNames).containsExactly("foo");
   }
 
   @Test
@@ -1103,6 +1312,17 @@ public final class IntegrationTest extends IntegrationTestCase {
 
     options.setWarningLevel(DiagnosticGroups.CHECK_USELESS_CODE, CheckLevel.ERROR);
     test(options, code, DiagnosticGroups.CHECK_USELESS_CODE);
+
+    // http://b/194615750
+    test(
+        options,
+        lines(
+            "function foo() {", //
+            "  return;",
+            "  for (const n of [1, 2]) {",
+            "  }",
+            "}"),
+        DiagnosticGroups.CHECK_USELESS_CODE);
   }
 
   @Test
@@ -1244,8 +1464,8 @@ public final class IntegrationTest extends IntegrationTestCase {
     test(
         options,
         code,
-        "function Foo(){} Foo.prototype.JSC$42_bar = 3;"
-            + "function Baz(){} Baz.prototype.JSC$44_bar = 3;");
+        "function Foo(){} Foo.prototype.JSC$44_bar = 3;"
+            + "function Baz(){} Baz.prototype.JSC$46_bar = 3;");
   }
 
   // When closure-code-removal runs before disambiguate-properties, make sure
@@ -1348,7 +1568,7 @@ public final class IntegrationTest extends IntegrationTestCase {
   public void testCheckConsts() {
     CompilerOptions options = createCompilerOptions();
     options.setInlineConstantVars(true);
-    test(options, "var FOO = true; FOO = false", DiagnosticGroups.CONST);
+    test(options, "/** @const */ var FOO = true; FOO = false", DiagnosticGroups.CONST);
   }
 
   @Test
@@ -1487,7 +1707,7 @@ public final class IntegrationTest extends IntegrationTestCase {
     testSame(options, code);
 
     options.setInlineVariables(true);
-    test(options, code, "(function foo() {})(3);");
+    test(options, code, "(function() {})(3);");
   }
 
   @Test
@@ -1591,13 +1811,13 @@ public final class IntegrationTest extends IntegrationTestCase {
 
     String expected =
         "function A() {} "
-            + "A.prototype.JSC$42_foo = function() { "
+            + "A.prototype.JSC$44_foo = function() { "
             + "  window.console.log('A'); "
             + "}; "
             + "function B() {} "
             + "window['main'] = function() { "
             + "  var a = window['a'] = new A; "
-            + "  a.JSC$42_foo(); "
+            + "  a.JSC$44_foo(); "
             + "  window['b'] = new B; "
             + "}";
 
@@ -1657,21 +1877,21 @@ public final class IntegrationTest extends IntegrationTestCase {
     // type ambiguity in function notCalled is unreachable.
     String expected =
         "function A() {} "
-            + "A.prototype.JSC$42_always = function() { "
+            + "A.prototype.JSC$44_always = function() { "
             + "  window.console.log('AA'); "
             + "}; "
-            + "A.prototype.JSC$42_sometimes = function(){ "
+            + "A.prototype.JSC$44_sometimes = function(){ "
             + "  window.console.log('SA'); "
             + "}; "
             + "function B() {} "
-            + "B.prototype.JSC$44_always=function(){ "
+            + "B.prototype.JSC$46_always=function(){ "
             + "  window.console.log('AB'); "
             + "};"
             + "window['main'] = function() { "
             + "  var a = window['a'] = new A; "
-            + "  a.JSC$42_always(); "
-            + "  a.JSC$42_sometimes(); "
-            + "  (window['b'] = new B).JSC$44_always(); "
+            + "  a.JSC$44_always(); "
+            + "  a.JSC$44_sometimes(); "
+            + "  (window['b'] = new B).JSC$46_always(); "
             + "}";
 
     test(options, code, expected);
@@ -1765,10 +1985,10 @@ public final class IntegrationTest extends IntegrationTestCase {
             "var Arrays = function() {};",
             "Arrays.$create = function() { return {}; }",
             "/** @constructor */",
-            "function Foo() { this.JSC$42_myprop = 1; }",
+            "function Foo() { this.JSC$44_myprop = 1; }",
             "/** @constructor */",
-            "function Bar() { this.JSC$44_myprop = 2; }",
-            "var x = {}.JSC$42_myprop;"));
+            "function Bar() { this.JSC$46_myprop = 2; }",
+            "var x = {}.JSC$44_myprop;"));
   }
 
   @Test
@@ -1804,16 +2024,16 @@ public final class IntegrationTest extends IntegrationTestCase {
         code,
         lines(
             "/** @constructor */",
-            "function Foo() { this.JSC$41_myprop = 1; }",
+            "function Foo() { this.JSC$43_myprop = 1; }",
             "/** @constructor */",
-            "function Bar() { this.JSC$43_myprop = 2; }",
+            "function Bar() { this.JSC$45_myprop = 2; }",
             "/** @return {Object} */",
             "function getSomething() {",
             "  var x = new Bar();",
             "  return new Foo();",
             "}",
             "(function someMethod() {",
-            "  return 1 != getSomething().JSC$41_myprop;",
+            "  return 1 != getSomething().JSC$43_myprop;",
             "})()"));
   }
 
@@ -1856,16 +2076,16 @@ public final class IntegrationTest extends IntegrationTestCase {
         code,
         lines(
             "/** @constructor */",
-            "function Foo() { this.JSC$41_myprop = 1; }",
+            "function Foo() { this.JSC$43_myprop = 1; }",
             "/** @constructor */",
-            "function Bar() { this.JSC$43_myprop = 2; }",
+            "function Bar() { this.JSC$45_myprop = 2; }",
             "/** @return {Object} */",
             "function getSomething() {",
             "  var x = new Bar();",
             "  return new Foo();",
             "}",
             "(function someMethod() {",
-            "  return 1 != getSomething().JSC$41_myprop;",
+            "  return 1 != getSomething().JSC$43_myprop;",
             "})()"));
   }
 
@@ -2005,7 +2225,7 @@ public final class IntegrationTest extends IntegrationTestCase {
     test(options, code, "function f() { var x = 3; return 5; }");
 
     String unusedVar = "function f() { var x; x = 5; return x; } f()";
-    test(options, unusedVar, "(function f() { var x; return 5; })()");
+    test(options, unusedVar, "(function() { var x; return 5; })()");
 
     options.setRemoveUnusedVariables(Reach.ALL);
     test(options, unusedVar, "(function () { return 5; })()");
@@ -2280,7 +2500,7 @@ public final class IntegrationTest extends IntegrationTestCase {
     String code = "var a;";
 
     options.setSkipNonTranspilationPasses(true);
-    options.sourceMapOutputPath = "./src.map";
+    options.setSourceMapOutputPath("./src.map");
 
     Compiler compiler = compile(options, code);
     compiler.toSource();
@@ -2784,8 +3004,19 @@ public final class IntegrationTest extends IntegrationTestCase {
   public void testIssue701() {
     // Check ASCII art in license comments.
     String ascii =
-        "/**\n" + " * @preserve\n" + "   This\n" + "     is\n" + "       ASCII    ART\n" + "*/";
-    String result = "/*\n\n" + "   This\n" + "     is\n" + "       ASCII    ART\n" + "*/\n";
+        "/**\n"
+            + " * @preserve\n"
+            + "   This\n"
+            + "     is\n"
+            + "       ASCII    ART\n"
+            + "*/console.log(\"hello world\");";
+    String result =
+        "/*\n\n"
+            + "   This\n"
+            + "     is\n"
+            + "       ASCII    ART\n"
+            + "*/\n"
+            + "console.log(\"hello world\");\n";
     testSame(createCompilerOptions(), ascii);
     assertThat(lastCompiler.toSource()).isEqualTo(result);
   }
@@ -3102,6 +3333,62 @@ public final class IntegrationTest extends IntegrationTestCase {
   }
 
   @Test
+  public void testRenamePrefixNamespaceAndBlockScopedFunctions_esnextin_es5out() {
+    String code = "if (true) { function f() {} } if (true) { function f() {} }";
+
+    CompilerOptions options = createCompilerOptions();
+    options.setRenamePrefixNamespace("_");
+
+    // In the ES6 spec: function declarations are always block-scoped.
+    // In the ES5 spec, this changes between browsers & strict / sloppy mode.
+
+    options.setLanguageIn(LanguageMode.ECMASCRIPT_NEXT);
+    options.setLanguageOut(LanguageMode.ECMASCRIPT5);
+    test(
+        options,
+        code,
+        "if (true) { _.f = function() {}; } if (true) { _.f$jscomp$1 = function() {}; }");
+  }
+
+  @Test
+  public void testRenamePrefixNamespaceAndBlockScopedFunctions_esnextin_es2015out() {
+    String code = "if (true) { function f() {} } if (true) { function f() {} }";
+
+    CompilerOptions options = createCompilerOptions();
+    options.setRenamePrefixNamespace("_");
+
+    // In the ES6 spec: function declarations are always block-scoped.
+    // In the ES5 spec, this changes between browsers & strict / sloppy mode.
+
+    options.setLanguageIn(LanguageMode.ECMASCRIPT_NEXT);
+    options.setLanguageOut(LanguageMode.ECMASCRIPT_2015);
+    test(options, code, "if (true) { function f() {} } if (true) { function f() {} }");
+  }
+
+  @Test
+  public void testRenamePrefixNamespaceAndBlockScopedFunctions_es5in_es5out() {
+    String code = "if (true) { function f() {} } if (true) { function f() {} }";
+
+    CompilerOptions options = createCompilerOptions();
+    options.setRenamePrefixNamespace("_");
+
+    // In the ES6 spec: function declarations are always block-scoped.
+    // In the ES5 spec, this changes between browsers & strict / sloppy mode.
+
+    options.setLanguageIn(LanguageMode.ECMASCRIPT5);
+    options.setLanguageOut(LanguageMode.ECMASCRIPT5);
+    compile(options, code);
+
+    assertThat(lastCompiler.getErrors())
+        .comparingElementsUsing(JSCompCorrespondences.DESCRIPTION_EQUALITY)
+        .containsExactly(
+            "This language feature is only supported for ECMASCRIPT_2015 mode or better:"
+                + " block-scoped function declaration.",
+            "This language feature is only supported for ECMASCRIPT_2015 mode or better:"
+                + " block-scoped function declaration.");
+  }
+
+  @Test
   public void testRenamePrefixNamespaceProtectSideEffects() {
     String code = "var x = null; try { +x.FOO; } catch (e) {}";
 
@@ -3340,11 +3627,10 @@ public final class IntegrationTest extends IntegrationTestCase {
             "",
             "}); // goog.scope"),
         lines(
-            "var $jscomp = $jscomp || {};",
-            "$jscomp.scope = {};",
             "var foo = {};",
-            "/** @const */ $jscomp.scope.RESULT = 5;",
-            "/** @return {number} */ foo.baz = function() { return $jscomp.scope.RESULT; }"));
+            "/** @const */ var $jscomp$scope$98447280$0$RESULT = 5;",
+            "/** @return {number} */ foo.baz = function() { return $jscomp$scope$98447280$0$RESULT;"
+                + " }"));
   }
 
   @Test
@@ -3452,12 +3738,11 @@ public final class IntegrationTest extends IntegrationTestCase {
   @Test
   public void testWarnUnnecessaryBackslashInStringLiteral() {
     CompilerOptions options = createCompilerOptions();
-    options.setWarningLevel(DiagnosticGroups.UNNECESSARY_ESCAPE, CheckLevel.WARNING);
-    test(
-        options,
-        new String[] {"var str = '\\q';"},
-        new String[] {"var str = 'q';"},
-        DiagnosticGroups.UNNECESSARY_ESCAPE);
+    options.setWarningLevel(DiagnosticGroups.LINT_CHECKS, CheckLevel.WARNING);
+
+    compile(options, "const str = '\\q';");
+    assertThat(lastCompiler.getWarnings()).hasSize(1);
+    assertThat(lastCompiler.getWarnings().get(0).getDescription()).contains("Unnecessary escape");
   }
 
   // NOTE(dimvar): the jsdocs are ignored in the comparison of the before/after ASTs. It'd be nice
@@ -3544,18 +3829,18 @@ public final class IntegrationTest extends IntegrationTestCase {
             "};",
             "function foo() {",
             "  var JSCompiler_temp_const;",
-            "  var JSCompiler_temp_const$jscomp$1;",
+            "  var JSCompiler_temp_const$jscomp$0;",
             "  return $jscomp.asyncExecutePromiseGeneratorProgram(",
-            "      function ($jscomp$generator$context) {",
-            "        if ($jscomp$generator$context.nextAddress == 1) {",
+            "      function ($jscomp$generator$context$98447280$0) {",
+            "        if ($jscomp$generator$context$98447280$0.nextAddress == 1) {",
             "          JSCompiler_temp_const = A;",
-            "          JSCompiler_temp_const$jscomp$1 = A$doSomething;",
-            "          return $jscomp$generator$context.yield(3, 2);",
+            "          JSCompiler_temp_const$jscomp$0 = A$doSomething;",
+            "          return $jscomp$generator$context$98447280$0.yield(3, 2);",
             "        }",
-            "        JSCompiler_temp_const$jscomp$1.call(",
+            "        JSCompiler_temp_const$jscomp$0.call(",
             "            JSCompiler_temp_const,",
-            "            $jscomp$generator$context.yieldResult);",
-            "        $jscomp$generator$context.jumpToEnd();",
+            "            $jscomp$generator$context$98447280$0.yieldResult);",
+            "        $jscomp$generator$context$98447280$0.jumpToEnd();",
             "      });",
             "}",
             "foo();"));
@@ -3639,7 +3924,7 @@ public final class IntegrationTest extends IntegrationTestCase {
 
     options.setLanguageOut(LanguageMode.ECMASCRIPT_NEXT);
     testSame(options, "async function* foo() {}");
-    testSame(options, "for await (a of b) {}");
+    testSame(options, "async () => { for await (a of b) {} }");
 
     options.setLanguageOut(LanguageMode.ECMASCRIPT_2017);
     test(
@@ -3651,16 +3936,32 @@ public final class IntegrationTest extends IntegrationTestCase {
         options,
         lines("async function abc() { for await (a of foo()) { bar(); } }"),
         lines(
+            "'use strict';",
             "async function abc() {",
-            "  for (const $jscomp$forAwait$tempIterator0 = $jscomp.makeAsyncIterator(foo());;) {",
-            "    const $jscomp$forAwait$tempResult0 =",
-            "        await $jscomp$forAwait$tempIterator0.next();",
-            "    if ($jscomp$forAwait$tempResult0.done) {",
-            "      break;",
+            "  var $jscomp$forAwait$retFn0;",
+            "  try {",
+            "    for (var $jscomp$forAwait$tempIterator0 = $jscomp.makeAsyncIterator(foo());;) {",
+            "      var $jscomp$forAwait$tempResult0 = await $jscomp$forAwait$tempIterator0.next();",
+            "      if ($jscomp$forAwait$tempResult0.done) {",
+            "        break;",
+            "      }",
+            "      a = $jscomp$forAwait$tempResult0.value;",
+            "      {",
+            "        bar();",
+            "      }",
             "    }",
-            "    a = $jscomp$forAwait$tempResult0.value;",
-            "    {",
-            "      bar();",
+            "  } catch ($jscomp$forAwait$catchErrParam0) {",
+            "    var $jscomp$forAwait$errResult0 = {error:$jscomp$forAwait$catchErrParam0};",
+            "  } finally {",
+            "    try {",
+            "      if ($jscomp$forAwait$tempResult0 && !$jscomp$forAwait$tempResult0.done &&"
+                + " ($jscomp$forAwait$retFn0 = $jscomp$forAwait$tempIterator0.return)) {",
+            "        await $jscomp$forAwait$retFn0.call($jscomp$forAwait$tempIterator0);",
+            "      }",
+            "    } finally {",
+            "      if ($jscomp$forAwait$errResult0) {",
+            "        throw $jscomp$forAwait$errResult0.error;",
+            "      }",
             "    }",
             "  }",
             "}"));
@@ -3701,38 +4002,6 @@ public final class IntegrationTest extends IntegrationTestCase {
             "    let m = $jscomp$destructuring$var5",
             "  }",
             "}"));
-  }
-
-  private void addMinimalExternsForRuntimeTypeCheck() {
-    ImmutableList.Builder<SourceFile> externsList = ImmutableList.builder();
-    externsList.addAll(externs);
-    externsList.add(
-        SourceFile.fromCode(
-            "other_externs.js",
-            lines(
-                "Array.prototype.join;",
-                "Function.prototype.name;",
-                "Object.prototype.toString;",
-                "var RegExp;",
-                "RegExp.prototype.exec;",
-                "Window.prototype.frames",
-                "Window.prototype.length",
-                "")));
-    externs = externsList.build();
-  }
-
-  @Test
-  public void testRuntimeTypeCheckInjection() {
-    CompilerOptions options = createCompilerOptions();
-    addMinimalExternsForRuntimeTypeCheck();
-    options.checkTypes = true;
-    options.enableRuntimeTypeCheck("callMe");
-
-    // Verify that no warning/errors or exceptions occure but otherwise ignore the output.
-    test(
-        options,
-        new String[] {"function callMe(a) {}; /** @type {string} */ var x = y; "},
-        (String[]) null);
   }
 
   /** Creates a CompilerOptions object with google coding conventions. */
@@ -3837,7 +4106,7 @@ public final class IntegrationTest extends IntegrationTestCase {
     // A bug in Es6RewriteClasses meant we were putting the wrong `originalName` on some nodes.
     CompilerOptions options = createCompilerOptions();
     // force SourceInformationAnnotator to run
-    options.setExternExports(true);
+    options.setExternExportsPath("exports.js");
     options.setLanguageOut(LanguageMode.ECMASCRIPT5);
     options.setClosurePass(true);
 
@@ -3945,7 +4214,7 @@ public final class IntegrationTest extends IntegrationTestCase {
               "function reportError() {}",
               "try {",
               " foo();",
-              "} catch ($jscomp$unused$catch) {",
+              "} catch ($jscomp$unused$catch$98447280$0) {",
               "  reportError();",
               "}")
         });
@@ -4041,12 +4310,13 @@ public final class IntegrationTest extends IntegrationTestCase {
   @Test
   @GwtIncompatible("AbstractCommandLineRunner.getBuiltinExterns()")
   public void testEs6ModuleEntryPoint() throws Exception {
-    List<SourceFile> inputs =
+    ImmutableList<SourceFile> inputs =
         ImmutableList.of(
             SourceFile.fromCode("/index.js", "import foo from './foo.js'; foo('hello');"),
             SourceFile.fromCode("/foo.js", "export default (foo) => { alert(foo); }"));
 
-    List<ModuleIdentifier> entryPoints = ImmutableList.of(ModuleIdentifier.forFile("/index"));
+    ImmutableList<ModuleIdentifier> entryPoints =
+        ImmutableList.of(ModuleIdentifier.forFile("/index"));
 
     CompilerOptions options = new CompilerOptions();
     CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
@@ -4066,12 +4336,13 @@ public final class IntegrationTest extends IntegrationTestCase {
   @Test
   @GwtIncompatible("AbstractCommandLineRunner.getBuiltinExterns()")
   public void testEs6ModuleEntryPointWithSquareBracketsInFilename() throws Exception {
-    List<SourceFile> inputs =
+    ImmutableList<SourceFile> inputs =
         ImmutableList.of(
             SourceFile.fromCode("/index[0].js", "import foo from './foo.js'; foo('hello');"),
             SourceFile.fromCode("/foo.js", "export default (foo) => { alert(foo); }"));
 
-    List<ModuleIdentifier> entryPoints = ImmutableList.of(ModuleIdentifier.forFile("/index[0].js"));
+    ImmutableList<ModuleIdentifier> entryPoints =
+        ImmutableList.of(ModuleIdentifier.forFile("/index[0].js"));
 
     CompilerOptions options = new CompilerOptions();
     CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
@@ -4269,7 +4540,7 @@ public final class IntegrationTest extends IntegrationTestCase {
     // Repro case for Github issue 3607.  Don't crash with a reference to new.target
     CompilerOptions options = createCompilerOptions();
     CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
-    options.setLanguageIn(LanguageMode.ECMASCRIPT_NEXT_IN);
+    options.setLanguageIn(LanguageMode.UNSTABLE);
     options.setLanguageOut(LanguageMode.ECMASCRIPT_NEXT);
     WarningLevel.QUIET.setOptionsForWarningLevel(options);
     test(
@@ -4300,7 +4571,7 @@ public final class IntegrationTest extends IntegrationTestCase {
 
     CompilerOptions options = createCompilerOptions();
     CompilationLevel.WHITESPACE_ONLY.setOptionsForCompilationLevel(options);
-    options.setLanguageIn(LanguageMode.ECMASCRIPT_NEXT_IN);
+    options.setLanguageIn(LanguageMode.UNSTABLE);
     options.setLanguageOut(LanguageMode.ECMASCRIPT5);
     test(
         options,
@@ -4318,5 +4589,212 @@ public final class IntegrationTest extends IntegrationTestCase {
             "  console.log(foo());",
             "}",
             ""));
+  }
+
+  @Test
+  public void testGoogScopeWithAngular() {
+    CompilerOptions options = createCompilerOptions();
+    options.setClosurePass(true);
+    options.setCheckTypes(true);
+    options.setAngularPass(true);
+
+    test(
+        options,
+        lines("goog.scope(function() {", "/** @ngInject */", "function fn(a, b) {}", "});"),
+        lines(
+            "var $jscomp$scope$98447280$0$fn = function(a, b) {};",
+            "$jscomp$scope$98447280$0$fn[\"$inject\"] = [\"a\", \"b\"];"));
+  }
+
+  @Test
+  public void testGitHubIssue3861() {
+    CompilerOptions options = createCompilerOptions();
+    options.setCheckTypes(true);
+
+    test(
+        options,
+        lines(
+            "(function () {", //
+            "  arguments (628);",
+            "})"),
+        DiagnosticGroups.CHECK_TYPES);
+  }
+
+  @Test
+  public void forceClassTranspilationKeepAsync_withNoTranspile() {
+    CompilerOptions options = new CompilerOptions();
+    options.setLanguageOut(LanguageMode.NO_TRANSPILE);
+    options.setExperimentalForceTranspiles(ExperimentalForceTranspile.CLASS);
+
+    // test transpiling classes but leave async functions untranspiled
+    test(
+        options,
+        "window['C'] = /** @dict */ class C { async f(p) { await p; return 0; } }",
+        lines(
+            "const i0$classdecl$var0 = function() {};",
+            "i0$classdecl$var0.prototype.f = async function(p) { await p; return 0 };",
+            "window['C'] = i0$classdecl$var0"));
+  }
+
+  @Test
+  public void forceLetConstTranspilationKeepAsync_doesNotKeepClass_withNoTranspile() {
+    CompilerOptions options = new CompilerOptions();
+    options.setLanguageOut(LanguageMode.NO_TRANSPILE);
+    options.setExperimentalForceTranspiles(ExperimentalForceTranspile.LET_CONST);
+
+    // test transpiling classes but leave async functions untranspiled
+    test(
+        options,
+        "window['C'] = /** @dict */ class C { async f(p) { await p; return 0; } }",
+        lines(
+            "var i0$classdecl$var0 = function() {};",
+            "i0$classdecl$var0.prototype.f = async function(p) { await p; return 0 };",
+            "window['C'] = i0$classdecl$var0"));
+  }
+
+  @Test
+  public void forceClassTranspilationKeepAsyncFunctions_withEs2021Out() {
+    CompilerOptions options = new CompilerOptions();
+    options.setLanguageOut(LanguageMode.ECMASCRIPT_2021);
+    options.setExperimentalForceTranspiles(ExperimentalForceTranspile.CLASS);
+
+    // test transpiling classes but leave async functions untranspiled
+    test(
+        options,
+        "window['C'] = /** @dict */ class C { async f(p) { await p; return 0; } }",
+        lines(
+            "const i0$classdecl$var0 = function() {};",
+            "i0$classdecl$var0.prototype.f = async function(p) { await p; return 0 };",
+            "window['C'] = i0$classdecl$var0"));
+  }
+
+  @Test
+  public void forceLetConstTranspilationKeepsAsyncFunctions_doesNotKeepClass_withEs2021Out() {
+    CompilerOptions options = new CompilerOptions();
+    options.setLanguageOut(LanguageMode.ECMASCRIPT_2021);
+    options.setExperimentalForceTranspiles(ExperimentalForceTranspile.LET_CONST);
+
+    // test transpiling let/const, classes but leave async functions untranspiled
+    test(
+        options,
+        "window['C'] = /** @dict */ class C { async f(p) { await p; return 0; } }",
+        lines(
+            "var i0$classdecl$var0 = function() {};",
+            "i0$classdecl$var0.prototype.f = async function(p) { await p; return 0 };",
+            "window['C'] = i0$classdecl$var0"));
+  }
+
+  @Test
+  public void forceTranspileExceptAsyncAwait_doesNotRemoveAsyncAwait() {
+    CompilerOptions options = new CompilerOptions();
+    options.setLanguageOut(
+        LanguageMode
+            .ECMASCRIPT_2021); // does not matter when setForceTranspileExceptAsyncAwait(true)
+    options.setExperimentalForceTranspiles(ExperimentalForceTranspile.ALL_EXCEPT_ASYNC_AWAIT);
+
+    // test transpiling let/const and classes but leave async functions untranspiled
+    test(
+        options,
+        "window['C'] = /** @dict */ class C { async f(p) { await p; return 0; } }",
+        lines(
+            "var i0$classdecl$var0 = function() {};",
+            "i0$classdecl$var0.prototype.f = async function(p) { await p; return 0 };",
+            "window['C'] = i0$classdecl$var0"));
+  }
+
+  @Test
+  public void forceTranspileExceptAsyncAwait_doesNotRemoveAsyncAwait2() {
+    CompilerOptions options = new CompilerOptions();
+    options.setLanguageOut(
+        LanguageMode
+            .ECMASCRIPT_2021); // does not matter when setForceTranspileExceptAsyncAwait(true)
+    options.setExperimentalForceTranspiles(ExperimentalForceTranspile.ALL_EXCEPT_ASYNC_AWAIT);
+
+    // test transpiling let/const, opt-chain and classes but leave async functions untranspiled
+    test(
+        options,
+        "class C { async f(p) { let obj = await p; return obj?.prop; } }",
+        lines(
+            "var C=function(){};",
+            "C.prototype.f=async function(p){var obj=await p;",
+            "  var $jscomp$optchain$tmp98447280$0;",
+            "  return($jscomp$optchain$tmp98447280$0=obj)==null?void"
+                + " 0:$jscomp$optchain$tmp98447280$0.prop}"));
+  }
+
+  @Test
+  public void forceTranspileExceptAsyncAwait_withEs5Out() {
+    CompilerOptions options = new CompilerOptions();
+    options.setLanguageOut(LanguageMode.ECMASCRIPT5);
+    options.setExperimentalForceTranspiles(ExperimentalForceTranspile.ALL_EXCEPT_ASYNC_AWAIT);
+
+    // respects ES5 mode and lowers async await down to ES5 despite forcing `ALL_EXCEPT_ASYNC_AWAIT`
+    testNoWarnings(options, "class C { async f(p) { let obj = await p; return obj?.prop; } }");
+    assertThat(lastCompiler.toSource()).doesNotContain("async ");
+    assertThat(lastCompiler.toSource()).doesNotContain("await ");
+  }
+
+  @Test
+  public void forceClassTranspilationKeepDestructuring_withEs2015Out() {
+    CompilerOptions options = new CompilerOptions();
+    options.setLanguageOut(LanguageMode.ECMASCRIPT_2015);
+    options.setExperimentalForceTranspiles(ExperimentalForceTranspile.CLASS);
+
+    // check that we can transpile the ES2016 `**` + classes, but leave the ES2015 destructuring
+    // parameter behind.
+    test(
+        options,
+        "window['C'] = /** @dict */ class C { f({num}) { return num ** 3; } }",
+        lines(
+            "const i0$classdecl$var0 = function() {};",
+            "i0$classdecl$var0.prototype.f = function({num}) { return Math.pow(num, 3); };",
+            "window['C'] = i0$classdecl$var0"));
+  }
+
+  @Test
+  public void forceLetConstTranspilationAlsoLowersDestructuringAndClasses_withEs2015Out() {
+    CompilerOptions options = new CompilerOptions();
+    options.setLanguageOut(LanguageMode.ECMASCRIPT_2015);
+    options.setExperimentalForceTranspiles(ExperimentalForceTranspile.LET_CONST);
+
+    // check that we transpile the ES2016 `**`, let/const, classes and the ES2015 destructuring
+    // parameter
+    test(
+        options,
+        "window['C'] = /** @dict */ class C { f({num}) { return num ** 3; } }",
+        lines(
+            "var i0$classdecl$var0=function(){};i0$classdecl$var0.prototype.f=function($jscomp$destructuring$var0){var"
+                + " $jscomp$destructuring$var1=$jscomp$destructuring$var0;var"
+                + " num=$jscomp$destructuring$var1.num;return"
+                + " Math.pow(num,3)};window[\"C\"]=i0$classdecl$var0"));
+  }
+
+  @Test
+  public void testNoSideEffectsPropagationOnStaticMembers_withEs2018Out() {
+    CompilerOptions options = createCompilerOptions();
+    CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
+    CompilationLevel.ADVANCED_OPTIMIZATIONS.setTypeBasedOptimizationOptions(options);
+    options.setLanguageOut(LanguageMode.ECMASCRIPT_2018);
+
+    test(
+        options,
+        lines(
+            "class ClazzWithStatic {\n"
+                + "constructor() {}\n"
+                + "\n"
+                + "  /** @nosideeffects */\n"
+                + "  static Create() {\n"
+                + "    if (Math.random() > .5) {\n"
+                + "      throw new Error('Bad input');\n"
+                + "    }\n"
+                + "    return new ClazzWithStatic();\n"
+                + "  }\n"
+                + "}\n"
+                + "\n"
+                + "const xUnused = ClazzWithStatic.Create();\n"
+                + "const yUnused = ClazzWithStatic.Create();"),
+        // This should optimize to nothing, because the two variables are unused and we are trying
+        // to hide side-effects.
+        "");
   }
 }

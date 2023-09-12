@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.nullness.Nullable;
 
 /**
  * An ordered set that moves values to the front when added (even if already contained) and which
@@ -31,9 +32,9 @@ import java.util.Map;
 final class Timeline<T> {
 
   private static class Event<T> {
-    Event<?> nextEvent;
-    Event<?> previousEvent;
-    T value;
+    @Nullable Event<?> nextEvent;
+    @Nullable Event<?> previousEvent;
+    final T value;
 
     Event(T value) {
       checkNotNull(value);
@@ -97,7 +98,7 @@ final class Timeline<T> {
   }
 
   @SuppressWarnings("unchecked")
-  List<T> getSince(String timeName) {
+  @Nullable List<T> getSince(String timeName) {
     List<T> values = new ArrayList<>();
 
     Event<?> firstEvent = eventsByTime.get(new Time(timeName));

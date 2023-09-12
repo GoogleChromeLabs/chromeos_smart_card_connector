@@ -17,6 +17,7 @@
 package com.google.javascript.jscomp;
 
 import com.google.common.annotations.GwtIncompatible;
+import com.google.javascript.jscomp.LocaleDataPasses.ProtectGoogLocale;
 import com.google.javascript.rhino.Node;
 import org.junit.Before;
 import org.junit.Test;
@@ -74,23 +75,18 @@ public final class LocaleDataPassesTest extends CompilerTestCase {
         return new CompilerPass() {
           @Override
           public void process(Node externs, Node root) {
-            final LocaleDataPasses.ExtractAndProtect extract =
-                new LocaleDataPasses.ExtractAndProtect(compiler);
+            final ProtectGoogLocale extract = new ProtectGoogLocale(compiler);
             extract.process(externs, root);
-            compiler.setLocaleSubstitutionData(extract.getLocaleValuesDataMaps());
           }
         };
       case REPLACE_PROTECTED_DATA:
         return new CompilerPass() {
           @Override
           public void process(Node externs, Node root) {
-            final LocaleDataPasses.ExtractAndProtect extract =
-                new LocaleDataPasses.ExtractAndProtect(compiler);
+            final ProtectGoogLocale extract = new ProtectGoogLocale(compiler);
             extract.process(externs, root);
-            compiler.setLocaleSubstitutionData(extract.getLocaleValuesDataMaps());
             final LocaleDataPasses.LocaleSubstitutions subs =
-                new LocaleDataPasses.LocaleSubstitutions(
-                    compiler, compiler.getOptions().locale, compiler.getLocaleSubstitutionData());
+                new LocaleDataPasses.LocaleSubstitutions(compiler, compiler.getOptions().locale);
             subs.process(externs, root);
           }
         };
@@ -149,20 +145,6 @@ public final class LocaleDataPassesTest extends CompilerTestCase {
     multiTest(srcs(originalJs), expected(protectedJs), allExpected);
   }
 
-  /**
-   * Test for errors that are detected before attempting to look up the messages in the bundle.
-   *
-   * @param originalJs The original, input JS code
-   * @param diagnosticType expected error
-   */
-  private void multiTestProtectionError(
-      String originalJs, DiagnosticType diagnosticType, String description) {
-    // The PROTECT_DATA mode needs to add externs for the protection functions.
-    allowExternsChanges();
-    testMode = TestMode.PROTECT_DATA;
-    testError(originalJs, diagnosticType, description);
-  }
-
   @Test
   public void testBaseJsGoogLocaleRef() {
     // We're confirming that there won't be any error reported for the use of `goog.LOCALE`.
@@ -183,7 +165,7 @@ public final class LocaleDataPassesTest extends CompilerTestCase {
             " */",
             "goog.provide('some.Obj');",
             "goog.LOCALE = __JSC_LOCALE__;",
-            "console.log(goog.LOCALE);",
+            "console.log(__JSC_LOCALE__);",
             ""),
         new LocaleResult(
             "es_ES",
@@ -194,7 +176,7 @@ public final class LocaleDataPassesTest extends CompilerTestCase {
                 " */",
                 "goog.provide('some.Obj');",
                 "goog.LOCALE = 'es_ES';",
-                "console.log(goog.LOCALE);",
+                "console.log('es_ES');",
                 "")));
   }
 }

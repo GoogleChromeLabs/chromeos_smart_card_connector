@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.deps.ModuleLoader;
 import com.google.javascript.jscomp.deps.ModuleLoader.ResolutionMode;
 import com.google.javascript.jscomp.modules.ModuleMapCreator;
+import org.jspecify.nullness.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,7 +34,7 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public final class Es6RewriteModulesBeforeTypeCheckingTest extends CompilerTestCase {
-  private ImmutableList<String> moduleRoots = null;
+  private @Nullable ImmutableList<String> moduleRoots = null;
 
   private static final SourceFile other =
       SourceFile.fromCode(
@@ -71,7 +72,6 @@ public final class Es6RewriteModulesBeforeTypeCheckingTest extends CompilerTestC
     enableTypeCheck();
     enableRunTypeCheckAfterProcessing();
     enableTypeInfoValidation();
-    disableScriptFeatureValidation();
   }
 
   @Override
@@ -287,7 +287,7 @@ public final class Es6RewriteModulesBeforeTypeCheckingTest extends CompilerTestC
                     "/** @fileoverview @externs */",
                     "export let /** !number */ externalName;",
                     ""))),
-        error(Es6ToEs3Util.CANNOT_CONVERT_YET));
+        error(TranspilationUtil.CANNOT_CONVERT_YET));
   }
 
   @Test
@@ -1258,6 +1258,6 @@ public final class Es6RewriteModulesBeforeTypeCheckingTest extends CompilerTestC
   @Test
   public void testImportMeta() {
 
-    testError("import.meta", Es6ToEs3Util.CANNOT_CONVERT);
+    testError("import.meta", TranspilationUtil.CANNOT_CONVERT);
   }
 }

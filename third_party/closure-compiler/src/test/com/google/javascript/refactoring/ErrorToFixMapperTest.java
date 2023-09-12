@@ -34,7 +34,7 @@ import com.google.javascript.jscomp.GoogleCodingConvention;
 import com.google.javascript.jscomp.JSError;
 import com.google.javascript.jscomp.SourceFile;
 import java.util.Collection;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -75,8 +75,7 @@ public class ErrorToFixMapperTest {
   @AutoValue
   abstract static class ExpectedFix {
     /** Optional string describing the fix. */
-    @Nullable
-    abstract String description();
+    abstract @Nullable String description();
     /** What the code should look like after applying the fix. */
     abstract String fixedCode();
 
@@ -1799,6 +1798,42 @@ public class ErrorToFixMapperTest {
             "var C = goog.require('c.C');",
             "",
             "alert(new A(new B(new C())));"));
+  }
+
+  @Test
+  public void testGoogForwardDeclare_fixedToRequire() {
+    preexistingCode = "goog.provide('goog.dom.DomHelper');";
+    assertChanges(
+        lines(
+            "goog.module('module');",
+            "",
+            "goog.forwardDeclare('goog.dom.DomHelper');",
+            "",
+            "new goog.dom.DomHelper();"),
+        lines(
+            "goog.module('module');",
+            "",
+            "const DomHelper = goog.require('goog.dom.DomHelper');",
+            "",
+            "new DomHelper();"));
+  }
+
+  @Test
+  public void testGoogForwardDeclare_fixedToRequireType() {
+    preexistingCode = "goog.provide('goog.dom.DomHelper');";
+    assertChanges(
+        lines(
+            "goog.module('module');",
+            "",
+            "goog.forwardDeclare('goog.dom.DomHelper');",
+            "",
+            "function f(/** !goog.dom.DomHelper */ x) {}"),
+        lines(
+            "goog.module('module');",
+            "",
+            "const DomHelper = goog.requireType('goog.dom.DomHelper');",
+            "",
+            "function f(/** !DomHelper */ x) {}"));
   }
 
   @Test

@@ -17,6 +17,7 @@ package com.google.javascript.jscomp.ijs;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import com.google.javascript.jscomp.AbstractCompiler;
 import com.google.javascript.jscomp.NodeUtil;
@@ -24,8 +25,10 @@ import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.QualifiedName;
 import com.google.javascript.rhino.Token;
-import javax.annotation.Nullable;
+import java.util.ArrayList;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Encapsulates something that could be a declaration.
@@ -35,6 +38,10 @@ import javax.annotation.Nullable;
  * / Foo.prototype.bar`)
  */
 abstract class PotentialDeclaration {
+  // The threshold for trunctating string enum items. Any string literal longer than this will get
+  // truncated in the generated IJS file. This value is decided by the length of the longest
+  // security-sensitive attribute name.
+  private static final int STRING_ENUM_RETAIN_CAP = 10;
   // The fully qualified name of the declaration.
   private final String fullyQualifiedName;
   // The LHS node of the declaration.
@@ -51,11 +58,19 @@ abstract class PotentialDeclaration {
   static PotentialDeclaration fromName(Node nameNode) {
     checkArgument(nameNode.isQualifiedName(), nameNode);
     Node rhs = NodeUtil.getRValueOfLValue(nameNode);
-    if (ClassUtil.isThisProp(nameNode)) {
-      String name = ClassUtil.getPrototypeNameOfThisProp(nameNode);
+    if (ClassUtil.isThisPropInsideClassWithName(nameNode)) {
+      String name = ClassUtil.getFullyQualifiedNameOfThisProp(nameNode);
       return new ThisPropDeclaration(name, nameNode, rhs);
     }
     return new NameDeclaration(nameNode.getQualifiedName(), nameNode, rhs);
+  }
+
+  static PotentialDeclaration fromMemberFieldDef(Node fieldNode) {
+    checkArgument(fieldNode.isMemberFieldDef());
+    Node rhs = NodeUtil.getRValueOfLValue(fieldNode);
+    String name = ClassUtil.getFullyQualifiedNameOfMemberFieldDef(fieldNode);
+    // lhs is MEMBER_FIELD_DEF  rhs is the value assigned to the field if any.
+    return new MemberFieldDeclaration(name, fieldNode, rhs);
   }
 
   static PotentialDeclaration fromMethod(Node functionNode) {
@@ -95,13 +110,11 @@ abstract class PotentialDeclaration {
     return lhs;
   }
 
-  @Nullable
-  Node getRhs() {
+  @Nullable Node getRhs() {
     return rhs;
   }
 
-  @Nullable
-  JSDocInfo getJsDoc() {
+  @Nullable JSDocInfo getJsDoc() {
     return NodeUtil.getBestJSDocInfo(lhs);
   }
 
@@ -136,6 +149,18 @@ abstract class PotentialDeclaration {
    * removing the RHS and leaving a type annotation.
    */
   abstract void simplify(AbstractCompiler compiler);
+
+  /**
+   * Breaks down this declaration if it's a destructuring LHS by replacing it with a VAR node and
+   * removing the RHS.
+   *
+   * <p>TODO(lharker): can we merge this code into {@link #simplify(AbstractCompiler)}?
+   *
+   * @return true if the declaration is broken down. Otherwise, returns false.
+   */
+  boolean breakDownDestructure(AbstractCompiler compiler) {
+    return false;
+  }
 
   /**
    * A potential declaration that has a fully qualified name to describe it. This includes things
@@ -204,6 +229,41 @@ abstract class PotentialDeclaration {
         oldStatement.replaceWith(newStatement);
       }
       compiler.reportChangeToEnclosingScope(newStatement);
+    }
+
+    @Override
+    boolean breakDownDestructure(AbstractCompiler compiler) {
+      if (!NodeUtil.isLhsByDestructuring(getLhs())) {
+        return false;
+      }
+
+      Node rootTarget = NodeUtil.getRootTarget(getLhs());
+
+      checkState(rootTarget.getParent().isDestructuringLhs());
+      if (!NodeUtil.isNameDeclaration(rootTarget.getGrandparent())) {
+        return false;
+      }
+
+      Node definitionNode = rootTarget.getGrandparent();
+
+      Node prev = null;
+
+      ArrayList<Node> lhsNodes = new ArrayList<>();
+      NodeUtil.visitLhsNodesInNode(rootTarget.getParent(), lhsNodes::add);
+      for (Node n : lhsNodes) {
+        n.detach();
+        Node temp = IR.var(n);
+        if (prev == null) {
+          definitionNode.replaceWith(temp);
+          compiler.reportChangeToEnclosingScope(temp);
+        } else {
+          temp.insertAfter(prev);
+          compiler.reportChangeToEnclosingScope(temp);
+          temp.srcrefTree(prev);
+        }
+        prev = temp;
+      }
+      return true;
     }
 
     private static void replaceRhsWithUnknown(Node rhs) {
@@ -323,7 +383,7 @@ abstract class PotentialDeclaration {
       }
     }
 
-    static Node makeEmptyValueNode(JSTypeExpression type) {
+    static @Nullable Node makeEmptyValueNode(JSTypeExpression type) {
       Node n = type.getRoot();
       while (n != null && !n.isStringLit() && !n.isName()) {
         n = n.getFirstChild();
@@ -352,6 +412,25 @@ abstract class PotentialDeclaration {
 
     @Override
     void simplify(AbstractCompiler compiler) {}
+
+    @Override
+    Node getRemovableNode() {
+      return getLhs();
+    }
+  }
+
+  private static class MemberFieldDeclaration extends PotentialDeclaration {
+    MemberFieldDeclaration(@Nullable String name, Node lhs, Node rhs) {
+      super(name, lhs, rhs);
+    }
+
+    @Override
+    void simplify(AbstractCompiler compiler) {
+      Node rhs = getRhs();
+      if (rhs != null) {
+        NodeUtil.deleteNode(rhs, compiler);
+      }
+    }
 
     @Override
     Node getRemovableNode() {
@@ -512,7 +591,7 @@ abstract class PotentialDeclaration {
     }
 
     @Override
-    boolean isDefiniteDeclaration() {
+    boolean isDefiniteDeclaration(AbstractCompiler compiler) {
       return true;
     }
 
@@ -525,16 +604,44 @@ abstract class PotentialDeclaration {
   /** Remove values from enums */
   private void simplifyEnumValues(AbstractCompiler compiler) {
     if (getRhs().isObjectLit() && getRhs().hasChildren()) {
+      boolean changed = false;
       for (Node key = getRhs().getFirstChild(); key != null; key = key.getNext()) {
-        removeStringKeyValue(key);
+        Node value = key.getOnlyChild();
+        if (!value.isStringLit()) {
+          removeStringKeyValue(key);
+          changed = true;
+        } else {
+          String content = value.getString();
+          if (content.length() > STRING_ENUM_RETAIN_CAP) {
+            truncateStringKeyValue(key);
+            changed = true;
+          }
+        }
       }
-      compiler.reportChangeToEnclosingScope(getRhs());
+      if (changed) {
+        compiler.reportChangeToEnclosingScope(getRhs());
+      }
     }
   }
 
-  boolean isDefiniteDeclaration() {
+  boolean isDefiniteDeclaration(AbstractCompiler compiler) {
     Node parent = getLhs().getParent();
     switch (parent.getToken()) {
+      case DEFAULT_VALUE:
+        if (!parent.getParent().isStringKey()) {
+          return false;
+        }
+        // fall through
+      case COMPUTED_PROP:
+      case STRING_KEY:
+        if (NodeUtil.isLhsByDestructuring(getLhs())) {
+          Node rootTarget = NodeUtil.getRootTarget(getLhs());
+          checkState(rootTarget.getParent().isDestructuringLhs());
+          if (NodeUtil.isNameDeclaration(rootTarget.getGrandparent())) {
+            return true;
+          }
+        }
+        return false;
       case VAR:
       case LET:
       case CONST:
@@ -565,18 +672,23 @@ abstract class PotentialDeclaration {
     return isConst && !JsdocUtil.hasAnnotatedType(jsdoc) && !NodeUtil.isNamespaceDecl(nameNode);
   }
 
+  private static final QualifiedName GOOG_ABSTRACTMETHOD = QualifiedName.of("goog.abstractMethod");
+  private static final QualifiedName GOOG_REQUIRE = QualifiedName.of("goog.require");
+  private static final QualifiedName GOOG_REQUIRETYPE = QualifiedName.of("goog.requireType");
+  private static final QualifiedName GOOG_FORWARDDECLARE = QualifiedName.of("goog.forwardDeclare");
+  private static final QualifiedName MODULE_EXPORTS = QualifiedName.of("module.exports");
+
   private static boolean isTypedRhs(Node rhs) {
     return rhs.isFunction()
         || rhs.isClass()
         || NodeUtil.isCallTo(rhs, "goog.defineClass")
-        || (rhs.isQualifiedName() && rhs.matchesQualifiedName("goog.abstractMethod"))
-        || (rhs.isQualifiedName() && rhs.matchesQualifiedName("goog.nullFunction"));
+        || (rhs.isQualifiedName() && GOOG_ABSTRACTMETHOD.matches(rhs));
   }
 
   private static boolean isExportLhs(Node lhs) {
     return (lhs.isName() && lhs.matchesName("exports"))
         || (lhs.isGetProp() && lhs.getFirstChild().matchesName("exports"))
-        || lhs.matchesQualifiedName("module.exports");
+        || MODULE_EXPORTS.matches(lhs);
   }
 
   static boolean isImportRhs(@Nullable Node rhs) {
@@ -584,22 +696,58 @@ abstract class PotentialDeclaration {
       return false;
     }
     Node callee = rhs.getFirstChild();
-    return callee.matchesQualifiedName("goog.require")
-        || callee.matchesQualifiedName("goog.requireType")
-        || callee.matchesQualifiedName("goog.forwardDeclare")
+    return GOOG_REQUIRE.matches(callee)
+        || GOOG_REQUIRETYPE.matches(callee)
+        || GOOG_FORWARDDECLARE.matches(callee)
         || callee.matchesName("require");
   }
 
   static boolean isAliasDeclaration(Node lhs, @Nullable Node rhs) {
-    return !ClassUtil.isThisProp(lhs)
+    return !ClassUtil.isThisPropInsideClassWithName(lhs)
         && isConstToBeInferred(lhs)
         && rhs != null
-        && rhs.isQualifiedName();
+        && isQualifiedAliasExpression(rhs);
+  }
+
+  private static final QualifiedName GOOG_MODULE_GET = QualifiedName.of("goog.module.get");
+
+  /**
+   * Returns whether a node corresponds to a simple or a qualified name, such as <code>x</code> or
+   * <code>a.b.c</code> or <code>this.a</code>.
+   */
+  public static final boolean isQualifiedAliasExpression(Node n) {
+    switch (n.getToken()) {
+      case NAME:
+        return !n.getString().isEmpty();
+      case THIS:
+      case SUPER:
+        return true;
+      case GETPROP:
+        return isQualifiedAliasExpression(n.getFirstChild());
+      case CALL:
+        if (GOOG_MODULE_GET.matches(n.getFirstChild())) {
+          return true;
+        }
+        return false;
+
+      case MEMBER_FUNCTION_DEF:
+        // These are explicitly *not* qualified name components.
+      default:
+        return false;
+    }
   }
 
   private static void removeStringKeyValue(Node stringKey) {
     Node value = stringKey.getOnlyChild();
     Node replacementValue = IR.number(0).srcrefTree(value);
+    value.replaceWith(replacementValue);
+  }
+
+  private static void truncateStringKeyValue(Node stringKey) {
+    Node value = stringKey.getOnlyChild();
+    Node replacementValue =
+        IR.string(value.getString().substring(0, STRING_ENUM_RETAIN_CAP - 2) + "..")
+            .srcrefTree(value);
     value.replaceWith(replacementValue);
   }
 }

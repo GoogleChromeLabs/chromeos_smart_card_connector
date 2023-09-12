@@ -16,6 +16,12 @@
 
 package com.google.javascript.jscomp;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import com.google.common.collect.ImmutableList;
+import com.google.javascript.jscomp.testing.CodeSubTree;
+import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.Node.SideEffectFlags;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,6 +48,8 @@ public final class OptimizeParametersTest extends CompilerTestCase {
   public void setUp() throws Exception {
     super.setUp();
     enableNormalize();
+    // TODO(bradfordcsmith): Stop normalizing the expected output or document why it is necessary.
+    enableNormalizeExpectedOutput();
     enableGatherExternProperties();
   }
 
@@ -282,7 +290,7 @@ public final class OptimizeParametersTest extends CompilerTestCase {
     // so that this can be inlined into the function body
     testSame("function f(a = 2){} f(alert);");
 
-    testSame("function f(a = 2){} f(void 0);");
+    test("function f(a = 2){} f(void 0);", "function f(a = 2){} f();");
 
     // Make sure `sideEffects()` is always evaluated before `x`;
     testSame("var x = 0; function f(a = sideEffects(), b = x) {}; f(void 0, something);");
@@ -1598,6 +1606,122 @@ public final class OptimizeParametersTest extends CompilerTestCase {
   }
 
   @Test
+  public void testRewriteClassStaticBlock_removeOptional() {
+    test(
+        lines(
+            "function foo(a,b=1){",
+            "  return a * b;",
+            "}",
+            "class C {",
+            "  static {",
+            "    use(foo(1));",
+            "    use(foo(2));",
+            "  }",
+            "}"),
+        lines(
+            "function foo(a){",
+            "  var b = 1;",
+            "  return a * b;",
+            "}",
+            "class C {",
+            "  static {",
+            "    use(foo(1));",
+            "    use(foo(2));",
+            "  }",
+            "}"));
+    // TODO(b/240443227): Function parameters inside class static blocks not optimized
+    testSame(
+        lines(
+            "class C {",
+            "  static {",
+            "    function foo(a,b=1){",
+            "      return(a * b);",
+            "    }",
+            "    use(foo(1));",
+            "    use(foo(2));",
+            "  }",
+            "}"));
+  }
+
+  @Test
+  public void testRewriteClassStaticBlock_trailingUndefinedLiterals() {
+    test(
+        lines(
+            "function foo(a,b){",
+            "  return a;",
+            "}",
+            "class C {",
+            "  static {",
+            "    use(foo(1, undefined, 2));",
+            "    use(foo(2));",
+            "  }",
+            "}"),
+        lines(
+            "function foo(a,b){",
+            "  return a;",
+            "}",
+            "class C {",
+            "  static {",
+            "    use(foo(1));",
+            "    use(foo(2));",
+            "  }",
+            "}"));
+    // TODO(b/240443227): Function parameters inside class static blocks not optimized
+    testSame(
+        lines(
+            "class C {",
+            "  static {",
+            "    function foo(a,b){",
+            "      return a;",
+            "    }",
+            "    use(foo(1, undefined, 2));",
+            "    use(foo(2));",
+            "  }",
+            "}"));
+  }
+
+  @Test
+  public void testRewriteClassStaticBlock_inlineParameter() {
+    test(
+        lines(
+            "function foo(a){",
+            "  return a;",
+            "}",
+            "class C {",
+            "  static {",
+            "    use(foo(1));",
+            "    use(foo(1));",
+            "    use(foo(1));",
+            "  }",
+            "}"),
+        lines(
+            "function foo(){",
+            "  var a = 1;",
+            "  return a;",
+            "}",
+            "class C {",
+            "  static {",
+            "    use(foo());",
+            "    use(foo());",
+            "    use(foo());",
+            "  }",
+            "}"));
+    // TODO(b/240443227): Function parameters inside class static blocks not optimized
+    testSame(
+        lines(
+            "class C {",
+            "  static {",
+            "    function foo(a){",
+            "      return(a);",
+            "    }",
+            "    use(foo(1));",
+            "    use(foo(1));",
+            "    use(foo(1));",
+            "  }",
+            "}"));
+  }
+
+  @Test
   public void testNoRewriteUsedClassConstructorWithClassNonstaticField() {
     testSame(
         lines(
@@ -1831,5 +1955,78 @@ public final class OptimizeParametersTest extends CompilerTestCase {
             "  x = function(a,b) { return a + b };",
             "}",
             "new C().x(1,2)"));
+  }
+
+  @Test
+  public void testTrailingUndefinedLiterals() {
+    test(
+        "function foo(a) { use(a);}; foo(undefined); foo(2);",
+        "function foo(a) { use(a);}; foo(         ); foo(2);");
+  }
+
+  @Test
+  public void testTrailingUndefinedLiterals_multiple() {
+    test(
+        lines(
+            "", //
+            "function foo(a, b, c) { use(a, b, c); }",
+            "foo(undefined);",
+            "foo(undefined, void 0);",
+            "foo(undefined, void 0, undefined);",
+            "foo(2);",
+            ""),
+        lines(
+            "", //
+            "function foo(a, b, c) { use(a, b, c); }",
+            "foo();",
+            "foo();",
+            "foo();",
+            "foo(2);",
+            ""));
+  }
+
+  @Test
+  public void testTrailingUndefinedLiterals_functionRefsArguments() {
+    testSame("function foo(a) { use(arguments);}; foo(undefined); foo(2);");
+  }
+
+  @Test
+  public void testTrailingUndefinedLiterals_afterASpread() {
+    testSame("function foo(a,b) { use(a)}; foo(...[1], undefined, undefined);");
+    testSame("function foo(a,b) { use(a)}; foo(undefined, ...[1], undefined); foo(2);");
+  }
+
+  @Test
+  public void testTrailingUndefinedLiterals_afterAllFormalParameters() {
+    test(
+        "function foo(a, b) { use(a)}; foo('used', undefined, undefined, 2, 'a'); foo(2);",
+        "function foo(a, b) { use(a)}; foo('used');                               foo(2);");
+  }
+
+  @Test
+  public void testTrailingUndefinedLiterals_afterAllFormalParameters_sideEffects() {
+    testSame("function foo(a, b) { use(a)}; foo('used', undefined, sideEffects()); foo(2);");
+  }
+
+  @Test
+  public void testInliningSideEffectfulArg_updatesInvocationSideEffects() {
+    enableComputeSideEffects();
+    test(
+        externs("function sideEffects() {}"),
+        srcs("function foo() {} foo(sideEffects()); foo(sideEffects());"),
+        expected("function foo() { sideEffects(); } foo(); foo();"));
+
+    // Inspect the AST to verify both calls to `foo()` are marked as mutating global state
+    Node jsRoot = getLastCompiler().getJsRoot();
+    ImmutableList<Node> calls =
+        CodeSubTree.findNodesNonEmpty(
+            jsRoot, n -> (n.isCall() && n.getFirstChild().matchesName("foo")));
+    for (Node call : calls) {
+      assertThat(call.getSideEffectFlags())
+          .isEqualTo(
+              new SideEffectFlags(SideEffectFlags.NO_SIDE_EFFECTS)
+                  .setMutatesGlobalState()
+                  .valueOf());
+    }
   }
 }

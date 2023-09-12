@@ -40,7 +40,6 @@
 
 package com.google.javascript.rhino.jstype;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.javascript.jscomp.base.JSCompObjects.identical;
 
 import com.google.common.base.Preconditions;
@@ -52,6 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Specializes {@link TemplatizedType}s according to provided bindings.
@@ -72,18 +72,20 @@ public final class TemplateTypeReplacer implements Visitor<JSType> {
   private boolean hasMadeReplacement = false;
   private TemplateType keyType;
 
-  private final Set<JSType> seenTypes = Sets.newIdentityHashSet();
+  // initialized to null because it's unused in ~40% of TemplateTypeReplacers
+  private @Nullable Set<JSType> seenTypes = null;
 
   /** Creates a replacer for use during {@code TypeInference}. */
   public static TemplateTypeReplacer forInference(
       JSTypeRegistry registry, Map<TemplateType, JSType> bindings) {
     ImmutableList<TemplateType> keys = ImmutableList.copyOf(bindings.keySet());
-    ImmutableList<JSType> values =
-        keys.stream()
-            .map(bindings::get)
-            .map((v) -> (v != null) ? v : registry.getNativeType(JSTypeNative.UNKNOWN_TYPE))
-            .collect(toImmutableList());
-    TemplateTypeMap map = registry.getEmptyTemplateTypeMap().copyWithExtension(keys, values);
+    ImmutableList.Builder<JSType> values = ImmutableList.builder();
+    for (TemplateType key : keys) {
+      JSType value = bindings.get(key);
+      values.add(value != null ? value : registry.getNativeType(JSTypeNative.UNKNOWN_TYPE));
+    }
+    TemplateTypeMap map =
+        registry.getEmptyTemplateTypeMap().copyWithExtension(keys, values.build());
     return new TemplateTypeReplacer(registry, map, true, true, true);
   }
 
@@ -125,6 +127,12 @@ public final class TemplateTypeReplacer implements Visitor<JSType> {
 
   public boolean hasMadeReplacement() {
     return this.hasMadeReplacement;
+  }
+
+  private void initSeenTypes() {
+    if (this.seenTypes == null) {
+      this.seenTypes = Sets.newIdentityHashSet();
+    }
   }
 
   @Override
@@ -180,25 +188,35 @@ public final class TemplateTypeReplacer implements Visitor<JSType> {
       changed = true;
     }
 
-    FunctionParamBuilder paramBuilder = new FunctionParamBuilder(registry);
-    for (FunctionType.Parameter paramNode : type.getParameters()) {
-      JSType beforeParamType = paramNode.getJSType();
+    boolean paramsChanged = false;
+    int numParams = type.getParameters().size();
+    FunctionParamBuilder paramBuilder =
+        numParams == 0 ? null : new FunctionParamBuilder(registry, numParams);
+    for (int i = 0; i < numParams; i++) {
+      FunctionType.Parameter parameter = type.getParameters().get(i);
+      JSType beforeParamType = parameter.getJSType();
       JSType afterParamType = beforeParamType.visit(this);
+
       if (!identical(beforeParamType, afterParamType)) {
         changed = true;
-      }
-      if (paramNode.isOptional()) {
-        paramBuilder.addOptionalParams(afterParamType);
-      } else if (paramNode.isVariadic()) {
-        paramBuilder.addVarArgs(afterParamType);
+        paramsChanged = true;
+        // TODO(lharker): we could also lazily create the FunctionParamBuilder here, but that would
+        // require re-iterating over all previously seen params so unclear it's worth the complexity
+        if (parameter.isOptional()) {
+          paramBuilder.addOptionalParams(afterParamType);
+        } else if (parameter.isVariadic()) {
+          paramBuilder.addVarArgs(afterParamType);
+        } else {
+          paramBuilder.addRequiredParams(afterParamType);
+        }
       } else {
-        paramBuilder.addRequiredParams(afterParamType);
+        paramBuilder.newParameterFrom(parameter);
       }
     }
 
     if (changed) {
       return type.toBuilder()
-          .withParameters(paramBuilder.build())
+          .withParameters(paramsChanged ? paramBuilder.build() : type.getParameters())
           .withReturnType(afterReturn)
           .withTypeOfThis(afterThis)
           .withIsAbstract(false) // TODO(b/187989034): Copy this from the source function.
@@ -209,8 +227,7 @@ public final class TemplateTypeReplacer implements Visitor<JSType> {
   }
 
   private JSType coerseToThisType(JSType type) {
-    return type != null ? type : registry.getNativeObjectType(
-        JSTypeNative.UNKNOWN_TYPE);
+    return type != null ? type : registry.getNativeObjectType(JSTypeNative.UNKNOWN_TYPE);
   }
 
   @Override
@@ -316,7 +333,10 @@ public final class TemplateTypeReplacer implements Visitor<JSType> {
   private JSType caseUnionTypeUnguarded(UnionType type) {
     boolean changed = false;
     List<JSType> results = new ArrayList<>();
-    for (JSType alternative : type.getAlternates()) {
+    ImmutableList<JSType> alternates = type.getAlternates();
+    int alternateCount = alternates.size();
+    for (int i = 0; i < alternateCount; i++) {
+      var alternative = alternates.get(i);
       JSType replacement = alternative.visit(this);
       if (!identical(replacement, alternative)) {
         changed = true;
@@ -339,6 +359,7 @@ public final class TemplateTypeReplacer implements Visitor<JSType> {
       return useUnknownForMissingKeys ? getNativeType(JSTypeNative.UNKNOWN_TYPE) : type;
     }
 
+    this.initSeenTypes();
     if (seenTypes.contains(type)) {
       // If we have already encountered this TemplateType during replacement
       // (i.e. there is a reference loop) then return the TemplateType type itself.
@@ -404,14 +425,45 @@ public final class TemplateTypeReplacer implements Visitor<JSType> {
    * e.g. current type T is being replaced with Foo<T>
    */
   private boolean isRecursive(TemplateType currentType, JSType replacementType) {
-    TemplatizedType replacementTemplatizedType =
-        replacementType.restrictByNotNullOrUndefined().toMaybeTemplatizedType();
+    // Avoid calling "restrictBy..." here as this method ends up being very hot and
+    // rebuilding unions is expensive.
+
+    TemplatizedType replacementTemplatizedType = null;
+    if (replacementType.isUnionType()) {
+      UnionType union = replacementType.toMaybeUnionType();
+      ImmutableList<JSType> alternates = union.getAlternates();
+      int alternatesCount = alternates.size();
+
+      for (int i = 0; i < alternatesCount; i++) {
+        JSType t = alternates.get(i);
+        if (t.isNullType() || t.isVoidType()) {
+          continue;
+        }
+        if (t.isTemplatizedType()) {
+          if (replacementTemplatizedType != null) {
+            // TODO(johnlenz): seems like we should check a union of templatized types for
+            // recursion but this is the existing behavior.
+            return false;
+          } else {
+            replacementTemplatizedType = t.toMaybeTemplatizedType();
+          }
+        } else {
+          // The union contains a untemplatized type.
+          return false;
+        }
+      }
+    } else {
+      replacementTemplatizedType = replacementType.toMaybeTemplatizedType();
+    }
+
     if (replacementTemplatizedType == null) {
       return false;
     }
 
-    Iterable<JSType> replacementTemplateTypes = replacementTemplatizedType.getTemplateTypes();
-    for (JSType replacementTemplateType : replacementTemplateTypes) {
+    ImmutableList<JSType> replacementTemplateTypes = replacementTemplatizedType.getTemplateTypes();
+    int replacementCount = replacementTemplateTypes.size();
+    for (int i = 0; i < replacementCount; i++) {
+      JSType replacementTemplateType = replacementTemplateTypes.get(i);
       if (replacementTemplateType.isTemplateType()
           && isSameType(currentType, replacementTemplateType.toMaybeTemplateType())) {
         return true;
@@ -427,6 +479,7 @@ public final class TemplateTypeReplacer implements Visitor<JSType> {
   }
 
   private <T extends JSType> JSType guardAgainstCycles(T type, Function<T, JSType> mapper) {
+    this.initSeenTypes();
     if (!this.seenTypes.add(type)) {
       return type;
     }

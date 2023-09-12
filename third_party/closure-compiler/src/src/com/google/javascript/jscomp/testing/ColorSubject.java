@@ -24,12 +24,12 @@ import com.google.common.truth.Subject;
 import com.google.javascript.jscomp.colors.Color;
 import com.google.javascript.jscomp.colors.ColorId;
 import com.google.javascript.jscomp.colors.ColorRegistry;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** Subject for {@link Color} */
 public final class ColorSubject extends Subject {
 
-  @Nullable private final Color actual;
+  private final @Nullable Color actual;
 
   private ColorSubject(FailureMetadata metadata, @Nullable Color actual) {
     super(metadata, actual);

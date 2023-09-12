@@ -40,13 +40,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import org.jspecify.nullness.Nullable;
 
 /**
  * A class for the internal representation of an input to the compiler. Wraps a {@link SourceAst}
  * and maintain state such as module for the input and whether the input is an extern. Also
  * calculates provided and required types.
  */
-public class CompilerInput extends DependencyInfo.Base {
+public class CompilerInput implements DependencyInfo {
 
   private static final long serialVersionUID = 2L;
 
@@ -63,8 +64,26 @@ public class CompilerInput extends DependencyInfo.Base {
   private final List<String> extraProvides = new ArrayList<>();
   private final List<Require> orderedRequires = new ArrayList<>();
   private final List<String> dynamicRequires = new ArrayList<>();
+  // Modules imported by goog.requireDynamic()
+  private final List<String> requireDynamicImports = new ArrayList<>();
   private boolean hasFullParseDependencyInfo = false;
   private ModuleType jsModuleType = ModuleType.NONE;
+
+  /**
+   * If this input file has a MODULE_BODY (i.e. it is a goog.module() or ES module),
+   * TypedScopeCreator will store the scope created for that Node here.
+   *
+   * <p>DefaultPassConfig is responsible for erasing this value when later use of it is not needed.
+   */
+  private @Nullable TypedScope typedScope;
+
+  public void setTypedScope(@Nullable TypedScope typedScope) {
+    this.typedScope = typedScope;
+  }
+
+  public @Nullable TypedScope getTypedScope() {
+    return this.typedScope;
+  }
 
   // An AbstractCompiler for doing parsing.
   private AbstractCompiler compiler;
@@ -92,13 +111,17 @@ public class CompilerInput extends DependencyInfo.Base {
     }
   }
 
-  /** @deprecated the inputId is read from the SourceAst. Use CompilerInput(ast, isExtern) */
+  /**
+   * @deprecated the inputId is read from the SourceAst. Use CompilerInput(ast, isExtern)
+   */
   @Deprecated
   public CompilerInput(SourceAst ast, String inputId, boolean isExtern) {
     this(ast, new InputId(inputId), isExtern);
   }
 
-  /** @deprecated the inputId is read from the SourceAst. Use CompilerInput(ast, isExtern) */
+  /**
+   * @deprecated the inputId is read from the SourceAst. Use CompilerInput(ast, isExtern)
+   */
   @Deprecated
   public CompilerInput(SourceAst ast, InputId inputId, boolean isExtern) {
     this(ast, isExtern);
@@ -200,9 +223,8 @@ public class CompilerInput extends DependencyInfo.Base {
   }
 
   /**
-   * Gets a list of types provided, but does not attempt to
-   * regenerate the dependency information. Typically this occurs
-   * from module rewriting.
+   * Gets a list of types provided, but does not attempt to regenerate the dependency information.
+   * Typically this occurs from module rewriting.
    */
   ImmutableCollection<String> getKnownProvides() {
     return concat(
@@ -249,6 +271,26 @@ public class CompilerInput extends DependencyInfo.Base {
     return false;
   }
 
+  /**
+   * Returns the types that this input dynamically imports by goog.requireDynamic() in the order
+   * seen in the file. The returned types were loaded dynamically so while they are part of the
+   * dependency graph, they do not need sorted before this input.
+   */
+  public ImmutableList<String> getRequireDynamicImports() {
+    return ImmutableList.copyOf(requireDynamicImports);
+  }
+
+  /**
+   * Registers a type that this input depends on in the order seen in the file. The type was loaded
+   * by goog.requireDynamic() so while it is part of the dependency graph, it does not need sorted
+   * before this input.
+   */
+  public void addRequireDynamicImports(String require) {
+    if (!requireDynamicImports.contains(require)) {
+      requireDynamicImports.add(require);
+    }
+  }
+
   public void setHasFullParseDependencyInfo(boolean hasFullParseDependencyInfo) {
     this.hasFullParseDependencyInfo = hasFullParseDependencyInfo;
   }
@@ -288,10 +330,9 @@ public class CompilerInput extends DependencyInfo.Base {
   }
 
   /**
-   * Generates the DependencyInfo by scanning and/or parsing the file.
-   * This is called lazily by getDependencyInfo, and does not take into
-   * account any extra requires/provides added by {@link #addRequire}
-   * or {@link #addProvide}.
+   * Generates the DependencyInfo by scanning and/or parsing the file. This is called lazily by
+   * getDependencyInfo, and does not take into account any extra requires/provides added by {@link
+   * #addRequire} or {@link #addProvide}.
    */
   private DependencyInfo generateDependencyInfo() {
     Preconditions.checkNotNull(compiler, "Expected setCompiler to be called first: %s", this);
@@ -300,7 +341,7 @@ public class CompilerInput extends DependencyInfo.Base {
 
     // If the code is a JsAst, then it was originally JS code, and is compatible with the
     // regex-based parsing of JsFileRegexParser.
-    if (ast instanceof JsAst && JsFileRegexParser.isSupported()) {
+    if (ast instanceof JsAst && JsFileRegexParser.isSupported() && compiler.preferRegexParser()) {
       // Look at the source code.
       // Note: it's OK to use getName() instead of
       // getPathRelativeToClosureBase() here because we're not using
@@ -314,8 +355,11 @@ public class CompilerInput extends DependencyInfo.Base {
                 .parseFile(getName(), getName(), getCode());
         return new LazyParsedDependencyInfo(info, (JsAst) ast, compiler);
       } catch (IOException e) {
-        compiler.getErrorManager().report(CheckLevel.ERROR,
-            JSError.make(AbstractCompiler.READ_ERROR, getName(), e.getMessage()));
+        compiler
+            .getErrorManager()
+            .report(
+                CheckLevel.ERROR,
+                JSError.make(AbstractCompiler.READ_ERROR, getName(), e.getMessage()));
         return SimpleDependencyInfo.EMPTY;
       }
     } else {
@@ -376,7 +420,7 @@ public class CompilerInput extends DependencyInfo.Base {
       }
     }
 
-    void visitSubtree(Node n, Node parent) {
+    void visitSubtree(Node n, @Nullable Node parent) {
       switch (n.getToken()) {
         case CALL:
           if (n.hasTwoChildren()
@@ -391,7 +435,11 @@ public class CompilerInput extends DependencyInfo.Base {
             Node argument = n.getLastChild();
             switch (callee.getString()) {
               case "module":
-                loadFlags.put("module", "goog");
+                // only mark as a goog.module if this is not bundled, e.g.
+                // goog.loadModule(function(exports) {"use strict";goog.module('Foo');
+                if (parent.isExprResult() && parent.getParent().isModuleBody()) {
+                  loadFlags.put("module", "goog");
+                }
                 // Fall-through
               case "provide":
                 if (!argument.isStringLit()) {
@@ -415,22 +463,25 @@ public class CompilerInput extends DependencyInfo.Base {
                 return;
 
               case "loadModule":
-                // Process the block of the loadModule argument
+                // Process the block of the loadModule argument if it's a function, as opposed to
+                // a string.
+                if (argument.isStringLit()) {
+                  throw new IllegalArgumentException(
+                      "Unsupported parse of goog.loadModule with string literal");
+                }
                 n = argument.getLastChild();
+                break;
+
+              case "declareModuleId":
+                if (!argument.isStringLit()) {
+                  return;
+                }
+                provides.add(argument.getString());
                 break;
 
               default:
                 return;
             }
-          } else if (parent.isGetProp()
-              // TODO(johnplaisted): Consolidate on declareModuleId
-              && parent.matchesQualifiedName("goog.declareModuleId")
-              && parent.getParent().isCall()) {
-            Node argument = parent.getParent().getSecondChild();
-            if (!argument.isStringLit()) {
-              return;
-            }
-            provides.add(argument.getString());
           }
           break;
 
@@ -451,28 +502,27 @@ public class CompilerInput extends DependencyInfo.Base {
           }
           return;
 
-        case VAR:
-          if (n.getFirstChild().matchesName("goog")
-              && NodeUtil.isNamespaceDecl(n.getFirstChild())) {
-            provides.add("goog");
-          }
-          break;
-
         case EXPR_RESULT:
         case CONST:
+        case LET:
+        case VAR:
         case BLOCK:
-        case SCRIPT:
         case NAME:
         case DESTRUCTURING_LHS:
-        case LET:
+          break;
+
+        case SCRIPT:
+          JSDocInfo jsdoc = n.getJSDocInfo();
+          if (jsdoc != null && jsdoc.isProvideGoog()) {
+            provides.add("goog");
+          }
           break;
 
         default:
           return;
       }
 
-      for (Node child = n.getFirstChild();
-           child != null; child = child.getNext()) {
+      for (Node child = n.getFirstChild(); child != null; child = child.getNext()) {
         visitSubtree(child, n);
       }
     }
@@ -541,14 +591,23 @@ public class CompilerInput extends DependencyInfo.Base {
     return ast.getSourceFile().getLineOffset(lineno);
   }
 
-  /** @return The number of lines in this input. */
-  public int getNumLines() {
-    return ast.getSourceFile().getNumLines();
-  }
-
   @Override
   public String toString() {
     return getName();
+  }
+
+  @Override
+  public boolean isEs6Module() {
+    // Instead of doing a full parse to read all load flags, just ask the delegate, which at least
+    // has this much info
+    return getDependencyInfo().isEs6Module();
+  }
+
+  @Override
+  public boolean isGoogModule() {
+    // Instead of doing a full parse to read all load flags, just ask the delegate, which at least
+    // has this much info
+    return getDependencyInfo().isGoogModule();
   }
 
   @Override

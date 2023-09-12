@@ -19,9 +19,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.javascript.jscomp.AstFactory.type;
 import static com.google.javascript.jscomp.base.JSCompStrings.lines;
-import static com.google.javascript.rhino.testing.Asserts.assertThrows;
 import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 import static com.google.javascript.rhino.testing.TypeSubject.assertType;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.SyntacticScopeCreator.RedeclarationHandler;
@@ -60,7 +60,6 @@ public class AstFactoryTest {
   private JSTypeRegistry getRegistry() {
     return compiler.getTypeRegistry();
   }
-
 
   private JSType getNativeType(JSTypeNative nativeType) {
     return getRegistry().getNativeType(nativeType);
@@ -112,11 +111,12 @@ public class AstFactoryTest {
   }
 
   private AstFactory createTestAstFactory() {
-    return AstFactory.createFactoryWithTypes(getRegistry());
+    return AstFactory.createFactoryWithTypes(compiler.getLifeCycleStage(), getRegistry());
   }
 
   private AstFactory createTestAstFactoryWithColors() {
     return AstFactory.createFactoryWithColors(
+        compiler.getLifeCycleStage(),
         // the built-in color registry is available only if we've run parseAndAddColors()
         compiler.hasOptimizationColors()
             ? compiler.getColorRegistry()
@@ -124,7 +124,7 @@ public class AstFactoryTest {
   }
 
   private AstFactory createTestAstFactoryWithoutTypes() {
-    return AstFactory.createFactoryWithoutTypes();
+    return AstFactory.createFactoryWithoutTypes(compiler.getLifeCycleStage());
   }
 
   private Scope getScope(Node root) {
@@ -939,6 +939,62 @@ public class AstFactoryTest {
   }
 
   @Test
+  public void testCreateBitwiseAnd_jstypes() {
+    AstFactory astFactory = createTestAstFactory();
+
+    Node zero = astFactory.createNumber(0);
+    Node one = astFactory.createNumber(1);
+
+    Node bitAnd = astFactory.createBitwiseAnd(zero, one);
+
+    assertNode(bitAnd).hasToken(Token.BITAND);
+    assertThat(childList(bitAnd)).containsExactly(zero, one);
+    assertNode(bitAnd).hasJSTypeThat().isEqualTo(getNativeType(JSTypeNative.NUMBER_TYPE));
+  }
+
+  @Test
+  public void testCreateBitwiseAnd_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node zero = astFactory.createNumber(0);
+    Node one = astFactory.createNumber(1);
+
+    Node bitAnd = astFactory.createBitwiseAnd(zero, one);
+
+    assertNode(bitAnd).hasToken(Token.BITAND);
+    assertThat(childList(bitAnd)).containsExactly(zero, one);
+    assertNode(bitAnd).hasColorThat().isEqualTo(StandardColors.NUMBER);
+  }
+
+  @Test
+  public void testCreateRightShift_jstypes() {
+    AstFactory astFactory = createTestAstFactory();
+
+    Node zero = astFactory.createNumber(0);
+    Node one = astFactory.createNumber(1);
+
+    Node rightShift = astFactory.createRightShift(zero, one);
+
+    assertNode(rightShift).hasToken(Token.RSH);
+    assertThat(childList(rightShift)).containsExactly(zero, one);
+    assertNode(rightShift).hasJSTypeThat().isEqualTo(getNativeType(JSTypeNative.NUMBER_TYPE));
+  }
+
+  @Test
+  public void testCreateRightShift_colors() {
+    AstFactory astFactory = createTestAstFactoryWithColors();
+
+    Node zero = astFactory.createNumber(0);
+    Node one = astFactory.createNumber(1);
+
+    Node rightShift = astFactory.createRightShift(zero, one);
+
+    assertNode(rightShift).hasToken(Token.RSH);
+    assertThat(childList(rightShift)).containsExactly(zero, one);
+    assertNode(rightShift).hasColorThat().isEqualTo(StandardColors.NUMBER);
+  }
+
+  @Test
   public void testCreateInc_prefix_jstypes() {
     AstFactory astFactory = createTestAstFactory();
 
@@ -1091,17 +1147,16 @@ public class AstFactoryTest {
     // NOTE: This method is testing both createCall() and createQName()
     AstFactory astFactory = createTestAstFactory();
 
-
-        parseAndAddTypes(
-            lines(
-                "class Foo {",
-                "  /**",
-                "   * @param {string} arg1",
-                "   * @param {number} arg2",
-                "   * @return {string}",
-                "   */",
-                "  static method(arg1, arg2) { return arg1; }",
-                "}"));
+    parseAndAddTypes(
+        lines(
+            "class Foo {",
+            "  /**",
+            "   * @param {string} arg1",
+            "   * @param {number} arg2",
+            "   * @return {string}",
+            "   */",
+            "  static method(arg1, arg2) { return arg1; }",
+            "}"));
     StaticScope scope = compiler.getTranspilationNamespace();
 
     // createQName only accepts globally qualified qnames. While Foo.method is a global qualified
@@ -1190,6 +1245,27 @@ public class AstFactoryTest {
     assertNode(obj).hasJSTypeThat().toStringIsEqualTo("{inner: {str: string}}");
     assertNode(objDotInner).hasJSTypeThat().toStringIsEqualTo("{str: string}");
     assertNode(objDotInnerDotStr).hasJSTypeThat().isString();
+  }
+
+  @Test
+  public void testCreateNameMaintainsNormalization() {
+    AstFactory astFactory = createTestAstFactory();
+
+    final Node root = parseAndAddTypes("const obj = {}");
+
+    // Simulate normalization adding the IS_CONSTANT_NAME property ot `obj` NAME node
+    Node objName =
+        root.getFirstChild() // SCRIPT
+            .getFirstChild() // CONST
+            .getFirstChild(); // obj NAME
+    assertNode(objName).isName("obj");
+    objName.putBooleanProp(Node.IS_CONSTANT_NAME, true);
+
+    Node newObjName = astFactory.createName(compiler.getTranspilationNamespace(), "obj");
+
+    // Assert that the newly created NAME node gets the IS_CONSTANT_NAME property it should in
+    // order to be consistent with normalization.
+    assertThat(newObjName.getBooleanProp(Node.IS_CONSTANT_NAME)).isTrue();
   }
 
   @Test

@@ -20,13 +20,11 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.javascript.jscomp.AstFactory.type;
 
 import com.google.common.base.Predicate;
-import com.google.common.base.Supplier;
-import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.LinkedHashMultimap;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.Table;
+import com.google.common.collect.SetMultimap;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
+import com.google.javascript.jscomp.NodeTraversal.AbstractPreOrderCallback;
 import com.google.javascript.jscomp.colors.StandardColors;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
@@ -34,13 +32,10 @@ import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
-import java.util.Collection;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.Nullable;
 
 /**
  * Rewrite "let"s and "const"s as "var"s. Rename block-scoped declarations and their references when
@@ -48,24 +43,20 @@ import javax.annotation.Nullable;
  *
  * <p>Note that this must run after Es6RewriteDestructuring, since it does not process destructuring
  * let/const declarations at all.
- *
- * <p>TODO(moz): Try to use MakeDeclaredNamesUnique
  */
 public final class Es6RewriteBlockScopedDeclaration extends AbstractPostOrderCallback
     implements CompilerPass {
 
   private final AbstractCompiler compiler;
   private final AstFactory astFactory;
-  private final Table<Node, String, String> renameTable = HashBasedTable.create();
-  private final Set<Node> letConsts = new HashSet<>();
-  private final Set<String> undeclaredNames = new HashSet<>();
+  private final Set<Node> letConsts = new LinkedHashSet<>();
   private static final FeatureSet transpiledFeatures =
       FeatureSet.BARE_MINIMUM.with(Feature.LET_DECLARATIONS, Feature.CONST_DECLARATIONS);
-  private final Supplier<String> uniqueNameIdSupplier;
+  private final UniqueIdSupplier uniqueIdSupplier;
 
   public Es6RewriteBlockScopedDeclaration(AbstractCompiler compiler) {
     this.compiler = compiler;
-    this.uniqueNameIdSupplier = compiler.getUniqueNameIdSupplier();
+    this.uniqueIdSupplier = compiler.getUniqueIdSupplier();
     this.astFactory = compiler.createAstFactory();
   }
 
@@ -82,25 +73,29 @@ public final class Es6RewriteBlockScopedDeclaration extends AbstractPostOrderCal
     }
     if (NodeUtil.isNameDeclaration(n)) {
       for (Node nameNode = n.getFirstChild(); nameNode != null; nameNode = nameNode.getNext()) {
-        visitBlockScopedName(t, n, nameNode);
+        visitBlockScopedNameDeclaration(n, nameNode);
       }
     } else {
       // NOTE: This pass depends on class declarations having been transpiled away
       checkState(n.isFunction() || n.isCatch(), "Unexpected declaration node: %s", n);
-      visitBlockScopedName(t, n, n.getFirstChild());
+      visitBlockScopedNameDeclaration(n, n.getFirstChild());
     }
   }
 
   @Override
   public void process(Node externs, Node root) {
-    NodeTraversal.traverse(compiler, root, new CollectUndeclaredNames());
+    // Make all declared names unique, so we can safely just switch 'let' or 'const' to 'var' in all
+    // non-loop cases.
+    MakeDeclaredNamesUnique renamer = MakeDeclaredNamesUnique.builder().build();
+    NodeTraversal.traverseRoots(compiler, renamer, externs, root);
+    // - Gather a list of let & const variables
+    // - Also add `= void 0` to any that are not initialized.
     NodeTraversal.traverse(compiler, root, this);
-    NodeTraversal.traverse(compiler, root, new Es6RenameReferences(renameTable));
     LoopClosureTransformer transformer = new LoopClosureTransformer();
     NodeTraversal.traverse(compiler, root, transformer);
     transformer.transformLoopClosure();
     rewriteDeclsToVars();
-    TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, transpiledFeatures);
+    TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, root, transpiledFeatures);
   }
 
   /**
@@ -108,8 +103,7 @@ public final class Es6RewriteBlockScopedDeclaration extends AbstractPostOrderCal
    *
    * <p>Also normalizes declarations with no initializer in a loop to be initialized to undefined.
    */
-  private void visitBlockScopedName(NodeTraversal t, Node decl, Node nameNode) {
-    Scope scope = t.getScope();
+  private void visitBlockScopedNameDeclaration(Node decl, Node nameNode) {
     Node parent = decl.getParent();
     // Normalize "let x;" to "let x = undefined;" if in a loop, since we later convert x
     // to be $jscomp$loop$0.x and want to reset the property to undefined every loop iteration.
@@ -120,24 +114,6 @@ public final class Es6RewriteBlockScopedDeclaration extends AbstractPostOrderCal
       Node undefined = astFactory.createUndefinedValue().srcrefTree(nameNode);
       nameNode.addChildToFront(undefined);
       compiler.reportChangeToEnclosingScope(undefined);
-    }
-
-    String oldName = nameNode.getString();
-    Scope hoistScope = scope.getClosestHoistScope();
-    if (scope != hoistScope) {
-      String newName = oldName;
-      if (hoistScope.hasSlot(oldName) || undeclaredNames.contains(oldName)) {
-        do {
-          newName = oldName + "$" + compiler.getUniqueNameIdSupplier().get();
-        } while (hoistScope.hasSlot(newName));
-        nameNode.setString(newName);
-        compiler.reportChangeToEnclosingScope(nameNode);
-        Node scopeRoot = scope.getRootNode();
-        renameTable.put(scopeRoot, oldName, newName);
-      }
-      Var oldVar = scope.getVar(oldName);
-      scope.undeclare(oldVar);
-      hoistScope.declare(newName, nameNode, oldVar.getInput());
     }
   }
 
@@ -212,55 +188,33 @@ public final class Es6RewriteBlockScopedDeclaration extends AbstractPostOrderCal
     }
   }
 
-  /**
-   * Records undeclared names and aggressively rename possible references to them.
-   * Eg: In "{ let inner; } use(inner);", we rename the let declared variable.
-   */
-  private class CollectUndeclaredNames extends AbstractPostOrderCallback {
-
-    @Override
-    public void visit(NodeTraversal t, Node n, Node parent) {
-      if (n.isName() && !t.getScope().hasSlot(n.getString())) {
-        undeclaredNames.add(n.getString());
-      }
-    }
-  }
-  /**
-   * Transforms let/const declarations captured by loop closures.
-   */
-  private class LoopClosureTransformer extends AbstractPostOrderCallback {
+  /** Transforms let/const declarations captured by loop closures. */
+  private class LoopClosureTransformer extends AbstractPreOrderCallback {
 
     private static final String LOOP_OBJECT_NAME = "$jscomp$loop";
-    private static final String LOOP_OBJECT_PROPERTY_NAME = "$jscomp$loop$prop$";
     private final Map<Node, LoopObject> loopObjectMap = new LinkedHashMap<>();
 
-    private final Multimap<Node, LoopObject> functionLoopObjectsMap =
+    private final SetMultimap<Node, LoopObject> nodesRequiringLoopObjectsClosureMap =
         LinkedHashMultimap.create();
-    private final Multimap<Node, String> functionHandledMap = HashMultimap.create();
-    private final Multimap<Var, Node> referenceMap = LinkedHashMultimap.create();
-    // Maps from a var to a unique property name for that var
-    // e.g. 'i' -> '$jscomp$loop$prop$i$0'
-    private final Map<Var, String> propertyNameMap = new LinkedHashMap<>();
+    private final SetMultimap<Node, String> nodesHandledForLoopObjectClosure =
+        HashMultimap.create();
+    private final SetMultimap<Var, Node> referenceMap = LinkedHashMultimap.create();
 
     @Override
-    public void visit(NodeTraversal t, Node n, Node parent) {
+    public boolean shouldTraverse(NodeTraversal t, Node n, Node parent) {
       if (!NodeUtil.isReferenceName(n)) {
-        return;
+        return true;
       }
 
       String name = n.getString();
       Scope referencedIn = t.getScope();
       Var var = referencedIn.getVar(name);
       if (var == null) {
-        return;
+        return true;
       }
 
       if (!var.isLet() && !var.isConst()) {
-        return;
-      }
-
-      if (n.getParent().isLet() || n.getParent().isConst()) {
-        letConsts.add(n.getParent());
+        return true;
       }
 
       // Traverse nodes up from let/const declaration:
@@ -268,7 +222,7 @@ public final class Es6RewriteBlockScopedDeclaration extends AbstractPostOrderCal
       // if we hit a loop first - maybe loop closure.
       Scope declaredIn = var.getScope();
       Node loopNode = null;
-      for (Scope s = declaredIn;; s = s.getParent()) {
+      for (Scope s = declaredIn; ; s = s.getParent()) {
         Node scopeRoot = s.getRootNode();
         if (NodeUtil.isLoopStructure(scopeRoot)) {
           loopNode = scopeRoot;
@@ -277,7 +231,7 @@ public final class Es6RewriteBlockScopedDeclaration extends AbstractPostOrderCal
           loopNode = scopeRoot.getParent();
           break;
         } else if (s.isFunctionBlockScope() || s.isGlobal()) {
-          return;
+          return true;
         }
       }
 
@@ -286,7 +240,8 @@ public final class Es6RewriteBlockScopedDeclaration extends AbstractPostOrderCal
       // Traverse scopes from reference scope to declaration scope.
       // If we hit a function - loop closure detected.
       Scope outerMostFunctionScope = null;
-      for (Scope s = referencedIn; s != declaredIn && s.getRootNode() != loopNode;
+      for (Scope s = referencedIn;
+          s != declaredIn && s.getRootNode() != loopNode;
           s = s.getParent()) {
         if (s.isFunctionScope()) {
           outerMostFunctionScope = s;
@@ -294,34 +249,53 @@ public final class Es6RewriteBlockScopedDeclaration extends AbstractPostOrderCal
       }
 
       if (outerMostFunctionScope != null) {
-        Node function = outerMostFunctionScope.getRootNode();
-        if (functionHandledMap.containsEntry(function, name)) {
-          return;
+        Node enclosingFunction = outerMostFunctionScope.getRootNode();
+
+        // There are two categories of functions we might find here:
+        //  1. a getter or setter in an object literal. We will wrap the entire object literal in
+        //     a closure to capture the value of the let/const.
+        //  2. a function declaration or expression. We will wrap the function in a closure.
+        // (At this point, class methods/getters/setters and object literal member functions are
+        // transpiled away.)
+        final Node nodeToWrapInClosure;
+        if (enclosingFunction.getParent().isGetterDef()
+            || enclosingFunction.getParent().isSetterDef()) {
+          nodeToWrapInClosure = enclosingFunction.getGrandparent();
+          checkState(nodeToWrapInClosure.isObjectLit());
+        } else {
+          nodeToWrapInClosure = enclosingFunction;
         }
-        functionHandledMap.put(function, name);
+        if (nodesHandledForLoopObjectClosure.containsEntry(nodeToWrapInClosure, name)) {
+          return true;
+        }
+        nodesHandledForLoopObjectClosure.put(nodeToWrapInClosure, name);
 
         LoopObject object =
             loopObjectMap.computeIfAbsent(
-                loopNode,
-                (Node k) ->
-                    new LoopObject(
-                        LOOP_OBJECT_NAME + "$" + compiler.getUniqueNameIdSupplier().get()));
-        String newPropertyName = createUniquePropertyName(var);
+                loopNode, (Node k) -> new LoopObject(createUniqueObjectName(t.getInput())));
         object.vars.add(var);
-        propertyNameMap.put(var, newPropertyName);
-
-        functionLoopObjectsMap.put(function,  object);
+        nodesRequiringLoopObjectsClosureMap.put(nodeToWrapInClosure, object);
       }
+      return true;
     }
 
-    private String createUniquePropertyName(Var var) {
-      return LOOP_OBJECT_PROPERTY_NAME + var.getName() + "$" + uniqueNameIdSupplier.get();
+    private String createUniqueObjectName(CompilerInput input) {
+      return LOOP_OBJECT_NAME + "$" + uniqueIdSupplier.getUniqueId(input);
+    }
+
+    private String getLoopObjPropName(Var var) {
+      // NOTE: var.getName() would be wrong here, because it will still contain the original
+      // and possibly non-unique name for the variable. However, the name node itself will already
+      // have the new and guaranteed-globally-unique name.
+      return var.getNameNode().getString();
     }
 
     private void transformLoopClosure() {
       if (loopObjectMap.isEmpty()) {
         return;
       }
+
+      createWrapperFunctions();
 
       for (Node loopNode : loopObjectMap.keySet()) {
         // Introduce objects to reflect the captured scope variables.
@@ -331,14 +305,7 @@ public final class Es6RewriteBlockScopedDeclaration extends AbstractPostOrderCal
         // later.
         LoopObject loopObject = loopObjectMap.get(loopNode);
         Node objectLitNextIteration = astFactory.createObjectLit();
-        for (Var var : loopObject.vars) {
-          String newPropertyName = propertyNameMap.get(var);
-          objectLitNextIteration.addChildToBack(
-              astFactory.createStringKey(
-                  newPropertyName,
-                  createLoopVarReferenceReplacement(
-                      loopObject, var.getNameNode(), newPropertyName)));
-        }
+        renameVarsToProperties(loopObject, objectLitNextIteration);
 
         Node updateLoopObject =
             astFactory.createAssign(createLoopObjectNameNode(loopObject), objectLitNextIteration);
@@ -347,144 +314,27 @@ public final class Es6RewriteBlockScopedDeclaration extends AbstractPostOrderCal
                 .srcrefTree(loopNode);
         addNodeBeforeLoop(objectLit, loopNode);
         if (loopNode.isVanillaFor()) { // For
-          // The initializer is pulled out and placed prior to the loop.
-          Node initializer = loopNode.getFirstChild();
-          initializer.replaceWith(IR.empty());
-          if (!initializer.isEmpty()) {
-            if (!NodeUtil.isNameDeclaration(initializer)) {
-              initializer = IR.exprResult(initializer).srcref(initializer);
-            }
-            addNodeBeforeLoop(initializer, loopNode);
-          }
-
-          Node increment = loopNode.getChildAtIndex(2);
-          if (increment.isEmpty()) {
-            increment.replaceWith(updateLoopObject.srcrefTreeIfMissing(loopNode));
-          } else {
-            Node placeHolder = IR.empty();
-            increment.replaceWith(placeHolder);
-            placeHolder.replaceWith(
-                astFactory.createComma(updateLoopObject, increment).srcrefTreeIfMissing(loopNode));
-          }
+          changeVanillaForLoopHeader(loopNode, updateLoopObject);
         } else {
-          // We need to make sure the loop object update happens on every loop iteration.
-          // We want to keep it at the end of the loop, because that makes it easier to reason
-          // about the types.
-          //
-          // TODO(bradfordcsmith): Maybe move the update to the start of the loop when this pass
-          // is moved after the type checking passes.
-          //
-          // A finally block would do it, but would have more runtime cost, so instead, if we find
-          // that there are continue statements referring to the loop we will do this.
-          //
-          // originalLoopLabel: while (condition) {
-          //   $jscomp$loop$0: {
-          //      // original loop body here
-          //      // with continue statements converted to `break $jscomp$loop$0;`
-          //      // If originalLoopLabel exists, we'll also need to traverse into innner loops
-          //      // and convert `continue originalLoopLabel;`.
-          //   }
-          //   $jscomp$loop$0 = { var1: $jscomp$loop$0.var1, var2: $jscomp$loop$0.var2, ... };
-          // }
-          // We're intentionally using the same name for the inner loop label and the loop variable
-          // object. Label names and variables are different namespaces, so they do not conflict.
-          String innerBlockLabel = loopObject.name;
-          Node loopBody = NodeUtil.getLoopCodeBlock(loopNode);
-          if (maybeUpdateContinueStatements(loopNode, innerBlockLabel)) {
-            Node innerBlock = IR.block().srcref(loopBody);
-            innerBlock.addChildrenToFront(loopBody.removeChildren());
-            loopBody.addChildToFront(
-                IR.label(IR.labelName(innerBlockLabel).srcref(loopBody), innerBlock)
-                    .srcref(loopBody));
-          }
-          loopBody.addChildToBack(IR.exprResult(updateLoopObject).srcrefTreeIfMissing(loopNode));
+          final Node loopBody = NodeUtil.getLoopCodeBlock(loopNode);
+          loopBody.addChildToFront(IR.exprResult(updateLoopObject).srcrefTreeIfMissing(loopNode));
         }
         compiler.reportChangeToEnclosingScope(loopNode);
 
-        // For captured variables, change declarations to assignments on the
-        // corresponding field of the introduced object. Rename all references
-        // accordingly.
-        for (Var var : loopObject.vars) {
-          String newPropertyName = propertyNameMap.get(var);
-          for (Node reference : referenceMap.get(var)) {
-            // for-of loops are transpiled away before this pass runs
-            checkState(!loopNode.isForOf(), loopNode);
-            // For-of and for-in declarations are not altered, since they are
-            // used as temporary variables for assignment.
-            if (loopNode.isForIn() && loopNode.getFirstChild() == reference.getParent()) {
-              // reference is the node loopVar in a for-in or for-of that looks like this:
-              // `for (const loopVar of list) {`
-              checkState(reference == var.getNameNode(), reference);
-              Node referenceParent = reference.getParent();
-              checkState(NodeUtil.isNameDeclaration(referenceParent), referenceParent);
-              checkState(reference.isName(), reference);
-              // Start transpiled form of
-              // `for (const p in obj) { ... }`
-              // with this statement to copy the loop variable into the corresponding loop object
-              // property.
-              // `$jscomp$loop$0.$jscomp$loop$prop$0$p = p;`
-              Node loopVarReference = reference.cloneNode();
-              loopNode
-                  .getLastChild()
-                  .addChildToFront(
-                      IR.exprResult(
-                              astFactory.createAssign(
-                                  createLoopVarReferenceReplacement(
-                                      loopObject, reference, newPropertyName),
-                                  loopVarReference))
-                          .srcrefTreeIfMissing(reference));
-            } else {
-              if (NodeUtil.isNameDeclaration(reference.getParent())) {
-                Node declaration = reference.getParent();
-                Node grandParent = declaration.getParent();
-                handleDeclarationList(declaration, grandParent);
-                declaration = reference.getParent(); // Might have changed after normalization.
-                // Change declaration to assignment, or just drop it if there's
-                // no initial value.
-                if (reference.hasChildren()) {
-                  Node newReference = cloneWithType(reference);
-                  Node assign = astFactory.createAssign(newReference, reference.removeFirstChild());
-                  extractInlineJSDoc(declaration, reference, declaration);
-                  maybeAddConstJSDoc(declaration, reference, declaration);
-                  assign.setJSDocInfo(declaration.getJSDocInfo());
-
-                  Node replacement = IR.exprResult(assign).srcrefTreeIfMissing(declaration);
-                  declaration.replaceWith(replacement);
-                  reference = newReference;
-                } else {
-                  declaration.detach();
-                }
-                letConsts.remove(declaration);
-                compiler.reportChangeToEnclosingScope(grandParent);
-              }
-
-              if (reference.getParent().isCall()
-                  && reference.getParent().getFirstChild() == reference) {
-                reference.getParent().putBooleanProp(Node.FREE_CALL, false);
-              }
-              // Change reference to GETPROP.
-              Node changeScope = NodeUtil.getEnclosingChangeScopeRoot(reference);
-              reference.replaceWith(
-                  createLoopVarReferenceReplacement(loopObject, reference, newPropertyName));
-              // TODO(johnlenz): Don't work on detached nodes.
-              if (changeScope != null) {
-                compiler.reportChangeToChangeScope(changeScope);
-              }
-            }
-          }
-        }
+        changeLoopLocalVariablesToProperties(loopNode, loopObject);
       }
+    }
 
-      // Create wrapper functions and call them.
-      for (Node function : functionLoopObjectsMap.keySet()) {
+    /** Create wrapper functions and call them. */
+    private void createWrapperFunctions() {
+      for (Node functionOrObjectLit : nodesRequiringLoopObjectsClosureMap.keySet()) {
         Node returnNode = IR.returnNode();
-        Collection<LoopObject> objects = functionLoopObjectsMap.get(function);
+        Set<LoopObject> objects = nodesRequiringLoopObjectsClosureMap.get(functionOrObjectLit);
         Node[] objectNames = new Node[objects.size()];
         Node[] objectNamesForCall = new Node[objects.size()];
         int i = 0;
         for (LoopObject object : objects) {
-          Node paramObjectName = createLoopObjectNameNode(object);
-          objectNames[i] = paramObjectName;
+          objectNames[i] = createLoopObjectNameNode(object);
           objectNamesForCall[i] = createLoopObjectNameNode(object);
           i++;
         }
@@ -496,19 +346,158 @@ public final class Es6RewriteBlockScopedDeclaration extends AbstractPostOrderCal
                 IR.block(returnNode),
                 type(StandardColors.TOP_OBJECT));
         compiler.reportChangeToChangeScope(iife);
-        Node call = astFactory.createCall(iife, type(function), objectNamesForCall);
+        Node call = astFactory.createCall(iife, type(functionOrObjectLit), objectNamesForCall);
         call.putBooleanProp(Node.FREE_CALL, true);
         Node replacement;
-        if (NodeUtil.isFunctionDeclaration(function)) {
-          replacement =
-              IR.var(IR.name(function.getFirstChild().getString()), call)
-                  .srcrefTreeIfMissing(function);
-        } else {
-          replacement = call.srcrefTreeIfMissing(function);
-        }
-        function.replaceWith(replacement);
-        returnNode.addChildToFront(function);
+        // Es6RewriteBlockScopedFunctionDeclaration must run before this pass.
+        checkState(
+            !NodeUtil.isFunctionDeclaration(functionOrObjectLit),
+            "block-scoped function declarations should not exist now: %s",
+            functionOrObjectLit);
+        replacement = call.srcrefTreeIfMissing(functionOrObjectLit);
+        functionOrObjectLit.replaceWith(replacement);
+        returnNode.addChildToFront(functionOrObjectLit);
         compiler.reportChangeToEnclosingScope(replacement);
+      }
+    }
+
+    /**
+     * The initializer is pulled out and placed prior to the loop. The increment is updated with the
+     * new loop object and property assignments
+     */
+    private void changeVanillaForLoopHeader(Node loopNode, Node updateLoopObject) {
+      Node initializer = loopNode.getFirstChild();
+      initializer.replaceWith(IR.empty());
+      if (!initializer.isEmpty()) {
+        if (!NodeUtil.isNameDeclaration(initializer)) {
+          initializer = IR.exprResult(initializer).srcref(initializer);
+        }
+        addNodeBeforeLoop(initializer, loopNode);
+      }
+
+      Node increment = loopNode.getChildAtIndex(2);
+      if (increment.isEmpty()) {
+        increment.replaceWith(updateLoopObject.srcrefTreeIfMissing(loopNode));
+      } else {
+        Node placeHolder = IR.empty();
+        increment.replaceWith(placeHolder);
+        placeHolder.replaceWith(
+            astFactory.createComma(updateLoopObject, increment).srcrefTreeIfMissing(loopNode));
+      }
+    }
+
+    /**
+     * For captured variables, change declarations to assignments on the corresponding field of the
+     * introduced object. Rename all references accordingly.
+     */
+    private void changeLoopLocalVariablesToProperties(Node loopNode, LoopObject loopObject) {
+      for (Var var : loopObject.vars) {
+        String newPropertyName = getLoopObjPropName(var);
+        for (Node reference : referenceMap.get(var)) {
+          // for-of loops are transpiled away before this pass runs
+          checkState(!loopNode.isForOf(), loopNode);
+          // For-of and for-in declarations are not altered, since they are
+          // used as temporary variables for assignment.
+          if (loopNode.isForIn() && loopNode.getFirstChild() == reference.getParent()) {
+            assignLoopVarToLoopObjectProperty(
+                loopNode, loopObject, var, newPropertyName, reference);
+          } else {
+            if (NodeUtil.isNameDeclaration(reference.getParent())) {
+              replaceDeclarationWithProperty(loopObject, newPropertyName, reference);
+            } else {
+              replaceReferenceWithProperty(loopObject, newPropertyName, reference);
+            }
+          }
+        }
+      }
+    }
+
+    private void replaceDeclarationWithProperty(
+        LoopObject loopObject, String newPropertyName, Node reference) {
+      Node declaration = reference.getParent();
+      Node grandParent = declaration.getParent();
+      // If the declaration contains multiple declared variables, split it apart.
+      handleDeclarationList(declaration, grandParent);
+      // Record that the let / const declaration statement has been turned into one or more
+      // var statements by handleDeclarationList(), so we won't try to change it again later.
+      letConsts.remove(declaration);
+      // The variable we're working with may have been moved to a new var statement.
+      declaration = reference.getParent();
+      if (reference.hasChildren()) {
+        // Change declaration to assignment
+        Node newReference =
+            createLoopVarReferenceReplacement(loopObject, reference, newPropertyName);
+        Node assign = astFactory.createAssign(newReference, reference.removeFirstChild());
+        extractInlineJSDoc(declaration, reference, declaration);
+        maybeAddConstJSDoc(declaration, reference, declaration);
+        assign.setJSDocInfo(declaration.getJSDocInfo());
+
+        Node replacement = IR.exprResult(assign).srcrefTreeIfMissing(declaration);
+        declaration.replaceWith(replacement);
+      } else {
+        // No value is assigned, so just drop the let/const statement entirely
+        declaration.detach();
+      }
+      compiler.reportChangeToEnclosingScope(grandParent);
+    }
+
+    private void replaceReferenceWithProperty(
+        LoopObject loopObject, String newPropertyName, Node reference) {
+      Node referenceParent = reference.getParent();
+      reference.replaceWith(
+          createLoopVarReferenceReplacement(loopObject, reference, newPropertyName));
+      compiler.reportChangeToEnclosingScope(referenceParent);
+    }
+
+    /**
+     * Transforms `for (const p in obj) { ... }`
+     *
+     * <p>into `for (const p in obj) { $jscomp$loop$0.$jscomp$loop$prop$0$p = p; ... }`
+     */
+    private void assignLoopVarToLoopObjectProperty(
+        Node loopNode, LoopObject loopObject, Var var, String newPropertyName, Node reference) {
+      // reference is the node loopVar in a for-in that looks like this:
+      // `for (const loopVar in list) {`
+      checkState(reference == var.getNameNode(), reference);
+      Node referenceParent = reference.getParent();
+      checkState(NodeUtil.isNameDeclaration(referenceParent), referenceParent);
+      checkState(reference.isName(), reference);
+      // Start transpiled form of
+      // `for (const p in obj) { ... }`
+      // with this statement to copy the loop variable into the corresponding loop object
+      // property.
+      // `$jscomp$loop$0.$jscomp$loop$prop$0$p = p;`
+      Node loopVarReference = reference.cloneNode();
+      // `$jscomp$loop$0.$jscomp$loop$prop$0$p = p;`
+      final Node forInPropAssignmentStatemnt =
+          IR.exprResult(
+                  astFactory.createAssign(
+                      createLoopVarReferenceReplacement(loopObject, reference, newPropertyName),
+                      loopVarReference))
+              .srcrefTreeIfMissing(reference);
+      // The first statement in the body should be creating a new loop object value
+      // $jscomp$loop$0 = {
+      //    $jscomp$loop$prop$0$p: $jscomp$loop$0.$jscomp$loop$prop$0$p,
+      //    $jscomp$loop$prop$0$otherVar: $jscomp$loop$0.$jscomp$loop$prop$0$p,
+      //    // other property update assignments
+      // }
+      // We need to update the loop variable's value to it immediately after that
+      final Node loopUpdateStatement =
+          loopNode
+              .getLastChild() // loop body
+              .getFirstChild(); // first statement
+
+      forInPropAssignmentStatemnt.insertAfter(loopUpdateStatement);
+    }
+
+    /** Rename all variables in the loop object to properties */
+    private void renameVarsToProperties(LoopObject loopObject, Node objectLitNextIteration) {
+      for (Var var : loopObject.vars) {
+        String newPropertyName = getLoopObjPropName(var);
+        objectLitNextIteration.addChildToBack(
+            astFactory.createStringKey(
+                newPropertyName,
+                createLoopVarReferenceReplacement(loopObject, var.getNameNode(), newPropertyName)));
       }
     }
 
@@ -529,88 +518,6 @@ public final class Es6RewriteBlockScopedDeclaration extends AbstractPostOrderCal
       return astFactory.createName(loopObject.name, type(StandardColors.TOP_OBJECT));
     }
 
-    /**
-     * Converts all continue statements referring to the given loop to `break $jscomp$loop$0;` where
-     * `$jscomp$loop$0` is the label on the block containing the original loop body.
-     *
-     * <p>If this method returns {@code true}, then we must wrap the original loop body in a block
-     * labeled with the name from the loopObject.
-     *
-     * @return True if at least one continue statement was found and replaced.
-     */
-    private boolean maybeUpdateContinueStatements(Node loopNode, String breakLabel) {
-      Node loopParent = loopNode.getParent();
-      final String originalLoopLabel =
-          loopParent.isLabel() ? loopParent.getFirstChild().getString() : null;
-      ContinueStatementUpdater continueStatementUpdater =
-          new ContinueStatementUpdater(breakLabel, originalLoopLabel);
-      NodeTraversal.traverse(
-          compiler, NodeUtil.getLoopCodeBlock(loopNode), continueStatementUpdater);
-      return continueStatementUpdater.replacedAContinueStatement;
-    }
-
-    /**
-     * Converts all continue statements referring to the given loop to `break $jscomp$loop$0;` where
-     * `$jscomp$loop$0` is the label on the block containing the original loop body.
-     */
-    private class ContinueStatementUpdater implements NodeTraversal.Callback {
-
-      // label to put on break statements created that replace continue statements.
-      private final String breakLabel;
-      @Nullable private final String originalLoopLabel;
-      // Track how many levels of loops deep we go below this one.
-
-      int loopDepth = 0;
-      // Set to true if a continue statement is found
-      boolean replacedAContinueStatement = false;
-      public ContinueStatementUpdater(String breakLabel, @Nullable String originalLoopLabel) {
-        this.breakLabel = breakLabel;
-        this.originalLoopLabel = originalLoopLabel;
-      }
-
-      @Override
-      public boolean shouldTraverse(NodeTraversal nodeTraversal, Node n, Node parent) {
-        // NOTE: This pass runs after ES6 classes have already been transpiled away.
-        checkState(!n.isClass(), n);
-        if (n.isFunction()) {
-          return false;
-        } else if (NodeUtil.isLoopStructure(n)) {
-          if (originalLoopLabel == null) {
-            // If this loop has no label, there cannot be any continue statements referring to it
-            // in inner loops.
-            return false;
-          } else {
-            loopDepth++;
-            return true;
-          }
-        } else {
-          return true;
-        }
-      }
-
-      @Override
-      public void visit(NodeTraversal t, Node n, Node parent) {
-        if (NodeUtil.isLoopStructure(n)) {
-          loopDepth--;
-        } else if (n.isContinue()) {
-          if (loopDepth == 0 && !n.hasChildren()) {
-            replaceWithBreak(n);
-          } else if (originalLoopLabel != null
-              && n.hasChildren()
-              && originalLoopLabel.equals(n.getOnlyChild().getString())) {
-            replaceWithBreak(n);
-          } // else continue belongs to some other loop
-        } // else nothing to do
-      }
-
-      private void replaceWithBreak(Node continueNode) {
-        Node labelName = IR.labelName(breakLabel).srcref(continueNode);
-        Node breakNode = IR.breakNode(labelName).srcref(continueNode);
-        continueNode.replaceWith(breakNode);
-        replacedAContinueStatement = true;
-      }
-    }
-
     private class LoopObject {
 
       /**
@@ -625,13 +532,5 @@ public final class Es6RewriteBlockScopedDeclaration extends AbstractPostOrderCal
         this.name = name;
       }
     }
-  }
-
-  private Node cloneWithType(Node node) {
-    Node clone = node.cloneNode();
-    if (astFactory.isAddingColors()) {
-      clone.setColor(node.getColor());
-    }
-    return clone;
   }
 }

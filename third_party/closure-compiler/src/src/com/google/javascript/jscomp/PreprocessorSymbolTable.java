@@ -29,7 +29,7 @@ import com.google.javascript.rhino.jstype.StaticTypedScope;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * A symbol table for references that are removed by preprocessor passes (like {@code
@@ -58,12 +58,12 @@ final class PreprocessorSymbolTable
   }
 
   @Override
-  public JSType getTypeOfThis() {
+  public @Nullable JSType getTypeOfThis() {
     return null;
   }
 
   @Override
-  public StaticTypedScope getParentScope() {
+  public @Nullable StaticTypedScope getParentScope() {
     return null;
   }
 
@@ -127,7 +127,7 @@ final class PreprocessorSymbolTable
    */
   public static class CachedInstanceFactory {
 
-    @Nullable private PreprocessorSymbolTable instance;
+    private @Nullable PreprocessorSymbolTable instance;
 
     public void maybeInitialize(AbstractCompiler compiler) {
       if (compiler.getOptions().preservesDetailedSourceInfo()) {
@@ -138,8 +138,7 @@ final class PreprocessorSymbolTable
       }
     }
 
-    @Nullable
-    public PreprocessorSymbolTable getInstanceOrNull() {
+    public @Nullable PreprocessorSymbolTable getInstanceOrNull() {
       return instance;
     }
   }

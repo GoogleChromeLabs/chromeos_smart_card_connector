@@ -24,21 +24,23 @@ import com.google.common.base.Ascii;
 import com.google.common.base.CaseFormat;
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.PolymerPass.MemberDefinition;
-import com.google.javascript.jscomp.parsing.parser.util.format.SimpleFormat;
+import com.google.javascript.jscomp.base.format.SimpleFormat;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.QualifiedName;
 import com.google.javascript.rhino.Token;
 import java.util.HashMap;
 import java.util.Map;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Simple static utility functions shared between the {@link PolymerPass} and its helper classes.
  */
 final class PolymerPassStaticUtils {
   private static final String VIRTUAL_FILE = "<PolymerPassStaticUtils.java>";
+  private static final QualifiedName POLYMER_DOT_ELEMENT = QualifiedName.of("Polymer.Element");
 
   /** @return Whether the call represents a call to the Polymer function. */
   @VisibleForTesting
@@ -71,11 +73,15 @@ final class PolymerPassStaticUtils {
     // imported from an ES module, the rewriting should set the original name to `PolymerElement`.
     // When imported from an goog module (TS), we'll have a GETPROP like
     // `module$polymer$polymer_element.PolymerElement`.
+    // YT Polymer components may also extend the `PolymerElementWithoutHtml` base class.
     return !heritage.isEmpty()
-        && (heritage.matchesQualifiedName("Polymer.Element")
+        && (POLYMER_DOT_ELEMENT.matches(heritage)
             || heritage.matchesName("PolymerElement")
             || "PolymerElement".equals(heritage.getOriginalQualifiedName())
-            || (heritage.isGetProp() && heritage.getString().equals("PolymerElement")));
+            || (heritage.isGetProp() && heritage.getString().equals("PolymerElement"))
+            || heritage.matchesName("PolymerElementWithoutHtml")
+            || "PolymerElementWithoutHtml".equals(heritage.getOriginalQualifiedName())
+            || (heritage.isGetProp() && heritage.getString().equals("PolymerElementWithoutHtml")));
   }
 
   /**
@@ -135,8 +141,8 @@ final class PolymerPassStaticUtils {
       for (Node keyToQuote = keyNode.getFirstFirstChild();
           keyToQuote != null;
           keyToQuote = keyToQuote.getNext()) {
-        if (!keyToQuote.isQuotedString()) {
-          keyToQuote.setQuotedString();
+        if (!keyToQuote.isQuotedStringKey()) {
+          keyToQuote.setQuotedStringKey();
           compiler.reportChangeToEnclosingScope(keyToQuote);
         }
       }
@@ -218,9 +224,10 @@ final class PolymerPassStaticUtils {
 
   /**
    * Gets the JSTypeExpression for a given property using its "type" key.
+   *
    * @see https://github.com/Polymer/polymer/blob/0.8-preview/PRIMER.md#configuring-properties
    */
-  static JSTypeExpression getTypeFromProperty(
+  static @Nullable JSTypeExpression getTypeFromProperty(
       MemberDefinition property, AbstractCompiler compiler) {
     if (property.info != null && property.info.hasType()) {
       return property.info.getType().copy();
@@ -275,4 +282,6 @@ final class PolymerPassStaticUtils {
         : CaseFormat.LOWER_HYPHEN.to(CaseFormat.UPPER_CAMEL, cls.nativeBaseElement);
     return SimpleFormat.format("Polymer%sElement", nativeElementName);
   }
+
+  private PolymerPassStaticUtils() {}
 }

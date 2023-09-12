@@ -32,7 +32,7 @@ import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Converts async functions to valid ES6 generator functions code.
@@ -77,7 +77,7 @@ public final class RewriteAsyncFunctions implements NodeTraversal.Callback, Comp
     private final String wrapperFunctionName;
     // The type to use for the wrapper function.
     // Will be null if type checking has not run.
-    @Nullable private final AstFactory.Type wrapperFunctionReturnType;
+    private final AstFactory.@Nullable Type wrapperFunctionReturnType;
 
     private SuperPropertyWrapperInfo(
         Node firstSuperDotPropertyNode,
@@ -88,8 +88,7 @@ public final class RewriteAsyncFunctions implements NodeTraversal.Callback, Comp
       this.wrapperFunctionReturnType = wrapperFunctionReturnType;
     }
 
-    @Nullable
-    private Color getPropertyType() {
+    private @Nullable Color getPropertyType() {
       return firstInstanceOfSuperDotProperty.getColor();
     }
 
@@ -158,7 +157,7 @@ public final class RewriteAsyncFunctions implements NodeTraversal.Callback, Comp
    * Determines both what to do when visiting a node and how to determine the context for its
    * descendents.
    */
-  private abstract class LexicalContext {
+  private abstract static class LexicalContext {
     final Node contextRootNode;
 
     LexicalContext(Node contextRootNode) {
@@ -250,12 +249,12 @@ public final class RewriteAsyncFunctions implements NodeTraversal.Callback, Comp
     // TODO(bradfordcsmith): It would cost less memory if we defined a separate object to hold
     // the data for async context accounting instead of having the booleans and super property
     // wrapper fields on every FunctionContext.
-    @Nullable final FunctionContext asyncThisAndArgumentsContext;
+    final @Nullable FunctionContext asyncThisAndArgumentsContext;
     final SuperPropertyWrappers superPropertyWrappers = new SuperPropertyWrappers();
 
     boolean mustAddAsyncThisVariable = false;
     // null if mustAddAsyncThisVariable is false
-    @Nullable AstFactory.Type typeOfThis;
+    AstFactory.@Nullable Type typeOfThis;
     boolean mustAddAsyncArgumentsVariable = false;
 
     FunctionContext(Node contextRootNode) {
@@ -334,8 +333,9 @@ public final class RewriteAsyncFunctions implements NodeTraversal.Callback, Comp
       // super.propertyName
       final Node superDotProperty = wrapperInfo.firstInstanceOfSuperDotProperty.cloneTree();
 
-      // () => super.propertyName
-      return astFactory.createZeroArgArrowFunctionForExpression(superDotProperty);
+      // () => { return super.propertyName; };
+      return astFactory.createZeroArgArrowFunctionForExpression(
+          astFactory.createBlock(astFactory.createReturn(superDotProperty)));
     }
 
     @Override
@@ -349,8 +349,11 @@ public final class RewriteAsyncFunctions implements NodeTraversal.Callback, Comp
         // We're in the context of an async function's body, so we need to do some replacements.
         switch (n.getToken()) {
           case NAME:
-            if (n.matchesQualifiedName("arguments")) {
+            if (n.matchesName("arguments")) {
               n.setString(ASYNC_ARGUMENTS);
+              if (compiler.getLifeCycleStage().isNormalized()) {
+                n.putBooleanProp(Node.IS_CONSTANT_NAME, true);
+              }
               asyncThisAndArgumentsContext.recordAsyncArgumentsReplacementWasDone();
               compiler.reportChangeToChangeScope(contextRootNode);
             }
@@ -366,7 +369,7 @@ public final class RewriteAsyncFunctions implements NodeTraversal.Callback, Comp
               Node parent = n.getParent();
               if (!parent.isGetProp()) {
                 compiler.report(
-                    JSError.make(parent, Es6ToEs3Util.CANNOT_CONVERT_YET, "super expression"));
+                    JSError.make(parent, TranspilationUtil.CANNOT_CONVERT_YET, "super expression"));
               }
               // different name for parent for better readability
               Node superDotProperty = parent;
@@ -436,7 +439,7 @@ public final class RewriteAsyncFunctions implements NodeTraversal.Callback, Comp
   @Override
   public void process(Node externs, Node root) {
     TranspilationPasses.processTranspile(compiler, root, transpiledFeatures, this);
-    TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, transpiledFeatures);
+    TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, root, transpiledFeatures);
   }
 
   @Override
@@ -496,7 +499,6 @@ public final class RewriteAsyncFunctions implements NodeTraversal.Callback, Comp
     for (SuperPropertyWrapperInfo superPropertyWrapperInfo :
         functionContext.superPropertyWrappers.asCollection()) {
       Node arrowFunction = functionContext.createWrapperArrowFunction(superPropertyWrapperInfo);
-
       // const super$get$x = () => super.x;
       Node arrowFunctionDeclarationStatement =
           astFactory.createSingleConstNameDeclaration(

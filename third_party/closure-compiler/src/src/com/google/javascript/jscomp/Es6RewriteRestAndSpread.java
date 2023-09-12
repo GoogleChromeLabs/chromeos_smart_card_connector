@@ -52,7 +52,7 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
   @Override
   public void process(Node externs, Node root) {
     TranspilationPasses.processTranspile(compiler, root, transpiledFeatures, this);
-    TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, transpiledFeatures);
+    TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, root, transpiledFeatures);
   }
 
   @Override
@@ -98,7 +98,9 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
             .createSingleLetNameDeclaration(
                 paramName,
                 astFactory.createCall(
-                    astFactory.createQNameWithUnknownType("$jscomp.getRestArguments.apply"),
+                    astFactory.createGetPropWithUnknownType(
+                        astFactory.createQName(this.namespace, "$jscomp.getRestArguments"),
+                        "apply"),
                     type(nameNode),
                     astFactory.createNumber(restIndex),
                     astFactory.createArgumentsReference()))
@@ -183,7 +185,7 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
             currGroup = null;
           }
 
-          Es6ToEs3Util.preloadEs6RuntimeFunction(compiler, "arrayFromIterable");
+          TranspilationUtil.preloadTranspilationRuntimeFunction(compiler, "arrayFromIterable");
           groups.add(
               astFactory.createJscompArrayFromIterableCall(spreadExpression, this.namespace));
         }
@@ -284,8 +286,9 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
         // If the first group is an array literal, we can just use that for concatenation,
         // otherwise use an empty array literal.
         //
-        // TODO(nickreid): Stop distringuishing between array literals and variables when this pass
-        // is moved after type-checking.
+        // TODO(bradfordcsmith): Now that this pass runs after type checking, it would be nice
+        // to skip creating an array literal when when the type of the first element says it is
+        // an Array.
         Node baseArrayLit =
             groups.get(0).isArrayLit() ? groups.remove(0) : astFactory.createArraylit();
         Node concat = astFactory.createGetProp(baseArrayLit, "concat", concatFnType);
@@ -383,7 +386,7 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
 
     if (FeatureSet.ES3.contains(compiler.getOptions().getOutputFeatureSet())) {
       // TODO(tbreisacher): Support this in ES3 too by not relying on Function.bind.
-      Es6ToEs3Util.cannotConvert(
+      TranspilationUtil.cannotConvert(
           compiler,
           spreadParent,
           "\"...\" passed to a constructor (consider using --language_out=ES5)");

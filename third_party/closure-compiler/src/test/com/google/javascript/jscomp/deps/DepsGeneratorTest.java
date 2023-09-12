@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 package com.google.javascript.jscomp.deps;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -54,7 +53,7 @@ public final class DepsGeneratorTest {
     srcs.add(
         SourceFile.fromCode(
             "/base/javascript/foo/foo.js",
-                "goog.provide('my.namespace');\nimport '../closure/goog/es6.js';"));
+            "goog.provide('my.namespace');\nimport '../closure/goog/es6.js';"));
     srcs.add(SourceFile.fromCode("/base/javascript/closure/goog/es6.js", "export var es6;"));
     DepsGenerator depsGenerator =
         new DepsGenerator(
@@ -511,12 +510,13 @@ public final class DepsGeneratorTest {
 
   @Test
   public void testDuplicateProvides() throws Exception {
-    SourceFile dep1 = SourceFile.fromCode("dep1.js",
-        "goog.addDependency('a.js', ['a'], []);\n");
-    SourceFile src1 = SourceFile.fromCode("src1.js",
-        "goog.provide('a');\n");
+    SourceFile dep1 = SourceFile.fromCode("dep1.js", "goog.addDependency('a.js', ['a'], []);\n");
+    SourceFile src1 = SourceFile.fromCode("src1.js", "goog.provide('a');\n");
 
-    doErrorMessagesRun(ImmutableList.of(dep1), ImmutableList.of(src1), true /* fatal */,
+    doErrorMessagesRun(
+        ImmutableList.of(dep1),
+        ImmutableList.of(src1),
+        /* fatal= */ true,
         "Namespace \"a\" is already provided in other file dep1.js");
   }
 
@@ -530,14 +530,17 @@ public final class DepsGeneratorTest {
         SourceFile.fromCode("path/to/closure/foo/a.js", "goog.provide('a');\n");
     // Create a source file that depends on the stub Closure Library.
     SourceFile userSrc =
-        SourceFile.fromCode("my/package/script.js", "goog.require('a');\n"
-            + "goog.provide('my.package.script');\n");
+        SourceFile.fromCode(
+            "my/package/script.js",
+            "goog.require('a');\n" + "goog.provide('my.package.script');\n");
 
     // doErrorMessagesRun uses closure_path //javascript/closure and therefore
     // fails to recognize and de-dupe the stub Closure Library at
     // //path/to/closure.
-    doErrorMessagesRun(ImmutableList.of(fauxClosureDeps),
-        ImmutableList.of(fauxClosureSrc, userSrc), true /* fatal */,
+    doErrorMessagesRun(
+        ImmutableList.of(fauxClosureDeps),
+        ImmutableList.of(fauxClosureSrc, userSrc),
+        /* fatal= */ true,
         "Namespace \"a\" is already provided in other file dep1.js");
   }
 
@@ -551,8 +554,9 @@ public final class DepsGeneratorTest {
         SourceFile.fromCode("path/to/closure/foo/a.js", "goog.provide('a');\n");
     // Create a source file that depends on the stub Closure Library.
     SourceFile userSrc =
-        SourceFile.fromCode("my/package/script.js", "goog.require('a');\n"
-            + "goog.provide('my.package.script');\n");
+        SourceFile.fromCode(
+            "my/package/script.js",
+            "goog.require('a');\n" + "goog.provide('my.package.script');\n");
     DepsGenerator worker =
         new DepsGenerator(
             ImmutableList.of(fauxClosureDeps),
@@ -576,39 +580,41 @@ public final class DepsGeneratorTest {
 
   @Test
   public void testDuplicateProvidesSameFile() throws Exception {
-    SourceFile dep1 = SourceFile.fromCode("dep1.js",
-        "goog.addDependency('a.js', ['a'], []);\n");
+    SourceFile dep1 = SourceFile.fromCode("dep1.js", "goog.addDependency('a.js', ['a'], []);\n");
     SourceFile src1 =
         SourceFile.fromCode(
             "src1.js", LINE_JOINER.join("goog.provide('b');", "goog.provide('b');\n"));
 
-    doErrorMessagesRun(ImmutableList.of(dep1), ImmutableList.of(src1), false /* fatal */,
+    doErrorMessagesRun(
+        ImmutableList.of(dep1),
+        ImmutableList.of(src1),
+        /* fatal= */ false,
         "Multiple calls to goog.provide(\"b\")");
   }
 
   @Test
   public void testSameFileProvideRequire() throws Exception {
-    SourceFile dep1 = SourceFile.fromCode("dep1.js",
-        "goog.addDependency('a.js', ['a'], []);\n");
+    SourceFile dep1 = SourceFile.fromCode("dep1.js", "goog.addDependency('a.js', ['a'], []);\n");
     SourceFile src1 =
         SourceFile.fromCode(
             "src1.js", LINE_JOINER.join("goog.provide('b');", "goog.require('b');", ""));
 
-    doErrorMessagesRun(ImmutableList.of(dep1), ImmutableList.of(src1), false /* fatal */,
+    doErrorMessagesRun(
+        ImmutableList.of(dep1),
+        ImmutableList.of(src1),
+        /* fatal= */ false,
         "Namespace \"b\" is both required and provided in the same file.");
   }
 
   @Test
   public void testUnknownNamespace() throws Exception {
-    SourceFile dep1 = SourceFile.fromCode("dep1.js",
-        "goog.addDependency('a.js', ['a'], []);\n");
-    SourceFile src1 = SourceFile.fromCode("src1.js",
-        "goog.require('b');\n");
+    SourceFile dep1 = SourceFile.fromCode("dep1.js", "goog.addDependency('a.js', ['a'], []);\n");
+    SourceFile src1 = SourceFile.fromCode("src1.js", "goog.require('b');\n");
 
     doErrorMessagesRun(
         ImmutableList.of(dep1),
         ImmutableList.of(src1),
-        true /* fatal */,
+        /* fatal= */ true,
         "Namespace \"b\" is required but never provided.\n"
             + "You need to pass a library that has it in srcs or exports to your target's deps.");
   }
@@ -617,7 +623,10 @@ public final class DepsGeneratorTest {
   public void testNoDepsInDepsFile() throws Exception {
     SourceFile dep1 = SourceFile.fromCode("dep1.js", "");
 
-    doErrorMessagesRun(ImmutableList.of(dep1), ImmutableList.<SourceFile>of(), false /* fatal */,
+    doErrorMessagesRun(
+        ImmutableList.of(dep1),
+        ImmutableList.<SourceFile>of(),
+        /* fatal= */ false,
         "No dependencies found in file");
   }
 
@@ -628,7 +637,7 @@ public final class DepsGeneratorTest {
     doErrorMessagesRun(
         ImmutableList.of(),
         ImmutableList.of(src1),
-        true /* fatal */,
+        /* fatal= */ true,
         "Could not find file \"./missing.js\".");
   }
 

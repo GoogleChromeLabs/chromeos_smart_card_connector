@@ -36,6 +36,7 @@ import com.google.javascript.rhino.jstype.JSType;
 import java.util.ArrayDeque;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
+import org.jspecify.nullness.Nullable;
 
 /** Transforms a compiler AST into a serialized TypedAst object. */
 @GwtIncompatible("protobuf.lite")
@@ -49,7 +50,7 @@ final class TypedAstSerializer {
   private final ArrayDeque<SourceFile> subtreeSourceFiles = new ArrayDeque<>();
   private final LinkedHashMap<SourceFile, Integer> sourceFilePointers = new LinkedHashMap<>();
 
-  private TypeSerializer typeSerializer = null;
+  private @Nullable TypeSerializer typeSerializer = null;
 
   TypedAstSerializer(AbstractCompiler compiler, SerializationOptions serializationMode) {
     this.compiler = compiler;
@@ -117,10 +118,20 @@ final class TypedAstSerializer {
     AstNode scriptProto = visit(script);
     this.subtreeSourceFiles.clear();
 
-    return LazyAst.newBuilder()
-        .setScript(scriptProto.toByteString())
-        .setSourceFile(sourceFile)
-        .build();
+    String encodedSourceMap = compiler.getBase64SourceMapContents(script.getSourceFileName());
+
+    LazyAst.Builder lazyAstBuilder =
+        LazyAst.newBuilder().setScript(scriptProto.toByteString()).setSourceFile(sourceFile);
+
+    if (encodedSourceMap != null) {
+      // This is the encoded source map taken from the inline sourcemap comment. It does not include
+      // the base64 prefix.
+      // E.g. We serialize "eyJ2ZXJzaW9uI..." from the "//# sourceMappingURL=
+      // data:application/json;base64,eyJ2ZXJzaW9uI..." comment.
+      lazyAstBuilder.setSourceMappingUrl(encodedSourceMap);
+    }
+
+    return lazyAstBuilder.build();
   }
 
   private AstNode.Builder createWithPositionInfo(Node n) {
@@ -146,7 +157,7 @@ final class TypedAstSerializer {
     }
     builder.setKind(kindTranslator(n));
     valueTranslator(builder, n);
-    builder.addAllBooleanProperty(n.serializeProperties());
+    builder.setBooleanProperties(n.serializeProperties());
     int sourceFile = getSourceFilePointer(n);
     builder.setSourceFile(sourceFile);
 
@@ -477,7 +488,7 @@ final class TypedAstSerializer {
       case PARAM_LIST:
         return NodeKind.PARAMETER_LIST;
       case STRING_KEY:
-        return n.isQuotedString() ? NodeKind.QUOTED_STRING_KEY : NodeKind.RENAMABLE_STRING_KEY;
+        return n.isQuotedStringKey() ? NodeKind.QUOTED_STRING_KEY : NodeKind.RENAMABLE_STRING_KEY;
       case CASE:
         return NodeKind.CASE;
       case DEFAULT_CASE:
@@ -495,9 +506,9 @@ final class TypedAstSerializer {
       case DEFAULT_VALUE:
         return NodeKind.DEFAULT_VALUE;
       case GETTER_DEF:
-        return n.isQuotedString() ? NodeKind.QUOTED_GETTER_DEF : NodeKind.RENAMABLE_GETTER_DEF;
+        return n.isQuotedStringKey() ? NodeKind.QUOTED_GETTER_DEF : NodeKind.RENAMABLE_GETTER_DEF;
       case SETTER_DEF:
-        return n.isQuotedString() ? NodeKind.QUOTED_SETTER_DEF : NodeKind.RENAMABLE_SETTER_DEF;
+        return n.isQuotedStringKey() ? NodeKind.QUOTED_SETTER_DEF : NodeKind.RENAMABLE_SETTER_DEF;
 
       case IMPORT_SPECS:
         return NodeKind.IMPORT_SPECS;
@@ -577,7 +588,7 @@ final class TypedAstSerializer {
 
   /** Used to provide TypePointers for serializing Nodes and to generate the TypePool. */
   interface TypeSerializer {
-    /** If appropriate for `node` add a `TypePointer` to `astNodeBuilder` */
+    /** If appropriate for `node` add a `Integer` to `astNodeBuilder` */
     void addTypeForNode(Node node, AstNode.Builder astNodeBuilder);
 
     /** Returns a `TypePool` containing the types used by `addTypeForNode()` */
@@ -614,11 +625,10 @@ final class TypedAstSerializer {
   /** Used when the AST's JSTypes have not been converted to Colors */
   private static class JSTypeSerializer implements TypeSerializer {
     // Everything is pre-calculated with this form of serialization.
-    private final IdentityHashMap<JSType, TypePointer> typesToPointers;
+    private final IdentityHashMap<JSType, Integer> typesToPointers;
     private final TypePool typePool;
 
-    private JSTypeSerializer(
-        IdentityHashMap<JSType, TypePointer> typesToPointers, TypePool typePool) {
+    private JSTypeSerializer(IdentityHashMap<JSType, Integer> typesToPointers, TypePool typePool) {
       this.typesToPointers = typesToPointers;
       this.typePool = typePool;
     }
@@ -628,7 +638,7 @@ final class TypedAstSerializer {
       JSType type = node.getJSType();
       if (type != null) {
         astNodeBuilder.setType(
-            checkNotNull(typesToPointers.get(type), "cannot find TypePointer for %s", type));
+            checkNotNull(typesToPointers.get(type), "cannot find pointer for %s", type));
       }
     }
 
@@ -682,7 +692,7 @@ final class TypedAstSerializer {
               case MEMBER_FIELD_DEF: // "name" from class C { name = 0; }
               case GETTER_DEF: // "name" from class C { get name() {} }
               case SETTER_DEF: // "name" from class C { set name(n) {} }
-                if (!n.isQuotedString()) {
+                if (!n.isQuotedStringKey()) {
                   propertyNamesBuilder.add(n.getString());
                 }
                 break;

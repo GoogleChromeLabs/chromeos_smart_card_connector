@@ -32,7 +32,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Walks the AST looking for usages of qualified names, and 'goog.require's of those names. Then,
@@ -54,7 +54,7 @@ public class CheckExtraRequires extends NodeTraversal.AbstractPostOrderCallback
    * This is only relevant for the standalone CheckExtraRequires run. This is used to restrict the
    * linter rule only for the modules listed in this set
    */
-  @Nullable private final ImmutableSet<String> requiresToRemove;
+  private final @Nullable ImmutableSet<String> requiresToRemove;
 
   public static final DiagnosticType EXTRA_REQUIRE_WARNING =
       DiagnosticType.disabled(
@@ -82,7 +82,7 @@ public class CheckExtraRequires extends NodeTraversal.AbstractPostOrderCallback
     NodeTraversal.traverse(compiler, root, this);
   }
 
-  private String extractNamespace(Node call, String... primitiveNames) {
+  private @Nullable String extractNamespace(Node call, String... primitiveNames) {
     Node callee = call.getFirstChild();
     if (!callee.isGetProp()) {
       return null;
@@ -224,6 +224,8 @@ public class CheckExtraRequires extends NodeTraversal.AbstractPostOrderCallback
     }
   }
 
+  private static final QualifiedName GOOG_MODULE_GET = QualifiedName.of("goog.module.get");
+
   private void visitCallNode(Node call, Node parent) {
     String required = extractNamespaceIfRequire(call);
     if (required != null) {
@@ -236,7 +238,7 @@ public class CheckExtraRequires extends NodeTraversal.AbstractPostOrderCallback
       return;
     }
     Node callee = call.getFirstChild();
-    if (callee.matchesQualifiedName("goog.module.get") && call.getSecondChild().isStringLit()) {
+    if (GOOG_MODULE_GET.matches(callee) && call.getSecondChild().isStringLit()) {
       usages.add(call.getSecondChild().getString());
     }
   }

@@ -19,6 +19,9 @@ load("//:bazel/typedast.bzl", "typedast")
 load("@com_github_johnynek_bazel_jar_jar//:jar_jar.bzl", "jar_jar")
 load("@google_bazel_common//testing:test_defs.bzl", "gen_java_tests")
 
+# Produce an unshaded export jar based on :compiler_lib
+load("@rules_jvm_external//:defs.bzl", "java_export")
+
 package(licenses = ["notice"])
 
 filegroup(
@@ -44,9 +47,9 @@ sonatype_artifact_bundle(
 sonatype_artifact_bundle(
     name = "compiler_unshaded_bundle",
     artifact_id = "closure-compiler-unshaded",
-    jar = ":compiler_unshaded_deploy.jar",
+    jar = ":compiler_unshaded",
     javadoc = ":compiler_lib_no_runtime_libs.javadoc",
-    pom = "maven/closure-compiler-unshaded.pom.xml",
+    pom = ":compiler_unshaded-pom",
     sources = ":compiler_lib_no_runtime_libs.sources",
 )
 
@@ -71,14 +74,25 @@ sonatype_artifact_bundle(
 
 jar_jar(
     name = "compiler_shaded",
-    input_jar = ":compiler_unshaded_deploy.jar",
+    input_jar = ":compiler_uberjar_deploy.jar",
     rules = "rules.jarjar",
 )
 
 java_binary(
-    name = "compiler_unshaded",
+    name = "compiler_uberjar",
     main_class = "com.google.javascript.jscomp.CommandLineRunner",
     runtime_deps = [":compiler_lib"],
+)
+
+version = "$(COMPILER_VERSION)" or "1.0-SNAPSHOT"
+
+java_export(
+    name = "compiler_unshaded",
+    maven_coordinates = "com.google.javascript:closure-compiler-unshaded:{0}".format(version),
+    pom_template = "maven/closure-compiler-unshaded.pom.xml.tpl",
+    runtime_deps = [
+        "//:compiler_lib",
+    ],
 )
 
 java_binary(
@@ -102,7 +116,6 @@ java_library(
     name = "compiler_lib",
     resources = [
         "src/com/google/javascript/jscomp/js/polyfills.txt",
-        "src/com/google/javascript/jscomp/js/runtime_type_check.js",
         ":runtime_lib_typedast_srcs",
         ":runtime_libs_typedast",
     ],
@@ -120,7 +133,6 @@ filegroup(
     srcs = glob(
         ["src/com/google/javascript/jscomp/js/**/*.js"],
         exclude = [
-            "src/com/google/javascript/jscomp/js/runtime_type_check.js",  # TODO(b/192503189) Add this when we can fix the compile errors.
             "src/com/google/javascript/jscomp/js/build_polyfill_table.js",
         ],
     ),
@@ -135,6 +147,10 @@ java_binary(
 oss_java_library(
     name = "compiler_lib_no_runtime_libs",
     java_attrs = dict(
+        javacopts = [
+            "-source 11",
+            "-target 11",
+        ],
         resources = [
             ":externs_zip",
         ] + glob([
@@ -145,7 +161,7 @@ oss_java_library(
     ),
     shared_attrs = dict(
         srcs = [
-            ":CommandLineRunner_with_version",
+            ":CommandLineRunnerVersion",
         ] + glob(
             [
                 "src/com/google/**/*.java",
@@ -157,9 +173,6 @@ oss_java_library(
                 "**/super*/**/*.java",
                 "**/testing/**/*.java",
                 "**/webservice/**/*.java",
-            ] + [
-                # Used as a template.
-                "src/com/google/javascript/jscomp/CommandLineRunner.java",
             ],
         ),
         deps = [
@@ -169,14 +182,14 @@ oss_java_library(
             "//src/com/google/javascript/rhino/typed_ast:typed_ast_java_proto",
             "@args4j_args4j",
             "@com_google_code_gson_gson",
+            "@com_google_errorprone_error_prone_annotations",
             "@com_google_guava_failureaccess//jar",
             "@com_google_guava_guava//jar",
-            "@com_google_protobuf//:protobuf_java",
             "@com_google_re2j_re2j",
             "@google_bazel_common//third_party/java/auto:value",
-            "@google_bazel_common//third_party/java/error_prone:annotations",
-            "@google_bazel_common//third_party/java/jsr305_annotations",
+            "@maven//:com_google_protobuf_protobuf_java",
             "@org_apache_ant_ant",
+            "@org_jspecify_jspecify",
         ],
     ),
 )
@@ -193,15 +206,15 @@ genrule(
 # tell us during build if something is wrong. By contrast, a resource lookup
 # will fail at runtime.
 expand_template_with_defines(
-    name = "CommandLineRunner_with_version",
-    out = "withversion/CommandLineRunner.java",
+    name = "CommandLineRunnerVersion",
+    out = "CommandLineRunnerVersion.java",
     defines = {
         "COMPILER_VERSION": "unspecified",
     },
     substitutions = {
-        "inlineDefine_COMPILER_VERSION": '"{COMPILER_VERSION}"',
+        "inlineDefine_COMPILER_VERSION": "{COMPILER_VERSION}",
     },
-    template = "src/com/google/javascript/jscomp/CommandLineRunner.java",
+    template = "src/com/google/javascript/jscomp/CommandLineRunnerVersion.template",
 )
 
 # To run all tests:           `blaze test //:compiler_tests`
@@ -222,6 +235,10 @@ gen_java_tests(
             "**/j2clbuild/**/*.java",
         ],
     ),
+    javacopts = [
+        "-source 11",
+        "-target 11",
+    ],
     prefix_path = "test/",
     deps = [
         ":compiler_lib",
@@ -232,21 +249,21 @@ gen_java_tests(
         "//src/com/google/javascript/rhino/typed_ast:typed_ast_java_proto",
         "@args4j_args4j",
         "@com_google_code_gson_gson",
+        "@com_google_errorprone_error_prone_annotations",
         "@com_google_guava_failureaccess//jar",
         "@com_google_guava_guava//jar",
         "@com_google_guava_guava_testlib//jar",
         "@com_google_jimfs_jimfs",
-        "@com_google_protobuf//:protobuf_java",
         "@com_google_re2j_re2j",
         "@com_google_truth_extensions_truth_liteproto_extension",
         "@com_google_truth_extensions_truth_proto_extension",
         "@google_bazel_common//third_party/java/auto:value",
-        "@google_bazel_common//third_party/java/error_prone:annotations",
-        "@google_bazel_common//third_party/java/jsr305_annotations",
         "@google_bazel_common//third_party/java/junit",
         "@google_bazel_common//third_party/java/mockito",
         "@google_bazel_common//third_party/java/truth",
         "@io_github_java_diff_utils_java_diff_utils",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@org_jspecify_jspecify",
     ],
 )
 

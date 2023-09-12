@@ -32,7 +32,7 @@ import com.google.javascript.rhino.jstype.JSTypeNative;
 import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import com.google.javascript.rhino.jstype.ObjectType;
 import java.util.Map;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 final class JSTypeColorIdHasher {
 
@@ -99,8 +99,7 @@ final class JSTypeColorIdHasher {
     }
   }
 
-  @Nullable
-  private static JSType.WithSourceRef sourceRefFor(ObjectType type) {
+  private static JSType.@Nullable WithSourceRef sourceRefFor(ObjectType type) {
     if (type.isEnumType()) {
       return type.toMaybeEnumType();
     } else if (type.isEnumElementType()) {
@@ -133,7 +132,6 @@ final class JSTypeColorIdHasher {
    */
   private static final class Marker {
     static final int HAS_INSTANCE_TYPE = 0x8c8b70db;
-    static final int IS_PROTOTYPE_TYPE = 0x4c906855;
     static final int NO_GOOG_MODULE_ID = 0x2593c5ff;
     static final int UNKNOWN_SOURCEREF = 0x660be782;
   }
@@ -142,6 +140,7 @@ final class JSTypeColorIdHasher {
       ImmutableMap.<JSTypeNative, ColorId>builder()
           .put(JSTypeNative.ARGUMENTS_TYPE, StandardColors.ARGUMENTS_ID)
           .put(JSTypeNative.ARRAY_TYPE, StandardColors.ARRAY_ID)
+          .put(JSTypeNative.READONLY_ARRAY_TYPE, StandardColors.READONLY_ARRAY_ID)
           .put(JSTypeNative.ASYNC_ITERATOR_ITERABLE_TYPE, StandardColors.ASYNC_ITERATOR_ITERABLE_ID)
           .put(JSTypeNative.GENERATOR_TYPE, StandardColors.GENERATOR_ID)
           .put(JSTypeNative.I_TEMPLATE_ARRAY_TYPE, StandardColors.I_TEMPLATE_ARRAY_ID)

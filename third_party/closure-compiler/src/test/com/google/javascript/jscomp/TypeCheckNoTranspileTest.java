@@ -1600,6 +1600,23 @@ public final class TypeCheckNoTranspileTest extends TypeCheckTestCase {
   }
 
   @Test
+  public void testForOf_forbidsAsyncIterable() {
+    newTest()
+        .addSource(
+            "/** @param {!AsyncIterable<string>} asyncIterable */",
+            "function f(asyncIterable) {",
+            "  for (var elem of asyncIterable) {}",
+            "}")
+        .includeDefaultExterns()
+        .addDiagnostic(
+            lines(
+                "Can only iterate over a (non-null) Iterable type",
+                "found   : AsyncIterable<string>",
+                "required: Iterable"))
+        .run();
+  }
+
+  @Test
   public void testForOf_iterableTypeIsNotFirstTemplateType() {
     newTest()
         .addSource(
@@ -1659,7 +1676,7 @@ public final class TypeCheckNoTranspileTest extends TypeCheckTestCase {
   }
 
   @Test
-  public void testForOf_unionType3() {
+  public void testForOf_unionType_stringAndArray() {
     newTest()
         .includeDefaultExterns()
         .addSource(
@@ -1668,9 +1685,35 @@ public final class TypeCheckNoTranspileTest extends TypeCheckTestCase {
             "/** @param {string|!Array<number>} param */",
             "function f(param) {",
             "  for (let x of param) {",
-            "    takesNull(x);", // TODO(lharker): this should cause a type error
+            "    takesNull(x);",
             "  }",
             "}")
+        .addDiagnostic(
+            lines(
+                "actual parameter 1 of takesNull does not match formal parameter",
+                "found   : (number|string)",
+                "required: null"))
+        .run();
+  }
+
+  @Test
+  public void testForOf_unionType_readonlyArrayAndArray() {
+    newTest()
+        .includeDefaultExterns()
+        .addSource(
+            "function takesNull(/** null */ n) {}",
+            "",
+            "/** @param {!ReadonlyArray<number>|!Array<string>} param */",
+            "function f(param) {",
+            "  for (let x of param) {",
+            "    takesNull(x);",
+            "  }",
+            "}")
+        .addDiagnostic(
+            lines(
+                "actual parameter 1 of takesNull does not match formal parameter",
+                "found   : (number|string)",
+                "required: null"))
         .run();
   }
 
@@ -4752,6 +4795,417 @@ public final class TypeCheckNoTranspileTest extends TypeCheckTestCase {
   }
 
   @Test
+  public void testClassFields() {
+    newTest()
+        .addSource(
+            "class A {", //
+            "  x = 2;",
+            "}")
+        .run();
+    newTest()
+        .addSource(
+            "class B {", //
+            "  x;",
+            "}")
+        .run();
+    newTest()
+        .addSource(
+            "class C {", //
+            "  x",
+            "}")
+        .run();
+    newTest()
+        .addSource(
+            "class D {", //
+            "  /** @type {string|undefined} */",
+            "  x;",
+            "}")
+        .run();
+    newTest()
+        .addSource(
+            "class E {", //
+            "  /** @type {string} @suppress {checkTypes} */",
+            "  x = 2;",
+            "}")
+        .run();
+  }
+
+  @Test
+  public void testClassFieldsThis() {
+    newTest()
+        .addSource(
+            "class F {", //
+            "  /** @type {number} */",
+            "  x = 2;",
+            "  /** @type {boolean} */",
+            "  y = this.x",
+            "}")
+        .addDiagnostic(
+            lines(
+                "assignment to property y of F", //
+                "found   : number",
+                "required: boolean"))
+        .run();
+  }
+
+  @Test
+  public void testClassFieldsSuper() {
+    newTest()
+        .addSource(
+            "class G {", //
+            "  /** @return {number} */",
+            "  getX() { return 2; }",
+            "}",
+            "class H extends G {",
+            "  /** @return {?} */",
+            "  /** @override*/ getX() {}",
+            "  /** @type {string} */",
+            "  y = super.getX();",
+            "}")
+        .addDiagnostic(
+            lines(
+                "assignment to property y of H", //
+                "found   : number",
+                "required: string"))
+        .run();
+  }
+
+  @Test
+  public void testComputedFields() {
+    newTest()
+        .addSource(
+            "var /** number */ x = 1;",
+            "function takesNumber(/** number */ x) {}",
+            "/** @unrestricted */",
+            "class Foo {",
+            "  /** @type {boolean} */",
+            "  x = true;",
+            "  [this.x] = takesNumber(this.x);",
+            "}")
+        .addDiagnostic(
+            lines(
+                "actual parameter 1 of takesNumber does not match formal parameter", //
+                "found   : boolean",
+                "required: number"))
+        .run();
+  }
+
+  @Test
+  public void testStaticClassFields() {
+    newTest()
+        .addSource(
+            "class A {", //
+            "  static x = 2;",
+            "}")
+        .run();
+    newTest()
+        .addSource(
+            "class B {", //
+            "  static x;",
+            "}")
+        .run();
+    newTest()
+        .addSource(
+            "class C {", //
+            "  static x",
+            "}")
+        .run();
+    newTest()
+        .addSource(
+            "class D {", //
+            "  /** @type {string|undefined} */",
+            "  static x;",
+            "}")
+        .run();
+    newTest()
+        .addSource(
+            "class E {", //
+            "  /** @type {string} @suppress {checkTypes} */",
+            "  static x = 2;",
+            "}")
+        .run();
+  }
+
+  @Test
+  public void testStaticClassFieldsThis() {
+    newTest()
+        .addSource(
+            "class F {", //
+            "  /** @type {number} */",
+            "  static x = 2;",
+            "  /** @type {boolean} */",
+            "  static y = this.x",
+            "}")
+        .addDiagnostic(
+            lines(
+                "assignment to property y of F", //
+                "found   : number",
+                "required: boolean"))
+        .run();
+  }
+
+  @Test
+  public void testStaticComputedFields() {
+    newTest()
+        .addSource(
+            "var /** number */ x = 1;",
+            "function takesNumber(/** number */ x) {}",
+            "/** @unrestricted */",
+            "class Foo {",
+            "  /** @type {boolean} */",
+            "  static x = true;",
+            "  static [this.x] = takesNumber(this.x);",
+            "}")
+        .addDiagnostic(
+            lines(
+                "actual parameter 1 of takesNumber does not match formal parameter", //
+                "found   : boolean",
+                "required: number"))
+        .run();
+  }
+
+  @Test
+  public void testStaticClassFieldsSuper() {
+    newTest()
+        .addSource(
+            "class G {", //
+            "  /** @type {number} */",
+            "  static x = 2;",
+            "}",
+            "class H extends G {",
+            "  /** @type {string} */",
+            "  static y = super.x;",
+            "}")
+        .addDiagnostic(
+            lines(
+                "assignment to property y of H", //
+                "found   : number",
+                "required: string"))
+        .run();
+  }
+
+  @Test
+  public void testClassStaticBlockVariablesWrongTypes() {
+    newTest()
+        .addSource(
+            "class Foo {", //
+            "  static {",
+            "    /** @type {number} */",
+            "    let str = 'str';",
+            "    /** @type {boolean|string} */",
+            "    const num = 5;",
+            "    /** @type {?string} */",
+            "    var bool = true;",
+            "  }",
+            "};")
+        .addDiagnostic(
+            lines(
+                "initializing variable", //
+                "found   : string",
+                "required: number"))
+        .addDiagnostic(
+            lines(
+                "initializing variable", //
+                "found   : number",
+                "required: (boolean|string)"))
+        .addDiagnostic(
+            lines(
+                "initializing variable", //
+                "found   : boolean",
+                "required: (null|string)"))
+        .run();
+  }
+
+  @Test
+  public void testClassStaticBlockPropertyWithThis() {
+    newTest()
+        .addSource(
+            "/** @type {number} */",
+            "var x = 4;",
+            "class Foo {", //
+            "  static {",
+            "    this.x;",
+            "  }",
+            "};")
+        .addDiagnostic("Property x never defined on this")
+        .run();
+  }
+
+  @Test
+  public void testClassStaticBlockWithWrongTypeThisRHS() {
+    newTest()
+        .addSource(
+            "class Foo {",
+            "  static {",
+            "    /** @type {number} */",
+            "    this.num = 1;",
+            "    /** @type {string} */",
+            "    var str = this.num;",
+            "  }",
+            "};")
+        .addDiagnostic(
+            lines(
+                "initializing variable", //
+                "found   : number",
+                "required: string"))
+        .run();
+  }
+
+  @Test
+  public void testClassStaticBlockWithWrongTypeThisLHS() {
+    newTest()
+        .addSource(
+            "class Foo { ",
+            "  static {",
+            "    /** @type {string} */",
+            "    this.str = 2;",
+            "  }",
+            "};")
+        .addDiagnostic(
+            lines(
+                "assignment to property str of this", //
+                "found   : number",
+                "required: string"))
+        .run();
+  }
+
+  @Test
+  public void testClassStaticBlockWithSuper() {
+    newTest()
+        .addSource(
+            "class Foo {",
+            "  /** @type {string} */",
+            "  static str;",
+            "}",
+            "class Bar extends Foo {",
+            "  static {",
+            "    super.str = 'str';",
+            "  }",
+            "}")
+        .run();
+  }
+
+  @Test
+  public void testClassStaticBlockWithWrongTypeSuper() {
+    newTest()
+        .addSource(
+            "class Foo {",
+            "  /** @type {string} */",
+            "  static str;",
+            "}",
+            "class Bar extends Foo {",
+            "  static {",
+            "    super.str = 5;",
+            "  }",
+            "};")
+        .addDiagnostic(
+            lines(
+                "assignment to property str of super", //
+                "found   : number",
+                "required: string"))
+        .run();
+  }
+
+  @Test
+  public void testClassStaticBlockInheritanceWithClassName() {
+    newTest()
+        .addSource(
+            "class Foo {",
+            "  static foo(/** number */ arg) {}",
+            "}",
+            "class Bar extends Foo {",
+            "  static {",
+            "    Foo.foo('str');",
+            "  }",
+            "};")
+        .addDiagnostic(
+            lines(
+                "actual parameter 1 of Foo.foo does not match formal parameter", //
+                "found   : string",
+                "required: number"))
+        .run();
+  }
+
+  @Test
+  public void testClassStaticBlockWithWrongTypeSuperParameter() {
+    newTest()
+        .addSource(
+            "class Foo {",
+            "  static foo(/** number */ arg) {}",
+            "}",
+            "class Bar extends Foo {",
+            "  static {",
+            "    super.foo('str');",
+            "  }",
+            "};")
+        .addDiagnostic(
+            lines(
+                "actual parameter 1 of super.foo does not match formal parameter",
+                "found   : string",
+                "required: number"))
+        .run();
+  }
+
+  @Test
+  public void testClassStaticBlockTypeNarrowing() {
+    newTest()
+        .addSource(
+            "class C {",
+            "  static {",
+            "    /** @param {?string} x */",
+            "    function foo(x) {",
+            "      if (x != null) {",
+            "        /** @type {string} */",
+            "        const noNull = x;",
+            "      }",
+            "    }",
+            "  }",
+            "}")
+        .run();
+  }
+
+  @Test
+  public void testClassStaticBlockTypeNarrowing2() {
+    newTest()
+        .addExterns("/** @type {?string} */ var strOrNull;")
+        .addSource(
+            "class C {",
+            "  static {",
+            "    if (strOrNull != null) {",
+            "      /** @type {string} */",
+            "      const noNull = strOrNull;",
+            "    }",
+            "  }",
+            "}")
+        .run();
+  }
+
+  @Test
+  public void testClassStaticBlockOverrideSupertypeOnAnonymousClass() {
+    newTest()
+        .addSource(
+            "function use(ctor) {}",
+            "",
+            "class Foo { ",
+            "  static {",
+            "    /** @type {string} */",
+            "    this.str;",
+            "  }",
+            "}",
+            "use(class extends Foo {",
+            "  static { this.str = 3; }",
+            "});")
+        .addDiagnostic(
+            lines(
+                "assignment to property str of this", //
+                "found   : number",
+                "required: string"))
+        .addDiagnostic(
+            "property str already defined on supertype (typeof Foo); use @override to override it")
+        .run();
+  }
+
+  @Test
   public void testClassTypeOfThisInConstructor() {
     newTest()
         .addSource(
@@ -5173,7 +5627,7 @@ public final class TypeCheckNoTranspileTest extends TypeCheckTestCase {
   public void testClassExtendsItself() {
     newTest()
         .addSource("class Foo extends Foo {}")
-        .addDiagnostic("Parse error. Cycle detected in inheritance chain of type Foo")
+        .addDiagnostic("Cycle detected in inheritance chain of type Foo")
         .run();
   }
 
@@ -5183,7 +5637,7 @@ public final class TypeCheckNoTranspileTest extends TypeCheckTestCase {
         .addSource(
             "class Foo extends Bar {}", //
             "class Bar extends Foo {}")
-        .addDiagnostic("Parse error. Cycle detected in inheritance chain of type Bar")
+        .addDiagnostic("Cycle detected in inheritance chain of type Bar")
         .run();
   }
 
@@ -5194,7 +5648,7 @@ public final class TypeCheckNoTranspileTest extends TypeCheckTestCase {
             "class Bar {}", //
             "/** @extends {Foo} */",
             "class Foo extends Bar {}")
-        .addDiagnostic("Parse error. Cycle detected in inheritance chain of type Foo")
+        .addDiagnostic("Cycle detected in inheritance chain of type Foo")
         .addDiagnostic("Could not resolve type in @extends tag of Foo")
         .run();
   }

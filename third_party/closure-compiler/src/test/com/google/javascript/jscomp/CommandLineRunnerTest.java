@@ -21,20 +21,25 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.javascript.jscomp.CompilerTestCase.lines;
 import static com.google.javascript.jscomp.testing.JSErrorSubject.assertError;
-import static com.google.javascript.rhino.testing.Asserts.assertThrows;
 import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.google.javascript.jscomp.AbstractCommandLineRunner.FlagEntry;
 import com.google.javascript.jscomp.AbstractCommandLineRunner.JsSourceType;
+import com.google.javascript.jscomp.Compiler.ScriptNodeLicensesOnlyTracker;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.SourceMap.LocationMapping;
 import com.google.javascript.jscomp.testing.JSChunkGraphBuilder;
@@ -57,6 +62,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import org.jspecify.nullness.Nullable;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Rule;
@@ -68,18 +74,19 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link CommandLineRunner}. */
 @RunWith(JUnit4.class)
 public final class CommandLineRunnerTest {
+  @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
   private static final Joiner LINE_JOINER = Joiner.on('\n');
 
-  private Compiler lastCompiler = null;
-  private CommandLineRunner lastCommandLineRunner = null;
-  private List<Integer> exitCodes = null;
-  private ByteArrayOutputStream outReader = null;
-  private ByteArrayOutputStream errReader = null;
+  private @Nullable Compiler lastCompiler = null;
+  private @Nullable CommandLineRunner lastCommandLineRunner = null;
+  private @Nullable List<Integer> exitCodes = null;
+  private @Nullable ByteArrayOutputStream outReader = null;
+  private @Nullable ByteArrayOutputStream errReader = null;
   private Map<Integer, String> filenames;
 
   // If set, this will be appended to the end of the args list.
   // For testing args parsing.
-  private String lastArg = null;
+  private @Nullable String lastArg = null;
 
   // If set to true, uses comparison by string instead of by AST.
   private boolean useStringComparison = false;
@@ -136,7 +143,7 @@ public final class CommandLineRunnerTest {
                       "/** @param {...*} x */ function alert(x) {}",
                       "function Symbol() {}")));
 
-  private List<SourceFile> externs;
+  private ImmutableList<SourceFile> externs;
 
   @Before
   public void setUp() throws Exception {
@@ -153,12 +160,38 @@ public final class CommandLineRunnerTest {
   }
 
   @Test
+  public void testStage1ErrorExitStatus() throws Exception {
+    // Create an input file
+    File srcFile = temporaryFolder.newFile("input.js");
+    writeLinesToFile(
+        srcFile,
+        // Intentionally incorrect type to generate a compiler error
+        "/** @type {undefined} */",
+        "const x = 1;");
+
+    // Create a path for the stage 1 output
+    File stage1Save = temporaryFolder.newFile("stage1.save");
+
+    ImmutableList<String> commonFlags =
+        ImmutableList.of("--jscomp_error=checkTypes", "--js", srcFile.toString());
+
+    // Run the compiler to generate the stage 1 save file
+    final ImmutableList<String> stage1Flags =
+        createStringList(
+            commonFlags, new String[] {"--save_stage1_to_file", stage1Save.toString()});
+    CommandLineRunner runner =
+        new CommandLineRunner(
+            stringListToArray(stage1Flags), new PrintStream(outReader), new PrintStream(errReader));
+    // Expect an exit status of 1 because there is one error.
+    assertThat(runner.doRun()).isEqualTo(1);
+    assertThat(new String(outReader.toByteArray(), UTF_8)).isEmpty();
+  }
+
+  @Test
   public void test3StageCompile() throws Exception {
-    // Create a temporary directory to hold inputs and outputs
-    final File testDir = java.nio.file.Files.createTempDirectory("testDir").toFile();
 
     // Create a message bundle to use
-    File msgBundle = new File(testDir, "messages.xtb");
+    File msgBundle = temporaryFolder.newFile("messages.xtb");
     final ImmutableList<String> lines =
         ImmutableList.of(
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
@@ -170,7 +203,7 @@ public final class CommandLineRunnerTest {
     writeLinesToFile(msgBundle, lines);
 
     // Create test externs with a definition for goog.getMsg().
-    final File externsFile = new File(testDir, "externs.js");
+    final File externsFile = temporaryFolder.newFile("externs.js");
     writeLinesToFile(
         externsFile,
         "/**",
@@ -188,7 +221,7 @@ public final class CommandLineRunnerTest {
         "goog.getMsg = function(msg, placeholderReplacements, options) {};");
 
     // Create an input file
-    File srcFile = new File(testDir, "input.js");
+    File srcFile = temporaryFolder.newFile("input.js");
     writeLinesToFile(
         srcFile,
         "/** @desc greeting */",
@@ -196,40 +229,47 @@ public final class CommandLineRunnerTest {
         "console.log(MSG_HELLO);");
 
     // Create a path for the stage 1 output
-    File stage1Save = new File(testDir, "stage1.save");
+    File stage1Save = temporaryFolder.newFile("stage1.save");
 
     ImmutableList<String> commonFlags =
         ImmutableList.of(
             "--compilation_level=ADVANCED_OPTIMIZATIONS",
+            "--source_map_include_content",
             "--translations_file",
             msgBundle.toString(),
-            "--js",
+            "--externs",
             externsFile.toString(),
             "--js",
             srcFile.toString());
 
     // Run the compiler to generate the stage 1 save file
+    final ImmutableList<String> stage1Flags =
+        createStringList(
+            commonFlags, new String[] {"--save_stage1_to_file", stage1Save.toString()});
+    verifyFlagsAreIncompatibleWithChecksOnly(stage1Flags);
     CommandLineRunner runner =
         new CommandLineRunner(
-            createStringArray(commonFlags, "--save_stage1_to_file", stage1Save.toString()));
+            stringListToArray(stage1Flags), new PrintStream(outReader), new PrintStream(errReader));
     assertThat(runner.doRun()).isEqualTo(0);
+    assertThat(new String(outReader.toByteArray(), UTF_8)).isEmpty();
 
     assertThat(runner.getCompiler().toSource())
-        .isEqualTo(
-            "var __JSC_LOCALE_DATA__=[];"
-                + "const MSG_HELLO=goog.getMsg(\"hello\");console.log(MSG_HELLO);");
+        .isEqualTo("const MSG_HELLO=goog.getMsg(\"hello\");console.log(MSG_HELLO);");
 
     // Create a path for the stage 2 output
-    File stage2Save = new File(testDir, "stage2.save");
+    File stage2Save = temporaryFolder.newFile("stage2.save");
     // run the compiler to generate the stage 2 save file
-    runner =
-        new CommandLineRunner(
-            createStringArray(
-                commonFlags,
-                "--restore_stage1_from_file",
-                stage1Save.toString(),
-                "--save_stage2_to_file",
-                stage2Save.toString()));
+    final ImmutableList<String> stage2Flags =
+        createStringList(
+            commonFlags,
+            new String[] {
+              "--restore_stage1_from_file",
+              stage1Save.toString(),
+              "--save_stage2_to_file",
+              stage2Save.toString()
+            });
+    verifyFlagsAreIncompatibleWithChecksOnly(stage2Flags);
+    runner = new CommandLineRunner(stringListToArray(stage2Flags));
     assertThat(runner.doRun()).isEqualTo(0);
 
     // During stage 2 the message is wrapped in a function call to protect it from mangling by
@@ -237,37 +277,81 @@ public final class CommandLineRunnerTest {
     assertThat(runner.getCompiler().toSource())
         .isEqualTo(
             concatStrings(
-                "var __JSC_LOCALE_DATA__=[];",
                 "console.log(",
                 "__jscomp_define_msg__({\"key\":\"MSG_HELLO\",\"msg_text\":\"hello\"})",
                 ");"));
 
     // Create a path for the final output
-    File compiledFile = new File(testDir, "compiled.js");
+    File compiledFile = temporaryFolder.newFile("compiled.js");
+    // Create a path for the output source map
+    File sourceMapFile = temporaryFolder.newFile("compiled.sourcemap");
 
     // run the compiler to generate the final output
-    runner =
-        new CommandLineRunner(
-            createStringArray(
-                commonFlags,
-                "--restore_stage2_from_file",
-                stage2Save.toString(),
-                "--js_output_file",
-                compiledFile.toString()));
+    final ImmutableList<String> stage3Flags =
+        createStringList(
+            commonFlags,
+            new String[] {
+              "--restore_stage2_from_file",
+              stage2Save.toString(),
+              "--js_output_file",
+              compiledFile.toString(),
+              "--create_source_map",
+              sourceMapFile.toString()
+            });
+    verifyFlagsAreIncompatibleWithChecksOnly(stage3Flags);
+    runner = new CommandLineRunner(stringListToArray(stage3Flags));
     assertThat(runner.doRun()).isEqualTo(0);
 
     // During stage 3 the message is actually replaced and the output written to the compiled
     // output file.
-    final String compiledJs =
-        new String(java.nio.file.Files.readAllBytes(compiledFile.toPath()), UTF_8);
+    final String compiledJs = java.nio.file.Files.readString(compiledFile.toPath());
     assertThat(compiledJs).isEqualTo("console.log(\"hola\");\n");
+
+    final JsonObject expectedSourceMap = new JsonObject();
+    expectedSourceMap.addProperty("version", 3);
+    expectedSourceMap.addProperty("file", compiledFile.getAbsolutePath());
+    expectedSourceMap.addProperty("lineCount", 1);
+    expectedSourceMap.addProperty("mappings", "AAEAA,OAAQC,CAAAA,GAAR,CADkBC,MAClB;");
+    expectedSourceMap.add("sources", newJsonArrayOfStrings(srcFile.getAbsolutePath()));
+    expectedSourceMap.add(
+        "sourcesContent", newJsonArrayOfStrings(java.nio.file.Files.readString(srcFile.toPath())));
+    expectedSourceMap.add("names", newJsonArrayOfStrings("console", "log", "MSG_HELLO"));
+
+    final String sourceMapText = java.nio.file.Files.readString(sourceMapFile.toPath());
+    JsonObject actualSourceMap = getJsonObjectFromJson(sourceMapText);
+    assertThat(actualSourceMap).isEqualTo(expectedSourceMap);
   }
 
-  private String[] createStringArray(Iterable<String> someStrings, String... additionalStrings) {
-    ImmutableList.Builder<String> builder = ImmutableList.builder();
-    builder.addAll(someStrings);
-    builder.add(additionalStrings);
-    return builder.build().toArray(new String[] {});
+  private static final Gson GSON = new Gson();
+
+  private JsonArray newJsonArrayOfStrings(String... strings) {
+    return GSON.toJsonTree(strings).getAsJsonArray();
+  }
+
+  private JsonObject getJsonObjectFromJson(String json) {
+    return GSON.fromJson(json, JsonObject.class);
+  }
+
+  /** The given flags should be incompatible with `--checks_only`. */
+  private void verifyFlagsAreIncompatibleWithChecksOnly(ImmutableList<String> flags) {
+    final String additionalFlag = "--checks_only";
+    verifyFlagConflictIsReported(flags, additionalFlag);
+  }
+
+  private void verifyFlagConflictIsReported(ImmutableList<String> flags, String additionalFlag) {
+    final ImmutableList<String> combinedFlags =
+        ImmutableList.<String>builder().addAll(flags).add(additionalFlag).build();
+    CommandLineRunner checksOnlyRunner = new CommandLineRunner(stringListToArray(combinedFlags));
+    assertThrows(FlagUsageException.class, checksOnlyRunner::doRun);
+  }
+
+  private String[] stringListToArray(ImmutableList<String> stringList) {
+    return stringList.toArray(new String[] {});
+  }
+
+  private ImmutableList<String> createStringList(
+      Iterable<String> someStrings, String[] additionalStrings) {
+    return (ImmutableList.<String>builder().addAll(someStrings).add(additionalStrings)).build();
   }
 
   private void writeLinesToFile(File file, String... lines) throws IOException {
@@ -667,9 +751,8 @@ public final class CommandLineRunnerTest {
     FlagUsageException e = assertThrows(FlagUsageException.class, () -> compile("", args));
     assertThat(e)
         .hasMessageThat()
-        .isEqualTo(
-            "Illegal browser_featureset_year=2011. We support values 2012, 2018, 2019, 2020 and"
-                + " 2021 only");
+        .matches(
+            "Illegal browser_featureset_year=2011. We support values 2012, or 2018..\\d{4} only");
   }
 
   /** Giving a browser featureset year between 2012 and 2018 reports error */
@@ -679,9 +762,8 @@ public final class CommandLineRunnerTest {
     FlagUsageException e = assertThrows(FlagUsageException.class, () -> compile("", args));
     assertThat(e)
         .hasMessageThat()
-        .isEqualTo(
-            "Illegal browser_featureset_year=2015. We support values 2012, 2018, 2019, 2020 and"
-                + " 2021 only");
+        .matches(
+            "Illegal browser_featureset_year=2015. We support values 2012, or 2018..\\d{4} only");
   }
 
   /** Giving a future year as the browser featureset year reports error */
@@ -693,10 +775,10 @@ public final class CommandLineRunnerTest {
     FlagUsageException e = assertThrows(FlagUsageException.class, () -> compile("", args));
     assertThat(e)
         .hasMessageThat()
-        .isEqualTo(
+        .matches(
             "Illegal browser_featureset_year="
                 + higherThanCurrentYear
-                + ". We support values 2012, 2018, 2019, 2020 and 2021 only");
+                + ". We support values 2012, or 2018..\\d{4} only");
   }
 
   /** Check that --browser_featureset_year = 2012 correctly sets the language out */
@@ -1245,34 +1327,6 @@ public final class CommandLineRunnerTest {
   }
 
   @Test
-  public void testForwardDeclareDroppedTypes() {
-    args.add("--dependency_mode=PRUNE_LEGACY");
-
-    args.add("--warning_level=VERBOSE");
-    test(
-        new String[] {
-          lines(
-              "/** @externs */", //
-              new TestExternsBuilder().addClosureExterns().build()),
-          "goog.require('beer');",
-          "goog.provide('beer'); /** @param {Scotch} x */ function f(x) {}",
-          "goog.provide('Scotch'); var x = 3;"
-        },
-        new String[] {"var beer = {}; function f(a) {}", ""});
-
-    test(
-        new String[] {
-          lines(
-              "/** @externs */", //
-              new TestExternsBuilder().addClosureExterns().build()),
-          "goog.require('beer');",
-          "goog.provide('beer'); /** @param {Scotch} x */ function f(x) {}"
-        },
-        new String[] {"var beer = {}; function f(a) {}", ""},
-        RhinoErrorReporter.UNRECOGNIZED_TYPE_ERROR);
-  }
-
-  @Test
   public void testOnlyClosureDependenciesEmptyEntryPoints() throws Exception {
     // Prevents this from trying to load externs.zip
     args.add("--env=CUSTOM");
@@ -1632,7 +1686,7 @@ public final class CommandLineRunnerTest {
     args.add("--source_map_input=input2|input2.sourcemap");
     testSame("var x = 3;");
 
-    Map<String, SourceMapInput> inputMaps = lastCompiler.getOptions().inputSourceMaps;
+    ImmutableMap<String, SourceMapInput> inputMaps = lastCompiler.getOptions().inputSourceMaps;
     assertThat(inputMaps).hasSize(2);
     assertThat(inputMaps.get("input1").getOriginalPath()).isEqualTo("input1.sourcemap");
     assertThat(inputMaps.get("input2").getOriginalPath()).isEqualTo("input2.sourcemap");
@@ -1645,9 +1699,10 @@ public final class CommandLineRunnerTest {
     testSame(new String[] {"var x = 3;", "var y = 4;"});
 
     StringBuilder builder = new StringBuilder();
+    ScriptNodeLicensesOnlyTracker licenseTracker = new ScriptNodeLicensesOnlyTracker(lastCompiler);
     JSChunk module = lastCompiler.getModuleGraph().getRootChunk();
     String filename = lastCommandLineRunner.getModuleOutputFileName(module);
-    lastCommandLineRunner.writeModuleOutput(filename, builder, module);
+    lastCommandLineRunner.writeModuleOutput(filename, builder, licenseTracker, module);
     assertThat(builder.toString()).isEqualTo("var x=3; // m0.js\n");
   }
 
@@ -1658,9 +1713,10 @@ public final class CommandLineRunnerTest {
     testSame(new String[] {"var x = 3;", "var y = 4;"});
 
     StringBuilder builder = new StringBuilder();
+    ScriptNodeLicensesOnlyTracker licenseTracker = new ScriptNodeLicensesOnlyTracker(lastCompiler);
     JSChunk module = lastCompiler.getModuleGraph().getRootChunk();
     String filename = lastCommandLineRunner.getModuleOutputFileName(module);
-    lastCommandLineRunner.writeModuleOutput(filename, builder, module);
+    lastCommandLineRunner.writeModuleOutput(filename, builder, licenseTracker, module);
     assertThat(builder.toString()).isEqualTo("var x=3;\n//# SourceMappingUrl=m0.js.map\n");
   }
 
@@ -2692,7 +2748,8 @@ public final class CommandLineRunnerTest {
     test(
         "function foo(){ const answerToAll = 42; }",
         lines(
-            "self.window||(self.window=self,self.window.top=self);var __jscov=window.top.__jscov||",
+            "(function(a){a.window||(a.window=a,a.window.top=a)})(\"undefined\"!==typeof"
+                + " self?self:globalThis);var __jscov=window.top.__jscov||",
             "(window.top.__jscov={fileNames:[],instrumentedLines:[],executedLines:[]}),",
             "JSCompiler_lcov_data_input0=[];",
             "__jscov.executedLines.push(JSCompiler_lcov_data_input0);",
@@ -2708,7 +2765,8 @@ public final class CommandLineRunnerTest {
     test(
         "function foo(){ const answerToAll = 42; }",
         lines(
-            "self.window||(self.window=self,self.window.top=self);",
+            "(function(a){a.window||(a.window=a,a.window.top=a)})(\"undefined\"!==typeof"
+                + " self?self:globalThis);",
             "var __jscov=window.top.__jscov||(window.top.__jscov= ",
             "{fileNames:[],branchPresent:[],branchesInLine:[],branchesTaken:[]}); ",
             "function foo(){}"));
@@ -2749,6 +2807,55 @@ public final class CommandLineRunnerTest {
         .isEqualTo(
             "Expected --production_instrumentation_array_name to be set when "
                 + "--instrument_for_coverage_option is set to Production");
+  }
+
+  @Test
+  public void testBundleOutput_bundlesGoogModule() throws IOException {
+    // Create a path for the final output
+    File bundledFile = temporaryFolder.newFile("bundle.js");
+
+    FlagEntry<JsSourceType> jsFile1 = createJsFile("test1", "var a;");
+    FlagEntry<JsSourceType> jsFile2 = createJsFile("test2", "goog.module('foo'); var b;");
+
+    args.add("--compilation_level=BUNDLE");
+    args.add("--dependency_mode=NONE");
+    args.add("--js_output_file");
+    args.add(bundledFile.getPath());
+
+    compileJsFiles("", jsFile1, jsFile2);
+
+    String bundledJs = java.nio.file.Files.readString(bundledFile.toPath());
+    String expected =
+        lines(
+            "//" + jsFile1.getValue(),
+            "var a;",
+            "//" + jsFile2.getValue(),
+            "goog.loadModule(function(exports) {'use strict';goog.module('foo'); var b;",
+            ";return exports;});",
+            "\n");
+    assertThat(bundledJs).isEqualTo(expected);
+  }
+
+  @Test
+  public void testBundleOutput_ignoresSyntaxErrors() throws IOException {
+    // Verify that if bundling, the compiler doesn't run a full parse and thus doesn't report
+    // syntax errors.
+
+    // Create a path for the final output
+    File bundledFile = temporaryFolder.newFile("bundle.js");
+
+    FlagEntry<JsSourceType> jsFile = createJsFile("test1", "var a; syntax error!");
+
+    args.add("--compilation_level=BUNDLE");
+    args.add("--dependency_mode=NONE");
+    args.add("--js_output_file");
+    args.add(bundledFile.getPath());
+
+    compileJsFiles("", jsFile);
+
+    String bundledJs = java.nio.file.Files.readString(bundledFile.toPath());
+    String expected = lines("//" + jsFile.getValue(), "var a; syntax error!\n");
+    assertThat(bundledJs).isEqualTo(expected);
   }
 
   @Rule public TemporaryFolder folder = new TemporaryFolder();
@@ -2963,6 +3070,29 @@ public final class CommandLineRunnerTest {
     assertThat(lastCompiler.getOptions().getAssumeStaticInheritanceIsNotUsed()).isFalse();
   }
 
+  @Test
+  public void testRewriteAndIsolatePolyfills() {
+    testSame("");
+
+    assertThat(lastCompiler.getOptions().getRewritePolyfills()).isTrue();
+    assertThat(lastCompiler.getOptions().getIsolatePolyfills()).isFalse();
+
+    args.add("--isolate_polyfills=true");
+    testSame("");
+
+    assertThat(lastCompiler.getOptions().getRewritePolyfills()).isTrue();
+    assertThat(lastCompiler.getOptions().getIsolatePolyfills()).isTrue();
+  }
+
+  @Test
+  public void testCrossChunkCodeMotionNoStubMethods() {
+    testSame("");
+    assertThat(lastCompiler.getOptions().crossChunkCodeMotionNoStubMethods).isFalse();
+    args.add("--assume_no_prototype_method_enumeration=true");
+    testSame("");
+    assertThat(lastCompiler.getOptions().crossChunkCodeMotionNoStubMethods).isTrue();
+  }
+
   /* Helper functions */
 
   private void testSame(String original) {
@@ -2990,7 +3120,7 @@ public final class CommandLineRunnerTest {
    * into {@code compiled}. If {@code warning} is non-null, we will also check if the given warning
    * type was emitted.
    */
-  private void test(String[] original, String[] compiled, DiagnosticType warning) {
+  private void test(String[] original, String[] compiled, @Nullable DiagnosticType warning) {
     exitCodes.clear();
     Compiler compiler = compile(original);
 
@@ -3149,7 +3279,7 @@ public final class CommandLineRunnerTest {
     compileArgs(expectedOutput, null);
   }
 
-  private void compileArgs(String expectedOutput, DiagnosticType expectedError) {
+  private void compileArgs(String expectedOutput, @Nullable DiagnosticType expectedError) {
     String[] argStrings = args.toArray(new String[] {});
 
     CommandLineRunner runner =
@@ -3171,6 +3301,7 @@ public final class CommandLineRunnerTest {
       assertThat(compiler.getErrors()).hasSize(1);
       assertError(compiler.getErrors().get(0)).hasType(expectedError);
     }
+    lastCommandLineRunner = runner;
   }
 
   private String compile(String inputString, List<String> args) {
@@ -3202,22 +3333,24 @@ public final class CommandLineRunnerTest {
     Supplier<List<SourceFile>> inputsSupplier = null;
     Supplier<List<JSChunk>> modulesSupplier = null;
 
-    if (useModules == ModulePattern.NONE) {
-      List<SourceFile> inputs = new ArrayList<>();
-      for (int i = 0; i < original.length; i++) {
-        inputs.add(SourceFile.fromCode(getFilename(i), original[i]));
-      }
-      inputsSupplier = Suppliers.ofInstance(inputs);
-    } else if (useModules == ModulePattern.STAR) {
-      modulesSupplier =
-          Suppliers.<List<JSChunk>>ofInstance(
-              ImmutableList.copyOf(JSChunkGraphBuilder.forStar().addChunks(original).build()));
-    } else if (useModules == ModulePattern.CHAIN) {
-      modulesSupplier =
-          Suppliers.<List<JSChunk>>ofInstance(
-              ImmutableList.copyOf(JSChunkGraphBuilder.forChain().addChunks(original).build()));
-    } else {
-      throw new IllegalArgumentException("Unknown module type: " + useModules);
+    switch (useModules) {
+      case NONE:
+        List<SourceFile> inputs = new ArrayList<>();
+        for (int i = 0; i < original.length; i++) {
+          inputs.add(SourceFile.fromCode(getFilename(i), original[i]));
+        }
+        inputsSupplier = Suppliers.ofInstance(inputs);
+        break;
+      case STAR:
+        modulesSupplier =
+            Suppliers.<List<JSChunk>>ofInstance(
+                ImmutableList.copyOf(JSChunkGraphBuilder.forStar().addChunks(original).build()));
+        break;
+      case CHAIN:
+        modulesSupplier =
+            Suppliers.<List<JSChunk>>ofInstance(
+                ImmutableList.copyOf(JSChunkGraphBuilder.forChain().addChunks(original).build()));
+        break;
     }
 
     runner.enableTestMode(

@@ -23,7 +23,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * A collection of references. Can be subclassed to apply checks or store additional state when
@@ -50,7 +50,7 @@ public final class ReferenceCollection implements Iterable<Reference>, Serializa
    * before it's assigned. It just means that we don't have enough information to make a definitive
    * judgment.
    */
-  protected boolean isWellDefined() {
+  boolean isWellDefined() {
     int size = references.size();
     if (size == 0) {
       return false;
@@ -128,6 +128,7 @@ public final class ReferenceCollection implements Iterable<Reference>, Serializa
    *     <p>This is either the variable declaration ("var a = ...") or first reference following the
    *     declaration if it is an assignment.
    */
+  @Nullable
   Reference getInitializingReference() {
     if (isInitializingDeclarationAt(0)) {
       return references.get(0);
@@ -138,6 +139,7 @@ public final class ReferenceCollection implements Iterable<Reference>, Serializa
   }
 
   /** Constants are allowed to be defined after their first use. */
+  @Nullable
   Reference getInitializingReferenceForConstants() {
     int size = references.size();
     for (int i = 0; i < size; i++) {

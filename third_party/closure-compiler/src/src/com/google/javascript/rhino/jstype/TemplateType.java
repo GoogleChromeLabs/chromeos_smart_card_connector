@@ -49,6 +49,7 @@ import static com.google.javascript.jscomp.base.JSCompObjects.identical;
 
 import com.google.common.base.Predicate;
 import com.google.javascript.rhino.Node;
+import org.jspecify.nullness.Nullable;
 
 /** A placeholder type, used as keys in {@link TemplateTypeMap}s. */
 public final class TemplateType extends ProxyObjectType {
@@ -71,7 +72,10 @@ public final class TemplateType extends ProxyObjectType {
   }
 
   private TemplateType(
-      JSTypeRegistry registry, String name, JSType bound, Node typeTransformation) {
+      JSTypeRegistry registry,
+      String name,
+      @Nullable JSType bound,
+      @Nullable Node typeTransformation) {
     super(
         registry, bound == null ? registry.getNativeObjectType(JSTypeNative.UNKNOWN_TYPE) : bound);
     this.name = name;
@@ -155,5 +159,12 @@ public final class TemplateType extends ProxyObjectType {
     // cycle is found or a terminating type is reached.
     ContainsUpperBoundSuperTypeVisitor typeVisitor = new ContainsUpperBoundSuperTypeVisitor(null);
     return this.visit(typeVisitor) == ContainsUpperBoundSuperTypeVisitor.Result.CYCLE;
+  }
+
+  @Override
+  int recursionUnsafeHashCode() {
+    // Since TemplateType has identity semantics for equality (see EqualityChecker),
+    // use identity hash code to avoid spurious hash conflicts
+    return System.identityHashCode(this);
   }
 }

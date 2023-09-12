@@ -26,6 +26,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Iterables;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.javascript.jscomp.AbstractCompiler.LifeCycleStage;
 import com.google.javascript.jscomp.OptimizeCalls.ReferenceMap;
 import com.google.javascript.jscomp.diagnostic.LogFile;
@@ -37,7 +38,7 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Optimize function calls and function signatures.
@@ -46,6 +47,8 @@ import javax.annotation.Nullable;
  *   <li>Removes optional parameters if no caller specifies it as argument.
  *   <li>Removes arguments at call site to function that ignores the parameter.
  *   <li>Inline a parameter if the function is always called with that constant.
+ *   <li>Removes trailing `undefined` values if the callee doesn't query `arguments` or have a rest
+ *       parameter
  * </ul>
  */
 class OptimizeParameters implements CompilerPass, OptimizeCalls.CallGraphCompilerPass {
@@ -54,7 +57,7 @@ class OptimizeParameters implements CompilerPass, OptimizeCalls.CallGraphCompile
   private Scope globalScope;
 
   // Allocated & cleaned up by process()
-  private LogFile decisionsLog;
+  private @Nullable LogFile decisionsLog;
 
   OptimizeParameters(AbstractCompiler compiler) {
     this.compiler = checkNotNull(compiler);
@@ -293,8 +296,20 @@ class OptimizeParameters implements CompilerPass, OptimizeCalls.CallGraphCompile
       }
     }
 
-    // Either firstRestIndex will be MAX_VALUE or removeAllAfterIndex will be MAX_VALUE
-    void recordRemovalCallArguments(
+    /**
+     * Either firstRestIndex will be MAX_VALUE or removeAllAfterIndex will be MAX_VALUE
+     *
+     * @param firstRestIndex The lowest index that might match a rest parameter
+     * @param removeAllAfterIndex The index of the last known parameter, all arguments with higher
+     *     indexes must be unused, but it won't be tracked in unused
+     * @param unused All parameter indexes that are known to be unused by the callee
+     * @param unremovable All parameter indexes that are used by a callee, or have defaults with
+     *     side effects
+     * @param arg The current argument being considered for removal
+     * @param index The index of arg in the argument list
+     * @return {true} if all arguments >= index have been removed.
+     */
+    boolean recordRemovalCallArguments(
         int firstRestIndex,
         int removeAllAfterIndex,
         BitSet unused,
@@ -302,42 +317,86 @@ class OptimizeParameters implements CompilerPass, OptimizeCalls.CallGraphCompile
         Node arg,
         int index) {
       if (arg == null) {
-        return;
+        // base case
+        return true;
       }
 
       if (index > removeAllAfterIndex) {
-        removeArgAndFollowing(arg);
-        return;
+        return removeArgAndFollowing(arg);
       }
 
       if (arg.isSpread()) {
         // There is no meaningful "index" after a spread.
-        return;
+        return false;
       }
 
-      recordRemovalCallArguments(
-          firstRestIndex, removeAllAfterIndex, unused, unremovable, arg.getNext(), index + 1);
+      boolean removedAllTrailing =
+          recordRemovalCallArguments(
+              firstRestIndex, removeAllAfterIndex, unused, unremovable, arg.getNext(), index + 1);
+      if (index < firstRestIndex) {
+        // An 'undefined' in trailing position calling a function that doesn't reference
+        // `arguments` is removable, since the function will see an `undefined` value there
+        // even if we remove it.
+        boolean isRemovableTrailingUndefined = NodeUtil.isUndefined(arg) && removedAllTrailing;
+        if (isRemovableTrailingUndefined && !astAnalyzer.mayHaveSideEffects(arg)) {
+          toRemove.add(arg);
+          return true;
+        }
 
-      if (index < firstRestIndex && unused.get(index)) {
-        if (!astAnalyzer.mayHaveSideEffects(arg)) {
-          if (unremovable.get(index)) {
-            if (!arg.isNumber() || arg.getDouble() != 0) {
-              toReplaceWithZero.add(arg);
+        if (unused.get(index)) {
+          // If isRemovableTrailingUndefined is true, then we know the arg has side effects
+          // otherwise we would have already returned above.
+          boolean hasSideEffects =
+              isRemovableTrailingUndefined || astAnalyzer.mayHaveSideEffects(arg);
+          if (!hasSideEffects) {
+            if (unremovable.get(index)) {
+              recordReplaceWithZero(arg);
+            } else {
+              toRemove.add(arg);
+              return removedAllTrailing;
             }
           } else {
-            toRemove.add(arg);
+            // If there is a comma operator with side effects on the first node, the
+            // second node can be optimized knowing that the parameter is not used.
+            removeFromCommaIfNoSideEffects(arg);
           }
+        }
+      }
+      return false;
+    }
+
+    /** Replaces a no side-effect value in a comma operator recursively. */
+    void removeFromCommaIfNoSideEffects(Node arg) {
+      if (arg.isComma()) {
+        Node secondChild = arg.getSecondChild();
+        if (!astAnalyzer.mayHaveSideEffects(secondChild)) {
+          recordReplaceWithZero(secondChild);
+        } else {
+          removeFromCommaIfNoSideEffects(secondChild);
         }
       }
     }
 
-    void removeArgAndFollowing(Node arg) {
+    /** Records node to be replaced with zero. */
+    private void recordReplaceWithZero(Node arg) {
+      if (!arg.isNumber() || arg.getDouble() != 0) {
+        toReplaceWithZero.add(arg);
+      }
+    }
+
+    /**
+     * @return true if all following args were removed
+     */
+    boolean removeArgAndFollowing(Node arg) {
       if (arg != null) {
-        removeArgAndFollowing(arg.getNext());
+        boolean removedAll = removeArgAndFollowing(arg.getNext());
         if (!astAnalyzer.mayHaveSideEffects(arg)) {
           toRemove.add(arg);
+          return removedAll;
         }
+        return false;
       }
+      return true;
     }
 
     void removeUnusedFunctionParameters(BitSet unremovable, Node param, int index) {
@@ -427,7 +486,9 @@ class OptimizeParameters implements CompilerPass, OptimizeCalls.CallGraphCompile
       } else if (isCandidateDefinition(n)) {
         definitions.add(n);
       } else if (!OptimizeCalls.isAllowedReference(n)) {
-        decisionsLog.log("%s\t%s\tnot an allowed reference: %s", refKind, key, n.getLocation());
+        if (decisionsLog.isLogging()) { // avoid build location string when not logging
+          decisionsLog.log("%s\t%s\tnot an allowed reference: %s", refKind, key, n.getLocation());
+        }
         // TODO(johnlenz): allow extends clauses.
         return analysisBuilder.setIsSafeToOptimize(false).build();
       }
@@ -494,11 +555,13 @@ class OptimizeParameters implements CompilerPass, OptimizeCalls.CallGraphCompile
     final ArrayList<Node> taggedTemplateLiterals = new ArrayList<>();
     boolean isSafeToOptimize = false;
 
+    @CanIgnoreReturnValue
     CandidateAnalysisBuilder setIsSafeToOptimize(boolean isSafeToOptimize) {
       this.isSafeToOptimize = isSafeToOptimize;
       return this;
     }
 
+    @CanIgnoreReturnValue
     CandidateAnalysisBuilder addTaggedTemplateLiteral(Node ttlNode) {
       taggedTemplateLiterals.add(ttlNode);
       return this;
@@ -748,7 +811,7 @@ class OptimizeParameters implements CompilerPass, OptimizeCalls.CallGraphCompile
    * @return A list of Parameter objects, in the declaration order, which represent potentially
    *     movable values fixed values from all call sites or null if there are no candidate values.
    */
-  private List<Parameter> findFixedArguments(ArrayList<Node> refs) {
+  private @Nullable List<Parameter> findFixedArguments(ArrayList<Node> refs) {
     List<Parameter> parameters = new ArrayList<>();
     boolean firstCall = true;
 
@@ -780,7 +843,7 @@ class OptimizeParameters implements CompilerPass, OptimizeCalls.CallGraphCompile
       }
     }
 
-    return (continueLooking) ? parameters : null;
+    return continueLooking ? parameters : null;
   }
 
   /**
@@ -972,6 +1035,8 @@ class OptimizeParameters implements CompilerPass, OptimizeCalls.CallGraphCompile
         if (n.getString().equals("arguments")) {
           return false;
         } else {
+          // If it isn't in global scope, then it is in local scope.  This logic depends on
+          // "Normalize" creating distinct local names.
           Var v = globalScope.getVar(n.getString());
           if (v == null) {
             return false;
@@ -1036,21 +1101,25 @@ class OptimizeParameters implements CompilerPass, OptimizeCalls.CallGraphCompile
 
   private void optimizeCallSite(List<Parameter> parameters, Node target) {
     Node call = ReferenceMap.getCallOrNewNodeForTarget(target);
-    boolean mayMutateArgs = call.mayMutateArguments();
-    boolean mayMutateGlobalsOrThrow = call.mayMutateGlobalStateOrThrow();
+    boolean callMayMutateArgs = call.mayMutateArguments();
+    boolean callMayMutateGlobalsOrThrow = call.mayMutateGlobalStateOrThrow();
+
     for (int index = parameters.size() - 1; index >= 0; index--) {
       Parameter p = parameters.get(index);
       if (p.shouldRemove()) {
         eliminateCallTargetArgAt(target, index);
 
-        if (mayMutateArgs
-            && !mayMutateGlobalsOrThrow
-            // We want to cover both global-state arguments, and
-            // expressions that might throw exceptions.
-            // We're deliberately conservative here b/c it's
-            // difficult to test all the edge cases.
-            && !NodeUtil.isImmutableValue(p.getArg())) {
-          mayMutateGlobalsOrThrow = true;
+        // Inlining parameters into a function may cause the function call to newly mutate global
+        // state if either
+        //  1) the parameter itself mutates global state
+        //  2) the function may mutate its arguments, and the argument being inlined is mutable.
+        //     We're deliberately conservative here - possibly the argument being inlined is
+        //     not global state or not mutated in practice - because it's difficult to test all
+        //     the edge cases.
+        if (!callMayMutateGlobalsOrThrow
+            && (p.hasSideEffects() // case (1)
+                || (callMayMutateArgs && !NodeUtil.isImmutableValue(p.getArg())))) { // case (2)
+          callMayMutateGlobalsOrThrow = true;
           call.setSideEffectFlags(
               new Node.SideEffectFlags(call.getSideEffectFlags()).setMutatesGlobalState());
         }
@@ -1103,9 +1172,6 @@ class OptimizeParameters implements CompilerPass, OptimizeCalls.CallGraphCompile
       this.mayBeUndefined = mayBeUndefined;
     }
 
-    public boolean mayBeUndefined() {
-      return mayBeUndefined;
-    }
   }
 
   private void addRestVariableToFunction(Node function, Node lhs, Node value) {

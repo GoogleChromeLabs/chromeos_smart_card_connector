@@ -22,7 +22,6 @@ import com.google.common.collect.Sets;
 import com.google.javascript.jscomp.AbstractCompiler;
 import com.google.javascript.jscomp.CompilerPass;
 import com.google.javascript.jscomp.DiagnosticType;
-import com.google.javascript.jscomp.deps.ModuleLoader;
 import com.google.javascript.jscomp.deps.ModuleLoader.ModulePath;
 import com.google.javascript.jscomp.modules.ModuleMetadataMap.ModuleMetadata;
 import com.google.javascript.jscomp.modules.ModuleMetadataMap.ModuleType;
@@ -30,14 +29,10 @@ import com.google.javascript.rhino.Node;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** Creates a {@link ModuleMap}. */
 public class ModuleMapCreator implements CompilerPass {
-  public static final DiagnosticType MISSING_NAMESPACE_IMPORT =
-      DiagnosticType.error(
-          "JSC_MISSING_NAMESPACE_IMPORT", "Imported Closure namespace \"{0}\" never defined.");
-
   public static final DiagnosticType DOES_NOT_HAVE_EXPORT =
       DiagnosticType.error(
           "JSC_DOES_NOT_HAVE_EXPORT", "Requested module does not have an export \"{0}\".");
@@ -48,7 +43,7 @@ public class ModuleMapCreator implements CompilerPass {
           "Requested module does not have an export \"{0}\".{1}");
 
   private final class ModuleRequestResolverImpl implements ModuleRequestResolver {
-    private UnresolvedModule getFallbackForMissingNonClosureModule(ModuleLoader.ModulePath path) {
+    private UnresolvedModule getFallbackForMissingNonClosureModule(ModulePath path) {
       ModuleMetadata metadata =
           ModuleMetadata.builder()
               .rootNode(null)
@@ -125,8 +120,7 @@ public class ModuleMapCreator implements CompilerPass {
     }
 
     @Override
-    @Nullable
-    public UnresolvedModule resolve(Import i) {
+    public @Nullable UnresolvedModule resolve(Import i) {
       if (i.modulePath() == null) {
         return resolveForClosure(i.moduleRequest());
       }
@@ -134,27 +128,24 @@ public class ModuleMapCreator implements CompilerPass {
     }
 
     @Override
-    @Nullable
-    public UnresolvedModule resolve(Export e) {
+    public @Nullable UnresolvedModule resolve(Export e) {
       return resolve(e.moduleRequest(), e.modulePath(), e.exportNode());
     }
 
-    @Nullable
-    private UnresolvedModule resolveForClosure(String namespace) {
+    private @Nullable UnresolvedModule resolveForClosure(String namespace) {
       return unresolvedModulesByClosureNamespace.computeIfAbsent(
           namespace, this::getFallbackForMissingClosureModule);
     }
 
-    @Nullable
-    private UnresolvedModule resolve(
-        String moduleRequest, ModuleLoader.ModulePath modulePath, Node forLineInfo) {
+    private @Nullable UnresolvedModule resolve(
+        String moduleRequest, ModulePath modulePath, Node forLineInfo) {
 
       if (GoogEsImports.isGoogImportSpecifier(moduleRequest)) {
         String namespace = GoogEsImports.getClosureIdFromGoogImportSpecifier(moduleRequest);
         return resolveForClosure(namespace);
       }
 
-      ModuleLoader.ModulePath requestedPath =
+      ModulePath requestedPath =
           modulePath.resolveJsModule(
               moduleRequest,
               forLineInfo.getSourceFileName(),
@@ -221,7 +212,7 @@ public class ModuleMapCreator implements CompilerPass {
     // modification exception if we just iterated over unresolvedModules. So the first loop through
     // should resolve any "known" modules, and the second any "unrecognized" modules.
     do {
-      Set<String> toResolve =
+      ImmutableSet<String> toResolve =
           Sets.difference(unresolvedModules.keySet(), resolvedModules.keySet()).immutableCopy();
 
       for (String key : toResolve) {
@@ -236,7 +227,7 @@ public class ModuleMapCreator implements CompilerPass {
     } while (!resolvedModules.keySet().containsAll(unresolvedModules.keySet()));
 
     do {
-      Set<String> toResolve =
+      ImmutableSet<String> toResolve =
           Sets.difference(
                   unresolvedModulesByClosureNamespace.keySet(), resolvedClosureModules.keySet())
               .immutableCopy();
@@ -264,7 +255,13 @@ public class ModuleMapCreator implements CompilerPass {
         break;
       case GOOG_MODULE:
       case LEGACY_GOOG_MODULE:
-        processor = closureModuleProcessor;
+        if (moduleMetadata.googNamespaces().size() == 1) {
+          processor = closureModuleProcessor;
+        } else {
+          // this indicates some malformed Closure module. We should already have reported an
+          // error.
+          processor = nonEsModuleProcessor;
+        }
         break;
       default:
         processor = nonEsModuleProcessor;

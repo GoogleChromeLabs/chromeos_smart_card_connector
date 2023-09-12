@@ -16,28 +16,23 @@
 
 package com.google.javascript.jscomp;
 
-import com.google.javascript.jscomp.AbstractCompiler.LocaleData;
 import com.google.javascript.rhino.Node;
 
-// ** GWT compatible no-op replacement for {@code LocaleDataPasses} */
+/** GWT compatible no-op replacement for {@code LocaleDataPasses} */
 final class LocaleDataPasses {
 
   private LocaleDataPasses() {}
 
-  static class ExtractAndProtect implements CompilerPass {
+  static class ProtectGoogLocale implements CompilerPass {
 
-    ExtractAndProtect(AbstractCompiler compiler) {}
+    ProtectGoogLocale(AbstractCompiler compiler) {}
 
     @Override
     public void process(Node externs, Node root) {}
-
-    public LocaleData getLocaleValuesDataMaps() {
-      return new LocaleData() {};
-    }
   }
 
   static class LocaleSubstitutions implements CompilerPass {
-    LocaleSubstitutions(AbstractCompiler compiler, String locale, LocaleData localeData) {}
+    LocaleSubstitutions(AbstractCompiler compiler, String locale) {}
 
     public void process(Node externs, Node root) {}
   }

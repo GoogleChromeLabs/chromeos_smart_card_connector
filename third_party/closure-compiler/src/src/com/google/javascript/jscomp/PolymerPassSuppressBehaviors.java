@@ -15,12 +15,12 @@
  */
 package com.google.javascript.jscomp;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.NodeTraversal.ExternsSkippingCallback;
 import com.google.javascript.jscomp.PolymerPass.MemberDefinition;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
-import java.util.List;
 
 /**
  * For every Polymer Behavior, strip property type annotations and add suppress checktypes on
@@ -80,13 +80,12 @@ final class PolymerPassSuppressBehaviors extends ExternsSkippingCallback {
   }
 
   private void stripPropertyTypes(Node behaviorValue) {
-    List<MemberDefinition> properties =
+    ImmutableList<MemberDefinition> properties =
         PolymerPassStaticUtils.extractProperties(
             behaviorValue,
             PolymerClassDefinition.DefinitionType.ObjectLiteral,
             compiler,
-            /** constructor= */
-            null);
+            /* constructor= */ null);
     for (MemberDefinition property : properties) {
       property.name.setJSDocInfo(null);
     }
@@ -98,8 +97,7 @@ final class PolymerPassSuppressBehaviors extends ExternsSkippingCallback {
             behaviorValue,
             PolymerClassDefinition.DefinitionType.ObjectLiteral,
             compiler,
-            /** constructor= */
-            null)) {
+            /* constructor= */ null)) {
       if (!property.value.isObjectLit()) {
         continue;
       }

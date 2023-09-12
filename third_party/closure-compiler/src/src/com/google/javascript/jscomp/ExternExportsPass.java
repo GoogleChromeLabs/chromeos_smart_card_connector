@@ -37,7 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Creates an externs file containing all exported symbols and properties
@@ -107,7 +107,7 @@ final class ExternExportsPass extends NodeTraversal.AbstractPostOrderCallback
      * </pre>
      */
     void appendExtern(String path, Node valueToExport) {
-      List<String> pathPrefixes = computePathPrefixes(path);
+      ImmutableList<String> pathPrefixes = computePathPrefixes(path);
 
       for (int i = 0; i < pathPrefixes.size(); ++i) {
         String pathPrefix = pathPrefixes.get(i);
@@ -223,7 +223,6 @@ final class ExternExportsPass extends NodeTraversal.AbstractPostOrderCallback
      * the same instead of generating arbitrary parameter names.
      *
      * @param exportedFunction FUNCTION Node of the original function
-     * @return
      */
     private Node createExternsParamListFromOriginalFunction(Node exportedFunction) {
       final Node originalParamList = NodeUtil.getFunctionParameters(exportedFunction);
@@ -372,11 +371,10 @@ final class ExternExportsPass extends NodeTraversal.AbstractPostOrderCallback
     }
 
     /**
-     * If the given value is a qualified name which refers
-     * a function or object literal, the node is returned. Otherwise,
-     * {@code null} is returned.
+     * If the given value is a qualified name which refers a function or object literal, the node is
+     * returned. Otherwise, {@code null} is returned.
      */
-    protected Node getValue() {
+    protected @Nullable Node getValue() {
       String qualifiedName = value.getQualifiedName();
 
       if (qualifiedName == null) {

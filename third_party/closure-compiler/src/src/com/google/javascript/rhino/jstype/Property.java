@@ -45,6 +45,7 @@ import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.StaticSourceFile;
 import java.util.Objects;
+import org.jspecify.nullness.Nullable;
 
 /**
  * A property slot of an object.
@@ -105,13 +106,13 @@ public final class Property implements StaticTypedSlot, StaticTypedRef {
    */
   private Node propertyNode;
 
-  /**  The JSDocInfo for this property. */
-  private JSDocInfo docInfo = null;
+  /** The JSDocInfo for this property. */
+  private @Nullable JSDocInfo docInfo = null;
 
   Property(String name, JSType type, boolean inferred,
       Node propertyNode) {
     this.name = checkNotNull(name);
-    this.type = checkNotNull(type, "Null type specified for {}", name);
+    this.type = checkNotNull(type, "Null type specified for %s", name);
     this.inferred = inferred;
     this.propertyNode = propertyNode;
   }
@@ -127,7 +128,7 @@ public final class Property implements StaticTypedSlot, StaticTypedRef {
   }
 
   @Override
-  public StaticSourceFile getSourceFile() {
+  public @Nullable StaticSourceFile getSourceFile() {
     return propertyNode == null ? null : propertyNode.getStaticSourceFile();
   }
 
@@ -137,7 +138,7 @@ public final class Property implements StaticTypedSlot, StaticTypedRef {
   }
 
   @Override
-  public Property getDeclaration() {
+  public @Nullable Property getDeclaration() {
     return propertyNode == null ? null : this;
   }
 
@@ -156,7 +157,7 @@ public final class Property implements StaticTypedSlot, StaticTypedRef {
   }
 
   void setType(JSType type) {
-    this.type = checkNotNull(type, "Null type specified for property {}", name);
+    this.type = checkNotNull(type, "Null type specified for property %s", name);
   }
 
   @Override public JSDocInfo getJSDocInfo() {
@@ -171,6 +172,7 @@ public final class Property implements StaticTypedSlot, StaticTypedRef {
     this.propertyNode = n;
   }
 
+  @Override
   public String toString() {
     return "Property { "
         + " name: " + this.name

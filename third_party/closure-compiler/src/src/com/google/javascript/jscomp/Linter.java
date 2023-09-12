@@ -21,6 +21,7 @@ import com.google.common.annotations.GwtIncompatible;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.deps.ModuleLoader.ResolutionMode;
 import com.google.javascript.jscomp.parsing.Config.JsDocParsing;
@@ -71,7 +72,6 @@ public final class Linter {
 
       options.setWarningLevel(DiagnosticGroups.JSDOC_MISSING_TYPE, CheckLevel.ERROR);
       options.setWarningLevel(DiagnosticGroups.MISPLACED_MSG_ANNOTATION, CheckLevel.WARNING);
-      options.setWarningLevel(DiagnosticGroups.UNNECESSARY_ESCAPE, CheckLevel.WARNING);
       options.setWarningLevel(DiagnosticGroups.LINT_CHECKS, CheckLevel.WARNING);
       options.setWarningLevel(DiagnosticGroups.UNUSED_LOCAL_VARIABLE, CheckLevel.WARNING);
       options.setWarningLevel(DiagnosticGroups.UNUSED_PRIVATE_PROPERTY, CheckLevel.WARNING);
@@ -84,11 +84,13 @@ public final class Linter {
       options.setSummaryDetailLevel(0);
     }
 
+    @CanIgnoreReturnValue
     public Builder withModuleResolutionMode(ResolutionMode moduleResolutionMode) {
       options.setModuleResolutionMode(moduleResolutionMode);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder withBrowserResolverPrefixReplacements(
         ImmutableMap<String, String> replacements) {
       options.setBrowserResolverPrefixReplacements(replacements);
@@ -114,11 +116,11 @@ public final class Linter {
     return new Builder();
   }
 
-  void lint(String filename) throws IOException {
+  void lint(String filename) {
     lint(Paths.get(filename), new Compiler(System.out));
   }
 
-  void lint(Path path, Compiler compiler) throws IOException {
+  void lint(Path path, Compiler compiler) {
     SourceFile file = SourceFile.fromFile(path.toString());
     compiler.setPassConfig(new LintPassConfig(options));
     compiler.disableThreads();

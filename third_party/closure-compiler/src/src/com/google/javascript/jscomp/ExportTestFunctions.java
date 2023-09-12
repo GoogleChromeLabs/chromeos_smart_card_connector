@@ -21,6 +21,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import java.util.regex.Pattern;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Generates goog.exportSymbol for test functions, so they can be recognized
@@ -40,13 +41,12 @@ public class ExportTestFunctions implements CompilerPass {
 
   /**
    * Creates a new export test functions compiler pass.
-   * @param compiler
+   *
    * @param exportSymbolFunction The function name used to export symbols in JS.
-   * @param exportPropertyFunction The function name used to export properties
-   *     in JS.
+   * @param exportPropertyFunction The function name used to export properties in JS.
    */
-  ExportTestFunctions(AbstractCompiler compiler,
-      String exportSymbolFunction, String exportPropertyFunction) {
+  ExportTestFunctions(
+      AbstractCompiler compiler, String exportSymbolFunction, String exportPropertyFunction) {
 
     checkNotNull(compiler);
     this.compiler = compiler;
@@ -108,8 +108,8 @@ public class ExportTestFunctions implements CompilerPass {
       } else if (isTestSuiteArgument(n, t)) {
         for (Node c = n.getFirstChild(); c != null; ) {
           final Node next = c.getNext();
-          if (c.isStringKey() && !c.isQuotedString()) {
-            c.setQuotedString();
+          if (c.isStringKey() && !c.isQuotedStringKey()) {
+            c.setQuotedStringKey();
             compiler.reportChangeToEnclosingScope(c);
           } else if (c.isMemberFunctionDef()) {
             rewriteMemberDefInObjLit(c, n);
@@ -164,17 +164,16 @@ public class ExportTestFunctions implements CompilerPass {
       String name = memberDef.getString();
       Node stringKey = IR.stringKey(name, memberDef.removeFirstChild());
       memberDef.replaceWith(stringKey);
-      stringKey.setQuotedString();
+      stringKey.setQuotedStringKey();
       stringKey.setJSDocInfo(memberDef.getJSDocInfo());
       compiler.reportChangeToEnclosingScope(objLit);
     }
 
     /**
-     * Get the node that corresponds to an expression declared with var, let or const.
-     * This has the AST structure VAR/LET/CONST -> NAME -> NODE
-     * @param node
+     * Get the node that corresponds to an expression declared with var, let or const. This has the
+     * AST structure VAR/LET/CONST -> NAME -> NODE
      */
-    private Node getNameDeclaredGrandchild(Node node) {
+    private @Nullable Node getNameDeclaredGrandchild(Node node) {
       if (!NodeUtil.isNameDeclaration(node)) {
         return null;
       }
@@ -182,15 +181,16 @@ public class ExportTestFunctions implements CompilerPass {
     }
 
     /**
-     * Whether node corresponds to a function expression declared with var, let
-     * or const which is of the form:
+     * Whether node corresponds to a function expression declared with var, let or const which is of
+     * the form:
+     *
      * <pre>
      * var/let/const functionName = function() {
      *   // Implementation
      * };
      * </pre>
+     *
      * This has the AST structure VAR/LET/CONST -> NAME -> FUNCTION
-     * @param node
      */
     private boolean isNameDeclaredFunction(Node node) {
       Node grandchild = getNameDeclaredGrandchild(node);
@@ -198,15 +198,15 @@ public class ExportTestFunctions implements CompilerPass {
     }
 
     /**
-     * Whether node corresponds to a class declared with var, let or const which
-     * is of the form:
+     * Whether node corresponds to a class declared with var, let or const which is of the form:
+     *
      * <pre>
      * var/let/const className = class {
      *   // Implementation
      * };
      * </pre>
+     *
      * This has the AST structure VAR/LET/CONST -> NAME -> CLASS
-     * @param node
      */
     private boolean isNameDeclaredClass(Node node) {
       Node grandchild = getNameDeclaredGrandchild(node);
@@ -294,8 +294,7 @@ public class ExportTestFunctions implements CompilerPass {
     } else if (rootVar.getScope().isModuleScope()) {
       Node originalValue = rootVar.getInitialValue();
       return originalValue != null
-          && originalValue.isCall()
-          && originalValue.getFirstChild().matchesQualifiedName("goog.require")
+          && NodeUtil.isGoogRequireCall(originalValue)
           && originalValue.hasTwoChildren()
           && originalValue.getSecondChild().getString().equals(GOOG_TESTING_TEST_SUITE);
     }

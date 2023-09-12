@@ -18,7 +18,7 @@ package com.google.javascript.refactoring;
 
 import com.google.javascript.jscomp.AbstractCompiler;
 import com.google.javascript.jscomp.NodeTraversal;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Class that holds metadata (or meta objects) for use by JsFlume that aren't
@@ -28,13 +28,13 @@ public final class NodeMetadata {
 
   private final AbstractCompiler compiler;
 
-  @Nullable private final NodeTraversal traversal;
+  private final @Nullable NodeTraversal traversal;
 
   public NodeMetadata(AbstractCompiler compiler) {
     this(compiler, null);
   }
 
-  private NodeMetadata(AbstractCompiler compiler, NodeTraversal traversal) {
+  private NodeMetadata(AbstractCompiler compiler, @Nullable NodeTraversal traversal) {
     this.compiler = compiler;
     this.traversal = traversal;
   }
@@ -47,8 +47,7 @@ public final class NodeMetadata {
     return compiler;
   }
 
-  @Nullable
-  public NodeTraversal getTraversal() {
+  public @Nullable NodeTraversal getTraversal() {
     return traversal;
   }
 }

@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Annotates the graph with a color in a way that no connected node will have
@@ -77,6 +78,16 @@ public abstract class GraphColoring<N, E> {
     }
   }
 
+  /** Using the coloring as partitions, checks whether two given nodes have the same color */
+  public boolean haveSameColor(N first, N second) {
+    checkNotNull(colorToNodeMap, "No coloring founded. color() should be called first.");
+    Color colorFirst = graph.getNode(first).getAnnotation();
+    Color colorSecond = graph.getNode(second).getAnnotation();
+    checkNotNull(colorFirst);
+    checkNotNull(colorSecond);
+    return colorFirst.equals(colorSecond);
+  }
+
   public AdjacencyGraph<N, E> getGraph() {
     return graph;
   }
@@ -115,11 +126,10 @@ public abstract class GraphColoring<N, E> {
     }
 
     /**
-     * @param tieBreaker In case of a tie between two nodes of the same degree,
-     *     this comparator will determine which node should be colored first.
+     * @param tieBreaker In case of a tie between two nodes of the same degree, this comparator will
+     *     determine which node should be colored first.
      */
-    public GreedyGraphColoring(
-        AdjacencyGraph<N, E> graph, Comparator<N> tieBreaker) {
+    public GreedyGraphColoring(AdjacencyGraph<N, E> graph, @Nullable Comparator<N> tieBreaker) {
       super(graph);
       this.tieBreaker = tieBreaker;
     }

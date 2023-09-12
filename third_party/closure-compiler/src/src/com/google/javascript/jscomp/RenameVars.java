@@ -23,6 +23,7 @@ import static java.util.Comparator.comparingInt;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.jscomp.NodeTraversal.ScopedCallback;
@@ -36,7 +37,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * RenameVars renames all the variables names into short names, to reduce code
@@ -62,13 +63,13 @@ final class RenameVars implements CompilerPass {
   private final Map<Node, String> originalNameByNode = new HashMap<>();
 
   /**
-   * Maps a name node to its pseudo name, null if we are not generating so
-   * there will be no overhead unless we are debugging.
+   * Maps a name node to its pseudo name, null if we are not generating so there will be no overhead
+   * unless we are debugging.
    */
-  private final Map<Node, String> pseudoNameMap;
+  private final @Nullable Map<Node, String> pseudoNameMap;
 
   /** Set of extern variable names */
-  private Set<String> externNames;
+  private ImmutableSet<String> externNames;
 
   /** Set of reserved variable names */
   private final Set<String> reservedNames;
@@ -95,7 +96,7 @@ final class RenameVars implements CompilerPass {
     final boolean isLocal;
     final String oldName;
     final int orderOfOccurrence;
-    String newName;
+    @Nullable String newName;
     int count; // Number of times this is referenced
 
     Assignment(String name) {
@@ -147,7 +148,7 @@ final class RenameVars implements CompilerPass {
       boolean generatePseudoNames,
       boolean preferStableNames,
       VariableMap prevUsedRenameMap,
-      @Nullable char[] reservedCharacters,
+      char @Nullable [] reservedCharacters,
       @Nullable Set<String> reservedNames,
       NameGenerator nameGenerator) {
     this.compiler = compiler;
@@ -366,8 +367,7 @@ final class RenameVars implements CompilerPass {
     }
   }
 
-  @Nullable
-  private String getNewGlobalName(Node n) {
+  private @Nullable String getNewGlobalName(Node n) {
     String oldName = n.getString();
     Assignment a = assignments.get(oldName);
     if (a.newName != null && !a.newName.equals(oldName)) {
@@ -380,8 +380,7 @@ final class RenameVars implements CompilerPass {
     }
   }
 
-  @Nullable
-  private String getNewLocalName(Node n) {
+  private @Nullable String getNewLocalName(Node n) {
     String oldTempName = n.getString();
     Assignment a = assignments.get(oldTempName);
     if (!a.newName.equals(oldTempName)) {
@@ -525,7 +524,7 @@ final class RenameVars implements CompilerPass {
    * Determines whether a variable name is okay to rename.
    */
   private boolean okToRenameVar(String name, boolean isLocal) {
-    return !compiler.getCodingConvention().isExported(name, isLocal);
+    return !compiler.getCodingConvention().isExported(name, /* local= */ isLocal);
   }
 
   /**

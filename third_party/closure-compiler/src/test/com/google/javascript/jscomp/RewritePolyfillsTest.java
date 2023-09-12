@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.nullness.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -45,7 +46,7 @@ public final class RewritePolyfillsTest extends CompilerTestCase {
   private boolean isolatePolyfills = false;
   private boolean injectPolyfills = true;
 
-  private void addLibrary(String name, String from, String to, String library) {
+  private void addLibrary(String name, String from, String to, @Nullable String library) {
     if (library != null) {
       injectableLibraries.put(
           library,
@@ -82,7 +83,7 @@ public final class RewritePolyfillsTest extends CompilerTestCase {
   @Override
   protected Compiler createCompiler() {
     return new NoninjectingCompiler() {
-      Node lastInjected = null;
+      @Nullable Node lastInjected = null;
 
       @Override
       public Node ensureLibraryInjected(String library, boolean force) {
@@ -294,8 +295,8 @@ public final class RewritePolyfillsTest extends CompilerTestCase {
 
   @Test
   public void testStaticMethodsNotInstalledIfGuardedByNullishCoalesce() {
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT_NEXT_IN);
-    addLibrary("Array.of", "es_next_in", "es5", "es6/array/of");
+    setAcceptedLanguage(LanguageMode.UNSTABLE);
+    addLibrary("Array.of", "es_unstable", "es5", "es6/array/of");
 
     testDoesNotInject("!Array.of ?? Array.of();");
     // NOTE: ?? is not safe by itself.
@@ -450,8 +451,8 @@ public final class RewritePolyfillsTest extends CompilerTestCase {
 
   @Test
   public void testPrototypeMethodsNotInstalledIfGuardedByNullishCoalesce() {
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT_NEXT_IN);
-    addLibrary("String.prototype.endsWith", "es_next_in", "es5", "es6/string/endswith");
+    setAcceptedLanguage(LanguageMode.UNSTABLE);
+    addLibrary("String.prototype.endsWith", "es_unstable", "es5", "es6/string/endswith");
 
     testDoesNotInject("!String.prototype.endsWith ?? x.endsWith();");
     // NOTE: ?? is not safe by itself.

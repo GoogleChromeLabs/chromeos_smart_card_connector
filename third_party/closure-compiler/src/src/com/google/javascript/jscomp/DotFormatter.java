@@ -16,6 +16,8 @@
 
 package com.google.javascript.jscomp;
 
+import static java.util.Comparator.comparing;
+
 import com.google.javascript.jscomp.ControlFlowGraph.Branch;
 import com.google.javascript.jscomp.graph.DiGraph.DiGraphEdge;
 import com.google.javascript.jscomp.graph.DiGraph.DiGraphNode;
@@ -28,6 +30,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import org.jspecify.nullness.Nullable;
 
 /**
  * <p>DotFormatter prints out a dot file of the Abstract Syntax Tree.
@@ -53,7 +56,7 @@ public final class DotFormatter {
   // the builder used to generate the dot diagram
   private final Appendable builder;
 
-  private final ControlFlowGraph<Node> cfg;
+  private final @Nullable ControlFlowGraph<Node> cfg;
 
   private final boolean printAnnotations;
 
@@ -86,14 +89,14 @@ public final class DotFormatter {
 
   /**
    * Converts an AST to dot representation.
+   *
    * @param n the root of the AST described in the dot formatted string
    * @param inCFG Control Flow Graph.
    * @return the dot representation of the AST
    */
-  static String toDot(Node n, ControlFlowGraph<Node> inCFG)
-      throws IOException  {
+  static String toDot(Node n, @Nullable ControlFlowGraph<Node> inCFG) throws IOException {
     StringBuilder builder = new StringBuilder();
-    new DotFormatter(n, inCFG, builder, false);
+    DotFormatter unused = new DotFormatter(n, inCFG, builder, false);
     return builder.toString();
   }
 
@@ -139,21 +142,21 @@ public final class DotFormatter {
       builder.append(";\n");
     }
 
+    // Sort the list of edges so the output is deterministic
     List<GraphvizEdge> edges = graph.getGraphvizEdges();
+    edges.sort(comparing(GraphvizEdge::getNode1Id).thenComparing(GraphvizEdge::getNode2Id));
 
-    String[] edgeNames = new String[edges.size()];
-
-    for (int i = 0; i < edgeNames.length; i++) {
-      GraphvizEdge edge = edges.get(i);
-      edgeNames[i] = edge.getNode1Id() + edgeSymbol + edge.getNode2Id();
-    }
-
-    // Again, we sort the edges as well.
-    Arrays.sort(edgeNames);
-
-    for (String edgeName : edgeNames) {
+    for (GraphvizEdge edge : edges) {
       builder.append(INDENT);
-      builder.append(edgeName);
+      builder.append(edge.getNode1Id());
+      builder.append(edgeSymbol);
+      builder.append(edge.getNode2Id());
+      builder
+          .append(" [label=\"")
+          .append(edge.getLabel())
+          .append("\" color=\"")
+          .append(edge.getColor())
+          .append("\"]");
       builder.append(";\n");
     }
 
@@ -169,7 +172,7 @@ public final class DotFormatter {
    */
   static void appendDot(Node n, ControlFlowGraph<Node> inCFG,
       Appendable builder) throws IOException {
-    new DotFormatter(n, inCFG, builder, false);
+    DotFormatter unused = new DotFormatter(n, inCFG, builder, false);
   }
 
   /**

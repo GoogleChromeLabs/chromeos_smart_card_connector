@@ -18,9 +18,9 @@ package com.google.javascript.jscomp.modules;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
-import com.google.javascript.jscomp.deps.ModuleLoader;
+import com.google.javascript.jscomp.deps.ModuleLoader.ModulePath;
 import com.google.javascript.jscomp.modules.ModuleMetadataMap.ModuleMetadata;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Information for modules, particularly ES modules, that is useful for rewriting. The primary
@@ -35,8 +35,7 @@ public abstract class Module {
   public abstract ModuleMetadata metadata();
 
   /** Path of this module. Null if this module is a nested {@code goog.loadModule}. */
-  @Nullable
-  public abstract ModuleLoader.ModulePath path();
+  public abstract @Nullable ModulePath path();
 
   /**
    * Map of exported identifiers to originating binding.
@@ -95,8 +94,7 @@ public abstract class Module {
    * The specific Closure namespace this module represents, if any. This can be from {@code
    * goog.provide}, {@code goog.module}, or {@code goog.module.declareNamespace}. Null otherwise.
    */
-  @Nullable
-  public abstract String closureNamespace();
+  public abstract @Nullable String closureNamespace();
 
   /** Creates a new builder. */
   public static Builder builder() {
@@ -111,7 +109,7 @@ public abstract class Module {
   public abstract static class Builder {
     public abstract Builder metadata(ModuleMetadata value);
 
-    public abstract Builder path(@Nullable ModuleLoader.ModulePath value);
+    public abstract Builder path(@Nullable ModulePath value);
 
     public abstract Builder namespace(ImmutableMap<String, Binding> value);
 

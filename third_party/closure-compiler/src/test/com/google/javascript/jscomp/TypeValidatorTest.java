@@ -34,10 +34,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Type-checking tests that can use methods from CompilerTestCase
- *
- */
+/** Type-checking tests that can use methods from CompilerTestCase */
 @RunWith(JUnit4.class)
 public final class TypeValidatorTest extends CompilerTestCase {
   @Override
@@ -244,18 +241,20 @@ public final class TypeValidatorTest extends CompilerTestCase {
   public void testFunctionMismatchTypedef() {
     test(
         externs(""),
-        srcs(lines(
-            "/**",
-            " * @typedef {{a: string, b: string, c: string, d: string, e: string,",
-            " *            f: string, g: string, h: string, i: string, j: string, k: string}} x",
-            " */",
-            "var t;",
-            "/**",
-            " * @param {t} x",
-            " */",
-            "function f(x) {}",
-            "var y = {a:'',b:'',c:'',d:'',e:'',f:'',g:'',h:'',i:'',j:'',k:0};",
-            "f(y);")),
+        srcs(
+            lines(
+                "/**",
+                " * @typedef {{a: string, b: string, c: string, d: string, e: string,",
+                " *            f: string, g: string, h: string, i: string, j: string, k: string}}"
+                    + " x",
+                " */",
+                "var t;",
+                "/**",
+                " * @param {t} x",
+                " */",
+                "function f(x) {}",
+                "var y = {a:'',b:'',c:'',d:'',e:'',f:'',g:'',h:'',i:'',j:'',k:0};",
+                "f(y);")),
         warning(TYPE_MISMATCH_WARNING)
             .withMessage(
                 lines(
@@ -330,6 +329,16 @@ public final class TypeValidatorTest extends CompilerTestCase {
             + "function Sub() {}\n"
             + "/** @param {Sub} x */ function f(x) {}\n"
             + "f(/** @type {Super} */ (new Sub));",
+        TYPE_MISMATCH_WARNING);
+    this.assertThatRecordedMismatches().isEmpty();
+  }
+
+  @Test
+  public void testUnionsMismatch() {
+    testWarning(
+        "/** @param {number|string} x */\n"
+            + "function f(x) {}\n"
+            + "f(/** @type {boolean|string} */ ('a'));",
         TYPE_MISMATCH_WARNING);
     this.assertThatRecordedMismatches().isEmpty();
   }
@@ -613,8 +622,7 @@ public final class TypeValidatorTest extends CompilerTestCase {
     testSame(
         lines(
             "try { throw 1; } catch (/** @type {number} */ err) {}",
-            "try { throw 1; } catch (/** @type {number} */ err) {}"
-            ));
+            "try { throw 1; } catch (/** @type {number} */ err) {}"));
 
     // duplicates suppressed on 1st declaration.
     testSame(
@@ -650,7 +658,6 @@ public final class TypeValidatorTest extends CompilerTestCase {
 
   @Test
   public void testDuplicateSuppression_class() {
-    enableTranspile();
     testWarning(
         lines(
             "class X { constructor() {} }", //

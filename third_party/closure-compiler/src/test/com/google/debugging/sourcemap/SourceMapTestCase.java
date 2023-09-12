@@ -35,7 +35,6 @@ import com.google.javascript.jscomp.SourceMap.DetailLevel;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import org.junit.Before;
@@ -57,7 +56,7 @@ public abstract class SourceMapTestCase {
   static final ImmutableList<SourceFile> EXTERNS =
       ImmutableList.of(SourceFile.fromCode("externs", ""));
 
-  protected DetailLevel detailLevel = SourceMap.DetailLevel.ALL;
+  protected DetailLevel detailLevel = DetailLevel.ALL;
   protected boolean sourceMapIncludeSourcesContent = false;
 
   private static final Joiner LINE_JOINER = Joiner.on('\n');
@@ -85,7 +84,7 @@ public abstract class SourceMapTestCase {
 
   @Before
   public void setUp() {
-    detailLevel = SourceMap.DetailLevel.ALL;
+    detailLevel = DetailLevel.ALL;
   }
 
   /**
@@ -290,7 +289,7 @@ public abstract class SourceMapTestCase {
 
     options.setChecksOnly(true);
 
-    List<SourceFile> inputs = ImmutableList.of(SourceFile.fromCode(fileName1, js1));
+    ImmutableList<SourceFile> inputs = ImmutableList.of(SourceFile.fromCode(fileName1, js1));
 
     if (js2 != null && fileName2 != null) {
       inputs =

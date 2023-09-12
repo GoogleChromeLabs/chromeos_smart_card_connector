@@ -48,6 +48,8 @@ public class InlineFunctionsTest extends CompilerTestCase {
     super.setUp();
     maybeEnableInferConsts();
     enableNormalize();
+    // TODO(bradfordcsmith): Stop normalizing the expected output or document why it is necessary.
+    enableNormalizeExpectedOutput();
     enableComputeSideEffects();
     inliningReach = Reach.ALL;
     assumeStrictThis = false;
@@ -120,6 +122,13 @@ public class InlineFunctionsTest extends CompilerTestCase {
   public void testInlineEmptyFunction1_optChain() {
     // Empty function, no params.
     test("function foo(){} foo?.();", "void 0;");
+  }
+
+  @Test
+  public void testInline_optChain_1() {
+    // Empty function, no params.
+    test("(function(){}).call?.(this)", "void 0;");
+    test("(function(){})?.call(this)", "void 0;");
   }
 
   @Test
@@ -877,6 +886,21 @@ public class InlineFunctionsTest extends CompilerTestCase {
     test(
         lines("function foo(a) {", "  [a] = [1];", "}", "foo(2);"),
         lines("{", "  var a$jscomp$inline_0 = 2;", "  [a$jscomp$inline_0] = [1];", "}"));
+  }
+
+  @Test
+  public void testDestructuringAssignInFunction_withArrayPattern_doesNotCrash() {
+    test(
+        lines(
+            "var Di = I(() => {",
+            "  function zv() {",
+            "    JSCOMPILER_PRESERVE(e), [f] = CN();",
+            "  }",
+            "  function CN() {",
+            "    let t;",
+            "  }",
+            "});"),
+        "var Di = I(() => {});");
   }
 
   @Test

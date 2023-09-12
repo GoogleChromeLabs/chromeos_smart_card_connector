@@ -17,6 +17,7 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.jscomp.NodeTraversal.AbstractShallowStatementCallback;
 import com.google.javascript.rhino.IR;
@@ -63,7 +64,8 @@ final class RescopeGlobalSymbols implements CompilerPass {
   private final Set<String> crossModuleNames = new HashSet<>();
   /** Global identifiers that may be a non-arrow function referencing "this" */
   private final Set<String> maybeReferencesThis = new HashSet<>();
-  private Set<String> externNames;
+
+  private ImmutableSet<String> externNames;
 
   /**
    * Constructor for the RescopeGlobalSymbols compiler pass.
@@ -105,8 +107,9 @@ final class RescopeGlobalSymbols implements CompilerPass {
   }
 
   private boolean isCrossModuleName(String name) {
-    return assumeCrossModuleNames || crossModuleNames.contains(name)
-        || compiler.getCodingConvention().isExported(name, false);
+    return assumeCrossModuleNames
+        || crossModuleNames.contains(name)
+        || compiler.getCodingConvention().isExported(name, /* local= */ false);
   }
 
   private boolean isExternVar(String varname, NodeTraversal t) {
@@ -186,29 +189,36 @@ final class RescopeGlobalSymbols implements CompilerPass {
       extends AbstractShallowStatementCallback {
     @Override
     public void visit(NodeTraversal t, Node n, Node parent) {
-      if (NodeUtil.isFunctionDeclaration(n)
-          // Since class declarations are block-scoped, only handle them if in the global scope.
-          || (NodeUtil.isClassDeclaration(n) && t.inGlobalScope())) {
-        Node nameNode = NodeUtil.getNameNode(n);
-        String name = nameNode.getString();
-        // Remove the class or function name. Anonymous classes have an EMPTY node, while anonymous
-        // functions have a NAME node with an empty string.
-        if (n.isClass()) {
-          nameNode.replaceWith(IR.empty().srcref(nameNode));
-        } else {
-          nameNode.setString("");
-          compiler.reportChangeToEnclosingScope(nameNode);
-        }
-        Node prev = n.getPrevious();
-        n.detach();
-        Node var = NodeUtil.newVarNode(name, n);
-        if (prev == null) {
-          parent.addChildToFront(var);
-        } else {
-          var.insertAfter(prev);
-        }
-        compiler.reportChangeToEnclosingScope(parent);
+      // Ignore block scopes within the global scope, as class and function declarations are
+      // block-scoped.
+      // Note that we should never find block-scoped function declarations if outputting ES5
+      // code. Es6RewriteBlockScopedFunctionDeclaration will have rewritten them.
+      if (!t.inGlobalScope()) {
+        return;
       }
+      // Ignore everything that's not a function or class declaration.
+      if (!NodeUtil.isFunctionDeclaration(n) && !NodeUtil.isClassDeclaration(n)) {
+        return;
+      }
+      Node nameNode = NodeUtil.getNameNode(n);
+      String name = nameNode.getString();
+      // Remove the class or function name. Anonymous classes have an EMPTY node, while anonymous
+      // functions have a NAME node with an empty string.
+      if (n.isClass()) {
+        nameNode.replaceWith(IR.empty().srcref(nameNode));
+      } else {
+        nameNode.setString("");
+        compiler.reportChangeToEnclosingScope(nameNode);
+      }
+      Node prev = n.getPrevious();
+      n.detach();
+      Node var = NodeUtil.newVarNode(name, n);
+      if (prev == null) {
+        parent.addChildToFront(var);
+      } else {
+        var.insertAfter(prev);
+      }
+      compiler.reportChangeToEnclosingScope(parent);
     }
   }
 
@@ -331,7 +341,7 @@ final class RescopeGlobalSymbols implements CompilerPass {
    * (This is invalid syntax, but the VAR token is removed later).
    */
   private class RewriteScopeCallback implements NodeTraversal.Callback {
-    List<ModuleGlobal> preDeclarations = new ArrayList<>();
+    final List<ModuleGlobal> preDeclarations = new ArrayList<>();
 
     @Override
     public boolean shouldTraverse(NodeTraversal t, Node n, Node parent) {
@@ -349,7 +359,8 @@ final class RescopeGlobalSymbols implements CompilerPass {
     }
 
     private void visitNameDeclaration(NodeTraversal t, Node declaration) {
-      List<Node> allLhsNodes = NodeUtil.findLhsNodesInNode(declaration);
+      ArrayList<Node> allLhsNodes = new ArrayList<>();
+      NodeUtil.visitLhsNodesInNode(declaration, allLhsNodes::add);
       if (allLhsNodes.isEmpty()) {
         return;
       }

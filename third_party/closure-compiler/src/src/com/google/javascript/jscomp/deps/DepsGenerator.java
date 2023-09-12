@@ -19,7 +19,7 @@ package com.google.javascript.jscomp.deps;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.javascript.jscomp.CheckLevel;
 import com.google.javascript.jscomp.Compiler;
@@ -46,6 +46,7 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Generates deps.js files by scanning JavaScript files for
@@ -119,11 +120,12 @@ public class DepsGenerator {
 
   /**
    * Performs the parsing inputs and writing of outputs.
+   *
    * @throws IOException Occurs upon an IO error.
-   * @return Returns a String of goog.addDependency calls that will build
-   *     the dependency graph. Returns null if there was an error.
+   * @return Returns a String of goog.addDependency calls that will build the dependency graph.
+   *     Returns null if there was an error.
    */
-  public String computeDependencyCalls() throws IOException {
+  public @Nullable String computeDependencyCalls() throws IOException {
     // Build a map of closure-relative path -> DepInfo.
     Map<String, DependencyInfo> depsFiles = parseDepsFiles();
     if (logger.isLoggable(Level.FINE)) {
@@ -217,7 +219,7 @@ public class DepsGenerator {
 
       ImmutableList<String> provides = dependencyInfo.getProvides();
 
-      if ("es6".equals(dependencyInfo.getLoadFlags().get("module"))) {
+      if (dependencyInfo.isEs6Module()) {
         String mungedProvide = loader.resolve(dependencyInfo.getName()).toModuleName();
         // Filter out the munged symbol.
         // Note that at the moment ES6 modules should not have any other provides! In the future
@@ -275,8 +277,7 @@ public class DepsGenerator {
         } else if (provider == depInfo) {
           reportSameFile(namespace, depInfo);
         } else {
-          depInfo.isModule();
-          boolean providerIsEs6Module = "es6".equals(provider.getLoadFlags().get("module"));
+          boolean providerIsEs6Module = provider.isEs6Module();
 
           switch (require.getType()) {
             case ES6_IMPORT:
@@ -289,7 +290,6 @@ public class DepsGenerator {
               break;
             case COMMON_JS:
             case COMPILER_MODULE:
-            default:
               throw new IllegalStateException("Unexpected import type: " + require.getType());
           }
         }
@@ -362,7 +362,7 @@ public class DepsGenerator {
                 .toModuleName());
       } else {
         // ES6 modules already provide these munged symbols.
-        if (!"es6".equals(depInfo.getLoadFlags().get("module"))) {
+        if (!depInfo.isEs6Module()) {
           provides.add(loader.resolve(depInfo.getName()).toModuleName());
         }
       }
@@ -504,7 +504,7 @@ public class DepsGenerator {
     if (mergeStrategy == InclusionStrategy.ALWAYS) {
       // This multimap is just for splitting DepsInfo objects by
       // it's definition deps.js file
-      Multimap<String, DependencyInfo> infosIndex =
+      ImmutableListMultimap<String, DependencyInfo> infosIndex =
           Multimaps.index(depsFiles.values(), DependencyInfo::getName);
 
       for (String depsPath : infosIndex.keySet()) {

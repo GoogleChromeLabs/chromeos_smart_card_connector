@@ -33,7 +33,7 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public final class SemanticReverseAbstractInterpreterTest extends CompilerTypeTestCase {
-{ new GoogleCodingConvention(); }  private ReverseAbstractInterpreter interpreter;
+  private ReverseAbstractInterpreter interpreter;
   private TypedScope functionScope;
 
   @Override
@@ -514,7 +514,7 @@ public final class SemanticReverseAbstractInterpreterTest extends CompilerTypeTe
             new TypedName("x", getNativeObjectType()),
             new TypedName("s", getNativeStringObjectConstructorType())));
   }
-  
+
   @Test
   public void testInstanceOf4() {
     FlowScope[] blind = newScope();

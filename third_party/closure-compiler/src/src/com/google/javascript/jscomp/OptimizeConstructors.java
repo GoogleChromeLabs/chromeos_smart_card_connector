@@ -24,6 +24,7 @@ import com.google.javascript.jscomp.OptimizeCalls.ReferenceMap;
 import com.google.javascript.rhino.Node;
 import java.util.ArrayList;
 import java.util.Map;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Optimize class declarations by removing explicit constructor declarations if the implicit
@@ -242,7 +243,7 @@ class OptimizeConstructors implements CompilerPass, OptimizeCalls.CallGraphCompi
     return (parent.isClass() && parent.getSecondChild() == n);
   }
 
-  private Node getClassDefinitionOrFunction(Node n) {
+  private @Nullable Node getClassDefinitionOrFunction(Node n) {
     Node parent = n.getParent();
 
     Node expr;
@@ -300,14 +301,9 @@ class OptimizeConstructors implements CompilerPass, OptimizeCalls.CallGraphCompi
     final int formalParameterCount;
     // "var args" means any number of parameters are allowed
     final boolean isVarArgs;
-    // "arguments" means "arguments.length" may be referenced and changing the parameters does
-    // matter.
-    final boolean referencesArguments;
 
-    ClassConstructorSummary(
-        boolean isVarArgs, boolean referencesArguments, int formalParameterCount) {
+    ClassConstructorSummary(boolean isVarArgs, int formalParameterCount) {
       this.isVarArgs = isVarArgs;
-      this.referencesArguments = referencesArguments;
       this.formalParameterCount = formalParameterCount;
     }
 
@@ -326,7 +322,7 @@ class OptimizeConstructors implements CompilerPass, OptimizeCalls.CallGraphCompi
       boolean argumentsReference = NodeUtil.doesFunctionReferenceOwnArgumentsObject(fn);
       boolean hasVarArgs = argumentsReference || functionHasRest(fn);
       return new ClassConstructorSummary(
-          hasVarArgs, argumentsReference, NodeUtil.getFunctionParameters(fn).getChildCount());
+          hasVarArgs, NodeUtil.getFunctionParameters(fn).getChildCount());
     }
 
     public boolean isEquivalentConstructorDefinition(Node constructorMember) {
@@ -432,7 +428,7 @@ class OptimizeConstructors implements CompilerPass, OptimizeCalls.CallGraphCompi
   }
 
   /** If the body contains only a call to super, return it, otherwise null. */
-  private static Node getOnlySuperCall(Node fn) {
+  private static @Nullable Node getOnlySuperCall(Node fn) {
     Node body = fn.getLastChild();
     if (body.isBlock() && body.hasOneChild()) {
       Node stmt = body.getFirstChild();

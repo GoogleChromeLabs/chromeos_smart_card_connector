@@ -19,7 +19,6 @@ package com.google.javascript.jscomp;
 
 import com.google.common.base.Predicate;
 import com.google.javascript.jscomp.ControlFlowGraph.Branch;
-import com.google.javascript.jscomp.NodeTraversal.ScopedCallback;
 import com.google.javascript.jscomp.base.Tri;
 import com.google.javascript.jscomp.graph.CheckPathsBetweenNodes;
 import com.google.javascript.jscomp.graph.DiGraph.DiGraphEdge;
@@ -27,14 +26,13 @@ import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.jstype.FunctionType;
 import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.JSTypeNative;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
- * Checks functions for missing return statements. Return statements are only
- * expected for functions with return type information. Functions with empty
- * bodies are ignored.
+ * Checks functions for missing return statements. Return statements are only expected for functions
+ * with return type information. Functions with empty bodies are ignored.
  */
-class CheckMissingReturn implements ScopedCallback {
+class CheckMissingReturn extends NodeTraversal.AbstractCfgCallback {
 
   static final DiagnosticType MISSING_RETURN_STATEMENT =
       DiagnosticType.warning(
@@ -74,7 +72,7 @@ class CheckMissingReturn implements ScopedCallback {
   }
 
   @Override
-  public void enterScope(NodeTraversal t) {
+  public void enterScopeWithCfg(NodeTraversal t) {
     Node n = t.getScopeRoot();
     JSType returnType = getExplicitReturnTypeIfExpected(n);
 
@@ -97,15 +95,16 @@ class CheckMissingReturn implements ScopedCallback {
       }
     }
 
-    if (fastAllPathsReturnCheck(t.getControlFlowGraph())) {
+    ControlFlowGraph<Node> cfg = getControlFlowGraph(compiler);
+    if (fastAllPathsReturnCheck(cfg)) {
       return;
     }
 
     CheckPathsBetweenNodes<Node, ControlFlowGraph.Branch> test =
         new CheckPathsBetweenNodes<>(
-            t.getControlFlowGraph(),
-            t.getControlFlowGraph().getEntry(),
-            t.getControlFlowGraph().getImplicitReturn(),
+            cfg,
+            cfg.getEntry(),
+            cfg.getImplicitReturn(),
             (Node input) -> input != null && input.isReturn(),
             GOES_THROUGH_TRUE_CONDITION_PREDICATE);
 
@@ -116,8 +115,8 @@ class CheckMissingReturn implements ScopedCallback {
   }
 
   /**
-   * Fast check to see if all execution paths contain a return statement.
-   * May spuriously report that a return statement is missing.
+   * Fast check to see if all execution paths contain a return statement. May spuriously report that
+   * a return statement is missing.
    *
    * @return true if all paths return, converse not necessarily true
    */
@@ -135,10 +134,6 @@ class CheckMissingReturn implements ScopedCallback {
   }
 
   @Override
-  public void exitScope(NodeTraversal t) {
-  }
-
-  @Override
   public boolean shouldTraverse(
       NodeTraversal nodeTraversal, Node n, Node parent) {
     return true;
@@ -149,17 +144,16 @@ class CheckMissingReturn implements ScopedCallback {
   }
 
   /**
-   * Determines if the given scope should explicitly return. All functions
-   * with non-void or non-unknown return types must have explicit returns.
+   * Determines if the given scope should explicitly return. All functions with non-void or
+   * non-unknown return types must have explicit returns.
    *
-   * Exception: Constructors which specifically specify a return type are
-   * used to allow invocation without requiring the "new" keyword. They
-   * have an implicit return type. See unit tests.
+   * <p>Exception: Constructors which specifically specify a return type are used to allow
+   * invocation without requiring the "new" keyword. They have an implicit return type. See unit
+   * tests.
    *
    * @return If a return type is expected, returns it. Otherwise, returns null.
    */
-  @Nullable
-  private JSType getExplicitReturnTypeIfExpected(Node scopeRoot) {
+  private @Nullable JSType getExplicitReturnTypeIfExpected(Node scopeRoot) {
     if (!scopeRoot.isFunction()) {
       // Nothing to do in a global/module/block scope.
       return null;

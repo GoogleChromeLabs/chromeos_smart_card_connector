@@ -27,6 +27,7 @@ import com.google.javascript.jscomp.modules.ModuleMetadataMap;
 import com.google.javascript.jscomp.modules.ModuleMetadataMap.ModuleMetadata;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
+import org.jspecify.nullness.Nullable;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -38,7 +39,7 @@ import org.junit.runners.JUnit4;
 public class PolymerBehaviorExtractorTest extends CompilerTypeTestCase {
 
   private PolymerBehaviorExtractor extractor;
-  private Node behaviorArray;
+  private @Nullable Node behaviorArray;
   private ModuleMetadataMap moduleMetadataMap;
 
   @Override
@@ -580,7 +581,7 @@ public class PolymerBehaviorExtractorTest extends CompilerTypeTestCase {
    * Tests that the behaviorArray resolves to exactly one behavior, using the provided
    * ModuleMetadata for behavior extraction.
    */
-  private void assertSingleBehaviorExtractionSucceeds(ModuleMetadata metadata) {
+  private void assertSingleBehaviorExtractionSucceeds(@Nullable ModuleMetadata metadata) {
     ImmutableList<BehaviorDefinition> defs = extractor.extractBehaviors(behaviorArray, metadata);
     assertThat(compiler.getErrors()).isEmpty();
     assertThat(defs).hasSize(1);
@@ -671,6 +672,7 @@ public class PolymerBehaviorExtractorTest extends CompilerTypeTestCase {
 
   private boolean isBehaviorArrayDeclaration(Node node) {
     return node.isArrayLit()
-        && node.getParent().isStringKey() && node.getParent().getString().equals("behaviors");
+        && node.getParent().isStringKey()
+        && node.getParent().getString().equals("behaviors");
   }
 }

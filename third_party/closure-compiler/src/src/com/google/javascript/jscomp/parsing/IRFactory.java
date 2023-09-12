@@ -20,18 +20,19 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.javascript.jscomp.base.JSCompObjects.identical;
 import static java.lang.Integer.parseInt;
-import static java.lang.Math.min;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.javascript.jscomp.base.format.SimpleFormat;
 import com.google.javascript.jscomp.parsing.Config.JsDocParsing;
 import com.google.javascript.jscomp.parsing.Config.LanguageMode;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
 import com.google.javascript.jscomp.parsing.parser.IdentifierToken;
 import com.google.javascript.jscomp.parsing.parser.LiteralToken;
+import com.google.javascript.jscomp.parsing.parser.SourceFile;
 import com.google.javascript.jscomp.parsing.parser.TemplateLiteralToken;
 import com.google.javascript.jscomp.parsing.parser.TokenType;
 import com.google.javascript.jscomp.parsing.parser.trees.ArgumentListTree;
@@ -122,12 +123,12 @@ import com.google.javascript.jscomp.parsing.parser.trees.WithStatementTree;
 import com.google.javascript.jscomp.parsing.parser.trees.YieldExpressionTree;
 import com.google.javascript.jscomp.parsing.parser.util.SourcePosition;
 import com.google.javascript.jscomp.parsing.parser.util.SourceRange;
-import com.google.javascript.jscomp.parsing.parser.util.format.SimpleFormat;
 import com.google.javascript.rhino.ErrorReporter;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.NonJSDocComment;
+import com.google.javascript.rhino.QualifiedName;
 import com.google.javascript.rhino.StaticSourceFile;
 import com.google.javascript.rhino.Token;
 import com.google.javascript.rhino.TokenStream;
@@ -140,7 +141,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** IRFactory transforms the external AST to the internal AST. */
 class IRFactory {
@@ -182,15 +183,19 @@ class IRFactory {
   static final String UNEXPECTED_CONTINUE = "continue must be inside loop";
 
   static final String UNEXPECTED_LABELLED_CONTINUE =
-      "continue can only use labeles of iteration statements";
+      "continue can only use labels of iteration statements";
 
   static final String UNEXPECTED_RETURN = "return must be inside function";
+  static final String UNEXPECTED_YIELD = "yield must be inside generator function";
+  static final String UNEXPECTED_AWAIT = "await must be inside asynchronous function";
   static final String UNEXPECTED_NEW_DOT_TARGET = "new.target must be inside a function";
   static final String UNDEFINED_LABEL = "undefined label \"%s\"";
 
-  private final String sourceString;
   private final StaticSourceFile sourceFile;
-  private final String sourceName;
+  private final @Nullable String sourceName;
+  /** Source file reference that also contains the file content. */
+  private final SourceFile fileWithContent;
+
   private final Config config;
   private final ErrorReporter errorReporter;
   private final TransformDispatcher transformDispatcher;
@@ -220,12 +225,12 @@ class IRFactory {
           "yield");
 
   /** If non-null, use this set of keywords instead of TokenStream.isKeyword(). */
-  @Nullable private final Set<String> reservedKeywords;
+  private final @Nullable ImmutableSet<String> reservedKeywords;
 
   private final Set<Comment> parsedComments = new HashSet<>();
 
   private final LinkedHashSet<String> licenseBuilder = new LinkedHashSet<>();
-  private JSDocInfo firstFileoverview = null;
+  private @Nullable JSDocInfo firstFileoverview = null;
 
   // Use a template node for properties set on all nodes to minimize the
   // memory footprint associated with these.
@@ -240,15 +245,15 @@ class IRFactory {
   private Node resultNode;
 
   private IRFactory(
-      String sourceString,
       StaticSourceFile sourceFile,
       Config config,
       ErrorReporter errorReporter,
-      ImmutableList<Comment> comments) {
-    this.sourceString = sourceString;
+      ImmutableList<Comment> comments,
+      SourceFile fileWithContent) {
     this.jsdocTracker = new CommentTracker(comments, (c) -> c.type == Comment.Type.JSDOC);
     this.nonJsdocTracker = new CommentTracker(comments, (c) -> c.type != Comment.Type.JSDOC);
     this.sourceFile = sourceFile;
+    this.fileWithContent = fileWithContent;
     // The template node properties are applied to all nodes in this transform.
     this.templateNode = createTemplateNode();
 
@@ -280,6 +285,7 @@ class IRFactory {
       this.advance();
     }
 
+    @Nullable
     Comment current() {
       return (this.index >= this.source.size()) ? null : this.source.get(this.index);
     }
@@ -315,11 +321,11 @@ class IRFactory {
   public static IRFactory transformTree(
       ProgramTree tree,
       StaticSourceFile sourceFile,
-      String sourceString,
       Config config,
-      ErrorReporter errorReporter) {
+      ErrorReporter errorReporter,
+      SourceFile file) {
     IRFactory irFactory =
-        new IRFactory(sourceString, sourceFile, config, errorReporter, tree.sourceComments);
+        new IRFactory(sourceFile, config, errorReporter, tree.sourceComments, file);
 
     // don't call transform as we don't want standard jsdoc handling.
     Node n = irFactory.transformDispatcher.process(tree);
@@ -330,6 +336,17 @@ class IRFactory {
         if ((comment.type == Comment.Type.JSDOC || comment.type == Comment.Type.IMPORTANT)
             && !irFactory.parsedComments.contains(comment)) {
           irFactory.handlePossibleFileOverviewJsDoc(comment);
+        }
+      }
+
+      if (n.isScript()) {
+        SourcePosition endOfFilePos = tree.location.end;
+        // Handle end of file comments that are still pending
+        NonJSDocComment nonJSDocComment =
+            irFactory.parseNonJSDocCommentAt(endOfFilePos, /* isInline= */ false);
+        if (nonJSDocComment != null) {
+          // pending end-of-file comment exists && parsing mode is set to INCLUDE_ALL_COMMENTS
+          n.setTrailingNonJSDocComment(nonJSDocComment);
         }
       }
     }
@@ -377,15 +394,64 @@ class IRFactory {
     validateParameters(n);
     validateBreakContinue(n);
     validateReturn(n);
+    validateYield(n);
+    validateAwait(n);
     validateNewDotTarget(n);
     validateLabel(n);
     validateBlockScopedFunctions(n);
+  }
+
+  private void validateAwait(Node n) {
+    if (n.isAwait()) {
+      Node parent = n;
+      while ((parent = parent.getParent()) != null) {
+        // The await is in a class static block.
+        // e.g. `class C { static { await; } }`
+        if (parent.isClassMembers()) {
+          errorReporter.error(UNEXPECTED_AWAIT, sourceName, n.getLineno(), n.getCharno());
+          return;
+        }
+        if (parent.isAsyncFunction()) {
+          return;
+        } else if (parent.isFunction()) {
+          // The await is in a non-async function.
+          // e.g. `function f() { return await 5; }`
+          // nested function e.g. `async function f() { function f2() { return await 5; } }`
+          errorReporter.error(UNEXPECTED_AWAIT, sourceName, n.getLineno(), n.getCharno());
+          return;
+        }
+      }
+      errorReporter.error(UNEXPECTED_AWAIT, sourceName, n.getLineno(), n.getCharno());
+    }
+  }
+
+  private void validateYield(Node n) {
+    if (n.isYield()) {
+      Node parent = n;
+      while ((parent = parent.getParent()) != null) {
+        // The yield is in a class static block.
+        // e.g. `class C { static { yield; } }`
+        if (parent.isClassMembers()) {
+          errorReporter.error(UNEXPECTED_YIELD, sourceName, n.getLineno(), n.getCharno());
+          return;
+        }
+        if (parent.isGeneratorFunction()) {
+          return;
+        }
+      }
+    }
   }
 
   private void validateReturn(Node n) {
     if (n.isReturn()) {
       Node parent = n;
       while ((parent = parent.getParent()) != null) {
+        // The return is in a class static block.
+        // e.g. `class C { static { return; } }`
+        if (parent.isClassMembers()) {
+          errorReporter.error(UNEXPECTED_RETURN, sourceName, n.getLineno(), n.getCharno());
+          return;
+        }
         if (parent.isFunction()) {
           return;
         }
@@ -412,7 +478,7 @@ class IRFactory {
       if (labelName != null) {
         Node parent = n.getParent();
         while (!parent.isLabel() || !labelsMatch(parent, labelName)) {
-          if (parent.isFunction() || parent.isScript()) {
+          if (parent.isFunction() || parent.isScript() || parent.isClassMembers()) {
             // report missing label
             errorReporter.error(
                 SimpleFormat.format(UNDEFINED_LABEL, labelName.getString()),
@@ -434,7 +500,7 @@ class IRFactory {
         if (n.isContinue()) {
           Node parent = n.getParent();
           while (!isContinueTarget(parent)) {
-            if (parent.isFunction() || parent.isScript()) {
+            if (parent.isFunction() || parent.isScript() || parent.isClassMembers()) {
               // report invalid continue
               errorReporter.error(UNEXPECTED_CONTINUE, sourceName, n.getLineno(), n.getCharno());
               break;
@@ -444,7 +510,7 @@ class IRFactory {
         } else {
           Node parent = n.getParent();
           while (!isBreakTarget(parent)) {
-            if (parent.isFunction() || parent.isScript()) {
+            if (parent.isFunction() || parent.isScript() || parent.isClassMembers()) {
               // report invalid break
               errorReporter.error(UNLABELED_BREAK, sourceName, n.getLineno(), n.getCharno());
               break;
@@ -557,7 +623,9 @@ class IRFactory {
     return newBlock;
   }
 
-  /** @return true if the jsDocParser represents a fileoverview. */
+  /**
+   * @return true if the jsDocParser represents a fileoverview.
+   */
   private boolean handlePossibleFileOverviewJsDoc(JsDocInfoParser jsDocParser) {
     if (jsDocParser.getLicenseText() != null) {
       this.licenseBuilder.add(jsDocParser.getLicenseText());
@@ -602,7 +670,7 @@ class IRFactory {
     return closestPreviousComment;
   }
 
-  private JSDocInfo parseJSDocInfoFrom(Comment comment) {
+  private @Nullable JSDocInfo parseJSDocInfoFrom(Comment comment) {
     if (comment != null) {
       JsDocInfoParser jsDocParser = createJsDocInfoParser(comment);
       parsedComments.add(comment);
@@ -613,7 +681,7 @@ class IRFactory {
     return null;
   }
 
-  private JSDocInfo parseJSDocInfoOnTree(ParseTree tree) {
+  private @Nullable JSDocInfo parseJSDocInfoOnTree(ParseTree tree) {
     switch (tree.type) {
       case EXPRESSION_STATEMENT:
       case LABELLED_STATEMENT:
@@ -659,8 +727,7 @@ class IRFactory {
    *
    * <p>It would be legal to replace all comments associated with this node with that one string.
    */
-  @Nullable
-  private NonJSDocComment parseNonJSDocCommentAt(SourcePosition pos, boolean isInline) {
+  private @Nullable NonJSDocComment parseNonJSDocCommentAt(SourcePosition pos, boolean isInline) {
     if (config.jsDocParsingMode() != JsDocParsing.INCLUDE_ALL_COMMENTS) {
       return null;
     }
@@ -694,6 +761,55 @@ class IRFactory {
             firstComment.location.start, lastComment.location.end, result.toString());
     nonJSDocComment.setEndsAsLineComment(lastComment.type == Comment.Type.LINE);
     nonJSDocComment.setIsInline(isInline);
+    return nonJSDocComment;
+  }
+
+  /**
+   * Creates a single NonJSDocComment from the comment immediately following this node; or null if
+   * there is no such comment.
+   *
+   * @param tokenEnd The end position after which we're looking for a trailing comment
+   * @param possibleNextTokenStart last source position that we're interested in when looking for a
+   *     trailing comment
+   */
+  private @Nullable NonJSDocComment parseTrailingNonJSDocCommentAt(
+      SourcePosition tokenEnd, SourcePosition possibleNextTokenStart) {
+    if (config.jsDocParsingMode() != JsDocParsing.INCLUDE_ALL_COMMENTS) {
+      return null;
+    }
+
+    if (!this.nonJsdocTracker.hasPendingCommentBefore(possibleNextTokenStart)) {
+      return null;
+    }
+
+    StringBuilder result = new StringBuilder();
+    Comment comment = this.nonJsdocTracker.current();
+
+    // Disregard comments that don't start on the same line
+    if (tokenEnd.line != comment.location.start.line) {
+      return null;
+    }
+
+    // Disregard comments that may be within the current statement
+    if (comment.location.start.offset <= tokenEnd.offset) {
+      return null;
+    }
+
+    // Check if there are only whitespace characters between the current token and the start of the
+    // comment.
+    String preCommentText =
+        this.fileWithContent.contents.substring(tokenEnd.offset + 1, comment.location.start.offset);
+
+    if (!preCommentText.trim().isEmpty()) {
+      return null;
+    }
+    // TODO(user): handle multiple trailing comments like /* c1 */ /* c2 */ // c3
+    result.append(comment.value);
+    this.nonJsdocTracker.advance();
+
+    NonJSDocComment nonJSDocComment =
+        new NonJSDocComment(comment.location.start, comment.location.end, result.toString());
+    nonJSDocComment.setEndsAsLineComment(comment.type == Comment.Type.LINE);
     return nonJSDocComment;
   }
 
@@ -932,6 +1048,8 @@ class IRFactory {
     node.setLength(ref.getLength());
   }
 
+  private static final QualifiedName GOOG_MODULE = QualifiedName.of("goog.module");
+
   private class TransformDispatcher {
 
     /**
@@ -1076,7 +1194,9 @@ class IRFactory {
       // Store in AST as non-shorthand form & just note it was originally shorthand
       // {name: /**inlineType */ name = default }
       Node nameNode = defaultValueNode.getFirstChild();
-      Node stringKeyNode = newStringNode(Token.STRING_KEY, nameNode.getString());
+      Node stringKeyNode =
+          newStringNodeWithNonJSDocComment(
+              Token.STRING_KEY, nameNode.getString(), defaultParameter.getStart());
       setSourceInfo(stringKeyNode, nameNode);
       stringKeyNode.setShorthandProperty(true);
       stringKeyNode.addChildToBack(defaultValueNode);
@@ -1189,7 +1309,9 @@ class IRFactory {
       if (!call.isCall()) {
         return false;
       }
-      return call.getFirstChild().matchesQualifiedName("goog.module");
+      return GOOG_MODULE.matches(call.getFirstChild())
+          && call.hasTwoChildren()
+          && call.getSecondChild().isStringLit();
     }
 
     /**
@@ -1225,9 +1347,13 @@ class IRFactory {
     Node processBlock(BlockTree blockNode) {
       Node node = newNode(Token.BLOCK);
       for (ParseTree child : blockNode.statements) {
-        node.addChildToBack(transform(child));
+        Node childNode = transform(child);
+        node.addChildToBack(childNode);
+        attachPossibleTrailingComment(childNode, child.getEnd());
       }
-      return node;
+
+      NonJSDocComment lastComment = parseNonJSDocCommentAt(blockNode.getEnd(), false);
+      return addExtraTrailingComment(node, lastComment);
     }
 
     Node processBreakStatement(BreakStatementTree statementNode) {
@@ -1240,7 +1366,8 @@ class IRFactory {
     }
 
     Node transformLabelName(IdentifierToken token) {
-      Node label = newStringNode(Token.LABEL_NAME, token.value);
+      Node label =
+          newStringNodeWithNonJSDocComment(Token.LABEL_NAME, token.value, token.getStart());
       setSourceInfo(label, token);
       return label;
     }
@@ -1282,7 +1409,9 @@ class IRFactory {
       return getElem;
     }
 
-    /** @param exprNode unused */
+    /**
+     * @param exprNode unused
+     */
     Node processEmptyStatement(EmptyStatementTree exprNode) {
       return newNode(Token.EMPTY);
     }
@@ -1440,7 +1569,7 @@ class IRFactory {
             SourcePosition tempSourcePos =
                 new SourcePosition(
                     null,
-                    Integer.MAX_VALUE /* offset */,
+                    /* offset= */ Integer.MAX_VALUE,
                     arg.location.end.line,
                     Integer.MAX_VALUE /*col */);
             zones.add(tempSourcePos);
@@ -1469,15 +1598,79 @@ class IRFactory {
       if (trailingComment == null) {
         return;
       }
+      paramNode.setTrailingNonJSDocComment(trailingComment);
+    }
 
-      NonJSDocComment nonTrailingComment = paramNode.getNonJSDocComment();
-      if (nonTrailingComment != null) {
-        // This node has both trailing and non-trailing comment
-        nonTrailingComment.appendTrailingCommentToNonTrailing(trailingComment);
-      } else {
-        trailingComment.setIsTrailing(true);
-        paramNode.setNonJSDocComment(trailingComment);
+    /**
+     * Attaches trailing comments associated with this node.
+     *
+     * @param node The node to which we're attaching trailing comment
+     * @param tokenEnd The end location after which we're looking for a trailing comment
+     */
+    void attachPossibleTrailingComment(Node node, SourcePosition tokenEnd) {
+      // Check for pending comments on the rest of the current line.
+      SourcePosition nextLine = new SourcePosition(null, Integer.MAX_VALUE, tokenEnd.line + 1, 0);
+      NonJSDocComment trailingComment = parseTrailingNonJSDocCommentAt(tokenEnd, nextLine);
+      if (trailingComment == null) {
+        return;
       }
+      node.setTrailingNonJSDocComment(trailingComment);
+    }
+
+    Node addExtraTrailingComment(Node node, NonJSDocComment lastComment) {
+      if (lastComment == null) {
+        return node;
+      }
+      if (!node.hasChildren()) {
+        node.setTrailingNonJSDocComment(lastComment);
+        return node;
+      }
+
+      Node lastChild = node.getLastChild();
+      NonJSDocComment currentComment = lastChild.getTrailingNonJSDocComment();
+
+      if (currentComment == null) {
+        // We add a line break here as this is cannot be a trailing comment on the same line as the
+        // last child.
+        // TODO(user): pass in proper child tree end position to get the number of line breaks
+        // right.
+        SourcePosition newStart =
+            new SourcePosition(
+                /* file */ null,
+                lastComment.getEndPosition().offset - 1,
+                lastComment.getEndPosition().line - 1,
+                0);
+
+        NonJSDocComment newlineComment =
+            new NonJSDocComment(
+                newStart, lastComment.getEndPosition(), "\n" + lastComment.getCommentString());
+        node.getLastChild().setTrailingNonJSDocComment(newlineComment);
+        return node;
+      }
+
+      int blankLines = lastComment.getStartPosition().line - currentComment.getEndPosition().line;
+      int numWhiteSpace = 0;
+      if (blankLines == 0) {
+        numWhiteSpace =
+            lastComment.getStartPosition().column - currentComment.getEndPosition().column - 1;
+      }
+
+      StringBuilder comment = new StringBuilder().append(currentComment.getCommentString());
+      for (int i = 0; i < numWhiteSpace; i++) {
+        comment.append(" ");
+      }
+      for (int i = 0; i < blankLines; i++) {
+        comment.append("\n");
+      }
+      comment.append(lastComment.getCommentString());
+
+      NonJSDocComment allComments =
+          new NonJSDocComment(
+              currentComment.getStartPosition(), lastComment.getEndPosition(), comment.toString());
+      allComments.setEndsAsLineComment(lastComment.isEndingAsLineComment());
+      allComments.setIsInline(true);
+      node.getLastChild().setTrailingNonJSDocComment(allComments);
+      return node;
     }
 
     Node processOptChainFunctionCall(OptChainCallExpressionTree callNode) {
@@ -1563,6 +1756,8 @@ class IRFactory {
       node.setIsAsyncFunction(isAsync);
       node.putBooleanProp(Node.OPT_ES6_TYPED, functionTree.isOptional);
 
+      attachPossibleTrailingComment(node, functionTree.getEnd());
+
       Node result;
 
       if (isMember) {
@@ -1584,7 +1779,9 @@ class IRFactory {
     Node processField(FieldDeclarationTree tree) {
       maybeWarnForFeature(tree, Feature.PUBLIC_CLASS_FIELDS);
 
-      Node node = newStringNode(Token.MEMBER_FIELD_DEF, tree.name.value);
+      Node node =
+          newStringNodeWithNonJSDocComment(
+              Token.MEMBER_FIELD_DEF, tree.name.value, tree.getStart());
       if (tree.initializer != null) {
         Node initializer = transform(tree.initializer);
         node.addChildToBack(initializer);
@@ -1728,14 +1925,15 @@ class IRFactory {
     }
 
     Node processBinaryExpression(BinaryOperatorTree exprNode) {
-      if (jsdocTracker.hasPendingCommentBefore(exprNode.right.location.start)) {
+      if (jsdocTracker.hasPendingCommentBefore(exprNode.right.location.start)
+          || nonJsdocTracker.hasPendingCommentBefore(exprNode.right.location.start)) {
         markBinaryExpressionFeatures(exprNode);
         return newNode(
             transformBinaryTokenType(exprNode.operator.type),
             transform(exprNode.left),
             transform(exprNode.right));
       } else {
-        // No JSDoc, we can traverse out of order.
+        // No pending comments, we can traverse out of order.
         return processBinaryExpressionHelper(exprNode);
       }
     }
@@ -1782,12 +1980,16 @@ class IRFactory {
       return root;
     }
 
-    /** @param node unused. */
+    /**
+     * @param node unused.
+     */
     Node processDebuggerStatement(DebuggerStatementTree node) {
       return newNode(Token.DEBUGGER);
     }
 
-    /** @param node unused. */
+    /**
+     * @param node unused.
+     */
     Node processThisExpression(ThisExpressionTree node) {
       return newNode(Token.THIS);
     }
@@ -1965,7 +2167,7 @@ class IRFactory {
 
         Node key = transform(el);
         if (!key.isComputedProp()
-            && !key.isQuotedString()
+            && !key.isQuotedStringKey()
             && !key.isSpread()
             && !currentFileIsExterns) {
           maybeWarnKeywordProperty(key);
@@ -2069,7 +2271,9 @@ class IRFactory {
       if (tree.value != null) {
         key.addChildToFront(transform(tree.value));
       } else {
-        Node value = newStringNode(Token.NAME, key.getString()).srcref(key);
+        Node value =
+            newStringNodeWithNonJSDocComment(Token.NAME, key.getString(), tree.name.getStart())
+                .srcref(key);
         key.setShorthandProperty(true);
         key.addChildToFront(value);
       }
@@ -2078,7 +2282,7 @@ class IRFactory {
 
     private void checkParenthesizedExpression(ParenExpressionTree exprNode) {
       if (exprNode.expression.type == ParseTreeType.COMMA_EXPRESSION) {
-        List<ParseTree> commaNodes = exprNode.expression.asCommaExpression().expressions;
+        ImmutableList<ParseTree> commaNodes = exprNode.expression.asCommaExpression().expressions;
         ParseTree lastChild = Iterables.getLast(commaNodes);
         if (lastChild.type == ParseTreeType.ITER_REST) {
           errorReporter.error(
@@ -2104,7 +2308,9 @@ class IRFactory {
         return leftChild;
       }
 
-      Node getProp = newStringNode(Token.GETPROP, propName.value);
+      Node getProp =
+          newStringNodeWithNonJSDocComment(
+              Token.GETPROP, propName.value, getNode.memberName.getStart());
       getProp.addChildToBack(leftChild);
       setSourceInfo(getProp, propName);
       maybeWarnKeywordProperty(getProp);
@@ -2120,7 +2326,9 @@ class IRFactory {
         return leftChild;
       }
 
-      Node getProp = newStringNode(Token.OPTCHAIN_GETPROP, propName.value);
+      Node getProp =
+          newStringNodeWithNonJSDocComment(
+              Token.OPTCHAIN_GETPROP, propName.value, getNode.memberName.getStart());
       getProp.addChildToBack(leftChild);
       getProp.setIsOptionalChainStart(getNode.isStartOfOptionalChain);
       setSourceInfo(getProp, propName);
@@ -2167,6 +2375,9 @@ class IRFactory {
           case 's':
             maybeWarnForFeature(tree, Feature.REGEXP_FLAG_S);
             break;
+          case 'd':
+            maybeWarnForFeature(tree, Feature.REGEXP_FLAG_D);
+            break;
           default:
             errorReporter.error(
                 "Invalid RegExp flag '" + flag + "'", sourceName, lineno(tree), charno(tree));
@@ -2184,30 +2395,7 @@ class IRFactory {
 
     Node processStringLiteral(LiteralExpressionTree literalTree) {
       LiteralToken token = literalTree.literalToken.asLiteral();
-
-      Node n = processString(token);
-      String value = n.getString();
-      if (value.indexOf('\u000B') != -1) {
-        // NOTE(nicksantos): In JavaScript, there are 3 ways to
-        // represent a vertical tab: \v, \x0B, \u000B.
-        // The \v notation was added later, and is not understood
-        // on IE. So we need to preserve it as-is. This is really
-        // obnoxious, because we do not have a good way to represent
-        // how the original string was encoded without making the
-        // representation of strings much more complicated.
-        //
-        // To handle this, we look at the original source test, and
-        // mark the string as \v-encoded or not. If a string is
-        // \v encoded, then all the vertical tabs in that string
-        // will be encoded with a \v.
-        int start = token.location.start.offset;
-        int end = token.location.end.offset;
-        if (start < sourceString.length()
-            && (sourceString.substring(start, min(sourceString.length(), end)).contains("\\v"))) {
-          n.putBooleanProp(Node.SLASH_V, true);
-        }
-      }
-      return n;
+      return processString(token);
     }
 
     Node processTemplateLiteral(TemplateLiteralExpressionTree tree) {
@@ -2400,6 +2588,8 @@ class IRFactory {
       for (VariableDeclarationTree child : decl.declarations) {
         node.addChildToBack(transformNodeWithInlineComments(child));
       }
+
+      attachPossibleTrailingComment(node, decl.getEnd());
       return node;
     }
 
@@ -2422,7 +2612,9 @@ class IRFactory {
       return newNode(Token.WITH, transform(stmt.expression), transformBlock(stmt.body));
     }
 
-    /** @param tree unused */
+    /**
+     * @param tree unused
+     */
     Node processMissingExpression(MissingPrimaryExpressionTree tree) {
       // This will already have been reported as an error by the parser.
       // Try to create something valid that ide mode might be able to
@@ -2467,12 +2659,16 @@ class IRFactory {
       return newNode(transformBooleanTokenType(literal.literalToken.type));
     }
 
-    /** @param literal unused */
+    /**
+     * @param literal unused
+     */
     Node processNullLiteral(LiteralExpressionTree literal) {
       return newNode(Token.NULL);
     }
 
-    /** @param literal unused */
+    /**
+     * @param literal unused
+     */
     Node processNull(NullTree literal) {
       // NOTE: This is not a NULL literal but a placeholder node such as in
       // an array with "holes".
@@ -2519,6 +2715,9 @@ class IRFactory {
           case SET_ACCESSOR:
             features = features.with(Feature.CLASS_GETTER_SETTER);
             break;
+          case BLOCK:
+            features = features.with(Feature.CLASS_STATIC_BLOCK);
+            break;
           default:
             break;
         }
@@ -2538,7 +2737,10 @@ class IRFactory {
         body.addChildToBack(transform(child));
       }
 
-      return newNode(Token.CLASS, name, superClass, body);
+      Node classNode = newNode(Token.CLASS, name, superClass, body);
+      attachPossibleTrailingComment(classNode, tree.getEnd());
+
+      return classNode;
     }
 
     /** Returns {@code true} iff this member is a legal class constructor. */
@@ -2798,7 +3000,7 @@ class IRFactory {
           return processBreakStatement(node.asBreakStatement());
         case CALL_EXPRESSION:
           return processFunctionCall(node.asCallExpression());
-        case OPT_CHAIN__CALL_EXPRESSION:
+        case OPT_CHAIN_CALL_EXPRESSION:
           return processOptChainFunctionCall(node.asOptChainCallExpression());
         case CASE_CLAUSE:
           return processSwitchCase(node.asCaseClause());
@@ -2951,8 +3153,6 @@ class IRFactory {
         case OBJECT_SPREAD:
           return processObjectSpread(node.asObjectSpread());
 
-
-
           // ES2022
         case FIELD_DECLARATION:
           return processField(node.asFieldDeclaration());
@@ -2994,7 +3194,7 @@ class IRFactory {
    * in pre-order traversal or `null` if none found. Will not traverse into function or class
    * expressions.
    */
-  private static Node findNodeTypeInExpression(Node expressionNode, Token token) {
+  private static @Nullable Node findNodeTypeInExpression(Node expressionNode, Token token) {
     Deque<Node> worklist = new ArrayDeque<>();
     worklist.add(expressionNode);
     while (!worklist.isEmpty()) {
@@ -3612,7 +3812,17 @@ class IRFactory {
     return Node.newString(type, value).clonePropsFrom(templateNode);
   }
 
-  Node newTemplateLitStringNode(String cooked, String raw) {
+  /** Creates a new string node and attaches any pending JSDoc comments for it. */
+  Node newStringNodeWithNonJSDocComment(Token type, String value, SourcePosition start) {
+    Node node = newStringNode(type, value);
+    NonJSDocComment comment = parseNonJSDocCommentAt(start, false);
+    if (comment != null) {
+      node.setNonJSDocComment(comment);
+    }
+    return node;
+  }
+
+  Node newTemplateLitStringNode(@Nullable String cooked, String raw) {
     return Node.newTemplateLitString(cooked, raw).clonePropsFrom(templateNode);
   }
 

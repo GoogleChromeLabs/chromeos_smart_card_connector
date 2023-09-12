@@ -16,7 +16,7 @@
 package com.google.javascript.jscomp;
 
 /** Common errors for Closure primitives that are reported in multiple passses. */
-final class ClosurePrimitiveErrors {
+public final class ClosurePrimitiveErrors {
 
   private ClosurePrimitiveErrors() {}
 
@@ -29,6 +29,11 @@ final class ClosurePrimitiveErrors {
       DiagnosticType.error(
           "JSC_DUPLICATE_NAMESPACE",
           "Duplicate namespace: {0}. Namespace already provided in other file {1}");
+
+  public static final DiagnosticType DUPLICATE_NAMESPACE_AND_MODULE =
+      DiagnosticType.error(
+          "JSC_DUPLICATE_NAMESPACE_AND_MODULE",
+          "Duplicate module: {0}. Module already goog.provided in other file {1}");
 
   static final DiagnosticType INVALID_DESTRUCTURING_FORWARD_DECLARE =
       DiagnosticType.error(
@@ -50,6 +55,11 @@ final class ClosurePrimitiveErrors {
       DiagnosticType.error(
           "JSC_GOOG_MODULE_INVALID_GET_NAMESPACE",
           "goog.module.get parameter must be a string literal.");
+
+  static final DiagnosticType INVALID_REQUIRE_DYNAMIC =
+      DiagnosticType.error(
+          "JSC_GOOG_MODULE_INVALID_REQUIRE_DYNAMIC_NAMESPACE",
+          "goog.requireDynamic parameter must be a string literal.");
 
   static final DiagnosticType INVALID_REQUIRE_NAMESPACE =
       DiagnosticType.error(
@@ -73,7 +83,7 @@ final class ClosurePrimitiveErrors {
   static final DiagnosticType INVALID_GET_CALL_SCOPE =
       DiagnosticType.error(
           "JSC_GOOG_MODULE_INVALID_GET_CALL_SCOPE",
-          "goog.module.get can not be called in global scope.");
+          "goog.module.get values should not be assigned to global variables.");
 
   static final DiagnosticType INVALID_CLOSURE_CALL_SCOPE_ERROR =
       DiagnosticType.error(

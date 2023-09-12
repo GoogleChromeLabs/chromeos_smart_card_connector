@@ -26,6 +26,7 @@ import com.google.javascript.rhino.Node;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
+import org.jspecify.nullness.Nullable;
 
 /**
  * A compiler pass to optimize function return results. Currently this pass looks for results that
@@ -42,7 +43,7 @@ class OptimizeReturns implements OptimizeCalls.CallGraphCompilerPass, CompilerPa
   private final AbstractCompiler compiler;
 
   // Allocated & cleaned up by process()
-  private LogFile decisionsLog;
+  private @Nullable LogFile decisionsLog;
 
   OptimizeReturns(AbstractCompiler compiler) {
     this.compiler = compiler;
@@ -117,7 +118,9 @@ class OptimizeReturns implements OptimizeCalls.CallGraphCompilerPass, CompilerPa
         if (NodeUtil.isExpressionResultUsed(callNode)) {
           // At least one call site uses the return value, this
           // is not a candidate.
-          decisionsLog.log("%s\treturn value used: %s", name, callNode.getLocation());
+          if (decisionsLog.isLogging()) { // avoid build location string when not logging
+            decisionsLog.log("%s\treturn value used: %s", name, callNode.getLocation());
+          }
           return false;
         }
         seenUse = true;
@@ -130,7 +133,9 @@ class OptimizeReturns implements OptimizeCalls.CallGraphCompilerPass, CompilerPa
         // If this isn't an non-aliasing reference (typeof, instanceof, etc)
         // then there is nothing that can be done.
         if (!OptimizeCalls.isAllowedReference(n)) {
-          decisionsLog.log("%s\tdisallowed reference: %s", name, n.getLocation());
+          if (decisionsLog.isLogging()) { // avoid build location string when not logging
+            decisionsLog.log("%s\tdisallowed reference: %s", name, n.getLocation());
+          }
           return false;
         }
       }

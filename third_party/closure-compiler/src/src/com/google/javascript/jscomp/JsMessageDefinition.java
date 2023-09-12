@@ -16,40 +16,72 @@
 
 package com.google.javascript.jscomp;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.javascript.rhino.Node;
+import org.jspecify.nullness.Nullable;
 
 /**
- * Container class that holds information about JS message source.
- *
- * This class is specific to our JsMessage syntax. Allows you to use the
- * new-style or the old-style messages.
- *
- * Old-style:
- * <code>
- * var MSG_LEOPARD = 'Leopard';
- * var MSG_LEOPARD_HELP = 'The Leopard operating system';
- * </code>
- *
- * New-style:
- * <code>
- * /** @desc The leopard operating system * /
- * var MSG_LEOPARD = goog.getMsg('Leopard');
- * </code>
+ * Container class that holds a {@link JsMessage} and information about the {@code goog.getMsg()}
+ * call it was built from.
  */
-public final class JsMessageDefinition {
+public interface JsMessageDefinition {
 
-  private final Node messageNode;
+  /** The JsMessage object built from the `goog.getMsg()` call. */
+  JsMessage getMessage();
 
   /**
-   * Constructs JS message definition.
-   * @param messageNode A node that contains the message. It could be node with
-   *     goog.getMsg() call or string/function for old-style messages.
+   * The RHS node of the message assignment statement.
+   *
+   * <p>e.g. The <code>goog.getMsg()</code> call in:
+   *
+   * <pre><code>
+   *   const MSG_HELLO =
+   *       goog.getMsg(
+   *           'Hello, {$name}.',
+   *           { 'name', getName() },
+   *           { unescapeHtmlEntities: true });
+   * </code></pre>
    */
-  JsMessageDefinition(Node messageNode) {
-    this.messageNode = messageNode;
-  }
+  Node getMessageNode();
 
-  public Node getMessageNode() {
-    return messageNode;
-  }
+  /**
+   * The Node representing the message text template.
+   *
+   * <p>This node may be a literal string or a concatenation of literal strings.
+   *
+   * <p>For a {@code goog.getMsg()} call this is the first argument.
+   */
+  Node getTemplateTextNode();
+
+  /**
+   * The object literal {@link Node} that maps placeholder names to expressions providing their
+   * values.
+   *
+   * <p>This value will be {@code null} if the message definition didn't specify placeholder values.
+   */
+  @Nullable Node getPlaceholderValuesNode();
+
+  /**
+   * A map from placehlolder name to the Node assigned to it in the values map argument of
+   * `goog.getMsg()`.
+   *
+   * <p>This will be an empty map if there was no object or it was an empty object literal.
+   */
+  ImmutableMap<String, Node> getPlaceholderValueMap();
+
+  /**
+   * The value of the 'html' options key in the options bag argument.
+   *
+   * <p>This value will be <code>false</code> if there was no options bag argument, or if it didn't
+   * contain an 'html' property.
+   */
+  boolean shouldEscapeLessThan();
+
+  /**
+   * The value of the 'unescapeHtmlEntities' options key in the options bag argument.
+   *
+   * <p>This value will be <code>false</code> if there was no options bag argument, or if it didn't
+   * contain an 'unescapeHtmlEntities' property.
+   */
+  boolean shouldUnescapeHtmlEntities();
 }

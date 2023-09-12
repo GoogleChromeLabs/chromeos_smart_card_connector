@@ -26,7 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.ExpressionDecomposer.DecompositionType;
-import com.google.javascript.jscomp.parsing.parser.util.format.SimpleFormat;
+import com.google.javascript.jscomp.base.format.SimpleFormat;
 import com.google.javascript.jscomp.type.SemanticReverseAbstractInterpreter;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
@@ -36,7 +36,7 @@ import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Function;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -49,7 +49,8 @@ public final class ExpressionDecomposerTest {
   private final Set<String> knownConstants = new HashSet<>();
 
   /** The language out to set in the compiler options. If null, use the default. */
-  @Nullable private LanguageMode languageOut;
+  private @Nullable LanguageMode languageOut;
+
   // Whether we should run type checking and test the type information in the output expression
   private boolean shouldTestTypes;
 
@@ -479,6 +480,42 @@ public final class ExpressionDecomposerTest {
         DecompositionType.UNDECOMPOSABLE,
         "[{ [foo()]: a } = goo()] = arr;",
         exprMatchesStr("foo()"));
+
+    helperExposeExpression(
+        lines(
+            "var Di = I(() => {",
+            "  function zv() {",
+            "    JSCOMPILER_PRESERVE(e), [getObj().propName] = CN();",
+            "  }",
+            "  function CN() {",
+            "    let t;",
+            "  }",
+            "});"),
+        exprMatchesStr("CN()"),
+        lines(
+            "var Di = I(() => {",
+            "  function zv() {",
+            "    var temp_const$jscomp$1 = JSCOMPILER_PRESERVE(e);",
+            "    var temp_const$jscomp$0 = getObj().propName;",
+            "    temp_const$jscomp$1, [temp_const$jscomp$0] = CN();",
+            "  }",
+            "  function CN() {",
+            "    let t;",
+            "  }",
+            "});"));
+
+    helperCanExposeExpression(
+        DecompositionType.DECOMPOSABLE,
+        lines(
+            "var Di = I(() => {",
+            "  function zv() {",
+            "    JSCOMPILER_PRESERVE(e), [f] = CN();",
+            "  }",
+            "  function CN() {",
+            "    let t;",
+            "  }",
+            "});"),
+        exprMatchesStr("CN()"));
   }
 
   @Test
@@ -1382,6 +1419,25 @@ public final class ExpressionDecomposerTest {
   }
 
   @Test
+  public void testExposeTemplateLiteralFreeCall() {
+    helperExposeExpression(
+        "foo`${x()}${y()}`",
+        exprMatchesStr("y()"),
+        lines(
+            "var temp_const$jscomp$1 = foo;",
+            "var temp_const$jscomp$0 = x();",
+            "temp_const$jscomp$1`${temp_const$jscomp$0}${y()}`;"));
+  }
+
+  @Test
+  public void testCanExposeTaggedTemplateLiteralInterpolation() {
+    helperCanExposeExpression(DecompositionType.DECOMPOSABLE, "x`${y()}`", exprMatchesStr("y()"));
+    // TODO(b/251958225): Implement decomposition for this case.
+    helperCanExposeExpression(
+        DecompositionType.UNDECOMPOSABLE, "x.foo`${y()}`", exprMatchesStr("y()"));
+  }
+
+  @Test
   public void testExposeExpression18() {
     helperExposeExpression(
         lines("const {a, b, c} = condition ?", "  y() :", "  {a: 0, b: 0, c: 1};"),
@@ -1667,10 +1723,10 @@ public final class ExpressionDecomposerTest {
         exprMatchesStr("foo()"),
         lines(
             "let x = {};", //
-            "let $jscomp$logical$assign$tmpm1879438141$0;",
-            "if (($jscomp$logical$assign$tmpm1879438141$0 = x).a) {",
+            "let $jscomp$logical$assign$tmpm1146332801$0;",
+            "if (($jscomp$logical$assign$tmpm1146332801$0 = x).a) {",
             "} else {",
-            "   var temp_const$jscomp$1 = $jscomp$logical$assign$tmpm1879438141$0;",
+            "   var temp_const$jscomp$1 = $jscomp$logical$assign$tmpm1146332801$0;",
             "   temp_const$jscomp$1.a = foo() + 1;",
             "}"));
     helperExposeExpression(
@@ -1678,12 +1734,12 @@ public final class ExpressionDecomposerTest {
         exprMatchesStr("foo()"),
         lines(
             "let x = {};", //
-            "let $jscomp$logical$assign$tmpm1879438141$0;",
-            "let $jscomp$logical$assign$tmpindexm1879438141$0;",
-            "if (($jscomp$logical$assign$tmpm1879438141$0 = x)",
-            "    [$jscomp$logical$assign$tmpindexm1879438141$0 = a]) {",
-            "    var temp_const$jscomp$2 = $jscomp$logical$assign$tmpm1879438141$0;",
-            "    var temp_const$jscomp$1 = $jscomp$logical$assign$tmpindexm1879438141$0;",
+            "let $jscomp$logical$assign$tmpm1146332801$0;",
+            "let $jscomp$logical$assign$tmpindexm1146332801$0;",
+            "if (($jscomp$logical$assign$tmpm1146332801$0 = x)",
+            "    [$jscomp$logical$assign$tmpindexm1146332801$0 = a]) {",
+            "    var temp_const$jscomp$2 = $jscomp$logical$assign$tmpm1146332801$0;",
+            "    var temp_const$jscomp$1 = $jscomp$logical$assign$tmpindexm1146332801$0;",
             "    temp_const$jscomp$2[temp_const$jscomp$1] = foo() + 1;",
             "}"));
   }
@@ -2154,8 +2210,7 @@ public final class ExpressionDecomposerTest {
     compiler.setTypeCheckingHasRun(true);
   }
 
-  @Nullable
-  private static Node findClass(Node n) {
+  private static @Nullable Node findClass(Node n) {
     if (n.isClass()) {
       return n;
     }

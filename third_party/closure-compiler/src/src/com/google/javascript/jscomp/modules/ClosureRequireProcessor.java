@@ -23,7 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.javascript.jscomp.NodeUtil;
 import com.google.javascript.jscomp.modules.Binding.CreatedBy;
 import com.google.javascript.rhino.Node;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Handles creating an {@link Import} from goog.require(Type) or goog.forwardDeclare.
@@ -42,16 +42,15 @@ final class ClosureRequireProcessor {
     /** An {@link Import} containing all metadata about this require */
     abstract Import importRecord();
     /** Whether this is a goog.require, goog.requireType, or goog.forwardDeclare */
-    abstract Binding.CreatedBy createdBy();
+    abstract CreatedBy createdBy();
 
-    private static Require create(
-        String localName, Import importRecord, Binding.CreatedBy createdBy) {
+    private static Require create(String localName, Import importRecord, CreatedBy createdBy) {
       checkArgument(createdBy.isClosureImport());
       return new AutoValue_ClosureRequireProcessor_Require(localName, importRecord, createdBy);
     }
   }
 
-  private ClosureRequireProcessor(Node nameDeclaration, Binding.CreatedBy requireKind) {
+  private ClosureRequireProcessor(Node nameDeclaration, CreatedBy requireKind) {
     checkArgument(NodeUtil.isNameDeclaration(nameDeclaration));
     this.nameDeclaration = nameDeclaration;
     this.requireKind = requireKind;
@@ -69,7 +68,7 @@ final class ClosureRequireProcessor {
             ? nameDeclaration.getFirstChild().getSecondChild()
             : nameDeclaration.getFirstFirstChild();
     // This may be a require, requireType, or forwardDeclare.
-    Binding.CreatedBy requireKind = getModuleDependencyTypeFromRhs(rhs);
+    CreatedBy requireKind = getModuleDependencyTypeFromRhs(rhs);
     if (requireKind == null) {
       return ImmutableList.of();
     }
@@ -92,8 +91,7 @@ final class ClosureRequireProcessor {
    *
    * @return A Closure require (where {@link CreatedBy#isClosureImport()} is true) or null.
    */
-  @Nullable
-  private static CreatedBy getModuleDependencyTypeFromRhs(@Nullable Node value) {
+  private static @Nullable CreatedBy getModuleDependencyTypeFromRhs(@Nullable Node value) {
     if (value == null
         || !value.isCall()
         || !value.hasTwoChildren()

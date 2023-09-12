@@ -22,7 +22,7 @@ import com.google.javascript.rhino.Node;
 final class J2clStringValueOfRewriterPass extends AbstractPeepholeOptimization {
 
   private static final String METHOD_NAME =
-      "module$exports$java$lang$String$impl.m_valueOf__java_lang_Object";
+      "module$exports$java$lang$String$impl.m_valueOf__java_lang_Object__java_lang_String";
 
   private boolean shouldRunJ2clPasses = false;
 

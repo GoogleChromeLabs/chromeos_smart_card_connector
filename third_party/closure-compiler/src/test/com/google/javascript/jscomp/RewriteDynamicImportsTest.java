@@ -32,6 +32,7 @@ import com.google.javascript.jscomp.testing.TestExternsBuilder;
 import com.google.javascript.jscomp.type.ReverseAbstractInterpreter;
 import com.google.javascript.jscomp.type.SemanticReverseAbstractInterpreter;
 import com.google.javascript.rhino.Node;
+import org.jspecify.nullness.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,9 +41,9 @@ import org.junit.runners.JUnit4;
 /** Unit tests for {@link RewriteDynamicImports} */
 @RunWith(JUnit4.class)
 public class RewriteDynamicImportsTest extends CompilerTestCase {
-  private String dynamicImportAlias = "imprt_";
-  private LanguageMode language = null;
-  private LanguageMode languageIn = null;
+  private @Nullable String dynamicImportAlias = "imprt_";
+  private @Nullable LanguageMode language = null;
+  private @Nullable LanguageMode languageIn = null;
   private ChunkOutputType chunkOutputType = ChunkOutputType.GLOBAL_NAMESPACE;
 
   public RewriteDynamicImportsTest() {
@@ -55,7 +56,6 @@ public class RewriteDynamicImportsTest extends CompilerTestCase {
     super.setUp();
     enableCreateModuleMap();
     enableTypeInfoValidation();
-    disableScriptFeatureValidation();
   }
 
   @Override
@@ -231,7 +231,6 @@ public class RewriteDynamicImportsTest extends CompilerTestCase {
 
   @Test
   public void internalImportDifferentChunksWithoutAlias_used() {
-    disableAstValidation();
     this.dynamicImportAlias = null;
     JSChunk actualChunk0 = new JSChunk("chunk0");
     actualChunk0.add(SourceFile.fromCode("i0.js", "const a = 1; export default a;"));
@@ -260,7 +259,6 @@ public class RewriteDynamicImportsTest extends CompilerTestCase {
 
   @Test
   public void internalImportDifferentChunksWithAlias_used() {
-    disableAstValidation();
     JSChunk actualChunk0 = new JSChunk("chunk0");
     actualChunk0.add(SourceFile.fromCode("i0.js", "const a = 1; export default a;"));
 
@@ -430,7 +428,6 @@ public class RewriteDynamicImportsTest extends CompilerTestCase {
   @Test
   public void outputModulesInternalImportDifferentChunks_used() {
     allowExternsChanges();
-    disableAstValidation();
     this.chunkOutputType = ChunkOutputType.ES_MODULES;
     this.dynamicImportAlias = null;
     JSChunk actualChunk0 = new JSChunk("chunk0");

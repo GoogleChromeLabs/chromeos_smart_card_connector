@@ -33,7 +33,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Rewrites prototype and static methods as global, free functions that take the receiver as their
@@ -258,7 +258,7 @@ class DevirtualizeMethods implements OptimizeCalls.CallGraphCompilerPass {
 
     // Exporting a method prevents rewrite.
     CodingConvention codingConvention = compiler.getCodingConvention();
-    if (codingConvention.isExported(name)) {
+    if (codingConvention.isExported(name, /* local= */ false)) {
       return false;
     }
 
@@ -508,8 +508,7 @@ class DevirtualizeMethods implements OptimizeCalls.CallGraphCompilerPass {
     }
   }
 
-  @Nullable
-  private JSChunk moduleForNode(Node node) {
+  private @Nullable JSChunk moduleForNode(Node node) {
     Node script = NodeUtil.getEnclosingScript(node);
     CompilerInput input = compiler.getInput(script.getInputId());
     return input.getChunk();

@@ -18,10 +18,13 @@ package com.google.javascript.jscomp;
 
 import static com.google.javascript.jscomp.InlineAndCollapseProperties.PARTIAL_NAMESPACE_WARNING;
 import static com.google.javascript.jscomp.InlineAndCollapseProperties.RECEIVER_AFFECTED_BY_COLLAPSE;
+import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 
 import com.google.javascript.jscomp.CompilerOptions.ChunkOutputType;
 import com.google.javascript.jscomp.CompilerOptions.PropertyCollapseLevel;
 import com.google.javascript.jscomp.deps.ModuleLoader.ResolutionMode;
+import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.testing.NodeSubject;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -39,6 +42,8 @@ public final class InlineAndCollapsePropertiesTest extends CompilerTestCase {
           "/** @constructor */ function String() {};",
           "var arguments");
 
+  private boolean assumeStaticInheritanceIsNotUsed = true;
+
   public InlineAndCollapsePropertiesTest() {
     super(EXTERNS);
   }
@@ -50,6 +55,7 @@ public final class InlineAndCollapsePropertiesTest extends CompilerTestCase {
         .setChunkOutputType(ChunkOutputType.GLOBAL_NAMESPACE)
         .setHaveModulesBeenRewritten(false)
         .setModuleResolutionMode(ResolutionMode.BROWSER)
+        .setAssumeStaticInheritanceIsNotUsed(this.assumeStaticInheritanceIsNotUsed)
         .build();
   }
 
@@ -58,7 +64,19 @@ public final class InlineAndCollapsePropertiesTest extends CompilerTestCase {
   public void setUp() throws Exception {
     super.setUp();
     enableNormalize();
+    // TODO(bradfordcsmith): Stop normalizing the expected output or document why it is necessary.
+    enableNormalizeExpectedOutput();
     disableCompareJsDoc();
+  }
+
+  @Test
+  public void testDoNotCollapseDeletedProperty() {
+    testSame(
+        srcs(
+            lines(
+                "const global = window;", //
+                "delete global.HTMLElement;",
+                "global.HTMLElement = (class {});")));
   }
 
   @Test
@@ -261,6 +279,121 @@ public final class InlineAndCollapsePropertiesTest extends CompilerTestCase {
         "var a$b = {}; var c = null; use(a$b);");
 
     testSame("var a = {}; /** @nocollapse */ a.b;");
+  }
+
+  @Test
+  public void testCollapseKeepsSourceInfoForAliases() {
+    test(
+        lines(
+            "var a = {};",
+            "a.use = function(arg) {};",
+            "a.b = {};",
+            "var c = a.b;",
+            "a.use(c);",
+            ""),
+        lines(
+            "var a$use = function (arg) { };", //
+            "var a$b = {};",
+            "var c = null;",
+            "a$use(a$b);",
+            ""));
+
+    final Node scriptNode =
+        getLastCompiler()
+            .getRoot()
+            .getLastChild() // sources root
+            .getOnlyChild(); // only one source file
+    assertNode(scriptNode).isScript().hasXChildren(4);
+    final Node statement1 = scriptNode.getFirstChild();
+    final Node statement2 = statement1.getNext();
+    final Node statement3 = statement2.getNext();
+    final Node statement4 = statement3.getNext();
+    final String scriptName = scriptNode.getSourceFileName();
+
+    // Original line 2: `a.use = function(arg) {};`
+    // Compiled line 1: `var a$use = function(arg) {};`
+    assertNode(statement1)
+        .isVar()
+        .hasSourceFileName(scriptName)
+        .hasLineno(2)
+        .hasCharno(0)
+        .hasOneChildThat() // `a$use = function(arg) {};
+        .isName("a$use")
+        .hasSourceFileName(scriptName)
+        .hasLineno(2)
+        .hasCharno(0) // `a.use = ` was the beginning of the line
+        .hasOneChildThat() // `function(arg) {}`
+        .isFunction()
+        .hasSourceFileName(scriptName)
+        .hasLineno(2)
+        .hasCharno(8); // `a.use = ` 8 chars
+
+    // Original line 3: `a.b = {};`
+    // Compiled line 2: `var a$b = {};`
+    assertNode(statement2)
+        .isVar()
+        .hasSourceFileName(scriptName)
+        .hasLineno(3)
+        .hasCharno(0)
+        .hasOneChildThat() // a$b = {}
+        .isName("a$b")
+        .hasSourceFileName(scriptName)
+        .hasLineno(3)
+        .hasCharno(0)
+        .hasOneChildThat() // {}
+        .isObjectLit()
+        .hasSourceFileName(scriptName)
+        .hasLineno(3)
+        .hasCharno(6);
+
+    // Original line 4: `var c = a.b;`
+    // Compiled line 3: `var c = null;`
+    assertNode(statement3)
+        .isVar()
+        .hasSourceFileName(scriptName)
+        .hasLineno(4)
+        .hasCharno(0)
+        .hasOneChildThat() // c = a.b
+        .isName("c")
+        .hasSourceFileName(scriptName)
+        .hasLineno(4)
+        .hasCharno(4)
+        .hasOneChildThat() // null
+        .isNullNode()
+        .hasSourceFileName(scriptName)
+        .hasLineno(4)
+        .hasCharno(10);
+
+    // Original line 5: `a.use(c);`
+    // Compiled line 4: `a$use(a$b);`
+    final NodeSubject callNodeSubject =
+        assertNode(statement4)
+            .isExprResult()
+            .hasSourceFileName(scriptName)
+            .hasLineno(5)
+            .hasCharno(0)
+            .hasOneChildThat() // a.use(c)
+            .isCall()
+            .hasSourceFileName(scriptName)
+            .hasLineno(5)
+            .hasCharno(0);
+
+    // `a$use` from `a.use(c);`
+    callNodeSubject
+        .hasFirstChildThat()
+        .isName("a$use")
+        .hasSourceFileName(scriptName)
+        .hasLineno(5)
+        .hasCharno(2); // source info points to the `use` part of `a.use`
+
+    // Original line 5: `c` in `a.use(c)`
+    // Compiled line 4: `a$b` in `a$use(a$b)`
+    callNodeSubject
+        .hasSecondChildThat()
+        .isName("a$b")
+        .hasSourceFileName(scriptName)
+        .hasLineno(5)
+        .hasCharno(6); // `a.use(` is 6 chars
   }
 
   @Test
@@ -1666,6 +1799,214 @@ public final class InlineAndCollapsePropertiesTest extends CompilerTestCase {
   }
 
   @Test
+  public void test_b269515361_codeGeneratedByGoogRequireDynamicForEs5() {
+    // Case 1
+    // The original code of this test case is:
+    // ```
+    // const {LateLoadTs} = await goog.requireDynamic('a.b.c');
+    // new LateLoadTs().render();
+    // ```
+    // This can be reproduced by actual compilation to es5.
+    //
+    // This case is for testing the following line, in which the alias is used in dot get property.
+    // LateLoadTs$jscomp$1 = $jscomp$destructuring$var22.LateLoadTs
+    test(
+        lines(
+            "var module$exports$path$lateload_ts = ", //
+            "  {",
+            "    LateLoadTs:class LateLoadTs {",
+            "      render() {}",
+            "  }",
+            "};",
+            "",
+            "var func = function() {",
+            "  var $jscomp$destructuring$var22;",
+            "  var LateLoadTs$jscomp$1;",
+            "  return $jscomp$asyncExecutePromiseGeneratorProgram(",
+            "    function($jscomp$generator$context){",
+            "      if ($jscomp$generator$context.nextAddress == 1) {",
+            "        return $jscomp$generator$context.yield(goog.importHandler_('WS8L6d'), 2);",
+            "      }",
+            "      $jscomp$destructuring$var22 = module$exports$path$lateload_ts;",
+            "      LateLoadTs$jscomp$1 = $jscomp$destructuring$var22.LateLoadTs;",
+            "      (new LateLoadTs$jscomp$1()).render();",
+            "      $jscomp$generator$context.jumpToEnd();",
+            "    }",
+            "  );",
+            "};"),
+        lines(
+            "var module$exports$path$lateload_ts$LateLoadTs = ",
+            "  class LateLoadTs {",
+            "      render() {}",
+            "  };",
+            "",
+            "var func = function() {",
+            "  var $jscomp$destructuring$var22;",
+            "  var LateLoadTs$jscomp$1;",
+            "  return $jscomp$asyncExecutePromiseGeneratorProgram(",
+            "    function($jscomp$generator$context){",
+            "      if ($jscomp$generator$context.nextAddress == 1) {",
+            "        return $jscomp$generator$context.yield(goog.importHandler_('WS8L6d'), 2);",
+            "      }",
+            "      $jscomp$destructuring$var22 = null",
+            "      LateLoadTs$jscomp$1 = module$exports$path$lateload_ts$LateLoadTs;",
+            "      (new LateLoadTs$jscomp$1()).render();",
+            "      $jscomp$generator$context.jumpToEnd();",
+            "    }",
+            "  );",
+            "};"));
+
+    // Case 2
+    // This case is for testing assigning value to the exported object.
+    //
+    // The original code of this test case is:
+    // ```
+    // const x = await goog.requireDynamic('a.b.c');
+    // x.LateLoadTs.num = 0;
+    // console.log(x.LateLoadTs);
+    // ```
+    // This can be reproduced by actual compilation to es5.
+    test(
+        lines(
+            "var module$exports$path$lateload_ts = ", //
+            "  {",
+            "    LateLoadTs:class LateLoadTs { }",
+            "};",
+            "",
+            "var func = function() {",
+            "  var x;",
+            "  return $jscomp$asyncExecutePromiseGeneratorProgram(",
+            "    function($jscomp$generator$context){",
+            "      if ($jscomp$generator$context.nextAddress == 1) {",
+            "        return $jscomp$generator$context.yield(goog.importHandler_('WS8L6d'), 2);",
+            "      }",
+            "      x = module$exports$path$lateload_ts;",
+            "      x.LateLoadTs.num = 0;",
+            "      console.log(x.LateLoadTs);",
+            "      $jscomp$generator$context.jumpToEnd();",
+            "    }",
+            "  );",
+            "};"),
+        lines(
+            "var module$exports$path$lateload_ts$LateLoadTs = ",
+            "  class LateLoadTs { };",
+            "",
+            "var module$exports$path$lateload_ts$LateLoadTs$num;",
+            "var func = function() {",
+            "  var x;",
+            "  return $jscomp$asyncExecutePromiseGeneratorProgram(",
+            "    function($jscomp$generator$context){",
+            "      if ($jscomp$generator$context.nextAddress == 1) {",
+            "        return $jscomp$generator$context.yield(goog.importHandler_('WS8L6d'), 2);",
+            "      }",
+            "      x = null",
+            "      module$exports$path$lateload_ts$LateLoadTs$num = 0;",
+            "      console.log(module$exports$path$lateload_ts$LateLoadTs);",
+            "      $jscomp$generator$context.jumpToEnd();",
+            "    }",
+            "  );",
+            "};"));
+    // Case 3
+    // The original code of this test case is:
+    // ```
+    // const {LateLoadTs} = await goog.requireDynamic('a.b.c');
+    // new LateLoadTs().render();
+    // ```
+    // This can be reproduced by actual compilation to es5.
+    //
+    // This case is for testing non-exported module, i.e., the global name is not prefixed with
+    // 'module$exports$'. Test should fail.
+    testSame(
+        lines(
+            "var not_module$exports$path$lateload_ts = ", //
+            "  {",
+            "    LateLoadTs:class LateLoadTs {",
+            "      render() {}",
+            "  }",
+            "};",
+            "",
+            "var func = function() {",
+            "  var $jscomp$destructuring$var22;",
+            "  var LateLoadTs$jscomp$1;",
+            "  return $jscomp$asyncExecutePromiseGeneratorProgram(",
+            "    function($jscomp$generator$context){",
+            "      if ($jscomp$generator$context.nextAddress == 1) {",
+            "        return $jscomp$generator$context.yield(goog.importHandler_('WS8L6d'), 2);",
+            "      }",
+            "      $jscomp$destructuring$var22 = not_module$exports$path$lateload_ts;",
+            "      LateLoadTs$jscomp$1 = $jscomp$destructuring$var22.LateLoadTs;",
+            "      (new LateLoadTs$jscomp$1()).render();",
+            "      $jscomp$generator$context.jumpToEnd();",
+            "    }",
+            "  );",
+            "};"),
+        PARTIAL_NAMESPACE_WARNING);
+
+    // Case 4
+    // This is a manually configured example for this test.
+    //
+    // This case is for testing the case where the alias is not only used in property access/
+    // destructuring.
+    testSame(
+        lines(
+            "var _module$exports$path$lateload_ts = ", //
+            "  {",
+            "    LateLoadTs:class LateLoadTs {",
+            "      render() {}",
+            "  }",
+            "};",
+            "",
+            "var func = function() {",
+            "  var $jscomp$destructuring$var22;",
+            "  var LateLoadTs$jscomp$1;",
+            "  return $jscomp$asyncExecutePromiseGeneratorProgram(",
+            "    function($jscomp$generator$context){",
+            "      if ($jscomp$generator$context.nextAddress == 1) {",
+            "        return $jscomp$generator$context.yield(goog.importHandler_('WS8L6d'), 2);",
+            "      }",
+            "      $jscomp$destructuring$var22 = _module$exports$path$lateload_ts;",
+            "      $jscomp$destructuring$var22 = 'foo';   ",
+            "      LateLoadTs$jscomp$1 = $jscomp$destructuring$var22.LateLoadTs;",
+            "      (new LateLoadTs$jscomp$1()).render();",
+            "      $jscomp$generator$context.jumpToEnd();",
+            "    }",
+            "  );",
+            "};"),
+        PARTIAL_NAMESPACE_WARNING);
+
+    // Case 5
+    // This is a manually configured example for this test.
+    //
+    // This case is for testing the case where the alias is initialized in declaration and then
+    // reassigned a value.
+    testSame(
+        lines(
+            "var module$exports$path$lateload_ts = ", //
+            "  {",
+            "    LateLoadTs:class LateLoadTs {",
+            "      render() {}",
+            "  }",
+            "};",
+            "",
+            "var func = function() {",
+            "  var $jscomp$destructuring$var22 = 'foo';",
+            "  var LateLoadTs$jscomp$1;",
+            "  return $jscomp$asyncExecutePromiseGeneratorProgram(",
+            "    function($jscomp$generator$context){",
+            "      if ($jscomp$generator$context.nextAddress == 1) {",
+            "        return $jscomp$generator$context.yield(goog.importHandler_('WS8L6d'), 2);",
+            "      }",
+            "      $jscomp$destructuring$var22 = module$exports$path$lateload_ts;",
+            "      LateLoadTs$jscomp$1 = $jscomp$destructuring$var22.LateLoadTs;",
+            "      (new LateLoadTs$jscomp$1()).render();",
+            "      $jscomp$generator$context.jumpToEnd();",
+            "    }",
+            "  );",
+            "};"),
+        PARTIAL_NAMESPACE_WARNING);
+  }
+
+  @Test
   public void testInlineCtorInObjLit() {
     test(
         lines(
@@ -2276,6 +2617,33 @@ public final class InlineAndCollapsePropertiesTest extends CompilerTestCase {
   }
 
   @Test
+  public void testDestructuringThatUsedToCrash() {
+    test(
+        lines(
+            "var CakeFlavors = {",
+            "  CARROT: 1,",
+            "  TIRAMISU: 2,",
+            "};",
+            "class UglyCake {}",
+            "const Cake = UglyCake;",
+            "/** @const */",
+            "UglyCake.Flavors = CakeFlavors;",
+            "const {Flavors: {CARROT, TIRAMISU}} = Cake;",
+            "alert(CARROT, TIRAMISU);"),
+        lines(
+            "var CakeFlavors$CARROT = 1;",
+            "var CakeFlavors$TIRAMISU = 2;",
+            "class UglyCake {}",
+            "const Cake = null;",
+            "/** @const */",
+            "var UglyCake$Flavors = null;",
+            "const destructuring$m1146332801$0 = null;",
+            "const CARROT = null;",
+            "const TIRAMISU = null;",
+            "alert(CakeFlavors$CARROT, CakeFlavors$TIRAMISU);"));
+  }
+
+  @Test
   public void namespaceInDestructuringPattern() {
     testSame(
         lines(
@@ -2408,6 +2776,45 @@ public final class InlineAndCollapsePropertiesTest extends CompilerTestCase {
     test(
         "class A {}     A.foo = 3; var obj = {foo: class extends A {}}; use(obj.foo.foo);", //
         "class A {} var A$foo = 3; var obj$foo =   class extends A{};   use(obj$foo.foo)");
+  }
+
+  @Test
+  public void testToStringValueOfPropertiesInObjectLiteral() {
+    // toString/valueOf are not collapsed because they are properties implicitly used as part of the
+    // JS language
+    testSame(
+        lines(
+            "let z = {",
+            "  toString() { return 'toString'; },",
+            "  valueOf() { return 'valueOf'; }",
+            "};",
+            "var zAsString = z + \"\";"));
+  }
+
+  @Test
+  public void testToStringValueOfNonMethodPropertiesInObjectLiteral() {
+    testSame(
+        lines(
+            "let z = {",
+            "  toString: function() { return 'a'; },",
+            "  valueOf: function() { return 3; },",
+            "};"));
+  }
+
+  @Test
+  public void testToStringValueOfPropertiesInObjectLiteralAssignmentDepth() {
+    test(
+        lines(
+            "var a = {}; a.b = {}; a.b.c = {};",
+            "a.b.c.d = {",
+            "  toString() { return 'a'; },",
+            "  valueOf: function() { return 3; },",
+            "};"),
+        lines(
+            "var a$b$c$d = {",
+            "  toString() { return 'a'; },",
+            "  valueOf: function() { return 3; },",
+            "};"));
   }
 
   @Test
@@ -2564,6 +2971,69 @@ public final class InlineAndCollapsePropertiesTest extends CompilerTestCase {
             "class Bar {}",
             "var Baz$quadruple = function(n) { return 2 * Bar$double(n); }",
             "class Baz extends Bar {}"));
+  }
+
+  @Test
+  public void testClassStaticMemberAccessedWithSuperAndThis() {
+    assumeStaticInheritanceIsNotUsed = false;
+    testSame(
+        lines(
+            "class Bar {", //
+            "  static get name() {",
+            "    return 'Bar';",
+            "  }",
+            "  static get classname() {",
+            "    return `${this.name} class`;",
+            "  }",
+            "}",
+            "class Baz extends Bar {",
+            "  static get name() {",
+            "    return 'Baz';",
+            "  }",
+            "  static get classname() {",
+            "    return `${super.classname} - is a subclass`;",
+            "  }",
+            "}"));
+  }
+
+  @Test
+  public void testClassStaticMemberAccessedWithSuperAndThis2() {
+    assumeStaticInheritanceIsNotUsed = true;
+    test(
+        lines(
+            "class Bar {", //
+            "  static get name() {",
+            "    return 'Bar';",
+            "  }",
+            "  static get classname() {",
+            "    return `${this.name} class`;",
+            "  }",
+            "}",
+            "class Baz extends Bar {",
+            "  static get name() {",
+            "    return 'Baz';",
+            "  }",
+            "  static get classname() {",
+            "    return `${super.classname} - is a subclass`;",
+            "  }",
+            "}"),
+        lines(
+            "class Bar {", //
+            "  static get name() {",
+            "    return 'Bar';",
+            "  }",
+            "  static get classname() {",
+            "    return `${this.name} class`;",
+            "  }",
+            "}",
+            "class Baz extends Bar {",
+            "  static get name() {",
+            "    return 'Baz';",
+            "  }",
+            "  static get classname() {",
+            "    return `${Bar.classname} - is a subclass`;",
+            "  }",
+            "}"));
   }
 
   @Test

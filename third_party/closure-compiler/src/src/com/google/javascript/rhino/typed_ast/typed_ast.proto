@@ -34,6 +34,13 @@ message LazyAst {
   bytes script = 1;
   // 1-based index into TypedAst::source_file_pool
   uint32 source_file = 2;
+  // The encoded source map taken from the inline sourcemap comment
+  // (base64-encoded "data url" stored in `//# sourceMappingURL=` comment).
+  // E.g. If the last line of a .closure.js file is "//# sourceMappingURL=
+  // data:application/json;base64,eyJ2ZXJzaW9uI...", then we will serialize
+  // "eyJ2ZXJzaW9uI..." in this LazyAst's source_mapping_url field. We'll attach
+  // the "data:application/json;base64," prefix during deserialization.
+  string source_mapping_url = 3;
 }
 
 // Keep this in sync with the TypedAst proto.
@@ -61,6 +68,9 @@ message NonLazyAst {
   AstNode script = 1;
   // 1-based index into TypedAst::source_file_pool
   uint32 source_file = 2;
+  // The encoded source map taken from the inline sourcemap comment
+  // (base64-encoded "data url" stored in `//# sourceMappingURL=` comment).
+  string source_mapping_url = 3;
 }
 
 message StringPoolProto {
@@ -97,8 +107,12 @@ message AstNode {
   // TODO(b/183734530): delete this field
   uint32 original_name_pointer = 9;
 
-  repeated NodeProperty boolean_property = 14;
-  TypePointer type = 15;
+  // A bitset of NodeProperties
+  int64 boolean_properties = 14;
+
+  // Associated type of the node, if present
+  // See types.proto for what the int32 pointer means
+  optional int32 type = 15;
 
   // pointer into the TypedAst's SourceFilePool
   // 0 is equivalent to 'not set' and assumed to be equal to the source_file of
@@ -305,9 +319,8 @@ enum NodeProperty {
   DIRECT_EVAL = 9;
   // A CALL without an explicit "this" value.
   FREE_CALL = 10;
-  // Whether a STRING node contains a \v vertical tab escape. This is a total
-  // hack. See comments in IRFactory about this.
-  SLASH_V = 11;
+  // Unused.
+  UNUSED_11 = 11;
   // An object that's used for goog.object.reflect-style reflection.
   REFLECTED_OBJECT = 12;
   // Set if class member definition is static
@@ -351,8 +364,6 @@ enum NodeProperty {
   // Indicates that a SCRIPT node is a goog.module. Remains set after the
   // goog.module is desugared.
   GOOG_MODULE = 30;
-  // Indicates that a SCRIPT represents a transpiled file
-  TRANSPILED = 34;
   // For passes that work only on deleted funs.
   DELETED = 35;
   // Indicates that the node is an alias or a name from goog.require'd module or
@@ -387,4 +398,10 @@ enum NodeProperty {
   // Indicates that an externs name declaration was synthesized by the compiler
   // because the name was referenced without being declared
   SYNTHESIZED_UNFULFILLED_NAME_DECLARATION = 45;
+
+  // These all come from the SIDE_EFFECT_FLAGS integer property
+  MUTATES_GLOBAL_STATE = 46;
+  MUTATES_THIS = 47;
+  MUTATES_ARGUMENTS = 48;
+  THROWS = 49;
 }

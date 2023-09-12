@@ -24,9 +24,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Unit tests for {@link RescopeGlobalSymbols}
- */
+/** Unit tests for {@link RescopeGlobalSymbols} */
 @RunWith(JUnit4.class)
 public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
 
@@ -34,12 +32,9 @@ public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
 
   private boolean assumeCrossModuleNames = true;
 
-  @Override protected CompilerPass getProcessor(Compiler compiler) {
-    return new RescopeGlobalSymbols(
-        compiler,
-        NAMESPACE,
-        false,
-        assumeCrossModuleNames);
+  @Override
+  protected CompilerPass getProcessor(Compiler compiler) {
+    return new RescopeGlobalSymbols(compiler, NAMESPACE, false, assumeCrossModuleNames);
   }
 
   @Override
@@ -601,24 +596,16 @@ public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
 
   @Test
   public void testForLoops_acrossModules() {
-    test(
-        "for (var i = 0; i < 1000; i++);",
-        "for (_.i = 0; _.i < 1000; _.i++);");
-    test(
-        "for (var i = 0, c = 2; i < 1000; i++);",
-        "for (_.i = 0, _.c = 2; _.i < 1000; _.i++);");
+    test("for (var i = 0; i < 1000; i++);", "for (_.i = 0; _.i < 1000; _.i++);");
+    test("for (var i = 0, c = 2; i < 1000; i++);", "for (_.i = 0, _.c = 2; _.i < 1000; _.i++);");
     test(
         "for (var i = 0, c = 2, d = 3; i < 1000; i++);",
         "for (_.i = 0, _.c = 2, _.d = 3; _.i < 1000; _.i++);");
     test(
         "for (var i = 0, c = 2, d = 3, e = 4; i < 1000; i++);",
         "for (_.i = 0, _.c = 2, _.d = 3, _.e = 4; _.i < 1000; _.i++);");
-    test(
-        "for (var i = 0; i < 1000;)i++;",
-        "for (_.i = 0; _.i < 1000;)_.i++;");
-    test(
-        "for (var i = 0,b; i < 1000;)i++;b++",
-        "for (_.i = 0,_.b; _.i < 1000;)_.i++;_.b++");
+    test("for (var i = 0; i < 1000;)i++;", "for (_.i = 0; _.i < 1000;)_.i++;");
+    test("for (var i = 0,b; i < 1000;)i++;b++", "for (_.i = 0,_.b; _.i < 1000;)_.i++;_.b++");
     test("var o={};for (var i in o)i++;", "_.o={};for (_.i in _.o)_.i++;");
 
     // Test destructuring.
@@ -698,45 +685,43 @@ public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
   @Test
   public void testForAwaitOfLoops_allSameModule() {
     assumeCrossModuleNames = false;
-    testSame("for await (var i of [1, 2, 3]);");
-    testSame("for await (var [a] of []);");
-    testSame("for await (var {a: a} of {});");
+    testSame("async () => { for await (var i of [1, 2, 3]);}");
+    testSame("async () => { for await (var [a] of []);}");
+    testSame("async () => { for await (var {a: a} of {});}");
   }
 
   @Test
   public void testForAwaitOfLoops_acrossModules() {
+    // TODO(b/128938049): re-enable it once we support top-level await.
     assumeCrossModuleNames = false;
-    test(
+    testError(
         srcs(
             JSChunkGraphBuilder.forUnordered()
                 .addChunk("for await (var i of []);")
                 .addChunk("i")
                 .build()),
-        expected("for await (_.i of []);", "_.i"));
-    test(
+        RhinoErrorReporter.PARSE_ERROR);
+    testError(
         srcs(
             JSChunkGraphBuilder.forUnordered()
                 .addChunk("       for await (var [  a, b] of []);")
                 .addChunk("a;")
                 .build()),
-        expected("var b; for await (    [_.a, b] of []);", "_.a"));
-    test(
+        RhinoErrorReporter.PARSE_ERROR);
+    testError(
         srcs(
             JSChunkGraphBuilder.forUnordered()
                 .addChunk("       for await (var {i: i, c:   c} of []);")
                 .addChunk("c")
                 .build()),
-        expected("var i; for await (    {i: i, c: _.c} of []);", "_.c"));
+        RhinoErrorReporter.PARSE_ERROR);
   }
 
   @Test
   public void testFunctionStatements() {
-    test(
-        "function test(){}",
-        "_.test=function (){}");
-    test(
-        "if(1)function test(){}",
-        "if(1)_.test=function (){}");
+    test("function test(){}", "_.test=function (){}");
+    // Ignore block-scoped function declarations.
+    testSame("if(1) function test(){}");
     test("async function test() {}", "_.test = async function() {}");
     test("function *test() {}", "_.test = function *() {}");
   }
@@ -745,7 +730,7 @@ public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
   public void testFunctionStatements_allSameModule() {
     assumeCrossModuleNames = false;
     test("function f() {}", "var f = function() {}");
-    test("if (true) { function f() {} }", "if (true) { var f = function() {}; }");
+    testSame("if (true) { function f() {} }");
   }
 
   @Test
@@ -756,32 +741,20 @@ public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
     test(
         "function x(){this};var y=function(){var val=x()||{}}",
         "_.x=function(){this};_.y=function(){var val=(0,_.x)()||{}}");
-    test(
-        "function x(){this;x()}",
-        "_.x=function(){this;(0,_.x)()}");
-    test(
-        "var a=function(){this};a()",
-        "_.a=function(){this};(0,_.a)()");
+    test("function x(){this;x()}", "_.x=function(){this;(0,_.x)()}");
+    test("var a=function(){this};a()", "_.a=function(){this};(0,_.a)()");
     // Always trigger free calls for variables assigned through destructuring.
     test("var {a: a} = {a: function() {}}; a();", "({a:_.a}={a:function(){}});(0,_.a)()");
 
-    test(
-        "var ns = {}; ns.a = function() {}; ns.a()",
-        "_.ns={};_.ns.a=function(){};_.ns.a()");
+    test("var ns = {}; ns.a = function() {}; ns.a()", "_.ns={};_.ns.a=function(){};_.ns.a()");
   }
 
   @Test
   public void testFunctionStatements_freeCallSemantics2() {
     // Cases where free call forcing through (0, foo)() is not necessary.
-    test(
-        "var a=function(){};a()",
-        "_.a=function(){};_.a()");
-    test(
-        "function a(){};a()",
-        "_.a=function(){};;_.a()");
-    test(
-        "var a;a=function(){};a()",
-        "_.a=function(){};_.a()");
+    test("var a=function(){};a()", "_.a=function(){};_.a()");
+    test("function a(){};a()", "_.a=function(){};;_.a()");
+    test("var a;a=function(){};a()", "_.a=function(){};_.a()");
 
     // Test that calls to arrow functions are not forced to be free calls
     test("var a = () => {}; a();", "_.a = () => {}; _.a();");
@@ -794,9 +767,7 @@ public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
 
     // Ambiguous cases.
     test("var a=1;a=function(){};a()", "_.a=1;_.a=function(){};(0,_.a)()");
-    test(
-        "var b;var a=b;a()",
-        "_.a=_.b;(0,_.a)()");
+    test("var b;var a=b;a()", "_.a=_.b;(0,_.a)()");
   }
 
   @Test
@@ -806,15 +777,9 @@ public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
 
   @Test
   public void testDeeperScopes() {
-    test(
-        "var a = function(b){return b}",
-        "_.a = function(b){return b}");
-    test(
-        "var a = function(b){var a; return a+b}",
-        "_.a = function(b){var a; return a+b}");
-    test(
-        "var a = function(a,b){return a+b}",
-        "_.a = function(a,b){return a+b}");
+    test("var a = function(b){return b}", "_.a = function(b){return b}");
+    test("var a = function(b){var a; return a+b}", "_.a = function(b){var a; return a+b}");
+    test("var a = function(a,b){return a+b}", "_.a = function(a,b){return a+b}");
     test(
         "var x=1,a = function(b){var a; return a+b+x}",
         "_.x=1;_.a = function(b){var a; return a+b+_.x}");
@@ -825,16 +790,12 @@ public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
 
   @Test
   public void testTryCatch() {
-    test(
-        "try{var a = 1}catch(e){throw e}",
-        "try{_.a = 1}catch(e){throw e}");
+    test("try{var a = 1}catch(e){throw e}", "try{_.a = 1}catch(e){throw e}");
   }
 
   @Test
   public void testShadowInFunctionScope() {
-    test(
-        "var _ = 1; (function () { _ = 2 })()",
-        "_._ = 1; (function () { _._ = 2 })()");
+    test("var _ = 1; (function () { _ = 2 })()", "_._ = 1; (function () { _._ = 2 })()");
     test(
         "function foo() { var _ = {}; _.foo = foo; _.bar = 1; }",
         "_.foo = function () { var _$ = {}; _$.foo = _.foo; _$.bar = 1}");
@@ -849,22 +810,20 @@ public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
             "_.foo = function () { var _$ = {}; _$.foo = _.foo; _$.bar = 1; ",
             "(function() { var _$ = 0;})() }"));
     test(
-        "function foo() { var _ = {}; _.foo = foo; _.bar = 1; "
-        + "var _$ = 1; }",
-        "_.foo = function () { var _$ = {}; _$.foo = _.foo; _$.bar = 1; "
-        + "var _$$ = 1; }");
+        "function foo() { var _ = {}; _.foo = foo; _.bar = 1; " + "var _$ = 1; }",
+        "_.foo = function () { var _$ = {}; _$.foo = _.foo; _$.bar = 1; " + "var _$$ = 1; }");
     test(
         "function foo() { var _ = {}; _.foo = foo; _.bar = 1; "
-        + "var _$ = 1; (function() { _ = _$ })() }",
+            + "var _$ = 1; (function() { _ = _$ })() }",
         "_.foo = function () { var _$ = {}; _$.foo = _.foo; _$.bar = 1; "
-        + "var _$$ = 1; (function() { _$ = _$$ })() }");
+            + "var _$$ = 1; (function() { _$ = _$$ })() }");
     test(
         "function foo() { var _ = {}; _.foo = foo; _.bar = 1; "
-        + "var _$ = 1, _$$ = 2 (function() { _ = _$ = _$$; " +
-        "var _$, _$$$ })() }",
+            + "var _$ = 1, _$$ = 2 (function() { _ = _$ = _$$; "
+            + "var _$, _$$$ })() }",
         "_.foo = function () { var _$ = {}; _$.foo = _.foo; _$.bar = 1; "
-        + "var _$$ = 1, _$$$ = 2 (function() { _$ = _$$ = _$$$; "
-        + "var _$$, _$$$$ })() }");
+            + "var _$$ = 1, _$$$ = 2 (function() { _$ = _$$ = _$$$; "
+            + "var _$$, _$$$$ })() }");
     test(
         "var a = 5; function foo(_) { return _; }", "_.a = 5; _.foo = function(_$) { return _$; }");
     test(
@@ -929,8 +888,8 @@ public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
     // Javascript builtin objects
     testSame(
         "Object;Function;Array;String;Boolean;Number;Math;"
-        + "Date;RegExp;JSON;Error;EvalError;ReferenceError;"
-        + "SyntaxError;TypeError;URIError;");
+            + "Date;RegExp;JSON;Error;EvalError;ReferenceError;"
+            + "SyntaxError;TypeError;URIError;");
   }
 
   @Test

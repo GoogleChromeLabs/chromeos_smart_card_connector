@@ -18,13 +18,13 @@ package com.google.javascript.jscomp.parsing.parser.trees;
 
 import com.google.javascript.jscomp.parsing.parser.IdentifierToken;
 import com.google.javascript.jscomp.parsing.parser.util.SourceRange;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** Tree for public property fields */
 public class FieldDeclarationTree extends ParseTree {
   public final IdentifierToken name;
   public final boolean isStatic;
-  @Nullable public final ParseTree initializer;
+  public final @Nullable ParseTree initializer;
 
   public FieldDeclarationTree(
       SourceRange location, IdentifierToken name, boolean isStatic, ParseTree initializer) {

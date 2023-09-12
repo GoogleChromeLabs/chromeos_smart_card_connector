@@ -163,6 +163,7 @@ public class CheckClosureImportsTest extends CompilerTestCase {
     // Not an error for goog.forwardDeclare in scripts.
     testError("goog.require('dne');", MISSING_MODULE_OR_PROVIDE);
     testError("goog.requireType('dne');", MISSING_MODULE_OR_PROVIDE);
+    testError("goog.requireDynamic('dne');", MISSING_MODULE_OR_PROVIDE);
     testError("() => goog.module.get('dne');", MISSING_MODULE_OR_PROVIDE);
   }
 
@@ -519,12 +520,11 @@ public class CheckClosureImportsTest extends CompilerTestCase {
   }
 
   @Test
-  public void moduleGetInGlobalScopeIsError() {
+  public void moduleGetInGlobalScopeIsOK() {
     moduleType = ModuleType.SCRIPT;
 
-    test(
-        srcs(ES_MODULE_SRC, makeTestFile("goog.module.get('es.module');")),
-        error(INVALID_GET_CALL_SCOPE));
+    // only global variable aliasing goog.module.get results are banned.
+    test(srcs(ES_MODULE_SRC, makeTestFile("goog.module.get('es.module');")));
   }
 
   @Test
@@ -566,6 +566,80 @@ public class CheckClosureImportsTest extends CompilerTestCase {
                     "goog.module('test');", //
                     "let symbol = goog.forwardDeclare('symbol');",
                     "() => symbol = goog.module.get('symbol');"))));
+  }
+
+  @Test
+  public void moduleGetAssignmentToNamespace() {
+    moduleType = ModuleType.GOOG_PROVIDE;
+
+    test(
+        srcs(
+            PROVIDES_SYMBOL_SRC,
+            makeTestFile(
+                lines(
+                    "goog.provide('a.b.c');", //
+                    "goog.require('symbol');",
+                    "a.b.c = goog.module.get('symbol');"))));
+  }
+
+  @Test
+  public void moduleGetAssignmentToName() {
+    moduleType = ModuleType.GOOG_PROVIDE;
+
+    test(
+        srcs(
+            PROVIDES_SYMBOL_SRC,
+            makeTestFile(
+                lines(
+                    "goog.provide('test');", //
+                    "var sym = goog.module.get('symbol');"))),
+        error(INVALID_GET_CALL_SCOPE));
+
+    test(
+        srcs(
+            PROVIDES_SYMBOL_SRC,
+            makeTestFile(
+                lines(
+                    "goog.provide('test');", //
+                    "var sym = goog.module.get('symbol').sym;"))),
+        error(INVALID_GET_CALL_SCOPE));
+
+    test(
+        srcs(
+            PROVIDES_SYMBOL_SRC,
+            makeTestFile(
+                lines(
+                    "goog.provide('test');", //
+                    "var sym = goog.module.get('symbol')?.sym;"))),
+        error(INVALID_GET_CALL_SCOPE));
+
+    test(
+        srcs(
+            PROVIDES_SYMBOL_SRC,
+            makeTestFile(
+                lines(
+                    "goog.provide('test');", //
+                    "const {sym} = goog.module.get('symbol');"))),
+        error(INVALID_GET_CALL_SCOPE));
+
+    test(
+        srcs(
+            PROVIDES_SYMBOL_SRC,
+            makeTestFile(
+                lines(
+                    "goog.provide('test');", //
+                    "var sym",
+                    "sym = goog.module.get('symbol').sym;"))),
+        error(INVALID_GET_CALL_SCOPE));
+
+    test(
+        srcs(
+            PROVIDES_SYMBOL_SRC,
+            makeTestFile(
+                lines(
+                    "goog.provide('test');", //
+                    "let sym; ({sym} = goog.module.get('symbol'));"))),
+        error(INVALID_GET_CALL_SCOPE));
   }
 
   @Test

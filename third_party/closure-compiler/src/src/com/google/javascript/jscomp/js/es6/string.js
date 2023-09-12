@@ -18,6 +18,7 @@
  * @fileoverview Brings in all ES6 String polyfills.
  * @suppress {uselessCode}
  */
+'require es6/string/at';
 'require es6/string/codepointat';
 'require es6/string/endswith';
 'require es6/string/fromcodepoint';

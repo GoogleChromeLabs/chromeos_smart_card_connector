@@ -56,6 +56,7 @@ import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import com.google.javascript.rhino.jstype.ObjectType;
 import com.google.javascript.rhino.jstype.RecordTypeBuilder;
 import com.google.javascript.rhino.jstype.TemplatizedType;
+import org.jspecify.nullness.Nullable;
 import org.junit.After;
 
 /** A base class for tests on {@code JSType}s. */
@@ -86,6 +87,7 @@ public abstract class BaseJSTypeTestCase {
   protected ObjectType DATE_TYPE;
   protected FunctionType FUNCTION_FUNCTION_TYPE;
   protected ObjectType FUNCTION_PROTOTYPE;
+  protected FunctionType FUNCTION_TYPE;
   protected JSType GREATEST_FUNCTION_TYPE;
   protected JSType LEAST_FUNCTION_TYPE;
   protected JSType NULL_TYPE;
@@ -100,6 +102,7 @@ public abstract class BaseJSTypeTestCase {
   protected JSType OBJECT_NUMBER_STRING_BOOLEAN;
   protected JSType OBJECT_PROTOTYPE;
   protected ObjectType OBJECT_TYPE;
+  protected ObjectType READONLY_ARRAY_TYPE;
   protected JSType REGEXP_FUNCTION_TYPE;
   protected ObjectType REGEXP_TYPE;
   protected JSType STRING_OBJECT_FUNCTION_TYPE;
@@ -107,7 +110,6 @@ public abstract class BaseJSTypeTestCase {
   protected JSType STRING_TYPE;
   protected ObjectType SYMBOL_OBJECT_TYPE;
   protected JSType SYMBOL_TYPE;
-  protected FunctionType FUNCTION_TYPE;
   protected ObjectType UNKNOWN_TYPE;
   protected JSType VOID_TYPE;
 
@@ -117,7 +119,7 @@ public abstract class BaseJSTypeTestCase {
     this(null);
   }
 
-  public BaseJSTypeTestCase(JSTypeRegistry registry) {
+  public BaseJSTypeTestCase(@Nullable JSTypeRegistry registry) {
     this.registry =
         (registry == null)
             ? new JSTypeRegistry(errorReporter, ImmutableSet.of())
@@ -170,6 +172,7 @@ public abstract class BaseJSTypeTestCase {
     NULL_VOID = registry.getNativeType(JSTypeNative.NULL_VOID);
     OBJECT_TYPE = registry.getNativeObjectType(JSTypeNative.OBJECT_TYPE);
     OBJECT_PROTOTYPE = registry.getNativeType(JSTypeNative.OBJECT_PROTOTYPE);
+    READONLY_ARRAY_TYPE = registry.getNativeObjectType(JSTypeNative.READONLY_ARRAY_TYPE);
     REGEXP_FUNCTION_TYPE = registry.getNativeType(JSTypeNative.REGEXP_FUNCTION_TYPE);
     REGEXP_TYPE = registry.getNativeObjectType(JSTypeNative.REGEXP_TYPE);
     STRING_OBJECT_FUNCTION_TYPE = registry.getNativeType(JSTypeNative.STRING_OBJECT_FUNCTION_TYPE);
@@ -200,8 +203,7 @@ public abstract class BaseJSTypeTestCase {
         registry.getNativeObjectType(JSTypeNative.OBJECT_TYPE);
     ObjectType arrayType =
         registry.getNativeObjectType(JSTypeNative.ARRAY_TYPE);
-    ObjectType dateType =
-        registry.getNativeObjectType(JSTypeNative.DATE_TYPE);
+    ObjectType dateType = registry.getNativeObjectType(JSTypeNative.DATE_TYPE);
     ObjectType regexpType =
         registry.getNativeObjectType(JSTypeNative.REGEXP_TYPE);
     ObjectType booleanObjectType =

@@ -20,9 +20,11 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
+import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.MustBeClosed;
 import com.google.errorprone.annotations.OverridingMethodsMustInvokeSuper;
@@ -46,11 +48,11 @@ import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * An abstract compiler, to help remove the circular dependency of passes on JSCompiler.
@@ -86,15 +88,12 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
   public abstract CompilerInput getInput(InputId inputId);
 
   /** Looks up a source file by name. May return null. */
-  @Nullable
-  abstract SourceFile getSourceFileByName(String sourceName);
+  abstract @Nullable SourceFile getSourceFileByName(String sourceName);
 
-  @Nullable
-  public abstract Node getScriptNode(String filename);
+  public abstract @Nullable Node getScriptNode(String filename);
 
   /** Gets the module graph. */
-  @Nullable
-  abstract JSChunkGraph getModuleGraph();
+  abstract @Nullable JSChunkGraph getModuleGraph();
 
   /**
    * Gets the inputs in the order in which they are being processed. Only for use by {@code
@@ -129,13 +128,16 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
   public abstract void setStringMap(VariableMap stringMap);
 
   /** Sets the css names found during compilation. */
-  public abstract void setCssNames(Map<String, Integer> newCssNames);
+  public abstract void setCssNames(Set<String> newCssNames);
 
   /** Sets the mapping for instrumentation parameter encoding. */
   public abstract void setInstrumentationMapping(VariableMap instrumentationMapping);
 
   /** Sets the id generator for cross-module motion. */
   public abstract void setIdGeneratorMap(String serializedIdMappings);
+
+  /** Gets whether any file needed to transpile any feature */
+  public abstract boolean getTranspiledFiles();
 
   /** Gets the id generator for cross-module motion. */
   public abstract IdGenerator getCrossModuleIdGenerator();
@@ -181,10 +183,10 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
   abstract void clearTypedScopeCreator();
 
   /** Gets the top scope. */
-  public abstract TypedScope getTopScope();
+  public abstract @Nullable TypedScope getTopScope();
 
   /** Sets the top scope. */
-  abstract void setTopScope(TypedScope x);
+  abstract void setTopScope(@Nullable TypedScope x);
 
   /**
    * Returns a scope containing only externs and synthetic code or other code in the first script.
@@ -220,12 +222,6 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
    */
   abstract void reportFunctionDeleted(Node node);
 
-  /** Sets the CssRenamingMap. */
-  abstract void setCssRenamingMap(CssRenamingMap map);
-
-  /** Gets the CssRenamingMap. */
-  abstract CssRenamingMap getCssRenamingMap();
-
   /**
    * Gets a suitable SCRIPT node to serve as a parent for code insertion. If {@code module} contains
    * any inputs, the returned node will be the SCRIPT node corresponding to its first input. If
@@ -260,6 +256,15 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
 
   /** Prints a node to source code. */
   public abstract String toSource(Node root);
+
+  /**
+   * Whether to prefer using {@link JSFileRegexParser} when calculating {@link DependencyInfo} as
+   * opposed to triggering an AST-based parse.
+   *
+   * <p>This is primarily for performance reasons. The two should produce the same results except in
+   * some edge cases.
+   */
+  abstract boolean preferRegexParser();
 
   /** Gets a default error reporter for injecting into Rhino. */
   abstract ErrorReporter getDefaultErrorReporter();
@@ -317,7 +322,9 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
   @Deprecated
   abstract Supplier<String> getUniqueNameIdSupplier();
 
-  /** @return Whether any errors have been encountered that should stop the compilation process. */
+  /**
+   * @return Whether any errors have been encountered that should stop the compilation process.
+   */
   abstract boolean hasHaltingErrors();
 
   /** Register a listener for code change events. */
@@ -344,13 +351,6 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
    * is the first time the pass has run.
    */
   abstract List<Node> getChangedScopeNodesForPass(String passName);
-
-  /**
-   * An accumulation of deleted scope nodes since the last time the given pass was run. A returned
-   * null or empty list means no scope nodes have been deleted since the last run or this is the
-   * first time the pass has run.
-   */
-  abstract List<Node> getDeletedScopeNodesForPass(String passName);
 
   /** Called to indicate that the current change stamp has been used */
   abstract void incrementChangeStamp();
@@ -396,10 +396,14 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
    */
   abstract void setHasRegExpGlobalReferences(boolean references);
 
-  /** @return Whether the AST contains references to the RegExp global object properties. */
+  /**
+   * @return Whether the AST contains references to the RegExp global object properties.
+   */
   abstract boolean hasRegExpGlobalReferences();
 
-  /** @return The error level the given error object will be reported at. */
+  /**
+   * @return The error level the given error object will be reported at.
+   */
   abstract CheckLevel getErrorLevel(JSError error);
 
   /** What point in optimizations we're in. For use by compiler passes */
@@ -449,23 +453,31 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
   abstract CompilerOptions getOptions();
 
   /**
-   * The set of features defined by the input language mode that have not (yet) been transpiled
-   * away.
+   * Returns the set of language features currently allowed to exist in the AST
    *
-   * <p>This is **not** the exact set of all features currently in the AST, but rather an improper
-   * super set. This set starts out as the set of features from the language input mode specified by
-   * the options, which is verified to be a super set of what appears in the input code (if the
-   * input code contains a feature outside the language input mode it is an error). As the compiler
-   * transpiles code any features that are transpiled away from the AST are removed from this set.
+   * <p>At the start of compilation, all features in the languageIn are allowed. At the end of
+   * compilation, only features in the languageOut should be allowed.
    *
-   * <p>The feature set is computed this way, rather than using the detected features in the AST, so
-   * that the set of passes that run is determined purely by input flags. Otherwise, introducing a
-   * previously unused feature in any of the transitive deps of compilation target could effect the
-   * build behaviour.
+   * <p>Transpilation passes should mark the transpiled features as "not allowed" to prevent future
+   * passes from accidentally introducing new uses of those features. For example, if transpiling
+   * away ES2017 features, the {@link RewriteAsyncFunctions} pass will mark async functions as no
+   * longer allowed.
    */
-  abstract FeatureSet getFeatureSet();
+  abstract FeatureSet getAllowableFeatures();
 
-  abstract void setFeatureSet(FeatureSet fs);
+  /**
+   * Sets the feature set allowed in the AST. See {@link #getAllowableFeatures()}
+   *
+   * <p>In most cases, callers of this method should only be shrinking the allowable feature set and
+   * not adding to it. One known exception is the ConvertChunksToESModules pass.
+   */
+  abstract void setAllowableFeatures(FeatureSet featureSet);
+
+  /** Marks feature as no longer allowed in the AST. See {@link #getAllowableFeatures()} */
+  abstract void markFeatureNotAllowed(FeatureSet.Feature feature);
+
+  /** Marks features as no longer allowed in the AST. See {@link #getAllowableFeatures()} */
+  abstract void markFeatureSetNotAllowed(FeatureSet featureSet);
 
   /**
    * @return a CompilerInput that can be modified to add additional extern definitions to the
@@ -473,23 +485,8 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
    */
   abstract CompilerInput getSynthesizedExternsInput();
 
-  /**
-   * @return a number in [0,1] range indicating an approximate progress of the last compile. Note
-   *     this should only be used as a hint and no assumptions should be made on accuracy, even a
-   *     completed compile may choose not to set this to 1.0 at the end.
-   */
-  public abstract double getProgress();
-
   /** Gets the last pass name set by setProgress. */
   abstract String getLastPassName();
-
-  /**
-   * Sets the progress percentage as well as the name of the last pass that ran (if available).
-   *
-   * @param progress A percentage expressed as a double in the range [0, 1]. Use -1 if you just want
-   *     to set the last pass name.
-   */
-  abstract void setProgress(double progress, @Nullable String lastPassName);
 
   static final String RUNTIME_LIB_DIR =
   "src/com/google/javascript/jscomp/js/";
@@ -528,6 +525,8 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
    * reporting and source map combining.
    */
   public abstract void addInputSourceMap(String name, SourceMapInput sourceMap);
+
+  public abstract String getBase64SourceMapContents(String sourceFileName);
 
   abstract void addComments(String filename, List<Comment> comments);
 
@@ -568,9 +567,9 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
   public final AstFactory createAstFactory() {
     return hasTypeCheckingRun()
         ? (hasOptimizationColors()
-            ? AstFactory.createFactoryWithColors(getColorRegistry())
-            : AstFactory.createFactoryWithTypes(getTypeRegistry()))
-        : AstFactory.createFactoryWithoutTypes();
+            ? AstFactory.createFactoryWithColors(stage, getColorRegistry())
+            : AstFactory.createFactoryWithTypes(stage, getTypeRegistry()))
+        : AstFactory.createFactoryWithoutTypes(stage);
   }
 
   /**
@@ -578,7 +577,7 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
    * checking has already happened.
    */
   public final AstFactory createAstFactoryWithoutTypes() {
-    return AstFactory.createFactoryWithoutTypes();
+    return AstFactory.createFactoryWithoutTypes(stage);
   }
 
   /**
@@ -622,6 +621,13 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
     return this.getOptions().getDebugLogDirectory() != null;
   }
 
+  public final List<String> getDebugLogFilterList() {
+    if (this.getOptions().getDebugLogFilter() == null) {
+      return new ArrayList<>();
+    }
+    return Splitter.on(',').omitEmptyStrings().splitToList(this.getOptions().getDebugLogFilter());
+  }
+
   /** Provides logging access to a file with the specified name. */
   @MustBeClosed
   public final LogFile createOrReopenLog(
@@ -633,7 +639,20 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
     Path dir = getOptions().getDebugLogDirectory();
     Path relativeParts = Paths.get(firstNamePart, restNameParts);
     Path file = dir.resolve(owner.getSimpleName()).resolve(relativeParts);
-    return LogFile.createOrReopen(file);
+
+    // If a filter list for log file names was provided, only create a log file if any
+    // of the filter strings matches.
+    List<String> filters = getDebugLogFilterList();
+    if (filters.isEmpty()) {
+      return LogFile.createOrReopen(file);
+    }
+
+    for (String filter : filters) {
+      if (file.toString().contains(filter)) {
+        return LogFile.createOrReopen(file);
+      }
+    }
+    return LogFile.createNoOp();
   }
 
   /**
@@ -680,18 +699,14 @@ public abstract class AbstractCompiler implements SourceExcerptProvider, Compile
    */
   abstract void mergeSyntheticCodeInput();
 
-  /** A trivial interface to make the LocaleData opaque */
-  interface LocaleData {}
-
   /**
-   * Storage for i18n data extracted from the compilation set, to use for localization of the
-   * compilation late in the compilation process.
+   * Records the mapping of toggle names to ordinals, which is read from a bootstrap JS file by the
+   * first (check) pass of {@link RewriteToggles}.
    */
-  abstract void setLocaleSubstitutionData(LocaleData localeDataValueMap);
+  void setToggleOrdinalMapping(@Nullable ImmutableMap<String, Integer> mapping) {}
 
-  /**
-   * Retrieve extracted i18n data extracted, to use for localization of the compilation late in the
-   * compilation process.
-   */
-  abstract LocaleData getLocaleSubstitutionData();
+  /** Returns the recorded toggle-name-to-ordinal mapping. */
+  @Nullable ImmutableMap<String, Integer> getToggleOrdinalMapping() {
+    return null;
+  }
 }

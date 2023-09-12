@@ -19,8 +19,9 @@ package com.google.javascript.jscomp;
 import com.google.common.collect.ImmutableSet;
 import java.io.Serializable;
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Group a set of related diagnostic types together, so that they can be toggled on and off as one
@@ -33,7 +34,7 @@ public final class DiagnosticGroup implements Serializable {
   private final ImmutableSet<DiagnosticType> types;
 
   // A human-readable name for the group.
-  private final String name;
+  private final @Nullable String name;
 
   /**
    * Create a group that matches all errors of the given types.
@@ -76,7 +77,7 @@ public final class DiagnosticGroup implements Serializable {
   }
 
   // DiagnosticGroups with only a single DiagnosticType.
-  private static final Map<DiagnosticType, DiagnosticGroup> singletons = new HashMap<>();
+  private static final Map<DiagnosticType, DiagnosticGroup> singletons = new LinkedHashMap<>();
 
   /** Create a diagnostic group that matches only the given type. */
   public static synchronized DiagnosticGroup forType(DiagnosticType type) {

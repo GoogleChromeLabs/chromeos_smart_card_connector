@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.ErrorHandler;
 import com.google.javascript.jscomp.deps.ModuleLoader.PathEscaper;
 import java.util.Map;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** Base class for algorithms that resolve JavaScript module references to input files. */
 public abstract class ModuleResolver {
@@ -39,7 +39,7 @@ public abstract class ModuleResolver {
       ImmutableSet<String> modulePaths,
       ImmutableList<String> moduleRootPaths,
       ErrorHandler errorHandler,
-      ModuleLoader.PathEscaper pathEscaper) {
+      PathEscaper pathEscaper) {
     this.modulePaths = modulePaths;
     this.moduleRootPaths = moduleRootPaths;
     this.errorHandler = errorHandler;
@@ -50,8 +50,7 @@ public abstract class ModuleResolver {
     return ImmutableMap.of();
   }
 
-  @Nullable
-  public abstract String resolveJsModule(
+  public abstract @Nullable String resolveJsModule(
       String scriptAddress, String moduleAddress, String sourcename, int lineno, int colno);
 
   public String resolveModuleAsPath(String scriptAddress, String moduleAddress) {
@@ -73,8 +72,7 @@ public abstract class ModuleResolver {
    * Locates the module with the given name, but returns null if there is no JS file in the expected
    * location.
    */
-  @Nullable
-  protected String locate(String scriptAddress, String name) {
+  protected @Nullable String locate(String scriptAddress, String name) {
     String canonicalizedPath = canonicalizePath(scriptAddress, name);
 
     String normalizedPath = canonicalizedPath;

@@ -24,8 +24,8 @@ import com.google.javascript.rhino.Node;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 
 /**
@@ -89,13 +89,8 @@ final class RenameLabels implements CompilerPass {
     // DefaultNameGenerator is used to create safe label names.
     private final NameGenerator nameGenerator;
 
-    private DefaultNameSupplier(final NameGenerator nameGen) {
-      this.nameGenerator = nameGen;
-    }
-
     private DefaultNameSupplier() {
-      this.nameGenerator = new DefaultNameGenerator(
-          new HashSet<String>(), "", null);
+      this.nameGenerator = new DefaultNameGenerator(new LinkedHashSet<String>(), "", null);
     }
 
     @Override
@@ -291,7 +286,7 @@ final class RenameLabels implements CompilerPass {
 
 
   private static class LabelNamespace {
-    final Map<String, LabelInfo> renameMap = new HashMap<>();
+    final Map<String, LabelInfo> renameMap = new LinkedHashMap<>();
   }
 
 }

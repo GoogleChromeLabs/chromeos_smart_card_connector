@@ -33,26 +33,24 @@ import com.google.common.collect.Ordering;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-import com.google.javascript.jscomp.deps.Es6SortedDependencies;
+import com.google.javascript.jscomp.base.format.SimpleFormat;
 import com.google.javascript.jscomp.deps.SortedDependencies;
 import com.google.javascript.jscomp.deps.SortedDependencies.MissingProvideException;
 import com.google.javascript.jscomp.graph.LinkedDirectedGraph;
-import com.google.javascript.jscomp.parsing.parser.util.format.SimpleFormat;
 import com.google.javascript.rhino.StaticSourceFile.SourceKind;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * A {@link JSChunk} dependency graph that assigns a depth to each chunk and can answer
@@ -182,7 +180,7 @@ public final class JSChunkGraph implements Serializable {
     for (JSChunk chunk : chunksInDepOrder) {
       if (chunk.getName().equals(JSChunk.WEAK_CHUNK_NAME)) {
         hasWeakChunk = true;
-        Set<JSChunk> allOtherChunks = new HashSet<>(chunksInDepOrder);
+        Set<JSChunk> allOtherChunks = new LinkedHashSet<>(chunksInDepOrder);
         allOtherChunks.remove(chunk);
         checkState(
             chunk.getAllDependencies().containsAll(allOtherChunks),
@@ -299,7 +297,7 @@ public final class JSChunkGraph implements Serializable {
 
   /** Gets all chunks indexed by name. */
   Map<String, JSChunk> getChunksByName() {
-    Map<String, JSChunk> result = new HashMap<>();
+    Map<String, JSChunk> result = new LinkedHashMap<>();
     for (JSChunk m : chunks) {
       result.put(m.getName(), m);
     }
@@ -418,6 +416,7 @@ public final class JSChunkGraph implements Serializable {
    * @return The deepest common dep of {@code m1} and {@code m2}, or null if they have no common
    *     dependencies
    */
+  @Nullable
   JSChunk getDeepestCommonDependency(JSChunk m1, JSChunk m2) {
     int m1Depth = m1.getDepth();
     int m2Depth = m2.getDepth();
@@ -516,16 +515,16 @@ public final class JSChunkGraph implements Serializable {
       throws MissingProvideException, MissingChunkException {
 
     // Make a copy since we're going to mutate the graph below.
-    List<CompilerInput> originalInputs = ImmutableList.copyOf(getAllInputs());
+    ImmutableList<CompilerInput> originalInputs = ImmutableList.copyOf(getAllInputs());
 
-    SortedDependencies<CompilerInput> sorter = new Es6SortedDependencies<>(originalInputs);
+    SortedDependencies<CompilerInput> sorter = new SortedDependencies<>(originalInputs);
 
     Set<CompilerInput> entryPointInputs =
         createEntryPointInputs(compiler, dependencyOptions, getAllInputs(), sorter);
 
     // Build a map of symbols to their source file(s). While having multiple source files is invalid
     // we leave that up to typechecking so that we avoid arbitarily picking a file.
-    HashMap<String, Set<CompilerInput>> inputsByProvide = new HashMap<>();
+    LinkedHashMap<String, Set<CompilerInput>> inputsByProvide = new LinkedHashMap<>();
     for (CompilerInput input : originalInputs) {
       for (String provide : input.getKnownProvides()) {
         inputsByProvide.computeIfAbsent(provide, (String k) -> new LinkedHashSet<>());
@@ -547,8 +546,17 @@ public final class JSChunkGraph implements Serializable {
       }
     }
 
+    // For goog.requireDynamic() imported files.
+    for (CompilerInput input : originalInputs) {
+      for (String require : input.getRequireDynamicImports()) {
+        if (inputsByProvide.containsKey(require)) {
+          entryPointInputs.addAll(inputsByProvide.get(require));
+        }
+      }
+    }
+
     // The order of inputs, sorted independently of chunks.
-    List<CompilerInput> absoluteOrder =
+    ImmutableList<CompilerInput> absoluteOrder =
         sorter.getStrongDependenciesOf(originalInputs, dependencyOptions.shouldSort());
 
     // Figure out which sources *must* be in each chunk.
@@ -567,7 +575,7 @@ public final class JSChunkGraph implements Serializable {
     // Figure out which sources *must* be in each chunk, or in one
     // of that chunk's dependencies.
     List<CompilerInput> orderedInputs = new ArrayList<>();
-    Set<CompilerInput> reachedInputs = new HashSet<>();
+    Set<CompilerInput> reachedInputs = new LinkedHashSet<>();
 
     for (JSChunk chunk : chunks) {
       List<CompilerInput> transitiveClosure;
@@ -577,7 +585,7 @@ public final class JSChunkGraph implements Serializable {
       if (dependencyOptions.shouldSort() && dependencyOptions.shouldPrune()) {
         transitiveClosure = new ArrayList<>();
         // We need the ful set of dependencies for each chunk, so start with the full input set
-        Set<CompilerInput> inputsNotYetReached = new HashSet<>(originalInputs);
+        Set<CompilerInput> inputsNotYetReached = new LinkedHashSet<>(originalInputs);
         for (CompilerInput entryPoint : entryPointInputsPerChunk.get(chunk)) {
           transitiveClosure.addAll(
               getDepthFirstDependenciesOf(entryPoint, inputsNotYetReached, inputsByProvide));
@@ -621,7 +629,7 @@ public final class JSChunkGraph implements Serializable {
     checkNotNull(weakChunk);
     // Mark all sources that are detected as weak.
     if (dependencyOptions.shouldPrune()) {
-      List<CompilerInput> weakInputs = sorter.getSortedWeakDependenciesOf(orderedInputs);
+      ImmutableList<CompilerInput> weakInputs = sorter.getSortedWeakDependenciesOf(orderedInputs);
       for (CompilerInput i : weakInputs) {
         // Add weak inputs to the weak chunk in dependency order. moveMarkedWeakSources will move
         // in command line flag order.
@@ -639,7 +647,7 @@ public final class JSChunkGraph implements Serializable {
     // Update the chunks to reflect this.
     for (CompilerInput input : orderedInputs) {
       JSChunk chunk = input.getChunk();
-      if (chunk != null && !chunk.getInputs().contains(input)) {
+      if (chunk != null && chunk.getByName(input.getName()) == null) {
         chunk.add(input);
       }
     }

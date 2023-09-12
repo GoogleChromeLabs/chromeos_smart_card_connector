@@ -43,18 +43,11 @@ public final class CrossChunkMethodMotionTest extends CompilerTestCase {
     return options;
   }
 
-  @Override
   @Before
-  public void setUp() throws Exception {
-    super.setUp();
+  public void customSetUp() throws Exception {
     canMoveExterns = false;
     noStubs = false;
     enableNormalize();
-    // We move code from one script to another, and thus may move a feature from one to
-    // another.
-    // By the time CCMM runs we no longer care about what features individual scripts say
-    // they contain.
-    disableScriptFeatureValidation();
   }
 
   @Test
@@ -270,6 +263,8 @@ public final class CrossChunkMethodMotionTest extends CompilerTestCase {
 
   @Test
   public void doNotMoveClassMethodContainingSuperInAnArrow() {
+    // TODO(bradfordcsmith): Stop normalizing the expected output or document why it is necessary.
+    enableNormalizeExpectedOutput();
     test(
         srcs(
             JSChunkGraphBuilder.forChain()
@@ -402,6 +397,8 @@ public final class CrossChunkMethodMotionTest extends CompilerTestCase {
 
   @Test
   public void doNotMoveFunctionCall_thatIsSideEffected() {
+    // TODO(bradfordcsmith): Stop normalizing the expected output or document why it is necessary.
+    enableNormalizeExpectedOutput();
     JSChunk[] modules =
         JSChunkGraphBuilder.forChain()
             // m1
@@ -863,7 +860,7 @@ public final class CrossChunkMethodMotionTest extends CompilerTestCase {
                 .addChunk(
                     lines(
                         "function Foo() {}", //
-                        "Foo.prototype.baz = goog.nullFunction;"))
+                        "Foo.prototype.baz = shared;"))
                 .addChunk("(new Foo).baz()")
                 .build()));
 
@@ -873,7 +870,7 @@ public final class CrossChunkMethodMotionTest extends CompilerTestCase {
                 .addChunk(
                     lines(
                         "class Foo {}", //
-                        "Foo.prototype.baz = goog.nullFunction;"))
+                        "Foo.prototype.baz = shared;"))
                 .addChunk("(new Foo).baz()")
                 .build()));
   }
@@ -1278,6 +1275,8 @@ public final class CrossChunkMethodMotionTest extends CompilerTestCase {
 
   @Test
   public void doNotMoveClassMethodThatUsesLocalClosureVariable() {
+    // TODO(bradfordcsmith): Stop normalizing the expected output or document why it is necessary.
+    enableNormalizeExpectedOutput();
     testSame(
         srcs(
             JSChunkGraphBuilder.forChain()
@@ -1644,6 +1643,139 @@ public final class CrossChunkMethodMotionTest extends CompilerTestCase {
                 "Foo.prototype.baz = JSCompiler_unstubMethod(",
                 "    0, function(){var x = 1; return function(){x}});",
                 "var y = new Foo(); y.baz();")));
+  }
+
+  @Test
+  public void staticBlockWithoutMethodReference() {
+    // TODO(bradfordcsmith): Stop normalizing the expected output or document why it is necessary.
+    enableNormalizeExpectedOutput();
+    test(
+        srcs(
+            JSChunkGraphBuilder.forChain()
+                .addChunk(
+                    lines(
+                        "class Bar {", //
+                        "  method() {",
+                        "  }",
+                        "  static {",
+                        "  }",
+                        "}",
+                        "class Foo extends Bar {",
+                        "  method2() {",
+                        "    return () => super.method();",
+                        "  }",
+                        "}"))
+                .addChunk("(new Foo).method2()")
+                .build()),
+        expected(
+            lines(
+                STUB_DECLARATIONS, //
+                "class Bar {",
+                "  static {",
+                "  }",
+                "}",
+                "Bar.prototype.method = JSCompiler_stubMethod(0);",
+                "class Foo extends Bar {",
+                "  method2() {",
+                "    return () => super.method();",
+                "  }",
+                "}"),
+            // Chunk 2
+            lines(
+                "Bar.prototype.method = JSCompiler_unstubMethod(0, function() {});",
+                "(new Foo).method2()")));
+  }
+
+  @Test
+  public void referenceToMethodInOwnStaticBlock() {
+    // TODO(bradfordcsmith): Stop normalizing the expected output or document why it is necessary.
+    enableNormalizeExpectedOutput();
+    testSame(
+        srcs(
+            JSChunkGraphBuilder.forChain()
+                .addChunk(
+                    lines(
+                        "class Bar {", //
+                        "  method() {",
+                        "  }",
+                        "  static {",
+                        "    this.prototype.method;",
+                        "  }",
+                        "}",
+                        "class Foo extends Bar {",
+                        "  method2() {",
+                        "    return () => super.method();",
+                        "  }",
+                        "}"))
+                .addChunk("(new Foo).method2()")
+                .build()));
+  }
+
+  @Test
+  public void staticBlockReferenceToMethodInDifferentClassNoMovement() {
+    // TODO(bradfordcsmith): Stop normalizing the expected output or document why it is necessary.
+    enableNormalizeExpectedOutput();
+    testSame(
+        srcs(
+            JSChunkGraphBuilder.forChain()
+                .addChunk(
+                    lines(
+                        "class Bar {", //
+                        "  method() {}",
+                        "}",
+                        "class Foo extends Bar {",
+                        "  static {",
+                        "    (new Bar).method();",
+                        "  }",
+                        "  method2() {",
+                        "    return () => super.method();",
+                        "  }",
+                        "}"))
+                .addChunk("(new Foo).method2()")
+                .build()));
+  }
+
+  @Test
+  public void staticBlockReferenceToMethodInDifferentClassWithMovement() {
+    test(
+        srcs(
+            JSChunkGraphBuilder.forChain()
+                .addChunk(
+                    lines(
+                        "class Bar {", //
+                        "  method() {}",
+                        "}"))
+                .addChunk(
+                    lines(
+                        "class Foo extends Bar {",
+                        "  static {",
+                        "    (new Bar()).method();",
+                        "  }",
+                        "  method2() {",
+                        "    return () => { return super.method(); };",
+                        "  }",
+                        "}"))
+                .addChunk("(new Foo).method2()")
+                .build()),
+        expected(
+            lines(
+                STUB_DECLARATIONS, //
+                "class Bar {",
+                "}",
+                "Bar.prototype.method = JSCompiler_stubMethod(0);"),
+            // Chunk 2
+            lines(
+                "Bar.prototype.method = JSCompiler_unstubMethod(0, function() {});",
+                "class Foo extends Bar {",
+                "  static {",
+                "    (new Bar()).method();",
+                "  }",
+                "  method2() {",
+                "    return () => { return super.method(); };",
+                "  }",
+                "}"),
+            // Chunk 3
+            lines("(new Foo()).method2();")));
   }
 
   @Test

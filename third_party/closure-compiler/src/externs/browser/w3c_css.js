@@ -319,6 +319,23 @@ CSSStyleRule.prototype.style;
 /**
  * @constructor
  * @extends {CSSRule}
+ * @see https://www.w3.org/TR/css-conditional-3/#the-csssupportsrule-interface
+ */
+function CSSSupportsRule() {}
+
+/**
+ * @type {string}
+ */
+CSSSupportsRule.prototype.conditionText;
+
+/**
+ * @type {!CSSRuleList}
+ */
+CSSSupportsRule.prototype.cssRules;
+
+/**
+ * @constructor
+ * @extends {CSSRule}
  * @see http://www.w3.org/TR/DOM-Level-2-Style/css.html#CSS-CSSMediaRule
  */
 function CSSMediaRule() {}
@@ -1409,6 +1426,90 @@ CSSProperties.prototype.fontVariant;
 CSSProperties.prototype.fontWeight;
 
 /**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-grid-1/#propdef-grid
+ */
+CSSProperties.prototype.grid;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-grid-1/#propdef-grid-area
+ */
+CSSProperties.prototype.gridArea;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-grid-1/#propdef-grid-auto-columns
+ */
+CSSProperties.prototype.gridAutoColumns;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-grid-1/#propdef-grid-auto-rows
+ */
+CSSProperties.prototype.gridAutoRows;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-grid-1/#propdef-grid-column
+ */
+CSSProperties.prototype.gridColumn;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-grid-1/#propdef-grid-column-end
+ */
+CSSProperties.prototype.gridColumnEnd;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-grid-1/#propdef-grid-column-start
+ */
+CSSProperties.prototype.gridColumnStart;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-grid-1/#propdef-grid-row
+ */
+CSSProperties.prototype.gridRow;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-grid-1/#propdef-grid-row-end
+ */
+CSSProperties.prototype.gridRowEnd;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-grid-1/#propdef-grid-row-start
+ */
+CSSProperties.prototype.gridRowStart;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-grid-1/#propdef-grid-template
+ */
+CSSProperties.prototype.gridTemplate;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-grid-1/#propdef-grid-template-areas
+ */
+CSSProperties.prototype.gridTemplateAreas;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-grid-1/#propdef-grid-template-columns
+ */
+CSSProperties.prototype.gridTemplateColumns;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-grid-1/#propdef-grid-template-rows
+ */
+CSSProperties.prototype.gridTemplateRows;
+
+/**
  * @type {string|number}
  * @see http://www.w3.org/TR/DOM-Level-2-Style/css.html#CSS-CSSProperties-height
  */
@@ -1740,6 +1841,30 @@ CSSProperties.prototype.textDecoration;
 
 /**
  * @type {string}
+ * @see https://www.w3.org/TR/css-text-decor-3/#text-decoration-line-property
+ */
+CSSProperties.prototype.textDecorationLine;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-text-decor-3/#text-decoration-style-property
+ */
+CSSProperties.prototype.textDecorationStyle;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-text-decor-3/#text-decoration-color-property
+ */
+CSSProperties.prototype.textDecorationColor;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-text-decor-3/#text-underline-position-property
+ */
+CSSProperties.prototype.textDecorationPosition;
+
+/**
+ * @type {string}
  * @see http://www.w3.org/TR/DOM-Level-2-Style/css.html#CSS-CSSProperties-textIndent
  */
 CSSProperties.prototype.textIndent;
@@ -1847,6 +1972,12 @@ CSSProperties.prototype.boxSizing;
  * @see http://www.w3.org/TR/css3-color/#transparency
  */
 CSSProperties.prototype.opacity;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-ui-3/#outline-offset
+ */
+CSSProperties.prototype.outlineOffset;
 
 /**
  * @type {string}
@@ -2406,6 +2537,25 @@ MediaQueryList.prototype.dispatchEvent = function(evt) {};
  * @see http://www.w3.org/TR/cssom-view/#mediaquerylistlistener
  */
 var MediaQueryListListener;
+
+/**
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/MediaQueryListEvent
+ * @constructor
+ * @extends {Event}
+ */
+function MediaQueryListEvent() {}
+
+/**
+ * A boolean value; returns true if the document currently matches the media query list, false if not.
+ * @const {boolean}
+ */
+MediaQueryListEvent.prototype.matches;
+
+/**
+ * A String representing a serialized media query.
+ * @const {string}
+ */
+MediaQueryListEvent.prototype.media;
 
 /**
  * @constructor
@@ -3007,6 +3157,58 @@ AnimationEvent.prototype.elapsedTime;
  * @see https://drafts.csswg.org/css-animations/#dom-animationevent-pseudoelement
  */
 AnimationEvent.prototype.pseudoElement;
+
+/**
+ * @record
+ * @extends {EventInit}
+ * @see https://www.w3.org/TR/css-transitions-1/#dictdef-transitioneventinit
+ */
+function TransitionEventInit() {};
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-transitions-1/#dom-transitioneventinit-propertyname
+ */
+TransitionEventInit.prototype.propertyName;
+
+/**
+ * @type {number}
+ * @see https://www.w3.org/TR/css-transitions-1/#dom-transitioneventinit-elapsedtime
+ */
+TransitionEventInit.prototype.elapsedTime;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-transitions-1/#dom-transitioneventinit-pseudoelement
+ */
+TransitionEventInit.prototype.pseudoElement;
+
+/**
+ * @constructor
+ * @param {string} type
+ * @param {!TransitionEventInit=} transitionEventInitDict
+ * @extends {Event}
+ * @see https://www.w3.org/TR/css-transitions-1/#interface-transitionevent
+ */
+function TransitionEvent(type, transitionEventInitDict) {};
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-transitions-1/#Events-TransitionEvent-propertyName
+ */
+TransitionEvent.prototype.propertyName;
+
+/**
+ * @type {number}
+ * @see https://www.w3.org/TR/css-transitions-1/#Events-TransitionEvent-elapsedTime
+ */
+TransitionEvent.prototype.elapsedTime;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-transitions-1/#Events-TransitionEvent-pseudoElement
+ */
+TransitionEvent.prototype.pseudoElement;
 
 /**
  * @constructor

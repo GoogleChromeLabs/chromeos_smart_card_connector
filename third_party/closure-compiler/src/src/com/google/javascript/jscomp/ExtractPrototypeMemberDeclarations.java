@@ -25,7 +25,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * When there are multiple prototype member declarations to the same class, use a temp variable to
@@ -334,7 +334,7 @@ class ExtractPrototypeMemberDeclarations implements CompilerPass {
   }
 
   private class ExtractionInstance {
-    List<PrototypeMemberDeclaration> declarations = new ArrayList<>();
+    final List<PrototypeMemberDeclaration> declarations = new ArrayList<>();
     private int delta = 0;
     private final Node parent;
 
@@ -397,7 +397,7 @@ class ExtractPrototypeMemberDeclarations implements CompilerPass {
       return qualifiedClassName.equals(other.qualifiedClassName);
     }
 
-    private static Node getPrototypeClassName(Node qName) {
+    private static @Nullable Node getPrototypeClassName(Node qName) {
       Node cur = qName;
       while (cur.isGetProp()) {
         if (cur.getString().equals("prototype")) {
@@ -430,8 +430,7 @@ class ExtractPrototypeMemberDeclarations implements CompilerPass {
      * @return A prototype member declaration representation if there is one else it returns {@code
      *     null}.
      */
-    @Nullable
-    private static PrototypeMemberDeclaration extractDeclaration(Node n) {
+    private static @Nullable PrototypeMemberDeclaration extractDeclaration(Node n) {
       if (!isPrototypePropertyDeclaration(n)) {
         return null;
       }

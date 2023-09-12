@@ -36,7 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * RenameProperties renames properties (including methods) of all JavaScript
@@ -95,12 +95,12 @@ class RenameProperties implements CompilerPass {
   private static final Comparator<Property> FREQUENCY_COMPARATOR =
       (Property p1, Property p2) -> {
 
-        /** First a frequently used names would always be picked first. */
+        /* First a frequently used names would always be picked first. */
         if (p1.numOccurrences != p2.numOccurrences) {
           return p2.numOccurrences - p1.numOccurrences;
         }
 
-        /** Finally, for determinism, we compare them based on the old name. */
+        /* Finally, for determinism, we compare them based on the old name. */
         return p1.oldName.compareTo(p2.oldName);
       };
 
@@ -130,8 +130,8 @@ class RenameProperties implements CompilerPass {
       AbstractCompiler compiler,
       boolean generatePseudoNames,
       VariableMap prevUsedPropertyMap,
-      @Nullable char[] reservedFirstCharacters,
-      @Nullable char[] reservedNonFirstCharacters,
+      char @Nullable [] reservedFirstCharacters,
+      char @Nullable [] reservedNonFirstCharacters,
       NameGenerator nameGenerator) {
     this.compiler = compiler;
     this.generatePseudoNames = generatePseudoNames;
@@ -317,7 +317,7 @@ class RenameProperties implements CompilerPass {
           break;
         }
         case MEMBER_FUNCTION_DEF:
-          checkState(!n.isQuotedString());
+          checkState(!n.isQuotedStringKey());
           if (NodeUtil.isEs6ConstructorMemberFunctionDef(n)) {
             externedNames.add(n.getString());
           } else {
@@ -327,7 +327,7 @@ class RenameProperties implements CompilerPass {
         case GETTER_DEF:
         case SETTER_DEF:
         case STRING_KEY:
-          if (n.isQuotedString()) {
+          if (n.isQuotedStringKey()) {
             // Ensure that we never rename some other property in a way
             // that could conflict with this quoted key.
             quotedNames.add(n.getString());

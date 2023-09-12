@@ -17,6 +17,7 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPreOrderCallback;
 import com.google.javascript.jscomp.deps.ModuleLoader;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
@@ -29,6 +30,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Finds all references to global symbols in a different output chunk and add ES Module imports and
@@ -121,7 +123,7 @@ final class ConvertChunksToESModules implements CompilerPass {
     addImportStatements();
     rewriteDynamicImportCallbacks();
 
-    compiler.setFeatureSet(compiler.getFeatureSet().with(FeatureSet.Feature.MODULES));
+    NodeUtil.addFeatureToAllScripts(root, FeatureSet.Feature.MODULES, compiler);
   }
 
   /**
@@ -167,7 +169,7 @@ final class ConvertChunksToESModules implements CompilerPass {
   /** Add export statements to chunks */
   private void addExportStatements() {
     for (Map.Entry<JSChunk, Set<String>> jsModuleExports : crossChunkExports.entrySet()) {
-      CompilerInput firstInput = jsModuleExports.getKey().getInput(0);
+      CompilerInput firstInput = jsModuleExports.getKey().getFirst();
       Node moduleBody = firstInput.getAstRoot(compiler).getFirstChild();
       checkState(moduleBody != null && moduleBody.isModuleBody());
       Node exportSpecs = new Node(Token.EXPORT_SPECS);
@@ -200,7 +202,7 @@ final class ConvertChunksToESModules implements CompilerPass {
         crossChunkImports.entrySet()) {
       ArrayList<Node> importStatements = new ArrayList<>();
       JSChunk importingChunk = chunkImportsEntry.getKey();
-      CompilerInput firstInput = importingChunk.getInput(0);
+      CompilerInput firstInput = importingChunk.getFirst();
       Node moduleBody = firstInput.getAstRoot(compiler).getFirstChild();
       checkState(moduleBody != null && moduleBody.isModuleBody());
 
@@ -252,7 +254,8 @@ final class ConvertChunksToESModules implements CompilerPass {
   }
 
   /** Find and return the module namespace name node in a dynamic import callback function */
-  public static Node getDynamicImportCallbackModuleNamespace(AbstractCompiler compiler, Node call) {
+  public static @Nullable Node getDynamicImportCallbackModuleNamespace(
+      AbstractCompiler compiler, Node call) {
     checkState(call.isCall());
     Node callbackFn = NodeUtil.getArgumentForCallOrNew(call, 0);
     if (callbackFn == null
@@ -347,7 +350,7 @@ final class ConvertChunksToESModules implements CompilerPass {
     public void visitScript(NodeTraversal t, Node script) {
       checkState(script.isScript());
       JSChunk chunk = t.getChunk();
-      List<JSChunk> chunkDependencies = chunk.getDependencies();
+      ImmutableList<JSChunk> chunkDependencies = chunk.getDependencies();
 
       crossChunkExports.putIfAbsent(chunk, new LinkedHashSet<>());
 

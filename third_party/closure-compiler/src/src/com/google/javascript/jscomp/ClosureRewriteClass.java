@@ -26,12 +26,14 @@ import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSDocInfo.Visibility;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.QualifiedName;
 import com.google.javascript.rhino.Token;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Rewrites "goog.defineClass" into a form that is suitable for type checking and dead code
@@ -87,6 +89,9 @@ class ClosureRewriteClass extends AbstractPostOrderCallback implements CompilerP
   static final DiagnosticType GOOG_CLASS_NG_INJECT_ON_CLASS = DiagnosticType.warning(
       "JSC_GOOG_CLASS_NG_INJECT_ON_CLASS",
       "@ngInject should be declared on the constructor, not on the class.");
+
+  private static final QualifiedName GOOG_DEFINE_CLASS = QualifiedName.of("goog.defineClass");
+  private static final QualifiedName GOOG_MODULE_GET = QualifiedName.of("goog.module.get");
 
   private final AbstractCompiler compiler;
 
@@ -173,7 +178,7 @@ class ClosureRewriteClass extends AbstractPostOrderCallback implements CompilerP
     final Node name;
     final Node value;
 
-    MemberDefinition(JSDocInfo info, Node name, Node value) {
+    MemberDefinition(JSDocInfo info, @Nullable Node name, Node value) {
       this.info = info;
       this.name = name;
       this.value = value;
@@ -208,11 +213,10 @@ class ClosureRewriteClass extends AbstractPostOrderCallback implements CompilerP
   }
 
   /**
-   * Validates the class definition and if valid, destructively extracts
-   * the class definition from the AST.
+   * Validates the class definition and if valid, destructively extracts the class definition from
+   * the AST.
    */
-  private ClassDefinition extractClassDefinition(
-      Node targetName, Node callNode) {
+  private @Nullable ClassDefinition extractClassDefinition(Node targetName, Node callNode) {
 
     JSDocInfo classInfo = NodeUtil.getBestJSDocInfo(targetName);
 
@@ -221,7 +225,7 @@ class ClosureRewriteClass extends AbstractPostOrderCallback implements CompilerP
     if (superClass == null
         || (!superClass.isNull()
             && !superClass.isQualifiedName()
-            && !NodeUtil.isCallTo(superClass, "goog.module.get"))) {
+            && !NodeUtil.isCallTo(superClass, GOOG_MODULE_GET))) {
       compiler.report(JSError.make(callNode, GOOG_CLASS_SUPER_CLASS_NOT_VALID));
       return null;
     }
@@ -345,7 +349,7 @@ class ClosureRewriteClass extends AbstractPostOrderCallback implements CompilerP
             GOOG_CLASS_ES6_ARROW_FUNCTION_NOT_SUPPORTED));
         return false;
       }
-      if (!key.isStringKey() || key.isQuotedString()) {
+      if (!key.isStringKey() || key.isQuotedStringKey()) {
         reportErrorOnContext(parent);
         return false;
       }
@@ -367,7 +371,7 @@ class ClosureRewriteClass extends AbstractPostOrderCallback implements CompilerP
   /**
    * @return The first property in the objlit that matches the key.
    */
-  private static Node extractProperty(Node objlit, String keyName) {
+  private static @Nullable Node extractProperty(Node objlit, String keyName) {
     for (Node keyNode = objlit.getFirstChild(); keyNode != null; keyNode = keyNode.getNext()) {
       if (keyNode.getString().equals(keyName)) {
         return keyNode.getFirstChild();
@@ -546,7 +550,7 @@ class ClosureRewriteClass extends AbstractPostOrderCallback implements CompilerP
    */
   static boolean isGoogDefineClass(Node value) {
     if (value != null && value.isCall()) {
-      return value.getFirstChild().matchesQualifiedName("goog.defineClass");
+      return GOOG_DEFINE_CLASS.matches(value.getFirstChild());
     }
     return false;
   }
@@ -558,7 +562,7 @@ class ClosureRewriteClass extends AbstractPostOrderCallback implements CompilerP
     if (superNode.isQualifiedName()) {
       superName = superNode.getQualifiedName();
     } else {
-      checkState(NodeUtil.isCallTo(superNode, "goog.module.get"));
+      checkState(NodeUtil.isCallTo(superNode, GOOG_MODULE_GET));
       superName = superNode.getLastChild().getString();
     }
     return new JSTypeExpression(
@@ -606,7 +610,7 @@ class ClosureRewriteClass extends AbstractPostOrderCallback implements CompilerP
     }
 
     // merge suppressions
-    Set<String> suppressions = new HashSet<>();
+    Set<String> suppressions = new LinkedHashSet<>();
     suppressions.addAll(classInfo.getSuppressions());
     suppressions.addAll(ctorInfo.getSuppressions());
     if (!suppressions.isEmpty()) {
@@ -626,7 +630,7 @@ class ClosureRewriteClass extends AbstractPostOrderCallback implements CompilerP
 
     // Use class visibility if specifically set
     Visibility visibility = classInfo.getVisibility();
-    if (visibility != null && visibility != JSDocInfo.Visibility.INHERITED) {
+    if (visibility != null && visibility != Visibility.INHERITED) {
       mergedInfo.recordVisibility(classInfo.getVisibility());
     }
 

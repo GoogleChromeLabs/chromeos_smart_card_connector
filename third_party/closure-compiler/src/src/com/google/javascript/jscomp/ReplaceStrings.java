@@ -34,7 +34,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Replaces JavaScript strings in the list of supplied functions with shortened forms. Useful for
@@ -177,7 +177,7 @@ class ReplaceStrings extends AbstractPostOrderCallback implements CompilerPass {
    * @param callsiteSourceFileName the filename containing the callsite
    * @return The Config object for the name or null if no match was found.
    */
-  private Config findMatching(String name, String callsiteSourceFileName) {
+  private @Nullable Config findMatching(String name, String callsiteSourceFileName) {
     Config config = functions.get(name);
     if (config == null) {
       name = name.replace('$', '.');
@@ -369,8 +369,7 @@ class ReplaceStrings extends AbstractPostOrderCallback implements CompilerPass {
    *
    * @return null if this is an invalid function, otherwise the Config
    */
-  @Nullable
-  private Config parseConfiguration(String function) {
+  private @Nullable Config parseConfiguration(String function) {
     // Looks like this function_name(,$,)
     int first = function.indexOf('(');
     int last = function.indexOf(')');
@@ -405,7 +404,7 @@ class ReplaceStrings extends AbstractPostOrderCallback implements CompilerPass {
         replacementParameters.add(paramCount);
       } else {
         // TODO(johnlenz): report an error.
-        Preconditions.checkState(param.isEmpty(), "Unknown marker", param);
+        Preconditions.checkState(param.isEmpty(), "Unknown marker (%s)", param);
       }
     }
 

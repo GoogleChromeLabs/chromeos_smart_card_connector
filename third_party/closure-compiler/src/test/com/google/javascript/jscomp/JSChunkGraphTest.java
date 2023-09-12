@@ -19,8 +19,9 @@ package com.google.javascript.jscomp;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.truth.Truth8.assertThat;
+import static com.google.javascript.jscomp.base.JSCompStrings.lines;
 import static java.util.Collections.shuffle;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -34,6 +35,7 @@ import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.jspecify.nullness.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -49,7 +51,7 @@ public final class JSChunkGraphTest {
   private JSChunk moduleD;
   private JSChunk moduleE;
   private JSChunk moduleF;
-  private JSChunkGraph graph = null;
+  private @Nullable JSChunkGraph graph = null;
 
   // For resolving dependencies only.
   private Compiler compiler;
@@ -128,15 +130,17 @@ public final class JSChunkGraphTest {
     weakModule.addDependency(moduleE);
     // Missing F
 
-    try {
-      new JSChunkGraph(
-          new JSChunk[] {moduleA, moduleB, moduleC, moduleD, moduleE, moduleF, weakModule});
-      fail();
-    } catch (IllegalStateException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo("A weak chunk already exists but it does not depend on every other chunk.");
-    }
+    IllegalStateException e =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                new JSChunkGraph(
+                    new JSChunk[] {
+                      moduleA, moduleB, moduleC, moduleD, moduleE, moduleF, weakModule
+                    }));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("A weak chunk already exists but it does not depend on every other chunk.");
   }
 
   @Test
@@ -153,15 +157,18 @@ public final class JSChunkGraphTest {
 
     moduleA.add(SourceFile.fromCode("a", "", SourceKind.WEAK));
 
-    try {
-      new JSChunkGraph(
-          new JSChunk[] {moduleA, moduleB, moduleC, moduleD, moduleE, moduleF, weakModule});
-      fail();
-    } catch (IllegalStateException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("Found these weak sources in other chunks:\n  a (in chunk moduleA)");
-    }
+    IllegalStateException e =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                new JSChunkGraph(
+                    new JSChunk[] {
+                      moduleA, moduleB, moduleC, moduleD, moduleE, moduleF, weakModule
+                    }));
+
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Found these weak sources in other chunks:\n  a (in chunk moduleA)");
   }
 
   @Test
@@ -178,13 +185,16 @@ public final class JSChunkGraphTest {
 
     weakModule.add(SourceFile.fromCode("a", "", SourceKind.STRONG));
 
-    try {
-      new JSChunkGraph(
-          new JSChunk[] {moduleA, moduleB, moduleC, moduleD, moduleE, moduleF, weakModule});
-      fail();
-    } catch (IllegalStateException e) {
-      assertThat(e).hasMessageThat().contains("Found these strong sources in the weak chunk:\n  a");
-    }
+    IllegalStateException e =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                new JSChunkGraph(
+                    new JSChunk[] {
+                      moduleA, moduleB, moduleC, moduleD, moduleE, moduleF, weakModule
+                    }));
+    ;
+    assertThat(e).hasMessageThat().contains("Found these strong sources in the weak chunk:\n  a");
   }
 
   @Test
@@ -337,7 +347,7 @@ public final class JSChunkGraphTest {
     makeGraph();
     setUpManageDependenciesTest();
     DependencyOptions depOptions = DependencyOptions.pruneLegacyForEntryPoints(ImmutableList.of());
-    List<CompilerInput> results = graph.manageDependencies(compiler, depOptions);
+    ImmutableList<CompilerInput> results = graph.manageDependencies(compiler, depOptions);
 
     assertInputs(moduleA, "a1", "a3");
     assertInputs(moduleB, "a2", "b2");
@@ -356,7 +366,7 @@ public final class JSChunkGraphTest {
     DependencyOptions depOptions =
         DependencyOptions.pruneLegacyForEntryPoints(
             ImmutableList.of(ModuleIdentifier.forClosure("c2")));
-    List<CompilerInput> results = graph.manageDependencies(compiler, depOptions);
+    ImmutableList<CompilerInput> results = graph.manageDependencies(compiler, depOptions);
 
     assertInputs(moduleA, "a1", "a3");
     assertInputs(moduleB, "a2", "b2");
@@ -374,7 +384,7 @@ public final class JSChunkGraphTest {
     setUpManageDependenciesTest();
     DependencyOptions depOptions =
         DependencyOptions.pruneForEntryPoints(ImmutableList.of(ModuleIdentifier.forClosure("c2")));
-    List<CompilerInput> results = graph.manageDependencies(compiler, depOptions);
+    ImmutableList<CompilerInput> results = graph.manageDependencies(compiler, depOptions);
 
     // Everything gets pushed up into module c, because that's
     // the only one that has entry points.
@@ -384,6 +394,27 @@ public final class JSChunkGraphTest {
     assertInputs(moduleE);
 
     assertThat(sourceNames(results)).containsExactly("a1", "c1", "c2").inOrder();
+  }
+
+  @Test
+  public void testManageDependenciesStrictForGoogRequireDynamic() throws Exception {
+    JSChunk chunkA = new JSChunk("chunk");
+    graph = new JSChunkGraph(new JSChunk[] {chunkA});
+    List<CompilerInput> inputs = new ArrayList<>();
+    CompilerInput compilerInputA1 = new CompilerInput(code("a1", provides("a1"), requires()));
+    compilerInputA1.addRequireDynamicImports("a2");
+    chunkA.add(compilerInputA1);
+    chunkA.add(code("a2", provides("a2"), requires()));
+    inputs.addAll(chunkA.getInputs());
+    for (CompilerInput input : inputs) {
+      input.setCompiler(compiler);
+    }
+    DependencyOptions depOptions =
+        DependencyOptions.pruneForEntryPoints(ImmutableList.of(ModuleIdentifier.forClosure("a1")));
+    ImmutableList<CompilerInput> results = graph.manageDependencies(compiler, depOptions);
+
+    assertInputs(chunkA, "a1", "a2");
+    assertThat(sourceNames(results)).containsExactly("a1", "a2");
   }
 
   @Test
@@ -403,7 +434,7 @@ public final class JSChunkGraphTest {
 
     DependencyOptions depOptions =
         DependencyOptions.pruneForEntryPoints(ImmutableList.of(ModuleIdentifier.forClosure("a1")));
-    List<CompilerInput> results = graph.manageDependencies(compiler, depOptions);
+    ImmutableList<CompilerInput> results = graph.manageDependencies(compiler, depOptions);
 
     // Everything gets pushed up into module c, because that's
     // the only one that has entry points.
@@ -417,7 +448,8 @@ public final class JSChunkGraphTest {
     makeDeps();
     makeGraph();
     setUpManageDependenciesTest();
-    List<CompilerInput> results = graph.manageDependencies(compiler, DependencyOptions.sortOnly());
+    ImmutableList<CompilerInput> results =
+        graph.manageDependencies(compiler, DependencyOptions.sortOnly());
 
     assertInputs(moduleA, "a1", "a2", "a3");
     assertInputs(moduleB, "b1", "b2");
@@ -430,7 +462,11 @@ public final class JSChunkGraphTest {
 
   // NOTE: The newline between the @provideGoog comment and the var statement is required.
   private static final String BASEJS =
-      "/** @provideGoog */\nvar COMPILED = false; var goog = goog || {}";
+      lines(
+          "/** @fileoverview",
+          " * @provideGoog */",
+          "var COMPILED = false;",
+          "var goog = goog || {}");
 
   @Test
   public void testManageDependenciesSortOnlyImpl() throws Exception {
@@ -444,7 +480,8 @@ public final class JSChunkGraphTest {
       input.setCompiler(compiler);
     }
 
-    List<CompilerInput> results = graph.manageDependencies(compiler, DependencyOptions.sortOnly());
+    ImmutableList<CompilerInput> results =
+        graph.manageDependencies(compiler, DependencyOptions.sortOnly());
 
     assertInputs(moduleA, "base.js", "a1", "a2");
 
@@ -455,7 +492,8 @@ public final class JSChunkGraphTest {
   public void testNoFiles() throws Exception {
     makeDeps();
     makeGraph();
-    List<CompilerInput> results = graph.manageDependencies(compiler, DependencyOptions.sortOnly());
+    ImmutableList<CompilerInput> results =
+        graph.manageDependencies(compiler, DependencyOptions.sortOnly());
     assertThat(results).isEmpty();
   }
 
@@ -536,7 +574,7 @@ public final class JSChunkGraphTest {
         input.setCompiler(compiler);
       }
 
-      List<CompilerInput> results = graph.manageDependencies(compiler, depOptions);
+      ImmutableList<CompilerInput> results = graph.manageDependencies(compiler, depOptions);
 
       assertInputs(moduleA, "base.js", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9", "a1");
 
@@ -594,7 +632,7 @@ public final class JSChunkGraphTest {
         input.setHasFullParseDependencyInfo(true);
       }
 
-      List<CompilerInput> results = graph.manageDependencies(compiler, depOptions);
+      ImmutableList<CompilerInput> results = graph.manageDependencies(compiler, depOptions);
 
       assertInputs(
           moduleA,
@@ -835,7 +873,8 @@ public final class JSChunkGraphTest {
         SourceFile.fromCode(
             "weak1",
             "goog.provide('weak1'); goog.requireType('weak2'); goog.require('strongFromWeak');");
-    SourceFile strongFromWeak = SourceFile.fromCode("weak1", "goog.provide('strongFromWeak');");
+    SourceFile strongFromWeak =
+        SourceFile.fromCode("strongFromWeak", "goog.provide('strongFromWeak');");
     SourceFile weak2 =
         SourceFile.fromCode("weak2", "goog.provide('weak2'); goog.requireType('weak3');");
     SourceFile weak3 = SourceFile.fromCode("weak3", "goog.provide('weak3');");
@@ -928,7 +967,7 @@ public final class JSChunkGraphTest {
     assertDeepestCommonDepOneWay(expected, m2, m1, true);
   }
 
-  private void assertDeepestCommonDep(JSChunk expected, JSChunk m1, JSChunk m2) {
+  private void assertDeepestCommonDep(@Nullable JSChunk expected, JSChunk m1, JSChunk m2) {
     assertDeepestCommonDepOneWay(expected, m1, m2, false);
     assertDeepestCommonDepOneWay(expected, m2, m1, false);
   }

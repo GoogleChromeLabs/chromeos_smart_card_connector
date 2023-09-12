@@ -35,7 +35,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * CodingConvention defines a set of hooks to customize the behavior of the
@@ -238,11 +238,6 @@ public interface CodingConvention extends Serializable {
    */
   public void applySingletonGetter(
       NominalTypeBuilder classType, FunctionType getterType);
-
-  /**
-   * @return Whether the function is inlinable by convention.
-   */
-  public boolean isInlinableFunction(Node n);
 
   /**
    * @return the delegate relationship created by the call or null.
@@ -473,11 +468,9 @@ public interface CodingConvention extends Serializable {
   @AutoValue
   abstract class AssertionFunctionSpec {
     // TODO(b/126254920): remove this field and always use ClosurePrimitive
-    @Nullable
-    abstract String getFunctionName();
+    abstract @Nullable String getFunctionName();
 
-    @Nullable
-    abstract ClosurePrimitive getClosurePrimitive();
+    abstract @Nullable ClosurePrimitive getClosurePrimitive();
 
     abstract AssertionKind getAssertionKind();
 

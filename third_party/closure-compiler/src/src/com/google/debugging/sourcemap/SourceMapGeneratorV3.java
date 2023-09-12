@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Collects information mapping the generated (compiled) source back to
@@ -88,20 +88,16 @@ public final class SourceMapGeneratorV3 implements SourceMapGenerator {
   private final LinkedHashMap<String, Integer> originalNameMap =
        new LinkedHashMap<>();
 
-  /**
-   * Cache of the last mappings source name.
-   */
-  private String lastSourceFile = null;
+  /** Cache of the last mappings source name. */
+  private @Nullable String lastSourceFile = null;
 
   /**
    * Cache of the last mappings source name index.
    */
   private int lastSourceFileIndex = -1;
 
-  /**
-   * For validation store the last mapping added.
-   */
-  private Mapping lastMapping;
+  /** For validation store the last mapping added. */
+  private @Nullable Mapping lastMapping;
 
   /**
    * The position that the current source map is offset in the
@@ -284,14 +280,12 @@ public final class SourceMapGeneratorV3 implements SourceMapGenerator {
   }
 
   /**
-   * Merges current mapping with {@code mapSectionContents} considering the
-   * offset {@code (line, column)}. Any extension in the map section will be
-   * ignored.
+   * Merges current mapping with {@code mapSectionContents} considering the offset {@code (line,
+   * column)}. Any extension in the map section will be ignored.
    *
    * @param line The line offset
    * @param column The column offset
    * @param mapSectionContents The map section to be appended
-   * @throws SourceMapParseException
    */
   public void mergeMapSection(int line, int column, String mapSectionContents)
       throws SourceMapParseException {
@@ -302,18 +296,17 @@ public final class SourceMapGeneratorV3 implements SourceMapGenerator {
   }
 
   /**
-   * Works like {@link #mergeMapSection(int, int, String)}, except that
-   * extensions from the @{code mapSectionContents} are merged to the top level
-   * source map. For conflicts a {@code mergeAction} is performed.
+   * Works like {@link #mergeMapSection(int, int, String)}, except that extensions from the @{code
+   * mapSectionContents} are merged to the top level source map. For conflicts a {@code mergeAction}
+   * is performed.
    *
    * @param line The line offset
    * @param column The column offset
    * @param mapSectionContents The map section to be appended
    * @param mergeAction The merge action for conflicting extensions
-   * @throws SourceMapParseException
    */
-  public void mergeMapSection(int line, int column, String mapSectionContents,
-      ExtensionMergeAction mergeAction)
+  public void mergeMapSection(
+      int line, int column, String mapSectionContents, ExtensionMergeAction mergeAction)
       throws SourceMapParseException {
     setStartingPosition(line, column);
     SourceMapConsumerV3 section = new SourceMapConsumerV3();
@@ -474,10 +467,9 @@ public final class SourceMapGeneratorV3 implements SourceMapGenerator {
   }
 
   /**
-   * Returns the value mapped by the specified extension
-   * or {@code null} if this extension does not exist.
+   * Returns the value mapped by the specified extension or {@code null} if this extension does not
+   * exist.
    *
-   * @param name
    * @return the extension value or {@code null}
    */
   public Object getExtension(String name) {
@@ -583,9 +575,7 @@ public final class SourceMapGeneratorV3 implements SourceMapGenerator {
   }
 
   @SuppressWarnings("unused")
-  private static void appendFieldEnd(Appendable out)
-     throws IOException {
-  }
+  private static void appendFieldEnd(Appendable out) {}
 
   /**
    * Assigns sequential ids to used mappings, and returns the last line mapped.
@@ -659,12 +649,9 @@ public final class SourceMapGeneratorV3 implements SourceMapGenerator {
    * Mark any visited mapping as "used".
    */
   private static class UsedMappingCheck implements MappingVisitor {
-    /**
-     * @throws IOException
-     */
+    /** */
     @Override
-    public void visit(Mapping m, int line, int col, int nextLine, int nextCol)
-        throws IOException {
+    public void visit(Mapping m, int line, int col, int nextLine, int nextCol) throws IOException {
       if (m != null) {
         m.used = true;
       }
@@ -673,16 +660,13 @@ public final class SourceMapGeneratorV3 implements SourceMapGenerator {
 
   private interface MappingVisitor {
     /**
-     * @param m The mapping for the current code segment. null if the segment
-     *     is unmapped.
+     * @param m The mapping for the current code segment. null if the segment is unmapped.
      * @param line The starting line for this code segment.
      * @param col The starting column for this code segment.
      * @param endLine The ending line
      * @param endCol The ending column
-     * @throws IOException
      */
-    void visit(Mapping m, int line, int col, int endLine, int endCol)
-        throws IOException;
+    void visit(Mapping m, int line, int col, int endLine, int endCol) throws IOException;
   }
 
   /**
@@ -814,14 +798,11 @@ public final class SourceMapGeneratorV3 implements SourceMapGenerator {
    * Appends the index source map to the given buffer.
    *
    * @param out The stream to which the map will be appended.
-   * @param name The name of the generated source file that this source map
-   *   represents.
+   * @param name The name of the generated source file that this source map represents.
    * @param sections An ordered list of map sections to include in the index.
-   * @throws IOException
    */
   @Override
-  public void appendIndexMapTo(
-      Appendable out, String name, List<SourceMapSection> sections)
+  public void appendIndexMapTo(Appendable out, String name, List<SourceMapSection> sections)
       throws IOException {
     // Add the header fields.
     out.append("{\n");

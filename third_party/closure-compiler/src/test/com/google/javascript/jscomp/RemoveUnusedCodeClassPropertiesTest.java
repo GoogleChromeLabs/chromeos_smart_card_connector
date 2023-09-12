@@ -101,6 +101,8 @@ public final class RemoveUnusedCodeClassPropertiesTest extends CompilerTestCase 
     super.setUp();
     // Allow testing of features that aren't fully supported for output yet.
     enableNormalize();
+    // TODO(bradfordcsmith): Stop normalizing the expected output or document why it is necessary.
+    enableNormalizeExpectedOutput();
     disableCompareJsDoc();
     enableGatherExternProperties();
     disableTypeCheck();
@@ -876,5 +878,42 @@ public final class RemoveUnusedCodeClassPropertiesTest extends CompilerTestCase 
             "class C {", //
             "  x = alert();",
             "}"));
+  }
+
+  @Test
+  public void testPureOrBreakMyCode() {
+    test(
+        lines(
+            "class C {",
+            "  constructor() {",
+            "   /** @const */this.used = /** @pureOrBreakMyCode */(alert());",
+            "   /** @const */this.unused = /** @pureOrBreakMyCode */(alert());",
+            "  }",
+            "};",
+            "/** @const */C.used = /** @pureOrBreakMyCode */(alert());",
+            "/** @const */C.unused = /** @pureOrBreakMyCode */(alert());",
+            "function foo() {",
+            "  return C.used;",
+            "}",
+            "foo();",
+            "function bar() {",
+            "  return new C().used;",
+            "}",
+            "bar();"),
+        lines(
+            "class C {",
+            "  constructor() {",
+            "    /** @const */this.used = /** @pureOrBreakMyCode */(alert());",
+            "  }",
+            "};",
+            "/** @const */C.used = /** @pureOrBreakMyCode */(alert());",
+            "function foo() {",
+            "  return C.used;",
+            "}",
+            "foo();",
+            "function bar() {",
+            "  return new C().used;",
+            "}",
+            "bar();"));
   }
 }

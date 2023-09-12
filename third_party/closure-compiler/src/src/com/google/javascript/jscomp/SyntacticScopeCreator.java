@@ -21,7 +21,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.javascript.rhino.InputId;
 import com.google.javascript.rhino.Node;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * The syntactic scope creator scans the parse tree to create a Scope object containing all the
@@ -33,6 +33,7 @@ import javax.annotation.Nullable;
 public final class SyntacticScopeCreator implements ScopeCreator {
   private final AbstractCompiler compiler;
   private final RedeclarationHandler redeclarationHandler;
+  private final boolean treatProvidesAsRedeclarations;
 
   // The arguments variable is special, in that it's declared for every function,
   // but not explicitly declared.
@@ -46,8 +47,21 @@ public final class SyntacticScopeCreator implements ScopeCreator {
   }
 
   SyntacticScopeCreator(AbstractCompiler compiler, RedeclarationHandler redeclarationHandler) {
+    this(compiler, redeclarationHandler, /* treatProvidesAsRedeclarations= */ false);
+  }
+
+  /**
+   * @param treatProvidesAsRedeclarations whether to report goog.provide/legacy goog.module
+   *     initializations of a namespace to the redeclaration handler. For example, `var foo;
+   *     goog.provide('foo.bar');` will report the provide as a redeclaration if this is enabled.
+   */
+  SyntacticScopeCreator(
+      AbstractCompiler compiler,
+      RedeclarationHandler redeclarationHandler,
+      boolean treatProvidesAsRedeclarations) {
     this.compiler = compiler;
     this.redeclarationHandler = redeclarationHandler;
+    this.treatProvidesAsRedeclarations = treatProvidesAsRedeclarations;
   }
 
   @Override
@@ -57,35 +71,34 @@ public final class SyntacticScopeCreator implements ScopeCreator {
 
   public Scope createScope(Node n, Scope parent) {
     Scope scope = (parent == null) ? Scope.createGlobalScope(n) : Scope.createChildScope(parent, n);
-    new ScopeScanner(compiler, redeclarationHandler, scope, null).populate();
+    new ScopeScanner(compiler, redeclarationHandler, scope, null, treatProvidesAsRedeclarations)
+        .populate();
     return scope;
   }
 
-  /**
-   * A class to traverse the AST looking for name definitions and add them to the Scope.
-   */
-  static class ScopeScanner {
+  /** A class to traverse the AST looking for name definitions and add them to the Scope. */
+  private static class ScopeScanner {
     private final Scope scope;
     private final AbstractCompiler compiler;
     private final RedeclarationHandler redeclarationHandler;
+    private final boolean treatProvidesAsRedeclarations;
 
     // Will be null, when a detached node is traversed.
-    @Nullable
-    private InputId inputId;
+    private @Nullable InputId inputId;
     private final Set<Node> changeRootSet;
 
-    ScopeScanner(AbstractCompiler compiler, Scope scope) {
-      this(compiler, DEFAULT_REDECLARATION_HANDLER, scope, null);
-    }
-
-    ScopeScanner(
-        AbstractCompiler compiler, RedeclarationHandler redeclarationHandler, Scope scope,
-        Set<Node> changeRootSet) {
+    private ScopeScanner(
+        AbstractCompiler compiler,
+        RedeclarationHandler redeclarationHandler,
+        Scope scope,
+        @Nullable Set<Node> changeRootSet,
+        boolean treatProvidesAsRedeclarations) {
       this.compiler = compiler;
       this.redeclarationHandler = redeclarationHandler;
       this.scope = scope;
       this.changeRootSet = changeRootSet;
       checkState(changeRootSet == null || scope.isGlobal());
+      this.treatProvidesAsRedeclarations = treatProvidesAsRedeclarations;
     }
 
     void populate() {
@@ -143,11 +156,17 @@ public final class SyntacticScopeCreator implements ScopeCreator {
           return;
 
         case BLOCK:
-          if (NodeUtil.isFunctionBlock(n)) {
+          if (NodeUtil.isFunctionBlock(n) || NodeUtil.isClassStaticBlock(n)) {
             scanVars(n, scope, scope);
           } else {
             scanVars(n, null, scope);
           }
+          return;
+
+        case COMPUTED_FIELD_DEF:
+        case MEMBER_FIELD_DEF:
+          // MEMBER_FIELD_DEF and COMPUTED_FIELD_DEF scopes only created to scope `this` and `super`
+          // correctly
           return;
 
         default:
@@ -156,8 +175,12 @@ public final class SyntacticScopeCreator implements ScopeCreator {
     }
 
     private void declareLHS(Scope s, Node n) {
-      for (Node lhs : NodeUtil.findLhsNodesInNode(n)) {
-        declareVar(s, lhs);
+      if (n.hasOneChild() && n.getFirstChild().isName()) {
+        // NAME is most common and trivial case.  This code is hot so it is worth special casing.
+        // to avoid extra GC and cpu cycles.
+        declareVar(s, n.getFirstChild());
+      } else {
+        NodeUtil.visitLhsNodesInNode(n, (lhs) -> declareVar(s, lhs));
       }
     }
 
@@ -349,6 +372,15 @@ public final class SyntacticScopeCreator implements ScopeCreator {
 
       if (root.isEmpty()) {
         return;
+      }
+      // Conditionally report a redeclaration if the root name has already been declared as a normal
+      // variable (normal meaning a var/function/class/etc. declaration).
+      if (this.treatProvidesAsRedeclarations) {
+        Var existing = s.getOwnSlot(root);
+        if (existing != null && !existing.isImplicitGoogNamespace()) {
+          redeclarationHandler.onRedeclaration(
+              s, root, existing.getNode(), compiler.getInput(inputId));
+        }
       }
       s.declareImplicitGoogNamespaceIfAbsent(root, namespaceNode);
     }

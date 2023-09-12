@@ -45,16 +45,8 @@ import java.io.Serializable;
 /** Minimal class holding information about a nonJSDoc comment's source location and contents */
 public class NonJSDocComment implements Serializable {
   private final SourcePosition startPosition;
-  // Ideally the `endPosition` should be final, but it needs to get updated during
-  // parsing for nodes in which there is both a trailing and a non-trailing comment. E.g.
-  // ```
-  // function foo( // first
-  //                 x // second
-  // ) {}
-  // ```
-  private SourcePosition endPosition;
-  private String contents;
-  private boolean isTrailing;
+  private final SourcePosition endPosition;
+  private final String contents;
   private boolean endsAsLineComment;
   private boolean isInline;
 
@@ -62,7 +54,6 @@ public class NonJSDocComment implements Serializable {
     startPosition = start;
     endPosition = end;
     contents = s;
-    this.isTrailing = false;
     this.endsAsLineComment = false;
     this.isInline = false;
   }
@@ -82,24 +73,12 @@ public class NonJSDocComment implements Serializable {
     return this.endPosition;
   }
 
-  public void setIsTrailing(boolean isTrailing) {
-    this.isTrailing = isTrailing;
-  }
-
   public void setEndsAsLineComment(boolean endsAsLineComment) {
     this.endsAsLineComment = endsAsLineComment;
   }
 
   public void setIsInline(boolean isInline) {
     this.isInline = isInline;
-  }
-
-  /**
-   * Indicates whether this comment is placed after the source node it is attached to. Currently,
-   * this field is set only for comments associated with formal parameters and arguments.
-   */
-  public boolean isTrailing() {
-    return this.isTrailing;
   }
 
   public boolean isEndingAsLineComment() {
@@ -110,19 +89,8 @@ public class NonJSDocComment implements Serializable {
     return isInline;
   }
 
-  /*
-   * In presence of both non-trailing and trailing comment associated with a node, such as : //
-   *   ```
-   *   function foo( // first
-   *                    x // second
-   *                  ) {}
-   *   ```
-   * We create a single NonJSDocComment `//first //second` and attach it to Node x.
-   * The beginOffset of this single comment is the begin offset of the `// first` comment, the end
-   * offset of this single comment is the end offset of the `// second` comment.
-   */
-  public void appendTrailingCommentToNonTrailing(NonJSDocComment trailingComment) {
-    this.contents = this.contents + trailingComment.contents;
-    this.endPosition = trailingComment.endPosition;
+  @Override
+  public String toString() {
+    return "NonJSDocComment : " + getCommentString();
   }
 }

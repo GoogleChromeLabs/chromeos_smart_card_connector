@@ -18,7 +18,7 @@ package com.google.javascript.jscomp;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.javascript.jscomp.AstFactory.type;
-import static com.google.javascript.jscomp.Es6ToEs3Util.cannotConvert;
+import static com.google.javascript.jscomp.TranspilationUtil.cannotConvert;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
@@ -34,7 +34,7 @@ import com.google.javascript.rhino.StaticScope;
 import com.google.javascript.rhino.Token;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** Converts ES6 classes to valid ES5 or ES3 code. */
 public final class Es6RewriteClass implements NodeTraversal.Callback, CompilerPass {
@@ -63,7 +63,7 @@ public final class Es6RewriteClass implements NodeTraversal.Callback, CompilerPa
 
   @Override
   public void process(Node externs, Node root) {
-    // TODO(b/171853310): This tranpilation should be turned off in externs
+    // TODO(b/171853310): This transpilation should be turned off in externs
     TranspilationPasses.processTranspile(compiler, externs, features, this);
     TranspilationPasses.processTranspile(compiler, root, features, this);
     // Super constructor calls are done all at once as a separate step largely for historical
@@ -73,7 +73,7 @@ public final class Es6RewriteClass implements NodeTraversal.Callback, CompilerPa
     //     constructor rewriting logic into this class.
     convertSuperConstructorCalls.setGlobalNamespace(new GlobalNamespace(compiler, externs, root));
     TranspilationPasses.processTranspile(compiler, root, features, convertSuperConstructorCalls);
-    TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, features);
+    TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, root, features);
   }
 
   @Override
@@ -154,11 +154,11 @@ public final class Es6RewriteClass implements NodeTraversal.Callback, CompilerPa
       } else {
         Preconditions.checkState(
             member.isMemberFunctionDef() || member.isComputedProp(),
-            "Unexpected class member:",
+            "Unexpected class member: (%s)",
             member);
         Preconditions.checkState(
             !member.getBooleanProp(Node.COMPUTED_PROP_VARIABLE),
-            "Member variables should have been transpiled earlier:",
+            "Member variables should have been transpiled earlier: (%s)",
             member);
         visitMethod(member, metadata);
       }
@@ -267,7 +267,7 @@ public final class Es6RewriteClass implements NodeTraversal.Callback, CompilerPa
     if (prop == null) {
       prop = createPropertyDescriptor();
       Node stringKey = astFactory.createStringKey(member.getString(), prop);
-      if (member.isQuotedString()) {
+      if (member.isQuotedStringKey()) {
         stringKey.putBooleanProp(Node.QUOTED_PROP, true);
       }
       obj.addChildToBack(stringKey);
@@ -339,7 +339,7 @@ public final class Es6RewriteClass implements NodeTraversal.Callback, CompilerPa
     ClassProperty.Builder builder = ClassProperty.builder();
     String memberName = member.getString();
 
-    if (member.isQuotedString()) {
+    if (member.isQuotedStringKey()) {
       builder.kind(ClassProperty.PropertyKind.QUOTED_PROPERTY);
     } else {
       builder.kind(ClassProperty.PropertyKind.NORMAL_PROPERTY);
@@ -482,8 +482,7 @@ public final class Es6RewriteClass implements NodeTraversal.Callback, CompilerPa
 
     abstract JSDocInfo jsDocInfo();
 
-    @Nullable
-    abstract Color propertyType();
+    abstract @Nullable Color propertyType();
 
     /**
      * Returns an EXPR_RESULT node that declares this property on the given node.
@@ -617,16 +616,7 @@ public final class Es6RewriteClass implements NodeTraversal.Callback, CompilerPa
           .setClassMembersToDeclare(new LinkedHashMap<>());
     }
 
-    /**
-     * Creates an instance for a class statement or a class expression in a simple assignment or var
-     * statement with a qualified name. In any other case, returns null.
-     */
-    @Nullable
-    static ClassDeclarationMetadata create(Node classNode, Node parent) {
-      return create(classNode, parent, AstFactory.createFactoryWithoutTypes());
-    }
-
-    private static ClassDeclarationMetadata create(
+    private static @Nullable ClassDeclarationMetadata create(
         Node classNode, Node parent, AstFactory astFactory) {
       Node classNameNode = classNode.getFirstChild();
       Node superClassNameNode = classNameNode.getNext();

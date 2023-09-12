@@ -19,6 +19,7 @@ package com.google.javascript.jscomp;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import java.util.LinkedHashSet;
+import org.jspecify.nullness.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,7 +29,7 @@ import org.junit.runners.JUnit4;
 public final class RemoveUnnecessarySyntheticExternsTest extends CompilerTestCase {
 
   // use this set to simulate an earlier compiler pass declaring a synthetic extern
-  private LinkedHashSet<Node> syntheticExternsToAdd = null;
+  private @Nullable LinkedHashSet<Node> syntheticExternsToAdd = null;
 
   @Override
   @Before
@@ -78,6 +79,36 @@ public final class RemoveUnnecessarySyntheticExternsTest extends CompilerTestCas
     testExternChanges(srcs("const x = 0;"), expected("var y;"));
     testExternChanges(srcs("function x() {}"), expected("var y;"));
     testExternChanges(srcs("class x {}"), expected("var y;"));
+  }
+
+  @Test
+  public void removesSyntheticExternDeclaredInGoogProvide() {
+    this.syntheticExternsToAdd.add(createUnfulfilledDeclaration("x"));
+    this.syntheticExternsToAdd.add(createUnfulfilledDeclaration("y"));
+
+    testExternChanges(srcs("goog.provide('x');"), expected("var y;"));
+    testExternChanges(srcs("goog.provide('x.y.z');"), expected("var y;"));
+    testExternChanges(srcs("goog.provide('other'); goog.provide('x.y');"), expected("var y;"));
+  }
+
+  @Test
+  public void doesNotRemovesSyntheticExternForLegacyGoogModule() {
+    this.syntheticExternsToAdd.add(createUnfulfilledDeclaration("x"));
+    this.syntheticExternsToAdd.add(createUnfulfilledDeclaration("y"));
+
+    testExternChanges(srcs("goog.module('x');"), expected("var x; var y;"));
+    testExternChanges(srcs("goog.module('x.y');"), expected("var x; var y;"));
+  }
+
+  @Test
+  public void removesSyntheticExternDeclaredInLegacyGoogModuleNamespace() {
+    this.syntheticExternsToAdd.add(createUnfulfilledDeclaration("x"));
+    this.syntheticExternsToAdd.add(createUnfulfilledDeclaration("y"));
+
+    testExternChanges(
+        srcs("goog.module('x'); goog.module.declareLegacyNamespace();"), expected("var y;"));
+    testExternChanges(
+        srcs("goog.module('x.y'); goog.module.declareLegacyNamespace();"), expected("var y;"));
   }
 
   @Test

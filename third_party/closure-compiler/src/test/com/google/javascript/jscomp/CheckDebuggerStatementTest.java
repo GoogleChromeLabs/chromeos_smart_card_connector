@@ -15,19 +15,17 @@
  */
 package com.google.javascript.jscomp;
 
+import org.jspecify.nullness.Nullable;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * {@link CheckDebuggerStatementTest} is a unit test for {@link CheckDebuggerStatement}.
- *
- */
+/** {@link CheckDebuggerStatementTest} is a unit test for {@link CheckDebuggerStatement}. */
 @RunWith(JUnit4.class)
 public final class CheckDebuggerStatementTest extends CompilerTestCase {
 
-  private CheckLevel checkLevel;
+  private @Nullable CheckLevel checkLevel;
 
   @Override
   @After
@@ -44,9 +42,7 @@ public final class CheckDebuggerStatementTest extends CompilerTestCase {
   protected CompilerOptions getOptions() {
     CompilerOptions options = super.getOptions();
     if (checkLevel != null) {
-      options.setWarningLevel(
-          DiagnosticGroups.DEBUGGER_STATEMENT_PRESENT,
-          checkLevel);
+      options.setWarningLevel(DiagnosticGroups.DEBUGGER_STATEMENT_PRESENT, checkLevel);
     }
     return options;
   }
@@ -56,8 +52,7 @@ public final class CheckDebuggerStatementTest extends CompilerTestCase {
     checkLevel = CheckLevel.WARNING;
 
     testWarning("debugger;", CheckDebuggerStatement.DEBUGGER_STATEMENT_PRESENT);
-    testWarning(
-        "function foo() { debugger; }", CheckDebuggerStatement.DEBUGGER_STATEMENT_PRESENT);
+    testWarning("function foo() { debugger; }", CheckDebuggerStatement.DEBUGGER_STATEMENT_PRESENT);
   }
 
   @Test
@@ -89,5 +84,4 @@ public final class CheckDebuggerStatementTest extends CompilerTestCase {
 
     testSame("eval('debugger');");
   }
-
 }

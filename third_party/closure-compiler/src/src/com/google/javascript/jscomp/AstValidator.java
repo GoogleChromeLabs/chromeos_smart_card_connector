@@ -21,6 +21,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
 import com.google.javascript.rhino.InputId;
@@ -30,7 +31,7 @@ import com.google.javascript.rhino.jstype.FunctionType;
 import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.JSType.Nullability;
 import java.util.Objects;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** This class walks the AST and validates that the structure is correct. */
 public final class AstValidator implements CompilerPass {
@@ -95,6 +96,7 @@ public final class AstValidator implements CompilerPass {
    * <p>TODO(b/74537281): Currently only expressions are checked for type information. Do we need to
    * do more?
    */
+  @CanIgnoreReturnValue
   public AstValidator setTypeValidationMode(TypeInfoValidation mode) {
     typeValidationMode = mode;
     return this;
@@ -646,7 +648,7 @@ public final class AstValidator implements CompilerPass {
   private boolean isInParameterListOfFunction(Node child, Node functionNode) {
     Node paramList = checkNotNull(functionNode.getSecondChild(), functionNode);
     for (Node parent = child.getParent(); parent != functionNode; parent = parent.getParent()) {
-      checkNotNull(parent, "{} not contained in function {}", child, functionNode);
+      checkNotNull(parent, "%s not contained in function %s", child, functionNode);
       if (parent == paramList) {
         return true;
       }
@@ -712,7 +714,7 @@ public final class AstValidator implements CompilerPass {
     } else {
       validateProperties(n);
       validateChildCountIn(n, 1, 2);
-      if (n.getFirstChild().getToken() == Token.EXPORT_SPECS) {
+      if (n.getFirstChild().isExportSpecs()) {
         validateExportSpecifiers(n.getFirstChild());
       } else {
         validateStatement(n.getFirstChild(), isAmbient);
@@ -941,6 +943,10 @@ public final class AstValidator implements CompilerPass {
         validateProperties(n);
         validateChildCount(n);
         break;
+      case BLOCK:
+        validateFeature(Feature.CLASS_STATIC_BLOCK, n);
+        validateBlock(n);
+        break;
       case EMPTY: // Empty is allowed too.
         break;
       default:
@@ -1027,7 +1033,7 @@ public final class AstValidator implements CompilerPass {
         violation("Expected non-null string.", n);
         return false;
       }
-    } catch (Exception e) {
+    } catch (RuntimeException e) {
       violation("Expected non-null string.", n);
       return false;
     }
@@ -1194,8 +1200,11 @@ public final class AstValidator implements CompilerPass {
 
     if (NodeUtil.isNormalGet(superParent) && superNode.isFirstChildOf(superParent)) {
       // `super.prop` or `super['prop']`
-      if (methodNode == null || !NodeUtil.isMethodDeclaration(methodNode)) {
-        violation("super property references are only allowed in methods", superNode);
+      if (!allowsSuperPropertyReference(superParent)) {
+        violation(
+            "super property references are only allowed in methods, class static blocks and class"
+                + " fields.",
+            superNode);
       }
     } else if (superParent.isCall() && superNode.isFirstChildOf(superParent)) {
       // super() constructor call
@@ -1217,6 +1226,32 @@ public final class AstValidator implements CompilerPass {
     }
   }
 
+  // Check if a super property reference is in a method, class static block or class field.
+  private boolean allowsSuperPropertyReference(Node n) {
+    switch (n.getToken()) {
+      case SCRIPT:
+        return false;
+      case MEMBER_FIELD_DEF:
+      case COMPUTED_FIELD_DEF:
+        return true;
+      case FUNCTION:
+        if (NodeUtil.isMethodDeclaration(n)) {
+          return true;
+        } else if (!n.isArrowFunction()) {
+          return false;
+        }
+        break;
+      case BLOCK:
+        if (NodeUtil.isClassStaticBlock(n)) {
+          return true;
+        }
+        break;
+      default:
+        break;
+    }
+    return allowsSuperPropertyReference(n.getParent());
+  }
+
   private void validateRestParameters(Token contextType, Node n) {
     validateFeature(Feature.REST_PARAMETERS, n);
     validateRest(contextType, n);
@@ -1235,7 +1270,6 @@ public final class AstValidator implements CompilerPass {
   /**
    * @param contextType A {@link Token} constant value indicating that {@code n} should be validated
    *     appropriately for a descendant of a {@link Node} of this type.
-   * @param n
    */
   private void validateRest(Token contextType, Node n) {
     switch (n.getToken()) {
@@ -1272,7 +1306,9 @@ public final class AstValidator implements CompilerPass {
     }
   }
 
-  /** @param statement the enclosing statement. Will not always match the declaration Token. */
+  /**
+   * @param statement the enclosing statement. Will not always match the declaration Token.
+   */
   private void validateNameDeclarationHelper(Node statement, Token declaration, Node n) {
     validateProperties(n);
     validateMinimumChildCount(n, 1);
@@ -1342,7 +1378,6 @@ public final class AstValidator implements CompilerPass {
   /**
    * @param contextType A {@link Token} constant value indicating that {@code n} should be validated
    *     appropriately for a descendant of a {@link Node} of this type.
-   * @param n
    */
   private void validateLHS(Token contextType, Node n) {
     switch (n.getToken()) {
@@ -1976,7 +2011,7 @@ public final class AstValidator implements CompilerPass {
   }
 
   private void validateObjectLiteralKeyName(Node n) {
-    if (n.isQuotedString()) {
+    if (n.isQuotedStringKey()) {
       try {
         // Validate that getString doesn't throw
         n.getString();
@@ -2173,7 +2208,7 @@ public final class AstValidator implements CompilerPass {
   }
 
   private void validateFeature(Feature feature, Node n) {
-    if (!n.isFromExterns() && !compiler.getFeatureSet().has(feature)) {
+    if (!n.isFromExterns() && !compiler.getAllowableFeatures().has(feature)) {
       // Skip this check for externs because we don't need to complete transpilation on externs,
       // and currently only transpile externs so that we can typecheck ES6+ features in externs.
       violation("AST should not contain " + feature, n);

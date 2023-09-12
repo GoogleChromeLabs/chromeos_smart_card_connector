@@ -25,7 +25,7 @@ import com.google.javascript.jscomp.deps.ModuleLoader.PathEscaper;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Resolution algorithm for Webpack. Modules are located by a map of numeric ids to module paths.
@@ -83,8 +83,7 @@ public class WebpackModuleResolver extends NodeModuleResolver {
   }
 
   @Override
-  @Nullable
-  public String resolveJsModule(
+  public @Nullable String resolveJsModule(
       String scriptAddress, String moduleAddress, String sourcename, int lineno, int colno) {
     String loadAddress = modulesById.get(moduleAddress);
     if (loadAddress == null) {

@@ -15,13 +15,11 @@
  */
 package com.google.javascript.jscomp;
 
-import static com.google.javascript.jscomp.Es6ToEs3Util.CANNOT_CONVERT_YET;
+import static com.google.javascript.jscomp.TranspilationUtil.CANNOT_CONVERT_YET;
 
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,21 +31,27 @@ public final class LateEs6ToEs3ConverterTest extends CompilerTestCase {
   // Sample first script for use when testing non-first scripts
   private static final String SCRIPT1 = "var x;";
 
+  // The pass generates variable names consisting of filepath based uniqueIDs e.g. {@code
+  // $jscomp$templatelit$12345}. Use generic name `TAGGED_TEMPLATE_TMP_VAR` in test sources for
+  // readability.
+  private static final ImmutableMap<String, String> REPLACEMENT_PREFIXES =
+      ImmutableMap.of("TAGGED_TEMPLATE_TMP_VAR", "$jscomp$templatelit$");
+
   private static final String RUNTIME_STUBS =
       lines(
           "/** @const */",
           "var $jscomp = {};",
           "$jscomp.createTemplateTagFirstArg = function(arrayStrings) {};",
-          "$jscomp.createTemplateTagFirstArgWithRaw = function(arrayStrings, rawArrayStrings) {};");
+          "$jscomp.createTemplateTagFirstArgWithRaw = function(anotherArray,"
+              + " rawArrayStrings) {};");
 
   public LateEs6ToEs3ConverterTest() {
     super(MINIMAL_EXTERNS + RUNTIME_STUBS);
   }
 
-  @Override
   @Before
-  public void setUp() throws Exception {
-    super.setUp();
+  public void customSetUp() throws Exception {
+    enableNormalize();
     setAcceptedLanguage(LanguageMode.ECMASCRIPT_2015);
     setLanguageOut(LanguageMode.ECMASCRIPT3);
     enableTypeCheck();
@@ -73,20 +77,18 @@ public final class LateEs6ToEs3ConverterTest extends CompilerTestCase {
     test(
         externs("/** @type {symbol} */ Symbol.iterator;"),
         srcs("var x = {[Symbol.iterator]: function() { return this; }};"),
-        expected(lines(
-            "var $jscomp$compprop0 = {};",
-            "var x = ($jscomp$compprop0[Symbol.iterator] = function() {return this;},",
-            "         $jscomp$compprop0)")));
+        expected(
+            lines(
+                "var $jscomp$compprop0 = {};",
+                "var x = ($jscomp$compprop0[Symbol.iterator] = function() {return this;},",
+                "         $jscomp$compprop0)")));
   }
 
   @Test
   public void testMethodInObject() {
-    test("var obj = { f() {alert(1); } };",
-        "var obj = { f: function() {alert(1); } };");
+    test("var obj = { f() {alert(1); } };", "var obj = { f: function() {alert(1); } };");
 
-    test(
-        "var obj = { f() { alert(1); }, x };",
-        "var obj = { f: function() { alert(1); }, x: x };");
+    test("var obj = { f() { alert(1); }, x };", "var obj = { f: function() { alert(1); }, x: x };");
   }
 
   @Test
@@ -147,12 +149,13 @@ public final class LateEs6ToEs3ConverterTest extends CompilerTestCase {
             "($jscomp$compprop0['f' + 1] = 1,",
             "  ($jscomp$compprop0['a'] = 2, $jscomp$compprop0));"));
 
-    test("({'a' : 1, ['f' + 1] : 1, 'b' : 1})",
+    test(
+        "({'a' : 1, ['f' + 1] : 1, 'b' : 1})",
         lines(
-        "var $jscomp$compprop0 = {};",
-        "($jscomp$compprop0['a'] = 1,",
-        "  ($jscomp$compprop0['f' + 1] = 1, ($jscomp$compprop0['b'] = 1, $jscomp$compprop0)));"
-    ));
+            "var $jscomp$compprop0 = {};",
+            "($jscomp$compprop0['a'] = 1,",
+            "  ($jscomp$compprop0['f' + 1] = 1, ($jscomp$compprop0['b'] = 1,"
+                + " $jscomp$compprop0)));"));
 
     test(
         "({'a' : x++, ['f' + x++] : 1, 'b' : x++})",
@@ -435,56 +438,26 @@ public final class LateEs6ToEs3ConverterTest extends CompilerTestCase {
 
   /** Runs the tagged template literal test with externs. */
   private void taggedTemplateLiteralTestRunner(Externs externs, Sources inputs, Expected outputs) {
-    Expected exp = replaceVarNamesInExpectedFiles(inputs, outputs);
+    ImmutableList<SourceFile> modifiedOutputFiles =
+        UnitTestUtils.updateGenericVarNamesInExpectedFiles(
+            (FlatSources) inputs, outputs, REPLACEMENT_PREFIXES);
+    Expected exp = expected(modifiedOutputFiles);
     test(externs, inputs, exp);
   }
 
   /** Runs the tagged template literal test. */
   private void taggedTemplateLiteralTestRunner(Sources inputs, Expected outputs) {
-    Expected exp = replaceVarNamesInExpectedFiles(inputs, outputs);
+    ImmutableList<SourceFile> modifiedOutputFiles =
+        UnitTestUtils.updateGenericVarNamesInExpectedFiles(
+            (FlatSources) inputs, outputs, REPLACEMENT_PREFIXES);
+    Expected exp = expected(modifiedOutputFiles);
     test(inputs, exp);
-  }
-
-  /**
-   * Helper to replace the generic name `TAGGED_TEMPLATE_TMP_VAR` in each of the expected test
-   * output files with the calculated uniqueID hashString based on the corresponding test's input
-   * file.
-   *
-   * <p>The vars created during tagged template literal transpilation have have a filePath based
-   * uniqueID in them. This uniqueID is obfucated by using a generic name `TAGGED_TEMPLATE_TMP_VAR`
-   * in the test sources. This function replaces that generic name by the runtime-computed uniqueID
-   * before test execution.
-   */
-  private static Expected replaceVarNamesInExpectedFiles(Sources inputs, Expected outputs) {
-    int inLength = ((FlatSources) inputs).sources.size();
-    int outLength = outputs.expected.size();
-    Preconditions.checkArgument(inLength == outLength);
-
-    List<SourceFile> updatedOutputs = new ArrayList<>();
-    for (int i = 0; i < inLength; i++) {
-      SourceFile inputScript = ((FlatSources) inputs).sources.get(i);
-      SourceFile outputScript = outputs.expected.get(i);
-
-      int fileHashCode = inputScript.getName().hashCode();
-      String fileHashString = (fileHashCode < 0) ? ("m" + -fileHashCode) : ("" + fileHashCode);
-      String expectedCode = "";
-      String expectedCodeFileName = outputScript.getName();
-      try {
-        expectedCode = outputScript.getCode();
-      } catch (IOException e) {
-        new RuntimeException("Read error: " + expectedCodeFileName);
-      }
-      expectedCode =
-          expectedCode.replace("TAGGED_TEMPLATE_TMP_VAR", "$jscomp$templatelit$" + fileHashString);
-      updatedOutputs.add(SourceFile.fromCode(expectedCodeFileName, expectedCode));
-    }
-    return expected(updatedOutputs);
   }
 
   @Test
   public void testUnicodeEscapes() {
-    test("var \\u{73} = \'\\u{2603}\'", "var s = \'\u2603\'");  // ☃
-    test("var \\u{63} = \'\\u{1f42a}\'", "var c = \'\uD83D\uDC2A\'");  // 🐪
+    test("var \\u{73} = \'\\u{2603}\'", "var s = \'\u2603\'"); // ☃
+    test("var \\u{63} = \'\\u{1f42a}\'", "var c = \'\uD83D\uDC2A\'"); // 🐪
     test("var str = `begin\\u{2026}end`", "var str = 'begin\\u2026end'");
   }
 }

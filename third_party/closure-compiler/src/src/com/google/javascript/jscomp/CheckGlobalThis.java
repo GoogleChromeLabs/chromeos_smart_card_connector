@@ -20,6 +20,7 @@ import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Checks for certain uses of the {@code this} keyword that are considered unsafe because they are
@@ -29,6 +30,7 @@ import com.google.javascript.rhino.Token;
  * property access, and not inside one of the following:
  *
  * <ol>
+ *   <li>a class static initialization block
  *   <li>a prototype method
  *   <li>a function annotated with {@code @constructor}
  *   <li>a function annotated with {@code @this}.
@@ -64,11 +66,10 @@ final class CheckGlobalThis implements NodeTraversal.Callback {
   private final AbstractCompiler compiler;
 
   /**
-   * If {@code assignLhsChild != null}, then the node being traversed is
-   * a descendant of the first child of an ASSIGN node. assignLhsChild's
-   * parent is this ASSIGN node.
+   * If {@code assignLhsChild != null}, then the node being traversed is a descendant of the first
+   * child of an ASSIGN node. assignLhsChild's parent is this ASSIGN node.
    */
-  private Node assignLhsChild = null;
+  private @Nullable Node assignLhsChild = null;
 
   CheckGlobalThis(AbstractCompiler compiler) {
     this.compiler = compiler;
@@ -145,6 +146,11 @@ final class CheckGlobalThis implements NodeTraversal.Callback {
           return false;
         }
       }
+    }
+
+    // Don't traverse class static blocks, 'this' is never the global 'this'
+    if (NodeUtil.isClassStaticBlock(n)) {
+      return false;
     }
 
     if (parent != null && parent.isAssign()) {

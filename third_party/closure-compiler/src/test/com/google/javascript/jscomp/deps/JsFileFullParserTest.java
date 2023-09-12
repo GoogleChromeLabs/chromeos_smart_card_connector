@@ -82,11 +82,13 @@ public final class JsFileFullParserTest {
         parse(
             "goog.provide('providedSymbol');",
             "goog.require('stronglyRequiredSymbol');",
-            "goog.requireType('weaklyRequiredSymbol');");
+            "goog.requireType('weaklyRequiredSymbol');",
+            "async function test() {await goog.requireDynamic('dynamicallyRequiredSymbol');}");
 
     assertThat(info.provides).containsExactly("providedSymbol");
     assertThat(info.requires).containsExactly("stronglyRequiredSymbol");
     assertThat(info.typeRequires).containsExactly("weaklyRequiredSymbol");
+    assertThat(info.dynamicRequires).containsExactly("dynamicallyRequiredSymbol");
   }
 
   @Test
@@ -189,6 +191,36 @@ public final class JsFileFullParserTest {
     } catch (AssertionError e) {
       assertThat(e).hasMessageThat().contains("goog.loadModule cannot be nested");
     }
+  }
+
+  @Test
+  public void testSoyDeltemplate() {
+    FileInfo info = parse("/**", " * @deltemplate {a}", " * @modName {m}", " */");
+    assertThat(info.deltemplates).containsExactly("a");
+  }
+
+  @Test
+  public void testSoyDeltemplate_legacy() {
+    FileInfo info = parse("/**", " * @hassoydeltemplate {a}", " * @modName {m}", " */");
+    assertThat(info.deltemplates).containsExactly("a");
+  }
+
+  @Test
+  public void testSoyDelcall() {
+    FileInfo info = parse("/**", " * @delcall {a}", " */");
+    assertThat(info.delcalls).containsExactly("a");
+  }
+
+  @Test
+  public void testSoyDelcall_legacy() {
+    FileInfo info = parse("/**", " * @hassoydelcall {a}", " */");
+    assertThat(info.delcalls).containsExactly("a");
+  }
+
+  @Test
+  public void testReadToggle() {
+    FileInfo info = parse("goog.readToggleInternalDoNotCallDirectly('foo_bar');");
+    assertThat(info.readToggles).containsExactly("foo_bar");
   }
 
   private static FileInfo parse(String... lines) {

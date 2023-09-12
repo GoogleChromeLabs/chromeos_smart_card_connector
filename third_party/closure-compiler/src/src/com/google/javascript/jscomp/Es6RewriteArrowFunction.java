@@ -17,13 +17,14 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** Converts ES6 arrow functions to standard anonymous ES3 functions. */
 public class Es6RewriteArrowFunction implements NodeTraversal.Callback, CompilerPass {
@@ -48,7 +49,7 @@ public class Es6RewriteArrowFunction implements NodeTraversal.Callback, Compiler
   @Override
   public void process(Node externs, Node root) {
     TranspilationPasses.processTranspile(compiler, root, transpiledFeatures, this);
-    TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, transpiledFeatures);
+    TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, root, transpiledFeatures);
   }
 
   @Override
@@ -76,8 +77,6 @@ public class Es6RewriteArrowFunction implements NodeTraversal.Callback, Compiler
   }
 
   /**
-   * @param n
-   * @param block
    * @return The statement Node that is a child of block and contains n.
    */
   private Node getEnclosingStatement(Node n, Node block) {
@@ -161,13 +160,13 @@ public class Es6RewriteArrowFunction implements NodeTraversal.Callback, Compiler
    * They can't be immutable because a context isn't fully defined by a single node (`super()` makes
    * this hard).
    */
-  private class ThisAndArgumentsContext {
+  private static class ThisAndArgumentsContext {
     final Node scopeBody;
     final boolean isConstructor;
-    Node lastSuperStatement = null; // Last statement in the body that refers to super().
+    @Nullable Node lastSuperStatement = null; // Last statement in the body that refers to super().
 
     boolean needsThisVar = false;
-    @Nullable private AstFactory.Type thisType;
+    private AstFactory.@Nullable Type thisType;
 
     boolean needsArgumentsVar = false;
 
@@ -176,17 +175,18 @@ public class Es6RewriteArrowFunction implements NodeTraversal.Callback, Compiler
       this.isConstructor = isConstructor;
     }
 
-    @Nullable
-    AstFactory.Type getThisType() {
+    AstFactory.@Nullable Type getThisType() {
       return thisType;
     }
 
+    @CanIgnoreReturnValue
     ThisAndArgumentsContext setNeedsThisVarWithType(AstFactory.Type type) {
       thisType = type;
       needsThisVar = true;
       return this;
     }
 
+    @CanIgnoreReturnValue
     ThisAndArgumentsContext setNeedsArgumentsVar() {
       needsArgumentsVar = true;
       return this;
@@ -199,7 +199,7 @@ public class Es6RewriteArrowFunction implements NodeTraversal.Callback, Compiler
   }
 
   private ThisAndArgumentsContext contextForScript(Node scriptNode) {
-    return new ThisAndArgumentsContext(scriptNode, false /* isConstructor */);
+    return new ThisAndArgumentsContext(scriptNode, /* isConstructor= */ false);
   }
 
   /**

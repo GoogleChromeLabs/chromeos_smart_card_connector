@@ -56,8 +56,8 @@ BaseAudioContext.prototype.state;
  * @param {number} sampleRate
  * @return {!AudioBuffer}
  */
-BaseAudioContext.prototype.createBuffer =
-    function(numberOfChannels, length, sampleRate) {};
+BaseAudioContext.prototype.createBuffer = function(
+    numberOfChannels, length, sampleRate) {};
 
 /**
  * @param {!ArrayBuffer} audioData
@@ -65,8 +65,8 @@ BaseAudioContext.prototype.createBuffer =
  * @param {function(?)=} errorCallback
  * @return {!Promise<!AudioBuffer>}
  */
-BaseAudioContext.prototype.decodeAudioData =
-    function(audioData, successCallback, errorCallback) {};
+BaseAudioContext.prototype.decodeAudioData = function(
+    audioData, successCallback, errorCallback) {};
 
 /**
  * @return {!AudioBufferSourceNode}
@@ -80,8 +80,8 @@ BaseAudioContext.prototype.createBufferSource = function() {};
  * @param {number=} numberOfOutputChannels_opt
  * @return {!ScriptProcessorNode}
  */
-BaseAudioContext.prototype.createScriptProcessor = function(bufferSize,
-    numberOfInputChannels_opt, numberOfOutputChannels_opt) {};
+BaseAudioContext.prototype.createScriptProcessor = function(
+    bufferSize, numberOfInputChannels_opt, numberOfOutputChannels_opt) {};
 
 /**
  * @return {!AnalyserNode}
@@ -215,6 +215,12 @@ AudioContextOptions.prototype.sampleRate;
  */
 function AudioContext(contextOptions) {}
 
+/** @type {number} */
+AudioContext.prototype.baseLatency;
+
+/** @type {number} */
+AudioContext.prototype.outputLatency;
+
 /**
  * @param {!HTMLMediaElement} mediaElement
  * @return {!MediaElementAudioSourceNode}
@@ -239,8 +245,8 @@ AudioContext.prototype.createMediaStreamSource = function(mediaStream) {};
  * @param {number} numberOfOuputs
  * @return {!ScriptProcessorNode}
  */
-AudioContext.prototype.createJavaScriptNode = function(bufferSize,
-    numberOfInputs, numberOfOuputs) {};
+AudioContext.prototype.createJavaScriptNode = function(
+    bufferSize, numberOfInputs, numberOfOuputs) {};
 
 /**
  * @deprecated Use createGain instead.
@@ -291,14 +297,14 @@ function AudioNode() {}
 /**
  * @override
  */
-AudioNode.prototype.addEventListener = function(type, listener,
-    opt_useCapture) {};
+AudioNode.prototype.addEventListener = function(
+    type, listener, opt_useCapture) {};
 
 /**
  * @override
  */
-AudioNode.prototype.removeEventListener = function(type, listener,
-    opt_useCapture) {};
+AudioNode.prototype.removeEventListener = function(
+    type, listener, opt_useCapture) {};
 
 /**
  * @override
@@ -434,8 +440,8 @@ AudioParam.prototype.exponentialRampToValueAtTime = function(value, endTime) {};
  * @throws {!TypeError} if startTime is negative or not a finite number, or
  * timeConstant is not strictly positive
  */
-AudioParam.prototype.setTargetAtTime = function(target, startTime,
-    timeConstant) {};
+AudioParam.prototype.setTargetAtTime = function(
+    target, startTime, timeConstant) {};
 
 /**
  * @deprecated Use setTargetAtTime instead.
@@ -444,8 +450,8 @@ AudioParam.prototype.setTargetAtTime = function(target, startTime,
  * @param {number} timeConstant
  * @return {!AudioParam}
  */
-AudioParam.prototype.setTargetValueAtTime = function(target, startTime,
-    timeConstant) {};
+AudioParam.prototype.setTargetValueAtTime = function(
+    target, startTime, timeConstant) {};
 
 /**
  * @param {!Float32Array} values
@@ -454,8 +460,8 @@ AudioParam.prototype.setTargetValueAtTime = function(target, startTime,
  * @return {!AudioParam}
  * @throws {!TypeError} if startTime is negative or not a finite number
  */
-AudioParam.prototype.setValueCurveAtTime = function(values, startTime,
-    duration) {};
+AudioParam.prototype.setValueCurveAtTime = function(
+    values, startTime, duration) {};
 
 /**
  * @param {number} startTime
@@ -522,16 +528,16 @@ AudioBuffer.prototype.getChannelData = function(channel) {};
  * @param  {number} channelNumber
  * @param  {number=} startInChannel
  */
-AudioBuffer.prototype.copyFromChannel = function(destination,
-    channelNumber, startInChannel) {};
+AudioBuffer.prototype.copyFromChannel = function(
+    destination, channelNumber, startInChannel) {};
 
 /**
  * @param  {!Float32Array} source
  * @param  {number} channelNumber
  * @param  {number=} startInChannel
  */
-AudioBuffer.prototype.copyToChannel = function(source, channelNumber,
-    startInChannel) {};
+AudioBuffer.prototype.copyToChannel = function(
+    source, channelNumber, startInChannel) {};
 
 /**
  * @constructor
@@ -602,8 +608,8 @@ AudioBufferSourceNode.prototype.detune;
  * @param {number=} opt_duration
  * @throws {!TypeError} if any parameter is negative
  */
-AudioBufferSourceNode.prototype.start = function(when, opt_offset,
-    opt_duration) {};
+AudioBufferSourceNode.prototype.start = function(
+    when, opt_offset, opt_duration) {};
 
 /**
  * @param {number=} when
@@ -624,8 +630,8 @@ AudioBufferSourceNode.prototype.noteOn = function(when) {};
  * @param {number=} opt_duration
  * @deprecated Use AudioBufferSourceNode#start
  */
-AudioBufferSourceNode.prototype.noteGrainOn = function(when, opt_offset,
-    opt_duration) {};
+AudioBufferSourceNode.prototype.noteGrainOn = function(
+    when, opt_offset, opt_duration) {};
 
 /**
  * @param {number} when
@@ -634,10 +640,31 @@ AudioBufferSourceNode.prototype.noteGrainOn = function(when, opt_offset,
 AudioBufferSourceNode.prototype.noteOff = function(when) {};
 
 /**
- * @constructor
- * @extends {AudioNode}
+ * @record
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/MediaElementAudioSourceNode/MediaElementAudioSourceNode
  */
-function MediaElementAudioSourceNode() {}
+function MediaElementAudioSourceOptions() {};
+
+/** @type {(HTMLMediaElement|undefined)} */
+MediaElementAudioSourceOptions.prototype.mediaElement;
+
+/** @type {(number|undefined)} */
+MediaElementAudioSourceOptions.prototype.channelCount;
+
+/** @type {(string|undefined)} */
+MediaElementAudioSourceOptions.prototype.channelCountMode;
+
+/** @type {(string|undefined)} */
+MediaElementAudioSourceOptions.prototype.channelInterpretation;
+
+/**
+ * @constructor
+ * @param {!AudioContext} context
+ * @param {!MediaElementAudioSourceOptions} options
+ * @extends {AudioNode}
+ * @see https://webaudio.github.io/web-audio-api/#MediaElementAudioSourceNode-constructors
+ */
+function MediaElementAudioSourceNode(context, options) {}
 
 /**
  * @constructor
@@ -1253,10 +1280,31 @@ AnalyserNode.prototype.smoothingTimeConstant;
 var RealtimeAnalyserNode = function() {};
 
 /**
- * @constructor
- * @extends {AudioNode}
+ * @record
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/ChannelSplitterNode/ChannelSplitterNode
  */
-function ChannelSplitterNode() {}
+function ChannelSplitterOptions() {};
+
+/** @type {(number|undefined)} */
+ChannelSplitterOptions.prototype.numberOfOutputs;
+
+/** @type {(number|undefined)} */
+ChannelSplitterOptions.prototype.channelCount;
+
+/** @type {(string|undefined)} */
+ChannelSplitterOptions.prototype.channelCountMode;
+
+/** @type {(string|undefined)} */
+ChannelSplitterOptions.prototype.channelInterpretation;
+
+/**
+ * @constructor
+ * @param {!BaseAudioContext} context
+ * @param {!ChannelSplitterOptions=} options
+ * @extends {AudioNode}
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/ChannelSplitterNode/ChannelSplitterNode
+ */
+function ChannelSplitterNode(context, options) {}
 
 /**
  * @constructor
@@ -1268,10 +1316,31 @@ function ChannelSplitterNode() {}
 function AudioChannelSplitter() {}
 
 /**
- * @constructor
- * @extends {AudioNode}
+ * @record
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/ChannelMergerNode/ChannelMergerNode
  */
-function ChannelMergerNode() {}
+function ChannelMergerOptions() {};
+
+/** @type {(number|undefined)} */
+ChannelMergerOptions.prototype.numberOfInputs;
+
+/** @type {(number|undefined)} */
+ChannelMergerOptions.prototype.channelCount;
+
+/** @type {(string|undefined)} */
+ChannelMergerOptions.prototype.channelCountMode;
+
+/** @type {(string|undefined)} */
+ChannelMergerOptions.prototype.channelInterpretation;
+
+/**
+ * @constructor
+ * @param {!BaseAudioContext} context
+ * @param {!ChannelMergerOptions=} options
+ * @extends {AudioNode}
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/ChannelMergerNode/ChannelMergerNode
+ */
+function ChannelMergerNode(context, options) {}
 
 /**
  * @constructor
@@ -1381,7 +1450,8 @@ function OscillatorNode() {}
 
 /**
  * @type {string}
- * See https://www.w3.org/TR/webaudio/#the-oscillatornode-interface for valid values
+ * See https://www.w3.org/TR/webaudio/#the-oscillatornode-interface for valid
+ * values
  */
 OscillatorNode.prototype.type;
 

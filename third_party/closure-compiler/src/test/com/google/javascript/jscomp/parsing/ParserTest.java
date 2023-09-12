@@ -74,7 +74,11 @@ public final class ParserTest extends BaseJSTypeTestCase {
   private static final String UNEXPECTED_RETURN = "return must be inside function";
 
   private static final String UNEXPECTED_LABELLED_CONTINUE =
-      "continue can only use labeles of iteration statements";
+      "continue can only use labels of iteration statements";
+
+  private static final String UNEXPECTED_YIELD = "yield must be inside generator function";
+
+  private static final String UNEXPECTED_AWAIT = "await must be inside asynchronous function";
 
   private static final String UNDEFINED_LABEL = "undefined label";
 
@@ -88,8 +92,8 @@ public final class ParserTest extends BaseJSTypeTestCase {
 
   private static final String SEMICOLON_EXPECTED = "Semi-colon expected";
 
-  private Config.LanguageMode mode;
-  private Config.JsDocParsing parsingMode;
+  private LanguageMode mode;
+  private JsDocParsing parsingMode;
   private Config.StrictMode strictMode;
   private boolean isIdeMode = false;
   private FeatureSet expectedFeatures;
@@ -183,7 +187,6 @@ public final class ParserTest extends BaseJSTypeTestCase {
 
   @Test
   public void testFunctionTrailingComma() {
-    expectFeatures(Feature.TRAILING_COMMA_IN_PARAM_LIST);
     parse("var f = function(x,y,z,) {}");
     parse("function f(x,y,z,) {}");
   }
@@ -204,7 +207,6 @@ public final class ParserTest extends BaseJSTypeTestCase {
 
   @Test
   public void testCallTrailingComma() {
-    expectFeatures(Feature.TRAILING_COMMA_IN_PARAM_LIST);
     parse("f(x,y,z,);");
   }
 
@@ -420,7 +422,9 @@ public final class ParserTest extends BaseJSTypeTestCase {
     parse("" + "for (var x of [1, 2, 3]) {\n" + "  if (x == 2) continue;\n" + "}");
   }
 
-  /** @bug 19100575 */
+  /**
+   * @bug 19100575
+   */
   @Test
   public void testVarSourceLocations() {
     isIdeMode = true;
@@ -1504,6 +1508,114 @@ public final class ParserTest extends BaseJSTypeTestCase {
   }
 
   @Test
+  public void testObjLitKeyNonJSDocComment() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node exprResult = parse("a = {\n// blah\n1n: 3};").getFirstChild();
+    Node assignNode = exprResult.getFirstChild();
+    Node objectLit = assignNode.getSecondChild();
+    Node stringKey = objectLit.getFirstChild();
+    assertThat(stringKey.getNonJSDocCommentString()).contains("// blah");
+  }
+
+  @Test
+  public void testLabelNonJSDocComment() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node label = parse("\n// blah\nlabel:\nfor(;;){ continue label; }").getFirstChild();
+    assertNode(label).hasType(Token.LABEL);
+    assertThat(label.getNonJSDocCommentString()).contains("// blah");
+  }
+
+  @Test
+  public void testFieldNonJSDocComment() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node field =
+        parse("class C{\n// blah\n field }").getFirstChild().getLastChild().getFirstChild();
+    assertNode(field).hasType(Token.MEMBER_FIELD_DEF);
+    assertThat(field.getNonJSDocCommentString()).contains("// blah");
+  }
+
+  @Test
+  public void testPropertyNameAssignmentNonJSDocComment() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node varName =
+        parse("let {key: \n// blah\nvarName} = someObject")
+            .getFirstChild()
+            .getFirstChild()
+            .getFirstChild()
+            .getFirstChild()
+            .getFirstChild();
+    assertNode(varName).hasType(Token.NAME);
+    assertThat(varName.getNonJSDocCommentString()).contains("// blah");
+  }
+
+  @Test
+  public void testGetPropCallNonJSDocComment() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node exprResult = parse("foo.\n// blah\nbaz(3);").getFirstChild();
+    Node call = exprResult.getFirstChild();
+    assertNode(call).hasType(Token.CALL);
+
+    Node bazAccess = call.getFirstChild();
+    assertThat(bazAccess.getNonJSDocCommentString()).contains("// blah");
+  }
+
+  @Test
+  public void testGetPropOptionalCallNonJSDocComment() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node exprResult = parse("foo?.\n// blah\nbaz(3);").getFirstChild();
+    Node callNode = exprResult.getFirstChild();
+    assertNode(callNode).hasType(Token.OPTCHAIN_CALL);
+
+    Node bazAccess = callNode.getFirstChild();
+    assertThat(bazAccess.getNonJSDocCommentString()).contains("// blah");
+  }
+
+  @Test
+  public void testGetPropAssignmentNonJSDocComment() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node exprResult = parse("foo.\n// blah\nbaz = 5;").getFirstChild();
+    Node assign = exprResult.getFirstChild();
+    assertNode(assign).hasType(Token.ASSIGN);
+
+    Node bazAccess = assign.getFirstChild();
+    assertThat(bazAccess.getNonJSDocCommentString()).contains("// blah");
+  }
+
+  @Test
+  public void testNonJSDocCommentsOnAdjacentNodes() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node root =
+        parse(
+            lines(
+                "// comment before GETPROP",
+                "a(",
+                "// comment on GETPROP",
+                ")",
+                ".b();",
+                "// comment after GETPROP",
+                "c();"));
+    Node exprResultA = root.getFirstChild();
+    assertNode(exprResultA).hasType(Token.EXPR_RESULT);
+    assertThat(exprResultA.getNonJSDocCommentString()).isEqualTo("// comment before GETPROP");
+
+    Node nodeB = exprResultA.getFirstFirstChild();
+    assertNode(nodeB).hasType(Token.GETPROP);
+    assertThat(nodeB.getNonJSDocCommentString()).isEqualTo("// comment on GETPROP");
+
+    Node exprResultC = root.getLastChild();
+    assertNode(exprResultC).hasType(Token.EXPR_RESULT);
+    assertThat(exprResultC.getNonJSDocCommentString()).isEqualTo("// comment after GETPROP");
+  }
+
+  @Test
   public void testInlineJSDocAttachmentToObjPatComputedPropKey() {
     Node letNode =
         parse("let { /** string */ ['computedProp']: computedProp } = {};").getFirstChild();
@@ -1745,7 +1857,6 @@ public final class ParserTest extends BaseJSTypeTestCase {
     assertNode(fn).hasType(Token.FUNCTION);
     Node xNode = fn.getSecondChild().getFirstChild();
     assertThat(xNode.getNonJSDocCommentString()).contains("/* blah */");
-    assertThat(xNode.getNonJSDocComment().isTrailing()).isFalse();
   }
 
   @Test
@@ -1756,7 +1867,6 @@ public final class ParserTest extends BaseJSTypeTestCase {
     assertNode(fn).hasType(Token.FUNCTION);
     Node xNode = fn.getSecondChild().getFirstChild();
     assertThat(xNode.getNonJSDocCommentString()).contains("// blah");
-    assertThat(xNode.getNonJSDocComment().isTrailing()).isFalse();
   }
 
   @Test
@@ -1770,10 +1880,8 @@ public final class ParserTest extends BaseJSTypeTestCase {
     Node xNode = paramListNode.getFirstChild();
     Node yNode = paramListNode.getSecondChild();
 
-    assertThat(xNode.getNonJSDocCommentString()).contains("/* first */");
-    assertThat(xNode.getNonJSDocComment().isTrailing()).isTrue();
+    assertThat(xNode.getTrailingNonJSDocCommentString()).contains("/* first */");
     assertThat(yNode.getNonJSDocCommentString()).isEqualTo("/* second */");
-    assertThat(yNode.getNonJSDocComment().isTrailing()).isFalse();
   }
 
   @Test
@@ -1787,8 +1895,8 @@ public final class ParserTest extends BaseJSTypeTestCase {
     Node xNode = paramListNode.getFirstChild();
     Node yNode = xNode.getNext();
 
-    assertThat(xNode.getNonJSDocCommentString()).contains("/* first */");
-    assertThat(xNode.getNonJSDocComment().isTrailing()).isTrue();
+    assertThat(xNode.getTrailingNonJSDocCommentString()).contains("/* first */");
+    ;
     assertThat(yNode.getNonJSDocCommentString()).isEmpty();
   }
 
@@ -1802,8 +1910,7 @@ public final class ParserTest extends BaseJSTypeTestCase {
     Node paramListNode = fn.getSecondChild();
     Node xNode = paramListNode.getFirstChild();
     assertNode(xNode).hasType(Token.NAME);
-    assertThat(xNode.getNonJSDocCommentString()).contains("/* first */");
-    assertThat(xNode.getNonJSDocComment().isTrailing()).isTrue();
+    assertThat(xNode.getTrailingNonJSDocCommentString()).contains("/* first */");
   }
 
   // Tests that same-line trailing comments attach to the same line param
@@ -1828,11 +1935,9 @@ public final class ParserTest extends BaseJSTypeTestCase {
     Node xNode = paramListNode.getFirstChild();
     Node yNode = paramListNode.getSecondChild();
 
-    assertThat(xNode.getNonJSDocCommentString()).isEqualTo("// first");
-    assertThat(xNode.getNonJSDocComment().isTrailing()).isTrue();
+    assertThat(xNode.getTrailingNonJSDocCommentString()).isEqualTo("// first");
 
-    assertThat(yNode.getNonJSDocCommentString()).isEqualTo("// second");
-    assertThat(yNode.getNonJSDocComment().isTrailing()).isTrue();
+    assertThat(yNode.getTrailingNonJSDocCommentString()).isEqualTo("// second");
   }
 
   // Tests that same-line trailing comments attach to the same line param
@@ -1857,11 +1962,9 @@ public final class ParserTest extends BaseJSTypeTestCase {
     Node xNode = paramListNode.getFirstChild();
     Node yNode = paramListNode.getSecondChild();
 
-    assertThat(xNode.getNonJSDocCommentString()).isEqualTo("/* first */");
-    assertThat(xNode.getNonJSDocComment().isTrailing()).isTrue();
+    assertThat(xNode.getTrailingNonJSDocCommentString()).isEqualTo("/* first */");
 
-    assertThat(yNode.getNonJSDocCommentString()).isEqualTo("/* second */");
-    assertThat(yNode.getNonJSDocComment().isTrailing()).isTrue();
+    assertThat(yNode.getTrailingNonJSDocCommentString()).isEqualTo("/* second */");
   }
 
   // Tests that same-line trailing comments attach to the same line param
@@ -1885,10 +1988,168 @@ public final class ParserTest extends BaseJSTypeTestCase {
     Node xNode = paramListNode.getFirstChild();
     Node yNode = paramListNode.getSecondChild();
 
-    assertThat(xNode.getNonJSDocCommentString()).isEqualTo("/* first */");
-    assertThat(xNode.getNonJSDocComment().isTrailing()).isTrue();
+    assertThat(xNode.getTrailingNonJSDocCommentString()).isEqualTo("/* first */");
 
     assertThat(yNode.getNonJSDocComment()).isNull();
+  }
+
+  @Test
+  public void testNonJSDocTrailingCommentOnConstant() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node cnst = parse("const A = 1; // comment").getFirstChild();
+    assertNode(cnst).hasType(Token.CONST);
+
+    assertThat(cnst.getTrailingNonJSDocCommentString()).isEqualTo("// comment");
+  }
+
+  @Test
+  public void testNonJSDocTrailingCommentOnConstantNoWhitespace() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node cnst = parse("const A = 1;// comment").getFirstChild();
+    assertNode(cnst).hasType(Token.CONST);
+
+    assertThat(cnst.getTrailingNonJSDocCommentString()).isEqualTo("// comment");
+  }
+
+  @Test
+  public void testNonJSDocTrailingCommentOnConstantWithMoreWhitespace() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node cnst = parse("const A = 1;   // comment").getFirstChild();
+    assertNode(cnst).hasType(Token.CONST);
+
+    assertThat(cnst.getTrailingNonJSDocCommentString()).isEqualTo("// comment");
+  }
+
+  @Test
+  public void testNonJSDocTrailingCommentOnConstantFollowedByConstant() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node cnst = parse(lines("const A = 1; // comment", "", "const B = 2;")).getFirstChild();
+    assertNode(cnst).hasType(Token.CONST);
+
+    assertThat(cnst.getTrailingNonJSDocCommentString()).isEqualTo("// comment");
+  }
+
+  @Test
+  public void testMultipleNonJSDocTrailingComments() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node n = parse(lines("const A = 1; /* A1 */ /* A2 */ // A3", "", "const B = 2;"));
+    Node a = n.getFirstChild();
+    assertNode(a).hasType(Token.CONST);
+    Node b = n.getLastChild();
+    assertNode(a).hasType(Token.CONST);
+    assertThat(b.getNonJSDocCommentString()).isEqualTo("/* A2 */// A3");
+  }
+
+  @Test
+  public void testNonJSDocTrailingCommentAfterFunction() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node n = parse("function foo(){} // comment").getFirstChild();
+    assertNode(n).hasType(Token.FUNCTION);
+
+    assertThat(n.getTrailingNonJSDocCommentString()).isEqualTo("// comment");
+  }
+
+  @Test
+  public void testNonJSDocTrailingCommentAfterFunctionCall() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node n = parse(lines("function g(){ f(); // comment", "f();}"));
+    Node exprRes = n.getFirstChild().getLastChild().getFirstChild();
+    assertNode(exprRes).hasType(Token.EXPR_RESULT);
+
+    assertThat(exprRes.getTrailingNonJSDocCommentString()).isEqualTo("// comment");
+  }
+
+  @Test
+  public void testNonJSDocTrailingCommentAfterFunctionCallInBlock() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node n =
+        parse(
+            lines(
+                "if (true) {",
+                "  f1(); // comment1 on f1()",
+                "  // comment2",
+                "  // comment3",
+                "}"));
+    Node exprRes = n.getFirstChild().getLastChild().getFirstChild();
+    assertNode(exprRes).hasType(Token.EXPR_RESULT);
+
+    assertThat(exprRes.getTrailingNonJSDocCommentString())
+        .isEqualTo("// comment1 on f1()\n// comment2\n// comment3");
+  }
+
+  @Test
+  public void testLastNonJSDocCommentInBlock() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node n = parse(lines("if (true) {", "  f();", "  /* comment */", "}"));
+    Node exprRes = n.getFirstChild().getLastChild().getFirstChild();
+    assertNode(exprRes).hasType(Token.EXPR_RESULT);
+
+    assertThat(exprRes.getTrailingNonJSDocCommentString()).isEqualTo("\n/* comment */");
+  }
+
+  @Test
+  public void testLastNonJSDocCommentInBlockWithBlankLines() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node n = parse(lines("if (true) {", "  f();", "", "", "  /* comment */", "}"));
+    Node exprRes = n.getFirstChild().getLastChild().getFirstChild();
+    assertNode(exprRes).hasType(Token.EXPR_RESULT);
+
+    // TODO(b/242294987): This should keep the blank lines.
+    assertThat(exprRes.getTrailingNonJSDocCommentString()).isEqualTo("\n/* comment */");
+  }
+
+  @Test
+  public void testInlineCommentInFunctionCallInBlock() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node n = parse(lines("if (true) {", "  f(0, 1 /* comment */);}"));
+    Node exprRes = n.getFirstChild().getLastChild().getFirstChild();
+    assertNode(exprRes).hasType(Token.EXPR_RESULT);
+    // TODO(b/242294987): This should not be an "end of block" comment (which we treat as trailing
+    // comment on the last child), but a comment on the argument.
+    assertThat(exprRes.getTrailingNonJSDocCommentString()).isEqualTo("\n/* comment */");
+  }
+
+  @Test
+  public void testNonJSDocBigCommentInbetween() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node n = parse(lines("let x = 0; // comment on x", "//", "// more comment", "let y = 1;"));
+
+    Node fstLetDecl = n.getFirstChild();
+    Node sndLetDecl = n.getLastChild();
+
+    assertNode(fstLetDecl).hasType(Token.LET);
+    assertThat(fstLetDecl.getTrailingNonJSDocCommentString()).isEqualTo("// comment on x");
+    assertNode(sndLetDecl).hasType(Token.LET);
+    assertThat(sndLetDecl.getNonJSDocCommentString()).isEqualTo("//\n// more comment");
+  }
+
+  @Test
+  public void testInlineNonJSDocCommentsOnSeparateLetDeclarations() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+
+    Node n = parse("let a /* leading a */ = {c} /* trailing */; let /* leading b */ b  = {d};");
+    Node letADecl = n.getFirstChild();
+    Node letBDecl = n.getLastChild();
+
+    assertNode(letADecl).hasType(Token.LET);
+    assertNode(letBDecl).hasType(Token.LET);
+    assertThat(letADecl.getFirstFirstChild().getNonJSDocCommentString())
+        .contains("/* leading a */");
+    assertThat(letADecl.getTrailingNonJSDocCommentString()).contains("/* trailing */");
+    assertThat(letBDecl.getFirstChild().getNonJSDocCommentString()).contains("/* leading b */");
   }
 
   // function f( // blah1
@@ -1912,11 +2173,9 @@ public final class ParserTest extends BaseJSTypeTestCase {
 
     Node xNode = fn.getSecondChild().getFirstChild();
     assertThat(xNode.getNonJSDocCommentString()).contains("// blah1");
-    assertThat(xNode.getNonJSDocComment().isTrailing()).isFalse();
 
     Node yNode = fn.getSecondChild().getSecondChild();
     assertThat(yNode.getNonJSDocCommentString()).isEqualTo("// blah2");
-    assertThat(yNode.getNonJSDocComment().isTrailing()).isFalse();
   }
 
   // function f( /* blah1 */ x,
@@ -1939,11 +2198,9 @@ public final class ParserTest extends BaseJSTypeTestCase {
 
     Node xNode = fn.getSecondChild().getFirstChild();
     assertThat(xNode.getNonJSDocCommentString()).contains("/* blah1 */");
-    assertThat(xNode.getNonJSDocComment().isTrailing()).isFalse();
 
     Node yNode = fn.getSecondChild().getSecondChild();
     assertThat(yNode.getNonJSDocCommentString()).isEqualTo("// blah2");
-    assertThat(yNode.getNonJSDocComment().isTrailing()).isFalse();
   }
 
   @Test
@@ -1972,7 +2229,97 @@ public final class ParserTest extends BaseJSTypeTestCase {
     assertNode(fn).hasType(Token.FUNCTION);
 
     Node xNode = fn.getSecondChild().getFirstChild();
-    assertThat(xNode.getNonJSDocCommentString()).contains("/* blah1 */// blah");
+    assertThat(xNode.getNonJSDocCommentString()).contains("/* blah1 */");
+    assertThat(xNode.getTrailingNonJSDocCommentString()).contains("// blah");
+  }
+
+  @Test
+  public void testEndOfFileNonJSDocComments_lineComment() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node scriptNode =
+        parse(
+            lines(
+                "function f1() {}", //
+                "// first",
+                "f1();",
+                "// second"));
+
+    assertNode(scriptNode).hasType(Token.SCRIPT);
+
+    Node exprNode = scriptNode.getLastChild();
+    assertNode(exprNode).hasType(Token.EXPR_RESULT);
+
+    assertThat(scriptNode.getTrailingNonJSDocCommentString()).isEqualTo("// second");
+  }
+
+  @Test
+  public void testEndOfFileNonJSDocComments_blockComment() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node scriptNode =
+        parse(
+            lines(
+                "function f1() {}", //
+                "// first",
+                "f1();",
+                "/* second */"));
+
+    assertNode(scriptNode).hasType(Token.SCRIPT);
+
+    Node exprNode = scriptNode.getLastChild();
+    assertNode(exprNode).hasType(Token.EXPR_RESULT);
+
+    assertThat(scriptNode.getTrailingNonJSDocCommentString()).isEqualTo("/* second */");
+  }
+
+  @Test
+  public void testEndOfFileNonJSDocComments_manyComments() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node scriptNode =
+        parse(
+            lines(
+                "function f1() {}", //
+                "// first",
+                "f1();",
+                "// second",
+                "/* third */",
+                "// fourth"));
+
+    assertNode(scriptNode).hasType(Token.SCRIPT);
+
+    Node exprNode = scriptNode.getLastChild();
+    assertNode(exprNode).hasType(Token.EXPR_RESULT);
+
+    assertThat(scriptNode.getTrailingNonJSDocCommentString())
+        .isEqualTo("// second\n/* third */\n// fourth");
+  }
+
+  @Test
+  public void testEndOfFileNonJSDocComments() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node scriptNode =
+        parse(
+            lines(
+                "function f1() {}", //
+                "if (true) {",
+                "// first",
+                "f1(); // second ",
+                "}",
+                "// third"));
+
+    assertNode(scriptNode).hasType(Token.SCRIPT);
+
+    Node exprNode = scriptNode.getLastChild().getLastChild().getFirstChild();
+    assertNode(exprNode).hasType(Token.EXPR_RESULT);
+    assertThat(exprNode.getNonJSDocCommentString()).isEqualTo("// first");
+
+    Node callNode = scriptNode.getLastChild().getLastChild().getLastChild();
+    assertThat(callNode.getTrailingNonJSDocCommentString()).isEqualTo("// second");
+
+    assertThat(scriptNode.getTrailingNonJSDocCommentString()).isEqualTo("// third");
   }
 
   @Test
@@ -1988,7 +2335,8 @@ public final class ParserTest extends BaseJSTypeTestCase {
     assertNode(fn).hasType(Token.FUNCTION);
 
     Node xNode = fn.getSecondChild().getFirstChild();
-    assertThat(xNode.getNonJSDocCommentString()).contains("/* blah1 */// blah");
+    assertThat(xNode.getNonJSDocCommentString()).contains("/* blah1 */");
+    assertThat(xNode.getTrailingNonJSDocCommentString()).contains("/ blah");
   }
 
   @Test
@@ -2031,7 +2379,7 @@ public final class ParserTest extends BaseJSTypeTestCase {
     Node xNode = fn.getSecondChild().getOnlyChild();
     Node yNode = fn.getLastChild().getFirstChild();
 
-    assertThat(xNode.getNonJSDocCommentString()).contains("/* first */");
+    assertThat(xNode.getTrailingNonJSDocCommentString()).contains("/* first */");
     assertThat(yNode.getNonJSDocCommentString()).contains("/* second */");
   }
 
@@ -2063,7 +2411,7 @@ public final class ParserTest extends BaseJSTypeTestCase {
     Node oneArgNode = call.getSecondChild();
     Node twoArgNode = oneArgNode.getNext();
 
-    assertThat(oneArgNode.getNonJSDocCommentString()).contains("/* first */");
+    assertThat(oneArgNode.getTrailingNonJSDocCommentString()).contains("/* first */");
     assertThat(twoArgNode.getNonJSDocCommentString()).isEmpty();
   }
 
@@ -2079,7 +2427,7 @@ public final class ParserTest extends BaseJSTypeTestCase {
     Node call = exprRes.getFirstChild();
     Node oneArgNode = call.getSecondChild();
 
-    assertThat(oneArgNode.getNonJSDocCommentString()).contains("/* first */");
+    assertThat(oneArgNode.getTrailingNonJSDocCommentString()).contains("/* first */");
   }
 
   @Test
@@ -2316,7 +2664,7 @@ public final class ParserTest extends BaseJSTypeTestCase {
     strictMode = SLOPPY;
     Node a = Node.newString(Token.NAME, "a");
     a.addChildToFront(Node.newString(Token.NAME, "b"));
-    List<ParserResult> testCases =
+    ImmutableList<ParserResult> testCases =
         ImmutableList.of(
             new ParserResult("3;", createScript(new Node(Token.EXPR_RESULT, Node.newNumber(3.0)))),
             new ParserResult("var a = b;", createScript(new Node(Token.VAR, a))));
@@ -2745,6 +3093,25 @@ public final class ParserTest extends BaseJSTypeTestCase {
 
     mode = LanguageMode.ECMASCRIPT_2015;
     parse("var [x,y] = foo();");
+  }
+
+  @Test
+  public void testLHSOfNonVanillaEqualsOperator() {
+    strictMode = SLOPPY;
+    mode = LanguageMode.ECMASCRIPT_2015;
+
+    // object pattern or array pattern on the lhs of vanilla equals passes
+    parse("for (let [i,j] = [2,0]; j < 2; [i,j]  =  [j, j+1]) {}");
+    parse("for (let [i,j] = [2,0]; j < 2; {i,j}  =  [j, j+1]) {}");
+
+    // error with object pattern or array pattern on the lhs of +=
+    parseError(
+        "for (let [i,j] = [2,0]; j < 2; [i,j]  +=  [j, j+1]) {}", "invalid assignment target");
+    parseError(
+        "for (let [i,j] = [2,0]; j < 2; {i,j}  +=  [j, j+1]) {}", "invalid assignment target");
+
+    parse("let [i,j]  =  [2, 2];");
+    parseError("let [i,j]  +=  [2, 2];", "destructuring must have an initializer");
   }
 
   @Test
@@ -3465,6 +3832,20 @@ public final class ParserTest extends BaseJSTypeTestCase {
   }
 
   @Test
+  public void testIndividualCommentsAroundClasses() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node n = parse("// comment A \n class A{} // trailing a \n // comment B \n  class Bar{}");
+    Node classA = n.getFirstChild();
+    Node classB = n.getSecondChild();
+    assertNode(classA).hasType(Token.CLASS);
+    assertThat(classA.getNonJSDocCommentString()).isEqualTo("// comment A");
+    assertThat(classA.getTrailingNonJSDocCommentString()).isEqualTo("// trailing a");
+    assertNode(classB).hasType(Token.CLASS);
+    assertThat(classB.getNonJSDocCommentString()).isEqualTo("// comment B");
+  }
+
+  @Test
   public void testMultipleLinedCommentsAttachedToSameNode() {
     isIdeMode = true;
     parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
@@ -3722,7 +4103,6 @@ public final class ParserTest extends BaseJSTypeTestCase {
     expectFeatures(Feature.TEMPLATE_LITERALS);
     testTemplateLiteral("``");
     testTemplateLiteral("`\"`");
-    testTemplateLiteral("`\\\"`");
     testTemplateLiteral("`\\``");
     testTemplateLiteral("`hello world`;");
     testTemplateLiteral("`hello\nworld`;");
@@ -3809,6 +4189,9 @@ public final class ParserTest extends BaseJSTypeTestCase {
     parseError("`hello\\5`", "Invalid escape sequence");
     parseError("`hello\\6`", "Invalid escape sequence");
     parseError("`hello\\7`", "Invalid escape sequence");
+    // TODO(b/223649306): \8 and \9 should cause "Invalid escape sequence" parse errors
+    parseWarning("`hello\\8`", "Unnecessary escape: '\\8' is equivalent to just '8'");
+    parseWarning("`hello\\9`", "Unnecessary escape: '\\9' is equivalent to just '9'");
     parseError("`hello\\01`", "Invalid escape sequence");
     parseError("`hello\\02`", "Invalid escape sequence");
     parseError("`hello\\03`", "Invalid escape sequence");
@@ -3819,6 +4202,7 @@ public final class ParserTest extends BaseJSTypeTestCase {
 
     // newline before invalid escape sequence
     parseError("`\n\\1`", "Invalid escape sequence");
+    parseError("`\n\\1 ${0}`", "Invalid escape sequence");
   }
 
   @Test
@@ -4644,23 +5028,47 @@ public final class ParserTest extends BaseJSTypeTestCase {
   }
 
   @Test
-  public void testUnnecessaryEscapeTemplateLiterals() {
+  public void testUnnecessaryEscapeUntaggedTemplateLiterals() {
+    parseWarning("var str = `\\a`", "Unnecessary escape: '\\a' is equivalent to just 'a'");
+    parse("var str = `\\b`");
+    parseWarning("var str = `\\c`", "Unnecessary escape: '\\c' is equivalent to just 'c'");
+    parseWarning("var str = `\\d`", "Unnecessary escape: '\\d' is equivalent to just 'd'");
+    parseWarning("var str = `\\e`", "Unnecessary escape: '\\e' is equivalent to just 'e'");
+    parse("var str = `\\f`");
+    parseWarning("var str = `\\/`", "Unnecessary escape: '\\/' is equivalent to just '/'");
+    parse("var str = `\\0`");
+    parseWarning("var str = `\\%`", "Unnecessary escape: '\\%' is equivalent to just '%'");
+
+    // single and double quotes have no meaning in a template lit
+    parseWarning("var str = `\\\"`", "Unnecessary escape: '\\\"' is equivalent to just '\"'");
+    parseWarning("var str = `\\'`", "Unnecessary escape: \"\\'\" is equivalent to just \"'\"");
+
+    // $ needs to be escaped to distinguish it from use of ${}
+    parse("var str = `\\$`");
+    // ` needs to be escaped to avoid ending the template lit
+    parse("var str = `\\``");
+  }
+
+  @Test
+  public void testUnnecessaryEscapeTaggedTemplateLiterals() {
     expectFeatures(Feature.TEMPLATE_LITERALS);
 
-    // Don't warn for unnecessary escapes in template literals since tagged template literals
-    // can access the raw string value
-    parse("var str = `\\a`");
-    parse("var str = `\\b`");
-    parse("var str = `\\c`");
-    parse("var str = `\\d`");
-    parse("var str = `\\e`");
-    parse("var str = `\\f`");
-    parse("var str = `\\/`");
-    parse("var str = `\\0`");
-    parse("var str = `\\8`");
-    parse("var str = `\\9`");
-    parse("var str = `\\%`");
-    parse("var str = `\\$`");
+    // Don't warn for unnecessary escapes in tagged template literals since they may access the
+    // raw string value
+    parse("var str = String.raw`\\a`");
+    parse("var str = String.raw`\\b`");
+    parse("var str = String.raw`\\c`");
+    parse("var str = String.raw`\\d`");
+    parse("var str = String.raw`\\e`");
+    parse("var str = String.raw`\\f`");
+    parse("var str = String.raw`\\/`");
+    parse("var str = String.raw`\\0`");
+    parse("var str = String.raw`\\8`");
+    parse("var str = String.raw`\\9`");
+    parse("var str = String.raw`\\%`");
+
+    parse("var str = String.raw`\\$`");
+    parse("var str = String.raw`\\``");
   }
 
   @Test
@@ -4804,9 +5212,25 @@ public final class ParserTest extends BaseJSTypeTestCase {
 
     parseError(
         "var unterm = 'forgot closing quote\n" + "alert(unterm);", "Unterminated string literal");
+
+    // test combo of a string continuation + useless escape warning + unterminated literal error
+    // create a TestErrorReporter so that we can expect both a warning and an error
+    String js = "var unterm = ' \\\n \\a \n";
+
+    TestErrorReporter testErrorReporter =
+        new TestErrorReporter()
+            .expectAllWarnings("Unnecessary escape: '\\a' is equivalent to just 'a'")
+            .expectAllErrors("Unterminated string literal");
+    StaticSourceFile file = new SimpleSourceFile("input", SourceKind.STRONG);
+    ParserRunner.parse(file, js, createConfig(), testErrorReporter);
+
+    // verify we reported both the warning and error
+    testErrorReporter.verifyHasEncounteredAllWarningsAndErrors();
   }
 
-  /** @bug 14231379 */
+  /**
+   * @bug 14231379
+   */
   @Test
   public void testUnterminatedRegExp() {
     parseError("var unterm = /forgot trailing slash", "Expected '/' in regular expression literal");
@@ -4896,6 +5320,26 @@ public final class ParserTest extends BaseJSTypeTestCase {
         "/a/us", // 'u' added in es6
         requiresLanguageModeMessage(Feature.REGEXP_FLAG_U),
         requiresLanguageModeMessage(Feature.REGEXP_FLAG_S));
+  }
+
+  /** New RegExp flag 'd' added in ES2022. */
+  @Test
+  public void testES2022RegExpFlagD() {
+    expectFeatures(Feature.REGEXP_FLAG_D);
+    parse("/a/d");
+
+    mode = LanguageMode.ECMASCRIPT_2015;
+    expectFeatures(Feature.REGEXP_FLAG_D);
+    parseWarning("/a/d", requiresLanguageModeMessage(Feature.REGEXP_FLAG_D));
+    parseWarning(
+        "/a/ud", // 'u' added in es6
+        requiresLanguageModeMessage(Feature.REGEXP_FLAG_D));
+
+    mode = LanguageMode.ECMASCRIPT5;
+    parseWarning(
+        "/a/ud", // 'u' added in es6
+        requiresLanguageModeMessage(Feature.REGEXP_FLAG_U),
+        requiresLanguageModeMessage(Feature.REGEXP_FLAG_D));
   }
 
   @Test
@@ -5421,6 +5865,203 @@ public final class ParserTest extends BaseJSTypeTestCase {
   }
 
   @Test
+  public void testEmptyClassStaticBlock() {
+    parse("class C { static { } }");
+    parse("let a = class { static { } };");
+  }
+
+  @Test
+  public void testReturnInClassStaticBlock() {
+    parseError("function f() {class C { static { return; } }}", "return must be inside function");
+    parseError("class C { static { return; } }", "return must be inside function");
+    parse("class C {static {function f() {return;}}}");
+  }
+
+  @Test
+  public void testContinueInClassStaticBlock() {
+    parseError("class C {static {continue;}}", UNEXPECTED_CONTINUE);
+    parseError("for (let i = 1; i < 2; i++) {class C {static {continue;}}}", UNEXPECTED_CONTINUE);
+    parseError("while (true) {class C {static {continue;}}}", UNEXPECTED_CONTINUE);
+    parse("class C {static {while (true) {continue;}}}");
+    parse("class C {static {for (let i = 1; i < 2; i++) {continue;}}}");
+    parseError(
+        "x: for (let i = 1; i < 2; i++) {class C {static {continue x;}}}",
+        UNDEFINED_LABEL + " \"x\"");
+    parseError("x: while (true) {class C {static {continue x;}}}", UNDEFINED_LABEL + " \"x\"");
+    parse("class C {static {x: while (true) {continue x;}}}");
+    parse("class C {static {x: for (let i = 1; i < 2; i++) {continue x;}}}");
+    parseError("class C {static {x: { while (true) {continue x;}}}}", UNEXPECTED_LABELLED_CONTINUE);
+    parseError(
+        "class C {static {x: {for (let i = 1; i < 2; i++) {continue x;}}}}",
+        UNEXPECTED_LABELLED_CONTINUE);
+  }
+
+  @Test
+  public void testBreakInClassStaticBlock() {
+    parseError("class C {static {break;}}", UNLABELED_BREAK);
+    parseError("for (let i = 1; i < 2; i++) {class C {static {break;}}}", UNLABELED_BREAK);
+    parseError("while (true) {class C {static {break;}}}", UNLABELED_BREAK);
+    parse("class C {static {while (true) {break;}}}");
+    parse("class C {static {for (let i = 1; i < 2; i++) {break;}}}");
+    parseError(
+        "x: for (let i = 1; i < 2; i++) {class C {static {break x;}}}", UNDEFINED_LABEL + " \"x\"");
+    parseError("x: while (true) {class C {static {break x;}}}", UNDEFINED_LABEL + " \"x\"");
+    parse("class C {static {x: while (true) {break x;}}}");
+    parse("class C {static {x: for (let i = 1; i < 2; i++) {break x;}}}");
+    parse("class C {static {x: { while (true) {break x;}}}}");
+    parse("class C {static {x: {for (let i = 1; i < 2; i++) {break x;}}}}");
+  }
+
+  @Test
+  public void testYieldInClassStaticBlock() {
+    parseError("class C {static {var ind; yield;}}", "primary expression expected");
+    parseError("function* f(ind) {class C{ static {yield ind; ind++;}}}", UNEXPECTED_YIELD);
+    parse("class C{ static {function* f(ind) {yield ind; ind++;}}}");
+  }
+
+  @Test
+  public void testAwaitInClassStaticBlock() {
+    parseError("class C {static {await 1;}}", UNEXPECTED_AWAIT);
+    parseError("async function f() {class C{ static {await 1;}}}", UNEXPECTED_AWAIT);
+    parse("class C{ static {async function f() {await 1;}}}");
+    parseError("async () => {class C{ static {await 1;}}}", UNEXPECTED_AWAIT);
+    parse("class C{ static {async ()=>{await 1;}}}");
+  }
+
+  @Test
+  public void testClassStaticBlock_this() {
+    // multiple fields
+    parse(
+        lines(
+            "class C { ",
+            "static field1 = 1; static field2 = 2; static field3 = 3;",
+            "static { ",
+            "let x = this.field1; let y = this.field2; let z = this.field3;",
+            "}",
+            "}"));
+    parse("class C { static { this.field1 = 1; this.field2 = 2; this.field3 = 3; } }");
+    parse(
+        lines(
+            "let a = class { ",
+            "static field1 = 1; static field2 = 2; static field3 = 3;",
+            "static {",
+            "let x = this.field1; let y = this.field2; let z = this.field3;",
+            "}",
+            "};"));
+    parse("let a = class { static { this.field1 = 1; this.field2 = 2; this.field3 = 3; } };");
+    // functions
+    parse(
+        lines(
+            "class C {",
+            "static field1 = 1;",
+            "static {",
+            "function incr() { return ++A.field1; }",
+            "console.log(incr());",
+            "if(incr()) {",
+            "this.field2 = 2;",
+            "}",
+            "}",
+            "}"));
+    // try catch
+    parse(
+        lines(
+            "class C {",
+            "static field1 = 1;",
+            "static {",
+            "try {",
+            "this.field1 = 2;",
+            "}",
+            "catch {",
+            "}",
+            "}",
+            "}"));
+  }
+
+  @Test
+  public void testClassStaticBlock_inheritance() {
+    // It is a syntax error to call super() in a class static initialization block.
+    // Must get reported in CheckSuper.java.
+    parse("class Base {} class C extends Base { static { super(); } }");
+    // allow accessing static properties of the base class
+    parse("class Base { static y; } class C extends Base { static { super.y; } }");
+    // allow accessing non-static properties of the base class
+    parse("class Base { y; } class C extends Base { static { super.y; } }");
+  }
+
+  @Test
+  public void testClassExtendsLeftHandSideExpression() {
+    parse("class A {} class B extends (0, A) {}");
+    parseError("class A {} class B extends 0, A {}", "'{' expected");
+  }
+
+  @Test
+  public void testMultipleClassStaticBlocks() {
+    // empty
+    parse("class C { static { } static { } }");
+    parse("let a = class { static { } static { } };");
+    // multiple fields
+    parse(
+        lines(
+            "class C {",
+            "static field1 = 1; static field2 = 2; static field3 = 3;",
+            "static { ",
+            "let x = this.field1; let y = this.field2; ",
+            "} ",
+            "static {",
+            "let z = this.field3;",
+            "} ",
+            "}"));
+    parse("class C { static { this.field1 = 1; this.field2 = 2; } static { this.field3 = 3; } }");
+    parse(
+        lines(
+            "let a = class { ",
+            "static field1 = 1; static field2 = 2; static field3 = 3;",
+            "static {",
+            "let x = this.field1; let y = this.field2;",
+            "}",
+            "static {",
+            "let z = this.field3;",
+            "}",
+            "};"));
+    parse(
+        lines(
+            "let a = class {",
+            "static {",
+            "this.field1 = 1; this.field2 = 2;",
+            "}",
+            "static {",
+            " this.field3 = 3;",
+            "}",
+            "};"));
+  }
+
+  @Test
+  public void testClassStaticBlock_linenocharno() {
+    Node n = parse("class C {\n static {}\n }").getFirstChild();
+
+    assertNode(n).hasType(Token.CLASS);
+    assertNode(n).hasLineno(1);
+    assertNode(n).hasCharno(0);
+
+    Node members = NodeUtil.getClassMembers(n);
+    assertNode(members).hasType(Token.CLASS_MEMBERS);
+
+    Node staticBlock = members.getFirstChild();
+
+    assertNode(staticBlock).hasType(Token.BLOCK);
+    assertNode(staticBlock).hasLineno(2);
+    assertNode(staticBlock).hasCharno(8);
+    assertNode(staticBlock).hasLength(2);
+  }
+
+  @Test
+  public void testClassStaticBlock_invalid() {
+    parseError("class { {} }", "'identifier' expected");
+    parseError("class { static { static { } } }", "'identifier' expected");
+    parseError("var o = { static {} };", "Cannot use keyword in short object literal");
+  }
+
+  @Test
   public void testSuper1() {
     expectFeatures(Feature.SUPER);
     strictMode = SLOPPY;
@@ -5753,11 +6394,17 @@ public final class ParserTest extends BaseJSTypeTestCase {
 
   @Test
   public void testInvalidAwait() {
-    parseError("await 15;", "'await' used in a non-async function context");
-    parseError("function f() { return await 5; }", "'await' used in a non-async function context");
+    parseError("await 15;", UNEXPECTED_AWAIT);
+    parseError("function f() { return await 5; }", UNEXPECTED_AWAIT);
     parseError(
         "async function f(x = await 15) { return x; }",
         "`await` is illegal in parameter default value.");
+  }
+
+  @Test
+  public void testInvalidAwaitInsideNestedFunction() {
+    parse("async function f() { async function f2() { return await 5; } }");
+    parseError("async function f() { function f2() { return await 5; } }", UNEXPECTED_AWAIT);
   }
 
   @Test
@@ -6058,46 +6705,58 @@ public final class ParserTest extends BaseJSTypeTestCase {
     strictMode = SLOPPY;
 
     expectFeatures(Feature.FOR_AWAIT_OF);
-    parse("for await(a of b) c;");
-    parse("for await(var a of b) c;");
-    parse("for await (a.x of b) c;");
-    parse("for await ([a1, a2, a3] of b) c;");
-    parse("for await (const {x, y, z} of b) c;");
+    parse("async () => { for await(a of b) c;}");
+    parse("async () => { for await(var a of b) c;}");
+    parse("async () => { for await (a.x of b) c;}");
+    parse("async () => { for await ([a1, a2, a3] of b) c;}");
+    parse("async () => { for await (const {x, y, z} of b) c;}");
     // default value inside a pattern isn't an initializer
-    parse("for await (const {x, y = 2, z} of b) c;");
+    parse("async () => { for await (const {x, y = 2, z} of b) c;}");
     expectFeatures(Feature.FOR_AWAIT_OF, Feature.LET_DECLARATIONS);
-    parse("for await(let a of b) c;");
+    parse("async () => { for await(let a of b) c;}");
     expectFeatures(Feature.FOR_AWAIT_OF, Feature.CONST_DECLARATIONS);
-    parse("for await(const a of b) c;");
+    parse("async () => { for await(const a of b) c;}");
   }
 
   @Test
   public void testInvalidForAwaitOfInitializers() {
     strictMode = SLOPPY;
 
-    parseError("for await (a=1 of b) c;", INVALID_ASSIGNMENT_TARGET);
-    parseError("for await (var a=1 of b) c;", "for-await-of statement may not have initializer");
-    parseError("for await (let a=1 of b) c;", "for-await-of statement may not have initializer");
-    parseError("for await (const a=1 of b) c;", "for-await-of statement may not have initializer");
+    parseError("async () => { for await (a=1 of b) c;}", INVALID_ASSIGNMENT_TARGET);
     parseError(
-        "for await (let {a} = {} of b) c;", "for-await-of statement may not have initializer");
+        "async () => { for await (var a=1 of b) c;}",
+        "for-await-of statement may not have initializer");
+    parseError(
+        "async () => { for await (let a=1 of b) c;}",
+        "for-await-of statement may not have initializer");
+    parseError(
+        "async () => { for await (const a=1 of b) c;}",
+        "for-await-of statement may not have initializer");
+    parseError(
+        "async () => { for await (let {a} = {} of b) c;}",
+        "for-await-of statement may not have initializer");
   }
 
   @Test
   public void testInvalidForAwaitOfMultipleInitializerTargets() {
     strictMode = SLOPPY;
 
-    parseError("for await (a, b of c) d;", INVALID_ASSIGNMENT_TARGET);
+    parseError("async () => { for await (a, b of c) d;}", INVALID_ASSIGNMENT_TARGET);
 
     parseError(
-        "for await (var a, b of c) d;",
+        "async () => { for await (var a, b of c) d;}",
         "for-await-of statement may not have more than one variable declaration");
     parseError(
-        "for await (let a, b of c) d;",
+        "async () => { for await (let a, b of c) d;}",
         "for-await-of statement may not have more than one variable declaration");
     parseError(
-        "for await (const a, b of c) d;",
+        "async () => { for await (const a, b of c) d;}",
         "for-await-of statement may not have more than one variable declaration");
+  }
+
+  @Test
+  public void testInvalidForAwaitOf() {
+    parseError("for await (a of b) foo();", "'for-await-of' used in a non-async function context");
   }
 
   @Test
@@ -6461,7 +7120,7 @@ public final class ParserTest extends BaseJSTypeTestCase {
 
   @Test
   public void testDynamicImport() {
-    List<String> dynamicImportUses =
+    ImmutableList<String> dynamicImportUses =
         ImmutableList.of(
             "import('foo')",
             "import('foo').then(function(a) { return a; })",
@@ -6490,7 +7149,7 @@ public final class ParserTest extends BaseJSTypeTestCase {
 
   @Test
   public void testAwaitDynamicImport() {
-    List<String> awaitDynamicImportUses =
+    ImmutableList<String> awaitDynamicImportUses =
         ImmutableList.of(
             "(async function() { return await import('foo'); })()",
             "(async function() { await import('foo').then(function(a) { return a; }); })()",
@@ -6833,11 +7492,10 @@ public final class ParserTest extends BaseJSTypeTestCase {
     return doParse(string, warnings).ast;
   }
 
-  private ParserRunner.ParseResult doParse(String string, String... warnings) {
+  private ParseResult doParse(String string, String... warnings) {
     TestErrorReporter testErrorReporter = new TestErrorReporter().expectAllWarnings(warnings);
     StaticSourceFile file = new SimpleSourceFile("input", SourceKind.STRONG);
-    ParserRunner.ParseResult result =
-        ParserRunner.parse(file, string, createConfig(), testErrorReporter);
+    ParseResult result = ParserRunner.parse(file, string, createConfig(), testErrorReporter);
 
     // check expected features if specified
     assertFS(result.features).contains(expectedFeatures);

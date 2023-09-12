@@ -29,7 +29,7 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Scope contains information about a variable scope in JavaScript. Scopes can be nested, a scope
@@ -130,8 +130,8 @@ public abstract class AbstractScope<S extends AbstractScope<S, V>, V extends Abs
   abstract V makeImplicitVar(ImplicitVar type);
 
   /**
-   * Undeclares a variable, to be used when the compiler optimizes out
-   * a variable and removes it from the scope.
+   * Undeclares a variable, to be used when the compiler optimizes out a variable and removes it
+   * from the scope.
    */
   final void undeclare(V var) {
     checkState(var.getScope() == this);
@@ -149,7 +149,7 @@ public abstract class AbstractScope<S extends AbstractScope<S, V>, V extends Abs
     checkState(hasOwnSlot(name) || canDeclare(name), "Illegal shadow: %s", var.getNode());
 
     // For memory savings, only initialize the map once it needs to add its first element
-    Map<String, V> emptySentinel = ImmutableMap.of();
+    ImmutableMap<String, V> emptySentinel = ImmutableMap.of();
     if (vars == emptySentinel) {
       vars = Maps.newLinkedHashMapWithExpectedSize(1);
     }
@@ -182,14 +182,13 @@ public abstract class AbstractScope<S extends AbstractScope<S, V>, V extends Abs
     return false;
   }
 
-  @Nullable
-  private final V getOwnImplicitSlot(@Nullable ImplicitVar name) {
+  private final @Nullable V getOwnImplicitSlot(@Nullable ImplicitVar name) {
     if (!hasOwnImplicitSlot(name)) {
       return null;
     }
 
     // For memory savings, only initialize the map once it needs to add its first element
-    Map<ImplicitVar, V> emptySentinel = ImmutableMap.of();
+    ImmutableMap<ImplicitVar, V> emptySentinel = ImmutableMap.of();
     if (implicitVars == emptySentinel) {
       implicitVars = new EnumMap<>(ImplicitVar.class);
     }
@@ -323,6 +322,10 @@ public abstract class AbstractScope<S extends AbstractScope<S, V>, V extends Abs
     return NodeUtil.createsBlockScope(rootNode);
   }
 
+  public final boolean isStaticBlockScope() {
+    return NodeUtil.isClassStaticBlock(getRootNode());
+  }
+
   public final boolean isFunctionBlockScope() {
     return NodeUtil.isFunctionBlock(getRootNode());
   }
@@ -335,22 +338,38 @@ public abstract class AbstractScope<S extends AbstractScope<S, V>, V extends Abs
     return getRootNode().isModuleBody();
   }
 
+  public final boolean isMemberFieldDefScope() {
+    return getRootNode().isMemberFieldDef();
+  }
+
+  public final boolean isComputedFieldDefRhsScope() {
+    return getRootNode().isComputedFieldDef();
+  }
+
   public final boolean isCatchScope() {
     return getRootNode().isBlock()
         && getRootNode().hasOneChild()
         && getRootNode().getFirstChild().isCatch();
   }
 
+  public final boolean isCfgRootScope() {
+    return NodeUtil.isValidCfgRoot(rootNode);
+  }
+
   /**
    * If a var were declared in this scope, would it belong to this scope (as opposed to some
    * enclosing scope)?
    *
-   * We consider function scopes to be hoist scopes. Even though it's impossible to declare a var
-   * inside function parameters, it would make less sense to say that if you did declare one in
-   * the function parameters, it would be hoisted somewhere else.
+   * <p>We consider function scopes to be hoist scopes. Even though it's impossible to declare a var
+   * inside function parameters, it would make less sense to say that if you did declare one in the
+   * function parameters, it would be hoisted somewhere else.
    */
   final boolean isHoistScope() {
-    return isFunctionScope() || isFunctionBlockScope() || isGlobal() || isModuleScope();
+    return isFunctionScope()
+        || isFunctionBlockScope()
+        || isGlobal()
+        || isModuleScope()
+        || isStaticBlockScope();
   }
 
   /**
@@ -371,15 +390,23 @@ public abstract class AbstractScope<S extends AbstractScope<S, V>, V extends Abs
     return null;
   }
 
+  public final S getClosestCfgRootScope() {
+    S current = thisScope();
+    while (!current.isCfgRootScope()) {
+      current = current.getParent();
+    }
+    return current;
+  }
+
   /**
    * Returns the closest container scope. This is equivalent to what the current scope would have
    * been for non-ES6 scope creators, and is thus useful for migrating code to use block scopes.
    */
   public final S getClosestContainerScope() {
     S scope = getClosestHoistScope();
-    if (scope.isBlockScope()) {
+    if (scope.isFunctionBlockScope()) {
       scope = scope.getParent();
-      checkState(!scope.isBlockScope());
+      checkState(!scope.isBlockScope(), scope);
     }
     return scope;
   }
@@ -398,7 +425,8 @@ public abstract class AbstractScope<S extends AbstractScope<S, V>, V extends Abs
     checkArgument(NodeUtil.createsScope(rootNode), rootNode);
     checkArgument(
         rootNode != parent.getRootNode(),
-        "rootNode should not be the parent's root node: %s", rootNode);
+        "rootNode should not be the parent's root node: %s",
+        rootNode);
   }
 
   /** Performs simple validity checks on when constructing a root scope. */
@@ -450,8 +478,8 @@ public abstract class AbstractScope<S extends AbstractScope<S, V>, V extends Abs
   }
 
   /**
-   * The three implicit var types, which are defined implicitly (at least) in
-   * every vanilla function scope without actually being declared.
+   * The three implicit var types, which are defined implicitly (at least) in every vanilla function
+   * scope without actually being declared.
    */
   enum ImplicitVar {
     ARGUMENTS("arguments"),
@@ -473,14 +501,23 @@ public abstract class AbstractScope<S extends AbstractScope<S, V>, V extends Abs
 
     /** Whether this kind of implicit variable is created/owned by the given scope. */
     boolean isMadeByScope(AbstractScope<?, ?> scope) {
-      if (this.equals(EXPORTS)) {
-        return scope.isModuleScope()
-            && scope.getRootNode().getParent().getBooleanProp(Node.GOOG_MODULE);
+      switch (this) {
+        case EXPORTS:
+          return scope.isModuleScope()
+              && scope.getRootNode().getParent().getBooleanProp(Node.GOOG_MODULE);
+        case SUPER:
+        case THIS:
+          return scope.isStaticBlockScope()
+              || NodeUtil.isNonArrowFunction(scope.getRootNode())
+              || scope.isMemberFieldDefScope()
+              || scope.isComputedFieldDefRhsScope();
+        case ARGUMENTS:
+          return NodeUtil.isNonArrowFunction(scope.getRootNode());
       }
-      return NodeUtil.isNonArrowFunction(scope.getRootNode());
+      throw new AssertionError();
     }
 
-    static ImplicitVar of(String name) {
+    static @Nullable ImplicitVar of(String name) {
       switch (name) {
         case "arguments":
           return ARGUMENTS;

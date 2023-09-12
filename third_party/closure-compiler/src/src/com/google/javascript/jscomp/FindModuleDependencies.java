@@ -23,7 +23,9 @@ import com.google.javascript.jscomp.CompilerInput.ModuleType;
 import com.google.javascript.jscomp.deps.DependencyInfo.Require;
 import com.google.javascript.jscomp.deps.ModuleLoader;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.QualifiedName;
 import com.google.javascript.rhino.Token;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Find and update any direct dependencies of an input. Used to walk the dependency graph and
@@ -35,17 +37,21 @@ import com.google.javascript.rhino.Token;
  *   <li>goog.require calls
  *   <li>ES6 import statements
  *   <li>CommonJS require statements
+ *   <li>goog.requireDynamic calls
  * </ul>
  *
  * <p>The order of dependency references is preserved so that a deterministic depth-first ordering
  * can be achieved.
  */
 public class FindModuleDependencies implements NodeTraversal.ScopedCallback {
+  private static final QualifiedName GOOG_MODULE = QualifiedName.of("goog.module");
+  private static final QualifiedName GOOG_PROVIDE = QualifiedName.of("goog.provide");
+
   private final AbstractCompiler compiler;
   private final boolean supportsEs6Modules;
   private final boolean supportsCommonJsModules;
   private ModuleType moduleType = ModuleType.NONE;
-  private Scope dynamicImportScope = null;
+  private @Nullable Scope dynamicImportScope = null;
   private final ImmutableMap<String, String> inputPathByWebpackId;
 
   FindModuleDependencies(
@@ -79,8 +85,7 @@ public class FindModuleDependencies implements NodeTraversal.ScopedCallback {
         if (n.isExprResult()) {
           Node maybeGetProp = n.getFirstFirstChild();
           if (maybeGetProp != null
-              && (maybeGetProp.matchesQualifiedName("goog.provide")
-                  || maybeGetProp.matchesQualifiedName("goog.module"))) {
+              && (GOOG_PROVIDE.matches(maybeGetProp) || GOOG_MODULE.matches(maybeGetProp))) {
             found = true;
             return false;
           }
@@ -145,12 +150,16 @@ public class FindModuleDependencies implements NodeTraversal.ScopedCallback {
       if (n.isExprResult()) {
         Node maybeGetProp = n.getFirstFirstChild();
         if (maybeGetProp != null
-            && (maybeGetProp.matchesQualifiedName("goog.provide")
-                || maybeGetProp.matchesQualifiedName("goog.module"))) {
+            && (GOOG_PROVIDE.matches(maybeGetProp) || GOOG_MODULE.matches(maybeGetProp))) {
           moduleType = ModuleType.GOOG;
           return;
         }
       }
+    }
+
+    // goog.requireDynamic()
+    if (NodeUtil.isGoogRequireDynamicCall(n)) {
+      t.getInput().addRequireDynamicImports(n.getLastChild().getString());
     }
 
     if (supportsEs6Modules && n.isExport()) {
@@ -204,8 +213,7 @@ public class FindModuleDependencies implements NodeTraversal.ScopedCallback {
 
     if (parent != null
         && (parent.isExprResult() || !t.inGlobalHoistScope())
-        && n.isCall()
-        && n.getFirstChild().matchesQualifiedName("goog.require")
+        && NodeUtil.isGoogRequireCall(n)
         && n.getSecondChild() != null
         && n.getSecondChild().isStringLit()) {
       String namespace = n.getSecondChild().getString();

@@ -18,9 +18,12 @@ package com.google.javascript.jscomp;
 import static com.google.common.base.Strings.emptyToNull;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.javascript.rhino.Node;
 import java.io.Serializable;
-import javax.annotation.Nullable;
+import java.util.Objects;
+import org.jspecify.nullness.Nullable;
 
 /** Compile error description. */
 @AutoValue
@@ -33,8 +36,7 @@ public abstract class JSError implements Serializable {
   public abstract String getDescription();
 
   /** Name of the source */
-  @Nullable
-  public abstract String getSourceName();
+  public abstract @Nullable String getSourceName();
 
   /** One-indexed line number of the error location. */
   public abstract int getLineno();
@@ -43,16 +45,15 @@ public abstract class JSError implements Serializable {
   public abstract int getCharno();
 
   /** Node where the warning occurred. */
-  @Nullable
-  public abstract Node getNode();
+  public abstract @Nullable Node getNode();
 
   /** The default level, before any of the {@code WarningsGuard}s are applied. */
   public abstract CheckLevel getDefaultLevel();
 
   private static final int DEFAULT_LINENO = -1;
   private static final int DEFAULT_CHARNO = -1;
-  private static final String DEFAULT_SOURCENAME = null;
-  private static final Node DEFAULT_NODE = null;
+  private static final @Nullable String DEFAULT_SOURCENAME = null;
+  private static final @Nullable Node DEFAULT_NODE = null;
 
   /**
    * Creates a JSError with no source information
@@ -61,14 +62,7 @@ public abstract class JSError implements Serializable {
    * @param arguments Arguments to be incorporated into the message
    */
   public static JSError make(DiagnosticType type, String... arguments) {
-    return new AutoValue_JSError(
-        type,
-        type.format(arguments),
-        DEFAULT_SOURCENAME,
-        DEFAULT_LINENO,
-        DEFAULT_CHARNO,
-        DEFAULT_NODE,
-        type.level);
+    return builder(type, arguments).build();
   }
 
   /**
@@ -82,28 +76,7 @@ public abstract class JSError implements Serializable {
    */
   public static JSError make(
       String sourceName, int lineno, int charno, DiagnosticType type, String... arguments) {
-    return new AutoValue_JSError(
-        type, type.format(arguments), sourceName, lineno, charno, DEFAULT_NODE, type.level);
-  }
-
-  /**
-   * Creates a JSError at a given source location
-   *
-   * @param sourceName The source file name
-   * @param lineno Line number with source file, or -1 if unknown
-   * @param charno Column number within line, or -1 for whole line.
-   * @param type The DiagnosticType
-   * @param arguments Arguments to be incorporated into the message
-   */
-  public static JSError make(
-      String sourceName,
-      int lineno,
-      int charno,
-      CheckLevel level,
-      DiagnosticType type,
-      String... arguments) {
-    return new AutoValue_JSError(
-        type, type.format(arguments), sourceName, lineno, charno, DEFAULT_NODE, level);
+    return builder(type, arguments).setSourceLocation(sourceName, lineno, charno).build();
   }
 
   /**
@@ -114,26 +87,87 @@ public abstract class JSError implements Serializable {
    * @param arguments Arguments to be incorporated into the message
    */
   public static JSError make(Node n, DiagnosticType type, String... arguments) {
-    return new AutoValue_JSError(
-        type,
-        type.format(arguments),
-        n.getSourceFileName(),
-        n.getLineno(),
-        n.getCharno(),
-        n,
-        type.level);
+    return builder(type, arguments).setNode(n).build();
   }
 
-  /** Creates a JSError from a file and Node position. */
-  public static JSError make(Node n, CheckLevel level, DiagnosticType type, String... arguments) {
-    return new AutoValue_JSError(
-        type,
-        type.format(arguments),
-        n.getSourceFileName(),
-        n.getLineno(),
-        n.getCharno(),
-        n,
-        level);
+  static final class Builder {
+    private final DiagnosticType type;
+    private final String[] args;
+
+    private CheckLevel level;
+    private Node n = DEFAULT_NODE;
+    private String sourceName = DEFAULT_SOURCENAME;
+    private int lineno = DEFAULT_LINENO;
+    private int charno = DEFAULT_CHARNO;
+
+    private Builder(DiagnosticType type, String... args) {
+      this.type = type;
+      this.args = args;
+      this.level = type.level; // may be overwritten later
+    }
+
+    /**
+     * Sets the location where this error occurred.
+     *
+     * <p>Incompatible with {@link #setSourceLocation(String, int, int)}
+     */
+    @CanIgnoreReturnValue
+    Builder setNode(Node n) {
+      Preconditions.checkState(
+          Objects.equals(DEFAULT_SOURCENAME, this.sourceName),
+          "Cannot provide a Node when there's already a source name");
+      this.n = n;
+      this.sourceName = n.getSourceFileName();
+      this.lineno = n.getLineno();
+      this.charno = n.getCharno();
+      return this;
+    }
+
+    /**
+     * Sets the default level, before any WarningGuards, of this JSError. Overwrites the default
+     * level of the DiagnosticType.
+     *
+     * <p>This method is rarely useful: prefer whenever possible to rely on the default level of the
+     * DiagnosticType.
+     */
+    @CanIgnoreReturnValue
+    Builder setLevel(CheckLevel level) {
+      this.level = Preconditions.checkNotNull(level);
+      return this;
+    }
+
+    /**
+     * Sets the location where this error occurred
+     *
+     * <p>Incompatible with {@link #setNode(Node)}
+     *
+     * @param sourceName The source file name
+     * @param lineno Line number with source file, or -1 if unknown
+     * @param charno Column number within line, or -1 for whole line.
+     */
+    @CanIgnoreReturnValue
+    Builder setSourceLocation(String sourceName, int lineno, int charno) {
+      Preconditions.checkState(
+          this.n == DEFAULT_NODE, "Cannot provide a source location when there is already a Node");
+      this.sourceName = sourceName;
+      this.lineno = lineno;
+      this.charno = charno;
+      return this;
+    }
+
+    JSError build() {
+      return new AutoValue_JSError(type, type.format(args), sourceName, lineno, charno, n, level);
+    }
+  }
+
+  /**
+   * Creates a new builder.
+   *
+   * @param type the associated DiagnosticType
+   * @param arguments formatting arguments used to format the DiagnosticType's description
+   */
+  static Builder builder(DiagnosticType type, String... arguments) {
+    return new Builder(type, arguments);
   }
 
   /** @return the default rendering of an error as text. */
@@ -162,7 +196,7 @@ public abstract class JSError implements Serializable {
    *
    * @return the formatted message or {@code null}
    */
-  public final String format(CheckLevel level, MessageFormatter formatter) {
+  public final @Nullable String format(CheckLevel level, MessageFormatter formatter) {
     switch (level) {
       case ERROR:
         return formatter.formatError(this);

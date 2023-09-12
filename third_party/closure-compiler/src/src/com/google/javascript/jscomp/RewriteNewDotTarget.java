@@ -16,7 +16,7 @@
 package com.google.javascript.jscomp;
 
 import static com.google.javascript.jscomp.AstFactory.type;
-import static com.google.javascript.jscomp.Es6ToEs3Util.cannotConvertYet;
+import static com.google.javascript.jscomp.TranspilationUtil.cannotConvertYet;
 
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
@@ -68,6 +68,6 @@ final class RewriteNewDotTarget implements CompilerPass {
   public void process(Node externs, Node root) {
     TranspilationPasses.processTranspile(
         compiler, root, TRANSPILED_FEATURES, new RewriteNewDotTargetCallback());
-    TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, TRANSPILED_FEATURES);
+    TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, root, TRANSPILED_FEATURES);
   }
 }

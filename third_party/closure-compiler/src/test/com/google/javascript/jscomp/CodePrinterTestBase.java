@@ -24,6 +24,7 @@ import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.parsing.Config;
 import com.google.javascript.rhino.Node;
 import java.nio.charset.Charset;
+import org.jspecify.nullness.Nullable;
 import org.junit.Before;
 
 /** Base class for tests that exercise {@link CodePrinter}. */
@@ -35,8 +36,9 @@ public abstract class CodePrinterTestBase {
   protected boolean preserveTypeAnnotations = false;
   protected boolean preserveNonJSDocComments = false;
   protected LanguageMode languageMode = LanguageMode.ECMASCRIPT5;
-  protected Compiler lastCompiler = null;
-  protected Charset outputCharset = null;
+  protected @Nullable Compiler lastCompiler = null;
+  protected @Nullable Charset outputCharset = null;
+  protected ImmutableList<DiagnosticGroup> diagnosticsToIgnore = ImmutableList.of();
 
   @Before
   public void setUp() throws Exception {
@@ -47,6 +49,7 @@ public abstract class CodePrinterTestBase {
     lastCompiler = null;
     languageMode = LanguageMode.UNSUPPORTED;
     outputCharset = null;
+    diagnosticsToIgnore = ImmutableList.of();
   }
 
   Node parse(String js) {
@@ -65,6 +68,8 @@ public abstract class CodePrinterTestBase {
       options.setParseJsDocDocumentation(Config.JsDocParsing.INCLUDE_ALL_COMMENTS);
       options.setPreserveNonJSDocComments(true);
     }
+    options.setContinueAfterErrors(true);
+    compiler.setPreferRegexParser(false);
     compiler.init(
         ImmutableList.of(SourceFile.fromCode("externs", CompilerTestCase.MINIMAL_EXTERNS)),
         ImmutableList.of(SourceFile.fromCode("testcode", js)),
@@ -84,29 +89,41 @@ public abstract class CodePrinterTestBase {
     return root.getFirstChild();
   }
 
-  private void checkUnexpectedErrorsOrWarnings(
-      Compiler compiler, int expected) {
-    int actual = compiler.getErrors().size();
-    if (!allowWarnings) {
-      actual += compiler.getWarnings().size();
+  private void checkUnexpectedErrorsOrWarnings(Compiler compiler, int expected) {
+    int actual = 0;
+    String msg = "";
+    for (JSError err : compiler.getErrors()) {
+      if (shouldIgnore(err)) {
+        continue;
+      }
+      actual++;
+      msg += "Error:" + err + "\n";
     }
-
-    if (actual != expected) {
-      String msg = "";
-      for (JSError err : compiler.getErrors()) {
-        msg += "Error:" + err + "\n";
-      }
-      if (!allowWarnings) {
-        for (JSError err : compiler.getWarnings()) {
-          msg += "Warning:" + err + "\n";
+    if (!allowWarnings) {
+      for (JSError err : compiler.getWarnings()) {
+        if (shouldIgnore(err)) {
+          continue;
         }
+        actual++;
+        msg += "Warning:" + err + "\n";
       }
+    }
+    if (actual != expected) {
       assertWithMessage("Unexpected warnings or errors.\n " + msg).that(actual).isEqualTo(expected);
     }
   }
 
   String parsePrint(String js, CompilerOptions options) {
     return new CodePrinter.Builder(parse(js)).setCompilerOptions(options).build();
+  }
+
+  private boolean shouldIgnore(JSError error) {
+    for (DiagnosticGroup diagnosticGroup : diagnosticsToIgnore) {
+      if (diagnosticGroup.matches(error)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   abstract static class CompilerOptionBuilder {

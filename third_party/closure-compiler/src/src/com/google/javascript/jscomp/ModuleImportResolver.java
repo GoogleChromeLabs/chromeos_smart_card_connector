@@ -34,7 +34,7 @@ import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import com.google.javascript.rhino.jstype.ObjectType;
 import java.util.Map;
 import java.util.function.Function;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Resolves module requires into {@link TypedVar}s.
@@ -49,7 +49,7 @@ final class ModuleImportResolver {
 
   private static final String GOOG = "goog";
   private static final ImmutableSet<String> GOOG_DEPENDENCY_CALLS =
-      ImmutableSet.of("require", "requireType", "forwardDeclare");
+      ImmutableSet.of("require", "requireType", "forwardDeclare", "requireDynamic");
   private static final QualifiedName GOOG_MODULE_GET = QualifiedName.of("goog.module.get");
 
   ModuleImportResolver(
@@ -60,8 +60,8 @@ final class ModuleImportResolver {
   }
 
   /**
-   * Returns whether this is a CALL node for goog.require(Type), goog.forwardDeclare, or
-   * goog.module.get.
+   * Returns whether this is a CALL node for goog.require, goog.requireType, goog.requireDynamic,
+   * goog.forwardDeclare, or goog.module.get.
    *
    * <p>This method does not verify that the call is actually in a valid location. For example, this
    * method does not verify that goog.require calls are at the top-level. That is left to the
@@ -94,6 +94,7 @@ final class ModuleImportResolver {
    *
    * @param googRequire a CALL node representing some kind of Closure require.
    */
+  @Nullable
   ScopedName getClosureNamespaceTypeFromCall(Node googRequire) {
     if (moduleMap == null) {
       // TODO(b/124919359): make sure all tests have generated a ModuleMap
@@ -132,8 +133,7 @@ final class ModuleImportResolver {
   }
 
   /** Returns the corresponding scope root Node from a goog.module. */
-  @Nullable
-  private Node getGoogModuleScopeRoot(@Nullable Module module) {
+  private @Nullable Node getGoogModuleScopeRoot(@Nullable Module module) {
     checkArgument(module.metadata().isGoogModule(), module.metadata());
     Node scriptNode = module.metadata().rootNode();
 
@@ -163,7 +163,7 @@ final class ModuleImportResolver {
    *     references if not all module scopes are created and the caller should handle declaring
    *     these names later, e.g. in TypedScopeCreator.
    */
-  Map<Node, ScopedName> declareEsModuleImports(
+  ImmutableMap<Node, ScopedName> declareEsModuleImports(
       Module module, TypedScope scope, CompilerInput moduleInput) {
     checkArgument(module.metadata().isEs6Module(), module);
     checkArgument(scope.isModuleScope(), scope);
@@ -273,7 +273,8 @@ final class ModuleImportResolver {
     }
   }
 
-  private void updateAstForExport(Node bindingSourceNode, JSType exportType, JSType typedefType) {
+  private void updateAstForExport(
+      Node bindingSourceNode, JSType exportType, @Nullable JSType typedefType) {
     bindingSourceNode.setJSType(exportType);
     bindingSourceNode.setTypedefTypeProp(typedefType);
     if (bindingSourceNode.getParent().isExportSpec()) {
@@ -303,8 +304,7 @@ final class ModuleImportResolver {
   }
 
   /** Returns the {@link Module} corresponding to this scope root, or null if not a module root. */
-  @Nullable
-  static Module getModuleFromScopeRoot(
+  static @Nullable Module getModuleFromScopeRoot(
       ModuleMap moduleMap, CompilerInputProvider inputProvider, Node moduleBody) {
     if (isGoogModuleBody(moduleBody)) {
       Node googModuleCall = moduleBody.getFirstChild();

@@ -16,9 +16,6 @@
 
 package com.google.javascript.jscomp;
 
-import static com.google.javascript.jscomp.JsMessage.Style.RELAX;
-
-import com.google.javascript.jscomp.JsMessage.Style;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,11 +25,9 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class ReplaceMessagesForChromeTest extends CompilerTestCase {
 
-  private Style style = RELAX;
-
   @Override
   protected CompilerPass getProcessor(Compiler compiler) {
-    return new ReplaceMessagesForChrome(compiler, new GoogleJsMessageIdGenerator(null), style);
+    return new ReplaceMessagesForChrome(compiler, new GoogleJsMessageIdGenerator(null));
   }
 
   @Override
@@ -45,7 +40,6 @@ public final class ReplaceMessagesForChromeTest extends CompilerTestCase {
   @Before
   public void setUp() throws Exception {
     super.setUp();
-    style = RELAX;
     enableTypeCheck();
     replaceTypesWithColors();
     enableTypeInfoValidation();
@@ -55,8 +49,7 @@ public final class ReplaceMessagesForChromeTest extends CompilerTestCase {
   @Test
   public void testReplaceSimpleMessage() {
     test(
-        lines(
-            "/** @desc A simple message. */\n", "var MSG_A = goog.getMsg('Hello world');"),
+        lines("/** @desc A simple message. */\n", "var MSG_A = goog.getMsg('Hello world');"),
         lines(
             "/** @desc A simple message. */\n",
             "var MSG_A=chrome.i18n.getMessage('8660696502365331902');"));
@@ -110,9 +103,10 @@ public final class ReplaceMessagesForChromeTest extends CompilerTestCase {
 
   @Test
   public void testReplacePlaceholderMissingValue() {
-    testError("/** @desc A message with two placeholders, but one is missing. */\n"
-        + "var MSG_F = goog.getMsg('{$greeting}, {$name}!', {name: 'Tyler'});",
-         JsMessageVisitor.MESSAGE_TREE_MALFORMED);
+    testError(
+        "/** @desc A message with two placeholders, but one is missing. */\n"
+            + "var MSG_F = goog.getMsg('{$greeting}, {$name}!', {name: 'Tyler'});",
+        JsMessageVisitor.MESSAGE_TREE_MALFORMED);
   }
 
   @Test
@@ -140,9 +134,7 @@ public final class ReplaceMessagesForChromeTest extends CompilerTestCase {
   @Test
   public void testReplaceSimpleMessageWithLet() {
     test(
-        lines(
-            "/** @desc A simple message. */\n",
-            "let MSG_I = goog.getMsg('Hello world');"),
+        lines("/** @desc A simple message. */\n", "let MSG_I = goog.getMsg('Hello world');"),
         lines(
             "/** @desc A simple message. */\n",
             "let MSG_I = chrome.i18n.getMessage('987871171253827787');"));
@@ -151,9 +143,7 @@ public final class ReplaceMessagesForChromeTest extends CompilerTestCase {
   @Test
   public void testReplaceSimpleMessageWithConst() {
     test(
-        lines(
-            "/** @desc A simple message. */\n",
-            "const MSG_J = goog.getMsg('Hello world');"),
+        lines("/** @desc A simple message. */\n", "const MSG_J = goog.getMsg('Hello world');"),
         lines(
             "/** @desc A simple message. */\n",
             "const MSG_J =chrome.i18n.getMessage('3477894568604521782');"));

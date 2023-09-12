@@ -39,7 +39,7 @@
 package com.google.javascript.rhino;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.javascript.rhino.testing.Asserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
@@ -194,6 +194,7 @@ public class HamtPMapTest {
   }
 
   @Test
+  @SuppressWarnings("CheckReturnValue")
   public void testReconcile_rejectsNullResult() {
     PMap<Integer, Integer> left = build(1, 3, 5, 7);
     PMap<Integer, Integer> right = build(2, 4, 6, 8);

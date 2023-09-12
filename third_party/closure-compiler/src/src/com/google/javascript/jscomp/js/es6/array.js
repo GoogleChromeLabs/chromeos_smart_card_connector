@@ -18,6 +18,7 @@
  * @fileoverview Brings in all ES6 Array polyfills.
  * @suppress {uselessCode}
  */
+'require es6/array/at';
 'require es6/array/copywithin';
 'require es6/array/entries';
 'require es6/array/fill';

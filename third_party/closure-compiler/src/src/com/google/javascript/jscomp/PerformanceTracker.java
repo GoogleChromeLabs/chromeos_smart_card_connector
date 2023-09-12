@@ -18,6 +18,7 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.javascript.jscomp.NodeUtil.estimateNumLines;
 import static com.google.javascript.jscomp.base.JSCompStrings.lines;
 import static java.lang.Math.max;
 import static java.util.Comparator.comparingLong;
@@ -26,9 +27,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.javascript.jscomp.CompilerOptions.TracerMode;
-import com.google.javascript.jscomp.parsing.parser.util.format.SimpleFormat;
+import com.google.javascript.jscomp.base.format.SimpleFormat;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.StaticSourceFile;
 import com.google.javascript.rhino.Token;
 import java.io.FilterOutputStream;
 import java.io.IOException;
@@ -119,10 +119,7 @@ public final class PerformanceTracker {
     }
   }
 
-  /**
-   * Updates the saved jsRoot and resets the size tracking fields accordingly.
-   * @param jsRoot
-   */
+  /** Updates the saved jsRoot and resets the size tracking fields accordingly. */
   void updateAfterDeserialize(Node jsRoot) {
     // TODO(bradfordcsmith): Restore line counts for inputs and externs.
     this.jsRoot = jsRoot;
@@ -210,22 +207,13 @@ public final class PerformanceTracker {
   private void recordInputCount() {
     for (Node n = this.externsRoot.getFirstChild(); n != null; n = n.getNext()) {
       this.externSources += 1;
-      this.externLines += estimateLines(n);
+      this.externLines += estimateNumLines(n);
     }
 
     for (Node n = this.jsRoot.getFirstChild(); n != null; n = n.getNext()) {
       this.jsSources += 1;
-      this.jsLines += estimateLines(n);
+      this.jsLines += estimateNumLines(n);
     }
-  }
-
-  private int estimateLines(Node n) {
-    checkState(n.isScript());
-    StaticSourceFile ssf = n.getStaticSourceFile();
-    if (ssf instanceof SourceFile) {
-      return ((SourceFile) ssf).getNumLines();
-    }
-    return 0;
   }
 
   private int bytesToMB(long bytes) {
@@ -312,7 +300,7 @@ public final class PerformanceTracker {
 
     for (Entry<String, Stats> entry : this.passSummary.entrySet()) {
       Stats stats = entry.getValue();
-      this.passesRuntime += stats.runtime;
+      this.passesRuntime = (int) (this.passesRuntime + stats.runtime);
       this.maxMem = max(this.maxMem, stats.allocMem);
       this.runs += stats.runs;
       this.changes += stats.changes;
@@ -464,7 +452,7 @@ public final class PerformanceTracker {
       // This is here to workaround GWT http://b/30943295
       ((FilterOutputStream) output).flush();
     } catch (IOException e) {
-      throw new RuntimeException("Unreachable.");
+      throw new RuntimeException("Unreachable.", e);
     }
   }
 

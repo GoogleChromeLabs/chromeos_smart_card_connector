@@ -16,14 +16,13 @@
 
 package com.google.javascript.jscomp;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.Comparator.comparingInt;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.SetMultimap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.javascript.jscomp.ControlFlowGraph.Branch;
 import com.google.javascript.jscomp.graph.DiGraph.DiGraphNode;
 import com.google.javascript.rhino.Node;
@@ -31,46 +30,51 @@ import com.google.javascript.rhino.Token;
 import java.util.ArrayDeque;
 import java.util.Comparator;
 import java.util.Deque;
-import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.PriorityQueue;
+import org.jspecify.nullness.Nullable;
 
 /**
- * This is a compiler pass that computes a control flow graph. Note that this is only a CompilerPass
- * because the Compiler invokes it via Compiler#process. It is never included in a PassConfig.
+ * This class computes a {@link ControlFlowGraph} for a given AST
+ *
+ * <p>Example usage:
+ *
+ * <pre>{@code
+ * ControlFlowGraph<Node> cfg = ControlFlowAnalysis.builder()
+ *                                  .setCompiler(compiler)
+ *                                  .setCfgRoot(functionRoot)
+ *                                  .setShouldIncludeEdgeAnnotations(true)
+ *                                  .computeCfg())
+ * }</pre>
  */
-public final class ControlFlowAnalysis implements NodeTraversal.Callback, CompilerPass {
+public final class ControlFlowAnalysis implements NodeTraversal.Callback {
 
   /**
    * Based roughly on the first few pages of
    *
-   * "Declarative Intraprocedural Flow Analysis of Java Source Code by
-   * Nilsson-Nyman, Hedin, Magnusson &amp; Ekman",
+   * <p>"Declarative Intraprocedural Flow Analysis of Java Source Code by Nilsson-Nyman, Hedin,
+   * Magnusson &amp; Ekman",
    *
-   * this pass computes the control flow graph from the AST. However, a full
-   * attribute grammar is not necessary. We will compute the flow edges with a
-   * single post order traversal. The "follow()" of a given node will be
-   * computed recursively in a demand driven fashion.
+   * <p>This pass computes the control flow graph from the AST. However, a full attribute grammar is
+   * not necessary. We will compute the flow edges with a single post order traversal. The
+   * "follow()" of a given node will be computed recursively in a demand driven fashion.
    *
-   * As of this moment, we are not performing any inter-procedural analysis
-   * within our framework.
+   * <p>At the moment, we are not performing any inter-procedural analysis.
    */
-
   private final AbstractCompiler compiler;
 
   private ControlFlowGraph<Node> cfg;
 
-  private Map<Node, Integer> astPosition;
-
-  // TODO(nicksantos): should these be node annotations?
-  private Map<DiGraphNode<Node, Branch>, Integer> nodePriorities;
+  private @Nullable IdentityHashMap<Node, Integer> astPosition;
 
   // We order CFG nodes by by looking at the AST positions.
   // CFG nodes that come first lexically should be visited first, because
   // they will often be executed first in the source program.
   private final Comparator<DiGraphNode<Node, Branch>> priorityComparator =
-      comparingInt(digraphNode -> astPosition.get(digraphNode.getValue()));
+      Comparator.comparingInt(
+          digraphNode ->
+              checkNotNull(astPosition.get(digraphNode.getValue()), digraphNode.getValue()));
 
   private int astPositionCounter;
   private int priorityCounter;
@@ -119,44 +123,88 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
    *   foo() -> bar()
    *   bar() -> END
    */
-  private final Multimap<Node, Node> finallyMap = HashMultimap.create();
+  private final SetMultimap<Node, Node> finallyMap = HashMultimap.create();
 
   /**
-   * Constructor.
+   * Constructor. Should only be called from within the {@link Builder}
    *
    * @param compiler Compiler instance.
    * @param shouldTraverseFunctions Whether functions should be traversed
    * @param edgeAnnotations Whether to allow edge annotations.
    */
-  ControlFlowAnalysis(
+  private ControlFlowAnalysis(
       AbstractCompiler compiler, boolean shouldTraverseFunctions, boolean edgeAnnotations) {
     this.compiler = compiler;
     this.shouldTraverseFunctions = shouldTraverseFunctions;
     this.edgeAnnotations = edgeAnnotations;
   }
 
-  public static ControlFlowGraph<Node> getCfg(AbstractCompiler compiler, Node cfgRoot) {
-    checkArgument(NodeUtil.isValidCfgRoot(cfgRoot));
-    ControlFlowAnalysis cfa = new ControlFlowAnalysis(compiler, false, true);
-    cfa.process(null, cfgRoot);
-    return cfa.getCfg();
+  /**
+   * Configures a {@link ControlFlowAnalysis} instance then computes the {@link ControlFlowGraph}
+   */
+  public static final class Builder {
+    private AbstractCompiler compiler;
+    private Node cfgRoot;
+    private boolean shouldTraverseFunctions = false;
+    private boolean edgeAnnotations = false;
+
+    private Builder() {}
+
+    @CanIgnoreReturnValue
+    public Builder setCompiler(AbstractCompiler compiler) {
+      this.compiler = compiler;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setCfgRoot(Node cfgRoot) {
+      this.cfgRoot = cfgRoot;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setTraverseFunctions(boolean shouldTraverseFunctions) {
+      this.shouldTraverseFunctions = shouldTraverseFunctions;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setIncludeEdgeAnnotations(boolean includeEdgeAnnotations) {
+      this.edgeAnnotations = includeEdgeAnnotations;
+      return this;
+    }
+
+    public ControlFlowGraph<Node> computeCfg() {
+      Preconditions.checkNotNull(compiler, "Need to call setCompiler()");
+      Preconditions.checkNotNull(cfgRoot, "Need to call setCfgRoot()");
+      ControlFlowAnalysis cfa =
+          new ControlFlowAnalysis(compiler, shouldTraverseFunctions, edgeAnnotations);
+      cfa.computeCfg(this.cfgRoot);
+      return cfa.cfg;
+    }
+  }
+
+  public static Builder builder() {
+    return new Builder();
   }
 
   ControlFlowGraph<Node> getCfg() {
     return cfg;
   }
 
-  @Override
-  public void process(Node externs, Node root) {
+  private void computeCfg(Node root) {
     Preconditions.checkArgument(
         NodeUtil.isValidCfgRoot(root), "Unexpected control flow graph root %s", root);
     this.root = root;
+    astPosition = new IdentityHashMap<>();
     astPositionCounter = 0;
-    astPosition = new HashMap<>();
-    nodePriorities = new HashMap<>();
-    cfg = new AstControlFlowGraph(computeFallThrough(root), nodePriorities, edgeAnnotations);
+    cfg = new AstControlFlowGraph(computeFallThrough(root), edgeAnnotations);
+
+    // Traverse the graph.
     NodeTraversal.traverse(compiler, root, this);
-    astPosition.put(null, ++astPositionCounter); // the implicit return is last.
+
+    // Insert an implicit return last.
+    astPosition.put(null, ++astPositionCounter);
 
     // Now, generate the priority of nodes by doing a depth-first
     // search on the CFG.
@@ -175,34 +223,35 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
       }
     }
 
+    // Free our large table now that it is no longer needed
+    astPosition = null;
+
     // At this point, all reachable nodes have been given a priority, but
     // unreachable nodes have not been given a priority. Put them last.
     // Presumably, it doesn't really matter what priority they get, since
     // this shouldn't happen in real code.
     for (DiGraphNode<Node, Branch> candidate : cfg.getNodes()) {
-      nodePriorities.computeIfAbsent(candidate, k -> ++priorityCounter);
+      if (!candidate.hasPriority()) {
+        candidate.setPriority(++priorityCounter);
+      }
     }
 
     // Again, the implicit return node is always last.
-    nodePriorities.put(cfg.getImplicitReturn(), ++priorityCounter);
+    cfg.getImplicitReturn().setPriority(++priorityCounter);
   }
 
-  /**
-   * Given an entry node, find all the nodes reachable from that node
-   * and prioritize them.
-   */
+  /** Given an entry node, find all the nodes reachable from that node and prioritize them. */
   private void prioritizeFromEntryNode(DiGraphNode<Node, Branch> entry) {
-    PriorityQueue<DiGraphNode<Node, Branch>> worklist =
-        new PriorityQueue<>(10, priorityComparator);
+    PriorityQueue<DiGraphNode<Node, Branch>> worklist = new PriorityQueue<>(10, priorityComparator);
     worklist.add(entry);
 
     while (!worklist.isEmpty()) {
       DiGraphNode<Node, Branch> current = worklist.remove();
-      if (nodePriorities.containsKey(current)) {
+      if (current.hasPriority()) {
         continue;
       }
 
-      nodePriorities.put(current, ++priorityCounter);
+      current.setPriority(++priorityCounter);
 
       List<? extends DiGraphNode<Node, Branch>> successors = cfg.getDirectedSuccNodes(current);
       worklist.addAll(successors);
@@ -210,9 +259,23 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
   }
 
   @Override
-  public boolean shouldTraverse(
-      NodeTraversal nodeTraversal, Node n, Node parent) {
-    astPosition.put(n, astPositionCounter++);
+  public boolean shouldTraverse(NodeTraversal nodeTraversal, Node n, Node parent) {
+    if (shouldTraverseIntoChildren(n, parent)) {
+      // Any AST node that will later have a corresponding CFG node must be in astPosition.
+      // To avoid having astPosition grow too large, we exclude AST nodes that are not traversed
+      // further, as they usually are not put in the CFG.
+      astPosition.put(n, astPositionCounter++);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Returns whether the children of this node should be traversed as part of this control-flow
+   * analysis, i.e. whether the control-flow graph being built may require any edges into children
+   * of this node.
+   */
+  private boolean shouldTraverseIntoChildren(Node n, Node parent) {
     switch (n.getToken()) {
       case FUNCTION:
         if (shouldTraverseFunctions || n == cfg.getEntry().getValue()) {
@@ -250,13 +313,19 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
         case FOR_OF:
         case FOR_AWAIT_OF:
           // Only traverse the body of the for loop.
-          return n == parent.getLastChild();
+          boolean shouldTraverseForChild = n == parent.getLastChild();
+          if (!shouldTraverseForChild) {
+            // The control-flow graph contains edges from a FOR node to all its children, even
+            // though only the body is actually traversed. So put the other children in astPosition.
+            astPosition.put(n, astPositionCounter++);
+          }
+          return shouldTraverseForChild;
 
         case DO:
           // Only traverse the body of the do-while.
           return n != parent.getSecondChild();
 
-        // Skip conditions, and only traverse the body of the cases
+          // Skip conditions, and only traverse the body of the cases
         case IF:
         case WHILE:
         case WITH:
@@ -280,6 +349,9 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
         case IMPORT:
         case RETURN:
         case THROW:
+        case MEMBER_FUNCTION_DEF:
+        case MEMBER_FIELD_DEF:
+        case COMPUTED_FIELD_DEF:
           return false;
         case TRY:
           /* When we are done with the TRY block and there is no FINALLY block,
@@ -293,8 +365,6 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
             exceptionHandler.pop();
           }
           break;
-        case CLASS_MEMBERS:
-        case MEMBER_FUNCTION_DEF:
         default:
           break;
       }
@@ -371,6 +441,8 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
       case LABEL:
       case CLASS_MEMBERS:
       case MEMBER_FUNCTION_DEF:
+      case MEMBER_FIELD_DEF:
+      case COMPUTED_FIELD_DEF:
         return;
       default:
         handleStmt(n);
@@ -384,13 +456,11 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
     createEdge(node, Branch.ON_TRUE, computeFallThrough(thenBlock));
 
     if (elseBlock == null) {
-      createEdge(node, Branch.ON_FALSE,
-          computeFollowNode(node, this)); // not taken branch
+      createEdge(node, Branch.ON_FALSE, computeFollowNode(node, this)); // not taken branch
     } else {
       createEdge(node, Branch.ON_FALSE, computeFallThrough(elseBlock));
     }
-    connectToPossibleExceptionHandler(
-        node, NodeUtil.getConditionExpression(node));
+    connectToPossibleExceptionHandler(node, NodeUtil.getConditionExpression(node));
   }
 
   private void handleWhile(Node node) {
@@ -402,21 +472,20 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
       // Control goes to the follow() if the condition evaluates to false.
       createEdge(node, Branch.ON_FALSE, computeFollowNode(node, this));
     }
-    connectToPossibleExceptionHandler(
-        node, NodeUtil.getConditionExpression(node));
+    connectToPossibleExceptionHandler(node, NodeUtil.getConditionExpression(node));
   }
 
   private void handleDo(Node node) {
-    Node cond = node.getFirstChild();
+    Node body = node.getFirstChild();
     // The first edge can be the initial iteration as well as the iterations
     // after.
-    createEdge(node, Branch.ON_TRUE, computeFallThrough(cond));
+    createEdge(node, Branch.ON_TRUE, computeFallThrough(body));
+    Node cond = body.getNext();
     if (!cond.isTrue()) {
       // The edge that leaves the do loop if the condition fails.
       createEdge(node, Branch.ON_FALSE, computeFollowNode(node, this));
     }
-    connectToPossibleExceptionHandler(
-        node, NodeUtil.getConditionExpression(node));
+    connectToPossibleExceptionHandler(node, NodeUtil.getConditionExpression(node));
   }
 
   private void handleEnhancedFor(Node forNode) {
@@ -463,8 +532,7 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
   private void handleSwitch(Node node) {
     // Transfer to the first non-DEFAULT CASE. if there are none, transfer
     // to the DEFAULT or the EMPTY node.
-    Node next = getNextSiblingOfType(
-        node.getSecondChild(), Token.CASE, Token.EMPTY);
+    Node next = getNextSiblingOfType(node.getSecondChild(), Token.CASE, Token.EMPTY);
     if (next != null) { // Has at least one CASE or EMPTY
       createEdge(node, Branch.UNCOND, next);
     } else { // Has no CASE but possibly a DEFAULT
@@ -479,9 +547,8 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
 
   private void handleCase(Node node) {
     // Case is a bit tricky....First it goes into the body if condition is true.
-    createEdge(node, Branch.ON_TRUE,
+    createEdge(node, Branch.ON_TRUE, node.getSecondChild());
 
-        node.getSecondChild());
     // Look for the next CASE, skipping over DEFAULT.
     Node next = getNextSiblingOfType(node.getNext(), Token.CASE);
     if (next != null) { // Found a CASE
@@ -489,8 +556,7 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
       createEdge(node, Branch.ON_FALSE, next);
     } else { // No more CASE found, go back and search for a DEFAULT.
       Node parent = node.getParent();
-      Node deflt = getNextSiblingOfType(
-        parent.getSecondChild(), Token.DEFAULT_CASE);
+      Node deflt = getNextSiblingOfType(parent.getSecondChild(), Token.DEFAULT_CASE);
       if (deflt != null) { // Has a DEFAULT
         createEdge(node, Branch.ON_FALSE, deflt);
       } else { // No DEFAULT found, go to the follow of the SWITCH.
@@ -562,8 +628,7 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
     // A block transfer control to its first child if it is not empty.
     checkState(node.isFunction());
     checkState(node.hasXChildren(3));
-    createEdge(node, Branch.UNCOND,
-        computeFallThrough(node.getLastChild()));
+    createEdge(node, Branch.UNCOND, computeFallThrough(node.getLastChild()));
     checkState(exceptionHandler.peek() == node);
     exceptionHandler.pop();
   }
@@ -607,11 +672,9 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
     for (cur = node, lastJump = node;
         !isBreakTarget(cur, label);
         cur = parent, parent = parent.getParent()) {
-      if (cur.isTry() && NodeUtil.hasFinally(cur)
-          && cur.getLastChild() != previous) {
+      if (cur.isTry() && NodeUtil.hasFinally(cur) && cur.getLastChild() != previous) {
         if (lastJump == node) {
-          createEdge(lastJump, Branch.UNCOND, computeFallThrough(
-              cur.getLastChild()));
+          createEdge(lastJump, Branch.UNCOND, computeFallThrough(cur.getLastChild()));
         } else {
           finallyMap.put(lastJump, computeFallThrough(cur.getLastChild()));
         }
@@ -645,11 +708,8 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
     Node lastJump;
 
     // Similar to handBreak's logic with a few minor variation.
-    for (cur = node, lastJump = node;
-        !isContinueTarget(cur, label);
-        cur = cur.getParent()) {
-      if (cur.isTry() && NodeUtil.hasFinally(cur)
-          && cur.getLastChild() != previous) {
+    for (cur = node, lastJump = node; !isContinueTarget(cur, label); cur = cur.getParent()) {
+      if (cur.isTry() && NodeUtil.hasFinally(cur) && cur.getLastChild() != previous) {
         if (lastJump == node) {
           createEdge(lastJump, Branch.UNCOND, cur.getLastChild());
         } else {
@@ -683,8 +743,7 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
         if (lastJump == null) {
           createEdge(node, Branch.UNCOND, curHandler.getLastChild());
         } else {
-          finallyMap.put(lastJump,
-              computeFallThrough(curHandler.getLastChild()));
+          finallyMap.put(lastJump, computeFallThrough(curHandler.getLastChild()));
         }
         lastJump = curHandler;
       }
@@ -716,17 +775,15 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
   }
 
   /**
-   * Computes the follow() node of a given node and its parent. There is a side
-   * effect when calling this function. If this function computed an edge that
-   * exists a FINALLY, it'll attempt to connect the fromNode to the outer
-   * FINALLY according to the finallyMap.
+   * Computes the follow() node of a given node and its parent. There is a side effect when calling
+   * this function. If this function computed an edge that exists a FINALLY, it'll attempt to
+   * connect the fromNode to the outer FINALLY according to the finallyMap.
    *
-   * @param fromNode The original source node since {@code node} is changed
-   *        during recursion.
+   * @param fromNode The original source node since {@code node} is changed during recursion.
    * @param node The node that follow() should compute.
    */
-  private static Node computeFollowNode(
-      Node fromNode, Node node, ControlFlowAnalysis cfa) {
+  private static @Nullable Node computeFollowNode(
+      Node fromNode, Node node, @Nullable ControlFlowAnalysis cfa) {
     /*
      * This is the case where:
      *
@@ -746,14 +803,13 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
      * This will make life easier for DFAs.
      */
     Node parent = node.getParent();
-    if (parent == null || parent.isFunction() ||
-        (cfa != null && node == cfa.root)) {
+    if (parent == null || parent.isFunction() || (cfa != null && node == cfa.root)) {
       return null;
     }
 
     // If we are just before a IF/WHILE/DO/FOR:
     switch (parent.getToken()) {
-      // The follow() of any of the path from IF would be what follows IF.
+        // The follow() of any of the path from IF would be what follows IF.
       case IF:
         return computeFollowNode(fromNode, parent, cfa);
       case CASE:
@@ -788,15 +844,15 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
           } else { // and have no FINALLY.
             return computeFollowNode(fromNode, parent, cfa);
           }
-        // CATCH block.
-        } else if (NodeUtil.getCatchBlock(parent) == node){
+          // CATCH block.
+        } else if (NodeUtil.getCatchBlock(parent) == node) {
           if (NodeUtil.hasFinally(parent)) { // and have FINALLY block.
             return computeFallThrough(node.getNext());
           } else {
             return computeFollowNode(fromNode, parent, cfa);
           }
-        // If we are coming out of the FINALLY block...
-        } else if (parent.getLastChild() == node){
+          // If we are coming out of the FINALLY block...
+        } else if (parent.getLastChild() == node) {
           if (cfa != null) {
             for (Node finallyNode : cfa.finallyMap.get(parent)) {
               cfa.createEdge(fromNode, Branch.ON_EX, finallyNode);
@@ -827,9 +883,8 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
   }
 
   /**
-   * Computes the destination node of n when we want to fallthrough into the
-   * subtree of n. We don't always create a CFG edge into n itself because of
-   * DOs and FORs.
+   * Computes the destination node of n when we want to fallthrough into the subtree of n. We don't
+   * always create a CFG edge into n itself because of DOs and FORs.
    */
   static Node computeFallThrough(Node n) {
     switch (n.getToken()) {
@@ -853,17 +908,15 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
    * @param fromNode Source.
    * @param toNode Destination.
    */
-  private void createEdge(Node fromNode, ControlFlowGraph.Branch branch,
-      Node toNode) {
+  private void createEdge(Node fromNode, ControlFlowGraph.Branch branch, @Nullable Node toNode) {
     cfg.createNode(fromNode);
     cfg.createNode(toNode);
     cfg.connectIfNotFound(fromNode, branch, toNode);
   }
 
   /**
-   * Connects cfgNode to the proper CATCH block if target subtree might throw
-   * an exception. If there are FINALLY blocks reached before a CATCH, it will
-   * make the corresponding entry in finallyMap.
+   * Connects cfgNode to the proper CATCH block if target subtree might throw an exception. If there
+   * are FINALLY blocks reached before a CATCH, it will make the corresponding entry in finallyMap.
    */
   private void connectToPossibleExceptionHandler(Node cfgNode, Node target) {
     if (mayThrowException(target) && !exceptionHandler.isEmpty()) {
@@ -905,10 +958,8 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
     }
   }
 
-  /**
-   * Get the next sibling (including itself) of one of the given types.
-   */
-  private static Node getNextSiblingOfType(Node first, Token ... types) {
+  /** Get the next sibling (including itself) of one of the given types. */
+  private static @Nullable Node getNextSiblingOfType(Node first, Token... types) {
     for (Node c = first; c != null; c = c.getNext()) {
       for (Token type : types) {
         if (c.getToken() == type) {
@@ -920,26 +971,24 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
   }
 
   /**
-   * Checks if target is actually the break target of labeled continue. The
-   * label can be null if it is an unlabeled break.
+   * Checks if target is actually the break target of labeled continue. The label can be null if it
+   * is an unlabeled break.
    */
   public static boolean isBreakTarget(Node target, String label) {
-    return isBreakStructure(target, label != null) &&
-      matchLabel(target.getParent(), label);
+    return isBreakStructure(target, label != null) && matchLabel(target.getParent(), label);
   }
 
   /**
-   * Checks if target is actually the continue target of labeled continue. The
-   * label can be null if it is an unlabeled continue.
+   * Checks if target is actually the continue target of labeled continue. The label can be null if
+   * it is an unlabeled continue.
    */
-  static boolean isContinueTarget(
-      Node target, String label) {
+  static boolean isContinueTarget(Node target, String label) {
     return NodeUtil.isLoopStructure(target) && matchLabel(target.getParent(), label);
   }
 
   /**
-   * Check if label is actually referencing the target control structure. If
-   * label is null, it always returns true.
+   * Check if label is actually referencing the target control structure. If label is null, it
+   * always returns true.
    */
   private static boolean matchLabel(Node target, String label) {
     if (label == null) {
@@ -954,9 +1003,7 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
     return false;
   }
 
-  /**
-   * Determines if the subtree might throw an exception.
-   */
+  /** Determines if the subtree might throw an exception. */
   public static boolean mayThrowException(Node n) {
     switch (n.getToken()) {
       case CALL:
@@ -986,9 +1033,7 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
     return false;
   }
 
-  /**
-   * Determines whether the given node can be terminated with a BREAK node.
-   */
+  /** Determines whether the given node can be terminated with a BREAK node. */
   static boolean isBreakStructure(Node n, boolean labeled) {
     switch (n.getToken()) {
       case FOR:
@@ -1011,13 +1056,11 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
 
   /**
    * Get the TRY block with a CATCH that would be run if n throws an exception.
-   * @return The CATCH node or null if it there isn't a CATCH before the
-   *     the function terminates.
+   *
+   * @return The CATCH node or null if it there isn't a CATCH before the function terminates.
    */
-  static Node getExceptionHandler(Node n) {
-    for (Node cur = n;
-        !cur.isScript() && !cur.isFunction();
-        cur = cur.getParent()) {
+  static @Nullable Node getExceptionHandler(Node n) {
+    for (Node cur = n; !cur.isScript() && !cur.isFunction(); cur = cur.getParent()) {
       Node catchNode = getCatchHandlerForBlock(cur);
       if (catchNode != null) {
         return catchNode;
@@ -1028,9 +1071,10 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
 
   /**
    * Locate the catch BLOCK given the first block in a TRY.
+   *
    * @return The CATCH node or null there is no catch handler.
    */
-  static Node getCatchHandlerForBlock(Node block) {
+  static @Nullable Node getCatchHandlerForBlock(Node block) {
     if (block.isBlock()
         && block.getParent().isTry()
         && block.getParent().getFirstChild() == block) {
@@ -1044,49 +1088,32 @@ public final class ControlFlowAnalysis implements NodeTraversal.Callback, Compil
   }
 
   /**
-   * A {@link ControlFlowGraph} which provides a node comparator based on the
-   * pre-order traversal of the AST.
+   * A {@link ControlFlowGraph} which provides a node comparator based on the pre-order traversal of
+   * the AST.
    */
-  private static class AstControlFlowGraph extends ControlFlowGraph<Node> {
-    private final Map<DiGraphNode<Node, Branch>, Integer> priorities;
+  private static final class AstControlFlowGraph extends ControlFlowGraph<Node> {
 
     /**
-     * Constructor.
+     * Constructs this graph.
+     *
      * @param entry The entry node.
-     * @param priorities The map from nodes to position in the AST (to be
-     *    filled by the {@link ControlFlowAnalysis#shouldTraverse}).
+     * @param edgeAnnotations Annotation
      */
-    private AstControlFlowGraph(Node entry,
-        Map<DiGraphNode<Node, Branch>, Integer> priorities,
-        boolean edgeAnnotations) {
-      super(entry,
-          true /* node annotations */, edgeAnnotations);
-      this.priorities = priorities;
+    private AstControlFlowGraph(Node entry, boolean edgeAnnotations) {
+      super(entry, /* nodeAnnotations = */ true, edgeAnnotations);
     }
 
-    @Override
     /**
      * Returns a node comparator based on the pre-order traversal of the AST.
-     * @param isForward x 'before' y in the pre-order traversal implies
-     * x 'less than' y (if true) and x 'greater than' y (if false).
+     *
+     * @param isForward x 'before' y in the pre-order traversal implies x 'less than' y (if true)
+     *     and x 'greater than' y (if false).
      */
-    public Comparator<DiGraphNode<Node, Branch>> getOptionalNodeComparator(
-        boolean isForward) {
-      if (isForward) {
-        return comparingInt(this::getPosition);
-      } else {
-        return comparingInt(this::getPosition).reversed();
-      }
-    }
-
-    /**
-     * Gets the pre-order traversal position of the given node.
-     * @return An arbitrary counter used for comparing positions.
-     */
-    private int getPosition(DiGraphNode<Node, Branch> n) {
-      Integer priority = priorities.get(n);
-      checkNotNull(priority);
-      return priority;
+    @Override
+    public Comparator<DiGraphNode<Node, Branch>> getOptionalNodeComparator(boolean isForward) {
+      return isForward
+          ? Comparator.<DiGraphNode<Node, Branch>>comparingInt(DiGraphNode::getPriority)
+          : Comparator.<DiGraphNode<Node, Branch>>comparingInt(DiGraphNode::getPriority).reversed();
     }
   }
 }

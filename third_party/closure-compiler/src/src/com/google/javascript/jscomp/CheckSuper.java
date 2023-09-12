@@ -22,7 +22,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.rhino.Node;
 import java.util.ArrayDeque;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Check for errors related to the `super` keyword.
@@ -111,7 +111,18 @@ final class CheckSuper implements CompilerPass, NodeTraversal.Callback {
           }
         }
         break;
+      case MEMBER_FIELD_DEF:
+        Context fieldContext = createMemberFieldDefContext(n);
+        this.contextStack.push(fieldContext);
+        break;
+      case BLOCK: // For class static blocks
+        if (NodeUtil.isClassStaticBlock(n)) {
+          Context newContext = createStaticBlockContext(n);
+          this.contextStack.push(newContext);
+        }
+        break;
 
+      case CLASS: // TODO (user): For class fields
       default:
         break;
     }
@@ -142,12 +153,21 @@ final class CheckSuper implements CompilerPass, NodeTraversal.Callback {
     switch (n.getToken()) {
       case SUPER:
         if (isSuperConstructorCall(n)) {
-          currentContext.visitSuperConstructorCall(t, n);
+          // Note: defer recording the call in `currentContext.visitSuperConstructorCall` until
+          // visitng the parent CALL node. This ensures any this/super references in the
+          // call arguments are treated as invalid, pre-super() call, references.
         } else if (isSuperPropertyAccess(n)) {
           currentContext.visitSuperPropertyAccess(t, n);
         } else {
           // super used some way other than `super()`, `super.prop`, or `super[expr]`.
           t.report(n, INVALID_SUPER_USAGE);
+        }
+        break;
+
+      case CALL:
+        Node callee = n.getFirstChild();
+        if (callee.isSuper()) {
+          currentContext.visitSuperConstructorCall(t, callee);
         }
         break;
 
@@ -219,6 +239,36 @@ final class CheckSuper implements CompilerPass, NodeTraversal.Callback {
       // Called when visiting the root node of this context after all of its children have been
       // visited.
     }
+  }
+
+  private static class SuperPropertyAccessAllowedContext extends Context {
+    SuperPropertyAccessAllowedContext(Node contextNode) {
+      super(contextNode);
+    }
+
+    @Override
+    void visitSuperPropertyAccess(NodeTraversal t, Node superNode) {
+      // Super property should be allowed on a public field and inside static blocks.
+    }
+
+    @Override
+    void visitSuperConstructorCall(NodeTraversal t, Node superNode) {
+      // Super constructor calls are only allowed in constructor() methods.
+      t.report(superNode, INVALID_SUPER_CALL);
+    }
+
+    @Override
+    Context getContextForArrowFunctionNode(Node arrowFn) {
+      return this;
+    }
+  }
+
+  private Context createMemberFieldDefContext(Node fieldNode) {
+    return new SuperPropertyAccessAllowedContext(fieldNode);
+  }
+
+  private Context createStaticBlockContext(Node staticBlock) {
+    return new SuperPropertyAccessAllowedContext(staticBlock);
   }
 
   /** Lexical context when not within a method, class, or object literal. */
@@ -319,11 +369,11 @@ final class CheckSuper implements CompilerPass, NodeTraversal.Callback {
     final boolean hasParentClass;
 
     // Will be set to the first `super()` call that appears lexically, if any.
-    Node firstSuperCall = null;
+    @Nullable Node firstSuperCall = null;
     // Call to super() isn't required if the constructor returns a value.
     boolean returnsAValue = false;
-    Node thisAccessedBeforeSuper = null;
-    Node superPropertyAccessedBeforeSuperCall = null;
+    @Nullable Node thisAccessedBeforeSuper = null;
+    @Nullable Node superPropertyAccessedBeforeSuperCall = null;
 
     ConstructorContext(Node contextNode) {
       super(contextNode);

@@ -23,6 +23,7 @@ import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.javascript.jscomp.BlackHoleErrorManager;
 import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.CompilerOptions;
@@ -40,6 +41,7 @@ import com.google.javascript.jscomp.testing.TestExternsBuilder;
 import com.google.javascript.rhino.Node;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.nullness.Nullable;
 import org.junit.Before;
 
 /** Framework for end-to-end test cases. */
@@ -81,8 +83,14 @@ abstract class IntegrationTestCase {
                       " * @extends {Array<string>}",
                       " */",
                       "var ITemplateArray = function() {};",
-                      "/** @constructor */",
-                      "var Map;",
+                      "/**",
+                      " * @constructor @struct",
+                      " * @param {?Iterable<!Array<KEY|VALUE>>|!Array<!Array<KEY|VALUE>>=}"
+                          + " opt_iterable",
+                      " * @implements {ReadonlyMap<KEY, VALUE>}",
+                      " * @template KEY, VALUE",
+                      " */",
+                      "function Map(opt_iterable) {}",
                       "/** @constructor */",
                       "var Set;",
                       "/** @constructor */ function Window() {}",
@@ -117,20 +125,20 @@ abstract class IntegrationTestCase {
                       "/**",
                       " * @constructor",
                       " * @return {!TypeError}",
-                      " * @param {*=} opt_message",
-                      " * @param {*=} opt_file",
-                      " * @param {*=} opt_line",
+                      " * @param {*=} message",
+                      " * @param {*=} fileNameOrOptions",
+                      " * @param {*=} line",
                       " */",
-                      "function TypeError(opt_message, opt_file, opt_line) {}",
+                      "function TypeError(message, fileNameOrOptions, line) {}",
                       "/**",
                       " * @constructor",
-                      " * @param {*=} opt_message",
-                      " * @param {*=} opt_file",
-                      " * @param {*=} opt_line",
+                      " * @param {*=} message",
+                      " * @param {*=} fileNameOrOptions",
+                      " * @param {*=} line",
                       " * @return {!Error}",
                       " * @nosideeffects",
                       " */",
-                      "function Error(opt_message, opt_file, opt_line) {}",
+                      "function Error(message, fileNameOrOptions, line) {}",
                       "",
                       "/** @constructor */",
                       "var HTMLElement = function() {};",
@@ -140,7 +148,7 @@ abstract class IntegrationTestCase {
   protected List<SourceFile> externs = DEFAULT_EXTERNS;
 
   // The most recently used compiler.
-  protected Compiler lastCompiler;
+  protected @Nullable Compiler lastCompiler;
 
   protected boolean useNoninjectingCompiler = false;
 
@@ -157,7 +165,7 @@ abstract class IntegrationTestCase {
   }
 
   protected void testSame(CompilerOptions options, String original) {
-    testSame(options, new String[] { original });
+    testSame(options, new String[] {original});
   }
 
   protected void testSame(CompilerOptions options, String[] original) {
@@ -165,20 +173,18 @@ abstract class IntegrationTestCase {
   }
 
   /**
-   * Asserts that when compiling with the given compiler options,
-   * {@code original} is transformed into {@code compiled}.
+   * Asserts that when compiling with the given compiler options, {@code original} is transformed
+   * into {@code compiled}.
    */
-  protected void test(CompilerOptions options,
-      String original, String compiled) {
-    test(options, new String[] { original }, new String[] { compiled });
+  protected void test(CompilerOptions options, String original, String compiled) {
+    test(options, new String[] {original}, new String[] {compiled});
   }
 
   /**
-   * Asserts that when compiling with the given compiler options,
-   * {@code original} is transformed into {@code compiled}.
+   * Asserts that when compiling with the given compiler options, {@code original} is transformed
+   * into {@code compiled}.
    */
-  protected void test(CompilerOptions options,
-      String[] original, String[] compiled) {
+  protected void test(CompilerOptions options, String[] original, String[] compiled) {
     Compiler compiler = compile(options, original);
 
     Node root = compiler.getRoot().getLastChild();
@@ -239,7 +245,10 @@ abstract class IntegrationTestCase {
 
   /** Asserts that when compiling with the given compiler options, there is an error or warning. */
   protected void test(
-      CompilerOptions options, String[] original, String[] compiled, DiagnosticGroup warnings) {
+      CompilerOptions options,
+      String[] original,
+      String @Nullable [] compiled,
+      DiagnosticGroup warnings) {
     Compiler compiler = compile(options, original);
     checkUnexpectedErrorsOrWarnings(compiler, 1);
 
@@ -269,11 +278,9 @@ abstract class IntegrationTestCase {
     testParseError(options, original, null);
   }
 
-  /**
-   * Asserts that there is at least one parse error.
-   */
-  protected void testParseError(CompilerOptions options,
-      String original, String compiled) {
+  /** Asserts that there is at least one parse error. */
+  protected void testParseError(
+      CompilerOptions options, String original, @Nullable String compiled) {
     Compiler compiler = compile(options, original);
     for (JSError error : compiler.getErrors()) {
       if (!DiagnosticGroups.PARSING.matches(error)) {
@@ -291,8 +298,7 @@ abstract class IntegrationTestCase {
     }
   }
 
-  protected void checkUnexpectedErrorsOrWarnings(
-      Compiler compiler, int expected) {
+  protected void checkUnexpectedErrorsOrWarnings(Compiler compiler, int expected) {
     int actual = compiler.getErrors().size() + compiler.getWarnings().size();
     if (actual != expected) {
       String msg = "";
@@ -307,7 +313,7 @@ abstract class IntegrationTestCase {
   }
 
   protected Compiler compile(CompilerOptions options, String original) {
-    return compile(options, new String[] { original });
+    return compile(options, new String[] {original});
   }
 
   protected Compiler compile(CompilerOptions options, String[] original) {
@@ -320,6 +326,7 @@ abstract class IntegrationTestCase {
                 .build()));
   }
 
+  @CanIgnoreReturnValue
   protected Compiler compile(CompilerOptions options, ImmutableList<JSChunk> modules) {
     Compiler compiler =
         useNoninjectingCompiler
@@ -344,7 +351,7 @@ abstract class IntegrationTestCase {
   }
 
   protected void testNoWarnings(CompilerOptions options, String code) {
-    testNoWarnings(options, new String[] { code });
+    testNoWarnings(options, new String[] {code});
   }
 
   protected void testNoWarnings(CompilerOptions options, String[] sources) {
@@ -379,5 +386,4 @@ abstract class IntegrationTestCase {
 
     return compiler.getRoot().getLastChild();
   }
-
 }

@@ -31,6 +31,7 @@ import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Analyzes properties on prototypes.
@@ -53,7 +54,7 @@ class AnalyzePrototypeProperties implements CompilerPass {
   private final boolean rootScopeUsesAreGlobal;
 
   private final JSChunkGraph moduleGraph;
-  private final JSChunk firstModule;
+  private final @Nullable JSChunk firstModule;
 
   // Properties that are implicitly used as part of the JS language.
   private static final ImmutableSet<String> IMPLICITLY_USED_PROPERTIES =
@@ -224,7 +225,14 @@ class AnalyzePrototypeProperties implements CompilerPass {
       } else {
         // TODO(moz): It's not yet clear if we need another kind of NameContext for block scopes
         // in ES6, use anonymous node for now and investigate later.
-        checkState(NodeUtil.createsBlockScope(root) || root.isModuleBody(), scope);
+        // TODO(b/189993301): Test effects of pushing anonymousNode for member and computed field
+        // defs in CrossChunkMethodMotion (and test class fields there as well)
+        checkState(
+            NodeUtil.createsBlockScope(root)
+                || root.isModuleBody()
+                || root.isComputedFieldDef()
+                || root.isMemberFieldDef(),
+            scope);
         symbolStack.push(new NameContext(anonymousNode, scope));
       }
     }
@@ -281,7 +289,7 @@ class AnalyzePrototypeProperties implements CompilerPass {
                 // reference.
                 return;
               }
-            } else if (compiler.getCodingConvention().isExported(propName)) {
+            } else if (compiler.getCodingConvention().isExported(propName, /* local= */ false)) {
               // TODO(bradfordcsmith): We don't seem to have any tests that cover this case.
               // This class has no unit tests of its own and it is only used by
               // CrossChunkMethodMotion.
@@ -331,7 +339,7 @@ class AnalyzePrototypeProperties implements CompilerPass {
               case GETTER_DEF:
               case SETTER_DEF:
               case MEMBER_FUNCTION_DEF:
-                if (!propNode.isQuotedString()) {
+                if (!propNode.isQuotedStringKey()) {
                   // May be STRING, GET, or SET, but NUMBER isn't interesting.
                   addSymbolUse(propNode.getString(), t.getChunk(), PROPERTY);
                 }
@@ -410,7 +418,7 @@ class AnalyzePrototypeProperties implements CompilerPass {
     }
 
     /** If this is a non-function prototype assign, return the prop name. Otherwise, return null. */
-    private String processNonFunctionPrototypeAssign(Node n, Node parent) {
+    private @Nullable String processNonFunctionPrototypeAssign(Node n, Node parent) {
       if (isAssignRValue(n, parent) && !n.isFunction()) {
         return getPrototypePropertyNameFromRValue(n);
       }
@@ -443,10 +451,10 @@ class AnalyzePrototypeProperties implements CompilerPass {
      * in multiple expressions (i.e., if there's a prototype property assignment in a more complex
      * expression).
      */
-    private String getPrototypePropertyNameFromRValue(Node rValue) {
+    private @Nullable String getPrototypePropertyNameFromRValue(Node rValue) {
       Node lValue = NodeUtil.getBestLValue(rValue);
       if (lValue == null
-          || !((NodeUtil.mayBeObjectLitKey(lValue) && !lValue.isQuotedString())
+          || !((NodeUtil.mayBeObjectLitKey(lValue) && !lValue.isQuotedStringKey())
               || NodeUtil.isExprAssign(lValue.getGrandparent()))) {
         return null;
       }
@@ -489,7 +497,8 @@ class AnalyzePrototypeProperties implements CompilerPass {
 
         // If the function name is exported, we should create an edge here
         // so that it's never removed.
-        if (compiler.getCodingConvention().isExported(name) || anchorUnusedVars) {
+        if (compiler.getCodingConvention().isExported(name, /* local= */ false)
+            || anchorUnusedVars) {
           addGlobalUseOfSymbol(name, t.getChunk(), VAR);
         }
 
@@ -505,7 +514,6 @@ class AnalyzePrototypeProperties implements CompilerPass {
      * record this reference as the definition of one or more prototype properties and return
      * `true`.
      *
-     * @param t
      * @param ref A reference to some qualified name that ends with `.prototype`
      * @return True if a declaration was added.
      */
@@ -533,7 +541,7 @@ class AnalyzePrototypeProperties implements CompilerPass {
           Node map = n.getSecondChild();
           if (map.isObjectLit()) {
             for (Node key = map.getFirstChild(); key != null; key = key.getNext()) {
-              if (!key.isQuotedString() && !key.isComputedProp()) {
+              if (!key.isQuotedStringKey() && !key.isComputedProp()) {
                 // We won't consider quoted or computed properties for any kind of modification,
                 // so key may be STRING_KEY, GETTER_DEF, SETTER_DEF, or MEMBER_FUNCTION_DEF
                 String name = key.getString();
@@ -571,7 +579,7 @@ class AnalyzePrototypeProperties implements CompilerPass {
           .add(new ClassMemberFunction(n, var, t.getChunk()));
     }
 
-    private Var maybeGetVar(NodeTraversal t, Node maybeName) {
+    private @Nullable Var maybeGetVar(NodeTraversal t, Node maybeName) {
       return maybeName.isName() ? t.getScope().getVar(maybeName.getString()) : null;
     }
 
@@ -828,7 +836,7 @@ class AnalyzePrototypeProperties implements CompilerPass {
     // corresponding function. Otherwise, it will be null.
     final Scope scope;
 
-    NameContext(NameInfo name, Scope scope) {
+    NameContext(NameInfo name, @Nullable Scope scope) {
       this.name = name;
       this.scope = scope;
     }
@@ -841,7 +849,7 @@ class AnalyzePrototypeProperties implements CompilerPass {
 
     private boolean referenced = false;
     private final Deque<Symbol> declarations = new ArrayDeque<>();
-    private JSChunk deepestCommonModuleRef = null;
+    private @Nullable JSChunk deepestCommonModuleRef = null;
 
     // True if this property is a function that reads a variable from an
     // outer scope which isn't the global scope.
@@ -888,7 +896,7 @@ class AnalyzePrototypeProperties implements CompilerPass {
      * @param module The module where it was referenced.
      * @return Whether the name info has changed.
      */
-    boolean markReference(JSChunk module) {
+    boolean markReference(@Nullable JSChunk module) {
       boolean hasChanged = false;
       if (!referenced) {
         referenced = true;

@@ -36,7 +36,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** An optimization pass to prune J2CL clinits. */
 public class J2clClinitPrunerPass implements CompilerPass {
@@ -97,7 +97,7 @@ public class J2clClinitPrunerPass implements CompilerPass {
     }
   }
 
-  private Node resolveReplacement(Node node) {
+  private @Nullable Node resolveReplacement(Node node) {
     if (node == null) {
       return null;
     }
@@ -149,7 +149,7 @@ public class J2clClinitPrunerPass implements CompilerPass {
     return newChangedScopes;
   }
 
-  private static List<Node> getNonNestedParentScopeNodes(List<Node> changedScopeNodes) {
+  private static @Nullable List<Node> getNonNestedParentScopeNodes(List<Node> changedScopeNodes) {
     return changedScopeNodes == null
         ? null
         : NodeUtil.removeNestedChangeScopeNodes(
@@ -292,7 +292,7 @@ public class J2clClinitPrunerPass implements CompilerPass {
     private boolean hasSafeArguments(NodeTraversal t, Node callOrNewNode) {
       Node child = callOrNewNode.getSecondChild();
       while (child != null) {
-        if (!NodeUtil.isLiteralValue(child, false /* includeFunctions */)
+        if (!NodeUtil.isLiteralValue(child, /* includeFunctions= */ false)
             && !isParameter(t, child)) {
           return false;
         }
@@ -314,7 +314,7 @@ public class J2clClinitPrunerPass implements CompilerPass {
      * Returns the call node associated with the specified node if one exists, otherwise returns
      * null.
      */
-    private Node getCallOrNewNode(Node n) {
+    private @Nullable Node getCallOrNewNode(Node n) {
       if (n == null) {
         return null;
       }
@@ -420,7 +420,7 @@ public class J2clClinitPrunerPass implements CompilerPass {
     return node.isFunction() && isClinitMethodName(getQualifiedNameOfFunction(node));
   }
 
-  private static String getClinitMethodName(Node node) {
+  private static @Nullable String getClinitMethodName(Node node) {
     if (node.isCall()) {
       String fnName = NodeUtil.getBestLValueName(node.getFirstChild());
       return isClinitMethodName(fnName) ? fnName : null;
@@ -439,7 +439,7 @@ public class J2clClinitPrunerPass implements CompilerPass {
    */
   private static class HierarchicalSet<T> {
     private final Set<T> currentSet = new HashSet<>();
-    @Nullable private final HierarchicalSet<T> parent;
+    private final @Nullable HierarchicalSet<T> parent;
 
     public HierarchicalSet(@Nullable HierarchicalSet<T> parent) {
       this.parent = parent;

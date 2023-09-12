@@ -25,10 +25,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link JsFileLineParser}.
- *
- */
+/** Tests for {@link JsFileLineParser}. */
 @RunWith(JUnit4.class)
 public final class JsFileLineParserTest {
 
@@ -154,8 +151,8 @@ public final class JsFileLineParserTest {
   }
 
   private static class TestParser extends JsFileLineParser {
-    StringBuilder sb = new StringBuilder();
-    StringBuilder comments = new StringBuilder();
+    final StringBuilder sb = new StringBuilder();
+    final StringBuilder comments = new StringBuilder();
 
     TestParser(ErrorManager errorManager) {
       super(errorManager);

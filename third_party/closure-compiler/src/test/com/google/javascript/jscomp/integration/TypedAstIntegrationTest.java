@@ -19,28 +19,38 @@ package com.google.javascript.jscomp.integration;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.javascript.jscomp.base.JSCompStrings.lines;
 import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
+import static org.junit.Assert.assertThrows;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.CompilationLevel;
 import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.CompilerOptions;
 import com.google.javascript.jscomp.CompilerOptions.IncrementalCheckMode;
+import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
+import com.google.javascript.jscomp.CrossChunkMethodMotion;
+import com.google.javascript.jscomp.DependencyOptions;
 import com.google.javascript.jscomp.DiagnosticGroups;
+import com.google.javascript.jscomp.JSChunk;
+import com.google.javascript.jscomp.ModuleIdentifier;
 import com.google.javascript.jscomp.SourceFile;
 import com.google.javascript.jscomp.VariableRenamingPolicy;
+import com.google.javascript.jscomp.WarningLevel;
 import com.google.javascript.jscomp.testing.JSCompCorrespondences;
 import com.google.javascript.jscomp.testing.TestExternsBuilder;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.StaticSourceFile.SourceKind;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.SequenceInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.zip.GZIPInputStream;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -69,6 +79,7 @@ public final class TypedAstIntegrationTest extends IntegrationTestCase {
 
     CompilerOptions options = new CompilerOptions();
     CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
+    options.setDependencyOptions(DependencyOptions.none());
 
     Compiler compiler = compileTypedAstShards(options);
 
@@ -89,10 +100,34 @@ public final class TypedAstIntegrationTest extends IntegrationTestCase {
 
     CompilerOptions options = new CompilerOptions();
     CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
+    options.setDependencyOptions(DependencyOptions.none());
 
     Compiler compiler = compileTypedAstShards(options);
 
     Node expectedRoot = parseExpectedCode("", "alert(10);");
+    assertNode(compiler.getRoot().getSecondChild())
+        .usingSerializer(compiler::toSource)
+        .isEqualTo(expectedRoot);
+  }
+
+  @Test
+  public void disambiguatesGoogScopeAcrossLibraries() throws IOException {
+
+    SourceFile lib1 = code("goog.scope(function () { var x = 3; });");
+    SourceFile lib2 = code("goog.scope(function () { var x = 4; });");
+    SourceFile externs = extern(new TestExternsBuilder().addClosureExterns().build());
+
+    precompileLibrary(externs);
+    precompileLibrary(typeSummary(externs), lib1);
+    precompileLibrary(typeSummary(externs), lib2);
+
+    CompilerOptions options = new CompilerOptions();
+    options.setClosurePass(true);
+
+    Compiler compiler = compileTypedAstShards(options);
+    Node expectedRoot =
+        parseExpectedCode(
+            "var $jscomp$scope$1954846972$0$x=3;", "var $jscomp$scope$1954846973$0$x=4");
     assertNode(compiler.getRoot().getSecondChild())
         .usingSerializer(compiler::toSource)
         .isEqualTo(expectedRoot);
@@ -112,11 +147,189 @@ public final class TypedAstIntegrationTest extends IntegrationTestCase {
 
     CompilerOptions options = new CompilerOptions();
     CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
+    options.setDependencyOptions(DependencyOptions.none());
     options.setDisambiguateProperties(true);
 
     Compiler compiler = compileTypedAstShards(options);
 
     Node expectedRoot = parseExpectedCode("", "", "alert('lib1'); alert('lib2')");
+    assertNode(compiler.getRoot().getSecondChild())
+        .usingSerializer(compiler::toSource)
+        .isEqualTo(expectedRoot);
+  }
+
+  @Test
+  public void disambiguatesAndDeletesMethodsAcrossLibraries_withTranspilation() throws IOException {
+    SourceFile lib1 = code("class Lib1 { m() { return 'lib1'; } n() { return 'delete me'; } }");
+    SourceFile lib2 = code("class Lib2 { m() { return 'delete me'; } n() { return 'lib2'; } }");
+    precompileLibrary(lib1);
+    precompileLibrary(lib2);
+    precompileLibrary(
+        extern(new TestExternsBuilder().addAlert().build()),
+        typeSummary(lib1),
+        typeSummary(lib2),
+        code("alert(new Lib1().m()); alert(new Lib2().n());"));
+
+    CompilerOptions options = new CompilerOptions();
+    CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
+    options.setDependencyOptions(DependencyOptions.none());
+    options.setDisambiguateProperties(true);
+    options.setLanguageOut(LanguageMode.ECMASCRIPT5);
+
+    Compiler compiler = compileTypedAstShards(options);
+
+    Node expectedRoot = parseExpectedCode("", "", "alert('lib1'); alert('lib2')");
+    assertNode(compiler.getRoot().getSecondChild())
+        .usingSerializer(compiler::toSource)
+        .isEqualTo(expectedRoot);
+  }
+
+  @Test
+  public void disambiguatesAndDeletesMethodsAcrossLibraries_skippedIfInvalidatingTypeError()
+      throws IOException {
+    SourceFile lib1 = code("class Lib1 { m() { return 'lib1'; } n() { return 'delete me'; } }");
+    SourceFile lib2 = code("class Lib2 { m() { return 'delete me'; } n() { return 'lib2'; } }");
+    precompileLibrary(lib1);
+    precompileLibrary(lib2);
+    precompileLibrary(
+        extern(new TestExternsBuilder().addAlert().build()),
+        typeSummary(lib1),
+        typeSummary(lib2),
+        code("alert(new Lib1().m()); alert(new Lib2().n());"));
+    // assigning an instance of Lib1 to a variable of type 'string' causes the disambiguator to
+    // 'invalidate' the type of Lib1 and any associated properties.
+    SourceFile invalidating =
+        code("/** @suppress {checkTypes} @type {string} */ const str = new Lib1();");
+    precompileLibrary(typeSummary(lib1), invalidating);
+
+    CompilerOptions options = new CompilerOptions();
+    CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
+    options.setDependencyOptions(DependencyOptions.none());
+    options.setDisambiguateProperties(true);
+    options.setPropertiesThatMustDisambiguate(ImmutableSet.of("m"));
+
+    Compiler compiler = compileTypedAstShardsWithoutErrorChecks(options);
+
+    assertThat(compiler.getErrors())
+        .comparingElementsUsing(JSCompCorrespondences.DESCRIPTION_EQUALITY)
+        .containsExactly(
+            "Property 'm' was required to be disambiguated but was invalidated."
+            );
+  }
+
+  @Test
+  public void disambiguatesAndDeletesMethodsAcrossLibraries_ignoresInvalidationsInUnusedShards()
+      throws IOException {
+    SourceFile lib1 = code("class Lib1 { m() { return 'lib1'; } n() { return 'delete me'; } }");
+    SourceFile lib2 = code("class Lib2 { m() { return 'delete me'; } n() { return 'lib2'; } }");
+    precompileLibrary(lib1);
+    precompileLibrary(lib2);
+    precompileLibrary(
+        extern(new TestExternsBuilder().addAlert().build()),
+        typeSummary(lib1),
+        typeSummary(lib2),
+        code("alert(new Lib1().m()); alert(new Lib2().n());"));
+    // assigning an instance of Lib1 to a variable of type 'string' causes the disambiguator to
+    // 'invalidate' the type of Lib1 and any associated properties.
+    SourceFile invalidating =
+        code("/** @suppress {checkTypes} @type {string} */ const str = new Lib1();");
+    precompileLibrary(typeSummary(lib1), invalidating);
+
+    CompilerOptions options = new CompilerOptions();
+    CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
+    options.setDependencyOptions(DependencyOptions.none());
+    options.setDisambiguateProperties(true);
+    options.setPropertiesThatMustDisambiguate(ImmutableSet.of("m"));
+
+    // Drop the invalidating source from the list of SourceFile inputs to JSCompiler.
+    // However, leave in the associated TypedAST in this.shards.
+    // We want to verify that JSCompiler is able to disambiguate properties on Lib1 despite the
+    // invalidation in the unused TypedAST shard.
+    Preconditions.checkState(this.sourceFiles.get(3) == invalidating, this.sourceFiles);
+    this.sourceFiles.remove(3);
+
+    Compiler compiler = compileTypedAstShards(options);
+
+    Node expectedRoot = parseExpectedCode("", "", "alert('lib1'); alert('lib2')");
+    assertNode(compiler.getRoot().getSecondChild())
+        .usingSerializer(compiler::toSource)
+        .isEqualTo(expectedRoot);
+  }
+
+  @Test
+  public void exportAnnotationOnPropertyPreventsRenaming() throws IOException {
+    SourceFile externs = extern(new TestExternsBuilder().addAlert().build());
+    SourceFile lib1 =
+        code(
+            lines(
+                "class C {",
+                "  constructor(foo, bar) {",
+                "    this.foo = foo;",
+                "    this.bar = bar;",
+                "  }",
+                "}",
+                "alert(new C(1, 2))"));
+    SourceFile lib2 = code("const obj = { /** @export */ foo: 0, bar: 1};");
+    precompileLibrary(externs, lib1);
+    precompileLibrary(lib2);
+
+    CompilerOptions options = new CompilerOptions();
+    CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
+    options.setDependencyOptions(DependencyOptions.none());
+    options.setDisambiguateProperties(true);
+
+    Compiler compiler = compileTypedAstShards(options);
+
+    Node expectedRoot =
+        parseExpectedCode(
+            lines(
+                "class a {", //
+                "constructor() { this.foo = 1; }",
+                "}",
+                "alert(new a());"),
+            "");
+    assertNode(compiler.getRoot().getSecondChild())
+        .usingSerializer(compiler::toSource)
+        .isEqualTo(expectedRoot);
+  }
+
+  @Test
+  public void exportAnnotationOnProperty_ignoredInUnusedTypedAstShard() throws IOException {
+    SourceFile externs = extern(new TestExternsBuilder().addAlert().build());
+    SourceFile lib1 =
+        code(
+            lines(
+                "class C {",
+                "  constructor(foo, bar) {",
+                "    this.foo = foo;",
+                "    this.bar = bar;",
+                "  }",
+                "}",
+                "alert(new C(1, 2))"));
+    SourceFile unusedLib = code("const obj = { /** @export */ foo: 0, bar: 1};");
+    precompileLibrary(externs, lib1);
+    precompileLibrary(unusedLib);
+
+    CompilerOptions options = new CompilerOptions();
+    CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
+    options.setDependencyOptions(DependencyOptions.none());
+    options.setDisambiguateProperties(true);
+
+    // Drop the unusedLib source from the list of SourceFile inputs to JSCompiler.
+    // However, leave in the associated TypedAST in this.shards.
+    // We want to verify that JSCompiler does /not/ pay attention to the @export in
+    // the unusedLib file, as it's not part of the compilation.
+    Preconditions.checkState(this.sourceFiles.size() == 2, this.sourceFiles);
+    Preconditions.checkState(this.shards.size() == 2, this.shards);
+    this.sourceFiles.remove(1);
+
+    Compiler compiler = compileTypedAstShards(options);
+
+    Node expectedRoot =
+        parseExpectedCode(
+            lines(
+                "class a {}", //
+                "alert(new a());"));
     assertNode(compiler.getRoot().getSecondChild())
         .usingSerializer(compiler::toSource)
         .isEqualTo(expectedRoot);
@@ -165,14 +378,19 @@ public final class TypedAstIntegrationTest extends IntegrationTestCase {
 
     // both externs and code have bad references to the same lateDefinedVar
     precompileLibrary(
-        extern("/** @fileoverview @suppress {externsValidation,checkVars} */ lateDefinedVar;"),
-        code("/** @fileoverview @suppress {checkVars} */ lateDefinedVar;"));
+        extern(
+            "/** @fileoverview @suppress {externsValidation,checkVars} */", //
+            "lateDefinedVar;"),
+        code(
+            "/** @fileoverview @suppress {checkVars,uselessCode} */", //
+            "lateDefinedVar;"));
     // and another, entirely separate library defines it.
     precompileLibrary(code("var lateDefinedVar; var normalVar;"));
 
     CompilerOptions options = new CompilerOptions();
     options.setVariableRenaming(VariableRenamingPolicy.ALL);
     options.setGeneratePseudoNames(true);
+    options.setProtectHiddenSideEffects(true);
 
     Compiler compiler = compileTypedAstShards(options);
 
@@ -199,11 +417,37 @@ public final class TypedAstIntegrationTest extends IntegrationTestCase {
 
     CompilerOptions options = new CompilerOptions();
     CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
+    options.setDependencyOptions(DependencyOptions.none());
 
     Compiler compiler = compileTypedAstShards(options);
 
-    // TODO(b/207693227): stop renaming x and y to a and b
-    Node expectedRoot = parseExpectedCode("takeCoord({a: 1, b: 2});");
+    Node expectedRoot = parseExpectedCode("takeCoord({x: 1, y: 2});");
+    assertNode(compiler.getRoot().getSecondChild())
+        .usingSerializer(compiler::toSource)
+        .isEqualTo(expectedRoot);
+  }
+
+  @Test
+  public void gatherExternProperties() throws IOException {
+    precompileLibrary(
+        extern(
+            new TestExternsBuilder()
+                .addExtra(
+                    lines(
+                        "/** @fileoverview @externs */ ", //
+                        "var ns = {}; ",
+                        "ns.x; "))
+                .addConsole()
+                .build()),
+        code("ns.nonExternProperty = 2; console.log(ns.x); console.log(ns.nonExternProperty);"));
+
+    CompilerOptions options = new CompilerOptions();
+    CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
+    options.setDependencyOptions(DependencyOptions.none());
+
+    Compiler compiler = compileTypedAstShards(options);
+
+    Node expectedRoot = parseExpectedCode("ns.a = 2; console.log(ns.x);console.log(ns.a);");
     assertNode(compiler.getRoot().getSecondChild())
         .usingSerializer(compiler::toSource)
         .isEqualTo(expectedRoot);
@@ -224,11 +468,217 @@ public final class TypedAstIntegrationTest extends IntegrationTestCase {
     assertThat(compiler.getErrors()).isEmpty();
   }
 
+  @Test
+  public void protectsHiddenSideEffects() throws IOException {
+    precompileLibrary(
+        extern("const foo = {}; foo.bar;"),
+        code("/** @fileoverview @suppress {uselessCode} */ foo.bar;"));
+
+    CompilerOptions options = new CompilerOptions();
+    CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
+    options.setDependencyOptions(DependencyOptions.none());
+
+    Compiler compiler = compileTypedAstShards(options);
+
+    Node expectedRoot = parseExpectedCode("foo.bar");
+    assertNode(compiler.getRoot().getSecondChild())
+        .usingSerializer(compiler::toSource)
+        .isEqualTo(expectedRoot);
+  }
+
+  @Test
+  public void protectsHiddenSideEffects_ignoringProtectSideEffectOption() throws IOException {
+    precompileLibrary(
+        extern("const foo = {}; foo.bar;"),
+        code("/** @fileoverview @suppress {uselessCode} */ foo.bar;"));
+
+    CompilerOptions options = new CompilerOptions();
+    CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
+    options.setDependencyOptions(DependencyOptions.none());
+    // Setting this option is, in precompiled_libraries mode, a no-op: we always protect the
+    // side effects. This is because at the library-level we always protect side effects.
+    // This means that any "hidden side effects" at the library-level are wrapped in a
+    // JSCOMPILER_PRESERVE call:
+    //   JSCOMPILER_PRESERVE(foo.bar)
+    // So optimizations/finalizations must always remove that "JSCOMPILER_PRESERVE" call added
+    // during library compilation.
+    options.setProtectHiddenSideEffects(false);
+
+    Compiler compiler = compileTypedAstShards(options);
+
+    Node expectedRoot = parseExpectedCode("foo.bar");
+    assertNode(compiler.getRoot().getSecondChild())
+        .usingSerializer(compiler::toSource)
+        .isEqualTo(expectedRoot);
+  }
+
+  @Test
+  public void removesRegExpCallsIfSafe() throws IOException {
+    precompileLibrary(
+        extern(new TestExternsBuilder().addRegExp().build()), code("(/abc/gi).exec('')"));
+
+    CompilerOptions options = new CompilerOptions();
+    CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
+    options.setDependencyOptions(DependencyOptions.none());
+
+    Compiler compiler = compileTypedAstShards(options);
+
+    Node expectedRoot = parseExpectedCode("");
+    assertNode(compiler.getRoot().getSecondChild())
+        .usingSerializer(compiler::toSource)
+        .isEqualTo(expectedRoot);
+  }
+
+  @Test
+  public void removesRegExpCallsIfUnsafelyReferenced() throws IOException {
+    precompileLibrary(
+        extern(new TestExternsBuilder().addRegExp().addConsole().build()),
+        code(
+            "(/abc/gi).exec('');", //
+            "console.log(RegExp.$1);"));
+
+    CompilerOptions options = new CompilerOptions();
+    CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
+    options.setDependencyOptions(DependencyOptions.none());
+
+    Compiler compiler = compileTypedAstShards(options);
+
+    Node expectedRoot = parseExpectedCode("(/abc/gi).exec(''); console.log(RegExp.$1);");
+    assertNode(compiler.getRoot().getSecondChild())
+        .usingSerializer(compiler::toSource)
+        .isEqualTo(expectedRoot);
+  }
+
+  @Test
+  public void runsJ2clOptimizations() throws IOException {
+    SourceFile f =
+        SourceFile.fromCode(
+            "f.java.js",
+            lines(
+                "function InternalWidget(){}",
+                "InternalWidget.$clinit = function () {",
+                "  InternalWidget.$clinit = function() {};",
+                "  InternalWidget.$clinit();",
+                "};",
+                "InternalWidget.$clinit();"));
+    sourceFiles.add(f);
+    precompileLibrary(f);
+
+    CompilerOptions options = new CompilerOptions();
+    CompilationLevel.ADVANCED_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
+    options.setDependencyOptions(DependencyOptions.none());
+
+    Compiler compiler = compileTypedAstShards(options);
+
+    Node expectedRoot = parseExpectedCode("");
+    assertNode(compiler.getRoot().getSecondChild())
+        .usingSerializer(compiler::toSource)
+        .isEqualTo(expectedRoot);
+  }
+
+  @Test
+  public void testAngularPass() throws IOException {
+    precompileLibrary(
+        extern(new TestExternsBuilder().build()),
+        code(
+            lines(
+                "/** @ngInject */ function f() {} ",
+                "/** @ngInject */ function g(a){} ",
+                "/** @ngInject */ var b = function f(a, b, c) {} ")));
+
+    CompilerOptions options = new CompilerOptions();
+
+    Compiler compiler = compileTypedAstShards(options);
+
+    Node expectedRoot =
+        parseExpectedCode(
+            lines(
+                "function f() {} ",
+                "function g(a) {} g['$inject']=['a'];",
+                "var b = function f(a, b, c) {}; b['$inject']=['a', 'b', 'c']"));
+    assertNode(compiler.getRoot().getSecondChild())
+        .usingSerializer(compiler::toSource)
+        .isEqualTo(expectedRoot);
+  }
+
+  @Test
+  public void testCrossChunkMethodMotion() throws IOException {
+    // run checks & serialize .typedasts
+    SourceFile f1 =
+        SourceFile.fromCode(
+            "f1.js",
+            lines(
+                "/** @constructor */",
+                "var Foo = function() {};",
+                "Foo.prototype.bar = function() {};",
+                "/** @type {!Foo} */",
+                "var x = new Foo();"));
+    SourceFile f2 = SourceFile.fromCode("f2.js", "x.bar();");
+    precompileLibrary(f1);
+    precompileLibrary(typeSummary(f1), f2);
+
+    Compiler compiler = new Compiler();
+    // create two chunks, where chunk 2 depends on chunk 1, and they contain f1 and f2
+    CompilerOptions options = new CompilerOptions();
+    options.setCrossChunkMethodMotion(true);
+    compiler.initOptions(options);
+    JSChunk chunk1 = new JSChunk("chunk1");
+    chunk1.add(f1);
+    JSChunk chunk2 = new JSChunk("chunk2");
+    chunk2.add(f2);
+    chunk2.addDependency(chunk1);
+
+    // run compilation
+    try (InputStream inputStream = toInputStream(this.shards)) {
+      compiler.initModulesWithTypedAstFilesystem(
+          ImmutableList.copyOf(this.externFiles),
+          ImmutableList.of(chunk1, chunk2),
+          options,
+          inputStream);
+    }
+    compiler.stage2Passes();
+    compiler.stage3Passes();
+
+    String[] expected =
+        new String[] {
+          CrossChunkMethodMotion.STUB_DECLARATIONS
+              + "var Foo = function() {};"
+              + "Foo.prototype.bar=JSCompiler_stubMethod(0); var x=new Foo;",
+          "Foo.prototype.bar=JSCompiler_unstubMethod(0,function(){}); x.bar()",
+        };
+    Node expectedRoot = parseExpectedCode(expected);
+    assertNode(compiler.getRoot().getSecondChild())
+        .usingSerializer(compiler::toSource)
+        .isEqualTo(expectedRoot);
+  }
+
+  @Test
+  public void dependencyModePruningForGoogModules_banned() throws IOException {
+    precompileLibrary(
+        extern(new TestExternsBuilder().addClosureExterns().build()),
+        code("goog.module('keepMe'); const x = 1;"), // input_1
+        code("goog.module('entryPoint'); goog.require('keepMe');"), // input_2
+        code("goog.module('dropMe'); const x = 3;")); // input_3
+
+    CompilerOptions options = new CompilerOptions();
+    options.setDependencyOptions(
+        DependencyOptions.pruneForEntryPoints(
+            ImmutableList.of(ModuleIdentifier.forClosure("entryPoint"))));
+
+    // TODO(b/219588952): if we decide to support this, verify that JSCompiler no longer incorrectly
+    // prunes the 'keepMe' module.
+    // This might be fixable by just removing module rewriting from the 'checks' phase.
+    Exception ex =
+        assertThrows(IllegalArgumentException.class, () -> compileTypedAstShards(options));
+    assertThat(ex).hasMessageThat().contains("mode=PRUNE");
+  }
+
   // use over 'compileTypedAstShards' if you want to validate reported errors or warnings in your
   // @Test case.
   private Compiler compileTypedAstShardsWithoutErrorChecks(CompilerOptions options)
       throws IOException {
     Compiler compiler = new Compiler();
+    compiler.initOptions(options);
     try (InputStream inputStream = toInputStream(this.shards)) {
       compiler.initWithTypedAstFilesystem(
           ImmutableList.copyOf(this.externFiles),
@@ -236,9 +686,10 @@ public final class TypedAstIntegrationTest extends IntegrationTestCase {
           options,
           inputStream);
     }
-    compiler.parse();
     compiler.stage2Passes();
-    compiler.stage3Passes();
+    if (!compiler.hasErrors()) {
+      compiler.stage3Passes();
+    }
 
     return compiler;
   }
@@ -250,16 +701,16 @@ public final class TypedAstIntegrationTest extends IntegrationTestCase {
     return compiler;
   }
 
-  private SourceFile code(String code) {
+  private SourceFile code(String... code) {
     SourceFile sourceFile =
-        SourceFile.fromCode("input_" + (sourceFiles.size() + 1), code, SourceKind.STRONG);
+        SourceFile.fromCode("input_" + (sourceFiles.size() + 1), lines(code), SourceKind.STRONG);
     this.sourceFiles.add(sourceFile);
     return sourceFile;
   }
 
-  private SourceFile extern(String code) {
+  private SourceFile extern(String... code) {
     SourceFile sourceFile =
-        SourceFile.fromCode("extern_" + (externFiles.size() + 1), code, SourceKind.EXTERN);
+        SourceFile.fromCode("extern_" + (externFiles.size() + 1), lines(code), SourceKind.EXTERN);
     this.externFiles.add(sourceFile);
     return sourceFile;
   }
@@ -285,9 +736,11 @@ public final class TypedAstIntegrationTest extends IntegrationTestCase {
 
     CompilerOptions options = new CompilerOptions();
     options.setChecksOnly(true);
-    options.setCheckTypes(true);
-    options.setCheckSymbols(true);
+    options.setAngularPass(true);
+    WarningLevel.VERBOSE.setOptionsForWarningLevel(options);
+    options.setProtectHiddenSideEffects(true);
     options.setTypedAstOutputFile(typedAstPath);
+    options.setClosurePass(true);
 
     ImmutableList.Builder<SourceFile> externs = ImmutableList.builder();
     ImmutableList.Builder<SourceFile> sources = ImmutableList.builder();
@@ -311,22 +764,16 @@ public final class TypedAstIntegrationTest extends IntegrationTestCase {
   }
 
   /** Converts the list of paths into an input stream sequentially reading all the given files */
-  private static InputStream toInputStream(ArrayList<Path> typedAsts) {
-    InputStream inputStream = null;
+  private static InputStream toInputStream(ArrayList<Path> typedAsts) throws IOException {
+    ArrayList<InputStream> inputShards = new ArrayList<>();
     for (Path typedAst : typedAsts) {
-      FileInputStream inputShard;
-      try {
-        inputShard = new FileInputStream(typedAst.toFile());
-      } catch (FileNotFoundException ex) {
-        throw new AssertionError(ex);
-      }
-      if (inputStream == null) {
-        inputStream = inputShard;
-      } else {
-        inputStream = new SequenceInputStream(inputStream, inputShard);
-      }
+      // Each shard is a gzipped TypedAst proto.
+      // NOTE: while it's generally possible to concatenate individually gzipped files
+      // (https://stackoverflow.com/questions/8005114/fast-concatenation-of-multiple-gzip-files)
+      // it doesn't seem to work to wrap a SequenceInputStream in a GZIPInputStream directly.
+      inputShards.add(new GZIPInputStream(new FileInputStream(typedAst.toFile())));
     }
-    return inputStream;
+    return new SequenceInputStream(Collections.enumeration(inputShards));
   }
 
   private Node parseExpectedCode(String... files) {

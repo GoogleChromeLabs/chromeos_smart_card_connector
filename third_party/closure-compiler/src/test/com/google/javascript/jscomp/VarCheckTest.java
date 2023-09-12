@@ -30,6 +30,7 @@ import com.google.javascript.jscomp.testing.JSChunkGraphBuilder;
 import com.google.javascript.jscomp.testing.TestExternsBuilder;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.StaticSourceFile.SourceKind;
+import org.jspecify.nullness.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,7 +43,7 @@ public final class VarCheckTest extends CompilerTestCase {
   private CheckLevel strictModuleDepErrorLevel;
   private boolean validityCheck = false;
 
-  private CheckLevel externValidationErrorLevel;
+  private @Nullable CheckLevel externValidationErrorLevel;
 
   private boolean declarationCheck;
 
@@ -636,17 +637,20 @@ public final class VarCheckTest extends CompilerTestCase {
     testDependentModules("var x = 10; function a() {y++;} a();", "var y = 11;", null);
   }
 
-  private void testDependentModules(String code1, String code2, DiagnosticType error) {
+  private void testDependentModules(String code1, String code2, @Nullable DiagnosticType error) {
     testDependentModules(code1, code2, error, null);
   }
 
   private void testDependentModules(
-      String code1, String code2, DiagnosticType error, DiagnosticType warning) {
+      String code1, String code2, DiagnosticType error, @Nullable DiagnosticType warning) {
     testTwoModules(code1, code2, true, error, warning);
   }
 
   private void testIndependentModules(
-      String code1, String code2, DiagnosticType error, DiagnosticType warning) {
+      String code1,
+      String code2,
+      @Nullable DiagnosticType error,
+      @Nullable DiagnosticType warning) {
     testTwoModules(code1, code2, false, error, warning);
   }
 

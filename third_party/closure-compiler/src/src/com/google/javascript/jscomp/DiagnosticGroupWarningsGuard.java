@@ -17,7 +17,7 @@
 package com.google.javascript.jscomp;
 
 import com.google.javascript.jscomp.base.Tri;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** Sets the level for a particular DiagnosticGroup. */
 public final class DiagnosticGroupWarningsGuard extends WarningsGuard {
@@ -33,8 +33,7 @@ public final class DiagnosticGroupWarningsGuard extends WarningsGuard {
   }
 
   @Override
-  @Nullable
-  public CheckLevel level(JSError error) {
+  public @Nullable CheckLevel level(JSError error) {
     return this.group.matches(error) ? this.level : null;
   }
 

@@ -20,14 +20,13 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.javascript.jscomp.colors.ColorId.fromAscii;
 import static com.google.javascript.jscomp.serialization.TypePointers.untrimOffset;
 import static com.google.javascript.jscomp.testing.ColorSubject.assertThat;
-import static com.google.javascript.rhino.testing.Asserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.javascript.jscomp.colors.Color;
 import com.google.javascript.jscomp.colors.ColorId;
 import com.google.javascript.jscomp.colors.ColorRegistry;
-import com.google.javascript.jscomp.colors.DebugInfo;
 import com.google.javascript.jscomp.colors.StandardColors;
 import com.google.protobuf.ByteString;
 import org.junit.Test;
@@ -40,24 +39,25 @@ public class ColorPoolTest {
   @Test
   public void deserializesJavaScriptPrimitivesFromEmptyTypePool() {
     ColorPool.ShardView colorPool =
-        ColorPool.fromOnlyShard(TypePool.getDefaultInstance(), StringPool.empty()).getOnlyShard();
+        ColorPool.fromOnlyShardForTesting(TypePool.getDefaultInstance(), StringPool.empty())
+            .getOnlyShardForTesting();
 
-    assertThat(colorPool.getColor(primitiveTypePointer(PrimitiveType.NUMBER_TYPE)))
+    assertThat(colorPool.getColor(PrimitiveType.NUMBER_TYPE.getNumber()))
         .isEqualTo(StandardColors.NUMBER);
-    assertThat(colorPool.getColor(primitiveTypePointer(PrimitiveType.NUMBER_TYPE)))
-        .isNotInvalidating();
-    assertThat(colorPool.getColor(primitiveTypePointer(PrimitiveType.STRING_TYPE)))
+    assertThat(colorPool.getColor(PrimitiveType.NUMBER_TYPE.getNumber())).isNotInvalidating();
+    assertThat(colorPool.getColor(PrimitiveType.STRING_TYPE.getNumber()))
         .isEqualTo(StandardColors.STRING);
-    assertThat(colorPool.getColor(primitiveTypePointer(PrimitiveType.UNKNOWN_TYPE)))
+    assertThat(colorPool.getColor(PrimitiveType.UNKNOWN_TYPE.getNumber()))
         .isEqualTo(StandardColors.UNKNOWN);
   }
 
   @Test
   public void deserializesTopObjectTypeFromEmptyTypePool() {
     ColorPool.ShardView colorPool =
-        ColorPool.fromOnlyShard(TypePool.getDefaultInstance(), StringPool.empty()).getOnlyShard();
+        ColorPool.fromOnlyShardForTesting(TypePool.getDefaultInstance(), StringPool.empty())
+            .getOnlyShardForTesting();
 
-    Color object = colorPool.getColor(primitiveTypePointer(PrimitiveType.TOP_OBJECT));
+    Color object = colorPool.getColor(PrimitiveType.TOP_OBJECT.getNumber());
     assertThat(object).isInvalidating();
     assertThat(object.getInstanceColors()).isEmpty();
     assertThat(object.getPrototypes()).isEmpty();
@@ -65,6 +65,7 @@ public class ColorPoolTest {
 
   @Test
   public void deserializesNativeObjectTableIntoNativeColor() {
+    StringPool.Builder stringPool = StringPool.builder();
     TypePool typePool =
         TypePool.newBuilder()
             .addType(
@@ -72,8 +73,6 @@ public class ColorPoolTest {
                     .setObject(
                         ObjectTypeProto.newBuilder()
                             .setUuid(StandardColors.NUMBER_OBJECT_ID.asByteString())
-                            .setDebugInfo(
-                                ObjectTypeProto.DebugInfo.newBuilder().addTypename("Number"))
                             .setIsInvalidating(true))
                     .build())
             .addType(
@@ -86,8 +85,8 @@ public class ColorPoolTest {
                 SubtypingEdge.newBuilder().setSubtype(poolPointer(0)).setSupertype(poolPointer(1)))
             .build();
 
-    ColorPool colorPool = ColorPool.fromOnlyShard(typePool, StringPool.empty());
-    ColorPool.ShardView view = colorPool.getOnlyShard();
+    ColorPool colorPool = ColorPool.fromOnlyShardForTesting(typePool, stringPool.build());
+    ColorPool.ShardView view = colorPool.getOnlyShardForTesting();
 
     Color numberObject = colorPool.getColor(StandardColors.NUMBER_OBJECT_ID);
     assertThat(numberObject).isInvalidating();
@@ -95,12 +94,13 @@ public class ColorPoolTest {
         .hasDisambiguationSupertypesThat(colorPool.getRegistry())
         .containsExactly(view.getColor(poolPointer(1)));
     assertThat(numberObject).isSameInstanceAs(view.getColor(poolPointer(0)));
+    assertThat(numberObject.getId()).isEqualTo(StandardColors.NUMBER_OBJECT_ID);
   }
 
   @Test
   public void testSynthesizesMissingStandardColors() {
     ColorPool colorPool =
-        ColorPool.fromOnlyShard(TypePool.getDefaultInstance(), StringPool.empty());
+        ColorPool.fromOnlyShardForTesting(TypePool.getDefaultInstance(), StringPool.empty());
 
     for (ColorId id : ColorRegistry.REQUIRED_IDS) {
       assertThat(colorPool.getColor(id)).hasId(id);
@@ -117,7 +117,7 @@ public class ColorPoolTest {
                         ObjectTypeProto.newBuilder().setUuid(ByteString.copyFromUtf8("Foo"))))
             .build();
     ColorPool.ShardView colorPool =
-        ColorPool.fromOnlyShard(typePool, StringPool.empty()).getOnlyShard();
+        ColorPool.fromOnlyShardForTesting(typePool, StringPool.empty()).getOnlyShardForTesting();
 
     assertThat(colorPool.getColor(poolPointer(0)))
         .isEqualTo(Color.singleBuilder().setId(fromAscii("Foo")).build());
@@ -145,7 +145,7 @@ public class ColorPoolTest {
                             .setMarkedConstructor(true)))
             .build();
     ColorPool.ShardView colorPool =
-        ColorPool.fromOnlyShard(typePool, StringPool.empty()).getOnlyShard();
+        ColorPool.fromOnlyShardForTesting(typePool, StringPool.empty()).getOnlyShardForTesting();
 
     assertThat(colorPool.getColor(poolPointer(2)))
         .isEqualTo(
@@ -170,7 +170,8 @@ public class ColorPoolTest {
                             .addOwnProperty(2)))
             .build();
     StringPool stringPool = StringPool.builder().putAnd("x").putAnd("y").build();
-    ColorPool.ShardView colorPool = ColorPool.fromOnlyShard(typePool, stringPool).getOnlyShard();
+    ColorPool.ShardView colorPool =
+        ColorPool.fromOnlyShardForTesting(typePool, stringPool).getOnlyShardForTesting();
 
     assertThat(colorPool.getColor(poolPointer(0)))
         .isEqualTo(
@@ -192,7 +193,7 @@ public class ColorPoolTest {
                             .setIsInvalidating(true)))
             .build();
     ColorPool.ShardView colorPool =
-        ColorPool.fromOnlyShard(typePool, StringPool.empty()).getOnlyShard();
+        ColorPool.fromOnlyShardForTesting(typePool, StringPool.empty()).getOnlyShardForTesting();
 
     assertThat(colorPool.getColor(poolPointer(0))).isInvalidating();
     assertThat(colorPool.getColor(poolPointer(0)).getId()).isEqualTo(ColorId.fromAscii("Foo"));
@@ -210,7 +211,7 @@ public class ColorPoolTest {
                             .setClosureAssert(true)))
             .build();
     ColorPool.ShardView colorPool =
-        ColorPool.fromOnlyShard(typePool, StringPool.empty()).getOnlyShard();
+        ColorPool.fromOnlyShardForTesting(typePool, StringPool.empty()).getOnlyShardForTesting();
 
     assertThat(colorPool.getColor(poolPointer(0))).isClosureAssert();
     assertThat(colorPool.getColor(poolPointer(0)).getId()).isEqualTo(ColorId.fromAscii("Foo"));
@@ -301,7 +302,7 @@ public class ColorPoolTest {
             .build();
     assertThrows(
         MalformedTypedAstException.class,
-        () -> ColorPool.fromOnlyShard(typePool, StringPool.empty()));
+        () -> ColorPool.fromOnlyShardForTesting(typePool, StringPool.empty()));
   }
 
   @Test
@@ -312,18 +313,18 @@ public class ColorPoolTest {
                 TypeProto.newBuilder()
                     .setUnion(
                         UnionTypeProto.newBuilder()
-                            .addUnionMember(primitiveTypePointer(PrimitiveType.NUMBER_TYPE))
-                            .addUnionMember(primitiveTypePointer(PrimitiveType.STRING_TYPE))))
+                            .addUnionMember(PrimitiveType.NUMBER_TYPE.getNumber())
+                            .addUnionMember(PrimitiveType.STRING_TYPE.getNumber())))
             .addType(
                 TypeProto.newBuilder()
                     .setUnion(
                         UnionTypeProto.newBuilder()
-                            .addUnionMember(primitiveTypePointer(PrimitiveType.NUMBER_TYPE))
-                            .addUnionMember(primitiveTypePointer(PrimitiveType.BIGINT_TYPE))))
+                            .addUnionMember(PrimitiveType.NUMBER_TYPE.getNumber())
+                            .addUnionMember(PrimitiveType.BIGINT_TYPE.getNumber())))
             .build();
 
-    ColorPool colorPool = ColorPool.fromOnlyShard(typePool, StringPool.empty());
-    ColorPool.ShardView view = colorPool.getOnlyShard();
+    ColorPool colorPool = ColorPool.fromOnlyShardForTesting(typePool, StringPool.empty());
+    ColorPool.ShardView view = colorPool.getOnlyShardForTesting();
 
     assertThat(view.getColor(poolPointer(0)))
         .hasAlternates(StandardColors.STRING, StandardColors.NUMBER);
@@ -333,27 +334,27 @@ public class ColorPoolTest {
 
   @Test
   public void deserializesUnionReferencingOtherUnion() {
-    TypePool typePool =
+    var typePool =
         TypePool.newBuilder()
             // U0 := (number, string)
             .addType(
                 TypeProto.newBuilder()
                     .setUnion(
                         UnionTypeProto.newBuilder()
-                            .addUnionMember(primitiveTypePointer(PrimitiveType.NUMBER_TYPE))
-                            .addUnionMember(primitiveTypePointer(PrimitiveType.STRING_TYPE))))
+                            .addUnionMember(PrimitiveType.NUMBER_TYPE.getNumber())
+                            .addUnionMember(PrimitiveType.STRING_TYPE.getNumber())))
             // U1 := (U0, bigint)
             .addType(
                 TypeProto.newBuilder()
                     .setUnion(
                         UnionTypeProto.newBuilder()
                             .addUnionMember(poolPointer(0))
-                            .addUnionMember(primitiveTypePointer(PrimitiveType.BIGINT_TYPE))))
+                            .addUnionMember(PrimitiveType.BIGINT_TYPE.getNumber())))
             .build();
 
     assertThrows(
         MalformedTypedAstException.class,
-        () -> ColorPool.fromOnlyShard(typePool, StringPool.empty()));
+        () -> ColorPool.fromOnlyShardForTesting(typePool, StringPool.empty()));
   }
 
   @Test
@@ -367,13 +368,13 @@ public class ColorPoolTest {
                 TypeProto.newBuilder()
                     .setUnion(
                         UnionTypeProto.newBuilder()
-                            .addUnionMember(primitiveTypePointer(PrimitiveType.NUMBER_TYPE))
+                            .addUnionMember(PrimitiveType.NUMBER_TYPE.getNumber())
                             .addUnionMember(poolPointer(1))))
             .addType(
                 TypeProto.newBuilder()
                     .setUnion(
                         UnionTypeProto.newBuilder()
-                            .addUnionMember(primitiveTypePointer(PrimitiveType.NUMBER_TYPE))
+                            .addUnionMember(PrimitiveType.NUMBER_TYPE.getNumber())
                             .addUnionMember(poolPointer(0))))
             .build();
 
@@ -383,8 +384,8 @@ public class ColorPoolTest {
     assertThrows(
         MalformedTypedAstException.class,
         () ->
-            ColorPool.fromOnlyShard(typePool, StringPool.empty())
-                .getOnlyShard()
+            ColorPool.fromOnlyShardForTesting(typePool, StringPool.empty())
+                .getOnlyShardForTesting()
                 .getColor(poolPointer(0)));
   }
 
@@ -395,8 +396,8 @@ public class ColorPoolTest {
     assertThrows(
         MalformedTypedAstException.class,
         () ->
-            ColorPool.fromOnlyShard(typePool, StringPool.empty())
-                .getOnlyShard()
+            ColorPool.fromOnlyShardForTesting(typePool, StringPool.empty())
+                .getOnlyShardForTesting()
                 .getColor(poolPointer(0)));
   }
 
@@ -408,14 +409,14 @@ public class ColorPoolTest {
                 TypeProto.newBuilder()
                     .setUnion(
                         UnionTypeProto.newBuilder()
-                            .addUnionMember(primitiveTypePointer(PrimitiveType.NUMBER_TYPE))))
+                            .addUnionMember(PrimitiveType.NUMBER_TYPE.getNumber())))
             .build();
 
     assertThrows(
         MalformedTypedAstException.class,
         () ->
-            ColorPool.fromOnlyShard(typePool, StringPool.empty())
-                .getOnlyShard()
+            ColorPool.fromOnlyShardForTesting(typePool, StringPool.empty())
+                .getOnlyShardForTesting()
                 .getColor(poolPointer(0)));
   }
 
@@ -432,7 +433,7 @@ public class ColorPoolTest {
             .build();
     assertThrows(
         IndexOutOfBoundsException.class,
-        () -> ColorPool.fromOnlyShard(typePool, StringPool.empty()));
+        () -> ColorPool.fromOnlyShardForTesting(typePool, StringPool.empty()));
   }
 
   @Test
@@ -481,9 +482,8 @@ public class ColorPoolTest {
     // When & Then
     assertThrows(
         MalformedTypedAstException.class,
-        () -> ColorPool.fromOnlyShard(typePool, StringPool.empty()));
+        () -> ColorPool.fromOnlyShardForTesting(typePool, StringPool.empty()));
   }
-
 
   @Test
   public void uuid_mustBeSet() {
@@ -527,7 +527,6 @@ public class ColorPoolTest {
     assertThat(defaultColor.isConstructor()).isFalse();
     assertThat(defaultColor.isInvalidating()).isFalse();
     assertThat(defaultColor.getPropertiesKeepOriginalName()).isFalse();
-    assertThat(defaultColor.getDebugInfo()).isSameInstanceAs(DebugInfo.EMPTY);
   }
 
   @Test
@@ -542,7 +541,7 @@ public class ColorPoolTest {
             .addDisambiguationEdges(
                 SubtypingEdge.newBuilder()
                     .setSubtype(poolPointer(0))
-                    .setSupertype(primitiveTypePointer(PrimitiveType.NUMBER_TYPE))
+                    .setSupertype(PrimitiveType.NUMBER_TYPE.getNumber())
                     .build())
             .build();
 
@@ -555,7 +554,7 @@ public class ColorPoolTest {
             .addDisambiguationEdges(
                 SubtypingEdge.newBuilder()
                     .setSubtype(poolPointer(0))
-                    .setSupertype(primitiveTypePointer(PrimitiveType.STRING_TYPE))
+                    .setSupertype(PrimitiveType.STRING_TYPE.getNumber())
                     .build())
             .build();
 
@@ -579,13 +578,13 @@ public class ColorPoolTest {
         singleObjectPool(
             ObjectTypeProto.newBuilder()
                 .setUuid(TEST_ID.asByteString())
-                .addInstanceType(primitiveTypePointer(PrimitiveType.NUMBER_TYPE)));
+                .addInstanceType(PrimitiveType.NUMBER_TYPE.getNumber()));
 
     TypePool typePool1 =
         singleObjectPool(
             ObjectTypeProto.newBuilder()
                 .setUuid(TEST_ID.asByteString())
-                .addInstanceType(primitiveTypePointer(PrimitiveType.STRING_TYPE)));
+                .addInstanceType(PrimitiveType.STRING_TYPE.getNumber()));
 
     // When
     ColorPool colorPool =
@@ -606,13 +605,13 @@ public class ColorPoolTest {
         singleObjectPool(
             ObjectTypeProto.newBuilder()
                 .setUuid(TEST_ID.asByteString())
-                .addPrototype(primitiveTypePointer(PrimitiveType.NUMBER_TYPE)));
+                .addPrototype(PrimitiveType.NUMBER_TYPE.getNumber()));
 
     TypePool typePool1 =
         singleObjectPool(
             ObjectTypeProto.newBuilder()
                 .setUuid(TEST_ID.asByteString())
-                .addPrototype(primitiveTypePointer(PrimitiveType.STRING_TYPE)));
+                .addPrototype(PrimitiveType.STRING_TYPE.getNumber()));
 
     // When
     ColorPool colorPool =
@@ -792,35 +791,6 @@ public class ColorPoolTest {
   }
 
   @Test
-  public void reconcile_debugNames() {
-    // Given
-    TypePool typePool0 =
-        singleObjectPool(
-            ObjectTypeProto.newBuilder()
-                .setUuid(TEST_ID.asByteString())
-                .setDebugInfo(
-                    ObjectTypeProto.DebugInfo.newBuilder().addTypename("A").addTypename("C")));
-
-    TypePool typePool1 =
-        singleObjectPool(
-            ObjectTypeProto.newBuilder()
-                .setUuid(TEST_ID.asByteString())
-                .setDebugInfo(
-                    ObjectTypeProto.DebugInfo.newBuilder().addTypename("B").addTypename("A")));
-
-    // When
-    ColorPool colorPool =
-        ColorPool.builder()
-            .addShardAnd(typePool0, StringPool.empty())
-            .addShardAnd(typePool1, StringPool.empty())
-            .build();
-
-    // Then
-    assertThat(colorPool.getColor(TEST_ID).getDebugInfo().getCompositeTypename())
-        .isEqualTo("A/B/C");
-  }
-
-  @Test
   public void reconcile_debugInfo_mismatches() {
     // Given
     TypePool typePool0 =
@@ -830,13 +800,13 @@ public class ColorPoolTest {
                     .addMismatch(
                         TypePool.DebugInfo.Mismatch.newBuilder()
                             .setSourceRef("location_0")
-                            .addInvolvedColor(primitiveTypePointer(PrimitiveType.SYMBOL_TYPE))
-                            .addInvolvedColor(primitiveTypePointer(PrimitiveType.STRING_TYPE))
+                            .addInvolvedColor(PrimitiveType.SYMBOL_TYPE.getNumber())
+                            .addInvolvedColor(PrimitiveType.STRING_TYPE.getNumber())
                             .build())
                     .addMismatch(
                         TypePool.DebugInfo.Mismatch.newBuilder()
                             .setSourceRef("location_1")
-                            .addInvolvedColor(primitiveTypePointer(PrimitiveType.NUMBER_TYPE))
+                            .addInvolvedColor(PrimitiveType.NUMBER_TYPE.getNumber())
                             .build()))
             .build();
 
@@ -847,13 +817,13 @@ public class ColorPoolTest {
                     .addMismatch(
                         TypePool.DebugInfo.Mismatch.newBuilder()
                             .setSourceRef("location_0")
-                            .addInvolvedColor(primitiveTypePointer(PrimitiveType.SYMBOL_TYPE))
-                            .addInvolvedColor(primitiveTypePointer(PrimitiveType.BOOLEAN_TYPE))
+                            .addInvolvedColor(PrimitiveType.SYMBOL_TYPE.getNumber())
+                            .addInvolvedColor(PrimitiveType.BOOLEAN_TYPE.getNumber())
                             .build())
                     .addMismatch(
                         TypePool.DebugInfo.Mismatch.newBuilder()
                             .setSourceRef("location_2")
-                            .addInvolvedColor(primitiveTypePointer(PrimitiveType.BIGINT_TYPE))
+                            .addInvolvedColor(PrimitiveType.BIGINT_TYPE.getNumber())
                             .build()))
             .build();
 
@@ -926,11 +896,7 @@ public class ColorPoolTest {
     return TypePool.newBuilder().addType(TypeProto.newBuilder().setObject(builder.build())).build();
   }
 
-  private static TypePointer primitiveTypePointer(PrimitiveType primitive) {
-    return TypePointer.newBuilder().setPoolOffset(primitive.getNumber()).build();
-  }
-
-  private static TypePointer poolPointer(int offset) {
-    return TypePointer.newBuilder().setPoolOffset(untrimOffset(offset)).build();
+  private static int poolPointer(int offset) {
+    return untrimOffset(offset);
   }
 }

@@ -31,7 +31,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Objects;
 import java.util.function.Function;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** An abstract representation of a source file. */
 @AutoValue
@@ -92,8 +92,7 @@ public abstract class Source {
   // hash code.  Thus, we use an internal-only Supplier subtype.
   abstract Lazy<String> codeSupplier();
 
-  @Nullable
-  abstract Lazy<String> originalCodeSupplier();
+  abstract @Nullable Lazy<String> originalCodeSupplier();
 
   /** Builder for Source instances. */
   @AutoValue.Builder
@@ -143,8 +142,7 @@ public abstract class Source {
     abstract Lazy<String> codeSupplier();
     abstract Source autoBuild();
 
-    @Nullable
-    abstract Lazy<String> originalCodeSupplier();
+    abstract @Nullable Lazy<String> originalCodeSupplier();
   }
 
   /** An automorphic transformation on sources. */
@@ -199,6 +197,7 @@ public abstract class Source {
     }
 
     /** Returns a Lazy that always returns the same instance. */
+    @SuppressWarnings("Immutable") // T is not known to be immutable.
     static <T> Lazy<T> ofInstance(T instance) {
       return new Lazy<T>() {
         @Override
@@ -209,6 +208,7 @@ public abstract class Source {
     }
 
     /** Returns a Lazy from a memoized supplier. */
+    @SuppressWarnings("Immutable") // Supplier is not intrinsically immutable.
     static <T> Lazy<T> memoize(Supplier<T> supplier) {
       Supplier<T> memoized = Suppliers.memoize(supplier);
       return new Lazy<T>() {

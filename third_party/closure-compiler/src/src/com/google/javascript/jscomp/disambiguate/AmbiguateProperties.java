@@ -54,6 +54,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Renames unrelated properties to the same name, using {@link Color}s provided by the typechecker.
@@ -96,9 +97,9 @@ public class AmbiguateProperties implements CompilerPass {
   private final ColorRegistry colorRegistry;
 
   /** Map from original property name to new name. Only used by tests. */
-  private Map<String, String> renamingMap = null;
+  private @Nullable Map<String, String> renamingMap = null;
 
-  private ColorGraphNodeFactory graphNodeFactory = null;
+  private @Nullable ColorGraphNodeFactory graphNodeFactory = null;
 
   /**
    * Sorts Property objects by their count, breaking ties alphabetically to ensure a deterministic
@@ -163,7 +164,7 @@ public class AmbiguateProperties implements CompilerPass {
 
     FixedPointGraphTraversal.<ColorGraphNode, Object>newReverseTraversal(
             (subtype, e, supertype) -> {
-              /**
+              /*
                * Cheap path for when we're sure there's going to be a change.
                *
                * <p>Since bits only ever turn on, using more bits means there are definitely more
@@ -257,7 +258,7 @@ public class AmbiguateProperties implements CompilerPass {
     }
   }
 
-  class PropertyGraph implements AdjacencyGraph<Property, Void> {
+  static class PropertyGraph implements AdjacencyGraph<Property, Void> {
     private final ArrayList<PropertyGraphNode> nodes;
 
     PropertyGraph(ArrayList<PropertyGraphNode> nodes) {
@@ -298,10 +299,10 @@ public class AmbiguateProperties implements CompilerPass {
   }
 
   /**
-   * A {@link SubGraph} that represents properties. The related types of
-   * the properties are used to efficiently calculate adjacency information.
+   * A {@link SubGraph} that represents properties. The related types of the properties are used to
+   * efficiently calculate adjacency information.
    */
-  class PropertySubGraph implements SubGraph<Property, Void> {
+  static class PropertySubGraph implements SubGraph<Property, Void> {
     /** Types related to properties referenced in this subgraph. */
     final BitSet relatedTypes = new BitSet();
 
@@ -345,7 +346,7 @@ public class AmbiguateProperties implements CompilerPass {
     }
 
     @Override
-    public void setAnnotation(Annotation data) {
+    public void setAnnotation(@Nullable Annotation data) {
       annotation = data;
     }
   }
@@ -449,7 +450,7 @@ public class AmbiguateProperties implements CompilerPass {
         case GETTER_DEF:
         case SETTER_DEF:
         case STRING_KEY:
-          if (key.isQuotedString()) {
+          if (key.isQuotedStringKey()) {
             // If this quoted prop name is statically determinable, ensure we don't rename some
             // other property in a way that could conflict with it
             quotedNames.add(key.getString());
@@ -508,7 +509,7 @@ public class AmbiguateProperties implements CompilerPass {
       for (Node member = NodeUtil.getClassMembers(classNode).getFirstChild();
           member != null;
           member = member.getNext()) {
-        if (member.isQuotedString()) {
+        if (member.isQuotedStringKey()) {
           // ignore get 'foo'() {} and prevent property name collisions
           // Note that only getters/setters are represented as quoted strings, not 'foo'() {}
           // see https://github.com/google/closure-compiler/issues/3071
@@ -589,7 +590,7 @@ public class AmbiguateProperties implements CompilerPass {
     int numOccurrences;
     boolean skipAmbiguating;
     // All colors upon which this property was directly accessed. For "a.b" this includes "a"'s type
-    IdentityHashMap<ColorGraphNode, Integer> relatedColorsSeeds = null;
+    @Nullable IdentityHashMap<ColorGraphNode, Integer> relatedColorsSeeds = null;
     // includes relatedTypesSeeds + all subtypes of those seed colors. For example if this property
     // was accessed off of Iterable, then this bitset will include Array as well.
     final BitSet relatedColors = new BitSet();

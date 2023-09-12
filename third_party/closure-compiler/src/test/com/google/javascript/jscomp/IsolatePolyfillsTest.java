@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import org.jspecify.nullness.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,7 +47,7 @@ public final class IsolatePolyfillsTest extends CompilerTestCase {
 
   private boolean enablePropertyFlattening = false;
 
-  private void addLibrary(String name, String from, String to, String library) {
+  private void addLibrary(String name, String from, String to, @Nullable String library) {
     polyfillTable.add(String.format("%s %s %s %s", name, from, to, nullToEmpty(library)));
     polyfillsToInject.add(name);
   }
@@ -111,6 +112,28 @@ public final class IsolatePolyfillsTest extends CompilerTestCase {
   public void testEmpty() {
     setLanguage(ES6, ES5);
     testSame("");
+  }
+
+  @Test
+  public void testOptChainCall_doesNotCrash() {
+    addLibrary("String.prototype.includes", "es6", "es5", "es6/string/includes");
+    addLibrary("Array.prototype.includes", "es6", "es5", "es6/array/includes");
+    test(
+        "if (a.b()?.includes()) {}",
+        lines(
+            "var $jscomp$polyfillTmp; ",
+            "if (($jscomp$polyfillTmp = a.b(),",
+            "    $jscomp$lookupPolyfilledValue($jscomp$polyfillTmp, 'includes',"
+                + " true))?.call($jscomp$polyfillTmp)) {}"));
+  }
+
+  @Test
+  public void testOptChainGetProp_doesNotCrash() {
+    addLibrary("String.prototype.includes", "es6", "es5", "es6/string/includes");
+    addLibrary("Array.prototype.includes", "es6", "es5", "es6/array/includes");
+    test(
+        "if (a.b?.includes()) {}",
+        lines("if ($jscomp$lookupPolyfilledValue(a.b, 'includes', true)?.call(a.b)) {}"));
   }
 
   @Test
