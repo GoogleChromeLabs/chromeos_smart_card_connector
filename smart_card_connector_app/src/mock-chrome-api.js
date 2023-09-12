@@ -150,6 +150,13 @@ const PROTOCOLS = ['UNDEFINED', 'T0', 'T1', 'RAW'];
 const DISPOSITIONS = ['LEAVE_CARD', 'RESET_CARD', 'UNPOWER_CARD', 'EJECT_CARD'];
 
 /**
+ * Contains the ConnectionState enum values exposed by
+ * chrome.smartCardProviderPrivate API.
+ */
+const CONNECTION_STATES =
+    ['ABSENT', 'PRESENT', 'SWALLOWED', 'POWERED', 'NEGOTIABLE', 'SPECIFIC'];
+
+/**
  * Sets up mocks for
  * chrome.smartCardProviderPrivate.*.addListener()/removeListener(),
  * report*Result functions. Checks that all events have a subscriber and that
@@ -231,6 +238,12 @@ GSC.ConnectorApp.MockChromeApi = class {
       propertyReplacer.setPath(
           `chrome.smartCardProviderPrivate.Disposition.${disposition}`,
           disposition);
+    }
+
+    // Mock ConnectionState enum.
+    for (const state of CONNECTION_STATES) {
+      propertyReplacer.setPath(
+          `chrome.smartCardProviderPrivate.ConnectionState.${state}`, state);
     }
   }
 
