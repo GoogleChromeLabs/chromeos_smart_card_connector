@@ -22,6 +22,7 @@ goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistry');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.UserPromptingChecker');
 goog.require('GoogleSmartCard.PopupOpener');
 goog.require('goog.Promise');
+goog.require('goog.Thenable');
 goog.require('goog.asserts');
 goog.require('goog.testing');
 goog.require('goog.testing.MockControl');
@@ -189,7 +190,8 @@ function negatePromise(promise) {
  * @param {function(!UserPromptingChecker):!Promise} testCallback The test
  * function to be run after the needed setup; must return a promise of the test
  * result.
- * @return {function():!goog.Promise} The wrapped test function, which returns a
+ * @return {function():!goog.Thenable} The wrapped test function, which returns
+ *     a
  * promise of the test result and the result of teardown.
  */
 function makeTest(

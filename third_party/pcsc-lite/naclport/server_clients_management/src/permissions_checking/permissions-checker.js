@@ -28,7 +28,7 @@
 
 goog.provide('GoogleSmartCard.Pcsc.PermissionsChecker');
 
-goog.require('goog.Promise');
+goog.require('goog.Thenable');
 
 goog.scope(function() {
 
@@ -49,7 +49,7 @@ GSC.Pcsc.PermissionsChecker = class {
    * eventually resolved if the permission is granted or rejected otherwise).
    * @param {string|null} clientOrigin Origin of the client application, or null
    * if the client is our own application.
-   * @return {!goog.Promise}
+   * @return {!goog.Thenable}
    * @abstract
    */
   check(clientOrigin) {}

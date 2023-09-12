@@ -34,7 +34,7 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.RemoteCallMessage');
 goog.require('GoogleSmartCard.Requester');
 goog.require('goog.Disposable');
-goog.require('goog.Promise');
+goog.require('goog.Thenable');
 goog.require('goog.asserts');
 goog.require('goog.iter');
 goog.require('goog.iter.Iterator');
@@ -131,7 +131,7 @@ Pcsc.ServerRequestHandler = class extends goog.Disposable {
    * @param {!goog.messaging.AbstractChannel} serverMessageChannel Message
    *     channel
    * to the PC/SC server into which the PC/SC requests will be forwarded.
-   * @param {!goog.Promise} serverReadinessTracker Tracker of the PC/SC server
+   * @param {!goog.Thenable} serverReadinessTracker Tracker of the PC/SC server
    * that allows to delay forwarding of the PC/SC requests to the PC/SC server
    * until it is ready to receive them.
    * @param {string} clientNameForLog
@@ -216,7 +216,7 @@ Pcsc.ServerRequestHandler = class extends goog.Disposable {
    * The request result will be passed through the returned promise.
    * @param {!RemoteCallMessage} remoteCallMessage The remote call message
    * containing the request contents.
-   * @return {!goog.Promise}
+   * @return {!goog.Thenable}
    */
   handleRequest(remoteCallMessage) {
     return this.deferredProcessor_.addJob(
@@ -229,7 +229,7 @@ Pcsc.ServerRequestHandler = class extends goog.Disposable {
    * The request result will be passed through the returned promise.
    * @param {!RemoteCallMessage} remoteCallMessage The remote call message
    * containing the request contents.
-   * @return {!goog.Promise}
+   * @return {!goog.Thenable}
    * @private
    */
   postRequestToServer_(remoteCallMessage) {

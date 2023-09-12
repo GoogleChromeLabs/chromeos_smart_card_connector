@@ -26,6 +26,9 @@ goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PcscLiteClient.API');
 goog.require('GoogleSmartCard.PcscLiteClient.Context');
+goog.require('goog.Promise');
+goog.require('goog.Thenable');
+goog.require('goog.Timer');
 goog.require('goog.array');
 goog.require('goog.async.nextTick');
 goog.require('goog.iter');
@@ -34,8 +37,6 @@ goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.object');
 goog.require('goog.promise.Resolver');
-goog.require('goog.Promise');
-goog.require('goog.Timer');
 
 goog.scope(function() {
 
@@ -131,7 +132,7 @@ ReaderTrackerThroughPcscApi.prototype.startStatusTracking_ = function(
 /**
  * Makes a promise of PC/SC client API instance.
  * @param {!goog.messaging.AbstractChannel} pcscContextMessageChannel
- * @return {!goog.Promise.<!API>}
+ * @return {!goog.Thenable.<!API>}
  * @private
  */
 ReaderTrackerThroughPcscApi.prototype.makeApiPromise_ = function(
@@ -156,7 +157,7 @@ ReaderTrackerThroughPcscApi.prototype.makeApiPromise_ = function(
 /**
  * Makes a promise of the established PC/SC context.
  * @param {!API} api
- * @return {!goog.Promise.<!API.SCARDCONTEXT>}
+ * @return {!goog.Thenable.<!API.SCARDCONTEXT>}
  * @private
  */
 ReaderTrackerThroughPcscApi.prototype.makeSCardContextPromise_ = function(api) {
@@ -201,7 +202,7 @@ ReaderTrackerThroughPcscApi.prototype.startStatusTrackingWithApi_ = function(
 
 /**
  * Attaches a rejection handler to the passed promise.
- * @param {!goog.Promise} promise
+ * @param {!goog.Thenable} promise
  * @private
  */
 ReaderTrackerThroughPcscApi.prototype.addPromiseErrorHandler_ = function(
@@ -259,7 +260,7 @@ ReaderTrackerThroughPcscApi.prototype.runStatusTrackingLoop_ = function(
  * Makes a promise of reader names that are currently reported by PC/SC.
  * @param {!API} api
  * @param {!API.SCARDCONTEXT} sCardContext
- * @return {!goog.Promise.<!Array.<string>>}
+ * @return {!goog.Thenable.<!Array.<string>>}
  * @private
  */
 ReaderTrackerThroughPcscApi.prototype.makeReaderNamesPromise_ = function(
@@ -296,7 +297,8 @@ ReaderTrackerThroughPcscApi.prototype.makeReaderNamesPromise_ = function(
  * @param {!API} api
  * @param {!API.SCARDCONTEXT} sCardContext
  * @param {!Array.<string>} readerNames
- * @return {!goog.Promise.<!Array.<!API.SCARD_READERSTATE_OUT>|null>} Either the
+ * @return {!goog.Thenable.<!Array.<!API.SCARD_READERSTATE_OUT>|null>} Either
+ *     the
  * states of the readers, or the null value in case of intermittent error.
  * @private
  */
@@ -370,7 +372,7 @@ ReaderTrackerThroughPcscApi.prototype.updateResultFromReaderStates_ = function(
  * @param {!API} api
  * @param {!API.SCARDCONTEXT} sCardContext
  * @param {!Array.<!API.SCARD_READERSTATE_OUT>} previousReaderStatesOut
- * @return {!goog.Promise}
+ * @return {!goog.Thenable}
  * @private
  */
 ReaderTrackerThroughPcscApi.prototype.makeReaderStatesChangePromise_ = function(

@@ -29,6 +29,7 @@ goog.provide('SmartCardClientApp.BuiltInPinDialog.Backend');
 goog.require('GoogleSmartCard.PopupOpener');
 goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('goog.Promise');
+goog.require('goog.Thenable');
 goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
@@ -81,7 +82,7 @@ SmartCardClientApp.BuiltInPinDialog.Backend = class {
 
 /**
  * @param {!Object} payload
- * @return {!goog.Promise}
+ * @return {!goog.Thenable}
  */
 function handleRequest(payload) {
   goog.log.info(logger, 'Starting PIN dialog...');

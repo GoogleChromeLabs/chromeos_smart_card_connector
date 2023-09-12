@@ -34,6 +34,7 @@ goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Json');
 goog.require('GoogleSmartCard.Logging');
 goog.require('goog.Promise');
+goog.require('goog.Thenable');
 goog.require('goog.asserts');
 goog.require('goog.log');
 goog.require('goog.log.Logger');
@@ -95,7 +96,7 @@ const TrustedClientsRegistry = GSC.PcscLiteServer.TrustedClientsRegistry;
  * The result is returned asynchronously as a promise (which will be rejected if
  * the given app isn't present in the config).
  * @param {string} origin
- * @return {!goog.Promise.<!TrustedClientInfo>}
+ * @return {!goog.Thenable.<!TrustedClientInfo>}
  */
 TrustedClientsRegistry.prototype.getByOrigin = function(origin) {};
 
@@ -108,7 +109,7 @@ TrustedClientsRegistry.prototype.getByOrigin = function(origin) {};
  * containing either the information for the i-th client in |originList| or
  * |null| if the client isn't present in the config.
  * @param {!Array.<string>} originList
- * @return {!goog.Promise.<!Array.<?TrustedClientInfo>>}
+ * @return {!goog.Thenable.<!Array.<?TrustedClientInfo>>}
  */
 TrustedClientsRegistry.prototype.tryGetByOrigins = function(originList) {};
 

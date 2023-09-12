@@ -36,6 +36,7 @@ goog.require('GoogleSmartCard.PcscLiteClient.NaclClientBackend');
 goog.require('GoogleSmartCard.RemoteCallMessage');
 goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('goog.Promise');
+goog.require('goog.Thenable');
 goog.require('goog.Timer');
 goog.require('goog.functions');
 goog.require('goog.log');
@@ -134,7 +135,7 @@ GSC.PcscLiteClient.NaclClientBackend = class {
 
   /**
    * @param {!Object} payload
-   * @return {!goog.Promise}
+   * @return {!goog.Thenable}
    * @private
    */
   handleRequest_(payload) {

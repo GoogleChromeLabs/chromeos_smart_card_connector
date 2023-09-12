@@ -18,6 +18,7 @@
 goog.provide('GoogleSmartCard.Json');
 
 goog.require('goog.Promise');
+goog.require('goog.Thenable');
 goog.require('goog.json.NativeJsonProcessor');
 
 goog.scope(function() {
@@ -32,7 +33,7 @@ const GSC = GoogleSmartCard;
  * Chrome App environment (it tries to use eval, which is not allowed in
  * packaged Chrome Apps).
  * @param {string} jsonString
- * @return {!goog.Promise.<*>}
+ * @return {!goog.Thenable.<*>}
  */
 GSC.Json.parse = function(jsonString) {
   const processor = new goog.json.NativeJsonProcessor();

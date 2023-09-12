@@ -29,7 +29,7 @@ goog.require('GoogleSmartCard.ObjectHelpers');
 goog.require('GoogleSmartCard.Packaging');
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientInfo');
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistryImpl');
-goog.require('goog.Promise');
+goog.require('goog.Thenable');
 goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.dom');
@@ -52,12 +52,12 @@ const trustedClientsRegistry =
     new GSC.PcscLiteServer.TrustedClientsRegistryImpl();
 
 /**
- * @type {goog.Promise.<!Array.<!TrustedClientInfo>>?}
+ * @type {goog.Thenable.<!Array.<!TrustedClientInfo>>?}
  */
 let lastTrustedClientInfosPromise = null;
 
 /**
- * @param {!goog.Promise.<!Array.<!TrustedClientInfo>>}
+ * @param {!goog.Thenable.<!Array.<!TrustedClientInfo>>}
  *     trustedClientInfosPromise
  * @param {!Array.<string>} appIds
  * @param {Array.<!TrustedClientInfo>?} trustedClientInfos

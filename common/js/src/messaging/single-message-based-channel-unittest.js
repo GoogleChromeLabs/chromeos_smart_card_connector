@@ -19,7 +19,7 @@ goog.require('GoogleSmartCard.MessageChannelPinging.PingResponder');
 goog.require('GoogleSmartCard.MessageChannelPinging.Pinger');
 goog.require('GoogleSmartCard.SingleMessageBasedChannel');
 goog.require('GoogleSmartCard.TypedMessage');
-goog.require('goog.Promise');
+goog.require('goog.Thenable');
 goog.require('goog.asserts');
 goog.require('goog.promise.Resolver');
 goog.require('goog.testing');

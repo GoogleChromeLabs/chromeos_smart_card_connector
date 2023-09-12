@@ -32,6 +32,7 @@ goog.require('GoogleSmartCard.ExtensionId');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.MessagingOrigin');
 goog.require('goog.Promise');
+goog.require('goog.Thenable');
 goog.require('goog.array');
 goog.require('goog.log');
 goog.require('goog.log.Logger');
@@ -80,7 +81,7 @@ ManagedRegistry.prototype.logger =
  * The result is returned asynchronously as a promise (which will eventually be
  * resolved if the permission is granted or rejected otherwise).
  * @param {string} clientOrigin Origin of the client application
- * @return {!goog.Promise}
+ * @return {!goog.Thenable}
  */
 ManagedRegistry.prototype.getByOrigin = function(clientOrigin) {
   const promiseResolver = goog.Promise.withResolver();
