@@ -1082,6 +1082,102 @@ goog.exportSymbol('testPcscApi', {
       assert(called);
       assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
     },
+
+    // Test `SCardGetAttrib()` succeeds and returns information about the card.
+    'testSCardGetAttrib_successAtr': async function() {
+      await launchPcscServer(
+          /*initialDevices=*/[{
+            'id': 123,
+            'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
+            'cardType': SimulationConstants.COSMO_CARD_TYPE
+          }]);
+      const context = await establishContextOrThrow();
+      const cardHandle = await connectToCardOrThrow(
+          context, SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+          API.SCARD_SHARE_SHARED,
+          /*preferredProtocols=*/ API.SCARD_PROTOCOL_ANY,
+          /*assertResultProtocol=*/ API.SCARD_PROTOCOL_T1);
+
+      const result = await client.api.SCardGetAttrib(
+          cardHandle, API.SCARD_ATTR_ATR_STRING);
+
+      let called = false;
+      result.get(
+          (attr) => {
+            called = true;
+            assertObjectEquals(attr, SimulationConstants.COSMO_ID_70_ATR);
+          },
+          (errorCode) => {
+            fail(`Unexpected SCardGetAttrib error ${errorCode}`);
+          });
+      assert(called);
+      assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
+    },
+
+    // Test `SCardGetAttrib()` fails when unknown attribute ID is specified.
+    'testSCardGetAttrib_errorWrongAttrId': async function() {
+      const BAD_ATTR_ID = 1;
+
+      await launchPcscServer(
+          /*initialDevices=*/[{
+            'id': 123,
+            'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
+            'cardType': SimulationConstants.COSMO_CARD_TYPE
+          }]);
+      const context = await establishContextOrThrow();
+      const cardHandle = await connectToCardOrThrow(
+          context, SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+          API.SCARD_SHARE_SHARED,
+          /*preferredProtocols=*/ API.SCARD_PROTOCOL_ANY,
+          /*assertResultProtocol=*/ API.SCARD_PROTOCOL_T1);
+
+      const result = await client.api.SCardGetAttrib(cardHandle, BAD_ATTR_ID);
+
+      let called = false;
+      result.get(
+          (attr) => {
+            fail('Unexpectedly succeeded in SCardGetAttrib');
+          },
+          (errorCode) => {
+            called = true;
+            assertEquals(errorCode, API.SCARD_E_UNSUPPORTED_FEATURE);
+          });
+      assert(called);
+      assertEquals(result.getErrorCode(), API.SCARD_E_UNSUPPORTED_FEATURE);
+    },
+
+    // Test `SCardGetAttrib()` fails when the card handle is already
+    // disconnected.
+    'testSCardGetAttrib_errorNoHandles': async function() {
+      await launchPcscServer(
+          /*initialDevices=*/[{
+            'id': 123,
+            'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
+            'cardType': SimulationConstants.COSMO_CARD_TYPE
+          }]);
+      await establishContextOrThrow();
+      const cardHandle = await connectToCardOrThrow(
+          context, SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+          API.SCARD_SHARE_SHARED,
+          /*preferredProtocols=*/ API.SCARD_PROTOCOL_ANY,
+          /*assertResultProtocol=*/ API.SCARD_PROTOCOL_T1);
+      await client.api.SCardDisconnect(cardHandle, API.SCARD_LEAVE_CARD);
+
+      const result = await client.api.SCardGetAttrib(
+          cardHandle, API.SCARD_ATTR_ATR_STRING);
+
+      let called = false;
+      result.get(
+          () => {
+            fail('Unexpectedly succeeded in SCardGetAttrib');
+          },
+          (errorCode) => {
+            called = true;
+            assertEquals(errorCode, API.SCARD_E_INVALID_HANDLE);
+          });
+      assert(called);
+      assertEquals(result.getErrorCode(), API.SCARD_E_INVALID_HANDLE);
+    },
   },
 
   // Test that the PC/SC server can shut down successfully when there's an
