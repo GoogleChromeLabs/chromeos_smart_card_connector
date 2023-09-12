@@ -39,6 +39,7 @@ const ChromeApiProvider = GSC.ConnectorApp.ChromeApiProvider;
 const MockChromeApi = GSC.ConnectorApp.MockChromeApi;
 const ReadinessTracker = GSC.PcscLiteServerClientsManagement.ReadinessTracker;
 const SimulationConstants = GSC.TestingLibusbSmartCardSimulationConstants;
+const ArgMatcher = goog.testing.mockmatchers.ArgumentMatcher;
 
 const PNP_NOTIFICATION = GSC.PcscLiteCommon.Constants.PNP_NOTIFICATION;
 
@@ -54,6 +55,8 @@ let mockChromeApi;
 let mockControl;
 /** @type {ChromeApiProvider?} */
 let chromeApiProvider;
+/** @type {number} */
+let readerHandle;
 
 /**
  * @param {!Array} initialDevices
@@ -134,7 +137,7 @@ function getFreshMock(functionName) {
 async function establishContext(requestId) {
   let sCardContext = 0;
   getFreshMock('reportEstablishContextResult')(
-          requestId, goog.testing.mockmatchers.isNumber, 'SUCCESS')
+      requestId, goog.testing.mockmatchers.isNumber, 'SUCCESS')
       .$once()
       .$does((requestId, context, resultCode) => {
         sCardContext = context;
@@ -161,8 +164,8 @@ async function connect(
     expectedProtocol) {
   let sCardHandle = 0;
   getFreshMock('reportConnectResult')(
-          requestId, goog.testing.mockmatchers.isNumber, expectedProtocol,
-          'SUCCESS')
+      requestId, goog.testing.mockmatchers.isNumber, expectedProtocol,
+      'SUCCESS')
       .$once()
       .$does((_0, handle, _1, _2) => {
         sCardHandle = handle;
@@ -210,7 +213,7 @@ function expectReportListReaders(requestId, readers, resultCode) {
  */
 function expectReportGetStatusChange(requestId, readerStates, resultCode) {
   getFreshMock('reportGetStatusChangeResult')(
-          requestId, readerStates, resultCode)
+      requestId, readerStates, resultCode)
       .$once()
       .$replay();
 }
@@ -222,9 +225,7 @@ function expectReportGetStatusChange(requestId, readerStates, resultCode) {
  * @param {string} resultCode
  */
 function expectReportPlainResult(requestId, resultCode) {
-  getFreshMock('reportPlainResult')(requestId, resultCode)
-      .$once()
-      .$replay();
+  getFreshMock('reportPlainResult')(requestId, resultCode).$once().$replay();
 }
 
 /**
@@ -236,9 +237,27 @@ function expectReportPlainResult(requestId, resultCode) {
  */
 function expectReportConnectResult(requestId, activeProtocol, resultCode) {
   getFreshMock('reportConnectResult')(
-          requestId,
-          /*scardHandle=*/ goog.testing.mockmatchers.isNumber, activeProtocol,
-          resultCode)
+      requestId,
+      /*scardHandle=*/ goog.testing.mockmatchers.isNumber, activeProtocol,
+      resultCode)
+      .$once()
+      .$replay();
+}
+
+/**
+ * Sets expectation that reportStatusResult will be called with given
+ * parameters.
+ * @param {number} requestId
+ * @param {string|!ArgMatcher} readerName
+ * @param {!chrome.smartCardProviderPrivate.ConnectionState|!ArgMatcher} state
+ * @param {!chrome.smartCardProviderPrivate.Protocol|!ArgMatcher} protocol
+ * @param {!ArrayBuffer|!ArgMatcher} atr
+ * @param {string|!ArgMatcher} resultCode
+ */
+function expectReportStatusResult(
+    requestId, readerName, state, protocol, atr, resultCode) {
+  getFreshMock('reportStatusResult')(
+      requestId, readerName, state, protocol, atr, resultCode)
       .$once()
       .$replay();
 }
@@ -626,6 +645,149 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
             'onDisconnectRequested', /*requestId=*/ 113, BAD_HANDLE,
             chrome.smartCardProviderPrivate.Disposition.LEAVE_CARD)
         .$waitAndVerify();
+  },
+
+  'testConnectedReader': {
+    'setUp': async function() {
+      await launchPcscServer(/*initialDevices=*/[{
+        'id': 123,
+        'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
+        'cardType': SimulationConstants.COSMO_CARD_TYPE
+      }]);
+      const sCardContext = await establishContext(/*requestId=*/ 66);
+      readerHandle = await connect(
+          /*requestId=*/ 67, sCardContext,
+          SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+          chrome.smartCardProviderPrivate.ShareMode.SHARED,
+          /*preferredProtocols=*/ {'t1': true},
+          /*expectedProtocol=*/ chrome.smartCardProviderPrivate.Protocol.T1);
+    },
+
+    'tearDown': async function() {
+      expectReportPlainResult(/*requestId=*/ 68, 'SUCCESS');
+      await mockChromeApi
+          .dispatchEvent(
+              'onDisconnectRequested', /*requestId=*/ 68, readerHandle,
+              chrome.smartCardProviderPrivate.Disposition.LEAVE_CARD)
+          .$waitAndVerify();
+    },
+
+    // Test that Status returns information about the card.
+    'testStatus': async function() {
+      expectReportStatusResult(
+          /*requestId=*/ 111,
+          SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+          chrome.smartCardProviderPrivate.ConnectionState.NEGOTIABLE,
+          chrome.smartCardProviderPrivate.Protocol.T1,
+          SimulationConstants.COSMO_ID_70_ATR, 'SUCCESS');
+      await mockChromeApi
+          .dispatchEvent('onStatusRequested', /*requestId=*/ 111, readerHandle)
+          .$waitAndVerify();
+    },
+
+    // Test that Status returns READER_UNAVAILABLE after reader disappears.
+    'testStatus_readerUnavailable': async function() {
+      await setSimulatedDevices(/*devices=*/[]);
+
+      // Status should eventually return a READER_UNAVAILABLE error.
+      for (let requestId = 111; ; requestId += 1) {
+        const ignore = goog.testing.mockmatchers.ignoreArgument;
+        let savedArgs;
+        getFreshMock('reportStatusResult')(
+            requestId, ignore, ignore, ignore, ignore, ignore)
+            .$once()
+            .$does((requestId, ...args) => {
+              savedArgs = args;
+            })
+            .$replay();
+        await mockChromeApi
+            .dispatchEvent('onStatusRequested', requestId, readerHandle)
+            .$waitAndVerify();
+
+        const resultCode = savedArgs[savedArgs.length - 1];
+        // If result code is still SUCCESS, continue.
+        if (resultCode == 'SUCCESS') {
+          assertArrayEquals(
+              [
+                SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+                chrome.smartCardProviderPrivate.ConnectionState.NEGOTIABLE,
+                chrome.smartCardProviderPrivate.Protocol.T1,
+                SimulationConstants.COSMO_ID_70_ATR, 'SUCCESS'
+              ],
+              savedArgs);
+          continue;
+        }
+
+        if (resultCode != 'READER_UNAVAILABLE') {
+          fail(`Unexpected result code: ${resultCode}`);
+        }
+
+        // Got the expected error code.
+        // Since result code is error, default values should be reported.
+        assertArrayEquals(
+            [
+              '', chrome.smartCardProviderPrivate.ConnectionState.ABSENT,
+              chrome.smartCardProviderPrivate.Protocol.UNDEFINED,
+              new ArrayBuffer(0), 'READER_UNAVAILABLE'
+            ],
+            savedArgs);
+        break;
+      }
+    },
+
+    // Test that Status returns REMOVED_CARD after removing the card.
+    'testStatus_removedCard': async function() {
+      // Simulate the card removal.
+      await setSimulatedDevices(/*devices=*/[
+        {'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}
+      ]);
+
+      // Status should eventually return a REMOVED_CARD error.
+      for (let requestId = 111; ; requestId += 1) {
+        const ignore = goog.testing.mockmatchers.ignoreArgument;
+        let savedArgs;
+        getFreshMock('reportStatusResult')(
+            requestId, ignore, ignore, ignore, ignore, ignore)
+            .$once()
+            .$does((requestId, ...args) => {
+              savedArgs = args;
+            })
+            .$replay();
+        await mockChromeApi
+            .dispatchEvent('onStatusRequested', requestId, readerHandle)
+            .$waitAndVerify();
+
+        const resultCode = savedArgs[savedArgs.length - 1];
+        // If result code is still SUCCESS, continue.
+        if (resultCode == 'SUCCESS') {
+          assertArrayEquals(
+              [
+                SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+                chrome.smartCardProviderPrivate.ConnectionState.NEGOTIABLE,
+                chrome.smartCardProviderPrivate.Protocol.T1,
+                SimulationConstants.COSMO_ID_70_ATR, 'SUCCESS'
+              ],
+              savedArgs);
+          continue;
+        }
+
+        if (resultCode != 'REMOVED_CARD') {
+          goog.testing.asserts.raiseException(
+              `Unexpected result code: ${resultCode}`);
+        }
+
+        // Got the expected error code.
+        // Since result code is error, default values should be reported.
+        assertArrayEquals(
+            [
+              '', chrome.smartCardProviderPrivate.ConnectionState.ABSENT,
+              chrome.smartCardProviderPrivate.Protocol.UNDEFINED,
+              new ArrayBuffer(0), 'REMOVED_CARD'
+            ],
+            savedArgs);
+        break;
+      }
+    }
   }
 });
 });  // goog.scope
