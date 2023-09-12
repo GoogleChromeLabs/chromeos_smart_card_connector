@@ -25,6 +25,7 @@ goog.provide('GoogleSmartCard.Requester');
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.PromiseHelpers');
 goog.require('GoogleSmartCard.RequesterMessage');
 goog.require('GoogleSmartCard.RequesterMessage.RequestMessageData');
 goog.require('GoogleSmartCard.RequesterMessage.ResponseMessageData');
@@ -110,6 +111,10 @@ GSC.Requester = class extends goog.Disposable {
             ', the payload is: ' + GSC.DebugDump.debugDumpSanitized(payload));
 
     const promiseResolver = goog.Promise.withResolver();
+    // Hack to prevent spurious "UnhandledPromiseRejection" errors, which happen
+    // when using the native `await` against Closure Library's (now-deprecated)
+    // `goog.Promise` if the latter is rejected.
+    GSC.PromiseHelpers.suppressUnhandledRejectionError(promiseResolver.promise);
 
     if (this.isDisposed()) {
       // FIXME(emaxx): Probably add the disposal reason information into the
@@ -125,7 +130,14 @@ GSC.Requester = class extends goog.Disposable {
     const requestMessageData = new RequestMessageData(requestId, payload);
     const messageData = requestMessageData.makeMessageData();
     const serviceName = RequesterMessage.getRequestMessageType(this.name_);
-    this.messageChannel_.send(serviceName, messageData);
+    /** @preserveTry */
+    try {
+      this.messageChannel_.send(serviceName, messageData);
+    } catch (e) {
+      // If sending the message triggered an exception, use it to populate the
+      // response.
+      this.rejectRequest_(requestId, e);
+    }
 
     return promiseResolver.promise;
   }
@@ -139,7 +151,8 @@ GSC.Requester = class extends goog.Disposable {
       // FIXME(emaxx): Probably add the disposal reason information into the
       // message?
       this.rejectRequest_(
-          goog.string.parseInt(requestId), 'The requester is disposed');
+          goog.string.parseInt(requestId),
+          new Error('The requester is disposed'));
     });
     this.requestIdToPromiseResolverMap_ = null;
 
@@ -201,10 +214,12 @@ GSC.Requester = class extends goog.Disposable {
               requestId);
     }
 
-    if (responseMessageData.isSuccessful())
+    if (responseMessageData.isSuccessful()) {
       this.resolveRequest_(requestId, responseMessageData.getPayload());
-    else
-      this.rejectRequest_(requestId, responseMessageData.getErrorMessage());
+    } else {
+      this.rejectRequest_(
+          requestId, new Error(responseMessageData.getErrorMessage()));
+    }
   }
 
   /**
@@ -222,15 +237,14 @@ GSC.Requester = class extends goog.Disposable {
 
   /**
    * @param {number} requestId
-   * @param {string} errorMessage
+   * @param {!Error} error
    * @private
    */
-  rejectRequest_(requestId, errorMessage) {
+  rejectRequest_(requestId, error) {
     goog.log.fine(
         this.logger,
-        'The request with identifier ' + requestId +
-            ' failed: ' + errorMessage);
-    this.popRequestPromiseResolver_(requestId).reject(new Error(errorMessage));
+        'The request with identifier ' + requestId + ' failed: ' + error);
+    this.popRequestPromiseResolver_(requestId).reject(error);
   }
 
   /**

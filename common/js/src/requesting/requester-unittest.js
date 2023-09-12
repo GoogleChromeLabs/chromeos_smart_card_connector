@@ -23,6 +23,7 @@ goog.require('goog.reflect');
 goog.require('goog.testing.MockControl');
 goog.require('goog.testing.jsunit');
 goog.require('goog.testing.messaging.MockMessageChannel');
+goog.require('goog.testing.mockmatchers');
 
 goog.setTestOnly();
 
@@ -35,6 +36,8 @@ const RequestMessageData = GSC.RequesterMessage.RequestMessageData;
 const ResponseMessageData = GSC.RequesterMessage.ResponseMessageData;
 const getRequestMessageType = GSC.RequesterMessage.getRequestMessageType;
 const getResponseMessageType = GSC.RequesterMessage.getResponseMessageType;
+
+const ignoreArgument = goog.testing.mockmatchers.ignoreArgument;
 
 class PromiseTracker {
   constructor(promise) {
@@ -164,5 +167,29 @@ goog.exportSymbol('testRequester_disposed', function() {
   return requestPromise.then(() => {
     fail('Unexpected success');
   }, () => {});
+});
+
+goog.exportSymbol('testRequester_exceptionWhileSending', async function() {
+  const REQUESTER_NAME = 'test-requester';
+  const SEND_ERROR_MESSAGE = 'fake send error';
+
+  const mockControl = new goog.testing.MockControl();
+  const mockMessageChannel =
+      new goog.testing.messaging.MockMessageChannel(mockControl);
+  /** @type {?} */ mockMessageChannel.send;
+  // Set up mock that throws an exception when a message is sent.
+  mockMessageChannel.send(ignoreArgument, ignoreArgument)
+      .$throws(new Error(SEND_ERROR_MESSAGE));
+  mockMessageChannel.send.$replay();
+  const requester = new Requester(REQUESTER_NAME, mockMessageChannel);
+
+  try {
+    await requester.postRequest({});
+  } catch (e) {
+    // This is the expected branch. Verify the error message is passed through.
+    assertContains(SEND_ERROR_MESSAGE, e.toString());
+    return;
+  }
+  fail('Message posting unexpectedly succeeded');
 });
 });  // goog.scope
