@@ -1035,6 +1035,43 @@ goog.exportSymbol('testPcscApi', {
       assert(called);
       assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
     },
+
+    // Test `SCardStatus()` succeeds and returns information about the card.
+    'testSCardStatus_success': async function() {
+      await launchPcscServer(
+          /*initialDevices=*/[{
+            'id': 123,
+            'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
+            'cardType': SimulationConstants.COSMO_CARD_TYPE
+          }]);
+      const context = await establishContextOrThrow();
+      const cardHandle = await connectToCardOrThrow(
+          context, SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+          API.SCARD_SHARE_SHARED,
+          /*preferredProtocols=*/ API.SCARD_PROTOCOL_ANY,
+          /*assertResultProtocol=*/ API.SCARD_PROTOCOL_T1);
+
+      const result = await client.api.SCardStatus(cardHandle);
+
+      let called = false;
+      result.get(
+          (readerName, state, protocol, atr) => {
+            called = true;
+            assertEquals(
+                readerName,
+                SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0);
+            assertEquals(
+                state,
+                API.SCARD_NEGOTIABLE | API.SCARD_POWERED | API.SCARD_PRESENT);
+            assertEquals(protocol, API.SCARD_PROTOCOL_T1);
+            assertObjectEquals(atr, SimulationConstants.COSMO_ID_70_ATR);
+          },
+          (errorCode) => {
+            fail(`Unexpected SCardStatus error ${errorCode}`);
+          });
+      assert(called);
+      assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
+    },
   },
 
   // Test that the PC/SC server can shut down successfully when there's an
