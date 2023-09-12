@@ -24,6 +24,7 @@
 goog.provide('GoogleSmartCard.PcscLiteServer.ReaderInfo');
 goog.provide('GoogleSmartCard.PcscLiteServer.ReaderStatus');
 goog.provide('GoogleSmartCard.PcscLiteServer.ReaderTracker');
+goog.provide('GoogleSmartCard.PcscLiteServer.ReaderTrackerThroughPcscServerHook');
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
@@ -102,9 +103,10 @@ GSC.PcscLiteServer.ReaderTracker = function(
   this.updateListeners_ = [];
 
   /** @private @const */
-  this.trackerThroughPcscServerHook_ = new TrackerThroughPcscServerHook(
-      this.logger_, serverMessageChannel,
-      this.fireOnUpdateListeners_.bind(this));
+  this.trackerThroughPcscServerHook_ =
+      new GSC.PcscLiteServer.ReaderTrackerThroughPcscServerHook(
+          this.logger_, serverMessageChannel,
+          this.fireOnUpdateListeners_.bind(this));
 
   /** @private @const */
   this.trackerThroughPcscApi_ =
@@ -206,7 +208,7 @@ ReaderTracker.prototype.fireOnUpdateListeners_ = function() {
  * @param {function()} updateListener
  * @constructor
  */
-function TrackerThroughPcscServerHook(
+GSC.PcscLiteServer.ReaderTrackerThroughPcscServerHook = function(
     logger, serverMessageChannel, updateListener) {
   /** @private @const */
   this.logger_ = logger;
@@ -228,12 +230,15 @@ function TrackerThroughPcscServerHook(
       'reader_finish_add', this.readerFinishAddListener_.bind(this), true);
   serverMessageChannel.registerService(
       'reader_remove', this.readerRemoveListener_.bind(this), true);
-}
+};
+
+const ReaderTrackerThroughPcscServerHook =
+    GSC.PcscLiteServer.ReaderTrackerThroughPcscServerHook;
 
 /**
  * @return {!Array.<!ReaderInfo>}
  */
-TrackerThroughPcscServerHook.prototype.getReaders = function() {
+ReaderTrackerThroughPcscServerHook.prototype.getReaders = function() {
   // Return the readers sorted by their port (the exact key used for the
   // ordering doesn't matter, it's just a simplest way to guarantee the stable
   // order across multiple calls).
@@ -248,7 +253,7 @@ TrackerThroughPcscServerHook.prototype.getReaders = function() {
  * @param {!Object|string} message
  * @private
  */
-TrackerThroughPcscServerHook.prototype.readerInitAddListener_ = function(
+ReaderTrackerThroughPcscServerHook.prototype.readerInitAddListener_ = function(
     message) {
   /** @type {string} */
   const name = GSC.MessagingCommon.extractKey(message, 'readerName');
@@ -273,8 +278,8 @@ TrackerThroughPcscServerHook.prototype.readerInitAddListener_ = function(
  * @param {!Object|string} message
  * @private
  */
-TrackerThroughPcscServerHook.prototype.readerFinishAddListener_ = function(
-    message) {
+ReaderTrackerThroughPcscServerHook.prototype.readerFinishAddListener_ =
+    function(message) {
   /** @type {string} */
   const name = GSC.MessagingCommon.extractKey(message, 'readerName');
   /** @type {number} */
@@ -316,7 +321,7 @@ TrackerThroughPcscServerHook.prototype.readerFinishAddListener_ = function(
  * @param {!Object|string} message
  * @private
  */
-TrackerThroughPcscServerHook.prototype.readerRemoveListener_ = function(
+ReaderTrackerThroughPcscServerHook.prototype.readerRemoveListener_ = function(
     message) {
   /** @type {string} */
   const name = GSC.MessagingCommon.extractKey(message, 'readerName');

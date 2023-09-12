@@ -21,7 +21,9 @@
 goog.require('GoogleSmartCard.ConnectorApp.ChromeApiProvider');
 goog.require('GoogleSmartCard.ConnectorApp.MockChromeApi');
 goog.require('GoogleSmartCard.IntegrationTestController');
+goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PcscLiteCommon.Constants');
+goog.require('GoogleSmartCard.PcscLiteServer.ReaderTrackerThroughPcscServerHook');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
 goog.require('GoogleSmartCard.TestingLibusbSmartCardSimulationConstants');
 goog.require('goog.Thenable');
@@ -60,6 +62,14 @@ let chromeApiProvider;
  * @return {!Promise}
  */
 async function launchPcscServer(initialDevices) {
+  // Set up listeners for internal reader events, to suppress spurious errors
+  // about unexpected C++->JS messages. The object is not stored anywhere as it
+  // manages its own lifetime itself.
+  new GSC.PcscLiteServer.ReaderTrackerThroughPcscServerHook(
+      GSC.Logging.getScopedLogger('ReaderTracker'),
+      testController.executableModule.getMessageChannel(),
+      /*updateListener=*/ () => {});
+
   await testController.setUpCppHelper(
       SimulationConstants.CPP_HELPER_NAME, initialDevices);
 }
