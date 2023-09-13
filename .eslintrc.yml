@@ -54,7 +54,6 @@ rules:
   no-var: error
   prefer-const: error
   prefer-promise-reject-errors: error
-  semi-spacing: error
   semi-style: error
   semi: error
   no-floating-promise/no-floating-promise: error
