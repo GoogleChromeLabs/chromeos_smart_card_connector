@@ -31,7 +31,7 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.MessagingCommon');
 goog.require('GoogleSmartCard.PcscLiteClient.ReaderTrackerThroughPcscApi');
 goog.require('GoogleSmartCard.TypedMessage');
-goog.require('goog.Promise');
+goog.require('goog.Thenable');
 goog.require('goog.Timer');
 goog.require('goog.array');
 goog.require('goog.log');

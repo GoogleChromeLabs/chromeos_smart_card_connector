@@ -27,7 +27,7 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.Disposable');
-goog.require('goog.Promise');
+goog.require('goog.Thenable');
 
 goog.scope(function() {
 
@@ -85,7 +85,7 @@ GSC.ExecutableModule = class extends goog.Disposable {
    * Returns the promise that gets fulfilled when the module loading completes.
    * The promise will be rejected in case the loading failed.
    * @abstract
-   * @return {!goog.Promise<void>}
+   * @return {!goog.Thenable<void>}
    */
   getLoadPromise() {}
 

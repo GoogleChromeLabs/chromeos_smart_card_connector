@@ -23,7 +23,7 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.NaclModule');
 goog.require('GoogleSmartCard.RemoteCallMessage');
 goog.require('GoogleSmartCard.Requester');
-goog.require('goog.Promise');
+goog.require('goog.Thenable');
 goog.require('goog.asserts');
 goog.require('goog.testing.PropertyReplacer');
 goog.require('goog.testing.TestCase');
@@ -67,7 +67,7 @@ GSC.IntegrationTestController = class {
   }
 
   /**
-   * @return {!goog.Promise<void>}
+   * @return {!goog.Thenable<void>}
    */
   initAsync() {
     this.executableModule.startLoading();
@@ -91,7 +91,7 @@ GSC.IntegrationTestController = class {
    * the setup via the returned promise.
    * @param {string} helperName
    * @param {!Object} helperArgument
-   * @return {!goog.Promise<void>}
+   * @return {!goog.Thenable<void>}
    */
   setUpCppHelper(helperName, helperArgument) {
     return this.callCpp_(
@@ -102,7 +102,7 @@ GSC.IntegrationTestController = class {
    * Sends a message to the given C++ helper; reports the result via a promise.
    * @param {string} helperName
    * @param {*} messageForHelper
-   * @return {!goog.Promise<void>}
+   * @return {!goog.Thenable<void>}
    */
   sendMessageToCppHelper(helperName, messageForHelper) {
     return this.callCpp_(
@@ -114,7 +114,7 @@ GSC.IntegrationTestController = class {
    * response via a promise.
    * @param {string} functionName
    * @param {!Array.<*>} functionArguments
-   * @return {!goog.Promise}
+   * @return {!goog.Thenable}
    */
   callCpp_(functionName, functionArguments) {
     const remoteCallMessage =

@@ -20,9 +20,9 @@ goog.provide('GoogleSmartCard.ConnectorApp.ChromeApiProvider');
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.PcscLiteClient.API');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ServerRequestHandler');
-goog.require('goog.Promise');
+goog.require('goog.Thenable');
 goog.require('goog.Disposable');
-goog.require('goog.Promise');
+goog.require('goog.Thenable');
 goog.require('goog.iter');
 goog.require('goog.log');
 goog.require('goog.log.Logger');
@@ -452,7 +452,7 @@ class ChromeEventListener extends goog.Disposable {
 GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
   /**
    * @param {!goog.messaging.AbstractChannel} serverMessageChannel
-   * @param {!goog.Promise} serverReadinessTracker
+   * @param {!goog.Thenable} serverReadinessTracker
    */
   constructor(serverMessageChannel, serverReadinessTracker) {
     super();

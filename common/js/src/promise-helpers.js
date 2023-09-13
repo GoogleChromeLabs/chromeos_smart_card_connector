@@ -22,7 +22,7 @@
 
 goog.provide('GoogleSmartCard.PromiseHelpers');
 
-goog.require('goog.Promise');
+goog.require('goog.Thenable');
 
 goog.scope(function() {
 
@@ -31,7 +31,7 @@ const GSC = GoogleSmartCard;
 /**
  * Disables for the specified promise throwing of an error when it's rejected
  * with no rejection callback attached to it.
- * @param {!goog.Promise} promise
+ * @param {!goog.Thenable} promise
  */
 GSC.PromiseHelpers.suppressUnhandledRejectionError = function(promise) {
   promise.thenCatch(function() {});

@@ -26,6 +26,7 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PromiseHelpers');
 goog.require('goog.Disposable');
 goog.require('goog.Promise');
+goog.require('goog.Thenable');
 goog.require('goog.log');
 goog.require('goog.promise.Resolver');
 goog.require('goog.structs.Queue');
@@ -80,7 +81,7 @@ const logger = GSC.Logging.getScopedLogger('DeferredProcessor');
  */
 GSC.DeferredProcessor = class extends goog.Disposable {
   /**
-   * @param {!goog.Promise} awaitedPromise
+   * @param {!goog.Thenable} awaitedPromise
    */
   constructor(awaitedPromise) {
     super();
@@ -119,7 +120,7 @@ GSC.DeferredProcessor = class extends goog.Disposable {
    * gets fulfilled. If the awaited promise gets rejected, or if the deferred
    * processor gets disposed, then the returned promise will be rejected.
    * @param {function()} jobFunction
-   * @return {!goog.Promise}
+   * @return {!goog.Thenable}
    */
   addJob(jobFunction) {
     // Enqueue the job regardless of the state. This allows to deal nicely with

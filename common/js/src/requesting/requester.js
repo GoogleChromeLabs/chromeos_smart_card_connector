@@ -31,6 +31,7 @@ goog.require('GoogleSmartCard.RequesterMessage.RequestMessageData');
 goog.require('GoogleSmartCard.RequesterMessage.ResponseMessageData');
 goog.require('goog.Disposable');
 goog.require('goog.Promise');
+goog.require('goog.Thenable');
 goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.iter');
@@ -100,7 +101,7 @@ GSC.Requester = class extends goog.Disposable {
    * received (if the request was successful, then the promise will be fulfilled
    * with its result - otherwise it will be rejected with some error).
    * @param {!Object} payload
-   * @return {!goog.Promise}
+   * @return {!goog.Thenable}
    */
   postRequest(payload) {
     const requestId = this.requestIdGenerator_.next();

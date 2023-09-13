@@ -39,6 +39,7 @@ goog.require('GoogleSmartCard.RemoteCallMessage');
 goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('goog.Disposable');
 goog.require('goog.Promise');
+goog.require('goog.Thenable');
 goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
@@ -126,7 +127,7 @@ function getClientNameForLog(clientOrigin) {
  *    handling of the client requests impossible).
  * @param {!goog.messaging.AbstractChannel} serverMessageChannel Message channel
  * to the PC/SC server into which the PC/SC requests will be forwarded.
- * @param {!goog.Promise} serverReadinessTracker Tracker of the PC/SC server
+ * @param {!goog.Thenable} serverReadinessTracker Tracker of the PC/SC server
  * that allows to delay forwarding of the PC/SC requests to the PC/SC server
  * until it is ready to receive them.
  * @param {!goog.messaging.AbstractChannel} clientMessageChannel Message channel
@@ -243,7 +244,7 @@ ClientHandler.prototype.disposeInternal = function() {
 /**
  * Handles a request received from PC/SC client.
  * @param {!Object} payload
- * @return {!goog.Promise}
+ * @return {!goog.Thenable}
  * @private
  */
 ClientHandler.prototype.handleRequest_ = function(payload) {
@@ -275,7 +276,7 @@ ClientHandler.prototype.handleRequest_ = function(payload) {
 /**
  * Returns a promise that will eventually contain the result of the permissions
  * check for the client.
- * @return {!goog.Promise}
+ * @return {!goog.Thenable}
  * @private
  */
 ClientHandler.prototype.getPermissionsCheckPromise_ = function() {

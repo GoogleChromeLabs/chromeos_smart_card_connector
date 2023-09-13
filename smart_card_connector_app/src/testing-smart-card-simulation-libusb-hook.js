@@ -22,7 +22,6 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PromiseHelpers');
 goog.require('GoogleSmartCard.Requester');
 goog.require('GoogleSmartCard.RemoteCallMessage');
-goog.require('goog.Promise');
 
 goog.setTestOnly();
 

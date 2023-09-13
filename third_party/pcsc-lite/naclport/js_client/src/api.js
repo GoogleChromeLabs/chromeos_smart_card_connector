@@ -57,6 +57,7 @@ goog.require('GoogleSmartCard.RemoteCallMessage');
 goog.require('GoogleSmartCard.Requester');
 goog.require('goog.Disposable');
 goog.require('goog.Promise');
+goog.require('goog.Thenable');
 goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.async.nextTick');
@@ -2219,7 +2220,7 @@ goog.exportProperty(
  *
  * @param {!API.ERROR_CODE} errorCode
  *
- * @return {!goog.Promise.<string>}
+ * @return {!goog.Thenable.<string>}
  */
 API.prototype.pcsc_stringify_error = function(errorCode) {
   const logger = this.logger;
@@ -2262,7 +2263,7 @@ goog.exportProperty(
  * @param {null=} opt_reserved_1 Reserved for future use.
  * @param {null=} opt_reserved_2 Reserved for future use.
  *
- * @return {!goog.Promise.<!API.SCardEstablishContextResult>}
+ * @return {!goog.Thenable.<!API.SCardEstablishContextResult>}
  */
 API.prototype.SCardEstablishContext = function(
     scope, opt_reserved_1, opt_reserved_2) {
@@ -2324,7 +2325,7 @@ goog.exportProperty(
  *
  * @param {!API.SCARDCONTEXT} sCardContext Connection context to be closed.
  *
- * @return {!goog.Promise.<!API.SCardReleaseContextResult>}
+ * @return {!goog.Thenable.<!API.SCardReleaseContextResult>}
  */
 API.prototype.SCardReleaseContext = function(sCardContext) {
   return this.postRequest_(
@@ -2414,7 +2415,7 @@ goog.exportProperty(
  * You can use (SCARD_PROTOCOL_T0 | SCARD_PROTOCOL_T1) if you do not have a
  * preferred protocol.
  *
- * @return {!goog.Promise.<!API.SCardConnectResult>}
+ * @return {!goog.Thenable.<!API.SCardConnectResult>}
  */
 API.prototype.SCardConnect = function(
     sCardContext, reader, shareMode, preferredProtocols) {
@@ -2508,7 +2509,7 @@ goog.exportProperty(
  * - SCARD_UNPOWER_CARD - Power down the card (cold reset).
  * - SCARD_EJECT_CARD - Eject the card.
  *
- * @return {!goog.Promise.<!API.SCardReconnectResult>}
+ * @return {!goog.Thenable.<!API.SCardReconnectResult>}
  */
 API.prototype.SCardReconnect = function(
     sCardHandle, shareMode, preferredProtocols, initialization) {
@@ -2571,7 +2572,7 @@ goog.exportProperty(
  * - SCARD_UNPOWER_CARD - Power down the card (cold reset).
  * - SCARD_EJECT_CARD - Eject the card.
  *
- * @return {!goog.Promise.<!API.SCardDisconnectResult>}
+ * @return {!goog.Thenable.<!API.SCardDisconnectResult>}
  */
 API.prototype.SCardDisconnect = function(sCardHandle, disposition) {
   return this.postRequest_(
@@ -2632,7 +2633,7 @@ goog.exportProperty(
  *
  * @param {!API.SCARDHANDLE} sCardHandle Connection made from SCardConnect.
  *
- * @return {!goog.Promise.<!API.SCardBeginTransactionResult>}
+ * @return {!goog.Thenable.<!API.SCardBeginTransactionResult>}
  */
 API.prototype.SCardBeginTransaction = function(sCardHandle) {
   return this.postRequest_(
@@ -2697,7 +2698,7 @@ goog.exportProperty(
  * - SCARD_UNPOWER_CARD - Power down the card.
  * - SCARD_EJECT_CARD - Eject the card.
  *
- * @return {!goog.Promise.<!API.SCardEndTransactionResult>}
+ * @return {!goog.Thenable.<!API.SCardEndTransactionResult>}
  */
 API.prototype.SCardEndTransaction = function(sCardHandle, disposition) {
   return this.postRequest_(
@@ -2785,7 +2786,7 @@ goog.exportProperty(
  *
  * @param {!API.SCARDHANDLE} sCardHandle Connection made from SCardConnect.
  *
- * @return {!goog.Promise.<!API.SCardStatusResult>}
+ * @return {!goog.Thenable.<!API.SCardStatusResult>}
  */
 API.prototype.SCardStatus = function(sCardHandle) {
   return this.postRequest_(
@@ -2894,7 +2895,7 @@ goog.exportProperty(
  * @param {!Array.<!API.SCARD_READERSTATE_IN>} readerStates Structures of
  * readers with current states.
  *
- * @return {!goog.Promise.<!API.SCardGetStatusChangeResult>}
+ * @return {!goog.Thenable.<!API.SCardGetStatusChangeResult>}
  */
 API.prototype.SCardGetStatusChange = function(
     sCardContext, timeout, readerStates) {
@@ -2971,7 +2972,7 @@ goog.exportProperty(
  * for a list of supported commands by some drivers.
  * @param {!ArrayBuffer} dataToSend Command to send to the reader.
  *
- * @return {!goog.Promise.<!API.SCardControlResult>}
+ * @return {!goog.Thenable.<!API.SCardControlResult>}
  */
 API.prototype.SCardControl = function(sCardHandle, controlCode, dataToSend) {
   return this.postRequest_(
@@ -3086,7 +3087,7 @@ goog.exportProperty(
  * @param {!API.SCARDHANDLE} sCardHandle Connection made from SCardConnect.
  * @param {number} attrId Identifier for the attribute to get.
  *
- * @return {!goog.Promise.<!API.SCardGetAttribResult>}
+ * @return {!goog.Thenable.<!API.SCardGetAttribResult>}
  */
 API.prototype.SCardGetAttrib = function(sCardHandle, attrId) {
   return this.postRequest_(
@@ -3147,7 +3148,7 @@ goog.exportProperty(
  * @param {number} attrId Identifier for the attribute to set.
  * @param {!ArrayBuffer} attr Buffer with the attribute.
  *
- * @return {!goog.Promise.<!API.SCardSetAttribResult>}
+ * @return {!goog.Thenable.<!API.SCardSetAttribResult>}
  */
 API.prototype.SCardSetAttrib = function(sCardHandle, attrId, attr) {
   return this.postRequest_(
@@ -3225,7 +3226,7 @@ goog.exportProperty(
  * @param {!API.SCARD_IO_REQUEST=} opt_receiveProtocolInformation Structure of
  * protocol information.
  *
- * @return {!goog.Promise.<!API.SCardTransmitResult>}
+ * @return {!goog.Thenable.<!API.SCardTransmitResult>}
  */
 API.prototype.SCardTransmit = function(
     sCardHandle, sendProtocolInformation, dataToSend,
@@ -3296,7 +3297,7 @@ goog.exportProperty(
  * Resource Manager.
  * @param {null} groups List of groups to list readers (not used).
  *
- * @return {!goog.Promise.<!API.SCardListReadersResult>}
+ * @return {!goog.Thenable.<!API.SCardListReadersResult>}
  */
 API.prototype.SCardListReaders = function(sCardContext, groups) {
   return this.postRequest_(
@@ -3355,7 +3356,7 @@ goog.exportProperty(
  * @param {!API.SCARDCONTEXT} sCardContext Connection context to the PC/SC
  * Resource Manager.
  *
- * @return {!goog.Promise.<!API.SCardListReaderGroupsResult>}
+ * @return {!goog.Thenable.<!API.SCardListReaderGroupsResult>}
  */
 API.prototype.SCardListReaderGroups = function(sCardContext) {
   return this.postRequest_(
@@ -3411,7 +3412,7 @@ goog.exportProperty(
  * @param {!API.SCARDCONTEXT} sCardContext Connection context to the PC/SC
  * Resource Manager.
  *
- * @return {!goog.Promise.<!API.SCardCancelResult>}
+ * @return {!goog.Thenable.<!API.SCardCancelResult>}
  */
 API.prototype.SCardCancel = function(sCardContext) {
   return this.postRequest_(
@@ -3466,7 +3467,7 @@ goog.exportProperty(
  * @param {!API.SCARDCONTEXT} sCardContext Connection context to the PC/SC
  * Resource Manager.
  *
- * @return {!goog.Promise.<!API.SCardIsValidContextResult>}
+ * @return {!goog.Thenable.<!API.SCardIsValidContextResult>}
  */
 API.prototype.SCardIsValidContext = function(sCardContext) {
   return this.postRequest_(
@@ -3533,7 +3534,7 @@ API.prototype.messageChannelDisposedListener_ = function() {
  * @param {string} functionName
  * @param {!Array} functionArguments
  * @param {function(!Array):*} successfulResultTransformer
- * @return {!goog.Promise}
+ * @return {!goog.Thenable}
  * @private
  */
 API.prototype.postRequest_ = function(

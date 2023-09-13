@@ -26,6 +26,7 @@ goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.Packaging');
 goog.require('goog.Promise');
+goog.require('goog.Thenable');
 goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.object');
@@ -128,7 +129,7 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
  * @param {string} url
  * @param {!WindowOptions=} opt_windowOptions
  * @param {!Object=} opt_data Optional data to be passed to the created dialog.
- * @return {!goog.Promise}
+ * @return {!goog.Thenable}
  */
 GSC.PopupOpener.runModalDialog = function(url, opt_windowOptions, opt_data) {
   const createWindowOptions =

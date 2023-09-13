@@ -32,6 +32,7 @@ goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('GoogleSmartCard.Requester');
 goog.require('goog.Disposable');
 goog.require('goog.Promise');
+goog.require('goog.Thenable');
 goog.require('goog.array');
 goog.require('goog.log');
 goog.require('goog.log.Logger');
@@ -242,7 +243,7 @@ Backend.prototype.disposeInternal = function() {
 /**
  * Handles a remote call request received from the executable module.
  * @param {!Object} payload
- * @return {!goog.Promise}
+ * @return {!goog.Thenable}
  * @private
  */
 Backend.prototype.handleRequest_ = function(payload) {

@@ -32,6 +32,7 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PromiseHelpers');
 goog.require('goog.Disposable');
 goog.require('goog.Promise');
+goog.require('goog.Thenable');
 goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
@@ -70,7 +71,7 @@ GSC.PcscLiteServerClientsManagement.ReadinessTracker = function(
   /**
    * Promise that is fulfilled once the PC/SC-Lite server gets ready, or is
    * rejected if it failed to initialize.
-   * @type {!goog.Promise} @const
+   * @type {!goog.Thenable} @const
    */
   this.promise = this.promiseResolver_.promise;
   GSC.PromiseHelpers.suppressUnhandledRejectionError(this.promise);

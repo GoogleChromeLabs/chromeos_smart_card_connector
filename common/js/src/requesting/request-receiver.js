@@ -27,7 +27,7 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.RequesterMessage');
 goog.require('GoogleSmartCard.RequesterMessage.RequestMessageData');
 goog.require('GoogleSmartCard.RequesterMessage.ResponseMessageData');
-goog.require('goog.Promise');
+goog.require('goog.Thenable');
 goog.require('goog.asserts');
 goog.require('goog.log');
 goog.require('goog.log.Logger');
@@ -55,7 +55,7 @@ GSC.RequestReceiver = class {
    *     by
    * this instance.
    * @param {!goog.messaging.AbstractChannel} messageChannel
-   * @param {function(!Object):(!goog.Promise|!Promise)} requestHandler
+   * @param {function(!Object):(!goog.Thenable|!Promise)} requestHandler
    */
   constructor(name, messageChannel, requestHandler) {
     /**

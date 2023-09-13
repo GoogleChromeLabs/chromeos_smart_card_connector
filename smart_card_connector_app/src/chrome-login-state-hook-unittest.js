@@ -20,7 +20,7 @@ goog.require('GoogleSmartCard.RemoteCallMessage');
 goog.require('GoogleSmartCard.Requester');
 goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('GoogleSmartCard.SingleMessageBasedChannel');
-goog.require('goog.Promise');
+goog.require('goog.Thenable');
 goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.messaging.AbstractChannel');
