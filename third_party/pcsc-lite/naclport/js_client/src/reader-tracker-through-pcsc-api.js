@@ -298,8 +298,7 @@ ReaderTrackerThroughPcscApi.prototype.makeReaderNamesPromise_ = function(
  * @param {!API.SCARDCONTEXT} sCardContext
  * @param {!Array.<string>} readerNames
  * @return {!goog.Thenable.<!Array.<!API.SCARD_READERSTATE_OUT>|null>} Either
- *     the
- * states of the readers, or the null value in case of intermittent error.
+ * the states of the readers, or the null value in case of intermittent error.
  * @private
  */
 ReaderTrackerThroughPcscApi.prototype.makeReaderStatesPromise_ = function(

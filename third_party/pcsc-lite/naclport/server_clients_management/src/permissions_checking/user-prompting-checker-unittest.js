@@ -191,8 +191,7 @@ function negatePromise(promise) {
  * function to be run after the needed setup; must return a promise of the test
  * result.
  * @return {function():!goog.Thenable} The wrapped test function, which returns
- *     a
- * promise of the test result and the result of teardown.
+ * a promise of the test result and the result of teardown.
  */
 function makeTest(
     fakeInitialStorageData, expectedStorageDataToBeWritten,
