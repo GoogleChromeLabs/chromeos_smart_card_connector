@@ -22,6 +22,7 @@ goog.require('GoogleSmartCard.ConnectorApp.ChromeApiProvider');
 goog.require('GoogleSmartCard.ConnectorApp.MockChromeApi');
 goog.require('GoogleSmartCard.IntegrationTestController');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.PcscLiteClient.API');
 goog.require('GoogleSmartCard.PcscLiteCommon.Constants');
 goog.require('GoogleSmartCard.PcscLiteServer.ReaderTrackerThroughPcscServerHook');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
@@ -37,6 +38,7 @@ goog.setTestOnly();
 goog.scope(function() {
 
 const GSC = GoogleSmartCard;
+const API = GSC.PcscLiteClient.API;
 const ChromeApiProvider = GSC.ConnectorApp.ChromeApiProvider;
 const MockChromeApi = GSC.ConnectorApp.MockChromeApi;
 const ReadinessTracker = GSC.PcscLiteServerClientsManagement.ReadinessTracker;
@@ -268,6 +270,19 @@ function expectReportStatusResult(
     requestId, readerName, state, protocol, atr, resultCode) {
   getFreshMock('reportStatusResult')(
       requestId, readerName, state, protocol, atr, resultCode)
+      .$once()
+      .$replay();
+}
+
+/**
+ * Sets expectation that reportDataResult will be called with given
+ * parameters.
+ * @param {number} requestId
+ * @param {!ArrayBuffer} data
+ * @param {string} resultCode
+ */
+function expectReportDataResult(requestId, data, resultCode) {
+  getFreshMock('reportDataResult')(requestId, data, resultCode)
       .$once()
       .$replay();
 }
@@ -797,7 +812,20 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
             savedArgs);
         break;
       }
-    }
+    },
+
+    // Test that GetAttrib succeeds for the `SCARD_ATTR_ATR_STRING` argument.
+    'testGetAttrib': async function() {
+      expectReportDataResult(
+          /*requestId=*/ 111, SimulationConstants.COSMO_ID_70_ATR,
+          /*resultCode=*/ 'SUCCESS');
+
+      await mockChromeApi
+          .dispatchEvent(
+              'onGetAttribRequested', /*requestId=*/ 111, readerHandle,
+              API.SCARD_ATTR_ATR_STRING)
+          .$waitAndVerify();
+    },
   }
 });
 });  // goog.scope
