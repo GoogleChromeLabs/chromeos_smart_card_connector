@@ -24,11 +24,11 @@ import com.google.javascript.rhino.StaticSourceFile.SourceKind;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.FileSystems;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** Utility class for resolving source maps and files referenced in source maps. */
 @GwtIncompatible("Accesses the file system")
-public class SourceMapResolver {
+public final class SourceMapResolver {
   private static final String BASE64_URL_PREFIX = "data:";
   private static final String BASE64_START = "base64,";
 
@@ -44,7 +44,7 @@ public class SourceMapResolver {
    *
    * @param parseInlineSourceMaps Whether to parse Base64 encoded source maps.
    */
-  static SourceFile extractSourceMap(
+  public static @Nullable SourceFile extractSourceMap(
       SourceFile jsFile, String sourceMapURL, boolean parseInlineSourceMaps) {
     if (parseInlineSourceMaps && sourceMapURL.startsWith(BASE64_URL_PREFIX)) {
       String extractedString = extractBase64String(sourceMapURL);
@@ -66,11 +66,10 @@ public class SourceMapResolver {
 
   /**
    * Based on https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URIs
-   * @param url
+   *
    * @return String or null.
    */
-  @Nullable
-  private static String extractBase64String(String url) {
+  private static @Nullable String extractBase64String(String url) {
     if (url.startsWith(BASE64_URL_PREFIX) && url.contains(BASE64_START)) {
       int base64StartIndex = url.indexOf(BASE64_START);
       String mediaType = url.substring(BASE64_URL_PREFIX.length(), base64StartIndex);
@@ -96,12 +95,23 @@ public class SourceMapResolver {
    * interpreted as a filename rather than a directory. E.g.: getRelativeTo("../foo/bar.js",
    * "baz/bam/qux.js") --> "baz/foo/bar.js"
    */
-  @Nullable
-  static SourceFile getRelativePath(String baseFilePath, String relativePath) {
+  static @Nullable SourceFile getRelativePath(String baseFilePath, String relativePath) {
     return SourceFile.builder()
         .withPath(
             FileSystems.getDefault().getPath(baseFilePath).resolveSibling(relativePath).normalize())
         .withKind(SourceKind.NON_CODE)
         .build();
   }
+
+  /**
+   * Returns the encoded source map with the base64 prefix attached. (i.e. prefix with
+   * "data:application/json;base64,")
+   *
+   * <p>E.g. turns "eyJ2ZXJzaW9uI..." into "data:application/json;base64,eyJ2ZXJzaW9uI..."
+   */
+  public static String addBase64PrefixToEncodedSourceMap(String encoded) {
+    return BASE64_URL_PREFIX + "application/json;" + BASE64_START + encoded;
+  }
+
+  private SourceMapResolver() {}
 }

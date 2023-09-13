@@ -19,16 +19,12 @@ package com.google.javascript.jscomp;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableSet;
-import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link GatherRawExports}.
- *
- */
+/** Tests for {@link GatherRawExports}. */
 @RunWith(JUnit4.class)
 public final class GatherRawExportsTest extends CompilerTestCase {
 
@@ -44,6 +40,8 @@ public final class GatherRawExportsTest extends CompilerTestCase {
   public void setUp() throws Exception {
     super.setUp();
     enableNormalize();
+    // TODO(bradfordcsmith): Stop normalizing the expected output or document why it is necessary.
+    enableNormalizeExpectedOutput();
   }
 
   @Override
@@ -233,8 +231,8 @@ public final class GatherRawExportsTest extends CompilerTestCase {
     assertExported("goog$global.a", "a");
   }
 
-  private void assertExported(String js, String ... names) {
-    Set<String> setNames = ImmutableSet.copyOf(names);
+  private void assertExported(String js, String... names) {
+    ImmutableSet<String> setNames = ImmutableSet.copyOf(names);
     testSame(js);
     assertThat(last.getExportedVariableNames()).isEqualTo(setNames);
   }

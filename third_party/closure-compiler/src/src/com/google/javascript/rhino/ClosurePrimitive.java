@@ -40,7 +40,7 @@
 package com.google.javascript.rhino;
 
 import com.google.common.collect.ImmutableMap;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Enum of primitive functions that the compiler recognizes
@@ -84,8 +84,7 @@ public enum ClosurePrimitive {
    * @throws IllegalArgumentException if the id is non-null but does not match an enum member
    * @return null if the argument is null, otherwise the corresponding enum member
    */
-  @Nullable
-  public static ClosurePrimitive fromStringId(@Nullable String id) {
+  public static @Nullable ClosurePrimitive fromStringId(@Nullable String id) {
     if (id == null) {
       return null;
     }

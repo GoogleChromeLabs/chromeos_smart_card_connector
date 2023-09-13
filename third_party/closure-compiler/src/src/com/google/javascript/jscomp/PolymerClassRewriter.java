@@ -39,6 +39,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Rewrites a given call to Polymer({}) to a set of declarations and assignments which can be
@@ -278,7 +279,8 @@ final class PolymerClassRewriter {
 
     Node declarationCode = generateDeclarationCode(exprRoot, cls, constructorDoc, traversal);
     String basePath = cls.target.getQualifiedName() + ".prototype.";
-    appendBehaviorPropertiesToBlock(cls, propsAndBehaviorBlock, basePath, /*isExternsBlock*/ false);
+    appendBehaviorPropertiesToBlock(
+        cls, propsAndBehaviorBlock, basePath, /* isExternsBlock= */ false);
     appendPropertiesToBlock(
         cls.props, propsAndBehaviorBlock, basePath, /* isExternsBlock= */ false);
     appendBehaviorMembersToBlock(cls, propsAndBehaviorBlock);
@@ -389,7 +391,7 @@ final class PolymerClassRewriter {
     Node block = IR.block();
 
     appendBehaviorPropertiesToBlock(
-        cls, block, cls.target.getQualifiedName() + ".prototype.", /*isExternsBlock*/ false);
+        cls, block, cls.target.getQualifiedName() + ".prototype.", /* isExternsBlock= */ false);
     // For each Polymer property we found in the "properties" configuration object, append a
     // property declaration to the prototype (e.g. "/** @type {string} */ MyElement.prototype.foo").
     appendPropertiesToBlock(
@@ -532,11 +534,7 @@ final class PolymerClassRewriter {
     // Add @this and @return to default property values.
     for (MemberDefinition property :
         PolymerPassStaticUtils.extractProperties(
-            objLit,
-            defType,
-            compiler,
-            /** constructor= */
-            null)) {
+            objLit, defType, compiler, /* constructor= */ null)) {
       if (!property.value.isObjectLit()) {
         continue;
       }
@@ -697,9 +695,9 @@ final class PolymerClassRewriter {
   }
 
   /** Returns a node from a property's definition in the Polymer element or behavior */
-  private Node getPropertyNode(MemberDefinition prop, String basePath) {
+  private @Nullable Node getPropertyNode(MemberDefinition prop, String basePath) {
     // If a property string is quoted, make sure the added prototype properties are also quoted
-    if (prop.name.isQuotedString()) {
+    if (prop.name.isQuotedStringKey()) {
       return null;
     }
     Node propertyNode =
@@ -830,11 +828,7 @@ final class PolymerClassRewriter {
       final Node objLit, PolymerClassDefinition.DefinitionType defType) {
     for (MemberDefinition prop :
         PolymerPassStaticUtils.extractProperties(
-            objLit,
-            defType,
-            compiler,
-            /** constructor= */
-            null)) {
+            objLit, defType, compiler, /* constructor= */ null)) {
       prop.name.setJSDocInfo(null);
     }
   }
@@ -1062,7 +1056,7 @@ final class PolymerClassRewriter {
     String interfaceBasePath = interfaceName + ".prototype.";
 
     if (polymerExportPolicy == PolymerExportPolicy.EXPORT_ALL) {
-      appendBehaviorPropertiesToBlock(cls, block, interfaceBasePath, /*isExternsBlock*/ true);
+      appendBehaviorPropertiesToBlock(cls, block, interfaceBasePath, /* isExternsBlock= */ true);
       appendPropertiesToBlock(cls.props, block, interfaceBasePath, /* isExternsBlock= */ true);
       // Methods from behaviors were not already added to our element definition, so we need to
       // export those in addition to methods defined directly on the element. Note it's possible
@@ -1088,7 +1082,7 @@ final class PolymerClassRewriter {
 
     } else if (polymerVersion == 1) {
       // For Polymer 1, all declared properties are non-renameable
-      appendBehaviorPropertiesToBlock(cls, block, interfaceBasePath, /*isExternsBlock*/ true);
+      appendBehaviorPropertiesToBlock(cls, block, interfaceBasePath, /* isExternsBlock= */ true);
       appendPropertiesToBlock(cls.props, block, interfaceBasePath, /* isExternsBlock= */ true);
     } else {
       // For Polymer 2, only read-only properties and reflectToAttribute properties are

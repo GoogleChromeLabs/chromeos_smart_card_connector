@@ -20,17 +20,17 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.AbstractCompiler.LifeCycleStage;
 import com.google.javascript.rhino.Node;
 import java.util.ArrayDeque;
-import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** Detects all potential usages of polyfilled classes or methods */
 final class PolyfillUsageFinder {
@@ -287,7 +287,7 @@ final class PolyfillUsageFinder {
         // e.g. `obj.includes(x)` could be a usage of `Array.prototype.includes` or
         // `String.prototype.includes`.
         final String propertyName = getPropNode.getString();
-        Collection<Polyfill> methodPolyfills = polyfills.methods.get(propertyName);
+        ImmutableCollection<Polyfill> methodPolyfills = polyfills.methods.get(propertyName);
         // Note that we use ".foo" as the guard check for methods to keep them distinct in case
         // there is also a static "foo" polyfill.
         if (!methodPolyfills.isEmpty()
@@ -301,8 +301,7 @@ final class PolyfillUsageFinder {
     }
   }
 
-  @Nullable
-  private PolyfillUsage maybeCreateStaticPolyfillUsageForGetPropChain(
+  private @Nullable PolyfillUsage maybeCreateStaticPolyfillUsageForGetPropChain(
       NodeTraversal traversal, final Node getPropNode) {
     checkArgument(getPropNode.isGetProp() || getPropNode.isOptChainGetProp(), getPropNode);
     final String lastComponent = getPropNode.getString();
@@ -376,8 +375,7 @@ final class PolyfillUsageFinder {
         || t.getScope().getVar(globalName) == null);
   }
 
-  @Nullable
-  private static String findGlobalPrefix(String qualifiedName) {
+  private static @Nullable String findGlobalPrefix(String qualifiedName) {
     for (String global : GLOBAL_NAMES) {
       if (qualifiedName.startsWith(global)) {
         return global;

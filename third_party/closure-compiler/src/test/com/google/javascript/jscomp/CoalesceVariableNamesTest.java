@@ -23,10 +23,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Unit tests for {@link CoalesceVariableNames}
- *
- */
+/** Unit tests for {@link CoalesceVariableNames} */
 @RunWith(JUnit4.class)
 public final class CoalesceVariableNamesTest extends CompilerTestCase {
   // The spacing in this file is not exactly standard but it greatly helps
@@ -48,7 +45,7 @@ public final class CoalesceVariableNamesTest extends CompilerTestCase {
       public void process(Node externs, Node root) {
         // enableNormalize would require output of CoalesceVariableNames to be normalized,
         // so we just manually normalize the input instead.
-        Normalize normalize = new Normalize(compiler, false);
+        Normalize normalize = Normalize.createNormalizeForOptimizations(compiler);
         normalize.process(externs, root);
         new CoalesceVariableNames(compiler, usePseudoName).process(externs, root);
       }
@@ -57,35 +54,21 @@ public final class CoalesceVariableNamesTest extends CompilerTestCase {
 
   @Test
   public void testSimple() {
-    inFunction(
-        "var x; var y; x=1; x; y=1; y; return y",
-        "var x;        x=1; x; x=1; x; return x");
+    inFunction("var x; var y; x=1; x; y=1; y; return y", "var x;        x=1; x; x=1; x; return x");
 
-    inFunction(
-        "var x,y; x=1; x; y=1; y",
-        "var x  ; x=1; x; x=1; x");
+    inFunction("var x,y; x=1; x; y=1; y", "var x  ; x=1; x; x=1; x");
 
     inFunction("var x; var y; x=1; y=2; y; x");
 
-    inFunction(
-        "y=0; var x, y; y; x=0; x",
-        "y=0; var y   ; y; y=0;y");
+    inFunction("y=0; var x, y; y; x=0; x", "y=0; var y   ; y; y=0;y");
 
-    inFunction(
-        "var x,y; x=1; y=x; y",
-        "var x  ; x=1; x=x; x");
+    inFunction("var x,y; x=1; y=x; y", "var x  ; x=1; x=x; x");
 
-    inFunction(
-        "var x,y; x=1; y=x+1; y",
-        "var x  ; x=1; x=x+1; x");
+    inFunction("var x,y; x=1; y=x+1; y", "var x  ; x=1; x=x+1; x");
 
-    inFunction(
-        "x=1; x; y=2; y; var x; var y",
-        "x=1; x; x=2; x; var x");
+    inFunction("x=1; x; y=2; y; var x; var y", "x=1; x; x=2; x; var x");
 
-    inFunction(
-        "var x=1; var y=x+1; return y",
-        "var x=1;     x=x+1; return x");
+    inFunction("var x=1; var y=x+1; return y", "var x=1;     x=x+1; return x");
 
     inFunction("var x=1; var y=0; x = x + 1; y");
 
@@ -148,9 +131,7 @@ public final class CoalesceVariableNamesTest extends CompilerTestCase {
 
   @Test
   public void testMergeThreeVarNames() {
-    inFunction(
-        "var x,y,z; x=1; x; y=1; y; z=1; z",
-        "var x    ; x=1; x; x=1; x; x=1; x");
+    inFunction("var x,y,z; x=1; x; y=1; y; z=1; z", "var x    ; x=1; x; x=1; x; x=1; x");
   }
 
   @Test
@@ -176,9 +157,7 @@ public final class CoalesceVariableNamesTest extends CompilerTestCase {
 
   @Test
   public void testFor() {
-    inFunction(
-        "var x = 1; x; for (;;) var y; y = 1; y",
-        "var x = 1; x; for (;;)      ; x = 1; x");
+    inFunction("var x = 1; x; for (;;) var y; y = 1; y", "var x = 1; x; for (;;)      ; x = 1; x");
   }
 
   @Test
@@ -278,8 +257,7 @@ public final class CoalesceVariableNamesTest extends CompilerTestCase {
 
   @Test
   public void testParameter() {
-    test("function FUNC(param) {var x = 0; x}",
-         "function FUNC(param) {param = 0; param}");
+    test("function FUNC(param) {var x = 0; x}", "function FUNC(param) {param = 0; param}");
   }
 
   @Test
@@ -339,6 +317,198 @@ public final class CoalesceVariableNamesTest extends CompilerTestCase {
   }
 
   @Test
+  public void testUsePseudoName_forWithUninitializedLetInside() {
+    usePseudoName = false;
+    String src =
+        lines(
+            "for( var i = 0;i < 10; i++) {", //
+            "  let x;",
+            "  if(true) {x=3} else { x = undefined;}",
+            "  i;",
+            "}",
+            "const y = new Set();",
+            "i; y;");
+    String expected =
+        lines(
+            "var i = 0;", //
+            "for(; i < 10; i++) {",
+            "  var x = void 0;",
+            "  if(true) {x=3} else { x = undefined;}",
+            "  i;",
+            "}",
+            "x = new Set();",
+            "i; x;");
+    inFunction(src, expected);
+
+    // make sure we generate the correct code with `usePseudoName = true`
+    usePseudoName = true;
+    String expectedPseudoNames =
+        lines(
+            "var i = 0;", //
+            "for(; i < 10; i++) {",
+            "  var x_y = void 0;", // preserves "reset" before every iteration
+            "  if(true) {x_y=3} else { x_y = undefined;}",
+            "  i;",
+            "}",
+            "x_y = new Set();",
+            "i; x_y;");
+    inFunction(src, expectedPseudoNames);
+  }
+
+  @Test
+  public void test_doesNotCoalesceOverlappingLiveRange() {
+    usePseudoName = false;
+    String src =
+        lines(
+            "for( var i = 0;i < 10; i++) {", //
+            "  let x = i;",
+            "  let y;",
+            "  x;",
+            "  y;",
+            "}");
+    String expected =
+        lines(
+            "var i = 0;", //
+            "for(; i < 10; i++) {",
+            "  let x = i;",
+            "  let y;",
+            "  x;",
+            "  y;",
+            "}");
+    inFunction(src, expected);
+
+    src =
+        lines(
+            "for( var i = 0;i < 10; i++) {", //
+            "  let x = i;",
+            "  let y;",
+            "  y;",
+            "  x;",
+            "}");
+    expected =
+        lines(
+            "var i = 0;", //
+            "for(; i < 10; i++) {",
+            "  let x = i;",
+            "  let y;",
+            "  y;",
+            "  x;",
+            "}");
+    inFunction(src, expected);
+
+    usePseudoName = true; // same for usePseudoName = true code path
+    inFunction(src, expected);
+  }
+
+  // We could potentially coaleasce here but we miss.
+  @Test
+  public void test_doesNotCoalesceNonOverlappingLiveRange() {
+    usePseudoName = false;
+    String src =
+        lines(
+            "for( var i = 0;i < 10; i++) {", //
+            "  let x;",
+            "  x;",
+            "  let y;",
+            "  y;",
+            "}");
+    String expected =
+        lines(
+            "var i = 0;", //
+            "for(; i < 10; i++) {",
+            "  let x;",
+            "  x;",
+            "  let y;",
+            "  y;",
+            "}");
+    inFunction(src, expected);
+    usePseudoName = true; // same for usePseudoName = true code path
+    inFunction(src, expected);
+  }
+
+  @Test
+  public void test_doesNotUsePseudoName_coalesces_deletesUninitializedDeclInLoop() {
+    usePseudoName = false;
+    String src =
+        lines(
+            "for( var i = 0;i < 10; i++) {", //
+            "  const x = i;",
+            "  let y;", // safe to delete when coalesced
+            "  x;",
+            "  y = x;",
+            "}");
+    String expected =
+        lines(
+            "var i = 0;", //
+            "for(; i < 10; i++) {",
+            "  var x = i;",
+            "  x;",
+            "  x = x;",
+            "}");
+    inFunction(src, expected);
+  }
+
+  @Test
+  public void test_usePseudoName_coalesces_deletesUninitializedDeclInLoop() {
+    usePseudoName = true;
+    String src =
+        lines(
+            "for( var i = 0;i < 10; i++) {", //
+            "  const x = i;",
+            "  let y;", // safe to delete when coalesced
+            "  x;",
+            "  y=x;",
+            "}");
+    String expected =
+        lines(
+            "var i = 0;", //
+            "for(; i < 10; i++) {",
+            "  var x_y = i;",
+            "  x_y;",
+            "  x_y = x_y;",
+            "}");
+    inFunction(src, expected);
+  }
+
+  @Test
+  public void testUsePseudoName_forWithUninitializedLetInside2() {
+    usePseudoName = true;
+    String src =
+        lines(
+            "for( var i = 0;i < 10; i++) {",
+            "  let x;",
+            "  if(someExtern) {x=3}",
+            "  i; x;",
+            "}",
+            "const y = new Set();",
+            "i; y;");
+    String expected =
+        lines(
+            "var i = 0;",
+            "for(; i < 10; i++) {",
+            "  var x_y = void 0;", // preserves "reset" before every iteration
+            "  if(someExtern) {x_y=3}",
+            "  i; x_y;",
+            "}",
+            "x_y = new Set();",
+            "i; x_y;");
+    inFunction(src, expected);
+  }
+
+  @Test
+  public void testUsePseudoName_forWithUninitializedLetInside_onlyTwoNodesInLiveness() {
+    usePseudoName = false;
+    inFunction(
+        "for(;;) { let x; x;}  const y = new Set(); y;",
+        "for(;;) { var x = void 0; x; } x = new Set(); x;");
+
+    usePseudoName = true;
+    inFunction(
+        "for(;;) { let x; x;}  const y = new Set(); y;",
+        "for(;;) { var x_y = void 0; x_y; } x_y = new Set(); x_y;");
+  }
+
+  @Test
   public void testLiveRangeChangeWithinCfgNode2() {
     inFunction("var x; var y; var a; var b; y = 1, a = 1, y, a, x = 1, b = 1; x; b");
 
@@ -369,6 +539,53 @@ public final class CoalesceVariableNamesTest extends CompilerTestCase {
     inFunction("function x() { } var y = 1; y; x = 1; x");
 
     inFunction("function x() {} var y = 1; y; x = 1; x");
+  }
+
+  @Test
+  public void testCoalesceVarinStaticBlock() {
+    test(
+        lines(
+            "function foo() {",
+            "   var x = 0;",
+            "   var y = 2;",
+            "   const C = class{",
+            "      static{",
+            "       print(x);",
+            "      }",
+            "   }",
+            "}"),
+        lines(
+            "function foo() {",
+            "   var x = 0;",
+            "   var y = 2;",
+            "   y = class{",
+            "     static{",
+            "      print(x);",
+            "     }",
+            "   }",
+            "}"));
+
+    test(
+        lines(
+            "function foo() {",
+            "   var x = 0;",
+            "   var y = 2;",
+            "   const C = class {",
+            "      function(){",
+            "       print(x);",
+            "      }",
+            "   }",
+            "}"),
+        lines(
+            "function foo() {",
+            "   var x = 0;",
+            "   var y = 2;",
+            "   y = class {",
+            "     function(){",
+            "      print(x);",
+            "     }",
+            "  }",
+            "}"));
   }
 
   @Test
@@ -796,11 +1013,7 @@ public final class CoalesceVariableNamesTest extends CompilerTestCase {
   public void testDestructuring() {
     testSame(
         lines(
-            "function f() {",
-            "  const [x, y] = foo(5);",
-            "  let z = foo(x);",
-            "  return x;",
-            "}"));
+            "function f() {", "  const [x, y] = foo(5);", "  let z = foo(x);", "  return x;", "}"));
   }
 
   @Test
@@ -945,33 +1158,34 @@ public final class CoalesceVariableNamesTest extends CompilerTestCase {
 
   @Test
   public void testCannotReuseAnyParamsBugWithDestructuring() {
-    testSame(lines(
-        "function handleKeyboardShortcut({type: type}, key, isModifierPressed) {",
-        "  if (!isModifierPressed) {",
-        "    return false;",
-        "  }",
-        "  var command;",
-        "  switch (key) {",
-        "    case 'b': // Ctrl+B",
-        "      command = COMMAND.BOLD;",
-        "      break;",
-        "    case 'i': // Ctrl+I",
-        "      command = COMMAND.ITALIC;",
-        "      break;",
-        "    case 'u': // Ctrl+U",
-        "      command = COMMAND.UNDERLINE;",
-        "      break;",
-        "    case 's': // Ctrl+S",
-        "      return true;",
-        "  }",
-        "",
-        "  if (command) {",
-        "    this.fieldObject.execCommand(command);",
-        "    return true;",
-        "  }",
-        "",
-        "  return false;",
-        "};"));
+    testSame(
+        lines(
+            "function handleKeyboardShortcut({type: type}, key, isModifierPressed) {",
+            "  if (!isModifierPressed) {",
+            "    return false;",
+            "  }",
+            "  var command;",
+            "  switch (key) {",
+            "    case 'b': // Ctrl+B",
+            "      command = COMMAND.BOLD;",
+            "      break;",
+            "    case 'i': // Ctrl+I",
+            "      command = COMMAND.ITALIC;",
+            "      break;",
+            "    case 'u': // Ctrl+U",
+            "      command = COMMAND.UNDERLINE;",
+            "      break;",
+            "    case 's': // Ctrl+S",
+            "      return true;",
+            "  }",
+            "",
+            "  if (command) {",
+            "    this.fieldObject.execCommand(command);",
+            "    return true;",
+            "  }",
+            "",
+            "  return false;",
+            "};"));
   }
 
   @Test
@@ -996,8 +1210,9 @@ public final class CoalesceVariableNamesTest extends CompilerTestCase {
   @Test
   public void testUsePseudoNames() {
     usePseudoName = true;
-    inFunction("var x   = 0; print(x  ); var   y = 1; print(  y)",
-               "var x_y = 0; print(x_y);     x_y = 1; print(x_y)");
+    inFunction(
+        "var x   = 0; print(x  ); var   y = 1; print(  y)",
+        "var x_y = 0; print(x_y);     x_y = 1; print(x_y)");
 
     inFunction(
         "var x_y = 1; var x    = 0; print(x   ); var     y = 1; print(   y); print(x_y);",
@@ -1080,30 +1295,21 @@ public final class CoalesceVariableNamesTest extends CompilerTestCase {
   // Testing Es6 features
   @Test
   public void testCoalesceInInnerBlock() {
-    inFunction(
-        "{ var x = 1; var y = 2; y }",
-        "{ var x = 1;     x = 2; x }");
+    inFunction("{ var x = 1; var y = 2; y }", "{ var x = 1;     x = 2; x }");
 
-    inFunction(
-        "var x = 1; var y = 2; y;",
-        "var x = 1;     x = 2; x;");
+    inFunction("var x = 1; var y = 2; y;", "var x = 1;     x = 2; x;");
   }
 
   @Test
   public void testLetSimple() {
-    inFunction(
-        "let x = 0; x; let y = 5; y",
-        "var x = 0; x;     x = 5; x");
+    inFunction("let x = 0; x; let y = 5; y", "var x = 0; x;     x = 5; x");
 
     inFunction(
-        "var x = 1; var y = 2; { let z = 3; y; }",
-        "var x = 1;     x = 2; { let z = 3; x; }");
+        "var x = 1; var y = 2; { let z = 3; y; }", "var x = 1;     x = 2; { let z = 3; x; }");
 
     // First let in a block - It is unsafe for { let x = 0; x; } let y = 1; to be coalesced as
     // { let x = 0; x; } x = 1; because x will be out of scope outside of the inner scope!
-    inFunction(
-        "{ let x = 0; x; } let y = 5; y;",
-        "{ var x = 0; x; }     x = 5; x;");
+    inFunction("{ let x = 0; x; } let y = 5; y;", "{ var x = 0; x; }     x = 5; x;");
 
     // The following situation will never happen in practice because at this point, the code has
     // been normalized so no two variables will have the same name
@@ -1194,8 +1400,7 @@ public final class CoalesceVariableNamesTest extends CompilerTestCase {
   @Test
   public void testArrowFunctions() {
     inFunction(
-        "var x = 1; var y = () => { let z = 0; z }",
-        "var x = 1;     x = () => { let z = 0; z }");
+        "var x = 1; var y = () => { let z = 0; z }", "var x = 1;     x = () => { let z = 0; z }");
 
     inFunction(
         "var x = 1; var y = () => { let z = 0; z }; y();",
@@ -1206,21 +1411,16 @@ public final class CoalesceVariableNamesTest extends CompilerTestCase {
         "var x = 1; var y = () => { let z = 0; z }; x;");
 
     inFunction(
-        "var x = () => { let z = 0; let y = 1; y }",
-        "var x = () => { var z = 0;     z = 1; z }");
+        "var x = () => { let z = 0; let y = 1; y }", "var x = () => { var z = 0;     z = 1; z }");
 
     inFunction(
         "var x = 1; var y = 2; var f = () => x + 1",
         "var x = 1; var y = 2;     y = () => { return x + 1; }");
 
     // Coalesce with arrow function parameters
-    inFunction(
-        "(x) => { var y = 1; y; }",
-        "(x) => {     x = 1; x; }");
+    inFunction("(x) => { var y = 1; y; }", "(x) => {     x = 1; x; }");
 
-    inFunction(
-        "(x) => { let y = 1; y; }",
-        "(x) => {     x = 1; x; }");
+    inFunction("(x) => { let y = 1; y; }", "(x) => {     x = 1; x; }");
   }
 
   @Test
@@ -1252,12 +1452,8 @@ public final class CoalesceVariableNamesTest extends CompilerTestCase {
 
     // Two arrow functions
     test(
-        lines(
-            "() => { var x = 1; var y = 2; y; };",
-            "() => { var z = 3; var w = 4; w; };"),
-        lines(
-            "() => { var x = 1;     x = 2; x; };",
-            "() => { var z = 3;     z = 4; z; };"));
+        lines("() => { var x = 1; var y = 2; y; };", "() => { var z = 3; var w = 4; w; };"),
+        lines("() => { var x = 1;     x = 2; x; };", "() => { var z = 3;     z = 4; z; };"));
   }
 
   @Test
@@ -1292,7 +1488,6 @@ public final class CoalesceVariableNamesTest extends CompilerTestCase {
   }
 
   private void inFunction(String src, String expected) {
-    test("function FUNC(){" + src + "}",
-         "function FUNC(){" + expected + "}");
+    test("function FUNC(){" + src + "}", "function FUNC(){" + expected + "}");
   }
 }

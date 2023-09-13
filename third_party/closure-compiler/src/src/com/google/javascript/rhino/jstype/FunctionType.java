@@ -63,7 +63,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * This derived type provides extended information about a function, including its return type and
@@ -130,7 +130,7 @@ public class FunctionType extends PrototypeObjectType implements JSType.WithSour
   private Node source;
 
   /** The ID of the goog.module in which this function was declared. */
-  @Nullable private final String googModuleId;
+  private final @Nullable String googModuleId;
 
   /** if this is an interface, indicate whether or not it supports structural interface matching */
   private boolean isStructuralInterface;
@@ -181,7 +181,7 @@ public class FunctionType extends PrototypeObjectType implements JSType.WithSour
     if (builder.typeOfThis != null) {
       this.typeOfThis = builder.typeOfThis;
     } else if (this instanceof NoResolvedType) {
-      /**
+      /*
        * TODO(b/112425334): Delete this special case if NO_RESOLVED_TYPE is deleted.
        *
        * <p>Despite being a subclass of `NoType`, `NoResolvedType` should behave more like `?`.
@@ -194,7 +194,7 @@ public class FunctionType extends PrototypeObjectType implements JSType.WithSour
         case INTERFACE:
           InstanceObjectType.Builder typeOfThisBuilder = InstanceObjectType.builderForCtor(this);
 
-          Set<TemplateType> ctorKeys = builder.constructorOnlyKeys;
+          ImmutableSet<TemplateType> ctorKeys = builder.constructorOnlyKeys;
           if (!ctorKeys.isEmpty()) {
             typeOfThisBuilder
                 .setTemplateTypeMap(this.templateTypeMap.copyWithoutKeys(ctorKeys))
@@ -472,7 +472,7 @@ public class FunctionType extends PrototypeObjectType implements JSType.WithSour
     setPrototypeBasedOn(baseType, null);
   }
 
-  private void setPrototypeBasedOn(ObjectType baseType, Node propertyNode) {
+  private void setPrototypeBasedOn(ObjectType baseType, @Nullable Node propertyNode) {
     // First handle class-side inheritance for ES6 classes, before reassigning baseType.
     if (source != null && source.isClass()) {
       FunctionType superCtor = baseType.getConstructor();
@@ -517,7 +517,7 @@ public class FunctionType extends PrototypeObjectType implements JSType.WithSour
    *
    * @param prototype the prototype. If this value is {@code null} it will silently be discarded.
    */
-  final boolean setPrototype(ObjectType prototype, Node propertyNode) {
+  final boolean setPrototype(ObjectType prototype, @Nullable Node propertyNode) {
     if (prototype == null) {
       return false;
     }
@@ -529,7 +529,7 @@ public class FunctionType extends PrototypeObjectType implements JSType.WithSour
   }
 
   /** Set the prototype without doing any sanity checks. */
-  private boolean setPrototypeNoCheck(ObjectType prototype, Node propertyNode) {
+  private boolean setPrototypeNoCheck(ObjectType prototype, @Nullable Node propertyNode) {
     ObjectType oldPrototype = prototypeSlot == null ? null : (ObjectType) prototypeSlot.getType();
     boolean replacedPrototype = oldPrototype != null;
 
@@ -712,7 +712,7 @@ public class FunctionType extends PrototypeObjectType implements JSType.WithSour
             .withReturnType(isCall ? getReturnType() : getBindReturnType(-1))
             .withTemplateKeys(getTemplateTypeMap().getTemplateKeys());
 
-    List<Parameter> origParams = getInternalArrowType().getParameterList();
+    ImmutableList<Parameter> origParams = getInternalArrowType().getParameterList();
 
     List<Parameter> params = new ArrayList<>(origParams);
 
@@ -844,8 +844,8 @@ public class FunctionType extends PrototypeObjectType implements JSType.WithSour
   }
 
   /** Try to get the sup/inf of two functions by looking at the piecewise components. */
-  private FunctionType tryMergeFunctionPiecewise(FunctionType other, boolean leastSuper) {
-    List<Parameter> newParamsNode = null;
+  private @Nullable FunctionType tryMergeFunctionPiecewise(FunctionType other, boolean leastSuper) {
+    ImmutableList<Parameter> newParamsNode = null;
     if (new EqualityChecker()
         .setEqMethod(EqMethod.IDENTITY)
         .checkParameters(this.call, other.call)) {
@@ -886,7 +886,7 @@ public class FunctionType extends PrototypeObjectType implements JSType.WithSour
    * none exists.
    */
   @Override
-  public final FunctionType getSuperClassConstructor() {
+  public final @Nullable FunctionType getSuperClassConstructor() {
     checkArgument(isConstructor() || isInterface());
     ObjectType maybeSuperInstanceType = getPrototype().getImplicitPrototype();
     if (maybeSuperInstanceType == null) {
@@ -1035,12 +1035,13 @@ public class FunctionType extends PrototypeObjectType implements JSType.WithSour
   }
 
   /** Gets the source node or null if this is an unknown function. */
+  @Override
   public final Node getSource() {
     return source;
   }
 
-  @Nullable
-  public String getGoogModuleId() {
+  @Override
+  public @Nullable String getGoogModuleId() {
     return this.googModuleId;
   }
 
@@ -1129,7 +1130,7 @@ public class FunctionType extends PrototypeObjectType implements JSType.WithSour
    * Resolve each item in the list, and return a new list if any references changed. Otherwise,
    * return null.
    */
-  private ImmutableList<ObjectType> resolveTypeListHelper(
+  private @Nullable ImmutableList<ObjectType> resolveTypeListHelper(
       ImmutableList<ObjectType> list, ErrorReporter reporter) {
     boolean changed = false;
     ImmutableList.Builder<ObjectType> resolvedList = ImmutableList.builder();
@@ -1211,7 +1212,7 @@ public class FunctionType extends PrototypeObjectType implements JSType.WithSour
       }
     }
     // retrieve all property types from its super class
-    Iterable<ObjectType> iterable = type.getExtendedInterfaces();
+    ImmutableList<ObjectType> iterable = type.getExtendedInterfaces();
     if (iterable != null) {
       for (ObjectType interfaceType : iterable) {
         FunctionType superConstructor = interfaceType.getConstructor();
@@ -1234,8 +1235,9 @@ public class FunctionType extends PrototypeObjectType implements JSType.WithSour
     return checkExtendsLoop(new HashSet<FunctionType>(), new ArrayList<FunctionType>());
   }
 
-  private List<FunctionType> checkExtendsLoop(Set<FunctionType> cache, List<FunctionType> path) {
-    Iterable<ObjectType> iterable = this.getExtendedInterfaces();
+  private @Nullable List<FunctionType> checkExtendsLoop(
+      Set<FunctionType> cache, List<FunctionType> path) {
+    ImmutableList<ObjectType> iterable = this.getExtendedInterfaces();
     if (iterable != null) {
       for (ObjectType interfaceType : iterable) {
         FunctionType superConstructor = interfaceType.getConstructor();
@@ -1308,7 +1310,7 @@ public class FunctionType extends PrototypeObjectType implements JSType.WithSour
   public final ImmutableList<TemplateType> getConstructorOnlyTemplateParameters() {
     checkState(this.isConstructor(), this);
 
-    /**
+    /*
      * Structural constructor types (e.g `function(new:Foo<T>)`) cannot have template params of
      * their own.
      */
@@ -1425,20 +1427,20 @@ public class FunctionType extends PrototypeObjectType implements JSType.WithSour
   /** A builder class for function and arrow types. */
   public static final class Builder extends PrototypeObjectType.Builder<Builder> {
 
-    private Node sourceNode = null;
-    private String googModuleId = null;
-    private List<Parameter> parameters = null;
-    private JSType returnType = null;
-    private JSType typeOfThis = null;
-    private ObjectType setPrototypeBasedOn = null;
-    private Set<TemplateType> constructorOnlyKeys = ImmutableSet.of();
+    private @Nullable Node sourceNode = null;
+    private @Nullable String googModuleId = null;
+    private @Nullable List<Parameter> parameters = null;
+    private @Nullable JSType returnType = null;
+    private @Nullable JSType typeOfThis = null;
+    private @Nullable ObjectType setPrototypeBasedOn = null;
+    private ImmutableSet<TemplateType> constructorOnlyKeys = ImmutableSet.of();
     private Kind kind = Kind.ORDINARY;
     private boolean isAbstract;
     private boolean isKnownAmbiguous = false;
     private boolean returnTypeIsInferred;
     private boolean returnsOwnInstanceType;
-    private ClosurePrimitive primitiveId = null;
-    private FunctionType canonicalRepresentation = null;
+    private @Nullable ClosurePrimitive primitiveId = null;
+    private @Nullable FunctionType canonicalRepresentation = null;
 
     private Builder(JSTypeRegistry registry) {
       super(registry);
@@ -1596,7 +1598,7 @@ public class FunctionType extends PrototypeObjectType implements JSType.WithSour
       switch (this.kind) {
         case CONSTRUCTOR:
         case INTERFACE:
-          /**
+          /*
            * These kinds have no implication on whether `returnsOwnInstanceType` is reasonable. This
            * configuration may be intended to synthesize an instance type. The return type and
            * instance type are independent.

@@ -36,6 +36,7 @@ import com.google.javascript.rhino.jstype.UnionType;
 import com.google.javascript.rhino.jstype.Visitor;
 import java.util.HashSet;
 import java.util.Set;
+import org.jspecify.nullness.Nullable;
 
 /**
  * A reverse abstract interpreter using the semantics of the JavaScript
@@ -408,23 +409,25 @@ public final class SemanticReverseAbstractInterpreter
    */
   @CheckReturnValue
   private FlowScope maybeRestrictName(
-      FlowScope blindScope, Node node, JSType originalType, JSType restrictedType) {
+      FlowScope blindScope, Node node, JSType originalType, @Nullable JSType restrictedType) {
     if (restrictedType != null && !identical(restrictedType, originalType)) {
       return declareNameInScope(blindScope, node, restrictedType);
     }
     return blindScope;
   }
 
-  /** @see #maybeRestrictName */
+  /**
+   * @see #maybeRestrictName
+   */
   @CheckReturnValue
   private FlowScope maybeRestrictTwoNames(
       FlowScope blindScope,
       Node left,
       JSType originalLeftType,
-      JSType restrictedLeftType,
+      @Nullable JSType restrictedLeftType,
       Node right,
       JSType originalRightType,
-      JSType restrictedRightType) {
+      @Nullable JSType restrictedRightType) {
     boolean shouldRefineLeft =
         restrictedLeftType != null && !identical(restrictedLeftType, originalLeftType);
     boolean shouldRefineRight =
@@ -550,7 +553,7 @@ public final class SemanticReverseAbstractInterpreter
       return caseObjectType(type);
     }
 
-    private JSType applyCommonRestriction(JSType type) {
+    private @Nullable JSType applyCommonRestriction(JSType type) {
       if (target.isUnknownType()) {
         return type;
       }
@@ -576,7 +579,7 @@ public final class SemanticReverseAbstractInterpreter
     }
 
     @Override
-    public JSType caseObjectType(ObjectType type) {
+    public @Nullable JSType caseObjectType(ObjectType type) {
       if (target.isUnknownType()) {
         return type;
       }
@@ -594,7 +597,7 @@ public final class SemanticReverseAbstractInterpreter
     }
 
     @Override
-    public JSType caseUnionType(UnionType type) {
+    public @Nullable JSType caseUnionType(UnionType type) {
       if (target.isUnknownType()) {
         return type;
       }

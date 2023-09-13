@@ -19,7 +19,7 @@ package com.google.javascript.jscomp;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.javascript.jscomp.deps.ModuleLoader;
-import java.util.Map;
+import org.jspecify.nullness.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -28,7 +28,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class ProcessCommonJSModulesTest extends CompilerTestCase {
 
-  private ImmutableList<String> moduleRoots = null;
+  private @Nullable ImmutableList<String> moduleRoots = null;
   private ModuleLoader.ResolutionMode resolutionMode = ModuleLoader.ResolutionMode.NODE;
 
   @Override
@@ -1003,7 +1003,7 @@ public final class ProcessCommonJSModulesTest extends CompilerTestCase {
                 + " __WEBPACK_AMD_DEFINE_RESULT__$$module$test))",
             "})()"));
 
-    Map<String, String> webpackModulesById =
+    ImmutableMap<String, String> webpackModulesById =
         ImmutableMap.of(
             "1", "other.js",
             "yet_another.js", "yet_another.js",
@@ -1335,7 +1335,7 @@ public final class ProcessCommonJSModulesTest extends CompilerTestCase {
 
   @Test
   public void testWebpackRequire() {
-    Map<String, String> webpackModulesById =
+    ImmutableMap<String, String> webpackModulesById =
         ImmutableMap.of(
             "1", "other.js",
             "2", "yet_another.js",
@@ -1354,7 +1354,7 @@ public final class ProcessCommonJSModulesTest extends CompilerTestCase {
 
   @Test
   public void testWebpackRequireString() {
-    Map<String, String> webpackModulesById =
+    ImmutableMap<String, String> webpackModulesById =
         ImmutableMap.of(
             "1", "other.js",
             "yet_another.js", "yet_another.js",
@@ -1373,7 +1373,7 @@ public final class ProcessCommonJSModulesTest extends CompilerTestCase {
 
   @Test
   public void testWebpackAMDModuleShim() {
-    Map<String, String> webpackModulesById =
+    ImmutableMap<String, String> webpackModulesById =
         ImmutableMap.of(
             "1", "test.js",
             "2", "/webpack/buildin/module.js");
@@ -1462,7 +1462,9 @@ public final class ProcessCommonJSModulesTest extends CompilerTestCase {
             "module$test.default = module$test.default.default;"));
   }
 
-  /** @see https://github.com/google/closure-compiler/issues/2999 */
+  /**
+   * @see https://github.com/google/closure-compiler/issues/2999
+   */
   @Test
   public void testLodashModulesCheck() {
     testModules(
@@ -1486,7 +1488,9 @@ public final class ProcessCommonJSModulesTest extends CompilerTestCase {
             "module$test.default = true;"));
   }
 
-  /** @see https://github.com/google/closure-compiler/issues/3051 */
+  /**
+   * @see https://github.com/google/closure-compiler/issues/3051
+   */
   @Test
   public void testIssue3051() {
     testModules(
@@ -1547,7 +1551,7 @@ public final class ProcessCommonJSModulesTest extends CompilerTestCase {
 
   @Test
   public void testWebpackRequireNamespace() {
-    Map<String, String> webpackModulesById =
+    ImmutableMap<String, String> webpackModulesById =
         ImmutableMap.of(
             "1", "other.js",
             "yet_another.js", "yet_another.js",

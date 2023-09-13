@@ -29,15 +29,16 @@ import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.QualifiedName;
 import com.google.javascript.rhino.Token;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Performs some Closure-specific simplifications including rewriting goog.base, goog.addDependency.
@@ -112,11 +113,13 @@ class ProcessClosurePrimitives extends AbstractPostOrderCallback implements Comp
   /** The root Closure namespace */
   static final String GOOG = "goog";
 
+  private static final QualifiedName GOOG_INHERITS = QualifiedName.of("goog.inherits");
+
   private final AbstractCompiler compiler;
 
-  private final Set<String> knownClosureSubclasses = new HashSet<>();
+  private final Set<String> knownClosureSubclasses = new LinkedHashSet<>();
 
-  private final Set<String> exportedVariables = new HashSet<>();
+  private final Set<String> exportedVariables = new LinkedHashSet<>();
 
   private final ImmutableMap<String, ModuleMetadata> closureModules;
 
@@ -255,7 +258,7 @@ class ProcessClosurePrimitives extends AbstractPostOrderCallback implements Comp
         }
         break;
       case "setCssNameMapping":
-        processSetCssNameMapping(call, call.getParent());
+        var unused = processSetCssNameMapping(compiler, call, call.getParent());
         break;
       case "forwardDeclare":
         if (validatePrimitiveCallWithMessage(
@@ -491,7 +494,7 @@ class ProcessClosurePrimitives extends AbstractPostOrderCallback implements Comp
     Node baseClassNode = null;
     if (maybeInheritsExpr != null && NodeUtil.isExprCall(maybeInheritsExpr)) {
       Node callNode = maybeInheritsExpr.getFirstChild();
-      if (callNode.getFirstChild().matchesQualifiedName("goog.inherits")
+      if (GOOG_INHERITS.matches(callNode.getFirstChild())
           && callNode.getLastChild().isQualifiedName()) {
         baseClassNode = callNode.getLastChild();
       }
@@ -513,10 +516,10 @@ class ProcessClosurePrimitives extends AbstractPostOrderCallback implements Comp
   }
 
   /**
-   * Returns the qualified name node of the function whose scope we're in,
-   * or null if it cannot be found.
+   * Returns the qualified name node of the function whose scope we're in, or null if it cannot be
+   * found.
    */
-  private static Node getEnclosingDeclNameNode(Node n) {
+  private static @Nullable Node getEnclosingDeclNameNode(Node n) {
     Node fn = NodeUtil.getEnclosingFunction(n);
     return fn == null ? null : NodeUtil.getNameNode(fn);
   }
@@ -543,90 +546,96 @@ class ProcessClosurePrimitives extends AbstractPostOrderCallback implements Comp
    *
    * @see #visit(NodeTraversal, Node, Node)
    */
-  private void processSetCssNameMapping(Node n, Node parent) {
+  static @Nullable CssRenamingMap processSetCssNameMapping(
+      AbstractCompiler compiler, Node n, Node parent) {
     Node left = n.getFirstChild();
     Node arg = left.getNext();
-    if (verifySetCssNameMapping(left, arg)) {
-      // Translate OBJECTLIT into SubstitutionMap. All keys and
-      // values must be strings, or an error will be thrown.
-      final Map<String, String> cssNames = new HashMap<>();
-
-      for (Node key = arg.getFirstChild(); key != null;
-          key = key.getNext()) {
-        Node value = key.getFirstChild();
-        if (!key.isStringKey() || value == null || !value.isStringLit()) {
-          compiler.report(JSError.make(n, NON_STRING_PASSED_TO_SET_CSS_NAME_MAPPING_ERROR));
-          return;
-        }
-        cssNames.put(key.getString(), value.getString());
-      }
-
-      String styleStr = "BY_PART";
-      if (arg.getNext() != null) {
-        styleStr = arg.getNext().getString();
-      }
-
-      final CssRenamingMap.Style style;
-      try {
-        style = CssRenamingMap.Style.valueOf(styleStr);
-      } catch (IllegalArgumentException e) {
-        compiler.report(JSError.make(n, INVALID_STYLE_ERROR, styleStr));
-        return;
-      }
-
-      if (style == CssRenamingMap.Style.BY_PART) {
-        // Make sure that no keys contain -'s
-        List<String> errors = new ArrayList<>();
-        for (String key : cssNames.keySet()) {
-          if (key.contains("-")) {
-            errors.add(key);
-          }
-        }
-        if (!errors.isEmpty()) {
-          compiler.report(JSError.make(n, INVALID_CSS_RENAMING_MAP, errors.toString()));
-        }
-      } else if (style == CssRenamingMap.Style.BY_WHOLE) {
-        // Verifying things is a lot trickier here. We just do a quick
-        // n^2 check over the map which makes sure that if "a-b" in
-        // the map, then map(a-b) = map(a)-map(b).
-        // To speed things up, only consider cases where len(b) <= 10
-        List<String> errors = new ArrayList<>();
-        for (Map.Entry<String, String> b : cssNames.entrySet()) {
-          if (b.getKey().length() > 10) {
-            continue;
-          }
-          for (Map.Entry<String, String> a : cssNames.entrySet()) {
-            String combined = cssNames.get(a.getKey() + "-" + b.getKey());
-            if (combined != null && !combined.equals(a.getValue() + "-" + b.getValue())) {
-              errors.add("map(" + a.getKey() + "-" + b.getKey() + ") != map("
-                  + a.getKey() + ")-map(" + b.getKey() + ")");
-            }
-          }
-        }
-        if (!errors.isEmpty()) {
-          compiler.report(JSError.make(n, INVALID_CSS_RENAMING_MAP, errors.toString()));
-        }
-      }
-
-      CssRenamingMap cssRenamingMap = new CssRenamingMap() {
-        @Override
-        public String get(String value) {
-          if (cssNames.containsKey(value)) {
-            return cssNames.get(value);
-          } else {
-            return value;
-          }
-        }
-
-        @Override
-        public CssRenamingMap.Style getStyle() {
-          return style;
-        }
-      };
-      compiler.setCssRenamingMap(cssRenamingMap);
-      compiler.reportChangeToEnclosingScope(parent);
-      parent.detach();
+    if (!verifySetCssNameMapping(compiler, left, arg)) {
+      return null;
     }
+    // Translate OBJECTLIT into SubstitutionMap. All keys and
+    // values must be strings, or an error will be thrown.
+    final Map<String, String> cssNames = new LinkedHashMap<>();
+
+    for (Node key = arg.getFirstChild(); key != null; key = key.getNext()) {
+      Node value = key.getFirstChild();
+      if (!key.isStringKey() || value == null || !value.isStringLit()) {
+        compiler.report(JSError.make(n, NON_STRING_PASSED_TO_SET_CSS_NAME_MAPPING_ERROR));
+        return null;
+      }
+      cssNames.put(key.getString(), value.getString());
+    }
+
+    String styleStr = "BY_PART";
+    if (arg.getNext() != null) {
+      styleStr = arg.getNext().getString();
+    }
+
+    final CssRenamingMap.Style style;
+    try {
+      style = CssRenamingMap.Style.valueOf(styleStr);
+    } catch (IllegalArgumentException e) {
+      compiler.report(JSError.make(n, INVALID_STYLE_ERROR, styleStr));
+      return null;
+    }
+
+    if (style == CssRenamingMap.Style.BY_PART) {
+      // Make sure that no keys contain -'s
+      List<String> errors = new ArrayList<>();
+      for (String key : cssNames.keySet()) {
+        if (key.contains("-")) {
+          errors.add(key);
+        }
+      }
+      if (!errors.isEmpty()) {
+        compiler.report(JSError.make(n, INVALID_CSS_RENAMING_MAP, errors.toString()));
+      }
+    } else if (style == CssRenamingMap.Style.BY_WHOLE) {
+      // Verifying things is a lot trickier here. We just do a quick
+      // n^2 check over the map which makes sure that if "a-b" in
+      // the map, then map(a-b) = map(a)-map(b).
+      // To speed things up, only consider cases where len(b) <= 10
+      List<String> errors = new ArrayList<>();
+      for (Map.Entry<String, String> b : cssNames.entrySet()) {
+        if (b.getKey().length() > 10) {
+          continue;
+        }
+        for (Map.Entry<String, String> a : cssNames.entrySet()) {
+          String combined = cssNames.get(a.getKey() + "-" + b.getKey());
+          if (combined != null && !combined.equals(a.getValue() + "-" + b.getValue())) {
+            errors.add(
+                "map("
+                    + a.getKey()
+                    + "-"
+                    + b.getKey()
+                    + ") != map("
+                    + a.getKey()
+                    + ")-map("
+                    + b.getKey()
+                    + ")");
+          }
+        }
+      }
+      if (!errors.isEmpty()) {
+        compiler.report(JSError.make(n, INVALID_CSS_RENAMING_MAP, errors.toString()));
+      }
+    }
+
+    return new CssRenamingMap() {
+      @Override
+      public String get(String value) {
+        if (cssNames.containsKey(value)) {
+          return cssNames.get(value);
+        } else {
+          return value;
+        }
+      }
+
+      @Override
+      public CssRenamingMap.Style getStyle() {
+        return style;
+      }
+    };
   }
 
   /** Process a goog.addDependency() call and record any forward declarations. */
@@ -681,7 +690,8 @@ class ProcessClosurePrimitives extends AbstractPostOrderCallback implements Comp
    *
    * @return Whether the arguments checked out okay
    */
-  private boolean verifySetCssNameMapping(Node methodName, Node firstArg) {
+  private static boolean verifySetCssNameMapping(
+      AbstractCompiler compiler, Node methodName, Node firstArg) {
     DiagnosticType diagnostic = null;
     if (firstArg == null) {
       diagnostic = NULL_ARGUMENT_ERROR;

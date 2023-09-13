@@ -38,8 +38,11 @@
 
 package com.google.javascript.rhino;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.javascript.jscomp.serialization.NodeProperty;
 import com.google.javascript.rhino.Node.Prop;
+import org.jspecify.nullness.Nullable;
 
 /**
  * A translator for converting between Rhino node properties and TypedAST proto node properties used
@@ -71,13 +74,16 @@ final class PropTranslator {
     for (Prop rhinoProp : Prop.values()) {
       NodeProperty protoProp = serializeProp(rhinoProp);
       if (protoProp != null) {
+        // Boolean props are stored as a bitset, see Node#deserializeProperties
+        checkState(
+            protoProp.getNumber() < 63, "enum %s value %s", protoProp, protoProp.getNumber());
         protoToRhinoProp[protoProp.ordinal()] = rhinoProp;
         rhinoToProtoProp[rhinoProp.ordinal()] = protoProp;
       }
     }
   }
 
-  private static final NodeProperty serializeProp(Prop prop) {
+  private static final @Nullable NodeProperty serializeProp(Prop prop) {
     switch (prop) {
       case ARROW_FN:
         return NodeProperty.ARROW_FN;
@@ -121,8 +127,6 @@ final class PropTranslator {
         return NodeProperty.DIRECT_EVAL;
       case FREE_CALL:
         return NodeProperty.FREE_CALL;
-      case SLASH_V:
-        return NodeProperty.SLASH_V;
       case REFLECTED_OBJECT:
         return NodeProperty.REFLECTED_OBJECT;
       case EXPORT_DEFAULT:
@@ -139,8 +143,6 @@ final class PropTranslator {
         return NodeProperty.COMPUTED_PROP_VARIABLE;
       case GOOG_MODULE:
         return NodeProperty.GOOG_MODULE;
-      case TRANSPILED:
-        return NodeProperty.TRANSPILED;
       case MODULE_ALIAS:
         return NodeProperty.MODULE_ALIAS;
       case MODULE_EXPORT:
@@ -156,6 +158,7 @@ final class PropTranslator {
       case FEATURE_SET:
       case TYPE_BEFORE_CAST:
       case NON_JSDOC_COMMENT:
+      case TRAILING_NON_JSDOC_COMMENT:
       case JSDOC_INFO:
       case INCRDECR:
       case QUOTED:
@@ -171,6 +174,7 @@ final class PropTranslator {
       case PARSE_RESULTS:
       case IS_TYPESCRIPT_ABSTRACT:
       case TYPEDEF_TYPE:
+      case MARK_FOR_PARENTHESIZE:
         // These cases cannot be translated to a NodeProperty
         return null;
     }
@@ -179,12 +183,30 @@ final class PropTranslator {
 
   private static final void checkUnexpectedNullProtoProps() {
     for (NodeProperty protoProp : NodeProperty.values()) {
-      if (protoToRhinoProp[protoProp.ordinal()] == null
-          && protoProp != NodeProperty.NODE_PROPERTY_UNSPECIFIED
-          && protoProp != NodeProperty.IS_DECLARED_CONSTANT
-          && protoProp != NodeProperty.IS_INFERRED_CONSTANT
-          && protoProp != NodeProperty.UNRECOGNIZED) {
-        throw new IllegalStateException("Hit unhandled node property: " + protoProp);
+      switch (protoProp) {
+        case NODE_PROPERTY_UNSPECIFIED:
+          // this is the "no properties are set" value
+          break;
+        case IS_DECLARED_CONSTANT:
+        case IS_INFERRED_CONSTANT:
+          // These are used for the CONSTANT_VAR_FLAGS bit field property
+          break;
+        case UNRECOGNIZED:
+        case UNUSED_11:
+          // unused
+          break;
+        case MUTATES_GLOBAL_STATE:
+        case MUTATES_THIS:
+        case MUTATES_ARGUMENTS:
+        case THROWS:
+          // these are used for the SIDE_EFFECT_FLAGS bit field property
+          break;
+        default:
+          // everything else should be a 1-to-1 match with a boolean property
+          checkState(
+              protoToRhinoProp[protoProp.ordinal()] != null,
+              "Hit unhandled node property: %s",
+              protoProp);
       }
     }
   }

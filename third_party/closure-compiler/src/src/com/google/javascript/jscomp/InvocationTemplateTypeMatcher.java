@@ -21,6 +21,7 @@ import static com.google.javascript.rhino.jstype.JSTypeNative.UNKNOWN_TYPE;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -166,7 +167,7 @@ final class InvocationTemplateTypeMatcher {
         if (argObjectType != null
             && !argObjectType.isUnknownType()
             && !argObjectType.isEmptyType()) {
-          Set<String> names = paramRecordType.getPropertyNames();
+          ImmutableSortedSet<String> names = paramRecordType.getPropertyNames();
           for (String name : names) {
             if (paramRecordType.hasOwnProperty(name) && argObjectType.hasProperty(name)) {
               this.matchTemplateTypesRecursive(
@@ -186,21 +187,16 @@ final class InvocationTemplateTypeMatcher {
         return;
       }
 
-      ObjectType referencedParamType = templatizedParamType.getReferencedType();
       JSType argObjectType = argType.restrictByNotNullOrUndefined().collapseUnion();
+      // Resolve any template types in common between the argument type and parameter type
+      TemplateTypeMap paramTypeMap = paramType.getTemplateTypeMap();
 
-      if (argObjectType.isSubtypeOf(referencedParamType)) {
-        // If the argument type is a subtype of the parameter type, resolve any
-        // template types amongst their templatized types.
-        TemplateTypeMap paramTypeMap = paramType.getTemplateTypeMap();
-
-        ImmutableList<TemplateType> keys = paramTypeMap.getTemplateKeys();
-        TemplateTypeMap argTypeMap = argObjectType.getTemplateTypeMap();
-        for (int index = keys.size() - keyCount; index < keys.size(); index++) {
-          TemplateType key = keys.get(index);
-          this.matchTemplateTypesRecursive(
-              paramTypeMap.getResolvedTemplateType(key), argTypeMap.getResolvedTemplateType(key));
-        }
+      ImmutableList<TemplateType> keys = paramTypeMap.getTemplateKeys();
+      TemplateTypeMap argTypeMap = argObjectType.getTemplateTypeMap();
+      for (int index = keys.size() - keyCount; index < keys.size(); index++) {
+        TemplateType key = keys.get(index);
+        this.matchTemplateTypesRecursive(
+            paramTypeMap.getResolvedTemplateType(key), argTypeMap.getResolvedTemplateType(key));
       }
     }
   }

@@ -20,7 +20,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.javascript.jscomp.base.JSCompDoubles.isPositive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.debugging.sourcemap.FilePosition;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.javascript.jscomp.CodePrinter.Builder.CodeGeneratorFactory;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
 import com.google.javascript.rhino.Node;
@@ -32,7 +34,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * CodePrinter prints out JS code in either pretty format or compact format.
@@ -48,15 +50,16 @@ public final class CodePrinter {
   // version.
 
   private abstract static class MappedCodePrinter extends CodeConsumer {
-    private final Deque<Mapping> mappings;
-    private final List<Mapping> allMappings;
+    private final @Nullable Deque<SourceMap.Mapping> mappings;
+    private final @Nullable List<SourceMap.Mapping> allMappings;
     // The ordered list of finalized mappings since the last line break. See #reportLineCut.
-    private final List<Mapping> completeMappings;
+    private final @Nullable List<SourceMap.Mapping> completeMappings;
     // The index into allMappings to find the mappings added since the last line
     // break. See #reportLineCut.
     private int firstCandidateMappingForCut = 0;
     private final boolean createSrcMap;
     private final SourceMap.DetailLevel sourceMapDetailLevel;
+    private final @Nullable LicenseTracker licenseTracker;
     protected final StringBuilder code = new StringBuilder(1024);
     protected final int lineLengthThreshold;
     protected int lineLength = 0;
@@ -65,36 +68,17 @@ public final class CodePrinter {
     MappedCodePrinter(
         int lineLengthThreshold,
         boolean createSrcMap,
-        SourceMap.DetailLevel sourceMapDetailLevel) {
+        SourceMap.DetailLevel sourceMapDetailLevel,
+        @Nullable LicenseTracker licenseTracker) {
       checkState(sourceMapDetailLevel != null);
       this.lineLengthThreshold = lineLengthThreshold <= 0 ? Integer.MAX_VALUE :
         lineLengthThreshold;
       this.createSrcMap = createSrcMap;
       this.sourceMapDetailLevel = sourceMapDetailLevel;
-      this.mappings = createSrcMap ? new ArrayDeque<Mapping>() : null;
-      this.allMappings = createSrcMap ? new ArrayList<Mapping>() : null;
-      this.completeMappings = createSrcMap ? new ArrayList<Mapping>() : null;
-    }
-
-    /**
-     * Maintains a mapping from a given node to the position
-     * in the source code at which its generated form was
-     * placed. This position is relative only to the current
-     * run of the CodeConsumer and will be normalized
-     * later on by the SourceMap.
-     *
-     * @see SourceMap
-     */
-    private static class Mapping {
-      Node node;
-      FilePosition start;
-      FilePosition end;
-
-      @Override
-      public String toString() {
-        // This toString() representation is used for debugging purposes only.
-        return "Mapping: start " + start + ", end " + end + ", node " + node;
-      }
+      this.mappings = createSrcMap ? new ArrayDeque<>() : null;
+      this.allMappings = createSrcMap ? new ArrayList<>() : null;
+      this.completeMappings = createSrcMap ? new ArrayList<>() : null;
+      this.licenseTracker = licenseTracker;
     }
 
     /** Appends a string to the code, keeping track of the current line length. */
@@ -102,6 +86,13 @@ public final class CodePrinter {
     void append(String str) {
       code.append(str);
       lineLength += str.length();
+    }
+
+    @Override
+    void trackLicenses(Node node) {
+      if (this.licenseTracker != null) {
+        this.licenseTracker.trackLicensesForNode(node);
+      }
     }
 
     /**
@@ -119,7 +110,7 @@ public final class CodePrinter {
         int line = getCurrentLineIndex();
         int index = getCurrentCharIndex();
         checkState(line >= 0);
-        Mapping mapping = new Mapping();
+        SourceMap.Mapping mapping = new SourceMap.Mapping();
         mapping.node = node;
         mapping.start = new FilePosition(line, index);
         mappings.push(mapping);
@@ -134,7 +125,7 @@ public final class CodePrinter {
     @Override
     void endSourceMapping(Node node) {
       if (createSrcMap && !mappings.isEmpty() && mappings.peek().node == node) {
-        Mapping mapping = mappings.pop();
+        SourceMap.Mapping mapping = mappings.pop();
         int line = getCurrentLineIndex();
         int index = getCurrentCharIndex();
         checkState(line >= 0);
@@ -144,18 +135,23 @@ public final class CodePrinter {
     }
 
     /**
-     * Generates the source map from the given code consumer,
-     * appending the information it saved to the SourceMap
-     * object given.
+     * Returns a list of sourcemap mappings that were generated while printing this code. Only
+     * useful if createSrcMap was true for this MappedCodePrinter.
      */
-    void generateSourceMap(String code, SourceMap map) {
-      if (createSrcMap) {
-        List<Integer> lineLengths = computeLineLengths(code);
-        for (Mapping mapping : allMappings) {
-          map.addMapping(
-              mapping.node, mapping.start, adjustEndPosition(lineLengths, mapping.end));
-        }
+    @Nullable List<SourceMap.Mapping> getSourceMappings(String code) {
+      if (!createSrcMap) {
+        return null;
       }
+      ImmutableList<Integer> lineLengths = computeLineLengths(code);
+      List<SourceMap.Mapping> fixedMappings = new ArrayList<>();
+      for (SourceMap.Mapping mapping : allMappings) {
+        SourceMap.Mapping adjusted = new SourceMap.Mapping();
+        adjusted.node = mapping.node;
+        adjusted.start = mapping.start;
+        adjusted.end = adjustEndPosition(lineLengths, mapping.end);
+        fixedMappings.add(adjusted);
+      }
+      return fixedMappings;
     }
 
     /**
@@ -173,12 +169,12 @@ public final class CodePrinter {
 
         int mappingCount = allMappings.size();
         for (int i = firstCandidateMappingForCut; i < mappingCount; i++) {
-          Mapping mapping = allMappings.get(i);
+          SourceMap.Mapping mapping = allMappings.get(i);
           mapping.start = convertPositionAfterLineCut(mapping.start, lineIndex, charIndex);
         }
         firstCandidateMappingForCut = mappingCount;
 
-        for (Mapping mapping : completeMappings) {
+        for (SourceMap.Mapping mapping : completeMappings) {
           mapping.end = convertPositionAfterLineCut(mapping.end, lineIndex, charIndex);
         }
         // To avoid iterating over every mapping, every time we cut a line, keep track of
@@ -285,17 +281,18 @@ public final class CodePrinter {
     private int indent = 0;
 
     /**
-     * @param lineLengthThreshold The length of a line after which we force
-     *                            a newline when possible.
+     * @param lineLengthThreshold The length of a line after which we force a newline when possible.
      * @param createSourceMap Whether to generate source map data.
-     * @param sourceMapDetailLevel A filter to control which nodes get mapped
-     *     into the source map.
+     * @param sourceMapDetailLevel A filter to control which nodes get mapped into the source map.
+     * @param licenseTracker A license tracking implementation to manage license text emit. The
+     *     CodePrinter will never emit license information directly.
      */
     private PrettyCodePrinter(
         int lineLengthThreshold,
         boolean createSourceMap,
-        SourceMap.DetailLevel sourceMapDetailLevel) {
-      super(lineLengthThreshold, createSourceMap, sourceMapDetailLevel);
+        SourceMap.DetailLevel sourceMapDetailLevel,
+        @Nullable LicenseTracker licenseTracker) {
+      super(lineLengthThreshold, createSourceMap, sourceMapDetailLevel, licenseTracker);
     }
 
     /**
@@ -532,9 +529,11 @@ public final class CodePrinter {
     }
 
     @Override
-    void endStatement(boolean needsSemicolon) {
+    void endStatement(boolean needsSemicolon, boolean hasTrailingCommentOnSameLine) {
       add(";");
-      endLine();
+      if (!hasTrailingCommentOnSameLine) {
+        endLine();
+      }
       statementNeedsEnded = false;
     }
 
@@ -543,7 +542,7 @@ public final class CodePrinter {
       maybeEndStatement();
     }
 
-    private static String getNumberFromSource(Node n) {
+    private static @Nullable String getNumberFromSource(Node n) {
       if (!n.isNumber()) {
         return null;
       }
@@ -588,28 +587,27 @@ public final class CodePrinter {
     // probably require explicit modeling of the gzip algorithm.
 
     private final boolean lineBreak;
-    // Sometimes we'd like for the file to end in a line break. That way, if multiple files are
-    // concatentated, the sourcemaps of later files are still valid.
-    private final boolean preferLineBreakAtEndOfFile;
 
     private int lineStartPosition = 0;
     private int preferredBreakPosition = 0;
 
-  /**
-   * @param lineBreak break the lines a bit more aggressively
-   * @param lineLengthThreshold The length of a line after which we force
-   *                            a newline when possible.
-   * @param createSrcMap Whether to gather source position
-   *                            mapping information when printing.
-   * @param sourceMapDetailLevel A filter to control which nodes get mapped into
-   *     the source map.
-   */
-    private CompactCodePrinter(boolean lineBreak,
-        boolean preferLineBreakAtEndOfFile, int lineLengthThreshold,
-        boolean createSrcMap, SourceMap.DetailLevel sourceMapDetailLevel) {
-      super(lineLengthThreshold, createSrcMap, sourceMapDetailLevel);
+    /**
+     * @param lineBreak break the lines a bit more aggressively
+     * @param lineLengthThreshold The length of a line after which we force a newline when possible.
+     * @param createSrcMap Whether to gather source position mapping information when printing.
+     * @param sourceMapDetailLevel A filter to control which nodes get mapped into the source map.
+     * @param licenseTracker A license tracking implementation to manage license text emit. The
+     *     CodePrinter will never emit license information directly - it only ever passes nodes to
+     *     the license tracker to request tracking.
+     */
+    private CompactCodePrinter(
+        boolean lineBreak,
+        int lineLengthThreshold,
+        boolean createSrcMap,
+        SourceMap.DetailLevel sourceMapDetailLevel,
+        LicenseTracker licenseTracker) {
+      super(lineLengthThreshold, createSrcMap, sourceMapDetailLevel, licenseTracker);
       this.lineBreak = lineBreak;
-      this.preferLineBreakAtEndOfFile = preferLineBreakAtEndOfFile;
     }
 
     /**
@@ -677,18 +675,21 @@ public final class CodePrinter {
     void notePreferredLineBreak() {
       preferredBreakPosition = code.length();
     }
+  }
 
-    @Override
-    void endFile() {
-      super.endFile();
-      if (!preferLineBreakAtEndOfFile) {
-        return;
-      }
+  /**
+   * License Trackers are responsible for ensuring that any licensing information attached to nodes
+   * is retained in the final output of JSCompiler.
+   *
+   * <p>The Code Printer will visit every node being printed and call trackLicensesForNode for that
+   * node. Later, some other code can call emitLicenses to retrieve all relevant licenses. Deciding
+   * what is relevant varies between implementations of License Trackers - read their javadoc to
+   * determine how they are intended to be used.
+   */
+  public interface LicenseTracker {
+    void trackLicensesForNode(Node node);
 
-      maybeEndStatement();
-      startNewLine();
-    }
-
+    ImmutableSet<String> emitLicenses();
   }
 
   public static final class Builder {
@@ -697,18 +698,19 @@ public final class CodePrinter {
     private boolean lineBreak;
     private boolean prettyPrint;
     private boolean outputTypes = false;
-    private SourceMap sourceMap = null;
     private boolean tagAsTypeSummary;
     private boolean tagAsStrict;
-    @Nullable private JSTypeRegistry registry; // may be null unless using Format.TYPED
-    private CodeGeneratorFactory codeGeneratorFactory = new CodeGeneratorFactory() {
-      @Override
-      public CodeGenerator getCodeGenerator(Format outputFormat, CodeConsumer cc) {
-        return outputFormat == Format.TYPED
-            ? new TypedCodeGenerator(cc, options, registry)
-            : new CodeGenerator(cc, options);
-      }
-    };
+    private @Nullable LicenseTracker licenseTracker;
+    private @Nullable JSTypeRegistry registry; // may be null unless using Format.TYPED
+    private CodeGeneratorFactory codeGeneratorFactory =
+        new CodeGeneratorFactory() {
+          @Override
+          public CodeGenerator getCodeGenerator(Format outputFormat, CodeConsumer cc) {
+            return outputFormat == Format.TYPED
+                ? new TypedCodeGenerator(cc, options, registry)
+                : new CodeGenerator(cc, options);
+          }
+        };
 
     /**
      * Sets the root node from which to generate the source code.
@@ -718,9 +720,8 @@ public final class CodePrinter {
       root = node;
     }
 
-    /**
-     * Sets the output options from compiler options.
-     */
+    /** Sets the output options from compiler options. */
+    @CanIgnoreReturnValue
     public Builder setCompilerOptions(CompilerOptions options) {
       this.options = options;
       this.prettyPrint = options.isPrettyPrint();
@@ -728,6 +729,7 @@ public final class CodePrinter {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setTypeRegistry(JSTypeRegistry registry) {
       this.registry = registry;
       return this;
@@ -735,8 +737,10 @@ public final class CodePrinter {
 
     /**
      * Sets whether pretty printing should be used.
+     *
      * @param prettyPrint If true, pretty printing will be used.
      */
+    @CanIgnoreReturnValue
     public Builder setPrettyPrint(boolean prettyPrint) {
       this.prettyPrint = prettyPrint;
       return this;
@@ -744,8 +748,10 @@ public final class CodePrinter {
 
     /**
      * Sets whether line breaking should be done automatically.
+     *
      * @param lineBreak If true, line breaking is done automatically.
      */
+    @CanIgnoreReturnValue
     public Builder setLineBreak(boolean lineBreak) {
       this.lineBreak = lineBreak;
       return this;
@@ -753,41 +759,42 @@ public final class CodePrinter {
 
     /**
      * Sets whether to output closure-style type annotations.
+     *
      * @param outputTypes If true, outputs closure-style type annotations.
      */
+    @CanIgnoreReturnValue
     public Builder setOutputTypes(boolean outputTypes) {
       this.outputTypes = outputTypes;
       return this;
     }
 
     /**
-     * Sets the source map to which to write the metadata about
-     * the generated source code.
+     * Sets the license tracker to use when printing.
      *
-     * @param sourceMap The source map.
+     * @param licenseTracker The tracker to use. Can be null to disable license tracking.
      */
-    public Builder setSourceMap(SourceMap sourceMap) {
-      this.sourceMap = sourceMap;
+    @CanIgnoreReturnValue
+    public Builder setLicenseTracker(LicenseTracker licenseTracker) {
+      this.licenseTracker = licenseTracker;
       return this;
     }
 
     /** Set whether the output should be tagged as an .i.js file. */
+    @CanIgnoreReturnValue
     public Builder setTagAsTypeSummary(boolean tagAsTypeSummary) {
       this.tagAsTypeSummary = tagAsTypeSummary;
       return this;
     }
 
-    /**
-     * Set whether the output should be tags as ECMASCRIPT 5 Strict.
-     */
+    /** Set whether the output should be tags as ECMASCRIPT 5 Strict. */
+    @CanIgnoreReturnValue
     public Builder setTagAsStrict(boolean tagAsStrict) {
       this.tagAsStrict = tagAsStrict;
       return this;
     }
 
-    /**
-     * Set a custom code generator factory to enable custom code generation.
-     */
+    /** Set a custom code generator factory to enable custom code generation. */
+    @CanIgnoreReturnValue
     public Builder setCodeGeneratorFactory(CodeGeneratorFactory factory) {
       this.codeGeneratorFactory = factory;
       return this;
@@ -801,16 +808,19 @@ public final class CodePrinter {
      * Generates the source code and returns it.
      */
     public String build() {
+      return buildWithSourceMappings().source;
+    }
+
+    public SourceAndMappings buildWithSourceMappings() {
       if (root == null) {
-        throw new IllegalStateException(
-            "Cannot build without root node being specified");
+        throw new IllegalStateException("Cannot build without root node being specified");
       }
 
       return toSource(
           root,
           Format.fromOptions(options, outputTypes, prettyPrint),
           options,
-          sourceMap,
+          licenseTracker,
           tagAsTypeSummary,
           tagAsStrict,
           lineBreak,
@@ -837,31 +847,39 @@ public final class CodePrinter {
     }
   }
 
+  /**
+   * SourceAndMappings bundles together the source and generated SourceMap Mappings for that source.
+   */
+  public static class SourceAndMappings {
+    String source;
+    @Nullable List<SourceMap.Mapping> mappings;
+  }
+
   /** Converts a tree to JS code */
-  private static String toSource(
+  private static SourceAndMappings toSource(
       Node root,
       Format outputFormat,
       CompilerOptions options,
-      SourceMap sourceMap,
+      @Nullable LicenseTracker licenseTracker,
       boolean tagAsTypeSummary,
       boolean tagAsStrict,
       boolean lineBreak,
       CodeGeneratorFactory codeGeneratorFactory) {
     checkState(options.sourceMapDetailLevel != null);
 
-    boolean createSourceMap = (sourceMap != null);
     MappedCodePrinter mcp =
         outputFormat == Format.COMPACT
-        ? new CompactCodePrinter(
-            lineBreak,
-            options.preferLineBreakAtEndOfFile,
-            options.lineLengthThreshold,
-            createSourceMap,
-            options.sourceMapDetailLevel)
-        : new PrettyCodePrinter(
-            options.lineLengthThreshold,
-            createSourceMap,
-            options.sourceMapDetailLevel);
+            ? new CompactCodePrinter(
+                lineBreak,
+                options.lineLengthThreshold,
+                options.shouldGatherSourceMapInfo(),
+                options.sourceMapDetailLevel,
+                licenseTracker)
+            : new PrettyCodePrinter(
+                options.lineLengthThreshold,
+                options.shouldGatherSourceMapInfo(),
+                options.sourceMapDetailLevel,
+                licenseTracker);
     CodeGenerator cg = codeGeneratorFactory.getCodeGenerator(outputFormat, mcp);
 
     if (tagAsTypeSummary) {
@@ -874,12 +892,15 @@ public final class CodePrinter {
     cg.add(root);
     mcp.endFile();
 
-    String code = mcp.getCode();
+    SourceAndMappings result = new SourceAndMappings();
+    result.source = mcp.getCode();
 
-    if (createSourceMap) {
-      mcp.generateSourceMap(code, sourceMap);
+    if (options.shouldGatherSourceMapInfo()) {
+      result.mappings = mcp.getSourceMappings(result.source);
     }
 
-    return code;
+    return result;
   }
+
+  private CodePrinter() {}
 }

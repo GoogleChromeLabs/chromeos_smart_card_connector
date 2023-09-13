@@ -26,7 +26,7 @@ import com.google.javascript.rhino.SimpleSourceFile;
 import com.google.javascript.rhino.StaticSourceFile;
 import com.google.javascript.rhino.StaticSourceFile.SourceKind;
 import com.google.javascript.rhino.Token;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Static utility methods for dealing with inspecting and constructing JSDoc objects.
@@ -97,7 +97,7 @@ final class JsdocUtil {
         || jsdoc.hasEnumParameterType();
   }
 
-  static JSDocInfo getJSDocForRhs(Node rhs, JSDocInfo oldJSDoc) {
+  static @Nullable JSDocInfo getJSDocForRhs(Node rhs, JSDocInfo oldJSDoc) {
     switch (NodeUtil.getKnownValueType(rhs)) {
       case BOOLEAN:
         return getConstJSDoc(oldJSDoc, "boolean");
@@ -128,7 +128,7 @@ final class JsdocUtil {
     return null;
   }
 
-  static JSDocInfo getJSDocForName(Var decl, JSDocInfo oldJSDoc) {
+  static @Nullable JSDocInfo getJSDocForName(Var decl, JSDocInfo oldJSDoc) {
     if (decl == null) {
       return null;
     }

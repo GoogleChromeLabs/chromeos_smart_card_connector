@@ -24,6 +24,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Logger;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Class for resolving Closure dependencies.
@@ -83,15 +84,13 @@ public final class DefaultDependencyResolver implements DependencyResolver  {
   /**
    * @param code The raw code to be parsed for requires.
    * @param seen The set of already seen symbols.
-   * @param addClosureBaseFile Indicates whether the closure base file should be
-   *        added to the dependency list.
-   * @return A list of filenames for each of the dependencies for the provided
-   *         code.
-   * @throws ServiceException
+   * @param addClosureBaseFile Indicates whether the closure base file should be added to the
+   *     dependency list.
+   * @return A list of filenames for each of the dependencies for the provided code.
    */
   @Override
-  public List<String> getDependencies(String code, Set<String> seen,
-      boolean addClosureBaseFile) throws ServiceException {
+  public List<String> getDependencies(String code, Set<String> seen, boolean addClosureBaseFile)
+      throws ServiceException {
     return getDependencies(parseRequires(code, addClosureBaseFile), seen);
   }
 
@@ -99,11 +98,10 @@ public final class DefaultDependencyResolver implements DependencyResolver  {
    * @param symbols A list of required symbols.
    * @param seen The set of already seen symbols.
    * @return A list of filenames for each of the required symbols.
-   * @throws ServiceException
    */
   @Override
-  public List<String> getDependencies(Collection<String> symbols,
-      Set<String> seen) throws ServiceException {
+  public List<String> getDependencies(Collection<String> symbols, Set<String> seen)
+      throws ServiceException {
     List<String> list = new ArrayList<>();
     for (DependencyFile depsFile : depsFiles) {
       depsFile.ensureUpToDate();
@@ -153,7 +151,7 @@ public final class DefaultDependencyResolver implements DependencyResolver  {
   }
 
   /** Looks at each of the dependency files for dependency information. */
-  private DependencyInfo getDependencyInfo(String symbol) {
+  private @Nullable DependencyInfo getDependencyInfo(String symbol) {
     for (DependencyFile depsFile : depsFiles) {
       DependencyInfo di = depsFile.getDependencyInfo(symbol);
       if (di != null) {

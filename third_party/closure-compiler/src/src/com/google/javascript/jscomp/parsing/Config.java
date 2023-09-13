@@ -55,7 +55,7 @@ public abstract class Config {
     ECMASCRIPT_2020(FeatureSet.ES2020_MODULES),
     ECMASCRIPT_2021(FeatureSet.ES2021_MODULES),
     ES_NEXT(FeatureSet.ES_NEXT),
-    ES_NEXT_IN(FeatureSet.ES_NEXT_IN),
+    UNSTABLE(FeatureSet.ES_UNSTABLE),
     UNSUPPORTED(FeatureSet.ES_UNSUPPORTED);
 
     public final FeatureSet featureSet;
@@ -88,7 +88,7 @@ public abstract class Config {
     }
 
     public static LanguageMode latestEcmaScript() {
-      return ECMASCRIPT_2020;
+      return ECMASCRIPT_2021;
     }
   }
 

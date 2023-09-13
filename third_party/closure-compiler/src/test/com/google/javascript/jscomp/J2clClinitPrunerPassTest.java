@@ -50,6 +50,8 @@ public class J2clClinitPrunerPassTest extends CompilerTestCase {
     super.setUp();
 
     enableNormalize();
+    // TODO(bradfordcsmith): Stop normalizing the expected output or document why it is necessary.
+    enableNormalizeExpectedOutput();
     enableComputeSideEffects();
   }
 
@@ -146,10 +148,7 @@ public class J2clClinitPrunerPassTest extends CompilerTestCase {
         lines("var someClass = {};", "someClass.$clinit = function() {}"));
 
     test(
-        lines(
-            "function someClass$$0clinit() {",
-            "  someClass$$0clinit();",
-            "}"),
+        lines("function someClass$$0clinit() {", "  someClass$$0clinit();", "}"),
         "function someClass$$0clinit() {}");
   }
 
@@ -504,12 +503,7 @@ public class J2clClinitPrunerPassTest extends CompilerTestCase {
 
   @Test
   public void testRedundantClinit_recursiveCall() {
-    testSame(
-        lines(
-            "var foo = function() {",
-            "  Foo1.$clinit();",
-            "  foo();",
-            "};"));
+    testSame(lines("var foo = function() {", "  Foo1.$clinit();", "  foo();", "};"));
   }
 
   @Test

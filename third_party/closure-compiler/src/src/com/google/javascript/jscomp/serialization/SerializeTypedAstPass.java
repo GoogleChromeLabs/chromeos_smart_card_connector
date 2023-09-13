@@ -25,6 +25,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.function.Consumer;
+import java.util.zip.GZIPOutputStream;
 
 /**
  * A compiler pass intended to serialize the types in the AST.
@@ -35,13 +36,25 @@ public final class SerializeTypedAstPass implements CompilerPass {
 
   private final AbstractCompiler compiler;
   private final Consumer<TypedAst> consumer;
+  private final SerializationOptions serializationOptions;
 
-  SerializeTypedAstPass(AbstractCompiler compiler, Consumer<TypedAst> astConsumer) {
+  SerializeTypedAstPass(
+      AbstractCompiler compiler,
+      Consumer<TypedAst> astConsumer,
+      SerializationOptions serializationOptions) {
     this.compiler = compiler;
     this.consumer = astConsumer;
+    this.serializationOptions = serializationOptions;
   }
 
-  public static SerializeTypedAstPass createFromOutputStream(AbstractCompiler c, OutputStream out) {
+  /**
+   * Serializes a TypedAst to the given output stream.
+   *
+   * <p>Unlike {@link #createFromPath(AbstractCompiler, Path)}, this method does not automatically
+   * gzip the TypedAST. The "out" parameter may or may not already be a GZIPOutputStream.
+   */
+  public static SerializeTypedAstPass createFromOutputStream(
+      AbstractCompiler c, OutputStream out, SerializationOptions serializationOptions) {
     Consumer<TypedAst> toOutputStream =
         ast -> {
           try {
@@ -50,29 +63,27 @@ public final class SerializeTypedAstPass implements CompilerPass {
             throw new IllegalArgumentException("Cannot write to stream", e);
           }
         };
-    return new SerializeTypedAstPass(c, toOutputStream);
+    return new SerializeTypedAstPass(c, toOutputStream, serializationOptions);
   }
 
-  public static SerializeTypedAstPass createFromPath(AbstractCompiler compiler, Path outputPath) {
+  /** Serializes a gzipped TypedAst to the specified outputPath */
+  public static SerializeTypedAstPass createFromPath(
+      AbstractCompiler compiler, Path outputPath, SerializationOptions serializationOptions) {
     Consumer<TypedAst> toPath =
         ast -> {
-          try (OutputStream out = Files.newOutputStream(outputPath)) {
+          try (OutputStream out = new GZIPOutputStream(Files.newOutputStream(outputPath))) {
             TypedAst.List.newBuilder().addTypedAsts(ast).build().writeTo(out);
           } catch (IOException e) {
             throw new IllegalArgumentException("Cannot create TypedAst output file", e);
           }
         };
-    return new SerializeTypedAstPass(compiler, toPath);
+    return new SerializeTypedAstPass(compiler, toPath, serializationOptions);
   }
 
   @Override
   public void process(Node externs, Node root) {
     new RemoveCastNodes(compiler).process(externs, root);
-    SerializationOptions serializationMode =
-        this.compiler.isDebugLoggingEnabled()
-            ? SerializationOptions.INCLUDE_DEBUG_INFO_AND_EXPENSIVE_VALIDITY_CHECKS
-            : SerializationOptions.SKIP_DEBUG_INFO;
-    TypedAstSerializer serializer = new TypedAstSerializer(this.compiler, serializationMode);
+    TypedAstSerializer serializer = new TypedAstSerializer(this.compiler, serializationOptions);
     TypedAst ast = serializer.serializeRoots(externs, root);
     consumer.accept(ast);
   }

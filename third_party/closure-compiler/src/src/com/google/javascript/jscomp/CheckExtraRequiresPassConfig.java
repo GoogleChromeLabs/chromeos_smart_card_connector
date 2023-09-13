@@ -17,7 +17,6 @@ package com.google.javascript.jscomp;
 
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.lint.CheckExtraRequires;
-import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 
 /**
  * A PassConfig to only run the CheckExtraRequires linter rule. This allows user to select which
@@ -30,8 +29,10 @@ public final class CheckExtraRequiresPassConfig extends PassConfig.PassConfigDel
   }
 
   @Override
-  protected ImmutableList<PassFactory> getChecks() {
-    return ImmutableList.of(
+  protected PassListBuilder getChecks() {
+    PassListBuilder passes = new PassListBuilder(options);
+
+    passes.maybeAdd(
         PassFactory.builder()
             .setName("removeUnusedImport")
             .setInternalFactory(
@@ -40,12 +41,12 @@ public final class CheckExtraRequiresPassConfig extends PassConfig.PassConfigDel
                         compiler,
                         ImmutableList.of(
                             new CheckExtraRequires(compiler, options.getUnusedImportsToRemove()))))
-            .setFeatureSet(FeatureSet.latest())
             .build());
+    return passes;
   }
 
   @Override
-  protected ImmutableList<PassFactory> getOptimizations() {
-    return ImmutableList.of();
+  protected PassListBuilder getOptimizations() {
+    return new PassListBuilder(options);
   }
 }

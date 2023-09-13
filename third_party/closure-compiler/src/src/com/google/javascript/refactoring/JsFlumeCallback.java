@@ -22,7 +22,7 @@ import com.google.javascript.rhino.Node;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * A compiler node traversal callback that invokes matchers against every node and keeps track of
@@ -31,8 +31,7 @@ import javax.annotation.Nullable;
 final class JsFlumeCallback implements NodeTraversal.Callback {
 
   private final Scanner scanner;
-  @Nullable
-  private final Pattern includeFilePattern;
+  private final @Nullable Pattern includeFilePattern;
   private final List<Match> matches = new ArrayList<>();
   private final List<SuggestedFix> fixes = new ArrayList<>();
 

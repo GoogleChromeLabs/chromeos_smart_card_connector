@@ -48,7 +48,7 @@ import static com.google.javascript.jscomp.base.JSCompDoubles.isPositive;
 import com.google.common.annotations.GwtIncompatible;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.DoNotCall;
 import com.google.javascript.jscomp.colors.Color;
@@ -61,12 +61,11 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * This class implements the root of the intermediate representation.
@@ -79,6 +78,7 @@ public class Node {
     IS_PARENTHESIZED,
     // Contains non-JSDoc comment
     NON_JSDOC_COMMENT,
+    TRAILING_NON_JSDOC_COMMENT,
     // Contains a JSDocInfo object
     JSDOC_INFO,
     // Whether incrdecr is pre (false) or post (true)
@@ -107,9 +107,6 @@ public class Node {
     SOURCE_FILE,
     // The id of the input associated with this node.
     INPUT_ID,
-    // Whether a STRING node contains a \v vertical tab escape. This is a total hack. See comments
-    // in IRFactory about this.
-    SLASH_V,
     // For passes that work only on changed funs.
     CHANGE_TIME,
     // An object that's used for goog.object.reflect-style reflection.
@@ -176,8 +173,6 @@ public class Node {
     FEATURE_SET,
     // Indicates a TypeScript abstract method or class, for use in Migrants
     IS_TYPESCRIPT_ABSTRACT,
-    // Indicates that a SCRIPT represents a transpiled file
-    TRANSPILED,
     // For passes that work only on deleted funs.
     DELETED,
     // Indicates that the node is an alias or a name from goog.require'd module or ES6
@@ -209,6 +204,10 @@ public class Node {
     // "TypedAST filesystem" will delete any such declarations present in a different compilation
     // shard
     SYNTHESIZED_UNFULFILLED_NAME_DECLARATION,
+    // Marks a function for eager compile by wrapping with (). This has potential performance
+    // benefits when focused on critical functions but needs to be sparingly applied, since too many
+    // functions eager compiled will lead to performance regressions.
+    MARK_FOR_PARENTHESIZE
   }
 
   // Avoid cloning "values" repeatedly in hot code, we save it off now.
@@ -230,21 +229,48 @@ public class Node {
     return (NonJSDocComment) getProp(Prop.NON_JSDOC_COMMENT);
   }
 
+  public final String getTrailingNonJSDocCommentString() {
+    if (getProp(Prop.TRAILING_NON_JSDOC_COMMENT) == null) {
+      return "";
+    }
+    return ((NonJSDocComment) getProp(Prop.TRAILING_NON_JSDOC_COMMENT)).getCommentString();
+  }
+
+  public final NonJSDocComment getTrailingNonJSDocComment() {
+    return (NonJSDocComment) getProp(Prop.TRAILING_NON_JSDOC_COMMENT);
+  }
+
   /** Sets the NonJSDoc comment attached to this node. */
   public final Node setNonJSDocComment(NonJSDocComment comment) {
     putProp(Prop.NON_JSDOC_COMMENT, comment);
     return this;
   }
 
-  /** Sets whether this node is inside parentheses. */
+  public final Node setTrailingNonJSDocComment(NonJSDocComment comment) {
+    putProp(Prop.TRAILING_NON_JSDOC_COMMENT, comment);
+    return this;
+  }
+
+  /** Sets whether this node was inside original source-level parentheses. */
   public final void setIsParenthesized(boolean b) {
     checkState(IR.mayBeExpression(this));
     putBooleanProp(Prop.IS_PARENTHESIZED, b);
   }
 
-  /** Check whether node was inside parentheses. */
+  /** Check whether node was inside original source-level parentheses. */
   public final boolean getIsParenthesized() {
     return getBooleanProp(Prop.IS_PARENTHESIZED);
+  }
+
+  /** Sets whether this node is should be parenthesized in output. */
+  public final void setMarkForParenthesize(boolean value) {
+    checkState(IR.mayBeExpression(this));
+    putBooleanProp(Prop.MARK_FOR_PARENTHESIZE, value);
+  }
+
+  /** Check whether node should be parenthesized in output. */
+  public final boolean getMarkForParenthesize() {
+    return getBooleanProp(Prop.MARK_FOR_PARENTHESIZE);
   }
 
   // TODO(sdh): Get rid of these by using accessor methods instead.
@@ -256,7 +282,6 @@ public class Node {
   public static final Prop IS_NAMESPACE = Prop.IS_NAMESPACE;
   public static final Prop DIRECT_EVAL = Prop.DIRECT_EVAL;
   public static final Prop FREE_CALL = Prop.FREE_CALL;
-  public static final Prop SLASH_V = Prop.SLASH_V;
   public static final Prop REFLECTED_OBJECT = Prop.REFLECTED_OBJECT;
   public static final Prop STATIC_MEMBER = Prop.STATIC_MEMBER;
   public static final Prop GENERATOR_FN = Prop.GENERATOR_FN;
@@ -276,7 +301,6 @@ public class Node {
   public static final Prop GOOG_MODULE = Prop.GOOG_MODULE;
   public static final Prop FEATURE_SET = Prop.FEATURE_SET;
   public static final Prop IS_TYPESCRIPT_ABSTRACT = Prop.IS_TYPESCRIPT_ABSTRACT;
-  public static final Prop TRANSPILED = Prop.TRANSPILED;
   public static final Prop MODULE_ALIAS = Prop.MODULE_ALIAS;
   public static final Prop MODULE_EXPORT = Prop.MODULE_EXPORT;
   public static final Prop IS_SHORTHAND_PROPERTY = Prop.IS_SHORTHAND_PROPERTY;
@@ -373,7 +397,7 @@ public class Node {
      * <p>Null iff the raw string contains an uncookable escape sequence.
      * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals#es2018_revision_of_illegal_escape_sequences
      */
-    @Nullable private final String cooked;
+    private final @Nullable String cooked;
 
     /** The raw version of the template literal substring, is not null */
     private final String raw;
@@ -568,8 +592,7 @@ public class Node {
     return first;
   }
 
-  @Nullable
-  public final Node getFirstChild() {
+  public final @Nullable Node getFirstChild() {
     return first;
   }
 
@@ -578,28 +601,23 @@ public class Node {
    *
    * @return The first child of the first child.
    */
-  @Nullable
-  public final Node getFirstFirstChild() {
+  public final @Nullable Node getFirstFirstChild() {
     return first.first;
   }
 
-  @Nullable
-  public final Node getSecondChild() {
+  public final @Nullable Node getSecondChild() {
     return first.next;
   }
 
-  @Nullable
-  public final Node getLastChild() {
+  public final @Nullable Node getLastChild() {
     return first != null ? first.previous : null;
   }
 
-  @Nullable
-  public final Node getNext() {
+  public final @Nullable Node getNext() {
     return next;
   }
 
-  @Nullable
-  public final Node getPrevious() {
+  public final @Nullable Node getPrevious() {
     return this == parent.first ? null : previous;
   }
 
@@ -884,8 +902,7 @@ public class Node {
    *
    * @return The removed Node.
    */
-  @Nullable
-  public final Node removeFirstChild() {
+  public final @Nullable Node removeFirstChild() {
     Node child = first;
     if (child != null) {
       child.detach();
@@ -893,9 +910,12 @@ public class Node {
     return child;
   }
 
-  /** @return A Node that is the head of the list of children. */
-  @Nullable
-  public final Node removeChildren() {
+  /**
+   * Remove all children, but leave them linked to each other.
+   *
+   * @return The first child node
+   */
+  public final @Nullable Node removeChildren() {
     Node children = first;
     for (Node child = first; child != null; child = child.next) {
       child.parent = null;
@@ -917,8 +937,7 @@ public class Node {
   }
 
   @VisibleForTesting
-  @Nullable
-  final PropListItem lookupProperty(Prop prop) {
+  final @Nullable PropListItem lookupProperty(Prop prop) {
     byte propType = (byte) prop.ordinal();
     PropListItem x = propListHead;
     while (x != null && propType != x.propType) {
@@ -939,8 +958,6 @@ public class Node {
     this.propListHead = other.propListHead;
     return this;
   }
-
-
 
   /**
    * Checks for invalid or missing properties and feeds error messages for any violations to the
@@ -992,6 +1009,7 @@ public class Node {
       // this method was created to cover the checks previously done there.
       switch (prop) {
         case IS_PARENTHESIZED:
+        case MARK_FOR_PARENTHESIZE:
           if (!IR.mayBeExpression(this)) {
             violationMessageConsumer.accept("non-expression is parenthesized");
           }
@@ -1046,8 +1064,8 @@ public class Node {
    * @param prop The property to look for
    * @return The replacement list if the property was removed, or 'item' otherwise.
    */
-  @Nullable
-  private static PropListItem rebuildListWithoutProp(@Nullable PropListItem item, Prop prop) {
+  private static @Nullable PropListItem rebuildListWithoutProp(
+      @Nullable PropListItem item, Prop prop) {
     if (item == null) {
       return null;
     } else if (item.propType == prop.ordinal()) {
@@ -1058,8 +1076,7 @@ public class Node {
     }
   }
 
-  @Nullable
-  public final Object getProp(Prop propType) {
+  public final @Nullable Object getProp(Prop propType) {
     PropListItem item = lookupProperty(propType);
     if (item == null) {
       return null;
@@ -1098,8 +1115,28 @@ public class Node {
     }
   }
 
-  public final EnumSet<NodeProperty> serializeProperties() {
-    EnumSet<NodeProperty> propSet = EnumSet.noneOf(NodeProperty.class);
+  static long nodePropertyToBit(NodeProperty prop) {
+    return 1L << prop.getNumber();
+  }
+
+  static long setNodePropertyBit(long bitset, NodeProperty prop) {
+    return bitset | nodePropertyToBit(prop);
+  }
+
+  static long removeNodePropertyBit(long bitset, NodeProperty prop) {
+    return bitset & ~nodePropertyToBit(prop);
+  }
+
+  static boolean hasNodePropertyBitSet(long bitset, NodeProperty prop) {
+    return (bitset & nodePropertyToBit(prop)) != 0;
+  }
+
+  static boolean hasBitSet(long bitset, int bit) {
+    return (bitset & 1L << bit) != 0;
+  }
+
+  public final long serializeProperties() {
+    long propSet = 0;
     for (PropListItem propListItem = this.propListHead;
         propListItem != null;
         propListItem = propListItem.next) {
@@ -1107,22 +1144,25 @@ public class Node {
 
       switch (prop) {
         case TYPE_BEFORE_CAST:
-          propSet.add(NodeProperty.COLOR_FROM_CAST);
+          propSet = setNodePropertyBit(propSet, NodeProperty.COLOR_FROM_CAST);
           break;
         case CONSTANT_VAR_FLAGS:
           int intVal = propListItem.getIntValue();
           if (anyBitSet(intVal, ConstantVarFlags.INFERRED)) {
-            propSet.add(NodeProperty.IS_INFERRED_CONSTANT);
+            propSet = setNodePropertyBit(propSet, NodeProperty.IS_INFERRED_CONSTANT);
           }
           if (anyBitSet(intVal, ConstantVarFlags.DECLARED)) {
-            propSet.add(NodeProperty.IS_DECLARED_CONSTANT);
+            propSet = setNodePropertyBit(propSet, NodeProperty.IS_DECLARED_CONSTANT);
           }
+          break;
+        case SIDE_EFFECT_FLAGS:
+          propSet = setNodePropertySideEffectFlags(propSet, propListItem.getIntValue());
           break;
         default:
           if (propListItem instanceof Node.IntPropListItem) {
             NodeProperty nodeProperty = PropTranslator.serialize(prop);
             if (nodeProperty != null) {
-              propSet.add(nodeProperty);
+              propSet = setNodePropertyBit(propSet, nodeProperty);
             }
           }
           break;
@@ -1131,32 +1171,87 @@ public class Node {
     return propSet;
   }
 
-  public final void deserializeProperties(List<NodeProperty> serializedNodeBooleanPropertyList) {
+  /**
+   * Update a bit field to be used for serialized node properties to include bits from the
+   * `SIDE_EFFECT_FLAGS` Node property.
+   *
+   * @param propSet the bit field to update
+   * @param sideEffectFlags the integer value from the `SIDE_EFFECT_FLAGS` property
+   * @return the updated property set
+   */
+  private long setNodePropertySideEffectFlags(long propSet, int sideEffectFlags) {
+    if (anyBitSet(sideEffectFlags, SideEffectFlags.MUTATES_GLOBAL_STATE)) {
+      propSet = setNodePropertyBit(propSet, NodeProperty.MUTATES_GLOBAL_STATE);
+    }
+    if (anyBitSet(sideEffectFlags, SideEffectFlags.MUTATES_THIS)) {
+      propSet = setNodePropertyBit(propSet, NodeProperty.MUTATES_THIS);
+    }
+    if (anyBitSet(sideEffectFlags, SideEffectFlags.MUTATES_ARGUMENTS)) {
+      propSet = setNodePropertyBit(propSet, NodeProperty.MUTATES_ARGUMENTS);
+    }
+    if (anyBitSet(sideEffectFlags, SideEffectFlags.THROWS)) {
+      propSet = setNodePropertyBit(propSet, NodeProperty.THROWS);
+    }
+    return propSet;
+  }
+
+  public final void deserializeProperties(long propSet) {
     if (this.isRoot()) {
       checkState(this.propListHead == null, this.propListHead);
     } else {
       checkState(this.propListHead.propType == Prop.SOURCE_FILE.ordinal(), this.propListHead);
     }
 
-    EnumSet<NodeProperty> propSet = EnumSet.noneOf(NodeProperty.class);
-    for (int i = 0; i < serializedNodeBooleanPropertyList.size(); i++) {
-      NodeProperty nodeProperty = serializedNodeBooleanPropertyList.get(i);
-      checkState(propSet.add(nodeProperty), "Found multiple node property: %s", nodeProperty);
+    // We'll gather the bits for CONST_VAR_FLAGS and SIDE_EFFECT_FLAGS into these variables.
+    int constantVarFlags = 0;
+    int sideEffectFlags = 0;
+    // Exclude the sign bit for clarity.
+    for (int i = 0; i < 63; i++) {
+      if (!hasBitSet(propSet, i)) {
+        continue;
+      }
+      NodeProperty nodeProperty = NodeProperty.forNumber(i);
+      switch (nodeProperty) {
+        case IS_DECLARED_CONSTANT:
+          constantVarFlags |= ConstantVarFlags.DECLARED;
+          break;
+        case IS_INFERRED_CONSTANT:
+          constantVarFlags |= ConstantVarFlags.INFERRED;
+          break;
+        case MUTATES_GLOBAL_STATE:
+          sideEffectFlags |= SideEffectFlags.MUTATES_GLOBAL_STATE;
+          break;
+        case MUTATES_THIS:
+          sideEffectFlags |= SideEffectFlags.MUTATES_THIS;
+          break;
+        case MUTATES_ARGUMENTS:
+          sideEffectFlags |= SideEffectFlags.MUTATES_ARGUMENTS;
+          break;
+        case THROWS:
+          sideEffectFlags |= SideEffectFlags.THROWS;
+          break;
+        default:
+          // All other properties are booleans that are 1-to-1 equivalent with Node properties.
+          Prop prop = PropTranslator.deserialize(nodeProperty);
+          if (prop == null) {
+            throw new IllegalStateException("Can not translate " + nodeProperty + " to AST Prop");
+          }
+          this.propListHead = new IntPropListItem((byte) prop.ordinal(), 1, this.propListHead);
+          break;
+      }
     }
 
-    if (propSet.contains(NodeProperty.IS_DECLARED_CONSTANT)
-        || propSet.contains(NodeProperty.IS_INFERRED_CONSTANT)) {
-      int newConstantVarFlags =
-          (propSet.remove(NodeProperty.IS_DECLARED_CONSTANT) ? ConstantVarFlags.DECLARED : 0)
-              | (propSet.remove(NodeProperty.IS_INFERRED_CONSTANT) ? ConstantVarFlags.INFERRED : 0);
+    // Store the CONSTANT_VAR_FLAGS
+    if (constantVarFlags != 0) {
       this.propListHead =
           new IntPropListItem(
-              (byte) Prop.CONSTANT_VAR_FLAGS.ordinal(), newConstantVarFlags, this.propListHead);
+              (byte) Prop.CONSTANT_VAR_FLAGS.ordinal(), constantVarFlags, this.propListHead);
     }
 
-    for (NodeProperty nodeProperty : propSet) {
-      Prop prop = PropTranslator.deserialize(nodeProperty);
-      this.propListHead = new IntPropListItem((byte) prop.ordinal(), 1, this.propListHead);
+    if (sideEffectFlags != 0) {
+      this.propListHead =
+          new IntPropListItem(
+              (byte) Prop.SIDE_EFFECT_FLAGS.ordinal(), sideEffectFlags, this.propListHead);
     }
 
     // Make sure the deserialized properties are valid.
@@ -1176,8 +1271,7 @@ public class Node {
    * Returns the syntactical type specified on this node. Not to be confused with {@link
    * #getJSType()} which returns the compiler-inferred type.
    */
-  @Nullable
-  public final Node getDeclaredTypeExpression() {
+  public final @Nullable Node getDeclaredTypeExpression() {
     return (Node) getProp(Prop.DECLARED_TYPE_EXPR);
   }
 
@@ -1190,8 +1284,7 @@ public class Node {
    * Returns the type of this node before casting. This annotation will only exist on the first
    * child of a CAST node after type checking.
    */
-  @Nullable
-  public final JSType getJSTypeBeforeCast() {
+  public final @Nullable JSType getJSTypeBeforeCast() {
     return (JSType) getProp(Prop.TYPE_BEFORE_CAST);
   }
 
@@ -1260,8 +1353,7 @@ public class Node {
     return ((TemplateLiteralSubstringNode) this).raw;
   }
 
-  @Nullable
-  public final String getCookedString() {
+  public final @Nullable String getCookedString() {
     return ((TemplateLiteralSubstringNode) this).cooked;
   }
 
@@ -1339,6 +1431,93 @@ public class Node {
     }
   }
 
+  private static String createJsonPair(String name, String value) {
+    return "\"" + name + "\":\"" + value + "\"";
+  }
+
+  private static String createJsonPairRawValue(String name, String value) {
+    return "\"" + name + "\":" + value;
+  }
+
+  private void toJson(Appendable sb) throws IOException {
+    sb.append('{');
+    sb.append(createJsonPair("token", token.toString()));
+    if (this instanceof StringNode) {
+      sb.append(',');
+      sb.append(createJsonPair("string", getString()));
+    } else if (token == Token.FUNCTION) {
+      sb.append(',');
+      // In the case of JsDoc trees, the first child is often not a string
+      // which causes exceptions to be thrown when calling toString or
+      // toStringTree.
+      if (first == null || first.token != Token.NAME) {
+        sb.append(createJsonPair("functionName", "<invalid>"));
+      } else {
+        sb.append(createJsonPair("functionName", first.getString()));
+      }
+    } else if (token == Token.NUMBER) {
+      sb.append(',');
+      sb.append(createJsonPair("number", String.valueOf(getDouble())));
+    }
+    int lineno = getLineno();
+    if (lineno != -1) {
+      sb.append(',');
+      sb.append("\"sourceLocation\":{");
+      sb.append(createJsonPairRawValue("line", String.valueOf(lineno)));
+      sb.append(',');
+      sb.append(createJsonPairRawValue("col", String.valueOf(getCharno())));
+      if (length != 0) {
+        sb.append(',');
+        sb.append(createJsonPairRawValue("length", String.valueOf(length)));
+      }
+      sb.append("}");
+    }
+
+    if (this.originalName != null) {
+      sb.append(",");
+      sb.append(createJsonPair("original_name", this.originalName));
+    }
+
+    byte[] keys = getSortedPropTypes();
+    if (keys.length != 0) {
+      sb.append(",");
+      sb.append("\"props\":{");
+      for (int i = 0; i < keys.length; i++) {
+        Prop type = PROP_VALUES[keys[i]];
+        PropListItem x = lookupProperty(type);
+        sb.append(
+            createJsonPair(
+                Ascii.toLowerCase(String.valueOf(type)),
+                x.toString().replace("\n", "\\n").replace("\"", "\\\"")));
+        if (i + 1 < keys.length) {
+          sb.append(',');
+        }
+      }
+      sb.append("}");
+    }
+
+    if (jstypeOrColor != null) {
+      String typeString = jstypeOrColor.toString();
+      if (typeString != null) {
+        sb.append(',');
+        sb.append(createJsonPair("typeString", typeString.replace("\"", "\\\"")));
+      }
+    }
+
+    if (this.first != null) {
+      sb.append(',');
+      sb.append("\"children\":[");
+      for (Node child = this.first; child != null; child = child.next) {
+        child.toJson(sb);
+        if (child.next != null) {
+          sb.append(',');
+        }
+      }
+      sb.append("]");
+    }
+    sb.append('}');
+  }
+
   @CheckReturnValue
   public final String toStringTree() {
     return toStringTreeImpl();
@@ -1369,11 +1548,19 @@ public class Node {
     }
   }
 
+  public final void appendJsonTree(Appendable appendable) throws IOException {
+    toJsonTreeHelper(this, appendable);
+  }
+
+  private static void toJsonTreeHelper(Node n, Appendable sb) throws IOException {
+    n.toJson(sb);
+  }
+
   private transient Token token; // Type of the token of the node; NAME for example
-  @Nullable private transient Node next; // next sibling, a linked list
-  @Nullable private transient Node previous; // previous sibling, a circular linked list
-  @Nullable private transient Node first; // first element of a linked list of children
-  @Nullable private transient Node parent;
+  private transient @Nullable Node next; // next sibling, a linked list
+  private transient @Nullable Node previous; // previous sibling, a circular linked list
+  private transient @Nullable Node first; // first element of a linked list of children
+    private transient @Nullable  Node parent;
   // We get the last child as first.previous. But last.next is null, not first.
 
   /**
@@ -1386,16 +1573,16 @@ public class Node {
   /** The length of the code represented by the node. */
   private transient int length;
 
-  @Nullable private transient Object jstypeOrColor;
+  private transient @Nullable Object jstypeOrColor;
 
-  @Nullable private transient String originalName;
+  private transient @Nullable String originalName;
 
   /**
    * Linked list of properties. Since vast majority of nodes would have no more than 2 properties,
    * linked list saves memory and provides fast lookup. If this does not holds, propListHead can be
    * replaced by UintMap.
    */
-  @Nullable private transient PropListItem propListHead;
+  private transient @Nullable PropListItem propListHead;
 
   // ==========================================================================
   // Source position management
@@ -1430,26 +1617,23 @@ public class Node {
   }
 
   // TODO(johnlenz): make this final
-  @Nullable
-  public String getSourceFileName() {
+  public @Nullable String getSourceFileName() {
     StaticSourceFile file = getStaticSourceFile();
     return file == null ? null : file.getName();
   }
 
   /** Returns the source file associated with this input. */
-  @Nullable
-  public StaticSourceFile getStaticSourceFile() {
+  public @Nullable StaticSourceFile getStaticSourceFile() {
     return ((StaticSourceFile) this.getProp(Prop.SOURCE_FILE));
   }
 
-  /** @param inputId */
+  /** Sets the ID of the input this Node came from. */
   public void setInputId(InputId inputId) {
     this.putProp(Prop.INPUT_ID, inputId);
   }
 
-  /** @return The Id of the CompilerInput associated with this Node. */
-  @Nullable
-  public InputId getInputId() {
+  /** Returns the Id of the CompilerInput associated with this Node. */
+   public @Nullable  InputId getInputId() {
     return ((InputId) this.getProp(Prop.INPUT_ID));
   }
 
@@ -1464,14 +1648,18 @@ public class Node {
    *
    * @deprecated "original name" is poorly defined.
    */
-  @Nullable
   @Deprecated
-  public final String getOriginalName() {
+  public final @Nullable String getOriginalName() {
     return this.originalName;
   }
 
   public final void setOriginalName(String s) {
     this.originalName = (s == null) ? null : RhinoStringPool.addOrGet(s);
+  }
+
+  // Copy the original
+  public final void setOriginalNameFromName(Node name) {
+    this.originalName = name.getString();
   }
 
   /** Whether this node should be indexed by static analysis / code indexing tools. */
@@ -1600,7 +1788,9 @@ public class Node {
     }
   }
 
-  /** @see Node#children() */
+  /**
+   * @see Node#children()
+   */
   private static final class SiblingNodeIterable implements Iterable<Node> {
     private final Node start;
 
@@ -1614,9 +1804,11 @@ public class Node {
     }
   }
 
-  /** @see Node#children() */
+  /**
+   * @see Node#children()
+   */
   private static final class SiblingNodeIterator implements Iterator<Node> {
-    @Nullable private Node current;
+      private @Nullable  Node current;
 
     SiblingNodeIterator(Node start) {
       this.current = start;
@@ -1646,8 +1838,7 @@ public class Node {
   // ==========================================================================
   // Accessors
 
-  @Nullable
-  final PropListItem getPropListHeadForTesting() {
+  final @Nullable PropListItem getPropListHeadForTesting() {
     return propListHead;
   }
 
@@ -1655,8 +1846,7 @@ public class Node {
     this.propListHead = propListHead;
   }
 
-  @Nullable
-  public final Node getParent() {
+   public final @Nullable  Node getParent() {
     return parent;
   }
 
@@ -1664,8 +1854,7 @@ public class Node {
     return parent != null;
   }
 
-  @Nullable
-  public final Node getGrandparent() {
+   public final @Nullable  Node getGrandparent() {
     return parent == null ? null : parent.parent;
   }
 
@@ -1674,8 +1863,7 @@ public class Node {
    *
    * @param level 0 = this, 1 = the parent, etc.
    */
-  @Nullable
-  public final Node getAncestor(int level) {
+   public final @Nullable  Node getAncestor(int level) {
     checkArgument(level >= 0);
     Node node = this;
     while (node != null && level-- > 0) {
@@ -1684,7 +1872,7 @@ public class Node {
     return node;
   }
 
-  /** @return True if this Node is {@code node} or a descendant of {@code node}. */
+  /** Is this Node the same as {@code node} or a descendant of {@code node}? */
   public final boolean isDescendantOf(Node node) {
     for (Node n = this; n != null; n = n.parent) {
       if (n == node) {
@@ -1715,9 +1903,11 @@ public class Node {
 
   /** Iterator to go up the ancestor tree. */
   public static final class AncestorIterable implements Iterable<Node> {
-    @Nullable private Node cur;
+      private @Nullable  Node cur;
 
-    /** @param cur The node to start. */
+    /**
+     * @param cur The node to start.
+     */
     AncestorIterable(@Nullable Node cur) {
       this.cur = cur;
     }
@@ -1890,9 +2080,26 @@ public class Node {
       return false;
     }
 
-    for (Function<Node, Object> getter : PROP_GETTERS_FOR_EQUALITY) {
-      if (!Objects.equals(getter.apply(this), getter.apply(node))) {
-        return false;
+    EnumSet<Prop> propSet = EnumSet.noneOf(Prop.class);
+    for (PropListItem propListItem = this.propListHead;
+        propListItem != null;
+        propListItem = propListItem.next) {
+      Prop prop = PROP_VALUES[propListItem.propType];
+      propSet.add(prop);
+    }
+    for (PropListItem propListItem = node.propListHead;
+        propListItem != null;
+        propListItem = propListItem.next) {
+      Prop prop = PROP_VALUES[propListItem.propType];
+      propSet.add(prop);
+    }
+
+    for (Prop prop : propSet) {
+      if (PROP_MAP_FOR_EQUALITY_KEYS.contains(prop)) {
+        Function<Node, Object> getter = PROP_MAP_FOR_EQUALITY.get(prop);
+        if (!Objects.equals(getter.apply(this), getter.apply(node))) {
+          return false;
+        }
       }
     }
 
@@ -1928,24 +2135,27 @@ public class Node {
    * <p>Accessor functions are used rather than {@link Prop}s to encode the correct way of reading
    * the prop.
    */
-  private static final ImmutableList<Function<Node, Object>> PROP_GETTERS_FOR_EQUALITY =
-      ImmutableList.of(
-          Node::isArrowFunction,
-          Node::isAsyncFunction,
-          Node::isAsyncGeneratorFunction,
-          Node::isGeneratorFunction,
-          Node::isOptionalChainStart,
-          Node::isStaticMember,
-          Node::isYieldAll,
-          (n) -> n.getIntProp(Prop.EXPORT_DEFAULT),
-          (n) -> n.getIntProp(Prop.EXPORT_ALL_FROM),
-          (n) -> n.getIntProp(Prop.SLASH_V),
-          (n) -> n.getIntProp(Prop.INCRDECR),
-          (n) -> n.getIntProp(Prop.QUOTED),
-          (n) -> n.getBooleanProp(Prop.FREE_CALL),
-          (n) -> n.getBooleanProp(Prop.COMPUTED_PROP_METHOD),
-          (n) -> n.getBooleanProp(Prop.COMPUTED_PROP_GETTER),
-          (n) -> n.getBooleanProp(Prop.COMPUTED_PROP_SETTER));
+  private static final ImmutableMap<Prop, Function<Node, Object>> PROP_MAP_FOR_EQUALITY =
+      new ImmutableMap.Builder<Prop, Function<Node, Object>>()
+          .put(Prop.ARROW_FN, Node::isArrowFunction)
+          .put(Prop.ASYNC_FN, Node::isAsyncFunction)
+          .put(Prop.GENERATOR_FN, Node::isGeneratorFunction)
+          .put(Prop.START_OF_OPT_CHAIN, Node::isOptionalChainStart)
+          .put(Prop.STATIC_MEMBER, Node::isStaticMember)
+          .put(Prop.YIELD_ALL, Node::isYieldAll)
+          .put(Prop.EXPORT_DEFAULT, (n) -> n.getIntProp(Prop.EXPORT_DEFAULT))
+          .put(Prop.EXPORT_ALL_FROM, (n) -> n.getIntProp(Prop.EXPORT_ALL_FROM))
+          .put(Prop.INCRDECR, (n) -> n.getIntProp(Prop.INCRDECR))
+          .put(Prop.QUOTED, (n) -> n.getIntProp(Prop.QUOTED))
+          .put(Prop.FREE_CALL, (n) -> n.getBooleanProp(Prop.FREE_CALL))
+          .put(Prop.COMPUTED_PROP_METHOD, (n) -> n.getBooleanProp(Prop.COMPUTED_PROP_METHOD))
+          .put(Prop.COMPUTED_PROP_GETTER, (n) -> n.getBooleanProp(Prop.COMPUTED_PROP_GETTER))
+          .put(Prop.COMPUTED_PROP_SETTER, (n) -> n.getBooleanProp(Prop.COMPUTED_PROP_SETTER))
+          .buildOrThrow();
+
+  /** Used for faster Map.containsKey() lookups in PROP_MAP_FOR_EQUALITY */
+  private static final EnumSet<Prop> PROP_MAP_FOR_EQUALITY_KEYS =
+      EnumSet.copyOf(PROP_MAP_FOR_EQUALITY.keySet());
 
   /**
    * This function takes a set of GETPROP nodes and produces a string that is each property
@@ -1955,8 +2165,7 @@ public class Node {
    * @return a null if this is not a qualified name, or a dot-separated string of the name and
    *     properties.
    */
-  @Nullable
-  public final String getQualifiedName() {
+   public final @Nullable  String getQualifiedName() {
     switch (token) {
       case NAME:
         String name = getString();
@@ -1973,8 +2182,7 @@ public class Node {
     }
   }
 
-  @Nullable
-  public final QualifiedName getQualifiedNameObject() {
+   public final @Nullable  QualifiedName getQualifiedNameObject() {
     return isQualifiedName() ? new QualifiedName.NodeQname(this) : null;
   }
 
@@ -1985,8 +2193,7 @@ public class Node {
    * @return {@code null} if this is not a qualified name or a StringBuilder if it is a complex
    *     qualified name.
    */
-  @Nullable
-  private StringBuilder getQualifiedNameForGetProp(int reserve) {
+   private @Nullable  StringBuilder getQualifiedNameForGetProp(int reserve) {
     String propName = this.getString();
     reserve += 1 + propName.length(); // +1 for the '.'
     StringBuilder builder;
@@ -2017,9 +2224,7 @@ public class Node {
    *     properties.
    * @deprecated "original name" is poorly defined. See #getOriginalName
    */
-  @Nullable
-  @Deprecated
-  public final String getOriginalQualifiedName() {
+  @Deprecated public final @Nullable  String getOriginalQualifiedName() {
     if (token == Token.NAME) {
       String name = getOriginalName();
       if (name == null) {
@@ -2195,13 +2400,13 @@ public class Node {
     throw new UnsupportedOperationException("Did you mean cloneNode?");
   }
 
-  /** @return A detached clone of the Node, specifically excluding its children. */
+  /** Returns a detached clone of the Node, specifically excluding its children. */
   @CheckReturnValue
   public final Node cloneNode() {
     return cloneNode(false);
   }
 
-  /** @return A detached clone of the Node, specifically excluding its children. */
+  /** Returns a detached clone of the Node, specifically excluding its children. */
   @CheckReturnValue
   Node cloneNode(boolean cloneTypeExprs) {
     Node clone = new Node(token);
@@ -2225,7 +2430,7 @@ public class Node {
     }
   }
 
-  /** @return A detached clone of the Node and all its children. */
+  /** Returns a detached clone of the Node and all its children. */
   @CheckReturnValue
   public final Node cloneTree() {
     return cloneTree(false);
@@ -2311,8 +2516,7 @@ public class Node {
    * Returns the compiler inferred type on this node. Not to be confused with {@link
    * #getDeclaredTypeExpression()} which returns the syntactically specified type.
    */
-  @Nullable
-  public final JSType getJSType() {
+   public final @Nullable  JSType getJSType() {
     return (this.jstypeOrColor instanceof JSType) ? (JSType) this.jstypeOrColor : null;
   }
 
@@ -2331,8 +2535,7 @@ public class Node {
    * Returns the compiled inferred type on this node. Not to be confused with {@link
    * #getDeclaredTypeExpression()} which returns the syntactically specified type.
    */
-  @Nullable
-  public final Color getColor() {
+   public final @Nullable  Color getColor() {
     return (this.jstypeOrColor instanceof Color) ? (Color) this.jstypeOrColor : null;
   }
 
@@ -2353,8 +2556,7 @@ public class Node {
    *
    * @return the information or {@code null} if no JSDoc is attached to this node
    */
-  @Nullable
-  public final JSDocInfo getJSDocInfo() {
+   public final @Nullable  JSDocInfo getJSDocInfo() {
     return (JSDocInfo) getProp(Prop.JSDOC_INFO);
   }
 
@@ -2392,12 +2594,16 @@ public class Node {
     return (JSType) getProp(Prop.TYPEDEF_TYPE);
   }
 
-  /** @param unused Whether a parameter was function to be unused. Set by RemoveUnusedVars */
+  /** Sets the value for isUnusedParameter() */
   public final void setUnusedParameter(boolean unused) {
     putBooleanProp(Prop.IS_UNUSED_PARAMETER, unused);
   }
 
-  /** @return Whether a parameter was function to be unused. Set by RemoveUnusedVars */
+  /**
+   * Is this node an unused function parameter declaration?
+   *
+   * <p>Set by RemoveUnusedVars
+   */
   public final boolean isUnusedParameter() {
     return getBooleanProp(Prop.IS_UNUSED_PARAMETER);
   }
@@ -2516,7 +2722,7 @@ public class Node {
     return getBooleanProp(Prop.IS_GENERATOR_MARKER);
   }
 
-  /** @see #isGeneratorSafe() */
+  /** Set the value for isGeneratorSafe() */
   public final void setGeneratorSafe(boolean isGeneratorSafe) {
     putBooleanProp(Prop.IS_GENERATOR_SAFE, isGeneratorSafe);
   }
@@ -2874,11 +3080,11 @@ public class Node {
     setConstantVarFlag(ConstantVarFlags.INFERRED, value);
   }
 
-  public final boolean isQuotedString() {
+  public final boolean isQuotedStringKey() {
     return (this instanceof StringNode) && this.getBooleanProp(Prop.QUOTED);
   }
 
-  public final void setQuotedString() {
+  public final void setQuotedStringKey() {
     checkState(this instanceof StringNode, this);
     this.putBooleanProp(Prop.QUOTED, true);
   }
@@ -3121,6 +3327,10 @@ public class Node {
     return this.token == Token.INSTANCEOF;
   }
 
+  public final boolean isInterface() {
+    return this.token == Token.INTERFACE;
+  }
+
   public final boolean isInterfaceMembers() {
     return this.token == Token.INTERFACE_MEMBERS;
   }
@@ -3351,5 +3561,9 @@ public class Node {
 
   public final boolean isYield() {
     return this.token == Token.YIELD;
+  }
+
+  public final boolean isDeclare() {
+    return this.token == Token.DECLARE;
   }
 }

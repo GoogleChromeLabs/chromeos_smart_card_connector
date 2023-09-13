@@ -27,16 +27,13 @@ import com.google.javascript.jscomp.colors.Color;
 import com.google.javascript.jscomp.colors.StandardColors;
 import com.google.javascript.jscomp.testing.JSChunkGraphBuilder;
 import com.google.javascript.rhino.Node;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link DevirtualizeMethods}
- *
- */
+/** Tests for {@link DevirtualizeMethods} */
 @RunWith(JUnit4.class)
 public final class DevirtualizeMethodsTest extends CompilerTestCase {
   private static final String EXTERNAL_SYMBOLS =
@@ -52,23 +49,21 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
     return 1;
   }
 
-  @Override
   @Before
-  public void setUp() throws Exception {
-    super.setUp();
+  public void customSetUp() throws Exception {
     enableNormalize(); // Required for `OptimizeCalls`.
     disableTypeCheck();
   }
 
-  /**
-   * Combine source strings using ';' as the separator.
-   */
-  private static String semicolonJoin(String ... parts) {
+  /** Combine source strings using ';' as the separator. */
+  private static String semicolonJoin(String... parts) {
     return Joiner.on(";").join(parts);
   }
 
   @Test
   public void testRewritePrototypeMethodsWithCorrectColors() {
+    // TODO(bradfordcsmith): Stop normalizing the expected output or document why it is necessary.
+    enableNormalizeExpectedOutput();
     String input =
         lines(
             "/** @constructor */",
@@ -124,9 +119,9 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
     assertThat(barResultType).isEqualTo(StandardColors.NUMBER);
     assertThat(bazResultType).isEqualTo(StandardColors.NULL_OR_VOID);
 
-    assertThat(fooType).isNotEqualTo(StandardColors.UNKNOWN);
-    assertThat(barType).isNotEqualTo(StandardColors.UNKNOWN);
-    assertThat(bazType).isNotEqualTo(StandardColors.UNKNOWN);
+    assertThat(fooType).isEqualTo(StandardColors.TOP_OBJECT);
+    assertThat(barType).isEqualTo(StandardColors.TOP_OBJECT);
+    assertThat(bazType).isEqualTo(StandardColors.TOP_OBJECT);
   }
 
   private Node getLabelledExpression(String label) {
@@ -138,8 +133,7 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
         label);
   }
 
-  @Nullable
-  private static Node getLabelledExpressionIfPresent(String label, Node root) {
+  private static @Nullable Node getLabelledExpressionIfPresent(String label, Node root) {
     if (root.isLabel() && root.getFirstChild().getString().equals(label)) {
       Node labelledBlock = root.getSecondChild();
       checkState(labelledBlock.isBlock(), labelledBlock);
@@ -179,9 +173,7 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
     test(source, expected);
   }
 
-  /**
-   * Inputs for declaration used as an r-value tests.
-   */
+  /** Inputs for declaration used as an r-value tests. */
   private static class NoRewriteDeclarationUsedAsRValue {
     static final String DECL = "a.prototype.foo = function() {}";
     static final String CALL = "o.foo()";
@@ -191,23 +183,27 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
 
   @Test
   public void testRewriteDeclIsExpressionStatement() {
-    test(semicolonJoin(NoRewriteDeclarationUsedAsRValue.DECL,
-                       NoRewriteDeclarationUsedAsRValue.CALL),
-         "var JSCompiler_StaticMethods_foo =" +
-         "function(JSCompiler_StaticMethods_foo$self) {};" +
-         "JSCompiler_StaticMethods_foo(o)");
+    test(
+        semicolonJoin(NoRewriteDeclarationUsedAsRValue.DECL, NoRewriteDeclarationUsedAsRValue.CALL),
+        "var JSCompiler_StaticMethods_foo ="
+            + "function(JSCompiler_StaticMethods_foo$self) {};"
+            + "JSCompiler_StaticMethods_foo(o)");
   }
 
   @Test
   public void testNoRewriteDeclUsedAsAssignmentRhs() {
-    testSame(semicolonJoin("var c = " + NoRewriteDeclarationUsedAsRValue.DECL,
-                           NoRewriteDeclarationUsedAsRValue.CALL));
+    testSame(
+        semicolonJoin(
+            "var c = " + NoRewriteDeclarationUsedAsRValue.DECL,
+            NoRewriteDeclarationUsedAsRValue.CALL));
   }
 
   @Test
   public void testNoRewriteDeclUsedAsCallArgument() {
-    testSame(semicolonJoin("f(" + NoRewriteDeclarationUsedAsRValue.DECL + ")",
-                           NoRewriteDeclarationUsedAsRValue.CALL));
+    testSame(
+        semicolonJoin(
+            "f(" + NoRewriteDeclarationUsedAsRValue.DECL + ")",
+            NoRewriteDeclarationUsedAsRValue.CALL));
   }
 
   @Test
@@ -228,6 +224,28 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
             "JSCompiler_StaticMethods_foo(o);"));
   }
 
+  @Test
+  public void noRewrite_forPropertyNamesAccessedReflectively() {
+    test(
+        externs("function use() {}"),
+        srcs(
+            lines(
+                "class C { m() {} n() {} }",
+                "const c = new C();",
+                "c.m();",
+                "c.n();",
+                // this call should prevent devirtualizing m() but not n()
+                "use(C.prototype, $jscomp.reflectProperty('m', C.prototype));")),
+        expected(
+            lines(
+                "var JSCompiler_StaticMethods_n = function(JSCompiler_StaticMethods_n$self) {};",
+                "class C { m() {} }",
+                "const c = new C();",
+                "c.m();",
+                "JSCompiler_StaticMethods_n(c);",
+                "use(C.prototype, $jscomp.reflectProperty('m', C.prototype));")));
+  }
+
   private void testNoRewriteIfDefinitionSiteBetween(String prefix, String suffix) {
     testSame(
         lines(
@@ -244,6 +262,8 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
 
   @Test
   public void testNoRewrite_ifDefinedIn_loopScope() {
+    // TODO(bradfordcsmith): Stop normalizing the expected output or document why it is necessary.
+    enableNormalizeExpectedOutput();
     testNoRewriteIfDefinitionSiteBetween("while (true) ", "");
   }
 
@@ -259,6 +279,8 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
 
   @Test
   public void testNoRewrite_ifDefinedIn_arrowFunctionScope() {
+    // TODO(bradfordcsmith): Stop normalizing the expected output or document why it is necessary.
+    enableNormalizeExpectedOutput();
     testNoRewriteIfDefinitionSiteBetween("() => ", "");
   }
 
@@ -399,6 +421,8 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
 
   @Test
   public void testNoRewrite_ifDefinedByArrow() {
+    // TODO(bradfordcsmith): Stop normalizing the expected output or document why it is necessary.
+    enableNormalizeExpectedOutput();
     testSame(
         lines(
             "function a(){};", //
@@ -521,9 +545,7 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
             "alert(x.getFoo());"));
   }
 
-  /**
-   * Inputs for object literal tests.
-   */
+  /** Inputs for object literal tests. */
   private static class NoRewritePrototypeObjectLiteralsTestInput {
     static final String REGULAR = "b.prototype.foo = function() { return 1; }";
     static final String OBJ_LIT = "a.prototype = {foo : function() { return 2; }}";
@@ -561,9 +583,11 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
 
   @Test
   public void testNoRewrite_multipleDefinitions_definedUsingProtoObjectLit_definedUsingGetProp() {
-    testSame(semicolonJoin(NoRewritePrototypeObjectLiteralsTestInput.OBJ_LIT,
-                           NoRewritePrototypeObjectLiteralsTestInput.REGULAR,
-                           NoRewritePrototypeObjectLiteralsTestInput.CALL));
+    testSame(
+        semicolonJoin(
+            NoRewritePrototypeObjectLiteralsTestInput.OBJ_LIT,
+            NoRewritePrototypeObjectLiteralsTestInput.REGULAR,
+            NoRewritePrototypeObjectLiteralsTestInput.CALL));
   }
 
   @Test
@@ -660,6 +684,8 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
 
   @Test
   public void testNoRewriteVarArgs() {
+    // TODO(bradfordcsmith): Stop normalizing the expected output or document why it is necessary.
+    enableNormalizeExpectedOutput();
     String source =
         lines(
             "function a(){}",
@@ -669,9 +695,7 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
     testSame(source);
   }
 
-  /**
-   * Inputs for invalidating reference tests.
-   */
+  /** Inputs for invalidating reference tests. */
   private static class NoRewriteNonCallReferenceTestInput {
     static final String BASE =
         lines(
@@ -778,44 +802,43 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
             "new o.foo();"));
   }
 
-  /**
-   * Inputs for nested definition tests.
-   */
+  /** Inputs for nested definition tests. */
   private static class NoRewriteNestedFunctionTestInput {
     static final String PREFIX = "a.prototype.foo = function() {";
     static final String SUFFIX = "o.foo()";
     static final String INNER = "a.prototype.bar = function() {}; o.bar()";
     static final String EXPECTED_PREFIX =
-        "var JSCompiler_StaticMethods_foo=" +
-        "function(JSCompiler_StaticMethods_foo$self){";
-    static final String EXPECTED_SUFFIX =
-        "JSCompiler_StaticMethods_foo(o)";
+        "var JSCompiler_StaticMethods_foo=" + "function(JSCompiler_StaticMethods_foo$self){";
+    static final String EXPECTED_SUFFIX = "JSCompiler_StaticMethods_foo(o)";
 
     private NoRewriteNestedFunctionTestInput() {}
   }
 
   @Test
   public void testRewriteNoNestedFunction() {
-    test(semicolonJoin(
-             NoRewriteNestedFunctionTestInput.PREFIX + "}",
-             NoRewriteNestedFunctionTestInput.SUFFIX,
-             NoRewriteNestedFunctionTestInput.INNER),
-         semicolonJoin(
-             NoRewriteNestedFunctionTestInput.EXPECTED_PREFIX + "}",
-             NoRewriteNestedFunctionTestInput.EXPECTED_SUFFIX,
-             "var JSCompiler_StaticMethods_bar=" +
-             "function(JSCompiler_StaticMethods_bar$self){}",
-             "JSCompiler_StaticMethods_bar(o)"));
+    test(
+        semicolonJoin(
+            NoRewriteNestedFunctionTestInput.PREFIX + "}",
+            NoRewriteNestedFunctionTestInput.SUFFIX,
+            NoRewriteNestedFunctionTestInput.INNER),
+        semicolonJoin(
+            NoRewriteNestedFunctionTestInput.EXPECTED_PREFIX + "}",
+            NoRewriteNestedFunctionTestInput.EXPECTED_SUFFIX,
+            "var JSCompiler_StaticMethods_bar=" + "function(JSCompiler_StaticMethods_bar$self){}",
+            "JSCompiler_StaticMethods_bar(o)"));
   }
 
   @Test
   public void testNoRewriteNestedFunction() {
-    test(NoRewriteNestedFunctionTestInput.PREFIX +
-         NoRewriteNestedFunctionTestInput.INNER + "};" +
-         NoRewriteNestedFunctionTestInput.SUFFIX,
-         NoRewriteNestedFunctionTestInput.EXPECTED_PREFIX +
-         NoRewriteNestedFunctionTestInput.INNER + "};" +
-         NoRewriteNestedFunctionTestInput.EXPECTED_SUFFIX);
+    test(
+        NoRewriteNestedFunctionTestInput.PREFIX
+            + NoRewriteNestedFunctionTestInput.INNER
+            + "};"
+            + NoRewriteNestedFunctionTestInput.SUFFIX,
+        NoRewriteNestedFunctionTestInput.EXPECTED_PREFIX
+            + NoRewriteNestedFunctionTestInput.INNER
+            + "};"
+            + NoRewriteNestedFunctionTestInput.EXPECTED_SUFFIX);
   }
 
   @Test
@@ -1211,6 +1234,8 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
 
   @Test
   public void testNoRewriteSet1() {
+    // TODO(bradfordcsmith): Stop normalizing the expected output or document why it is necessary.
+    enableNormalizeExpectedOutput();
     // Getters and setter require special handling.
     String source = "function a(){}; a.prototype = {set foo(a){}}; var o = new a; o.foo()";
     testSame(source);
@@ -1218,6 +1243,8 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
 
   @Test
   public void testNoRewriteSet2() {
+    // TODO(bradfordcsmith): Stop normalizing the expected output or document why it is necessary.
+    enableNormalizeExpectedOutput();
     // Getters and setter require special handling.
     String source = "function a(){}; a.prototype = {set foo(a){}}; var o = new a; o.foo = 1";
     testSame(source);
@@ -1258,6 +1285,8 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
 
   @Test
   public void testRewrite_nestedArrow_hasThisBoundCorrectly() {
+    // TODO(bradfordcsmith): Stop normalizing the expected output or document why it is necessary.
+    enableNormalizeExpectedOutput();
     test(
         srcs(
             lines(
@@ -1308,6 +1337,8 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
 
   @Test
   public void testThisProperty() {
+    // TODO(bradfordcsmith): Stop normalizing the expected output or document why it is necessary.
+    enableNormalizeExpectedOutput();
     testSame(
         lines(
             "class Foo {", //
@@ -1348,6 +1379,36 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
             "  a = function x() { return 5; };",
             "}",
             "console.log(new Foo().a);"));
+  }
+
+  @Test
+  public void testStaticClassFieldNoRHS() {
+    testSame(
+        lines(
+            "class Foo {", //
+            "  static a;",
+            "}",
+            "console.log(Foo.a);"));
+  }
+
+  @Test
+  public void testStaticClassFieldNonFunction() {
+    testSame(
+        lines(
+            "class Foo {", //
+            "  static a = 2;",
+            "}",
+            "console.log(Foo.a);"));
+  }
+
+  @Test
+  public void testStaticClassFieldFunction() {
+    testSame(
+        lines(
+            "class Foo {", //
+            "  static a = function x() { return 5; };",
+            "}",
+            "console.log(Foo.a);"));
   }
 
   private static class ModuleTestInput {

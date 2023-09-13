@@ -82,7 +82,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * The type registry is used to resolve named types.
@@ -108,6 +108,9 @@ public final class JSTypeRegistry {
 
   /** The template variable corresponding to the VALUE type in {@code Iterable<VALUE>} */
   private TemplateType iterableTemplate;
+
+  /** The template variable corresponding to the VALUE type in {@code IteratorIterable<T>} */
+  private TemplateType iteratorIterableTemplateKey;
 
   /**
    * The template variable corresponding to the VALUE type in {@code Iterator<VALUE,
@@ -142,13 +145,25 @@ public final class JSTypeRegistry {
   /** The template variable corresponding to the TYPE in {@code Promise<TYPE>} */
   private TemplateType promiseTemplateKey;
 
-  /**
-   * The template variable in {@code Array<T>}
-   */
+  /** The template variable in {@code Array<T>}. */
   private TemplateType arrayElementTemplateKey;
 
-  @Deprecated
-  public static final String OBJECT_ELEMENT_TEMPLATE = I_OBJECT_ELEMENT_TEMPLATE;
+  /** The template variable in {@code ReadonlyArray<T>}. */
+  private TemplateType readonlyArrayElementTemplateKey;
+
+  /** The key variable in {@code ReadonlyMap<K, V>}. */
+  private TemplateType readonlyMapKeyTemplateKey;
+
+  /** The value variable in {@code ReadonlyMap<K, V>}. */
+  private TemplateType readonlyMapValueTemplateKey;
+
+  /** The key variable in {@code Map<K, V>}. */
+  private TemplateType mapKeyTemplateKey;
+
+  /** The value variable in {@code Map<K, V>}. */
+  private TemplateType mapValueTemplateKey;
+
+  @Deprecated public static final String OBJECT_ELEMENT_TEMPLATE = I_OBJECT_ELEMENT_TEMPLATE;
 
   // TODO(user): An instance of this class should be used during
   // compilation. We also want to make all types' constructors package private
@@ -165,7 +180,7 @@ public final class JSTypeRegistry {
   private final Table<Node, String, JSType> scopedNameTable = HashBasedTable.create();
 
   // Only needed for type resolution at the moment
-  private final transient Map<String, ModuleSlot> moduleToSlotMap = new HashMap<>();
+  private final transient Map<String, ClosureNamespace> closureNamespaces = new HashMap<>();
 
   // NOTE: This would normally be "static final" but that causes unit test failures
   // when serializing and deserializing compiler state for multistage builds.
@@ -250,17 +265,37 @@ public final class JSTypeRegistry {
     return sentinelObjectLiteral;
   }
 
+  /** Returns the template variable for the element type of Arrays. */
+  public TemplateType getArrayElementKey() {
+    return arrayElementTemplateKey;
+  }
+
+  /** Returns the template variable for the element type of ReadonlyArrays. */
+  public TemplateType getReadonlyArrayElementKey() {
+    return readonlyArrayElementTemplateKey;
+  }
+
+  /** Returns the template variable for the key type of ReadonlyMaps. */
+  public TemplateType getReadonlyMapKey() {
+    return readonlyMapKeyTemplateKey;
+  }
+
+  /** Returns the template variable for the value type of ReadonlyMaps. */
+  public TemplateType getReadonlyMapValue() {
+    return readonlyMapValueTemplateKey;
+  }
+
   /**
-   * @return The template variable corresponding to the property value type for
-   * Javascript Objects and Arrays.
+   * @return The template variable corresponding to the property value type for Javascript Objects
+   *     and Arrays.
    */
   public TemplateType getObjectElementKey() {
     return iObjectElementTemplateKey;
   }
 
   /**
-   * @return The template variable corresponding to the
-   * property key type of the built-in Javascript object.
+   * @return The template variable corresponding to the property key type of the built-in Javascript
+   *     object.
    */
   public TemplateType getObjectIndexKey() {
     checkNotNull(iObjectIndexTemplateKey);
@@ -272,6 +307,20 @@ public final class JSTypeRegistry {
    */
   public TemplateType getIterableTemplate() {
     return checkNotNull(iterableTemplate);
+  }
+
+  /**
+   * @return The template variable for the IteratorIterable interface.
+   */
+  public TemplateType getIteratorIterableTemplateKey() {
+    return checkNotNull(iteratorIterableTemplateKey);
+  }
+
+  /**
+   * @return The template variable for the IteratorIterable interface.
+   */
+  public TemplateType getIIterableResultTemplateKey() {
+    return checkNotNull(iiterableResultTemplate);
   }
 
   /** Return the value template variable for the Iterator interface. */
@@ -294,14 +343,17 @@ public final class JSTypeRegistry {
     return checkNotNull(asyncIteratorValueTemplate);
   }
 
-  /** @return The template variable for the IThenable interface. */
+  /**
+   * @return The template variable for the IThenable interface.
+   */
   public TemplateType getIThenableTemplate() {
     return checkNotNull(iThenableTemplateKey);
   }
 
-  /** @return return an immutable list of template types of the given builtin. */
-  public ImmutableList<TemplateType> maybeGetTemplateTypesOfBuiltin(String fnName) {
-    JSType type = getType(null, fnName);
+  /** Returns an immutable list of template types of the given builtin. */
+  public @Nullable ImmutableList<TemplateType> maybeGetTemplateTypesOfBuiltin(
+      StaticScope scope, String fnName) {
+    JSType type = getType(scope, fnName);
     ObjectType objType = type == null ? null : type.toObjectType();
     if (objType != null && objType.isNativeObjectType()) {
       return objType.getTypeParameters();
@@ -345,12 +397,22 @@ public final class JSTypeRegistry {
     registerNativeType(JSTypeNative.ALL_TYPE, allType);
 
     // Template Types
+    // These should match the template type name in externs files.
     iObjectIndexTemplateKey = new TemplateType(this, "IOBJECT_KEY");
     iObjectElementTemplateKey = new TemplateType(this, I_OBJECT_ELEMENT_TEMPLATE);
-    // These should match the template type name in externs files.
+    iteratorValueTemplate = new TemplateType(this, "VALUE");
+
+    // Array-related template types.
     TemplateType iArrayLikeTemplate = new TemplateType(this, "VALUE2");
     arrayElementTemplateKey = new TemplateType(this, "T");
-    iteratorValueTemplate = new TemplateType(this, "VALUE");
+    readonlyArrayElementTemplateKey = new TemplateType(this, "T");
+
+    // Map-related template types.
+    readonlyMapKeyTemplateKey = new TemplateType(this, "KEY");
+    readonlyMapValueTemplateKey = new TemplateType(this, "VALUE");
+    mapKeyTemplateKey = new TemplateType(this, "KEY");
+    mapValueTemplateKey = new TemplateType(this, "VALUE");
+
     // TODO(b/142881197): start using these unused iterator (and related type) template params
     // https://github.com/google/closure-compiler/issues/3489
     TemplateType iteratorReturnTemplate = new TemplateType(this, "UNUSED_RETURN_T");
@@ -367,11 +429,12 @@ public final class JSTypeRegistry {
     TemplateType asyncGeneratorReturnTemplate = new TemplateType(this, "UNUSED_RETURN_T");
     TemplateType asyncGeneratorNextTemplate = new TemplateType(this, "UNUSED_NEXT_T");
     iterableTemplate = new TemplateType(this, "VALUE");
+    iteratorIterableTemplateKey = new TemplateType(this, "T");
     asyncIterableTemplate = new TemplateType(this, "VALUE");
     iThenableTemplateKey = new TemplateType(this, "TYPE");
     promiseTemplateKey = new TemplateType(this, "TYPE");
 
-    /**
+    /*
      * The default implicit prototype of all functions, as well as the ".prototype" field of
      * `(typeof Function)`.
      *
@@ -388,7 +451,7 @@ public final class JSTypeRegistry {
             .build();
     registerNativeType(JSTypeNative.FUNCTION_PROTOTYPE, functionPrototype);
 
-    /**
+    /*
      * The ".prototype" property of the type `Function`.
      *
      * <p>So named because `Function` constructs `?`s. This type is not particularly interesting,
@@ -402,7 +465,7 @@ public final class JSTypeRegistry {
             .build();
     registerNativeType(JSTypeNative.FUNCTION_INSTANCE_PROTOTYPE, functionInstancePrototype);
 
-    /**
+    /*
      * `Function`
      *
      * <p>The default implicit prototype of all `FunctionType`s is `functionPrototype`.
@@ -419,7 +482,7 @@ public final class JSTypeRegistry {
     functionType.setPrototype(functionInstancePrototype, null);
     registerNativeType(JSTypeNative.FUNCTION_TYPE, functionType);
 
-    /**
+    /*
      * `(typeof Function)`
      *
      * <p>The default implict prototype of all `FunctionType`s is `functionPrototype`.
@@ -492,6 +555,16 @@ public final class JSTypeRegistry {
     ObjectType iteratorType = iteratorFunctionType.getInstanceType();
     registerNativeType(JSTypeNative.ITERATOR_TYPE, iteratorType);
 
+    FunctionType iteratorIterableFunctionType =
+        nativeInterface("IteratorIterable", iteratorIterableTemplateKey);
+    registerNativeType(JSTypeNative.ITERATOR_ITERABLE_FUNCTION_TYPE, iteratorIterableFunctionType);
+    iteratorIterableFunctionType.setExtendedInterfaces(
+        ImmutableList.of(
+            createTemplatizedType(iterableType, iteratorIterableTemplateKey),
+            createTemplatizedType(iteratorType, iteratorIterableTemplateKey)));
+    ObjectType iteratorIterableType = iteratorIterableFunctionType.getInstanceType();
+    registerNativeType(JSTypeNative.ITERATOR_ITERABLE_TYPE, iteratorIterableType);
+
     FunctionType iiterableResultFunctionType =
         nativeInterface("IIterableResult", iiterableResultTemplate);
     registerNativeType(JSTypeNative.I_ITERABLE_RESULT_FUNCTION_TYPE, iiterableResultFunctionType);
@@ -506,6 +579,17 @@ public final class JSTypeRegistry {
     ObjectType iArrayLikeType = iArrayLikeFunctionType.getInstanceType();
     registerNativeType(JSTypeNative.I_ARRAY_LIKE_TYPE, iArrayLikeType);
 
+    // ReadonlyArray
+    FunctionType readonlyArrayFunctionType =
+        nativeRecord("ReadonlyArray", readonlyArrayElementTemplateKey);
+    registerNativeType(JSTypeNative.READONLY_ARRAY_FUNCTION_TYPE, readonlyArrayFunctionType);
+    readonlyArrayFunctionType.setExtendedInterfaces(
+        ImmutableList.of(
+            createTemplatizedType(iArrayLikeType, readonlyArrayElementTemplateKey),
+            createTemplatizedType(iterableType, readonlyArrayElementTemplateKey)));
+    ObjectType readonlyArrayType = readonlyArrayFunctionType.getInstanceType();
+    registerNativeType(JSTypeNative.READONLY_ARRAY_TYPE, readonlyArrayType);
+
     // Array
     FunctionType arrayFunctionType =
         nativeConstructorBuilder("Array")
@@ -515,9 +599,7 @@ public final class JSTypeRegistry {
             .build();
     arrayFunctionType.getPrototype(); // Force initialization
     arrayFunctionType.setImplementedInterfaces(
-        ImmutableList.of(
-            createTemplatizedType(iArrayLikeType, arrayElementTemplateKey),
-            createTemplatizedType(iterableType, arrayElementTemplateKey)));
+        ImmutableList.of(createTemplatizedType(readonlyArrayType, arrayElementTemplateKey)));
     registerNativeType(JSTypeNative.ARRAY_FUNCTION_TYPE, arrayFunctionType);
 
     ObjectType arrayType = arrayFunctionType.getInstanceType();
@@ -532,11 +614,8 @@ public final class JSTypeRegistry {
     FunctionType generatorFunctionType =
         nativeInterface(
             "Generator", generatorValueTemplate, generatorReturnTemplate, generatorNextTemplate);
-    // TODO(nickreid): Model this using `IteratorIterable<T>` as in the externs.
     generatorFunctionType.setExtendedInterfaces(
-        ImmutableList.of(
-            createTemplatizedType(iterableType, generatorValueTemplate),
-            createTemplatizedType(iteratorType, generatorValueTemplate)));
+        ImmutableList.of(createTemplatizedType(iteratorIterableType, generatorValueTemplate)));
     registerNativeType(JSTypeNative.GENERATOR_FUNCTION_TYPE, generatorFunctionType);
     registerNativeType(JSTypeNative.GENERATOR_TYPE, generatorFunctionType.getInstanceType());
 
@@ -723,8 +802,7 @@ public final class JSTypeRegistry {
             .withReturnType(symbolType)
             .build();
     symbolObjectFunctionType.getPrototype(); // Force initialization
-    registerNativeType(
-        JSTypeNative.SYMBOL_OBJECT_FUNCTION_TYPE, symbolObjectFunctionType);
+    registerNativeType(JSTypeNative.SYMBOL_OBJECT_FUNCTION_TYPE, symbolObjectFunctionType);
 
     ObjectType symbolObjectType = symbolObjectFunctionType.getInstanceType();
     registerNativeType(JSTypeNative.SYMBOL_OBJECT_TYPE, symbolObjectType);
@@ -770,6 +848,17 @@ public final class JSTypeRegistry {
     JSType numberStringSymbol = createUnionType(numberType, stringType, symbolType);
     registerNativeType(JSTypeNative.NUMBER_STRING_SYMBOL, numberStringSymbol);
 
+    // (boolean,Boolean,number,Number,null,undefined)
+    JSType numberAdditionSupertype =
+        createUnionType(
+            JSTypeNative.VOID_TYPE,
+            JSTypeNative.NULL_TYPE,
+            JSTypeNative.NUMBER_TYPE,
+            JSTypeNative.NUMBER_OBJECT_TYPE,
+            JSTypeNative.BOOLEAN_TYPE,
+            JSTypeNative.BOOLEAN_OBJECT_TYPE);
+    registerNativeType(JSTypeNative.NUMBER_ADDITION_SUPERTYPE, numberAdditionSupertype);
+
     // Native object properties are filled in by externs...
 
     // least function type, i.e. (All...) -> NoType
@@ -792,11 +881,55 @@ public final class JSTypeRegistry {
     // Register the prototype property. See the comments below in
     // registerPropertyOnType about the bootstrapping process.
     registerPropertyOnType("prototype", objectFunctionType);
+
+    // ReadonlyMap
+    FunctionType readonlyMapFunctionType =
+        nativeInterface("ReadonlyMap", readonlyMapKeyTemplateKey, readonlyMapValueTemplateKey);
+    registerNativeType(JSTypeNative.READONLY_MAP_FUNCTION_TYPE, readonlyMapFunctionType);
+    readonlyMapFunctionType.setExtendedInterfaces(
+        ImmutableList.of(
+            createTemplatizedType(
+                iterableType,
+                createTemplatizedType(
+                    arrayType,
+                    createUnionType(readonlyMapKeyTemplateKey, readonlyMapValueTemplateKey)))));
+    ObjectType readonlyMapType = readonlyMapFunctionType.getInstanceType();
+    registerNativeType(JSTypeNative.READONLY_MAP_TYPE, readonlyMapType);
+
+    // Map
+    FunctionType mapFunctionType =
+        nativeConstructorBuilder("Map")
+            .withParameters(
+                createOptionalParameters(
+                    createUnionType(
+                        nullType,
+                        createTemplatizedType(
+                            iterableType,
+                            createTemplatizedType(
+                                arrayType,
+                                createUnionType(mapKeyTemplateKey, mapValueTemplateKey))),
+                        createTemplatizedType(
+                            arrayType,
+                            createTemplatizedType(
+                                arrayType,
+                                createUnionType(mapKeyTemplateKey, mapValueTemplateKey))))))
+            .withTemplateKeys(mapKeyTemplateKey, mapValueTemplateKey)
+            .build();
+    registerNativeType(JSTypeNative.MAP_FUNCTION_TYPE, mapFunctionType);
+    mapFunctionType.getPrototype(); // Force initialization
+    mapFunctionType.setImplementedInterfaces(
+        ImmutableList.of(
+            createTemplatizedType(readonlyMapType, mapKeyTemplateKey, mapValueTemplateKey)));
+    ObjectType mapType = mapFunctionType.getInstanceType();
+    registerNativeType(JSTypeNative.MAP_TYPE, mapType);
   }
 
   private void initializeRegistry() {
     registerGlobalType(getNativeType(JSTypeNative.ARGUMENTS_TYPE));
     registerGlobalType(getNativeType(JSTypeNative.ARRAY_TYPE));
+    registerGlobalType(getNativeType(JSTypeNative.READONLY_ARRAY_TYPE));
+    registerGlobalType(getNativeType(JSTypeNative.MAP_TYPE));
+    registerGlobalType(getNativeType(JSTypeNative.READONLY_MAP_TYPE));
     registerGlobalType(getNativeType(JSTypeNative.ASYNC_ITERABLE_TYPE));
     registerGlobalType(getNativeType(JSTypeNative.ASYNC_ITERATOR_TYPE));
     registerGlobalType(getNativeType(JSTypeNative.ASYNC_ITERATOR_ITERABLE_TYPE));
@@ -808,6 +941,7 @@ public final class JSTypeRegistry {
     registerGlobalType(getNativeType(JSTypeNative.I_ARRAY_LIKE_TYPE));
     registerGlobalType(getNativeType(JSTypeNative.ITERABLE_TYPE));
     registerGlobalType(getNativeType(JSTypeNative.ITERATOR_TYPE));
+    registerGlobalType(getNativeType(JSTypeNative.ITERATOR_ITERABLE_TYPE));
     registerGlobalType(getNativeType(JSTypeNative.GENERATOR_TYPE));
     registerGlobalType(getNativeType(JSTypeNative.DATE_TYPE));
     registerGlobalType(getNativeType(JSTypeNative.I_OBJECT_TYPE));
@@ -843,10 +977,9 @@ public final class JSTypeRegistry {
 
   /**
    * @return Which scope in the provided scope chain the provided name is declared in, or else null.
-   *
-   * This assumed that the Scope construction is
-   * complete.  It can not be used during scope construction to determine if a name is already
-   * defined as a shadowed name from a parent scope would be returned.
+   *     <p>This assumed that the Scope construction is complete. It can not be used during scope
+   *     construction to determine if a name is already defined as a shadowed name from a parent
+   *     scope would be returned.
    */
   private static StaticScope getLookupScope(StaticScope scope, String name) {
     if (scope != null && scope.getParentScope() != null) {
@@ -855,8 +988,7 @@ public final class JSTypeRegistry {
     return scope;
   }
 
-  @Nullable
-  private Node getRootNodeForScope(StaticScope scope) {
+  private @Nullable Node getRootNodeForScope(StaticScope scope) {
     Node root = scope != null ? scope.getRootNode() : null;
     return (root == null || root.isRoot() || root.isScript()) ? nameTableGlobalRoot : root;
   }
@@ -886,7 +1018,7 @@ public final class JSTypeRegistry {
     return resolveViaComponents(bestScope, name);
   }
 
-  private JSType resolveViaComponents(StaticScope scope, String qualifiedName) {
+  private @Nullable JSType resolveViaComponents(StaticScope scope, String qualifiedName) {
     if (qualifiedName.isEmpty() || !(scope instanceof StaticTypedScope)) {
       return null;
     }
@@ -913,22 +1045,22 @@ public final class JSTypeRegistry {
    * if any, then attempting to resolve via properties based on the type of the `exports` object in
    * that namespace.
    */
-  private JSType resolveViaClosureNamespace(String reference) {
+  public @Nullable JSType resolveViaClosureNamespace(String reference) {
     // Find the `exports` type of the longest prefix match of this namespace, if any. Then resolve
     // it via property.
     String prefix = reference;
     ImmutableList.Builder<String> unusedComponents = ImmutableList.builder();
     while (true) {
-      ModuleSlot module = this.getModuleSlot(prefix);
-      if (module != null) {
-        if (module.isLegacyModule()) {
+      ClosureNamespace namespace = this.closureNamespaces.get(prefix);
+      if (namespace != null) {
+        if (namespace.isLegacy()) {
           // Try to resolve this name via registry or properties.
           return null;
         } else {
           // Always stop resolution here whether successful or not, instead of continuing with
           // resolution via registry or via properties, to match legacy behavior.
           return resolveViaPropertyGivenSlot(
-              module.type(), module.definitionNode(), unusedComponents.build().reverse());
+              namespace.type(), namespace.definitionNode(), unusedComponents.build().reverse());
         }
       }
 
@@ -943,8 +1075,8 @@ public final class JSTypeRegistry {
     }
   }
 
-  @Nullable
-  private JSType resolveViaProperties(StaticTypedScope declarationScope, String qualifiedName) {
+  private @Nullable JSType resolveViaProperties(
+      StaticTypedScope declarationScope, String qualifiedName) {
     checkNotNull(qualifiedName);
     checkArgument(!qualifiedName.isEmpty());
     String rootName = getRootElementOfName(qualifiedName);
@@ -952,7 +1084,7 @@ public final class JSTypeRegistry {
     if (slot == null) {
       return null;
     }
-    List<String> componentNames =
+    ImmutableList<String> componentNames =
         ImmutableList.copyOf(Iterables.skip(DOT_SPLITTER.split(qualifiedName), 1));
     JSType slotType = slot.getType();
     return resolveViaPropertyGivenSlot(slotType, null, componentNames);
@@ -964,8 +1096,8 @@ public final class JSTypeRegistry {
    * @param slotType the JSType of the slot, possibly null
    * @param definitionNode If known, the Node representing the type definition.
    */
-  private JSType resolveViaPropertyGivenSlot(
-      JSType slotType, Node definitionNode, List<String> componentNames) {
+  private @Nullable JSType resolveViaPropertyGivenSlot(
+      JSType slotType, @Nullable Node definitionNode, List<String> componentNames) {
     if (componentNames.isEmpty()) {
       JSType typedefType = resolveTypeFromNodeIfTypedef(definitionNode);
       if (typedefType != null) {
@@ -1013,8 +1145,7 @@ public final class JSTypeRegistry {
   }
 
   /** Checks the given Node for a typedef annotation, resolving to that type if existent. */
-  @Nullable
-  private static JSType resolveTypeFromNodeIfTypedef(Node node) {
+  private static @Nullable JSType resolveTypeFromNodeIfTypedef(Node node) {
     if (node == null) {
       return null;
     }
@@ -1035,7 +1166,7 @@ public final class JSTypeRegistry {
     register(null, type, name);
   }
 
-  private void register(StaticScope scope, JSType type, String name) {
+  private void register(@Nullable StaticScope scope, JSType type, String name) {
     checkTypeName(name);
     registerForScope(getLookupScope(scope, name), type, name);
   }
@@ -1070,16 +1201,14 @@ public final class JSTypeRegistry {
   }
 
   /**
-   * Tells the type system that {@code owner} may have a property named
-   * {@code propertyName}. This allows the registry to keep track of what
-   * types a property is defined upon.
+   * Tells the type system that {@code owner} may have a property named {@code propertyName}. This
+   * allows the registry to keep track of what types a property is defined upon.
    *
-   * This is NOT the same as saying that {@code owner} must have a property
-   * named type. ObjectType#hasProperty attempts to minimize false positives
-   * ("if we're not sure, then don't type check this property"). The type
-   * registry, on the other hand, should attempt to minimize false negatives
-   * ("if this property is assigned anywhere in the program, it must
-   * show up in the type registry").
+   * <p>This is NOT the same as saying that {@code owner} must have a property named type.
+   * ObjectType#hasProperty attempts to minimize false positives ("if we're not sure, then don't
+   * type check this property"). The type registry, on the other hand, should attempt to minimize
+   * false negatives ("if this property is assigned anywhere in the program, it must show up in the
+   * type registry").
    */
   public void registerPropertyOnType(String propertyName, JSType type) {
     if (type.isUnionType()) {
@@ -1104,14 +1233,12 @@ public final class JSTypeRegistry {
   /** A tristate value returned from canPropertyBeDefined. */
   public enum PropDefinitionKind {
     UNKNOWN, // The property is not known to be part of this type
-    KNOWN,   // The properties is known to be defined on a type or its super types
-    LOOSE,   // The property is loosely associated with a type, typically one of its subtypes
+    KNOWN, // The properties is known to be defined on a type or its super types
+    LOOSE, // The property is loosely associated with a type, typically one of its subtypes
     LOOSE_UNION // The property is loosely associated with a union type
   }
 
-  /**
-   * Returns whether the given property can possibly be set on the given type.
-   */
+  /** Returns whether the given property can possibly be set on the given type. */
   public PropDefinitionKind canPropertyBeDefined(JSType type, String propertyName) {
     if (type.isStruct()) {
       // We are stricter about "struct" types and only allow access to
@@ -1122,8 +1249,7 @@ public final class JSTypeRegistry {
         case KNOWN_PRESENT:
           return PropDefinitionKind.KNOWN;
         case MAYBE_PRESENT:
-          // TODO(johnlenz): return LOOSE_UNION here.
-          return PropDefinitionKind.KNOWN;
+          return PropDefinitionKind.LOOSE_UNION;
         case ABSENT:
           return PropDefinitionKind.UNKNOWN;
       }
@@ -1133,8 +1259,7 @@ public final class JSTypeRegistry {
           case KNOWN_PRESENT:
             return PropDefinitionKind.KNOWN;
           case MAYBE_PRESENT:
-            // TODO(johnlenz): return LOOSE_UNION here.
-            return PropDefinitionKind.KNOWN;
+            return PropDefinitionKind.LOOSE_UNION;
           case ABSENT:
             // check for loose properties below.
             break;
@@ -1183,17 +1308,14 @@ public final class JSTypeRegistry {
   }
 
   /**
-   * Returns each reference type that has a property {@code propertyName}
-   * defined on it.
+   * Returns each reference type that has a property {@code propertyName} defined on it.
    *
-   * Unlike most types in our type system, the collection of types returned
-   * will not be collapsed. This means that if a type is defined on
-   * {@code Object} and on {@code Array}, this method must return
-   * {@code [Object, Array]}. It would not be correct to collapse them to
-   * {@code [Object]}.
+   * <p>Unlike most types in our type system, the collection of types returned will not be
+   * collapsed. This means that if a type is defined on {@code Object} and on {@code Array}, this
+   * method must return {@code [Object, Array]}. It would not be correct to collapse them to {@code
+   * [Object]}.
    */
-  public Iterable<ObjectType> getEachReferenceTypeWithProperty(
-      String propertyName) {
+  public Iterable<ObjectType> getEachReferenceTypeWithProperty(String propertyName) {
     if (eachRefTypeIndexedByProperty.containsKey(propertyName)) {
       return eachRefTypeIndexedByProperty.get(propertyName);
     } else {
@@ -1201,9 +1323,7 @@ public final class JSTypeRegistry {
     }
   }
 
-  /**
-   * Finds the common supertype of the two given object types.
-   */
+  /** Finds the common supertype of the two given object types. */
   ObjectType findCommonSuperObject(ObjectType a, ObjectType b) {
     List<ObjectType> stackA = getSuperStack(a);
     List<ObjectType> stackB = getSuperStack(b);
@@ -1223,17 +1343,15 @@ public final class JSTypeRegistry {
 
   private static List<ObjectType> getSuperStack(ObjectType a) {
     List<ObjectType> stack = new ArrayList<>(5);
-    for (ObjectType current = a;
-         current != null;
-         current = current.getImplicitPrototype()) {
+    for (ObjectType current = a; current != null; current = current.getImplicitPrototype()) {
       stack.add(current);
     }
     return stack;
   }
 
   /**
-   * Records declared global type names. This makes resolution faster
-   * and more robust in the common case.
+   * Records declared global type names. This makes resolution faster and more robust in the common
+   * case.
    *
    * @param name The name of the type to be recorded.
    * @param type The actual type being associated with the name.
@@ -1250,8 +1368,8 @@ public final class JSTypeRegistry {
   }
 
   /**
-   * Records declared global type names. This makes resolution faster
-   * and more robust in the common case.
+   * Records declared global type names. This makes resolution faster and more robust in the common
+   * case.
    *
    * @param name The name of the type to be recorded.
    * @param type The actual type being associated with the name.
@@ -1276,9 +1394,7 @@ public final class JSTypeRegistry {
     register(scope, type, name);
   }
 
-  /**
-   * Whether this is a forward-declared type name.
-   */
+  /** Whether this is a forward-declared type name. */
   public boolean isForwardDeclaredType(String name) {
     return forwardDeclaredTypes.contains(name);
   }
@@ -1294,7 +1410,7 @@ public final class JSTypeRegistry {
     return getReadableJSTypeName(n, false);
   }
 
-  private static String getSimpleReadableJSTypeName(JSType type) {
+  private static @Nullable String getSimpleReadableJSTypeName(JSType type) {
     if (type instanceof AllType) {
       return type.toString();
     } else if (type instanceof ValueType) {
@@ -1423,7 +1539,7 @@ public final class JSTypeRegistry {
    * @param jsTypeName The name string.
    * @return the corresponding JSType object or {@code null} it cannot be found
    */
-  public JSType getType(StaticScope scope, String jsTypeName) {
+  public JSType getType(@Nullable StaticScope scope, String jsTypeName) {
     return getTypeInternal(scope, jsTypeName);
   }
 
@@ -1460,7 +1576,9 @@ public final class JSTypeRegistry {
       thisType = scope.getTypeOfThis().toObjectType();
     }
     if (thisType != null) {
-      type = thisType.getTemplateTypeMap().getTemplateTypeKeyByName(jsTypeName);
+      // get the 'last' template type key with this name because if a superclass template key
+      // shares the same name as a subclass key, the subclass key is guaranteed to be last.
+      type = thisType.getTemplateTypeMap().getLastTemplateTypeKeyByName(jsTypeName);
       if (type != null) {
         checkState(type.isTemplateType(), "expected:%s", type);
         return type;
@@ -1504,6 +1622,7 @@ public final class JSTypeRegistry {
 
   /**
    * Creates a type representing optional values of the given type.
+   *
    * @return the union of the type and the void type
    */
   public JSType createOptionalType(JSType type) {
@@ -1516,6 +1635,7 @@ public final class JSTypeRegistry {
 
   /**
    * Creates a type representing nullable values of the given type.
+   *
    * @return the union of the type and the Null type
    */
   public JSType createNullableType(JSType type) {
@@ -1524,16 +1644,15 @@ public final class JSTypeRegistry {
 
   /**
    * Creates a nullable and undefine-able value of the given type.
+   *
    * @return The union of the type and null and undefined.
    */
   public JSType createOptionalNullableType(JSType type) {
-    return createUnionType(type, getNativeType(JSTypeNative.VOID_TYPE),
-        getNativeType(JSTypeNative.NULL_TYPE));
+    return createUnionType(
+        type, getNativeType(JSTypeNative.VOID_TYPE), getNativeType(JSTypeNative.NULL_TYPE));
   }
 
-  /**
-   * Creates a union type whose variants are the arguments.
-   */
+  /** Creates a union type whose variants are the arguments. */
   public JSType createUnionType(JSType... variants) {
     return createUnionType(ImmutableList.copyOf(variants));
   }
@@ -1542,10 +1661,7 @@ public final class JSTypeRegistry {
     return UnionType.builder(this).addAlternates(variants).build();
   }
 
-  /**
-   * Creates a union type whose variants are the built-in types specified
-   * by the arguments.
-   */
+  /** Creates a union type whose variants are the built-in types specified by the arguments. */
   public JSType createUnionType(JSTypeNative... variants) {
     UnionType.Builder builder = UnionType.builder(this);
     for (JSTypeNative type : variants) {
@@ -1560,8 +1676,7 @@ public final class JSTypeRegistry {
    * @param returnType the function's return type
    * @param parameterTypes the parameters' types
    */
-  public FunctionType createFunctionType(
-      JSType returnType, JSType... parameterTypes) {
+  public FunctionType createFunctionType(JSType returnType, JSType... parameterTypes) {
     return createFunctionType(returnType, createParameters(parameterTypes));
   }
 
@@ -1577,29 +1692,26 @@ public final class JSTypeRegistry {
   }
 
   /**
-   * Creates a function type. The last parameter type of the function is
-   * considered a variable length argument.
+   * Creates a function type. The last parameter type of the function is considered a variable
+   * length argument.
    *
    * @param returnType the function's return type
    * @param parameterTypes the parameters' types
    */
-  public FunctionType createFunctionTypeWithVarArgs(
-      JSType returnType, JSType... parameterTypes) {
-    return createFunctionType(
-        returnType, createParametersWithVarArgs(parameterTypes));
+  public FunctionType createFunctionTypeWithVarArgs(JSType returnType, JSType... parameterTypes) {
+    return createFunctionType(returnType, createParametersWithVarArgs(parameterTypes));
   }
 
   /**
-   * Creates a function type. The last parameter type of the function is
-   * considered a variable length argument.
+   * Creates a function type. The last parameter type of the function is considered a variable
+   * length argument.
    *
    * @param returnType the function's return type
    * @param parameterTypes the parameters' types
    */
   private FunctionType createNativeFunctionTypeWithVarArgs(
       JSType returnType, JSType... parameterTypes) {
-    return createNativeFunctionType(
-        returnType, createParametersWithVarArgs(parameterTypes));
+    return createNativeFunctionType(returnType, createParametersWithVarArgs(parameterTypes));
   }
 
   /**
@@ -1609,9 +1721,9 @@ public final class JSTypeRegistry {
    * @param returnType the function's return type
    * @param parameterTypes the parameters' types
    */
-  public JSType createFunctionTypeWithInstanceType(ObjectType instanceType,
-      JSType returnType, List<JSType> parameterTypes) {
-    List<FunctionType.Parameter> paramsNode =
+  public JSType createFunctionTypeWithInstanceType(
+      ObjectType instanceType, JSType returnType, List<JSType> parameterTypes) {
+    ImmutableList<FunctionType.Parameter> paramsNode =
         createParameters(parameterTypes.toArray(new JSType[0]));
     return FunctionType.builder(this)
         .withParameters(paramsNode)
@@ -1676,8 +1788,8 @@ public final class JSTypeRegistry {
   }
 
   /**
-   * Creates a new function type based on an existing function type but
-   * with a new return type.
+   * Creates a new function type based on an existing function type but with a new return type.
+   *
    * @param existingFunctionType the existing function type.
    * @param returnType the new return type.
    */
@@ -1725,9 +1837,7 @@ public final class JSTypeRegistry {
     return builder.build();
   }
 
-  /**
-   * Create an object type.
-   */
+  /** Create an object type. */
   public ObjectType createObjectType(String name, ObjectType implicitPrototype) {
     return PrototypeObjectType.builder(this)
         .setName(name)
@@ -1737,9 +1847,10 @@ public final class JSTypeRegistry {
 
   /**
    * Create an anonymous object type.
+   *
    * @param info Used to mark object literals as structs; can be {@code null}
    */
-  public ObjectType createAnonymousObjectType(JSDocInfo info) {
+  public ObjectType createAnonymousObjectType(@Nullable JSDocInfo info) {
     PrototypeObjectType type = PrototypeObjectType.builder(this).setAnonymous(true).build();
     type.setPrettyPrint(true);
     type.setJSDocInfo(info);
@@ -1747,10 +1858,9 @@ public final class JSTypeRegistry {
   }
 
   /**
-   * Set the implicit prototype if it's possible to do so.
-   * There are a few different reasons why this could be a no-op: for example,
-   * numbers can't be implicit prototypes, and we don't want to change the implicit prototype
-   * if other classes have already subclassed this one.
+   * Set the implicit prototype if it's possible to do so. There are a few different reasons why
+   * this could be a no-op: for example, numbers can't be implicit prototypes, and we don't want to
+   * change the implicit prototype if other classes have already subclassed this one.
    */
   public void resetImplicitPrototype(JSType type, ObjectType newImplicitProto) {
     if (type instanceof PrototypeObjectType) {
@@ -1793,17 +1903,14 @@ public final class JSTypeRegistry {
   }
 
   public TemplateType createTemplateType(String name) {
-    return new TemplateType(
-        this,
-        name);
+    return new TemplateType(this, name);
   }
 
   public TemplateType createTemplateType(String name, JSType bound) {
     return new TemplateType(this, name, bound);
   }
 
-  public TemplateType createTemplateTypeWithTransformation(
-      String name, Node expr) {
+  public TemplateType createTemplateTypeWithTransformation(String name, Node expr) {
     return new TemplateType(this, name, expr);
   }
 
@@ -1870,7 +1977,7 @@ public final class JSTypeRegistry {
   }
 
   /** Identifies the name of a typedef or enum before we actually declare it. */
-  public void identifyNonNullableName(StaticScope scope, String name) {
+  public void identifyNonNullableName(@Nullable StaticScope scope, String name) {
     checkNotNull(name);
     StaticScope lookupScope = getLookupScope(scope, name);
     nonNullableTypeNames.put(getRootNodeForScope(lookupScope), name);
@@ -1898,11 +2005,11 @@ public final class JSTypeRegistry {
    * @param sourceName The source file name.
    * @param scope A scope for doing type name lookups.
    */
-  public JSType createTypeFromCommentNode(Node n, String sourceName, StaticTypedScope scope) {
+  public JSType createTypeFromCommentNode(
+      Node n, String sourceName, @Nullable StaticTypedScope scope) {
     switch (n.getToken()) {
       case LC: // Record type.
-        return createRecordTypeFromNodes(
-            n.getFirstChild(), sourceName, scope);
+        return createRecordTypeFromNodes(n.getFirstChild(), sourceName, scope);
 
       case BANG: // Not nullable
         {
@@ -1991,13 +2098,9 @@ public final class JSTypeRegistry {
             return nominalType;
           }
 
-          if (templateArgs == null
-              || !nominalType.isRawTypeOfTemplatizedType()
-              || nominalType.isUnknownType()) {
+          if (templateArgs == null || !nominalType.isRawTypeOfTemplatizedType()) {
             // TODO(nickreid): This case leaves template parameters unbound if users fail to
             // specify any arguments, allowing raw types to leak into programs.
-            // TODO(lharker): delete the check isUnknownType - it seems like it should be redundant
-            // given isRawTypeOfTemplatizedType, but in some contexts is not.
             return addNullabilityBasedOnParseContext(n, nominalType, scope);
           }
 
@@ -2099,8 +2202,7 @@ public final class JSTypeRegistry {
     }
   }
 
-  @Nullable
-  private ImmutableList<JSType> parseTemplateArgs(
+  private @Nullable ImmutableList<JSType> parseTemplateArgs(
       JSType nominalType, Node typeNode, String sourceName, StaticTypedScope scope) {
     Node typeList = typeNode.getFirstChild();
     if (typeList == null) {
@@ -2164,8 +2266,8 @@ public final class JSTypeRegistry {
 
     // For each of the fields in the record type.
     for (Node fieldTypeNode = n.getFirstChild();
-         fieldTypeNode != null;
-         fieldTypeNode = fieldTypeNode.getNext()) {
+        fieldTypeNode != null;
+        fieldTypeNode = fieldTypeNode.getNext()) {
 
       // Get the property's name.
       Node fieldNameNode = fieldTypeNode;
@@ -2203,8 +2305,8 @@ public final class JSTypeRegistry {
   }
 
   /**
-   * Registers template types on the given scope root. This takes a Node rather than a
-   * StaticScope because at the time it is called, the scope has not yet been created.
+   * Registers template types on the given scope root. This takes a Node rather than a StaticScope
+   * because at the time it is called, the scope has not yet been created.
    */
   public void registerTemplateTypeNamesInScope(Iterable<TemplateType> keys, Node scopeRoot) {
     for (TemplateType key : keys) {
@@ -2212,10 +2314,7 @@ public final class JSTypeRegistry {
     }
   }
 
-  /**
-   * Returns a new scope that includes the given template names for type resolution
-   * purposes.
-   */
+  /** Returns a new scope that includes the given template names for type resolution purposes. */
   public StaticTypedScope createScopeWithTemplates(
       StaticTypedScope scope, Iterable<TemplateType> templates) {
     return new SyntheticTemplateScope(scope, templates);
@@ -2268,8 +2367,7 @@ public final class JSTypeRegistry {
       return delegate.getTypeOfThis();
     }
 
-    @Nullable
-    TemplateType getTemplateType(String name) {
+    @Nullable TemplateType getTemplateType(String name) {
       return types.get(name);
     }
 
@@ -2301,42 +2399,40 @@ public final class JSTypeRegistry {
     return type;
   }
 
-  /** Ensures that a type annotation pointing to a Closure modules is correctly resolved. */
-  public void registerClosureModule(String moduleName, Node definitionNode, JSType type) {
-    moduleToSlotMap.put(moduleName, ModuleSlot.create(/* isLegacy= */ false, definitionNode, type));
+  /**
+   * Registers a goog.module namespace (that does not have goog.module.declareLegacyNamespace)
+   *
+   * <p>This allows JSTypeRegistry to resolve types that refer to goog.modules by namespace. These
+   * have unique handling because they exist only in the type space and do not have a corresponding
+   * value space value.
+   */
+  public void registerNonLegacyClosureNamespace(
+      String moduleName, Node definitionNode, JSType type) {
+    closureNamespaces.put(
+        moduleName, ClosureNamespace.create(/* isLegacy= */ false, definitionNode, type));
   }
 
-  /**
-   * Ensures that a type annotation pointing to a Closure modules is correctly resolved.
-   *
-   * <p>Currently this is useful because module rewriting will prevent type resolution given a
-   */
-  public void registerLegacyClosureModule(String moduleName) {
-    moduleToSlotMap.put(moduleName, ModuleSlot.create(/* isLegacy= */ true, null, null));
-  }
-
-  /**
-   * Returns the associated slot, if any, for the given module namespace.
-   *
-   * <p>Returns null if the given name is not a Closure namespace from a goog.provide or goog.module
-   */
-  ModuleSlot getModuleSlot(String moduleName) {
-    return moduleToSlotMap.get(moduleName);
+  /** Registers a goog.provide or legacy goog.module namespace with the type registry */
+  public void registerLegacyClosureNamespace(String moduleName) {
+    closureNamespaces.put(moduleName, ClosureNamespace.create(/* isLegacy= */ true, null, null));
   }
 
   /** Stores information about a Closure namespace. */
   @AutoValue
-  abstract static class ModuleSlot {
-    abstract boolean isLegacyModule();
+  abstract static class ClosureNamespace {
+    /**
+     * Returns true if this is a goog.provide'd namespace or a goog.module namespace followed by
+     * `goog.module.declareLegacyNamespace()
+     */
+    abstract boolean isLegacy();
 
-    @Nullable
-    abstract Node definitionNode();
+    abstract @Nullable Node definitionNode();
 
-    @Nullable
-    abstract JSType type();
+    abstract @Nullable JSType type();
 
-    static ModuleSlot create(boolean isLegacy, Node definitionNode, JSType type) {
-      return new AutoValue_JSTypeRegistry_ModuleSlot(isLegacy, definitionNode, type);
+    static ClosureNamespace create(
+        boolean isLegacy, @Nullable Node definitionNode, @Nullable JSType type) {
+      return new AutoValue_JSTypeRegistry_ClosureNamespace(isLegacy, definitionNode, type);
     }
   }
 }

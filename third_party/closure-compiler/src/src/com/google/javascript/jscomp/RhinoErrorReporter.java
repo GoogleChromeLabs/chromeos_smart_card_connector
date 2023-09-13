@@ -19,9 +19,9 @@ package com.google.javascript.jscomp;
 import com.google.common.collect.ImmutableMap;
 import com.google.javascript.rhino.ErrorReporter;
 import com.google.javascript.rhino.Msg;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.regex.Pattern;
+import org.jspecify.nullness.Nullable;
 
 /**
  * An error reporter for serializing Rhino errors into our error format.
@@ -39,6 +39,9 @@ class RhinoErrorReporter {
 
   static final DiagnosticType UNRECOGNIZED_TYPEOF_ERROR =
       DiagnosticType.warning("JSC_UNRECOGNIZED_TYPEOF_ERROR", "{0}");
+
+  static final DiagnosticType CYCLIC_INHERITANCE_ERROR =
+      DiagnosticType.warning("JSC_CYCLIC_INHERITANCE_ERROR", "{0}");
 
   // This is separate from TYPE_PARSE_ERROR because there are many instances of this warning
   // and it is unfeasible to fix them all right away.
@@ -60,11 +63,12 @@ class RhinoErrorReporter {
   // Special-cased errors, so that they can be configured via the
   // warnings API.
   static final DiagnosticType TRAILING_COMMA =
-      DiagnosticType.error("JSC_TRAILING_COMMA",
-          "Parse error. IE8 (and below) will parse trailing commas in " +
-          "array and object literals incorrectly. " +
-          "If you are targeting newer versions of JS, " +
-          "set the appropriate language_in option.");
+      DiagnosticType.error(
+          "JSC_TRAILING_COMMA",
+          "Parse error. IE8 (and below) will parse trailing commas in "
+              + "array and object literals incorrectly. "
+              + "If you are targeting newer versions of JS, "
+              + "set the appropriate language_in option.");
 
   static final DiagnosticType DUPLICATE_PARAM =
       DiagnosticType.error("JSC_DUPLICATE_PARAM", "Parse error. {0}");
@@ -81,12 +85,13 @@ class RhinoErrorReporter {
   static final DiagnosticType BAD_JSDOC_ANNOTATION =
       DiagnosticType.warning("JSC_BAD_JSDOC_ANNOTATION", "Parse error. {0}");
 
-  static final DiagnosticType INVALID_ES3_PROP_NAME = DiagnosticType.warning(
-      "JSC_INVALID_ES3_PROP_NAME",
-      "Keywords and reserved words are not allowed as unquoted property " +
-      "names in older versions of JavaScript. " +
-      "If you are targeting newer versions of JavaScript, " +
-      "set the appropriate language_in option.");
+  static final DiagnosticType INVALID_ES3_PROP_NAME =
+      DiagnosticType.warning(
+          "JSC_INVALID_ES3_PROP_NAME",
+          "Keywords and reserved words are not allowed as unquoted property "
+              + "names in older versions of JavaScript. "
+              + "If you are targeting newer versions of JavaScript, "
+              + "set the appropriate language_in option.");
 
   static final DiagnosticType PARSE_TREE_TOO_DEEP =
       DiagnosticType.error("JSC_PARSE_TREE_TOO_DEEP", "Parse tree too deep.");
@@ -117,7 +122,7 @@ class RhinoErrorReporter {
               + "{0} assigned to template type {1} is not a subtype of bound {2}");
 
   // A map of Rhino messages to their DiagnosticType.
-  private static final Map<Pattern, DiagnosticType> typeMap =
+  private static final ImmutableMap<Pattern, DiagnosticType> typeMap =
       ImmutableMap.<Pattern, DiagnosticType>builder()
           // Trailing comma
           .put(
@@ -146,12 +151,17 @@ class RhinoErrorReporter {
           .put(Pattern.compile(".*Unknown type.*\n.*"), UNRECOGNIZED_TYPE_ERROR)
           // Unrecognized `typeof some.prop` errors
           .put(Pattern.compile("^Missing type for `typeof` value.*"), UNRECOGNIZED_TYPEOF_ERROR)
+          // Cyclic inheritance errors
+          .put(
+              Pattern.compile("^Cycle detected in inheritance chain of type .*"),
+              CYCLIC_INHERITANCE_ERROR)
           // Import annotation errors.
           .put(
               Pattern.compile("^Bad type annotation. Import in typedef.*"),
               JSDOC_IMPORT_TYPE_WARNING)
           // Type annotation errors.
           .put(Pattern.compile("^Bad type annotation.*"), TYPE_PARSE_ERROR)
+          .put(Pattern.compile("constructed type must be an object type"), TYPE_PARSE_ERROR)
           // Parse tree too deep.
           .put(Pattern.compile("Too deep recursion while parsing"), PARSE_TREE_TOO_DEEP)
           // Old-style octal literals
@@ -200,7 +210,7 @@ class RhinoErrorReporter {
         null, makeError(message, sourceName, line, lineOffset, CheckLevel.ERROR));
   }
 
-  protected static DiagnosticType mapError(String message) {
+  protected static @Nullable DiagnosticType mapError(String message) {
     for (Entry<Pattern, DiagnosticType> entry : typeMap.entrySet()) {
       if (entry.getKey().matcher(message).matches()) {
         return entry.getValue();
@@ -214,9 +224,17 @@ class RhinoErrorReporter {
     // Try to see if the message is one of the rhino errors we want to
     // expose as DiagnosticType by matching it with the regex key.
     DiagnosticType type = mapError(message);
-    return (type != null)
-        ? JSError.make(sourceName, line, lineOffset, type, message)
-        : JSError.make(sourceName, line, lineOffset, defaultLevel, PARSE_ERROR, message);
+    JSError.Builder builder =
+        JSError.builder(type != null ? type : PARSE_ERROR, message)
+            .setSourceLocation(sourceName, line, lineOffset);
+
+    // If a specific DiagnosticType is present, its default level overrides the defaultLevel
+    // passed to this method.
+    if (type == null) {
+      builder.setLevel(defaultLevel);
+    }
+
+    return builder.build();
   }
 
   private static class OldRhinoErrorReporter extends RhinoErrorReporter

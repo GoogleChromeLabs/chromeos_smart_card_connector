@@ -32,6 +32,7 @@ import com.google.javascript.jscomp.Result;
 import com.google.javascript.jscomp.SourceFile;
 import com.google.javascript.jscomp.SourceMap;
 import com.google.javascript.jscomp.VariableRenamingPolicy;
+import com.google.javascript.jscomp.annotations.LegacySetFeatureSetCaller;
 import com.google.javascript.jscomp.bundle.TranspilationException;
 import com.google.javascript.jscomp.deps.ModuleLoader;
 import com.google.javascript.jscomp.deps.ModuleLoader.PathEscaper;
@@ -118,7 +119,7 @@ public final class BaseTranspiler implements Transpiler {
      */
     public CompilerSupplier(
         FeatureSet outputFeatureSet,
-        ModuleLoader.ResolutionMode moduleResolution,
+        ResolutionMode moduleResolution,
         ImmutableList<String> moduleRoots,
         ImmutableMap<String, String> prefixReplacements) {
       this.outputFeatureSet = outputFeatureSet;
@@ -141,7 +142,7 @@ public final class BaseTranspiler implements Transpiler {
           // impossible, and not a big deal even if it did happen.
         }
       }
-      boolean transpiled = !result.transpiledFiles.isEmpty();
+      boolean transpiled = result.transpiledFiles;
       if (!result.errors.isEmpty()) {
         throw new TranspilationException(compiler, result.errors, result.warnings);
       }
@@ -166,9 +167,10 @@ public final class BaseTranspiler implements Transpiler {
       return options;
     }
 
+    @LegacySetFeatureSetCaller
     protected void setOptions(CompilerOptions options) {
       options.setLanguageIn(LanguageMode.ECMASCRIPT_NEXT);
-      options.setOutputFeatureSet(outputFeatureSet.without(Feature.MODULES));
+      options.legacySetOutputFeatureSet(outputFeatureSet.without(Feature.MODULES));
       options.setEmitUseStrict(false);
       options.setQuoteKeywordProperties(true);
       options.setSkipNonTranspilationPasses(true);

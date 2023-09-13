@@ -17,13 +17,14 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.javascript.rhino.testing.Asserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.debugging.sourcemap.proto.Mapping.OriginalMapping;
 import com.google.javascript.jscomp.LightweightMessageFormatter.LineNumberingFormatter;
 import com.google.javascript.jscomp.SourceExcerptProvider.SourceExcerpt;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
+import org.jspecify.nullness.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -33,11 +34,12 @@ public final class LightweightMessageFormatterTest {
   private static final DiagnosticType FOO_TYPE =
       DiagnosticType.error("TEST_FOO", "error description here");
   private static final String ORIGINAL_SOURCE_FILE = "original/source.html";
-  private static final OriginalMapping ORIGINAL_SOURCE = OriginalMapping.newBuilder()
-      .setOriginalFile(ORIGINAL_SOURCE_FILE)
-      .setLineNumber(3)
-      .setColumnPosition(15)
-      .build();
+  private static final OriginalMapping ORIGINAL_SOURCE =
+      OriginalMapping.newBuilder()
+          .setOriginalFile(ORIGINAL_SOURCE_FILE)
+          .setLineNumber(3)
+          .setColumnPosition(15)
+          .build();
 
   @Test
   public void testNull() {
@@ -113,8 +115,7 @@ public final class LightweightMessageFormatterTest {
 
   @Test
   public void testFormatErrorSpaceEndOfLine1() {
-    JSError error = JSError.make("javascript/complex.js",
-        1, 10, FOO_TYPE);
+    JSError error = JSError.make("javascript/complex.js", 1, 10, FOO_TYPE);
     LightweightMessageFormatter formatter = formatter("assert (1;");
     assertThat(formatter.formatError(error))
         .isEqualTo(
@@ -125,8 +126,7 @@ public final class LightweightMessageFormatterTest {
 
   @Test
   public void testFormatErrorSpaceEndOfLine2() {
-    JSError error = JSError.make("javascript/complex.js",
-        6, 7, FOO_TYPE);
+    JSError error = JSError.make("javascript/complex.js", 6, 7, FOO_TYPE);
     LightweightMessageFormatter formatter = formatter("if (foo");
     assertThat(formatter.formatError(error))
         .isEqualTo(
@@ -141,8 +141,7 @@ public final class LightweightMessageFormatterTest {
     n.setLength("foobar".length());
     n.setSourceFileForTesting("javascript/complex.js");
     JSError error = JSError.make(n, FOO_TYPE);
-    LightweightMessageFormatter formatter =
-        formatter("    if (foobar) {", "<div ng-show='(foo'>");
+    LightweightMessageFormatter formatter = formatter("    if (foobar) {", "<div ng-show='(foo'>");
     assertThat(formatter.formatError(error))
         .isEqualTo(
             "javascript/complex.js:5:8: \n"
@@ -271,17 +270,16 @@ public final class LightweightMessageFormatterTest {
     return new LightweightMessageFormatter(source(string, null));
   }
 
-  private LightweightMessageFormatter formatter(String string,
-                                                String originalSource) {
+  private LightweightMessageFormatter formatter(String string, String originalSource) {
     return new LightweightMessageFormatter(source(string, originalSource));
   }
 
-  private SourceExcerptProvider source(final String source, final String originalSource) {
+  private SourceExcerptProvider source(final String source, final @Nullable String originalSource) {
     return source(source, originalSource, -1);
   }
 
   private SourceExcerptProvider source(
-      final String source, final String originalSource, final int endLineNumber) {
+      final String source, final @Nullable String originalSource, final int endLineNumber) {
     return new SourceExcerptProvider() {
       @Override
       public String getSourceLine(String sourceName, int lineNumber) {
@@ -315,12 +313,11 @@ public final class LightweightMessageFormatterTest {
     };
   }
 
-  private String format(Region region) {
+  private String format(@Nullable Region region) {
     return new LineNumberingFormatter().formatRegion(region);
   }
 
-  private Region region(final int startLine, final int endLine,
-      final String source) {
+  private Region region(final int startLine, final int endLine, final String source) {
     return new SimpleRegion(startLine, endLine, source);
   }
 }

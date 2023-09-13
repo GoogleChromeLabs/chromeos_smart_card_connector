@@ -26,7 +26,7 @@ import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * A simple class for generating unique JavaScript variable/property names.
@@ -73,7 +73,7 @@ public final class DefaultNameGenerator implements NameGenerator {
     }
   }
 
-  // TODO(user): Maybe we don't need a HashMap to look up.
+  // TODO(user): Maybe we don't need a LinkedHashMap to look up.
   // I started writing a skip-list like data-structure that would let us
   // have O(1) favors() and O(1) reset() but the code got very messy.
   // Lets start with a logical implementation first until performance becomes
@@ -111,12 +111,12 @@ public final class DefaultNameGenerator implements NameGenerator {
 
   public DefaultNameGenerator() {
     buildPriorityLookupMap();
-    Set<String> reservedNames = Sets.newHashSetWithExpectedSize(0);
+    Set<String> reservedNames = Sets.newLinkedHashSetWithExpectedSize(0);
     reset(reservedNames, "", null);
   }
 
   public DefaultNameGenerator(
-      Set<String> reservedNames, String prefix, @Nullable char[] reservedCharacters) {
+      Set<String> reservedNames, String prefix, char @Nullable [] reservedCharacters) {
     this(reservedNames, prefix, reservedCharacters, reservedCharacters);
   }
 
@@ -135,19 +135,20 @@ public final class DefaultNameGenerator implements NameGenerator {
   public DefaultNameGenerator(
       Set<String> reservedNames,
       String prefix,
-      @Nullable char[] reservedFirstCharacters,
-      @Nullable char[] reservedNonFirstCharacters) {
+      char @Nullable [] reservedFirstCharacters,
+      char @Nullable [] reservedNonFirstCharacters) {
     buildPriorityLookupMap();
     reset(reservedNames, prefix, reservedFirstCharacters, reservedNonFirstCharacters);
   }
 
-  private DefaultNameGenerator(Set<String> reservedNames, String prefix,
-      @Nullable char[] reservedCharacters,
+  private DefaultNameGenerator(
+      Set<String> reservedNames,
+      String prefix,
+      char @Nullable [] reservedCharacters,
       Map<Character, CharPriority> priorityLookupMap) {
     // Clone the priorityLookupMap to preserve information about how often
     // characters are used.
-    this.priorityLookupMap = Maps.newHashMapWithExpectedSize(
-        NONFIRST_CHAR.length);
+    this.priorityLookupMap = Maps.newLinkedHashMapWithExpectedSize(NONFIRST_CHAR.length);
     for (Map.Entry<Character, CharPriority> entry :
       priorityLookupMap.entrySet()) {
       this.priorityLookupMap.put(entry.getKey(), entry.getValue().clone());
@@ -157,7 +158,7 @@ public final class DefaultNameGenerator implements NameGenerator {
   }
 
   private void buildPriorityLookupMap() {
-    priorityLookupMap = Maps.newHashMapWithExpectedSize(NONFIRST_CHAR.length);
+    priorityLookupMap = Maps.newLinkedHashMapWithExpectedSize(NONFIRST_CHAR.length);
     int order = 0;
     for (char c : NONFIRST_CHAR) {
       priorityLookupMap.put(c, new CharPriority(c, order));
@@ -171,7 +172,8 @@ public final class DefaultNameGenerator implements NameGenerator {
   }
 
   @Override
-  public void reset(Set<String> reservedNames, String prefix, @Nullable char[] reservedCharacters) {
+  public void reset(
+      Set<String> reservedNames, String prefix, char @Nullable [] reservedCharacters) {
     reset(reservedNames, prefix, reservedCharacters, reservedCharacters);
   }
 
@@ -185,8 +187,8 @@ public final class DefaultNameGenerator implements NameGenerator {
   public void reset(
       Set<String> reservedNames,
       String prefix,
-      @Nullable char[] reservedFirstCharacters,
-      @Nullable char[] reservedNonFirstCharacters) {
+      char @Nullable [] reservedFirstCharacters,
+      char @Nullable [] reservedNonFirstCharacters) {
 
     this.reservedNames = reservedNames;
     this.prefix = prefix;
@@ -203,9 +205,7 @@ public final class DefaultNameGenerator implements NameGenerator {
 
   @Override
   public NameGenerator clone(
-      Set<String> reservedNames,
-      String prefix,
-      @Nullable char[] reservedCharacters) {
+      Set<String> reservedNames, String prefix, char @Nullable [] reservedCharacters) {
     return new DefaultNameGenerator(reservedNames, prefix, reservedCharacters,
         priorityLookupMap);
   }

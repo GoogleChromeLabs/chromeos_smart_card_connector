@@ -34,7 +34,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** @author moz@google.com (Michael Zhou) */
+/**
+ * @author moz@google.com (Michael Zhou)
+ */
 @RunWith(JUnit4.class)
 public final class JSDocInfoPrinterTest {
   private static final Joiner LINE_JOINER = Joiner.on('\n');
@@ -119,7 +121,6 @@ public final class JSDocInfoPrinterTest {
                 " * @suppress {globalThis,uselessCode} Common description.",
                 " */\n"));
   }
-
 
   @Test
   public void testFinal() {
@@ -620,6 +621,16 @@ public final class JSDocInfoPrinterTest {
                 ""));
   }
 
+  @Test
+  public void testDeprecated_noReason() {
+    builder.recordDeprecated();
+    builder.recordType(
+        new JSTypeExpression(JsDocInfoParser.parseTypeString("string"), "<testDeprecated>"));
+    JSDocInfo info = builder.buildAndReset();
+    assertThat(jsDocInfoPrinter.print(info))
+        .isEqualTo(LINE_JOINER.join("/**", " * @type {string}", " * @deprecated", " */", ""));
+  }
+
   // Tests that a {@code @see} is sufficient to populate a JSDocInfo.
   @Test
   public void testJSDocIsPopulated_withSeeReferenceAlone() {
@@ -698,6 +709,12 @@ public final class JSDocInfoPrinterTest {
   @Test
   public void testNgInect() {
     testSame("/** @ngInject */ ");
+  }
+
+  @Test
+  public void testTsType() {
+    testSame("/** @tsType ():string */ ");
+    testSame("/** @tsType ():string @tsType (x:string):number */ ");
   }
 
   private void testSame(String jsdoc) {

@@ -32,11 +32,12 @@ import com.google.javascript.jscomp.NodeTraversal;
 import com.google.javascript.jscomp.NodeUtil;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.QualifiedName;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Checks that Closure import statements (goog.require, goog.requireType, and goog.forwardDeclare)
@@ -87,8 +88,7 @@ public final class CheckRequiresSorted implements NodeTraversal.Callback {
      * <p>`goog.require` is stronger than `goog.requireType`, which is stronger than
      * `goog.forwardDeclare`.
      */
-    @Nullable
-    static ImportPrimitive stronger(ImportPrimitive p1, ImportPrimitive p2) {
+    static @Nullable ImportPrimitive stronger(ImportPrimitive p1, ImportPrimitive p2) {
       return p1.ordinal() < p2.ordinal() ? p1 : p2;
     }
 
@@ -296,6 +296,10 @@ public final class CheckRequiresSorted implements NodeTraversal.Callback {
     }
   }
 
+  private static final QualifiedName GOOG_REQUIRE = QualifiedName.of("goog.require");
+  private static final QualifiedName GOOG_REQUIRETYPE = QualifiedName.of("goog.requireType");
+  private static final QualifiedName GOOG_FORWARDDECLARE = QualifiedName.of("goog.forwardDeclare");
+
   private final Mode mode;
 
   // Maps each namespace into the existing import statements for that namespace.
@@ -306,12 +310,12 @@ public final class CheckRequiresSorted implements NodeTraversal.Callback {
   private final List<ImportStatement> originalImports = new ArrayList<>();
 
   // The import statements in canonical order.
-  @Nullable private Node firstNode = null;
-  @Nullable private Node lastNode = null;
+  private @Nullable Node firstNode = null;
+  private @Nullable Node lastNode = null;
   private boolean finished = false;
 
   private boolean needsFix = false;
-  @Nullable private String replacement = null;
+  private @Nullable String replacement = null;
 
   public CheckRequiresSorted(Mode mode) {
     this.mode = mode;
@@ -376,9 +380,9 @@ public final class CheckRequiresSorted implements NodeTraversal.Callback {
   private static boolean isValidImportCall(Node n) {
     return n.isCall()
         && n.hasTwoChildren()
-        && (n.getFirstChild().matchesQualifiedName("goog.require")
-            || n.getFirstChild().matchesQualifiedName("goog.requireType")
-            || n.getFirstChild().matchesQualifiedName("goog.forwardDeclare"))
+        && (GOOG_REQUIRE.matches(n.getFirstChild())
+            || GOOG_REQUIRETYPE.matches(n.getFirstChild())
+            || GOOG_FORWARDDECLARE.matches(n.getFirstChild()))
         && n.getSecondChild().isStringLit();
   }
 

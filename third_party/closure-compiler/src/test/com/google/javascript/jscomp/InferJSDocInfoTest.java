@@ -29,10 +29,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link InferJSDocInfo}.
- *
- */
+/** Tests for {@link InferJSDocInfo}. */
 // TODO(nicksantos): A lot of this code is duplicated from
 // TypedScopeCreatorTest. We should create a common test harness for
 // assertions about type information.
@@ -505,6 +502,109 @@ public final class InferJSDocInfoTest extends CompilerTestCase {
 
     // Then
     assertThat(xType.getJSDocInfo().getBlockDescription()).isEqualTo("I'm a method.");
+  }
+
+  @Test
+  public void testJSDocIsNotPropagatedToFunctionTypesFromConstAliases() {
+    // Given
+    testSame(
+        srcs(
+            lines(
+                "var foo = function() {};",
+                "",
+                "/**",
+                " * I'm an alias",
+                " * @const",
+                " */",
+                "var x = foo;")));
+
+    JSType xType = inferredTypeOfName("x");
+    assertThat(xType.toString()).isEqualTo("function(): undefined");
+
+    // Then
+    assertThat(xType.getJSDocInfo()).isNull();
+  }
+
+  @Test
+  public void testJSDocIsNotPropagatedToFunctionTypesFromPropertyAliases() {
+    // Given
+    testSame(
+        srcs(
+            lines(
+                "/**",
+                " * @constructor",
+                " * @param {function(*): string} callback",
+                " */",
+                "function Foo(callback) {",
+                "",
+                "  /**",
+                "   * CB1",
+                "   * @private @const",
+                "   */",
+                "  this.callback1 = callback;",
+                "  /**",
+                "   * CB2",
+                "   * @private @const",
+                "   */",
+                "  this.callback2 = callback;",
+                "  /**",
+                "   * CB3",
+                "   * @private @const",
+                "   */",
+                "  this.callback3 = callback;",
+                "",
+                "};")));
+
+    JSType callbackType = inferredTypeOfName("callback");
+    ObjectType fooInstanceType = inferredTypeOfName("Foo").toMaybeFunctionType().getInstanceType();
+    assertThat(callbackType.toString()).isEqualTo("function(*): string");
+
+    // Then
+    assertThat(callbackType.getJSDocInfo()).isNull();
+    assertThat(fooInstanceType.getPropertyJSDocInfo("callback1").getBlockDescription())
+        .isEqualTo("CB1");
+    assertThat(fooInstanceType.getPropertyJSDocInfo("callback2").getBlockDescription())
+        .isEqualTo("CB2");
+    assertThat(fooInstanceType.getPropertyJSDocInfo("callback3").getBlockDescription())
+        .isEqualTo("CB3");
+  }
+
+  @Test
+  public void testJSDocItPropagatedToFunctionTypesFromPropertyAliases_withUniqueTypeDeclarations() {
+    // Given
+    testSame(
+        srcs(
+            lines(
+                "/**",
+                " * @constructor",
+                " * @param {function(*): string} callback",
+                " */",
+                "function Foo(callback) {",
+                "",
+                "  /**",
+                "   * CB1",
+                "   * @private @const {function(string): string}",
+                "   */",
+                "  this.callback = callback;",
+                "",
+                "};")));
+
+    JSType callbackType = inferredTypeOfName("callback");
+    ObjectType fooInstanceType = inferredTypeOfName("Foo").toMaybeFunctionType().getInstanceType();
+    FunctionType thisDotCallbackType =
+        fooInstanceType.getPropertyType("callback").toMaybeFunctionType();
+
+    assertThat(callbackType.toString()).isEqualTo("function(*): string");
+    assertThat(thisDotCallbackType.toString()).isEqualTo("function(string): string");
+
+    // Then
+    // While `this.callback = callback` doesn't attach any JSDocInfo to the parameter
+    // type `function(*): string`, it does attach JSDocInfo to the narrower function type
+    // `function(string): string`.
+    assertThat(callbackType.getJSDocInfo()).isNull();
+    assertThat(fooInstanceType.getPropertyJSDocInfo("callback").getBlockDescription())
+        .isEqualTo("CB1");
+    assertThat(thisDotCallbackType.getJSDocInfo().getBlockDescription()).isEqualTo("CB1");
   }
 
   @Test
@@ -1147,6 +1247,72 @@ public final class InferJSDocInfoTest extends CompilerTestCase {
 
     // Then
     assertThat(xType.getJSDocInfo().getBlockDescription()).isEqualTo("I'm a different type.");
+  }
+
+  @Test
+  public void testJSDocFromDuplicatePropertyDefinitionDoesNotOverrideJSDoc_es6Style() {
+    // Given
+    testSame(
+        srcs(
+            lines(
+                "class Foo {",
+                "",
+                "  /**",
+                "   * I'm the first definition",
+                "   * @param {string} s",
+                "   */",
+                "  x(s) {}",
+                "",
+                "  /**",
+                "   * I'm the second definition",
+                "   * @param {string} s",
+                "   */",
+                "  x(s) {}",
+                "}",
+                "",
+                "var x = new Foo();" // Just a hook to access type "Foo".
+                )));
+
+    JSType xType = inferredTypeOfName("x");
+    assertThat(xType.toString()).isEqualTo("Foo");
+
+    // Then
+    assertThat(xType.assertObjectType().getPropertyJSDocInfo("x").getBlockDescription())
+        .isEqualTo("I'm the first definition");
+  }
+
+  @Test
+  public void testJSDocFromDuplicatePropertyDefinitionDoesNotOverrideJSDoc_es5Style() {
+    // Given
+    testSame(
+        srcs(
+            lines(
+                "/**",
+                " * @constructor",
+                " */",
+                "var Foo = function() {};",
+                "",
+                "/**",
+                " * I'm the first definition",
+                " * @type {string}",
+                " */",
+                "Foo.prototype.x;",
+                "",
+                "/**",
+                " * I'm the second definition",
+                " * @type {string}",
+                " */",
+                "Foo.prototype.x;",
+                "",
+                "var x = new Foo();" // Just a hook to access type "Foo".
+                )));
+
+    JSType xType = inferredTypeOfName("x");
+    assertThat(xType.toString()).isEqualTo("Foo");
+
+    // Then
+    assertThat(xType.assertObjectType().getPropertyJSDocInfo("x").getBlockDescription())
+        .isEqualTo("I'm the first definition");
   }
 
   @Test

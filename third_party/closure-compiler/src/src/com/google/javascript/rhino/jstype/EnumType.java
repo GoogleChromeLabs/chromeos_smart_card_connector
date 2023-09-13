@@ -48,7 +48,7 @@ import com.google.javascript.rhino.Node;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * An enum type representing a branded collection of elements. Each element is referenced by its
@@ -198,7 +198,7 @@ public final class EnumType extends PrototypeObjectType implements JSType.WithSo
   }
 
   @Override
-  public FunctionType getConstructor() {
+  public @Nullable FunctionType getConstructor() {
     return null;
   }
 
@@ -217,12 +217,13 @@ public final class EnumType extends PrototypeObjectType implements JSType.WithSo
     return true;
   }
 
+  @Override
   public final Node getSource() {
     return source;
   }
 
-  @Nullable
-  public String getGoogModuleId() {
+  @Override
+  public @Nullable String getGoogModuleId() {
     return this.googModuleId;
   }
 

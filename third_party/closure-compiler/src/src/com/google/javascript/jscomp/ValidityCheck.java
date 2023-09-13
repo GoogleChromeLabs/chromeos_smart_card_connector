@@ -15,27 +15,28 @@
  */
 package com.google.javascript.jscomp;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.javascript.rhino.Node;
-import java.util.Set;
 
 /**
- * A compiler pass that verifies the structure of the AST conforms
- * to a number of invariants. Because this can add a lot of overhead,
- * we only run this in development mode.
+ * A compiler pass that verifies the structure of the AST conforms to a number of invariants.
+ * Because this can add a lot of overhead, we only run this in development mode.
  */
 class ValidityCheck implements CompilerPass {
 
   static final DiagnosticType CANNOT_PARSE_GENERATED_CODE =
-      DiagnosticType.error("JSC_CANNOT_PARSE_GENERATED_CODE",
+      DiagnosticType.error(
+          "JSC_CANNOT_PARSE_GENERATED_CODE",
           "Internal compiler error. Cannot parse generated code: {0}");
 
-  static final DiagnosticType GENERATED_BAD_CODE = DiagnosticType.error(
-      "JSC_GENERATED_BAD_CODE",
-      "Internal compiler error. Generated bad code." +
-      "----------------------------------------\n" +
-      "Expected:\n{0}\n" +
-      "----------------------------------------\n" +
-      "Actual:\n{1}");
+  static final DiagnosticType GENERATED_BAD_CODE =
+      DiagnosticType.error(
+          "JSC_GENERATED_BAD_CODE",
+          "Internal compiler error. Generated bad code."
+              + "----------------------------------------\n"
+              + "Expected:\n{0}\n"
+              + "----------------------------------------\n"
+              + "Actual:\n{1}");
 
   static final DiagnosticType EXTERN_PROPERTIES_CHANGED =
       DiagnosticType.error(
@@ -58,9 +59,7 @@ class ValidityCheck implements CompilerPass {
     checkExternProperties(externs);
   }
 
-  /**
-   * Check that the AST is structurally accurate.
-   */
+  /** Check that the AST is structurally accurate. */
   private void checkAst(Node externs, Node root) {
     astValidator.validateCodeRoot(externs);
     astValidator.validateCodeRoot(root);
@@ -72,9 +71,7 @@ class ValidityCheck implements CompilerPass {
     }
   }
 
-  /**
-   * Verifies that the normalization pass does nothing on an already-normalized tree.
-   */
+  /** Verifies that the normalization pass does nothing on an already-normalized tree. */
   private void checkNormalization(Node externs, Node root) {
     // Verify nothing has inappropriately denormalize the AST.
     CodeChangeHandler handler = new ForbiddenChange();
@@ -84,7 +81,7 @@ class ValidityCheck implements CompilerPass {
     // Exceptions into Errors so that it is easier to find the root cause
     // when there are cascading issues.
     if (compiler.getLifeCycleStage().isNormalized()) {
-      (new Normalize(compiler, true)).process(externs, root);
+      Normalize.builder(compiler).assertOnChange(true).build().process(externs, root);
 
       if (compiler.getLifeCycleStage().isNormalizedUnobfuscated()) {
         boolean checkUserDeclarations = true;
@@ -97,12 +94,12 @@ class ValidityCheck implements CompilerPass {
   }
 
   private void checkExternProperties(Node externs) {
-    Set<String> externProperties = compiler.getExternProperties();
+    ImmutableSet<String> externProperties = compiler.getExternProperties();
     if (externProperties == null) {
       // GatherExternProperties hasn't run yet. Don't report a violation.
       return;
     }
-    (new GatherExternProperties(compiler)).process(externs, null);
+    new GatherExternProperties(compiler, GatherExternProperties.Mode.CHECK).process(externs, null);
     if (!compiler.getExternProperties().equals(externProperties)) {
       compiler.report(
           JSError.make(

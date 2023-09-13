@@ -38,11 +38,14 @@ import static com.google.javascript.rhino.jstype.JSTypeNative.VOID_TYPE;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.javascript.jscomp.CodingConvention.SubclassRelationship;
 import com.google.javascript.jscomp.CodingConvention.SubclassType;
 import com.google.javascript.jscomp.base.Tri;
+import com.google.javascript.jscomp.diagnostic.LogFile;
 import com.google.javascript.jscomp.modules.Module;
 import com.google.javascript.jscomp.type.ReverseAbstractInterpreter;
 import com.google.javascript.rhino.JSDocInfo;
@@ -65,6 +68,7 @@ import com.google.javascript.rhino.jstype.Property.OwnedProperty;
 import com.google.javascript.rhino.jstype.TemplateType;
 import com.google.javascript.rhino.jstype.TemplateTypeMap;
 import com.google.javascript.rhino.jstype.TemplatizedType;
+import com.google.javascript.rhino.jstype.UnionType;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -75,7 +79,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** Checks the types of JS expressions against any declared type information. */
 public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
@@ -137,7 +141,7 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
           "JSC_STRICT_INEXISTENT_PROPERTY_WITH_SUGGESTION",
           "Property {0} never defined on {1}. Did you mean {2}?");
 
-  protected static final DiagnosticType NOT_A_CONSTRUCTOR =
+  static final DiagnosticType NOT_A_CONSTRUCTOR =
       DiagnosticType.warning("JSC_NOT_A_CONSTRUCTOR", "cannot instantiate non-constructor");
 
   static final DiagnosticType INSTANTIATE_ABSTRACT_CLASS =
@@ -174,9 +178,6 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
   static final DiagnosticType MULTIPLE_VAR_DEF =
       DiagnosticType.warning(
           "JSC_MULTIPLE_VAR_DEF", "declaration of multiple variables with shared type information");
-
-  static final DiagnosticType ENUM_DUP =
-      DiagnosticType.error("JSC_ENUM_DUP", "enum element {0} already defined");
 
   static final DiagnosticType INVALID_INTERFACE_MEMBER_DECLARATION =
       DiagnosticType.warning(
@@ -248,11 +249,6 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
           "JSC_UNKNOWN_PROTOTYPAL_OVERRIDE", //
           "property {0} not defined on any supertype of {1}");
 
-  static final DiagnosticType INTERFACE_METHOD_OVERRIDE =
-      DiagnosticType.warning(
-          "JSC_INTERFACE_METHOD_OVERRIDE",
-          "property {0} is already defined by the {1} extended interface");
-
   static final DiagnosticType UNKNOWN_EXPR_TYPE =
       DiagnosticType.warning(
           "JSC_UNKNOWN_EXPR_TYPE", "could not determine the type of this expression");
@@ -287,6 +283,11 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
           "Cannot add a property to a struct instance after it is constructed."
               + " (If you already declared the property, make sure to give it a type.)");
 
+  static final DiagnosticType ILLEGAL_PROPERTY_CREATION_ON_UNION_TYPE =
+      DiagnosticType.disabled(
+          "JSC_ILLEGAL_PROPERTY_CREATION_ON_UNION_TYPE",
+          "Cannot add a property to an instance of union type.");
+
   static final DiagnosticType ILLEGAL_OBJLIT_KEY =
       DiagnosticType.warning("JSC_ILLEGAL_OBJLIT_KEY", "Illegal key, the object literal is a {0}");
 
@@ -317,57 +318,62 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
           "JSC_SAME_INTERFACE_MULTIPLE_IMPLEMENTS",
           "Cannot @implement the same interface more than once\nRepeated interface: {0}");
 
+  static final DiagnosticType PROPERTY_ASSIGNMENT_TO_READONLY_VALUE =
+      DiagnosticType.error(
+          "JSC_PROPERTY_ASSIGNMENT_TO_READONLY_VALUE",
+          "Should not assign to a property of readonly type ''{0}''");
+
   // If a diagnostic is disabled by default, do not add it in this list
   // TODO(dimvar): Either INEXISTENT_PROPERTY shouldn't be here, or we should
   // change DiagnosticGroups.setWarningLevel to not accidentally enable it.
   static final DiagnosticGroup ALL_DIAGNOSTICS =
       new DiagnosticGroup(
-          DETERMINISTIC_TEST,
-          INEXISTENT_ENUM_ELEMENT,
-          INEXISTENT_PROPERTY,
-          POSSIBLE_INEXISTENT_PROPERTY,
-          INEXISTENT_PROPERTY_WITH_SUGGESTION,
-          NOT_A_CONSTRUCTOR,
-          INSTANTIATE_ABSTRACT_CLASS,
-          BIT_OPERATION,
-          UNARY_OPERATION,
-          BINARY_OPERATION,
-          CONFLICTING_GETTER_SETTER_TYPE,
-          NOT_CALLABLE,
-          CONSTRUCTOR_NOT_CALLABLE,
-          FUNCTION_MASKS_VARIABLE,
-          MULTIPLE_VAR_DEF,
-          ENUM_DUP,
-          INVALID_INTERFACE_MEMBER_DECLARATION,
-          INTERFACE_METHOD_NOT_EMPTY,
-          CONFLICTING_EXTENDED_TYPE,
-          CONFLICTING_IMPLEMENTED_TYPE,
-          BAD_IMPLEMENTED_TYPE,
-          TypeValidator.HIDDEN_SUPERCLASS_PROPERTY_MISMATCH,
-          HIDDEN_PROTOTYPAL_SUPERTYPE_PROPERTY_MISMATCH,
-          UNKNOWN_OVERRIDE,
-          UNKNOWN_PROTOTYPAL_OVERRIDE,
-          INTERFACE_METHOD_OVERRIDE,
-          WRONG_ARGUMENT_COUNT,
-          ILLEGAL_IMPLICIT_CAST,
-          INCOMPATIBLE_EXTENDED_PROPERTY_TYPE,
-          EXPECTED_THIS_TYPE,
-          IN_USED_WITH_STRUCT,
-          ILLEGAL_CLASS_KEY,
-          ILLEGAL_PROPERTY_CREATION,
-          ILLEGAL_OBJLIT_KEY,
-          NON_STRINGIFIABLE_OBJECT_KEY,
           ABSTRACT_METHOD_IN_CONCRETE_CLASS,
           ABSTRACT_SUPER_METHOD_NOT_USABLE,
+          BAD_IMPLEMENTED_TYPE,
+          BINARY_OPERATION,
+          BIT_OPERATION,
+          CONFLICTING_EXTENDED_TYPE,
+          CONFLICTING_GETTER_SETTER_TYPE,
+          CONFLICTING_IMPLEMENTED_TYPE,
+          CONSTRUCTOR_NOT_CALLABLE,
+          DETERMINISTIC_TEST,
           ES5_CLASS_EXTENDING_ES6_CLASS,
-          SAME_INTERFACE_MULTIPLE_IMPLEMENTS,
+          EXPECTED_THIS_TYPE,
+          FUNCTION_MASKS_VARIABLE,
+          HIDDEN_PROTOTYPAL_SUPERTYPE_PROPERTY_MISMATCH,
+          ILLEGAL_CLASS_KEY,
+          ILLEGAL_IMPLICIT_CAST,
+          ILLEGAL_OBJLIT_KEY,
+          ILLEGAL_PROPERTY_CREATION,
+          ILLEGAL_PROPERTY_CREATION_ON_UNION_TYPE,
+          INCOMPATIBLE_EXTENDED_PROPERTY_TYPE,
+          INEXISTENT_ENUM_ELEMENT,
+          INEXISTENT_PROPERTY,
+          INEXISTENT_PROPERTY_WITH_SUGGESTION,
+          INSTANTIATE_ABSTRACT_CLASS,
+          INTERFACE_METHOD_NOT_EMPTY,
+          INVALID_INTERFACE_MEMBER_DECLARATION,
+          IN_USED_WITH_STRUCT,
+          MULTIPLE_VAR_DEF,
+          NON_STRINGIFIABLE_OBJECT_KEY,
+          NOT_A_CONSTRUCTOR,
+          NOT_CALLABLE,
+          POSSIBLE_INEXISTENT_PROPERTY,
+          PROPERTY_ASSIGNMENT_TO_READONLY_VALUE,
+          RhinoErrorReporter.CYCLIC_INHERITANCE_ERROR,
           RhinoErrorReporter.TYPE_PARSE_ERROR,
           RhinoErrorReporter.UNRECOGNIZED_TYPE_ERROR,
-          TypedScopeCreator.UNKNOWN_LENDS,
-          TypedScopeCreator.LENDS_ON_NON_OBJECT,
+          SAME_INTERFACE_MULTIPLE_IMPLEMENTS,
+          TypeValidator.HIDDEN_SUPERCLASS_PROPERTY_MISMATCH,
           TypedScopeCreator.CTOR_INITIALIZER,
           TypedScopeCreator.IFACE_INITIALIZER,
-          FunctionTypeBuilder.THIS_TYPE_NON_OBJECT);
+          TypedScopeCreator.LENDS_ON_NON_OBJECT,
+          TypedScopeCreator.UNKNOWN_LENDS,
+          UNARY_OPERATION,
+          UNKNOWN_OVERRIDE,
+          UNKNOWN_PROTOTYPAL_OVERRIDE,
+          WRONG_ARGUMENT_COUNT);
 
   private final AbstractCompiler compiler;
   private final TypeValidator validator;
@@ -386,13 +392,16 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
   // explicitly turned off.
   private boolean reportMissingProperties = true;
 
-  private InferJSDocInfo inferJSDocInfo = null;
+  private @Nullable InferJSDocInfo inferJSDocInfo = null;
 
   // These fields are used to calculate the percentage of expressions typed.
   private int typedCount = 0;
   private int nullCount = 0;
   private int unknownCount = 0;
   private boolean inExterns;
+
+  /** Logs types for @logTypeInCompiler. */
+  private @Nullable DebugTypeLogger debugTypeLogger = null;
 
   private static final class SuggestionPair {
     private final String suggestion;
@@ -408,8 +417,8 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
       AbstractCompiler compiler,
       ReverseAbstractInterpreter reverseInterpreter,
       JSTypeRegistry typeRegistry,
-      TypedScope topScope,
-      TypedScopeCreator scopeCreator) {
+      @Nullable TypedScope topScope,
+      @Nullable TypedScopeCreator scopeCreator) {
     this.compiler = compiler;
     this.validator = compiler.getTypeValidator();
     this.reverseInterpreter = reverseInterpreter;
@@ -427,12 +436,14 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
   }
 
   /** Turn on the missing property check. Returns this for easy chaining. */
+  @CanIgnoreReturnValue
   TypeCheck reportMissingProperties(boolean report) {
     reportMissingProperties = report;
     return this;
   }
 
   /** Turn on the unknown types check. Returns this for easy chaining. */
+  @CanIgnoreReturnValue
   TypeCheck reportUnknownTypes(boolean report) {
     reportUnknownTypes = report;
     return this;
@@ -453,10 +464,14 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
     checkState(externsAndJs != null);
     checkState(externsRoot == null || externsAndJs.hasChild(externsRoot));
 
-    if (externsRoot != null) {
-      check(externsRoot, true);
+    try (DebugTypeLogger debugTypeLogger = new DebugTypeLogger()) {
+      this.debugTypeLogger = debugTypeLogger;
+
+      if (externsRoot != null) {
+        check(externsRoot, true);
+      }
+      check(jsRoot, false);
     }
-    check(jsRoot, false);
   }
 
   /**
@@ -487,6 +502,7 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
     this.process(externsRoot, jsRoot);
 
     compiler.setTypeCheckingHasRun(true);
+    compiler.setTopScope(this.topScope);
 
     return topScope;
   }
@@ -512,7 +528,14 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
 
   @Override
   public boolean shouldTraverse(NodeTraversal t, Node n, Node parent) {
+    // Start logging types if we're in debug mode and this node was annotated.
+    this.debugTypeLogger.maybeStartLoggingAt(n);
+
     if (n.isScript()) {
+      if (NodeUtil.isFromTypeSummary(n)) {
+        // Errors in type summary files are suppressed, so no use traversing them.
+        return false;
+      }
       String filename = n.getSourceFileName();
       if (filename != null && filename.endsWith(".java.js")) {
         this.subtypingMode = SubtypingMode.IGNORE_NULL_UNDEFINED;
@@ -747,7 +770,7 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
           JSType rightTypeRestricted = rightType.restrictByNotNullOrUndefined();
 
           Tri result = Tri.UNKNOWN;
-          if (n.getToken() == Token.EQ || n.isNE()) {
+          if (n.isEQ() || n.isNE()) {
             result = leftTypeRestricted.testForEquality(rightTypeRestricted);
             if (n.isNE()) {
               result = result.not();
@@ -755,7 +778,7 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
           } else {
             // SHEQ or SHNE
             if (!leftTypeRestricted.canTestForShallowEqualityWith(rightTypeRestricted)) {
-              result = n.getToken() == Token.SHEQ ? Tri.FALSE : Tri.TRUE;
+              result = n.isSHEQ() ? Tri.FALSE : Tri.TRUE;
             }
           }
 
@@ -1066,11 +1089,16 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
     // Don't count externs since the user's code may not even use that part.
     typeable = typeable && !inExterns;
 
+    // Record typing logs and metrics.
     if (typeable) {
+      this.debugTypeLogger.maybeLogTypeOfNode(n);
       doPercentTypedAccounting(n);
     }
 
     checkJsdocInfoContainsObjectWithBadKey(n);
+
+    // If this is the node which started logging types, stop logging.
+    this.debugTypeLogger.stopLoggingIfThisIsWhereWeStarted(n);
   }
 
   private void visitUnaryPlus(Node n) {
@@ -1239,7 +1267,12 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
    * @param msg A message to report along with any type mismatch warnings
    */
   private void checkCanAssignToWithScope(
-      NodeTraversal t, Node nodeToWarn, Node lvalue, JSType rightType, JSDocInfo info, String msg) {
+      NodeTraversal t,
+      Node nodeToWarn,
+      Node lvalue,
+      JSType rightType,
+      @Nullable JSDocInfo info,
+      String msg) {
     if (lvalue.isDestructuringPattern()) {
       checkDestructuringAssignment(t, nodeToWarn, lvalue, rightType, msg);
     } else {
@@ -1278,6 +1311,9 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
       NodeTraversal t, Node nodeToWarn, Node lvalue, JSType rightType, JSDocInfo info, String msg) {
     checkArgument(
         lvalue.isName() || lvalue.isGetProp() || lvalue.isGetElem() || lvalue.isCast(), lvalue);
+
+    // Ensure our LHS is not readonly.
+    checkNotReadonlyPropertyAssignment(lvalue);
 
     if (lvalue.isGetProp()) {
       Node object = lvalue.getFirstChild();
@@ -1363,8 +1399,13 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
         String propName = lvalue.getString();
         PropDefinitionKind kind = typeRegistry.canPropertyBeDefined(objType, propName);
         if (!kind.equals(PropDefinitionKind.KNOWN)) {
+
           if (objType.isStruct()) {
-            report(lvalue, ILLEGAL_PROPERTY_CREATION);
+            if (objType.restrictByNotNullOrUndefined().isUnionType()) {
+              report(lvalue, ILLEGAL_PROPERTY_CREATION_ON_UNION_TYPE);
+            } else {
+              report(lvalue, ILLEGAL_PROPERTY_CREATION);
+            }
           } else {
             // null checks are reported elsewhere
             if (!objType.isNoType()
@@ -1485,7 +1526,7 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
             computedProperty, patternType, getJSType(computedProperty.getFirstChild()));
       } else if (target.hasStringKey()) {
         Node stringKey = target.getStringKey();
-        if (!stringKey.isQuotedString()) {
+        if (!stringKey.isQuotedStringKey()) {
           if (patternType.isDict()) {
             report(stringKey, TypeValidator.ILLEGAL_PROPERTY_ACCESS, "unquoted", "dict");
           }
@@ -1525,7 +1566,11 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
       return;
     }
 
-    if (key.isQuotedString()) {
+    if (key.isBlock()) {
+      return;
+    }
+
+    if (key.isQuotedStringKey()) {
       // NB: this case will never be triggered for member functions, since we store quoted
       // member functions as computed properties. This case does apply to regular string key
       // properties, getters, and setters.
@@ -1720,10 +1765,9 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
     // if it ran on more things. Consider a precondition on the arguments.
 
     boolean declaredOverride = declaresOverride(info);
-    @Nullable
-    ObjectType supertypeWithProperty =
+    @Nullable ObjectType supertypeWithProperty =
         stream(receiverType.getImplicitPrototypeChain())
-            // We want to report the supertype that actually had the overidden declaration.
+            // We want to report the supertype that actually had the overridden declaration.
             .filter((type) -> type.hasOwnProperty(propertyName))
             // We only care about the lowest match in the chain because it must be the most
             // specific.
@@ -1802,10 +1846,11 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
   }
 
   /**
+   * Returns the type expected when using the key.
+   *
    * @param key A OBJECTLIT key node.
-   * @return The type expected when using the key.
    */
-  static JSType getObjectLitKeyTypeFromValueType(Node key, JSType valueType) {
+  static @Nullable JSType getObjectLitKeyTypeFromValueType(Node key, JSType valueType) {
     if (valueType != null) {
       switch (key.getToken()) {
         case GETTER_DEF:
@@ -1943,7 +1988,7 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
               iterableType,
               "Can only async iterate over a (non-null) Iterable or AsyncIterable type");
 
-      if (!maybeType.isPresent()) {
+      if (maybeType.isEmpty()) {
         // Not iterable or async iterable, error reported by
         // expectAutoboxesToIterableOrAsyncIterable.
         return;
@@ -2122,7 +2167,7 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
   private void checkPropertyAccess(
       JSType childType, Node propNode, JSType propType, @Nullable Node objNode) {
     final boolean isGetprop = NodeUtil.isNormalOrOptChainGetProp(propNode);
-    final String propName = isGetprop ? propNode.getString() : propNode.getString();
+    final String propName = propNode.getString();
 
     if (propType.equals(typeRegistry.getNativeType(UNKNOWN_TYPE))) {
       childType = childType.autobox();
@@ -2274,7 +2319,7 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
     return n.isQualifiedName() && parent.isAssign() && parent.getFirstChild() == n;
   }
 
-  private static SuggestionPair getClosestPropertySuggestion(
+  private static @Nullable SuggestionPair getClosestPropertySuggestion(
       JSType objectType, String propName, int maxDistance) {
     return null;
   }
@@ -2380,7 +2425,7 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
   }
 
   /**
-   * Check whether there's any property conflict for for a particular super interface
+   * Check whether there's any property conflict for a particular super interface
    *
    * @param n The node being visited
    * @param functionName The function name being checked
@@ -2598,6 +2643,8 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
     return name != null ? name : "<anonymous@" + n.getSourceFileName() + ":" + n.getLineno() + ">";
   }
 
+  private static final QualifiedName GOOG_INHERITS = QualifiedName.of("goog.inherits");
+
   /**
    * Validate class-defining calls. Because JS has no 'native' syntax for defining classes, we need
    * to do this manually.
@@ -2616,7 +2663,7 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
           && subClassInstance != null
           && !subClassInstance.isEmptyType()) {
         if (n.getFirstChild().isQualifiedName()
-            && n.getFirstChild().matchesQualifiedName("goog.inherits")
+            && GOOG_INHERITS.matches(n.getFirstChild())
             && subClass.toMaybeFunctionType() != null
             && subClass.toMaybeFunctionType().getSource() != null
             && subClass.toMaybeFunctionType().getSource().isClass()) {
@@ -2906,7 +2953,7 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
         Optional<JSType> maybeActualYieldType =
             validator.expectAutoboxesToIterableOrAsyncIterable(
                 n, actualYieldType, "Expression yield* expects an iterable or async iterable");
-        if (!maybeActualYieldType.isPresent()) {
+        if (maybeActualYieldType.isEmpty()) {
           // don't do any further typechecking of the yield* type.
           return;
         }
@@ -3352,7 +3399,8 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
    *
    * @return non-stringifiable type which is used as key or null if all there are no such types.
    */
-  private JSType findObjectWithNonStringifiableKey(JSType type, Set<JSType> alreadyCheckedTypes) {
+  private @Nullable JSType findObjectWithNonStringifiableKey(
+      JSType type, Set<JSType> alreadyCheckedTypes) {
     if (alreadyCheckedTypes.contains(type)) {
       // This can happen in recursive types. Current type already being checked earlier in
       // stacktrace so now we just skip it.
@@ -3409,7 +3457,114 @@ public final class TypeCheck implements NodeTraversal.Callback, CompilerPass {
     return false;
   }
 
+  /**
+   * Given the LHS of a property or element assignment, checks that the type that we're assigning
+   * into is not readonly (ReadonlyArray, in particular).
+   *
+   * <p>This is basically unsound since it checks just "ReadonlyArray" so casting up to "Iterable"
+   * or down to "Array" will defeat it; but it should catch basic errors.
+   */
+  private void checkNotReadonlyPropertyAssignment(Node lhs) {
+    // We only care about element or property assignments.
+    if (!lhs.isGetProp() && !lhs.isGetElem()) {
+      return;
+    }
+
+    // If we do not have type information, drop out.
+    JSType lhsType = lhs.getFirstChild().getJSType();
+    if (lhsType == null) {
+      return;
+    }
+
+    // We could be a reference to "ReadonlyArray" or a templatized wrapper.
+    JSType roArray = getNativeType(JSTypeNative.READONLY_ARRAY_TYPE);
+    ImmutableList<JSType> alternates = flattenUnion(lhsType);
+    for (int i = 0; i < alternates.size(); i++) {
+      JSType type = alternates.get(i);
+      if (roArray.equals(type) || roArray.equals(maybeReferencedType(type))) {
+        compiler.report(JSError.make(lhs, PROPERTY_ASSIGNMENT_TO_READONLY_VALUE, type.toString()));
+        break;
+      }
+    }
+  }
+
+  private static @Nullable JSType maybeReferencedType(JSType type) {
+    TemplatizedType maybeTemplatized = type.toMaybeTemplatizedType();
+    return (maybeTemplatized != null) ? maybeTemplatized.getReferencedType() : null;
+  }
+
+  private static ImmutableList<JSType> flattenUnion(JSType maybeUnion) {
+    UnionType union = maybeUnion.toMaybeUnionType();
+    return (union == null) ? ImmutableList.of(maybeUnion) : union.getAlternates();
+  }
+
   private static boolean declaresOverride(@Nullable JSDocInfo jsdoc) {
     return (jsdoc != null) && jsdoc.isOverride();
+  }
+
+  /** Logs types for @logTypeInCompiler. */
+  private final class DebugTypeLogger implements AutoCloseable {
+    /** Output log file for @logTypeInCompiler. */
+    private final @Nullable LogFile typeLogFile;
+
+    /** The node where we started logging, if we're logging. */
+    private @Nullable Node parentNode;
+
+    // Suppress MustBeClosedChecker because `.close` is called by our `close` method.
+    @SuppressWarnings("MustBeClosedChecker")
+    DebugTypeLogger() {
+      this.typeLogFile =
+          compiler.isDebugLoggingEnabled()
+              ? compiler.createOrReopenLog(this.getClass(), "types_logged_in_compiler.log")
+              : null;
+    }
+
+    void maybeStartLoggingAt(Node n) {
+      // We don't log outside debug mode.
+      if (!compiler.isDebugLoggingEnabled()) {
+        return;
+      }
+
+      // We're already logging.
+      if (this.parentNode != null) {
+        return;
+      }
+
+      // We only start logging on @logTypeInCompiler.
+      JSDocInfo info = n.getJSDocInfo();
+      if (info == null || !info.getLogTypeInCompiler()) {
+        return;
+      }
+
+      // Otherwise start logging here.
+      this.parentNode = n;
+    }
+
+    void stopLoggingIfThisIsWhereWeStarted(Node n) {
+      if (n == this.parentNode) {
+        this.parentNode = null;
+      }
+    }
+
+    @Override
+    public void close() {
+      if (typeLogFile != null) {
+        typeLogFile.close();
+      }
+    }
+
+    void maybeLogTypeOfNode(Node n) {
+      // If we have no parent, we're not logging.
+      if (this.parentNode == null) {
+        return;
+      }
+
+      if (n.getJSType() == null) {
+        return;
+      }
+
+      this.typeLogFile.log(
+          n.toString(/* printSource= */ true, /* printAnnotations= */ true, /* printType= */ true));
+    }
   }
 }

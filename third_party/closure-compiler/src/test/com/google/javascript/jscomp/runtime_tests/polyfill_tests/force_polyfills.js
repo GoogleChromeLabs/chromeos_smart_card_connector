@@ -21,6 +21,7 @@
 
 delete Array.of;
 delete Array.from;
+delete Array.prototype.at;
 delete Array.prototype.entries;
 delete Array.prototype.keys;
 delete Array.prototype.values;
@@ -66,12 +67,14 @@ delete Object.fromEntries;
 delete Object.is;
 delete Object.setPrototypeOf;
 delete Object.values;
+delete Object.hasOwn;
 
 delete Promise;
 delete Reflect;
 delete Set;
 
 delete String.fromCodePoint;
+delete String.prototype.at;
 delete String.prototype.codePointAt;
 delete String.prototype.endsWith;
 delete String.prototype.includes;
@@ -83,6 +86,16 @@ delete String.prototype.startsWith;
 delete String.prototype.trimStart;
 delete String.prototype.trimEnd;
 delete String.raw;
+
+delete Int8Array.prototype.at;
+delete Uint8Array.prototype.at;
+delete Uint8ClampedArray.prototype.at;
+delete Int16Array.prototype.at;
+delete Uint16Array.prototype.at;
+delete Int32Array.prototype.at;
+delete Uint32Array.prototype.at;
+delete Float32Array.prototype.at;
+delete Float64Array.prototype.at;
 
 delete Symbol;
 

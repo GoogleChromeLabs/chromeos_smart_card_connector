@@ -45,7 +45,7 @@ public final class Es6CheckModuleTest extends CompilerTestCase {
   @Test
   public void testEs6ThisWithImportModule() {
     testWarning(
-        lines("import ln from 'other.x'", "if (x) {", "  alert(this);", "}"),
+        lines("import ln from './other/x'", "if (x) {", "  alert(this);", "}"),
         Es6CheckModule.ES6_MODULE_REFERENCES_THIS);
   }
 
@@ -59,6 +59,66 @@ public final class Es6CheckModuleTest extends CompilerTestCase {
             "  }",
             "}",
             "",
+            "exports = Foo;"));
+  }
+
+  @Test
+  public void testThisWithStaticMethod() {
+    testSame("class Foo { static h() {var x = this.y;} }; exports = Foo;");
+    testSame("class Foo {static h() {this.x = 2; }}; exports = Foo;");
+    testSame("class Foo {static h() {this[this.x] = 3;}}; exports = Foo;");
+    testSame(
+        lines(
+            "class Foo {",
+            "  static h() {",
+            "    function g() {",
+            "      return this.f() + 1;",
+            "    }",
+            "    var y = g() + 1;",
+            "  }",
+            "  static f() {return 1;}",
+            "}",
+            "exports = Foo;"));
+    testSame(
+        lines(
+            "class Foo {",
+            "  static h() {",
+            "    button.addEventListener('click', function () {",
+            "      this.click();",
+            "    });",
+            "  }",
+            "  static click() {}",
+            "};",
+            "exports = Foo;"));
+  }
+
+  @Test
+  public void testThisWithStaticBlock() {
+    testSame("class Foo { static {var x = this.y;} }; exports = Foo;");
+    testSame("class Foo {static {this.x = 2; }}; exports = Foo;");
+    testSame("class Foo {static {this[this.x] = 3;}}; exports = Foo;");
+    testSame(
+        lines(
+            "class Foo {",
+            "  static {",
+            "    function g() {",
+            "      return this.f() + 1;",
+            "    }",
+            "    var y = g() + 1;",
+            "  }",
+            "  static f() {return 1;}",
+            "}",
+            "exports = Foo;"));
+    testSame(
+        lines(
+            "class Foo {",
+            "  static {",
+            "    button.addEventListener('click', function () {",
+            "      this.click();",
+            "    });",
+            "  }",
+            "  static click() {}",
+            "};",
             "exports = Foo;"));
   }
 

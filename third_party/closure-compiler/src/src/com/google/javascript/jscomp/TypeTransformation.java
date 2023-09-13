@@ -23,7 +23,6 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.javascript.jscomp.parsing.TypeTransformationParser;
 import com.google.javascript.jscomp.parsing.TypeTransformationParser.Keywords;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSTypeExpression;
@@ -35,9 +34,9 @@ import com.google.javascript.rhino.jstype.ObjectType;
 import com.google.javascript.rhino.jstype.StaticTypedScope;
 import com.google.javascript.rhino.jstype.StaticTypedSlot;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.jspecify.nullness.Nullable;
 
 /**
  * A class for processing type transformation expressions
@@ -100,8 +99,8 @@ class TypeTransformation {
    * and the name variables in maprecord expressions
    */
   private static class NameResolver {
-    ImmutableMap<String, JSType> typeVars;
-    ImmutableMap<String, String> nameVars;
+    final ImmutableMap<String, JSType> typeVars;
+    final ImmutableMap<String, String> nameVars;
 
     NameResolver(ImmutableMap<String, JSType> typeVars, ImmutableMap<String, String> nameVars) {
       this.typeVars = typeVars;
@@ -129,10 +128,10 @@ class TypeTransformation {
   }
 
   private Keywords nameToKeyword(String s) {
-    return TypeTransformationParser.Keywords.valueOf(Ascii.toUpperCase(s));
+    return Keywords.valueOf(Ascii.toUpperCase(s));
   }
 
-  private JSType getType(String typeName) {
+  private @Nullable JSType getType(String typeName) {
     JSType type = registry.getType(typeEnv, typeName);
     if (type != null) {
       return type;
@@ -534,7 +533,7 @@ class TypeTransformation {
 
     // Otherwise obtain the elements in the union type. Note that the block
     // above guarantees the casting to be safe
-    Collection<JSType> unionElms = ImmutableList.copyOf(unionType.getUnionMembers());
+    ImmutableList<JSType> unionElms = ImmutableList.copyOf(unionType.getUnionMembers());
     // Evaluate the map function body using each element in the union type
     int unionSize = unionElms.size();
     JSType[] newUnionElms = new JSType[unionSize];

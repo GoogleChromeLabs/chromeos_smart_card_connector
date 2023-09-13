@@ -16,11 +16,14 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.javascript.jscomp.base.JSCompStrings.lines;
+import static com.google.javascript.jscomp.testing.JSCompCorrespondences.DIAGNOSTIC_EQUALITY;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.testing.NoninjectingCompiler;
-import java.util.Set;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -28,16 +31,24 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class InjectTranspilationRuntimeLibrariesTest {
 
+  private NoninjectingCompiler compiler;
+  private LanguageMode languageOut;
+
+  @Before
+  public void setup() {
+    compiler = new NoninjectingCompiler();
+    languageOut = LanguageMode.ECMASCRIPT5;
+  }
+
   /**
    * Parses the given code and runs the {@link InjectTranspilationRuntimeLibraries} pass over the
    * resulting AST
    *
    * @return the set of paths to all the injected libraries
    */
-  private Set<String> parseAndRunInjectionPass(String js) {
-    NoninjectingCompiler compiler = new NoninjectingCompiler();
+  private ImmutableSet<String> parseAndRunInjectionPass(String js) {
     CompilerOptions options = new CompilerOptions();
-    options.setLanguageOut(LanguageMode.ECMASCRIPT5);
+    options.setLanguageOut(this.languageOut);
 
     compiler.init(
         ImmutableList.of(SourceFile.fromCode("externs", "")),
@@ -52,62 +63,96 @@ public class InjectTranspilationRuntimeLibrariesTest {
 
   @Test
   public void testEmptyInjected() {
-    Set<String> injected = parseAndRunInjectionPass("");
+    ImmutableSet<String> injected = parseAndRunInjectionPass("");
 
     assertThat(injected).isEmpty();
   }
 
   @Test
   public void testMakeIteratorAndObjectAssignInjectedForObjectPatternRest() {
-    Set<String> injected = parseAndRunInjectionPass("const {a, ...rest} = something();");
+    ImmutableSet<String> injected = parseAndRunInjectionPass("const {a, ...rest} = something();");
     assertThat(injected).containsExactly("es6/util/makeiterator", "es6/object/assign");
   }
 
   @Test
   public void testObjectAssignInjectedForObjectSpread() {
-    Set<String> injected = parseAndRunInjectionPass("const obj = {a, ...rest};");
+    ImmutableSet<String> injected = parseAndRunInjectionPass("const obj = {a, ...rest};");
     assertThat(injected).containsExactly("es6/object/assign");
   }
 
   @Test
   public void testForOf_injectsMakeIterator() {
-    Set<String> injected = parseAndRunInjectionPass("for (x of []) {}");
+    ImmutableSet<String> injected = parseAndRunInjectionPass("for (x of []) {}");
 
     assertThat(injected).containsExactly("es6/util/makeiterator");
   }
 
   @Test
   public void testArrayPattern_injectsMakeIterator() {
-    Set<String> injected = parseAndRunInjectionPass("var [a] = [];");
+    ImmutableSet<String> injected = parseAndRunInjectionPass("var [a] = [];");
 
     assertThat(injected).containsExactly("es6/util/makeiterator");
   }
 
   @Test
   public void testObjectPattern_injectsNothing() {
-    Set<String> injected = parseAndRunInjectionPass("var {a} = {};");
+    ImmutableSet<String> injected = parseAndRunInjectionPass("var {a} = {};");
 
     assertThat(injected).isEmpty();
   }
 
   @Test
   public void testArrayPatternRest_injectsArrayFromIterator() {
-    Set<String> injected = parseAndRunInjectionPass("var [...a] = [];");
+    ImmutableSet<String> injected = parseAndRunInjectionPass("var [...a] = [];");
 
     assertThat(injected).containsExactly("es6/util/makeiterator", "es6/util/arrayfromiterator");
   }
 
   @Test
   public void testArrayPatternRest_injectsExecuteAsyncFunctionSupport() {
-    Set<String> injected = parseAndRunInjectionPass("async function foo() {}");
+    ImmutableSet<String> injected = parseAndRunInjectionPass("async function foo() {}");
 
     assertThat(injected).containsExactly("es6/execute_async_generator");
   }
 
   @Test
   public void testTaggedTemplateFirstArgCreaterInjected() {
-    Set<String> injected = parseAndRunInjectionPass("function tag(...a) {}; tag`hello`;");
+    ImmutableSet<String> injected = parseAndRunInjectionPass("function tag(...a) {}; tag`hello`;");
     assertThat(injected)
         .containsExactly("es6/util/createtemplatetagfirstarg", "es6/util/restarguments");
+  }
+
+  @Test
+  public void testAllowsEs5GetterSetterWithEs5Out() {
+    this.languageOut = LanguageMode.ECMASCRIPT5;
+    parseAndRunInjectionPass(
+        lines(
+            "var o = {", //
+            "  get x() {},",
+            "  set x(val) {}",
+            "};"));
+
+    assertThat(compiler.getErrors()).isEmpty();
+    assertThat(compiler.getInjected()).isEmpty();
+  }
+
+  @Test
+  public void testCannotConvertEs5GetterToEs3() {
+    this.languageOut = LanguageMode.ECMASCRIPT3;
+    parseAndRunInjectionPass("var o = {get x() {}};");
+
+    assertThat(compiler.getErrors())
+        .comparingElementsUsing(DIAGNOSTIC_EQUALITY)
+        .containsExactly(TranspilationUtil.CANNOT_CONVERT);
+  }
+
+  @Test
+  public void testCannotConvertEs5SetterToEs3() {
+    this.languageOut = LanguageMode.ECMASCRIPT3;
+    parseAndRunInjectionPass("var o = {set x(val) {}};");
+
+    assertThat(compiler.getErrors())
+        .comparingElementsUsing(DIAGNOSTIC_EQUALITY)
+        .containsExactly(TranspilationUtil.CANNOT_CONVERT);
   }
 }

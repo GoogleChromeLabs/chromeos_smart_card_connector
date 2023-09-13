@@ -23,6 +23,7 @@ import static java.nio.charset.StandardCharsets.UTF_16;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.AstValidator;
 import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.CompilerPass;
@@ -47,6 +48,7 @@ import java.time.Instant;
 import java.util.function.Consumer;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import org.jspecify.nullness.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -64,12 +66,14 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class SerializeAndDeserializeAstTest extends CompilerTestCase {
 
-  private Consumer<TypedAst> consumer = null;
+  private @Nullable Consumer<TypedAst> consumer = null;
   private boolean includeTypes;
+  private boolean resolveSourceMapAnnotations;
+  private boolean parseInlineSourceMaps;
 
   @Override
   protected CompilerPass getProcessor(Compiler compiler) {
-    return new SerializeTypedAstPass(compiler, consumer);
+    return new SerializeTypedAstPass(compiler, consumer, SerializationOptions.SKIP_DEBUG_INFO);
   }
 
   @Override
@@ -80,6 +84,8 @@ public final class SerializeAndDeserializeAstTest extends CompilerTestCase {
     enableCreateModuleMap();
     enableSourceInformationAnnotator();
     this.includeTypes = true;
+    this.resolveSourceMapAnnotations = true;
+    this.parseInlineSourceMaps = true;
   }
 
   @Test
@@ -252,6 +258,55 @@ public final class SerializeAndDeserializeAstTest extends CompilerTestCase {
   }
 
   @Test
+  public void testEmptyClassStaticBlock() {
+    testSame(
+        lines(
+            "class Foo {", //
+            "  static {",
+            "  }",
+            "}"));
+  }
+
+  @Test
+  public void testClassStaticBlock_variables() {
+    testSame(
+        lines(
+            "class Foo {", //
+            "  static {",
+            "    this.x=1;",
+            "    let y =2;",
+            "    var z =3;",
+            "  }",
+            "}"));
+  }
+
+  @Test
+  public void testClassStaticBlock_function() {
+    testSame(
+        lines(
+            "class Foo {", //
+            "  static {",
+            "    function x() {",
+            "    }",
+            "  }",
+            "}"));
+  }
+
+  @Test
+  public void testMultipleClassStaticBlocks() {
+    testSame(
+        lines(
+            "class Foo {", //
+            "  static {",
+            "    this.x=1;",
+            "  }",
+            "  static {",
+            "    this.y=2;",
+            "  }",
+            "}"));
+  }
+
+  @Test
   public void testVanillaFunctionDeclaration() {
     testSame("function f(x, y) { return x ** y; }");
   }
@@ -302,6 +357,13 @@ public final class SerializeAndDeserializeAstTest extends CompilerTestCase {
   }
 
   @Test
+  public void testTrailingComma() {
+    testSame("function f(x, y,) {}");
+    testSame("function f(x) {} f(1,);");
+    testSame("class C {constructor(x) {}} new C(1,);");
+  }
+
+  @Test
   public void testComputedProperty() {
     testSame("const o = {['foo']: 33};");
   }
@@ -329,12 +391,123 @@ public final class SerializeAndDeserializeAstTest extends CompilerTestCase {
   }
 
   @Test
+  public void testExponentAssignment() {
+    testSame("let x = 2; x **= 0;");
+  }
+
+  @Test
   public void testEsModule() {
     testSame(
         new String[] {
           "export const x = 0; const y = 1; export {y};",
           "import {x, y as z} from './testcode0'; import * as input0 from './testcode0'"
         });
+  }
+
+  private static final String BASE64_PREFIX = "data:application/json;base64,";
+  private static final String ENCODED_SOURCE_MAP =
+      "eyJ2ZXJzaW9uIjozLCJmaWxlIjoiZm9vLmpzIiwic291cmNlUm9vdCI6IiIsInNvdXJjZXMiOlsiZm9vLnRzIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiJBQUFBO0lBR0UsV0FBWSxLQUFhO1FBQ3ZCLElBQUksQ0FBQyxDQUFDLEdBQUcsS0FBSyxDQUFDO0lBQ2pCLENBQUM7SUFDSCxRQUFDO0FBQUQsQ0FBQyxBQU5ELElBTUM7QUFFRCxPQUFPLENBQUMsR0FBRyxDQUFDLElBQUksQ0FBQyxDQUFDLENBQUMsQ0FBQyxDQUFDLENBQUMifQ==";
+
+  @Test
+  public void testInlineSourceMaps() {
+    String sourceMapTestCode =
+        lines(
+            "var X = (function () {",
+            "    function X(input) {",
+            "        this.y = input;",
+            "    }",
+            "    return X;",
+            "}());");
+    String sourceMappingURLComment = "//# sourceMappingURL=" + BASE64_PREFIX + ENCODED_SOURCE_MAP;
+    ;
+    String code = sourceMapTestCode + "\n" + sourceMappingURLComment;
+
+    Result result = testAndReturnResult(srcs(code), expected(code));
+    assertThat(result.compiler.getBase64SourceMapContents("testcode"))
+        .isEqualTo(ENCODED_SOURCE_MAP);
+  }
+
+  @Test
+  public void testSourceMapsInSeparateMapFiles() {
+    // Sourcemap URLs should be a base64 encoded data url, not the name of a .js.map file.
+    // If we see a .js.map file, we will not serialize it.
+    String sourceMapTestCode =
+        lines(
+            "var X = (function () {",
+            "    function X(input) {",
+            "        this.y = input;",
+            "    }",
+            "    return X;",
+            "}());");
+    String sourceMappingURL = "foo.js.map";
+    String sourceMappingURLComment = "//# sourceMappingURL=" + sourceMappingURL;
+    String code = sourceMapTestCode + "\n" + sourceMappingURLComment;
+
+    Result result = testAndReturnResult(srcs(code), expected(code));
+    assertThat(result.compiler.getBase64SourceMapContents("testcode")).isEqualTo(null);
+  }
+
+  @Test
+  public void testSourceMapsWithoutResolvingSourceMapAnnotations() {
+    this.resolveSourceMapAnnotations = false;
+    String sourceMapTestCode =
+        lines(
+            "var X = (function () {",
+            "    function X(input) {",
+            "        this.y = input;",
+            "    }",
+            "    return X;",
+            "}());");
+    String sourceMappingURLComment = "//# sourceMappingURL=" + BASE64_PREFIX + ENCODED_SOURCE_MAP;
+    ;
+    String code = sourceMapTestCode + "\n" + sourceMappingURLComment;
+
+    Result result = testAndReturnResult(srcs(code), expected(code));
+    // Source map not registered because `resolveSourceMapAnnotations = false`
+    assertThat(result.compiler.getBase64SourceMapContents("testcode")).isNull();
+  }
+
+  @Test
+  public void testSourceMapsWithoutParsingInlineSourceMaps() {
+    this.parseInlineSourceMaps = false;
+    String sourceMapTestCode =
+        lines(
+            "var X = (function () {",
+            "    function X(input) {",
+            "        this.y = input;",
+            "    }",
+            "    return X;",
+            "}());");
+    String sourceMappingURLComment = "//# sourceMappingURL=" + BASE64_PREFIX + ENCODED_SOURCE_MAP;
+    ;
+    String code = sourceMapTestCode + "\n" + sourceMappingURLComment;
+
+    Result result = testAndReturnResult(srcs(code), expected(code));
+    // Source map is registered when `parseInlineSourceMaps = false`, but we won't try to
+    // parse it as a Base64 encoded source map.
+    assertThat(result.compiler.getBase64SourceMapContents("testcode")).isEqualTo(null);
+  }
+
+  @Test
+  public void testConfiguredDirectorySourceMaps() {
+    // We do not allow the TypeScript compiler to set "compilerOptions.sourceRoot" (option to
+    // configure a directory to store
+    // sourcemaps). Sourcemap URLs should be a base64 encoded data url, not a path to the
+    // sourcemap file. If we see a path, we will not serialize anything.
+    String sourceMapTestCode =
+        lines(
+            "var X = (function () {",
+            "    function X(input) {",
+            "        this.y = input;",
+            "    }",
+            "    return X;",
+            "}());");
+    String sourceMappingURLPath = "directory/foo.js.map";
+    String sourceMappingURLComment = "//# sourceMappingURL=" + sourceMappingURLPath;
+    String code = sourceMapTestCode + "\n" + sourceMappingURLComment;
+
+    Result result = testAndReturnResult(srcs(code), expected(code));
+    assertThat(result.compiler.getBase64SourceMapContents("testcode")).isEqualTo(null);
   }
 
   @Test
@@ -570,9 +743,11 @@ public final class SerializeAndDeserializeAstTest extends CompilerTestCase {
         TypedAstDeserializer.deserializeFullAst(
             deserializingCompiler,
             SourceFile.fromCode("syntheticExterns", "", StaticSourceFile.SourceKind.EXTERN),
-            ImmutableList.<SourceFile>builder().addAll(externFiles).addAll(codeFiles).build(),
+            ImmutableSet.<SourceFile>builder().addAll(externFiles).addAll(codeFiles).build(),
             serializedStream,
-            includeTypes);
+            includeTypes,
+            resolveSourceMapAnnotations,
+            parseInlineSourceMaps);
 
     ColorRegistry registry = ast.getColorRegistry().orNull();
     Node newExternsRoot = IR.root();
@@ -604,7 +779,7 @@ public final class SerializeAndDeserializeAstTest extends CompilerTestCase {
     new AstValidator(deserializingCompiler, /* validateScriptFeatures= */ true)
         .validateRoot(IR.root(newExternsRoot, newSourceRoot));
     consumer = null;
-    return new Result(ast, registry, newExternsRoot, newSourceRoot);
+    return new Result(ast, registry, newExternsRoot, newSourceRoot, deserializingCompiler);
   }
 
   private ImmutableList<SourceFile> collectSourceFilesFromScripts(Node root) {
@@ -619,13 +794,18 @@ public final class SerializeAndDeserializeAstTest extends CompilerTestCase {
     final DeserializedAst ast;
     final ColorRegistry registry;
     final Node sourceRoot;
-    final Node externRoot;
+    final Compiler compiler;
 
-    Result(DeserializedAst ast, ColorRegistry registry, Node externRoot, Node sourceRoot) {
+    Result(
+        DeserializedAst ast,
+        ColorRegistry registry,
+        Node externRoot,
+        Node sourceRoot,
+        Compiler compiler) {
       this.ast = ast;
       this.registry = registry;
-      this.externRoot = externRoot;
       this.sourceRoot = sourceRoot;
+      this.compiler = compiler;
     }
   }
 

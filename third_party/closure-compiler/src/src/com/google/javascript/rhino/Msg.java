@@ -86,6 +86,7 @@ public enum Msg {
   JSDOC_LOCALESELECT("extra @localeSelect tag"),
   JSDOC_LOCALEVALUE("extra @localeValue tag"),
   JSDOC_PROVIDE_GOOG("extra @provideGoog tag"),
+  JSDOC_PROVIDE_ALREADY_PROVIDED("extra @provideAlreadyProvided tag"),
   JSDOC_MEANING_EXTRA("extra @meaning tag"),
   JSDOC_MISSING_BRACES("Type annotations should have curly braces."),
   JSDOC_MISSING_COLON("expecting colon after this"),
@@ -101,10 +102,13 @@ public enum Msg {
   JSDOC_MODIFIES("malformed @modifies tag"),
   JSDOC_MODIFIES_DUPLICATE("conflicting @modifies tag"),
   JSDOC_MODIFIES_UNKNOWN("unknown @modifies parameter: {0}"),
+  JSDOC_MODS("malformed @mods tag"),
+  JSDOC_MODS_EXTRA("extra @mods tag"),
   JSDOC_NAME_SYNTAX("name not recognized due to syntax error."),
   JSDOC_NGINJECT_EXTRA("extra @ngInject tag"),
   JSDOC_NOCOLLAPSE("extra @nocollapse tag"),
   JSDOC_NOCOMPILE("extra @nocompile tag"),
+  JSDOC_NODTS("extra @nodts tag"),
   JSDOC_NOINLINE("extra @noinline tag"),
   JSDOC_NOSIDEEFFECTS("conflicting @nosideeffects tag"),
   JSDOC_OVERRIDE("extra @override/@inheritDoc tag."),
@@ -112,6 +116,7 @@ public enum Msg {
   JSDOC_POLYMER_EXTRA("extra @polymer tag"),
   JSDOC_PUREORBREAKMYCODE("extra @pureOrBreakMyCode tag"),
   JSDOC_RECORD("conflicting @record tag."),
+  JSDOC_SASS_GENERATED_CSS_TS("extra @sassGeneratedCssTs tag"),
   JSDOC_SEEMISSING("@see tag missing description"),
   JSDOC_SUPPRESS("malformed @suppress tag"),
   JSDOC_SUPPRESS_UNKNOWN("unknown @suppress parameter: {0}"),
@@ -139,7 +144,8 @@ public enum Msg {
   JSDOC_WIZACTION("extra @wizaction tag"),
   MISSING_VARIABLE_NAME("expecting a variable name in a @param tag."),
   NO_TYPE_NAME("expecting a type name."),
-  UNEXPECTED_EOF("Unexpected end of file");
+  UNEXPECTED_EOF("Unexpected end of file"),
+  JSDOC_WIZCALLBACK("extra @wizcallback tag");
 
   final String text;
 

@@ -18,17 +18,29 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import org.jspecify.nullness.Nullable;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** @author johnlenz@google.com (John Lenz) */
+/**
+ * @author johnlenz@google.com (John Lenz)
+ */
 @RunWith(JUnit4.class)
 public final class CheckRegExpTest extends CompilerTestCase {
-  CheckRegExp last = null;
+  @Nullable CheckRegExp last = null;
+  boolean reportErrors;
 
   public CheckRegExpTest() {
     super("var RegExp;");
+  }
+
+  @Before
+  @Override
+  public void setUp() throws Exception {
+    super.setUp();
+    this.reportErrors = true;
   }
 
   @Override
@@ -40,12 +52,12 @@ public final class CheckRegExpTest extends CompilerTestCase {
 
   @Override
   protected CompilerPass getProcessor(Compiler compiler) {
-    last = new CheckRegExp(compiler);
+    last = new CheckRegExp(compiler, reportErrors);
     return last;
   }
 
   private void testReference(String code, boolean expected) {
-    if (expected) {
+    if (expected && reportErrors) {
       testWarning(code, CheckRegExp.REGEXP_REFERENCE);
     } else {
       testSame(code);
@@ -110,14 +122,27 @@ public final class CheckRegExpTest extends CompilerTestCase {
     testReference("var x = {RegExp: {}}; x.RegExp.$1;", false);
 
     // Class property is also OK.
-    testReference(lines(
-        "class x {",
-        "  constructor() {this.RegExp = {};}",
-        "  method() {",
-        "    this.RegExp.$1;",
-        "    this.RegExp.test();",
-        "  }",
-        "}"), false);
+    testReference(
+        lines(
+            "class x {",
+            "  constructor() {this.RegExp = {};}",
+            "  method() {",
+            "    this.RegExp.$1;",
+            "    this.RegExp.test();",
+            "  }",
+            "}"),
+        false);
+  }
+
+  @Test
+  public void testDisableErrorReporting() {
+    this.reportErrors = true;
+
+    testWarning("RegExp.$1;", CheckRegExp.REGEXP_REFERENCE);
+
+    this.reportErrors = false;
+
+    testNoWarning("RegExp.$1;");
   }
 
   @Test

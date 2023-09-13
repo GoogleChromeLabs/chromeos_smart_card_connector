@@ -42,8 +42,8 @@ import static com.google.javascript.rhino.jstype.JSTypeNative.VOID_TYPE;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Supplier;
-import com.google.javascript.jscomp.JsIterables.MaybeBoxedIterableOrAsyncIterable;
-import com.google.javascript.jscomp.parsing.parser.util.format.SimpleFormat;
+import com.google.common.collect.ImmutableList;
+import com.google.javascript.jscomp.JsIterables.MaybeBoxedType;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.jstype.EnumElementType;
 import com.google.javascript.rhino.jstype.FunctionType;
@@ -64,14 +64,13 @@ import com.google.javascript.rhino.jstype.UnionType;
 import com.google.javascript.rhino.jstype.UnknownType;
 import com.google.javascript.rhino.jstype.Visitor;
 import java.io.Serializable;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * A central reporter for all type violations: places where the programmer has annotated a variable
@@ -193,7 +192,7 @@ class TypeValidator implements Serializable {
   }
 
   /** Utility function that attempts to get an instance type from a potential constructor type */
-  static ObjectType getInstanceOfCtor(@Nullable JSType t) {
+  static @Nullable ObjectType getInstanceOfCtor(@Nullable JSType t) {
     if (t == null) {
       return null;
     }
@@ -298,8 +297,7 @@ class TypeValidator implements Serializable {
    * @return The unwrapped variants of the iterable(s), or empty if not iterable.
    */
   Optional<JSType> expectAutoboxesToIterableOrAsyncIterable(Node n, JSType type, String msg) {
-    MaybeBoxedIterableOrAsyncIterable maybeBoxed =
-        JsIterables.maybeBoxIterableOrAsyncIterable(type, typeRegistry);
+    MaybeBoxedType maybeBoxed = JsIterables.maybeBoxIterableOrAsyncIterable(type, typeRegistry);
 
     if (maybeBoxed.isMatch()) {
       return Optional.of(maybeBoxed.getTemplatedType());
@@ -624,8 +622,8 @@ class TypeValidator implements Serializable {
             "assignment to property " + propName + " of " + typeNameSupplier.get(),
             rightType,
             leftType,
-            new HashSet<>(),
-            new HashSet<>());
+            new LinkedHashSet<>(),
+            new LinkedHashSet<>());
         return false;
       }
     }
@@ -672,7 +670,13 @@ class TypeValidator implements Serializable {
         return true;
       } else {
         registerMismatchAndReport(
-            n, TYPE_MISMATCH_WARNING, msg, rightType, leftType, new HashSet<>(), new HashSet<>());
+            n,
+            TYPE_MISMATCH_WARNING,
+            msg,
+            rightType,
+            leftType,
+            new LinkedHashSet<>(),
+            new LinkedHashSet<>());
         return false;
       }
     }
@@ -697,9 +701,11 @@ class TypeValidator implements Serializable {
     if (!argType.isSubtypeOf(paramType)) {
       mismatch(
           n,
-          SimpleFormat.format(
-              "actual parameter %d of %s does not match formal parameter",
-              ordinal, typeRegistry.getReadableTypeNameNoDeref(callNode.getFirstChild())),
+          "actual parameter "
+              + ordinal
+              + " of "
+              + typeRegistry.getReadableTypeNameNoDeref(callNode.getFirstChild())
+              + " does not match formal parameter",
           argType,
           paramType);
     }
@@ -1037,7 +1043,7 @@ class TypeValidator implements Serializable {
     }
 
     ObjectType instance = ctorType.getInstanceType();
-    for (Map.Entry<String, ObjectType> entry : abstractMethodSuperTypeMap.entrySet()) {
+    for (var entry : abstractMethodSuperTypeMap.entrySet()) {
       String method = entry.getKey();
       ObjectType superType = entry.getValue();
       FunctionType abstractMethod = instance.findPropertyType(method).toMaybeFunctionType();
@@ -1108,8 +1114,8 @@ class TypeValidator implements Serializable {
       String msg,
       JSType found,
       JSType required,
-      Set<String> missing,
-      Set<String> mismatch) {
+      @Nullable Set<String> missing,
+      @Nullable Set<String> mismatch) {
     String foundRequiredFormatted = formatFoundRequired(msg, found, required, missing, mismatch);
     JSError err = JSError.make(n, diagnostic, foundRequiredFormatted);
     registerMismatchAndReport(found, required, err);
@@ -1212,8 +1218,12 @@ class TypeValidator implements Serializable {
 
     @Override
     public Boolean caseUnionType(UnionType type) {
-      for (JSType alt : type.getAlternates()) {
-        if (!alt.visit(this)) {
+      // Avoid iterators in very hot code.
+      ImmutableList<JSType> alternates = type.getAlternates();
+      int alternateCount = alternates.size();
+      for (int i = 0; i < alternateCount; i++) {
+        var alternative = alternates.get(i);
+        if (!alternative.visit(this)) {
           return false;
         }
       }
@@ -1222,7 +1232,7 @@ class TypeValidator implements Serializable {
 
     @Override
     public Boolean caseTemplatizedType(TemplatizedType type) {
-      List<TemplateType> referencedTemplates =
+      ImmutableList<TemplateType> referencedTemplates =
           type.getReferencedType().getTemplateTypeMap().getTemplateKeys();
       for (int i = 0; i < type.getTemplateTypes().size(); i++) {
         JSType assignedType = type.getTemplateTypes().get(i);

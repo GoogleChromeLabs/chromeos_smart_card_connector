@@ -17,12 +17,14 @@ package com.google.javascript.jscomp;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.javascript.rhino.InputId;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.StaticRef;
 import com.google.javascript.rhino.StaticSourceFile;
 import com.google.javascript.rhino.Token;
 import java.io.Serializable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Represents a single declaration or reference to a variable. Note that references can only be used
@@ -30,8 +32,9 @@ import java.io.Serializable;
  */
 public final class Reference implements StaticRef, Serializable {
 
+  // Favor EnumSet over ImmutableSet for performance
   private static final ImmutableSet<Token> DECLARATION_PARENTS =
-      ImmutableSet.of(
+      Sets.immutableEnumSet(
           Token.VAR,
           Token.LET,
           Token.CONST,
@@ -49,7 +52,8 @@ public final class Reference implements StaticRef, Serializable {
     this(nameNode, basicBlock, t.getScope(), t.getInput().getInputId());
   }
 
-  private Reference(Node nameNode, BasicBlock basicBlock, Scope scope, InputId inputId) {
+  private Reference(
+      Node nameNode, @Nullable BasicBlock basicBlock, @Nullable Scope scope, InputId inputId) {
     this.nameNode = nameNode;
     this.basicBlock = basicBlock;
     this.scope = scope;
@@ -151,6 +155,19 @@ public final class Reference implements StaticRef, Serializable {
 
   boolean isLetDeclaration() {
     return getParent().isLet();
+  }
+
+  boolean isDotPropertyAccess() {
+    return getParent().isGetProp();
+  }
+
+  boolean isAssignedToObjectDestructuringPattern() {
+    final Node parent = getParent();
+    // `let { propName: varName } = ref;`
+    // or
+    // `({ propName: varName } = ref);`
+    return (parent.isDestructuringLhs() || parent.isAssign())
+        && parent.getFirstChild().isObjectPattern();
   }
 
   public boolean isConstDeclaration() {

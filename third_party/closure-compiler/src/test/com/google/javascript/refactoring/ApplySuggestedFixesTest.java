@@ -18,7 +18,7 @@ package com.google.javascript.refactoring;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -27,8 +27,6 @@ import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.CompilerOptions;
 import com.google.javascript.jscomp.SourceFile;
 import com.google.javascript.rhino.Node;
-import java.util.List;
-import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -41,31 +39,30 @@ public class ApplySuggestedFixesTest {
 
   @Test
   public void testApplyCodeReplacements_overlapsAreErrors() throws Exception {
-    List<CodeReplacement> replacements =
+    ImmutableList<CodeReplacement> replacements =
         ImmutableList.of(CodeReplacement.create(0, 10, ""), CodeReplacement.create(5, 3, ""));
-    try {
-      ApplySuggestedFixes.applyCodeReplacements(replacements, "");
-      fail("Overlaps in Code replacements should be an error.");
-    } catch (IllegalArgumentException expected) {}
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> ApplySuggestedFixes.applyCodeReplacements(replacements, ""));
   }
 
   @Test
   public void testApplyCodeReplacements_overlapsAreErrors_unlessEqual() throws Exception {
-    List<CodeReplacement> replacements =
+    ImmutableList<CodeReplacement> replacements =
         ImmutableList.of(CodeReplacement.create(0, 3, "A"), CodeReplacement.create(0, 3, "A"));
     ApplySuggestedFixes.applyCodeReplacements(replacements, "abcdef");
   }
 
   @Test
   public void testApplyCodeReplacements_noOverlapsSucceed() throws Exception {
-    List<CodeReplacement> replacements =
+    ImmutableList<CodeReplacement> replacements =
         ImmutableList.of(CodeReplacement.create(0, 3, ""), CodeReplacement.create(5, 3, ""));
     ApplySuggestedFixes.applyCodeReplacements(replacements, "abcdef");
   }
 
   @Test
   public void testApplyCodeReplacements() throws Exception {
-    List<CodeReplacement> replacements =
+    ImmutableList<CodeReplacement> replacements =
         ImmutableList.of(CodeReplacement.create(0, 1, "z"), CodeReplacement.create(3, 2, "qq"));
     String newCode = ApplySuggestedFixes.applyCodeReplacements(replacements, "abcdef");
     assertEquals("zbcqqf", newCode);
@@ -73,28 +70,31 @@ public class ApplySuggestedFixesTest {
 
   @Test
   public void testApplyCodeReplacements_insertion() throws Exception {
-    List<CodeReplacement> replacements = ImmutableList.of(CodeReplacement.create(0, 0, "z"));
+    ImmutableList<CodeReplacement> replacements =
+        ImmutableList.of(CodeReplacement.create(0, 0, "z"));
     String newCode = ApplySuggestedFixes.applyCodeReplacements(replacements, "abcdef");
     assertEquals("zabcdef", newCode);
   }
 
   @Test
   public void testApplyCodeReplacements_deletion() throws Exception {
-    List<CodeReplacement> replacements = ImmutableList.of(CodeReplacement.create(0, 6, ""));
+    ImmutableList<CodeReplacement> replacements =
+        ImmutableList.of(CodeReplacement.create(0, 6, ""));
     String newCode = ApplySuggestedFixes.applyCodeReplacements(replacements, "abcdef");
     assertThat(newCode).isEmpty();
   }
 
   @Test
   public void testApplyCodeReplacements_boundaryCases() throws Exception {
-    List<CodeReplacement> replacements = ImmutableList.of(CodeReplacement.create(5, 1, "z"));
+    ImmutableList<CodeReplacement> replacements =
+        ImmutableList.of(CodeReplacement.create(5, 1, "z"));
     String newCode = ApplySuggestedFixes.applyCodeReplacements(replacements, "abcdef");
     assertEquals("abcdez", newCode);
   }
 
   @Test
   public void testApplyCodeReplacements_multipleReplacements() throws Exception {
-    List<CodeReplacement> replacements =
+    ImmutableList<CodeReplacement> replacements =
         ImmutableList.of(
             CodeReplacement.create(0, 2, "z"),
             CodeReplacement.create(2, 1, "y"),
@@ -108,10 +108,11 @@ public class ApplySuggestedFixesTest {
     String code = "var someNode;";
     Compiler compiler = getCompiler(code);
     Node root = compileToScriptRoot(compiler);
-    List<SuggestedFix> fixes = ImmutableList.of(new SuggestedFix.Builder().delete(root).build());
-    Map<String, String> codeMap = ImmutableMap.of("test", code);
-    Map<String, String> newCodeMap = ApplySuggestedFixes.applySuggestedFixesToCode(
-        fixes, codeMap);
+    ImmutableList<SuggestedFix> fixes =
+        ImmutableList.of(new SuggestedFix.Builder().delete(root).build());
+    ImmutableMap<String, String> codeMap = ImmutableMap.of("test", code);
+    ImmutableMap<String, String> newCodeMap =
+        ApplySuggestedFixes.applySuggestedFixesToCode(fixes, codeMap);
     assertThat(newCodeMap).hasSize(1);
     assertThat(newCodeMap).containsEntry("test", "");
   }
@@ -127,10 +128,10 @@ public class ApplySuggestedFixesTest {
     SuggestedFix fix = new SuggestedFix.Builder()
         .insertBefore(jsdocRoot, "!")
         .build();
-    List<SuggestedFix> fixes = ImmutableList.of(fix);
-    Map<String, String> codeMap = ImmutableMap.of("test", code);
-    Map<String, String> newCodeMap = ApplySuggestedFixes.applySuggestedFixesToCode(
-        fixes, codeMap);
+    ImmutableList<SuggestedFix> fixes = ImmutableList.of(fix);
+    ImmutableMap<String, String> codeMap = ImmutableMap.of("test", code);
+    ImmutableMap<String, String> newCodeMap =
+        ApplySuggestedFixes.applySuggestedFixesToCode(fixes, codeMap);
     assertThat(newCodeMap).hasSize(1);
     assertThat(newCodeMap).containsEntry("test", "/** @type {!Foo} */\nvar foo = new Foo()");
   }
@@ -150,10 +151,10 @@ public class ApplySuggestedFixesTest {
     SuggestedFix fix2 = new SuggestedFix.Builder()
         .insertBefore(foo, "!")
         .build();
-    List<SuggestedFix> fixes = ImmutableList.of(fix1, fix2);
-    Map<String, String> codeMap = ImmutableMap.of("test", code);
-    Map<String, String> newCodeMap = ApplySuggestedFixes.applySuggestedFixesToCode(
-        fixes, codeMap);
+    ImmutableList<SuggestedFix> fixes = ImmutableList.of(fix1, fix2);
+    ImmutableMap<String, String> codeMap = ImmutableMap.of("test", code);
+    ImmutableMap<String, String> newCodeMap =
+        ApplySuggestedFixes.applySuggestedFixesToCode(fixes, codeMap);
     assertThat(newCodeMap).hasSize(1);
     assertThat(newCodeMap)
         .containsEntry("test", "/** @type {!Array<!Foo>} */\nvar arr = [new Foo()];");
@@ -161,27 +162,28 @@ public class ApplySuggestedFixesTest {
 
   @Test
   public void testApplySuggestedFixes_noFixes() throws Exception {
-    Map<String, String> codeMap = ImmutableMap.of(
-        "file1", "abcdef",
-        "file2", "abcdef");
-    Map<String, String> expectedNewCodeMap = ImmutableMap.of();
-    List<SuggestedFix> fixes = ImmutableList.of();
-    Map<String, String> newCodeMap = ApplySuggestedFixes.applySuggestedFixesToCode(
-        fixes, codeMap);
+    ImmutableMap<String, String> codeMap =
+        ImmutableMap.of(
+            "file1", "abcdef",
+            "file2", "abcdef");
+    ImmutableMap<String, String> expectedNewCodeMap = ImmutableMap.of();
+    ImmutableList<SuggestedFix> fixes = ImmutableList.of();
+    ImmutableMap<String, String> newCodeMap =
+        ApplySuggestedFixes.applySuggestedFixesToCode(fixes, codeMap);
     assertEquals(expectedNewCodeMap, newCodeMap);
   }
 
   @Test
   public void testApplySuggestedFixes_missingCodeForFile() throws Exception {
-    Map<String, String> codeMap = ImmutableMap.of();
+    ImmutableMap<String, String> codeMap = ImmutableMap.of();
     String code = "var someNode;";
     Compiler compiler = getCompiler(code);
     Node root = compileToScriptRoot(compiler);
-    List<SuggestedFix> fixes = ImmutableList.of(new SuggestedFix.Builder().delete(root).build());
-    try {
-      ApplySuggestedFixes.applySuggestedFixesToCode(fixes, codeMap);
-      fail("applySuggestedFixesToCode should have failed since file is missing from code map.");
-    } catch (IllegalArgumentException expected) {}
+    ImmutableList<SuggestedFix> fixes =
+        ImmutableList.of(new SuggestedFix.Builder().delete(root).build());
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> ApplySuggestedFixes.applySuggestedFixesToCode(fixes, codeMap));
   }
 
   @Test
@@ -192,7 +194,7 @@ public class ApplySuggestedFixesTest {
     System.out.println(root.toStringTree());
     Node var = root.getFirstChild();
 
-    List<SuggestedFix> fixes =
+    ImmutableList<SuggestedFix> fixes =
         ImmutableList.of(
             new SuggestedFix.Builder()
                 .rename(var.getLastChild(), "newShared")
@@ -203,7 +205,7 @@ public class ApplySuggestedFixesTest {
                 .rename(var.getSecondChild(), "newSecond")
                 .build());
 
-    Map<String, String> newCodeMap =
+    ImmutableMap<String, String> newCodeMap =
         ApplySuggestedFixes.applySuggestedFixesToCode(fixes, ImmutableMap.of("test", code));
     assertThat(newCodeMap).containsExactly("test", "var newFirst, newSecond, newShared;");
   }

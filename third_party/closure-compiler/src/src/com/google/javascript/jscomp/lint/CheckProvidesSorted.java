@@ -18,13 +18,15 @@ package com.google.javascript.jscomp.lint;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.javascript.jscomp.DiagnosticType;
 import com.google.javascript.jscomp.NodeTraversal;
+import com.google.javascript.jscomp.NodeUtil;
 import com.google.javascript.rhino.Node;
 import java.util.ArrayList;
 import java.util.List;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Checks that goog.provide statements are sorted and deduplicated, exposing the necessary
@@ -51,11 +53,11 @@ public final class CheckProvidesSorted implements NodeTraversal.Callback {
   private final List<String> originalProvides = new ArrayList<>();
 
   // The provided namespaces in canonical order.
-  @Nullable private Node firstNode = null;
-  @Nullable private Node lastNode = null;
+  private @Nullable Node firstNode = null;
+  private @Nullable Node lastNode = null;
   private boolean finished = false;
 
-  @Nullable private String replacement = null;
+  private @Nullable String replacement = null;
   private boolean needsFix = false;
 
   public CheckProvidesSorted(Mode mode) {
@@ -98,7 +100,7 @@ public final class CheckProvidesSorted implements NodeTraversal.Callback {
       return;
     }
 
-    if (n.isExprResult() && isValidProvideCall(n.getFirstChild())) {
+    if (NodeUtil.isGoogProvideCall(n) && areProvideArgumentsValid(n.getFirstChild())) {
       originalProvides.add(getNamespace(n));
       if (firstNode == null) {
         firstNode = lastNode = n;
@@ -110,11 +112,8 @@ public final class CheckProvidesSorted implements NodeTraversal.Callback {
     }
   }
 
-  private static boolean isValidProvideCall(Node n) {
-    return n.isCall()
-        && n.hasTwoChildren()
-        && n.getFirstChild().matchesQualifiedName("goog.provide")
-        && n.getSecondChild().isStringLit();
+  private static boolean areProvideArgumentsValid(Node call) {
+    return call.hasTwoChildren() && call.getSecondChild().isStringLit();
   }
 
   private static String getNamespace(Node n) {
@@ -134,7 +133,7 @@ public final class CheckProvidesSorted implements NodeTraversal.Callback {
 
   private void checkCanonical(NodeTraversal t) {
     @Nullable
-    List<String> canonicalProvides =
+    ImmutableList<String> canonicalProvides =
         originalProvides.stream().distinct().sorted().collect(toImmutableList());
     if (!originalProvides.equals(canonicalProvides)) {
       needsFix = true;

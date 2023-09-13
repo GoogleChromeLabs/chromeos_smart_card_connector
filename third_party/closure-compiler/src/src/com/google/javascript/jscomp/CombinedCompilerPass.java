@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.NodeTraversal.ScopedCallback;
 import com.google.javascript.rhino.Node;
 import java.util.List;
+import org.jspecify.nullness.Nullable;
 
 /**
  * A compiler pass combining multiple {@link Callback} and {@link ScopedCallback} objects. This pass
@@ -81,17 +82,17 @@ final class CombinedCompilerPass implements CompilerPass, ScopedCallback {
     /** The callback being wrapped. Never null. */
     private final NodeTraversal.Callback callback;
     /**
-     * if (callback instanceof ScopedCallback), then scopedCallback points
-     * to an instance of ScopedCallback, otherwise scopedCallback points to null
+     * if (callback instanceof ScopedCallback), then scopedCallback points to an instance of
+     * ScopedCallback, otherwise scopedCallback points to null
      */
-    private final ScopedCallback scopedCallback;
+    private final @Nullable ScopedCallback scopedCallback;
 
     /**
-     * The node that {@link Callback#shouldTraverse(NodeTraversal, Node, Node)}
-     * returned false for. The wrapped callback doesn't receive messages until
-     * after this node is revisited in the post-order traversal.
+     * The node that {@link Callback#shouldTraverse(NodeTraversal, Node, Node)} returned false for.
+     * The wrapped callback doesn't receive messages until after this node is revisited in the
+     * post-order traversal.
      */
-    private Node waiting = null;
+    private @Nullable Node waiting = null;
 
     private CallbackWrapper(NodeTraversal.Callback callback) {
       this.callback = callback;
@@ -138,7 +139,7 @@ final class CombinedCompilerPass implements CompilerPass, ScopedCallback {
   }
 
   @Override
-  public final void process(Node externs, Node root) {
+  public final void process(@Nullable Node externs, Node root) {
     NodeTraversal.traverse(compiler, root, this);
   }
 

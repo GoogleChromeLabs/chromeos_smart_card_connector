@@ -15,7 +15,7 @@
  */
 package com.google.javascript.jscomp;
 
-import static com.google.javascript.jscomp.Es6ToEs3Util.CANNOT_CONVERT_YET;
+import static com.google.javascript.jscomp.TranspilationUtil.CANNOT_CONVERT_YET;
 
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import org.junit.Before;
@@ -30,6 +30,7 @@ public class RewriteNewDotTargetTest extends CompilerTestCase {
 
   @Before
   public void enableTypeCheckBeforePass() {
+    enableNormalize();
     enableTypeCheck();
     enableTypeInfoValidation();
     replaceTypesWithColors();
@@ -44,7 +45,7 @@ public class RewriteNewDotTargetTest extends CompilerTestCase {
   @Override
   protected CompilerOptions getOptions() {
     CompilerOptions options = super.getOptions();
-    options.setLanguageIn(LanguageMode.ECMASCRIPT_NEXT_IN);
+    options.setLanguageIn(LanguageMode.UNSTABLE);
     options.setLanguageOut(LanguageMode.ECMASCRIPT5_STRICT);
     return options;
   }
@@ -92,7 +93,7 @@ public class RewriteNewDotTargetTest extends CompilerTestCase {
             "class Foo {",
             "  constructor() {",
             "    this.constructor;",
-            "    () => this.constructor;", // works in arrow functions, too
+            "    () => { return this.constructor; };", // works in arrow functions, too
             "  }",
             "}",
             ""));

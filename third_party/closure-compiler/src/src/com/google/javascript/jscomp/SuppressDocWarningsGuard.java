@@ -23,7 +23,7 @@ import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Filters warnings based on in-code {@code @suppress} annotations.
@@ -70,7 +70,7 @@ class SuppressDocWarningsGuard extends WarningsGuard {
   }
 
   @Override
-  public CheckLevel level(JSError error) {
+  public @Nullable CheckLevel level(JSError error) {
     Node node = error.getNode();
     if (node == null) {
       node = getScriptNodeBySourceName(error);
@@ -103,7 +103,7 @@ class SuppressDocWarningsGuard extends WarningsGuard {
    * <p>class & function declarations, variables, assignments, object literal keys, and the top
    * level script node.
    */
-  private CheckLevel getCheckLevelFromAncestors(JSError error, Node node) {
+  private @Nullable CheckLevel getCheckLevelFromAncestors(JSError error, Node node) {
     for (Node current = node; current != null; current = current.getParent()) {
       JSDocInfo info = null;
       if (current.isFunction() || current.isClass()) {
@@ -115,9 +115,7 @@ class SuppressDocWarningsGuard extends WarningsGuard {
           || current.isComputedProp()
           || current.isMemberFieldDef()
           || current.isComputedFieldDef()
-          || ((NodeUtil.isAssignmentOp(current) || current.isGetProp())
-              && current.hasParent()
-              && current.getParent().isExprResult())) {
+          || (current.hasParent() && current.getParent().isExprResult())) {
         info = NodeUtil.getBestJSDocInfo(current);
       }
 
@@ -133,7 +131,7 @@ class SuppressDocWarningsGuard extends WarningsGuard {
   }
 
   /** If the given JSDocInfo has an @suppress for the given JSError, returns the new level. */
-  private CheckLevel getCheckLevelFromInfo(JSError error, JSDocInfo info) {
+  private @Nullable CheckLevel getCheckLevelFromInfo(JSError error, JSDocInfo info) {
     for (String suppressor : info.getSuppressions()) {
       DiagnosticGroup group = this.suppressors.get(suppressor);
       if (group == null) {
@@ -148,8 +146,7 @@ class SuppressDocWarningsGuard extends WarningsGuard {
     return null;
   }
 
-  @Nullable
-  private final Node getScriptNodeBySourceName(JSError error) {
+  private final @Nullable Node getScriptNodeBySourceName(JSError error) {
     if (error.getSourceName() == null) {
       return null;
     }

@@ -30,6 +30,7 @@ import com.google.javascript.rhino.QualifiedName;
 import com.google.javascript.rhino.Token;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Converts ES6 code to valid ES5 code. This class does most of the transpilation, and
@@ -56,7 +57,7 @@ public final class LateEs6ToEs3Converter implements NodeTraversal.Callback, Comp
   // definition as injecting to the top of the script causes runtime errors
   // https://github.com/google/closure-compiler/issues/3589. For the subsequent script(s), the call
   // is injected to the top of that script.
-  private Node templateLitInsertionPoint = null;
+  private @Nullable Node templateLitInsertionPoint = null;
 
   private static final String FRESH_COMP_PROP_VAR = "$jscomp$compprop";
 
@@ -69,7 +70,7 @@ public final class LateEs6ToEs3Converter implements NodeTraversal.Callback, Comp
   @Override
   public void process(Node externs, Node root) {
     TranspilationPasses.processTranspile(compiler, root, transpiledFeatures, this);
-    TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, transpiledFeatures);
+    TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, root, transpiledFeatures);
   }
 
   @Override
@@ -82,14 +83,9 @@ public final class LateEs6ToEs3Converter implements NodeTraversal.Callback, Comp
       case GETTER_DEF:
       case SETTER_DEF:
         if (FeatureSet.ES3.contains(compiler.getOptions().getOutputFeatureSet())) {
-          Es6ToEs3Util.cannotConvert(
+          TranspilationUtil.cannotConvert(
               compiler, n, "ES5 getters/setters (consider using --language_out=ES5)");
           return false;
-        }
-        break;
-      case FUNCTION:
-        if (n.isAsyncFunction()) {
-          throw new IllegalStateException("async functions should have already been converted");
         }
         break;
       default:
@@ -182,7 +178,7 @@ public final class LateEs6ToEs3Converter implements NodeTraversal.Callback, Comp
     while (currElement != null) {
       if (currElement.getBooleanProp(Node.COMPUTED_PROP_GETTER)
           || currElement.getBooleanProp(Node.COMPUTED_PROP_SETTER)) {
-        Es6ToEs3Util.cannotConvertYet(
+        TranspilationUtil.cannotConvertYet(
             compiler, currElement, "computed getter/setter in an object literal");
         return;
       } else if (currElement.isGetterDef() || currElement.isSetterDef()) {
@@ -212,7 +208,7 @@ public final class LateEs6ToEs3Converter implements NodeTraversal.Callback, Comp
                 result);
       } else {
         Node val = propdef.removeFirstChild();
-        boolean isQuotedAccess = propdef.isQuotedString();
+        boolean isQuotedAccess = propdef.isQuotedStringKey();
 
         propdef.setToken(Token.STRINGLIT);
         propdef.setColor(StandardColors.STRING);

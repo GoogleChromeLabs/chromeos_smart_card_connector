@@ -31,6 +31,7 @@ import static com.google.javascript.rhino.Token.ASSIGN_OR;
 import static com.google.javascript.rhino.Token.AWAIT;
 import static com.google.javascript.rhino.Token.BIGINT;
 import static com.google.javascript.rhino.Token.BITOR;
+import static com.google.javascript.rhino.Token.BLOCK;
 import static com.google.javascript.rhino.Token.CALL;
 import static com.google.javascript.rhino.Token.CLASS;
 import static com.google.javascript.rhino.Token.COALESCE;
@@ -81,13 +82,14 @@ import static com.google.javascript.rhino.Token.YIELD;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.javascript.jscomp.AccessorSummary.PropertyAccessKind;
+import com.google.javascript.jscomp.base.format.SimpleFormat;
 import com.google.javascript.jscomp.colors.StandardColors;
-import com.google.javascript.jscomp.parsing.parser.util.format.SimpleFormat;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 import com.google.javascript.rhino.jstype.JSTypeNative;
 import java.util.ArrayDeque;
 import java.util.Optional;
+import org.jspecify.nullness.Nullable;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
@@ -150,7 +152,7 @@ public final class AstAnalyzerTest {
 
   /** Provides methods for parsing and accessing the compiler used for the parsing. */
   private static final class ParseHelper {
-    private Compiler compiler = null;
+    private @Nullable Compiler compiler = null;
 
     private void resetCompiler() {
       CompilerOptions options = new CompilerOptions();
@@ -230,7 +232,7 @@ public final class AstAnalyzerTest {
 
     // Always include the index. If two cases have the same name, only one will be executed.
     @Parameters(name = "#{index} {0}")
-    public static Iterable<AnalysisCase> cases() {
+    public static ImmutableList<AnalysisCase> cases() {
       return ImmutableList.of(
           kase().js("i++").token(INC).expect(true),
           kase().js("[b, [a, i++]]").token(ARRAYLIT).expect(true),
@@ -357,7 +359,7 @@ public final class AstAnalyzerTest {
 
     // Always include the index. If two cases have the same name, only one will be executed.
     @Parameters(name = "#{index} {0}")
-    public static Iterable<AnalysisCase> cases() {
+    public static ImmutableList<AnalysisCase> cases() {
       return ImmutableList.of(
           // Cases in need of differentiation.
           kase().expect(false).js("[1]"),
@@ -606,6 +608,17 @@ public final class AstAnalyzerTest {
           kase().expect(true).token(COMPUTED_FIELD_DEF).js("class C { static ['x'] = alert(1); }"),
           kase().expect(true).token(COMPUTED_FIELD_DEF).js("class C { static [alert(1)] = 2; }"),
 
+          // CLASS_STATIC_BLOCK
+          kase().expect(false).token(BLOCK).js("class C { static {} }"),
+          kase().expect(false).token(BLOCK).js("class C { static { [1]; } }"),
+          kase().expect(true).token(BLOCK).js("class C { static { let x; } }"),
+          kase().expect(true).token(BLOCK).js("class C { static { const x =1 ; } }"),
+          kase().expect(true).token(BLOCK).js("class C { static { var x; } }"),
+          kase().expect(true).token(BLOCK).js("class C { static { this.x = 1; } }"),
+          kase().expect(true).token(BLOCK).js("class C { static { function f() { } } }"),
+          kase().expect(false).token(BLOCK).js("class C { static { (function () {} )} }"),
+          kase().expect(false).token(BLOCK).js("class C { static { ()=>{} } }"),
+
           // SUPER calls
           kase().expect(false).token(SUPER).js("super()"),
           kase().expect(false).token(SUPER).js("super.foo()"),
@@ -671,7 +684,7 @@ public final class AstAnalyzerTest {
 
     // Always include the index. If two cases have the same name, only one will be executed.
     @Parameters(name = "#{index} {0}")
-    public static Iterable<AnalysisCase> cases() {
+    public static ImmutableList<AnalysisCase> cases() {
       return ImmutableList.of(
           kase().js("x = y").token(ASSIGN).expect(true),
           kase().js("x += y").token(ASSIGN_ADD).expect(true),
@@ -950,7 +963,7 @@ public final class AstAnalyzerTest {
 
     // Always include the index. If two cases have the same name, only one will be executed.
     @Parameters(name = "#{index} {0}")
-    public static final Iterable<Object[]> cases() {
+    public static final ImmutableList<Object[]> cases() {
       return ImmutableList.copyOf(
           new Object[][] {
             {"Array"}, {"Date"}, {"Error"}, {"Object"}, {"RegExp"}, {"XMLHttpRequest"}

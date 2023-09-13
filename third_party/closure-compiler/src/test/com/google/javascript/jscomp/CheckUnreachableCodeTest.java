@@ -167,6 +167,23 @@ public final class CheckUnreachableCodeTest extends CompilerTestCase {
   }
 
   @Test
+  public void testUnreachableStaticBlocks() {
+    assertUnreachable("class C{ static { function f(){ return; let x; } } }");
+    assertUnreachable("class C{ static{ if(false) { var x; } } }");
+    assertUnreachable("class C{ static{ while(false){ let x; } } }");
+  }
+
+  @Test
+  public void testReachableStaticBlocks() {
+    testSame("class C{ static { let x; } }");
+    testSame("class C{ static { function a(){} } }");
+    testSame("class C{ static {} a(){} }");
+    testSame("class C{ static {} static {} }");
+    testSame("class C{ static{} static x; static{} static y;}");
+    testSame("class C{ static [l('l1')] = l('r1'); static{ l('s2');} static[l('l3')] = l('r3');}");
+  }
+
+  @Test
   public void testSuppression() {
     assertUnreachable("if(false) { }");
 

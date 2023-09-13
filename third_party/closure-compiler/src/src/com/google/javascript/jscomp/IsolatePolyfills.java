@@ -31,7 +31,6 @@ import com.google.javascript.rhino.Node;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Rewrites potential polyfill usages to use the hidden JSCompiler polyfills instead of the global.
@@ -95,7 +94,7 @@ class IsolatePolyfills implements CompilerPass {
   public void process(Node externs, Node root) {
     // Calculate the set of polyfills that are actually present in the AST. It may be a subset of
     // the potential polyfills which PolyfillFindingCallback finds (it's fine if it's a superset.)
-    Set<String> injectedPolyfills = findAllInjectedPolyfills();
+    ImmutableSet<String> injectedPolyfills = findAllInjectedPolyfills();
 
     List<PolyfillUsage> polyfillUsages = new ArrayList<>();
     new PolyfillUsageFinder(compiler, this.polyfills)
@@ -192,14 +191,6 @@ class IsolatePolyfills implements CompilerPass {
     final Node parent = polyfillUsage.node().getParent();
 
     if (FILES_ALLOWED_UNQUALIFIED_POLYFILL_ACCESSES.contains(polyfillAccess.getSourceFileName())) {
-      // Special-case code in the compiler runtime libraries that executes before any polyfills are
-      // injected.
-      //   - the definition of $jscomp.global needs to look for a global variable globalThis
-      //   - the $jscomp.polyfill function needs to check whether Symbol is native
-      // If desired we could programatically detect these cases instead of having this allowlist of
-      // polyfill accesses, but that might silently allow other usages of third-party polyfills
-      // into the codebase.
-      // TODO(b/156776817): crash on early references to polyfills that are not in our allowlist.
       return;
     }
 
@@ -220,27 +211,43 @@ class IsolatePolyfills implements CompilerPass {
 
     if (isGlobalClass) {
       // e.g. Symbol, Map, window.Map, or goog.global.Map
+      // Optional chaining is forbidden on global classes, hence producing `getelem` for property
+      // access would suffice.
       polyfillAccess.replaceWith(
           IR.getelem(jscompPolyfillsObject.cloneTree(), IR.string(name)) // $jscomp.polyfills['Map']
               .srcrefTree(polyfillAccess));
-    } else if (parent.isCall() && polyfillAccess.isFirstChildOf(parent)) {
-      // e.g. getStr().includes('x')
+    } else if ((parent.isCall() || parent.isOptChainCall())
+        && polyfillAccess.isFirstChildOf(parent)) {
+      // e.g. `getStr().includes('x')` or `getStr()?.includes('x')`
       rewritePolyfillInCall(polyfillAccess);
     } else {
       // e.g. [].includes.call(myIter, 0)
       Node methodName = IR.string(polyfillAccess.getString()).srcref(polyfillAccess);
       Node receiver = polyfillAccess.removeFirstChild();
+      // The `$jscomp$lookupPolyfilledValue` can handle both normal prop access as well as optional
+      // by checking whether the lhs (receiver) is null or undefined first.
       polyfillAccess.replaceWith(
-          createPolyfillMethodLookup(receiver, methodName).srcrefTree(polyfillAccess));
+          createPolyfillMethodLookup(receiver, methodName, NodeUtil.isOptChainNode(polyfillAccess))
+              .srcrefTree(polyfillAccess));
     }
 
     compiler.reportChangeToEnclosingScope(parent);
   }
 
+  // Code in the runtime libraries that may execute before any polyfills are injected and needs
+  // to opt out from polyfill isolation.
+  //   - util/global.js looks for `globalThis`
+  //   - util/shouldpolyfill.js checks whether Symbol is native
+  //   - es6/util/construct.js looks for the native Reflect.construct
+  // If desired we could programmatically detect these cases instead of having this allowlist of
+  // polyfill accesses, but that might silently allow other usages of third-party polyfills
+  // into the codebase.
+  // TODO(b/156776817): crash on early references to polyfills that are not in our allowlist.
   private static final ImmutableSet<String> FILES_ALLOWED_UNQUALIFIED_POLYFILL_ACCESSES =
       ImmutableSet.of(
           AbstractCompiler.RUNTIME_LIB_DIR + "util/global.js",
-          AbstractCompiler.RUNTIME_LIB_DIR + "util/shouldpolyfill.js");
+          AbstractCompiler.RUNTIME_LIB_DIR + "util/shouldpolyfill.js",
+          AbstractCompiler.RUNTIME_LIB_DIR + "es6/util/construct.js");
 
   /**
    * Rewrites a call where the receiver is a potential polyfilled method
@@ -258,6 +265,7 @@ class IsolatePolyfills implements CompilerPass {
   private void rewritePolyfillInCall(Node callee) {
     final Node methodName = IR.string(callee.getString()).srcref(callee);
     final Node receiver = callee.removeFirstChild();
+    final boolean isCalleeOptChain = NodeUtil.isOptChainNode(callee);
 
     boolean requiresTemp = compiler.getAstAnalyzer().mayEffectMutableState(receiver);
 
@@ -271,15 +279,22 @@ class IsolatePolyfills implements CompilerPass {
       polyfilledMethod =
           IR.comma(
               IR.assign(thisNode.cloneTree(), receiver),
-              createPolyfillMethodLookup(thisNode.cloneTree(), methodName));
+              createPolyfillMethodLookup(thisNode.cloneTree(), methodName, isCalleeOptChain));
     } else {
       thisNode = receiver;
-      polyfilledMethod = createPolyfillMethodLookup(receiver.cloneTree(), methodName);
+      polyfilledMethod =
+          createPolyfillMethodLookup(receiver.cloneTree(), methodName, isCalleeOptChain);
     }
 
     // Fix the `this` type by using .call:
-    //   lookupMethod(receiver, 'includes').call(receiver, arg)
-    Node receiverDotCall = IR.getprop(polyfilledMethod, "call").srcrefTree(callee);
+    //   lookupMethod(receiver, 'includes', isOptChainNode).call(receiver, arg)
+    Node receiverDotCall;
+    if (NodeUtil.isOptChainNode(callee)) {
+      // If optional chaining exists at this point, we can have it in the output
+      receiverDotCall = IR.startOptChainGetprop(polyfilledMethod, "call").srcrefTree(callee);
+    } else {
+      receiverDotCall = IR.getprop(polyfilledMethod, "call").srcrefTree(callee);
+    }
     callee.replaceWith(receiverDotCall);
     thisNode.insertAfter(receiverDotCall);
   }
@@ -297,10 +312,19 @@ class IsolatePolyfills implements CompilerPass {
     return IR.name(POLYFILL_TEMP).srcref(srcref);
   }
 
-  /** Returns a call <code>$jscomp$lookupPolyfilledValue(receiver, 'methodName')</code> */
-  private Node createPolyfillMethodLookup(Node receiver, Node methodName) {
+  /**
+   * Returns a call <code>$jscomp$lookupPolyfilledValue(receiver, 'methodName', isOptChainNode)
+   * </code>
+   */
+  private Node createPolyfillMethodLookup(Node receiver, Node methodName, boolean isOptChainNode) {
     usedPolyfillMethodLookup = true;
-    Node call = IR.call(jscompLookupMethod.cloneTree(), receiver, methodName);
+    Node call;
+    if (isOptChainNode) {
+      call = IR.call(jscompLookupMethod.cloneTree(), receiver, methodName, IR.trueNode());
+    } else {
+      // 3rd param of `jscompLookupMethod` is optional
+      call = IR.call(jscompLookupMethod.cloneTree(), receiver, methodName);
+    }
     call.putBooleanProp(Node.FREE_CALL, true);
     return call;
   }

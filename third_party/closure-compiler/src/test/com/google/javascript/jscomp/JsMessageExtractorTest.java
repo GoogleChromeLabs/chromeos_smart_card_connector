@@ -17,43 +17,26 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.javascript.rhino.testing.Asserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
-import java.io.IOException;
+import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Unit test for {@link JsMessageExtractor}.
- *
- */
+/** Unit test for {@link JsMessageExtractor}. */
 @RunWith(JUnit4.class)
 public final class JsMessageExtractorTest {
 
-  private JsMessage.Style mode;
-
-  @Before
-  public void setUp() throws Exception {
-    mode = JsMessage.Style.LEGACY;
-  }
-
   private Collection<JsMessage> extractMessages(String... js) {
-    try {
-      String sourceCode = Joiner.on("\n").join(js);
-      return new JsMessageExtractor(null, mode)
-          .extractMessages(SourceFile.fromCode("testcode", sourceCode));
-    } catch (IOException e) {
-      assertWithMessage(e.getMessage()).fail();
-      return null;
-    }
+    String sourceCode = Joiner.on("\n").join(js);
+    return new JsMessageExtractor(null)
+        .extractMessages(SourceFile.fromCode("testcode", sourceCode));
   }
 
   private JsMessage extractMessage(String... js) {
@@ -86,31 +69,75 @@ public final class JsMessageExtractorTest {
   public void testExtractNewStyleMessage1() {
     // A simple message with no description.
     assertEquals(
-        new JsMessage.Builder("MSG_SILLY")
+        new JsMessage.Builder()
+            .setKey("MSG_SILLY")
+            .setId("MSG_SILLY")
             .appendStringPart("silly test message")
             .build(),
         extractMessage("var MSG_SILLY = goog.getMsg('silly test message');"));
   }
 
   @Test
+  public void testOriginalCodeAndExampleMaps() {
+    // A message with placeholders and original code annotations.
+    assertEquals(
+        new JsMessage.Builder()
+            .setKey("MSG_WELCOME")
+            .setId("MSG_WELCOME")
+            .appendStringPart("Hi ")
+            .appendJsPlaceholderReference("interpolation_0")
+            .appendStringPart("! Welcome to ")
+            .appendJsPlaceholderReference("interpolation_1")
+            .appendStringPart(".")
+            .setPlaceholderNameToOriginalCodeMap(
+                ImmutableMap.of(
+                    "interpolation_0", "foo.getUserName()",
+                    "interpolation_1", "bar.getProductName()"))
+            .setPlaceholderNameToExampleMap(
+                ImmutableMap.of(
+                    "interpolation_0", "Ginny Weasley",
+                    "interpolation_1", "Google Muggle Finder"))
+            .setDesc("The welcome message.")
+            .build(),
+        extractMessage(
+            "/** @desc The welcome message. */",
+            "var MSG_WELCOME = goog.getMsg(",
+            "    'Hi {$interpolation_0}! Welcome to {$interpolation_1}.',",
+            "    {",
+            "        'interpolation_0': 'magic-string-0',",
+            "        'interpolation_1': 'magic-string-1',",
+            "    },",
+            "    {",
+            "        original_code: {",
+            "            'interpolation_0': 'foo.getUserName()',",
+            "            'interpolation_1': 'bar.getProductName()',",
+            "        },",
+            "        example: {",
+            "            'interpolation_0': 'Ginny Weasley',",
+            "            'interpolation_1': 'Google Muggle Finder',",
+            "        },",
+            "    },",
+            ");"));
+  }
+
+  @Test
   public void testExtractNewStyleMessage2() {
     // A message with placeholders and meta data.
     assertEquals(
-        new JsMessage.Builder("MSG_WELCOME")
+        new JsMessage.Builder()
+            .setKey("MSG_WELCOME")
+            .setId("MSG_WELCOME")
             .appendStringPart("Hi ")
-            .appendPlaceholderReference("userName")
+            .appendJsPlaceholderReference("userName")
             .appendStringPart("! Welcome to ")
-            .appendPlaceholderReference("product")
+            .appendJsPlaceholderReference("product")
             .appendStringPart(".")
             .setDesc("The welcome message.")
-            .setIsHidden(true)
             .build(),
         extractMessage(
             "/**",
             " * @desc The welcome",
             " *   message.",
-            " *",
-            " * @hidden",
             " */",
             "var MSG_WELCOME = goog.getMsg(",
             "    'Hi {$userName}! Welcome to {$product}.',",
@@ -118,115 +145,40 @@ public final class JsMessageExtractorTest {
   }
 
   @Test
-  public void testExtractOldStyleMessage1() {
-    // Description before the message.
-    assertEquals(
-        new JsMessage.Builder("MSG_SILLY")
-            .appendStringPart("silly test message")
-            .setDesc("Description.")
-            .build(),
-        extractMessage(
-            "var MSG_SILLY_HELP = 'Description.';",
-            "var MSG_SILLY = 'silly test message';"));
-  }
-
-  @Test
-  public void testExtractOldStyleMessage2() {
-    // Description after the message, broken into parts.
-    assertEquals(
-        new JsMessage.Builder("MSG_SILLY")
-            .appendStringPart("silly test message")
-            .setDesc("Description.")
-            .build(),
-        extractMessage(
-            "var MSG_SILLY = 'silly test message';",
-            "var MSG_SILLY_HELP = 'Descrip' + 'tion.';"));
-  }
-
-  @Test
-  public void testExtractOldStyleMessage3() {
-    // Function-style message with two placeholders and no description.
-    assertEquals(
-        new JsMessage.Builder("MSG_SILLY")
-            .appendPlaceholderReference("one")
-            .appendStringPart(", ")
-            .appendPlaceholderReference("two")
-            .appendStringPart(", buckle my shoe")
-            .build(),
-        extractMessage(
-            "var MSG_SILLY = function(one, two) {",
-            "  return one + ', ' + two + ', buckle my shoe';",
-            "};"));
-  }
-
-  @Test
-  public void testExtractMixedMessages() {
-    // Several mixed-style messages in succession, one containing newlines.
-    Iterator<JsMessage> msgs = extractMessages(
-        "var MSG_MONEY = function(amount) {",
-        "  return 'You owe $' + amount +",
-        "         ' to the credit card company.';",
-        "};",
-        "var MSG_TIME = goog.getMsg('You need to finish your work in ' +",
-        "                           '{$duration} hours.', {'duration': d});",
-        "var MSG_NAG = 'Clean your room.\\n\\nWash your clothes.';",
-        "var MSG_NAG_HELP = 'Just some ' +",
-        "                   'nags.';").iterator();
-
-    assertEquals(
-        new JsMessage.Builder("MSG_MONEY")
-            .appendStringPart("You owe $")
-            .appendPlaceholderReference("amount")
-            .appendStringPart(" to the credit card company.")
-            .build(),
-        msgs.next());
-    assertEquals(
-        new JsMessage.Builder("MSG_TIME")
-            .appendStringPart("You need to finish your work in ")
-            .appendPlaceholderReference("duration")
-            .appendStringPart(" hours.")
-            .build(),
-        msgs.next());
-    assertEquals(
-        new JsMessage.Builder("MSG_NAG")
-            .appendStringPart("Clean your room.\n\nWash your clothes.")
-            .setDesc("Just some nags.")
-            .build(),
-        msgs.next());
-  }
-
-  @Test
   public void testDuplicateUnnamedVariables() {
     // Make sure that duplicate unnamed variables don't get swallowed when using
     // a Google-specific ID generator.
-    Collection<JsMessage> msgs = extractMessages(
-        "function a() {",
-        "  var MSG_UNNAMED_2 = goog.getMsg('foo');",
-        "}",
-        "function b() {",
-        "  var MSG_UNNAMED_2 = goog.getMsg('bar');",
-        "}");
+    Collection<JsMessage> msgs =
+        extractMessages(
+            "function a() {",
+            "  var MSG_UNNAMED_2 = goog.getMsg('foo');",
+            "}",
+            "function b() {",
+            "  var MSG_UNNAMED_2 = goog.getMsg('bar');",
+            "}");
 
     assertThat(msgs).hasSize(2);
     final Iterator<JsMessage> iter = msgs.iterator();
-    assertThat(iter.next().toString()).isEqualTo("foo");
-    assertThat(iter.next().toString()).isEqualTo("bar");
+    assertThat(iter.next().asJsMessageString()).isEqualTo("foo");
+    assertThat(iter.next().asJsMessageString()).isEqualTo("bar");
   }
 
   @Test
   public void testMeaningAnnotation() {
-    List<JsMessage> msgs = new ArrayList<>(
-        extractMessages(
-            "var MSG_UNNAMED_1 = goog.getMsg('foo');",
-            "var MSG_UNNAMED_2 = goog.getMsg('foo');"));
+    List<JsMessage> msgs =
+        new ArrayList<>(
+            extractMessages(
+                "var MSG_UNNAMED_1 = goog.getMsg('foo');",
+                "var MSG_UNNAMED_2 = goog.getMsg('foo');"));
     assertThat(msgs).hasSize(2);
     assertThat(msgs.get(0).getId()).isEqualTo(msgs.get(1).getId());
     assertEquals(msgs.get(0), msgs.get(1));
 
-    msgs = new ArrayList<>(
-        extractMessages(
-            "var MSG_UNNAMED_1 = goog.getMsg('foo');",
-            "/** @meaning bar */ var MSG_UNNAMED_2 = goog.getMsg('foo');"));
+    msgs =
+        new ArrayList<>(
+            extractMessages(
+                "var MSG_UNNAMED_1 = goog.getMsg('foo');",
+                "/** @meaning bar */ var MSG_UNNAMED_2 = goog.getMsg('foo');"));
     assertThat(msgs).hasSize(2);
     assertThat(msgs.get(0).getId().equals(msgs.get(1).getId())).isFalse();
   }
@@ -234,10 +186,9 @@ public final class JsMessageExtractorTest {
   private void assertEquals(JsMessage expected, JsMessage actual) {
     assertThat(actual.getId()).isEqualTo(expected.getId());
     assertThat(actual.getKey()).isEqualTo(expected.getKey());
-    assertThat(actual.parts()).isEqualTo(expected.parts());
-    assertThat(actual.placeholders()).isEqualTo(expected.placeholders());
+    assertThat(actual.getParts()).isEqualTo(expected.getParts());
+    assertThat(actual.jsPlaceholderNames()).isEqualTo(expected.jsPlaceholderNames());
     assertThat(actual.getDesc()).isEqualTo(expected.getDesc());
-    assertThat(actual.isHidden()).isEqualTo(expected.isHidden());
     assertThat(actual.getMeaning()).isEqualTo(expected.getMeaning());
   }
 }

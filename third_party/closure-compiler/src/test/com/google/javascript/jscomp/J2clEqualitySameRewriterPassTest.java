@@ -24,7 +24,9 @@ import org.junit.runners.JUnit4;
 public class J2clEqualitySameRewriterPassTest extends CompilerTestCase {
   private static final String EXTERN =
       "Equality.$same = function(opt_a, opt_b) {};\n"
-          + "String.m_equals__java_lang_String__java_lang_Object = function(opt_a, opt_b) {};";
+          + "String.m_equals__java_lang_String__java_lang_Object__boolean = function(opt_a,"
+          + " opt_b) {};";
+  ;
 
   private static boolean useTypes;
 
@@ -213,9 +215,9 @@ public class J2clEqualitySameRewriterPassTest extends CompilerTestCase {
   public void testRewriteStringEquals() {
     test(
         LINE_JOINER.join(
-            "String.m_equals__java_lang_String__java_lang_Object('', 0);",
+            "String.m_equals__java_lang_String__java_lang_Object__boolean('', 0);",
             "var a = 'ABC';",
-            "String.m_equals__java_lang_String__java_lang_Object('ABC', a);"),
+            "String.m_equals__java_lang_String__java_lang_Object__boolean('ABC', a);"),
         LINE_JOINER.join(
             "'' === 0;", //
             "var a = 'ABC';",
@@ -228,8 +230,8 @@ public class J2clEqualitySameRewriterPassTest extends CompilerTestCase {
         LINE_JOINER.join(
             "/** @type {?string} */",
             "var b = null;",
-            "String.m_equals__java_lang_String__java_lang_Object(b, null);",
-            "String.m_equals__java_lang_String__java_lang_Object(null, b);",
-            "String.m_equals__java_lang_String__java_lang_Object(c, d);"));
+            "String.m_equals__java_lang_String__java_lang_Object__boolean(b, null);",
+            "String.m_equals__java_lang_String__java_lang_Object__boolean(null, b);",
+            "String.m_equals__java_lang_String__java_lang_Object__boolean(c, d);"));
   }
 }

@@ -18,7 +18,7 @@ package com.google.javascript.jscomp.modules;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.javascript.jscomp.deps.ModuleLoader;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * A map containing information about all modules in the compilation.
@@ -36,13 +36,11 @@ public final class ModuleMap {
     this.resolvedClosureModules = resolvedClosureModules;
   }
 
-  @Nullable
-  public Module getModule(String moduleName) {
+  public @Nullable Module getModule(String moduleName) {
     return resolvedModules.get(moduleName);
   }
 
-  @Nullable
-  public Module getModule(ModuleLoader.ModulePath path) {
+  public @Nullable Module getModule(ModuleLoader.ModulePath path) {
     return getModule(path.toModuleName());
   }
 
@@ -54,8 +52,7 @@ public final class ModuleMap {
     return resolvedClosureModules;
   }
 
-  @Nullable
-  public Module getClosureModule(String namespace) {
+  public @Nullable Module getClosureModule(String namespace) {
     return resolvedClosureModules.get(namespace);
   }
 

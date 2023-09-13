@@ -24,7 +24,7 @@ import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Helper for changing the value of an lvalue in a destructuring pattern. Intended for use by {@link
@@ -33,7 +33,7 @@ import javax.annotation.Nullable;
  * don't generally hold in order to preserve {@link GlobalNamespace} validity and avoid creating
  * temporary variables.
  */
-class DestructuringGlobalNameExtractor {
+final class DestructuringGlobalNameExtractor {
   /**
    * Given an lvalue in a destructuring pattern, and a detached subtree, rewrites the AST to assign
    * the lvalue to the subtree instead of its previous value, while preserving the rest of the
@@ -202,4 +202,6 @@ class DestructuringGlobalNameExtractor {
     }
     return newPattern;
   }
+
+  private DestructuringGlobalNameExtractor() {}
 }

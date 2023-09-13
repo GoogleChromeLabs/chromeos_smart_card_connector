@@ -47,7 +47,7 @@ public final class SourceMapGeneratorV3Test extends SourceMapTestCase {
 
   @Override
   protected Format getSourceMapFormat() {
-    return SourceMap.Format.V3;
+    return Format.V3;
   }
 
   private static String getEncodedFileName() {
@@ -284,7 +284,7 @@ public final class SourceMapGeneratorV3Test extends SourceMapTestCase {
         "/** @preserve\n"
             + " * this is a test.\n"
             + " */\n"
-            + "var foo=a + 'this is a really long line that will force the"
+            + "console.log(a + 'this is a really long line that will force the"
             + " mapping to span multiple lines 123456789 123456789"
             + " 123456789 123456789 123456789 123456789 123456789"
             + " 123456789 123456789 123456789 123456789 123456789"
@@ -310,16 +310,15 @@ public final class SourceMapGeneratorV3Test extends SourceMapTestCase {
             + " 123456789 123456789 123456789 123456789 123456789"
             + " 123456789 123456789 123456789 123456789 123456789"
             + " 123456789 123456789 123456789 123456789 123456789"
-            + "' + c + d + e;",
+            + "' + c + d + e);",
         TestJsonBuilder.create()
             .setVersion(3)
             .setFile("testcode")
             .setLineCount(6)
             .setMappings(
-                "A;;;;aAGA,IAAIA,IAAIC,CAAJD,CAAQ,mxCAARA;AAA8xCE,"
-                    + "CAA9xCF,CAAkyCG,CAAlyCH,CAAsyCI;")
+                "A;;;;aAGAA,OAAQC,CAAAA,GAAR,CAAYC,CAAZ,CAAgB,mxCAAhB;AAAsyCC,CAAtyC,CAA0yCC,CAA1yC,CAA8yCC,CAA9yC;")
             .setSources(getEncodedFileName())
-            .setNames("foo", "a", "c", "d", "e")
+            .setNames("console", "log", "a", "c", "d", "e")
             .build());
 
     detailLevel = SourceMap.DetailLevel.SYMBOLS;
@@ -329,7 +328,7 @@ public final class SourceMapGeneratorV3Test extends SourceMapTestCase {
         "/** @preserve\n"
             + " * this is a test.\n"
             + " */\n"
-            + "var foo=a + 'this is a really long line that will force the"
+            + "console.log(a + 'this is a really long line that will force the"
             + " mapping to span multiple lines 123456789 123456789"
             + " 123456789 123456789 123456789 123456789 123456789"
             + " 123456789 123456789 123456789 123456789 123456789"
@@ -355,14 +354,15 @@ public final class SourceMapGeneratorV3Test extends SourceMapTestCase {
             + " 123456789 123456789 123456789 123456789 123456789"
             + " 123456789 123456789 123456789 123456789 123456789"
             + " 123456789 123456789 123456789 123456789 123456789"
-            + "' + c + d + e;",
+            + "' + c + d + e);",
         TestJsonBuilder.create()
             .setVersion(3)
             .setFile("testcode")
             .setLineCount(6)
-            .setMappings("A;;;;iBAGIA,IAAIC,CAAJD;AAA8xCE,CAA9xCF,CAAkyCG,CAAlyCH,CAAsyCI;")
+            .setMappings(
+                "A;;;;aAGAA,OAAQC,CAAAA,GAAR,CAAYC,CAAZ;AAAsyCC,CAAtyC,CAA0yCC,CAA1yC,CAA8yCC,CAA9yC;")
             .setSources(getEncodedFileName())
-            .setNames("foo", "a", "c", "d", "e")
+            .setNames("console", "log", "a", "c", "d", "e")
             .build());
   }
 
@@ -381,7 +381,7 @@ public final class SourceMapGeneratorV3Test extends SourceMapTestCase {
             .setVersion(3)
             .setFile("testcode")
             .setLineCount(3)
-            .setMappings("A,aAAA,IAAIA,oBAAsB,QAAQC,CAAR;OACnBC,CADmB;OAEnBC,CAFmB;")
+            .setMappings("A,aAAA,IAAIA,oBAAuB,QAAOC,CAAP;OACpBC,CADoB;OAEpBC,CAFoB;")
             .setSources(getEncodedFileName())
             .setNames("myMultilineTemplate", "a", "b", "c")
             .build());
@@ -409,10 +409,11 @@ public final class SourceMapGeneratorV3Test extends SourceMapTestCase {
   public void testWriteMetaMap() throws IOException {
     StringWriter out = new StringWriter();
     String name = "./app.js";
-    List<SourceMapSection> appSections = ImmutableList.of(
-        SourceMapSection.forURL("src1", 0, 0),
-        SourceMapSection.forURL("src2", 100, 10),
-        SourceMapSection.forURL("src3", 150, 5));
+    ImmutableList<SourceMapSection> appSections =
+        ImmutableList.of(
+            SourceMapSection.forURL("src1", 0, 0),
+            SourceMapSection.forURL("src2", 100, 10),
+            SourceMapSection.forURL("src3", 150, 5));
 
     SourceMapGeneratorV3 generator = new SourceMapGeneratorV3();
     generator.appendIndexMapTo(out, name, appSections);
@@ -458,10 +459,11 @@ public final class SourceMapGeneratorV3Test extends SourceMapTestCase {
   public void testWriteMetaMap2() throws IOException {
     StringWriter out = new StringWriter();
     String name = "./app.js";
-    List<SourceMapSection> appSections = ImmutableList.of(
-        // Map and URLs can be mixed.
-        SourceMapSection.forMap(getEmptyMapFor("./part.js"), 0, 0),
-        SourceMapSection.forURL("src2", 100, 10));
+    ImmutableList<SourceMapSection> appSections =
+        ImmutableList.of(
+            // Map and URLs can be mixed.
+            SourceMapSection.forMap(getEmptyMapFor("./part.js"), 0, 0),
+            SourceMapSection.forURL("src2", 100, 10));
 
     SourceMapGeneratorV3 generator = new SourceMapGeneratorV3();
     generator.appendIndexMapTo(out, name, appSections);

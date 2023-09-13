@@ -65,9 +65,8 @@ class UnreachableCodeElimination implements CompilerPass {
     @Override
     public void enterChangedScopeRoot(AbstractCompiler compiler, Node root) {
       // Computes the control flow graph.
-      ControlFlowAnalysis cfa = new ControlFlowAnalysis(compiler, false, false);
-      cfa.process(null, root);
-      ControlFlowGraph<Node> cfg = cfa.getCfg();
+      ControlFlowGraph<Node> cfg =
+          ControlFlowAnalysis.builder().setCompiler(compiler).setCfgRoot(root).computeCfg();
       new GraphReachability<>(cfg).compute(cfg.getEntry().getValue());
       if (root.isFunction()) {
         root = root.getLastChild();
@@ -92,8 +91,8 @@ class UnreachableCodeElimination implements CompilerPass {
         return true;
       } else if (n.isExport()) {
         // TODO(b/129564961): We should be exploring EXPORTs. We don't because their descendants
-        // have side-effects that `NodeUtil::mayHaveSideEffects` doesn't recognize. Since this pass
-        // currently runs after exports are removed anyway, this isn't yet an issue.
+        // have side-effects that `AstAnalyzer.mayHaveSideEffects` doesn't recognize. Since this
+        // pass currently runs after exports are removed anyway, this isn't yet an issue.
         return false;
       } else if (parent.isFunction()) {
         // We only want to traverse the name of a function.

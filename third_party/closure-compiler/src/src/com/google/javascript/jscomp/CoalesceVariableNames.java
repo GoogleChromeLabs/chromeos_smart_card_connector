@@ -25,8 +25,6 @@ import com.google.javascript.jscomp.AbstractCompiler.LifeCycleStage;
 import com.google.javascript.jscomp.ControlFlowGraph.Branch;
 import com.google.javascript.jscomp.DataFlowAnalysis.LinearFlowState;
 import com.google.javascript.jscomp.LiveVariablesAnalysis.LiveVariableLattice;
-import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
-import com.google.javascript.jscomp.NodeTraversal.ScopedCallback;
 import com.google.javascript.jscomp.NodeUtil.AllVarsDeclaredInFunction;
 import com.google.javascript.jscomp.graph.DiGraph.DiGraphNode;
 import com.google.javascript.jscomp.graph.GraphColoring;
@@ -47,13 +45,20 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Reuse variable names if possible.
  *
- * <p>For example, from <code>var x = 1; print(x); var y = 2; print(y); </code>
- * to <code>var x = 1; print(x); x = 2; print(x)</code>. The benefits are
- * slightly shorter code because of the removed <code>var<code> declaration,
+ * <p>For example, from
+ * <pre>
+ * <code>var x = 1; print(x); var y = 2; print(y); </code>
+ * </pre>
+ * to
+ * <pre>
+ * <code>var x = 1; print(x); x = 2; print(x)</code>
+ * </pre>
+ * The benefits are slightly shorter code because of the removed <code>var<code> declaration,
  * less unique variables in hope for better renaming, and finally better gzip
  * compression.
  *
@@ -63,8 +68,7 @@ import java.util.TreeSet;
  * graph coloring in {@link GraphColoring} to determine which two variables can
  * be merge together safely.
  */
-class CoalesceVariableNames extends AbstractPostOrderCallback
-    implements CompilerPass, ScopedCallback {
+class CoalesceVariableNames extends NodeTraversal.AbstractCfgCallback implements CompilerPass {
 
   private final AbstractCompiler compiler;
   private final MemoizedScopeCreator scopeCreator;
@@ -111,7 +115,7 @@ class CoalesceVariableNames extends AbstractPostOrderCallback
   }
 
   /** Returns populated AllVarsDeclaredInFunction object iff shouldOptimizeScope is true. */
-  private static AllVarsDeclaredInFunction shouldOptimizeScope(NodeTraversal t) {
+  private static @Nullable AllVarsDeclaredInFunction shouldOptimizeScope(NodeTraversal t) {
     // TODO(user): We CAN do this in the global scope, just need to be
     // careful when something is exported. Liveness uses bit-vector for live
     // sets so I don't see compilation time will be a problem for running this
@@ -130,7 +134,7 @@ class CoalesceVariableNames extends AbstractPostOrderCallback
   }
 
   @Override
-  public void enterScope(NodeTraversal t) {
+  public void enterScopeWithCfg(NodeTraversal t) {
     AllVarsDeclaredInFunction allVarsDeclaredInFunction = shouldOptimizeScope(t);
     if (allVarsDeclaredInFunction == null) {
       shouldOptimizeScopeStack.push(false);
@@ -142,7 +146,7 @@ class CoalesceVariableNames extends AbstractPostOrderCallback
     checkState(scope.isFunctionScope(), scope);
 
     // live variables analysis is based off of the control flow graph
-    ControlFlowGraph<Node> cfg = t.getControlFlowGraph();
+    ControlFlowGraph<Node> cfg = getControlFlowGraph(compiler);
 
     liveness =
         new LiveVariablesAnalysis(
@@ -177,7 +181,7 @@ class CoalesceVariableNames extends AbstractPostOrderCallback
   }
 
   @Override
-  public void exitScope(NodeTraversal t) {
+  public void exitScopeWithCfg(NodeTraversal t) {
     if (!shouldOptimizeScopeStack.pop()) {
       return;
     }
@@ -226,7 +230,7 @@ class CoalesceVariableNames extends AbstractPostOrderCallback
         // Look for all the variables that can be merged (in the graph by now)
         // and it is merged with the current coalescedVar.
         if (colorings.peek().getGraph().getNode(iVar) != null
-            && coalescedVar.equals(colorings.peek().getPartitionSuperNode(iVar))) {
+            && colorings.peek().haveSameColor(iVar, coalescedVar)) {
           allMergedNames.add(iVar.getName());
         }
       }
@@ -266,7 +270,6 @@ class CoalesceVariableNames extends AbstractPostOrderCallback
    * that ensures any interfering variables are marked in different color groups, while variables
    * that can safely be coalesced are assigned the same color group.
    *
-   * @param cfg
    * @param escaped we don't want to coalesce any escaped variables
    * @return graph with variable nodes and edges representing variable interference
    */
@@ -397,7 +400,10 @@ class CoalesceVariableNames extends AbstractPostOrderCallback
       case CONST:
       case VAR:
         Node nameDecl = NodeUtil.getEnclosingNode(v.getNode(), NodeUtil::isNameDeclaration);
-        return NodeUtil.findLhsNodesInNode(nameDecl).size() > 1;
+
+        int[] count = {0}; // for lambda access
+        NodeUtil.visitLhsNodesInNode(nameDecl, (lhs) -> count[0]++);
+        return count[0] > 1;
       default:
         return false;
     }
@@ -450,6 +456,8 @@ class CoalesceVariableNames extends AbstractPostOrderCallback
       } else {
         // convert `let x;` to ``
         // and `for (let x;;) {}` to `for (;;) {}`
+        // We can expect uninitialized declarations at this point and it's okay to remove them
+        // and they've been coalesced with another declaration.
         NodeUtil.removeChild(parent, var);
       }
     }

@@ -17,7 +17,7 @@ package com.google.javascript.jscomp;
 
 import com.google.javascript.jscomp.base.Tri;
 import java.io.Serializable;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Class that allows to flexibly manage what to do with a reported warning/error.
@@ -67,8 +67,7 @@ public abstract class WarningsGuard implements Serializable {
    * @param error a reported error.
    * @return what level given error should have.
    */
-  @Nullable
-  public abstract CheckLevel level(JSError error);
+  public abstract @Nullable CheckLevel level(JSError error);
 
   /**
    * Do checks for `group` still need to be run if this guard is installed?

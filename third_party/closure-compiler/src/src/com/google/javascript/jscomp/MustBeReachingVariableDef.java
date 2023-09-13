@@ -30,7 +30,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Computes must-be-reaching definition for all uses of each variable.
@@ -466,6 +466,7 @@ final class MustBeReachingVariableDef
     return state.getIn().reachingDef.get(allVarsInFn.get(name));
   }
 
+  @Nullable
   Node getDefNode(String name, Node useNode) {
     Definition def = getDef(name, useNode);
     return def == null ? null : def.node;

@@ -18,7 +18,6 @@ package com.google.javascript.jscomp.serialization;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.javascript.jscomp.CompilerTestCase.lines;
 import static java.util.Arrays.stream;
 
@@ -62,14 +61,14 @@ public final class SerializeTypesToPointersTest {
 
     assertThat(serializer.getTypePointersByJstype()).containsKey(fooCtorType);
 
-    TypePointer fooCtorPointer = serializer.getTypePointersByJstype().get(fooCtorType);
+    int fooCtorPointer = serializer.getTypePointersByJstype().get(fooCtorType);
     assertThat(
             serializer
                 .getTypePool()
                 .getType(TypePointers.trimOffset(fooCtorPointer))
                 .getObject()
-                .getDebugInfo())
-        .isEqualTo(ObjectTypeProto.DebugInfo.newBuilder().addTypename("(typeof Foo)").build());
+                .getMarkedConstructor())
+        .isTrue();
   }
 
   @Test
@@ -83,7 +82,7 @@ public final class SerializeTypesToPointersTest {
     serializer.gatherTypesOnAst(src);
 
     assertThat(serializer.getTypePointersByJstype()).containsKey(fooPrototypeType);
-    TypePointer fooPrototypePointer = serializer.getTypePointersByJstype().get(fooPrototypeType);
+    int fooPrototypePointer = serializer.getTypePointersByJstype().get(fooPrototypeType);
     assertThat(
             serializer
                 .getTypePool()
@@ -107,7 +106,7 @@ public final class SerializeTypesToPointersTest {
     serializer.gatherTypesOnAst(root);
 
     assertThat(serializer.getTypePointersByJstype()).containsKey(fooPrototypeType);
-    TypePointer fooPrototypePointer = serializer.getTypePointersByJstype().get(fooPrototypeType);
+    int fooPrototypePointer = serializer.getTypePointersByJstype().get(fooPrototypeType);
     assertThat(
             serializer
                 .getTypePool()
@@ -135,7 +134,7 @@ public final class SerializeTypesToPointersTest {
     serializer.gatherTypesOnAst(root);
 
     assertThat(serializer.getTypePointersByJstype()).containsKey(fooPrototypeType);
-    TypePointer fooPrototypePointer = serializer.getTypePointersByJstype().get(fooPrototypeType);
+    int fooPrototypePointer = serializer.getTypePointersByJstype().get(fooPrototypeType);
     assertThat(
             serializer
                 .getTypePool()

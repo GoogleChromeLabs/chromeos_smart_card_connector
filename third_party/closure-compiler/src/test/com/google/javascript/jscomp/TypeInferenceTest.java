@@ -79,12 +79,26 @@ import com.google.javascript.rhino.testing.TypeSubject;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import org.jspecify.nullness.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests {@link TypeInference}. */
+/**
+ * Tests {@link TypeInference}.
+ *
+ * <p>These unit tests don't test the full type inference that happens in a normal compilation. This
+ * is because a normal compilation creates many instances of the {@link TypeInference} class. More
+ * precisely, one instance is created for every scope that is a valid root of a control-flow graph
+ * (as defined by {@link NodeUtil#isValidCfgRoot(Node)} such as, for example, functions.
+ *
+ * <p>These unit tests only ever create a single {@link TypeInference} instance. That means: these
+ * unit tests ignore any code nested within a function.
+ *
+ * <p>To write tests that more fully model the typechecking in a full compilation, which visits
+ * every function body, use {@link TypedScopeCreatorTest} or {@link TypeCheckTest}.
+ */
 @RunWith(JUnit4.class)
 public final class TypeInferenceTest {
 
@@ -93,7 +107,7 @@ public final class TypeInferenceTest {
   private JSTypeResolver.Closer closer;
   private Map<String, JSType> assumptions;
   private JSType assumedThisType;
-  private FlowScope returnScope;
+  private @Nullable FlowScope returnScope;
   private static final AssertionFunctionLookup ASSERTION_FUNCTION_MAP =
       AssertionFunctionLookup.of(new ClosureCodingConvention().getAssertionFunctions());
 
@@ -142,12 +156,22 @@ public final class TypeInferenceTest {
     assuming(name, registry.getNativeType(type));
   }
 
+  /**
+   * Runs an instance of TypeInference over the given code after wrapping it in a function.
+   *
+   * <p>Does not visit any nested functions.
+   */
   private void inFunction(String js) {
     // Parse the body of the function.
     String thisBlock = assumedThisType == null ? "" : "/** @this {" + assumedThisType + "} */";
     parseAndRunTypeInference("(" + thisBlock + " function() {" + js + "});");
   }
 
+  /**
+   * Runs an instance of TypeInference over the given code.
+   *
+   * <p>Does not visit any nested functions.
+   */
   private void inScript(String js) {
     Node script = compiler.parseTestCode(js);
     assertWithMessage("parsing error: " + Joiner.on(", ").join(compiler.getErrors()))
@@ -162,6 +186,11 @@ public final class TypeInferenceTest {
     parseAndRunTypeInference(root, root);
   }
 
+  /**
+   * Runs an instance of TypeInference over the given code after wrapping it in a generator.
+   *
+   * <p>Does not visit any nested functions.
+   */
   private void inGenerator(String js) {
     checkState(assumedThisType == null);
     parseAndRunTypeInference("(function *() {" + js + "});");
@@ -245,9 +274,13 @@ public final class TypeInferenceTest {
     }
     scopeCreator.finishAndFreeze();
     // Create the control graph.
-    ControlFlowAnalysis cfa = new ControlFlowAnalysis(compiler, false, true);
-    cfa.process(null, cfgRoot);
-    ControlFlowGraph<Node> cfg = cfa.getCfg();
+    ControlFlowGraph<Node> cfg =
+        ControlFlowAnalysis.builder()
+            .setCompiler(compiler)
+            .setCfgRoot(cfgRoot)
+            .setTraverseFunctions(true)
+            .setIncludeEdgeAnnotations(true)
+            .computeCfg();
     // Create a simple reverse abstract interpreter.
     ReverseAbstractInterpreter rai = compiler.getReverseAbstractInterpreter();
     // Do the type inference by data-flow analysis.
@@ -379,7 +412,7 @@ public final class TypeInferenceTest {
 
   /** Returns a record type with a field `fieldName` and JSType specified by `fieldType`. */
   private JSType createRecordType(String fieldName, JSType fieldType) {
-    Map<String, JSType> property = ImmutableMap.of(fieldName, fieldType);
+    ImmutableMap<String, JSType> property = ImmutableMap.of(fieldName, fieldType);
     return registry.createRecordType(property);
   }
 
@@ -2575,7 +2608,7 @@ public final class TypeInferenceTest {
   }
 
   @Test
-  public void testClassFieldsInControlFlow() {
+  public void testComputedClassFieldsInControlFlow() {
     // Based on the class semantics, the static RHS expressions only execute after all of the
     // computed properties, so `y` will get the string value rather than the boolean here.
     inFunction(
@@ -2586,6 +2619,78 @@ public final class TypeInferenceTest {
             "  [y = false] = [y = null];",
             "}"));
     verify("y", STRING_TYPE);
+  }
+
+  @Test
+  public void testClassFieldsInControlFlow() {
+    inFunction(
+        lines(
+            "let y;", //
+            "class Foo {",
+            "  static y = (y = '');",
+            "  z = [y = null];",
+            "}"));
+    verify("y", STRING_TYPE);
+  }
+
+  @Test
+  public void testThisTypeAfterMemberField() {
+    JSType thisType = createRecordType("x", STRING_TYPE);
+    assumingThisType(thisType);
+    inFunction(
+        lines(
+            "let thisDotX;", //
+            "(class C {",
+            "  /** @type {number} */",
+            "  static x = 0;",
+            "}, thisDotX = this.x);"));
+    verify("thisDotX", STRING_TYPE);
+  }
+
+  @Test
+  public void testFunction() {
+    // should verify y as string, but due to function-rooted CFG
+    // being detached from larger, root CFG, verifies y as void
+    inScript(
+        lines(
+            "let y;", //
+            "function foo() {",
+            "  y = 'hi';",
+            "}",
+            "foo();"));
+    verify("y", VOID_TYPE);
+  }
+
+  @Test
+  public void testClassStaticBlock() {
+    // should verify y as string, but due to static block-rooted CFG
+    // being detached from larger, root CFG, verifies y as void
+    inScript(
+        lines(
+            "let y;", //
+            "class Foo {",
+            "  static {",
+            "    y = 'hi';",
+            "  }",
+            "}"));
+    verify("y", VOID_TYPE);
+  }
+
+  @Test
+  public void testSuper() {
+    // does not infer super
+    inScript(
+        lines(
+            "class Foo {", //
+            "  static str;",
+            "}",
+            "class Bar extends Foo {",
+            "  static {",
+            "    super.str = 'hi';",
+            "  }",
+            "}",
+            "let x = Bar.str;"));
+    verify("x", ALL_TYPE);
   }
 
   @Test
@@ -3716,6 +3821,27 @@ public final class TypeInferenceTest {
   }
 
   @Test
+  public void testObjectLiteralNoSideEffect() {
+    // Repro for b/260837012.
+    inFunction(
+        lines(
+            "  for (let x = 0; x < 3; x++) {",
+            "    obj = {",
+            "      data: {tipsMetadata: ''},",
+            "      ...{}",
+            "    };",
+            "  }"));
+    assertWithMessage("Type inference must not alter OBJECT_TYPE.")
+        .that(registry.getNativeObjectType(JSTypeNative.OBJECT_TYPE).hasOwnProperty("data"))
+        .isFalse();
+    // Check that the inferred type of 'obj' has a property 'data' associated with it.
+    assertWithMessage("Cannot resolve type of 'obj'").that(getType("obj")).isNotNull();
+    assertWithMessage("Expect property 'data' to be defined on 'obj'")
+        .that(registry.canPropertyBeDefined(getType("obj"), "data"))
+        .isNotEqualTo(JSTypeRegistry.PropDefinitionKind.UNKNOWN);
+  }
+
+  @Test
   public void testArrayDestructuringDeclaration() {
     inFunction(
         lines(
@@ -3989,6 +4115,18 @@ public final class TypeInferenceTest {
     assertType(getType("foo"))
         .toStringIsEqualTo(
             "Promise<{\n" + "  Bar: function(): string,\n" + "  default: number\n" + "}>");
+  }
+
+  @Test
+  public void testRequireDynamic() {
+    withModules(
+        ImmutableList.of(
+            "goog.module('foo'); exports.barFunc = function Bar() { return 'bar'; };",
+            "const f = goog.requireDynamic('foo');",
+            "const e = goog.require('foo');"));
+
+    assertType(getType("f")).toStringIsEqualTo("IThenable<{barFunc: function(): ?}>");
+    assertType(getType("e")).toStringIsEqualTo("{barFunc: function(): ?}");
   }
 
   @Test

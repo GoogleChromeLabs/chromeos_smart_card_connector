@@ -35,6 +35,7 @@ import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import com.google.javascript.rhino.jstype.JSTypeResolver;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import org.jspecify.nullness.Nullable;
 
 /** A compiler pass to run the type inference analysis. */
 class TypeInferencePass {
@@ -47,7 +48,7 @@ class TypeInferencePass {
   private final AssertionFunctionLookup assertionFunctionLookup;
 
   // (stepCount, Token) -> populationCount
-  private final LinkedHashMap<Integer, HashMultiset<Token>> stepCountHistogram;
+  private final @Nullable LinkedHashMap<Integer, HashMultiset<Token>> stepCountHistogram;
 
   TypeInferencePass(
       AbstractCompiler compiler,
@@ -188,7 +189,7 @@ class TypeInferencePass {
       // This ensures that incremental compilation only touches the root
       // that's been swapped out.
       TypedScope scope = t.getTypedScope();
-      if (!scope.isBlockScope() && !scope.isModuleScope()) {
+      if (scope.isCfgRootScope() && !scope.isModuleScope()) {
         // ignore scopes that don't have their own CFGs and module scopes, which are visited
         // as if they were a regular script.
         inferScope(t.getCurrentNode(), scope);
@@ -202,10 +203,10 @@ class TypeInferencePass {
   }
 
   private ControlFlowGraph<Node> computeCfg(Node n) {
-    ControlFlowAnalysis cfa =
-        new ControlFlowAnalysis(
-            compiler, /* shouldTraverseFunctions= */ false, /* edgeAnnotations= */ true);
-    cfa.process(null, n);
-    return cfa.getCfg();
+    return ControlFlowAnalysis.builder()
+        .setCompiler(compiler)
+        .setCfgRoot(n)
+        .setIncludeEdgeAnnotations(true)
+        .computeCfg();
   }
 }

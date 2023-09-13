@@ -17,26 +17,40 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.javascript.jscomp.AstFactory.type;
-import static com.google.javascript.jscomp.Es6ToEs3Util.CANNOT_CONVERT;
 
+import com.google.common.base.Preconditions;
 import com.google.javascript.jscomp.ExpressionDecomposer.DecompositionType;
+import com.google.javascript.jscomp.colors.StandardColors;
 import com.google.javascript.jscomp.deps.ModuleNames;
-import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Extracts ES6 classes defined in function calls to local constants.
  *
- * <p>Example: Before: <code>foo(class { constructor() {} });</code> After: <code>
+ * <p>Example: Before:
+ *
+ * <pre>
+ * <code>
+ *   foo(class { constructor() {} });
+ * </code>
+ * </pre>
+ *
+ * After:
+ *
+ * <pre>
+ * <code>
  *   const $jscomp$classdecl$var0 = class { constructor() {} };
  *   foo($jscomp$classdecl$var0);
  * </code>
+ * </pre>
  *
  * <p>This must be done before {@link Es6RewriteClass}, because that pass only handles classes that
  * are declarations or simple assignments.
@@ -52,7 +66,6 @@ public final class Es6ExtractClasses extends NodeTraversal.AbstractPostOrderCall
   private final AstFactory astFactory;
   private final ExpressionDecomposer expressionDecomposer;
   private int classDeclVarCounter = 0;
-  private static final FeatureSet features = FeatureSet.BARE_MINIMUM.with(Feature.CLASSES);
 
   Es6ExtractClasses(AbstractCompiler compiler) {
     this.compiler = compiler;
@@ -62,10 +75,14 @@ public final class Es6ExtractClasses extends NodeTraversal.AbstractPostOrderCall
 
   @Override
   public void process(Node externs, Node root) {
-    TranspilationPasses.processTranspile(
-        compiler, externs, features, this, new SelfReferenceRewriter());
-    TranspilationPasses.processTranspile(
-        compiler, root, features, this, new SelfReferenceRewriter());
+    if (compiler.getAllowableFeatures().contains(Feature.ARROW_FUNCTIONS)) {
+      // Normalize hasn't run yet if class transpilation is forced. Normalize arrows here to make
+      // sure class extraction generates legitimate code (b/262387538).
+      // TODO(b/197349249): Remove once b/197349249 is fixed.
+      NodeTraversal.traverse(compiler, root, new NormalizeArrows());
+    }
+    NodeTraversal.traverseRoots(compiler, this, externs, root);
+    NodeTraversal.traverseRoots(compiler, new SelfReferenceRewriter(), externs, root);
   }
 
   @Override
@@ -77,8 +94,8 @@ public final class Es6ExtractClasses extends NodeTraversal.AbstractPostOrderCall
 
   private class SelfReferenceRewriter implements NodeTraversal.Callback {
     private class ClassDescription {
-      Node nameNode;
-      String outerName;
+      final Node nameNode;
+      final String outerName;
 
       ClassDescription(Node nameNode, String outerName) {
         this.nameNode = nameNode;
@@ -135,6 +152,36 @@ public final class Es6ExtractClasses extends NodeTraversal.AbstractPostOrderCall
     }
   }
 
+  private final class NormalizeArrows extends NodeTraversal.AbstractPostOrderCallback {
+
+    @Override
+    public void visit(NodeTraversal t, Node n, @Nullable Node parent) {
+      switch (n.getToken()) {
+        case FUNCTION:
+          visitFunction(n);
+          break;
+        default:
+          break;
+      }
+    }
+
+    /**
+     * Rewrite blockless arrow functions to have a block with a single return statement.
+     *
+     * <p>For example: {@code (x) => x} becomes {@code (x) => { return x; }}.
+     */
+    void visitFunction(Node n) {
+      checkState(n.isFunction(), n);
+      if (n.isFunction() && !NodeUtil.getFunctionBody(n).isBlock()) {
+        Node returnValue = NodeUtil.getFunctionBody(n);
+        Node body = IR.block(IR.returnNode(returnValue.detach()));
+        body.srcrefTreeIfMissing(returnValue);
+        n.addChildToBack(body);
+        compiler.reportChangeToEnclosingScope(body);
+      }
+    }
+  }
+
   private boolean shouldExtractClass(Node classNode) {
     Node parent = classNode.getParent();
     boolean isAnonymous = classNode.getFirstChild().isEmpty();
@@ -149,12 +196,40 @@ public final class Es6ExtractClasses extends NodeTraversal.AbstractPostOrderCall
     }
 
     if (expressionDecomposer.canExposeExpression(classNode) == DecompositionType.UNDECOMPOSABLE) {
-      compiler.report(
-          JSError.make(classNode, CANNOT_CONVERT, "class expression that cannot be extracted"));
-      return false;
+      // When class is undecomposable, we can make it decomposable (and therefore extractable) by
+      // wrapping it inside an IIFE. This is not needed for already movable/decomposable classes.
+      wrapClassDefInsideIIFE(classNode, parent);
     }
 
     return true;
+  }
+
+  /**
+   * Wraps any class definition into an IIFE.
+   *
+   * <p>Example:
+   *
+   * <pre>{@code
+   * function foo(x = class A {}) {}
+   *
+   * }</pre>
+   *
+   * turns into:
+   *
+   * <pre>{@code
+   * function foo(x = (() => { return class A {};})()) {}
+   *
+   * }</pre>
+   */
+  private void wrapClassDefInsideIIFE(Node n, Node parent) {
+    Preconditions.checkState(n.isClass());
+    Node returnBlock = astFactory.createBlock(astFactory.createReturn(n.detach())).srcref(n);
+    Node arrowFn = IR.arrowFunction(IR.name(""), IR.paramList(), returnBlock).srcref(n);
+    arrowFn.setColor(StandardColors.UNKNOWN);
+    Node iife = astFactory.createCallWithUnknownType(arrowFn).srcrefTreeIfMissing(n);
+    parent.addChildToBack(iife);
+    NodeUtil.addFeatureToScript(NodeUtil.getEnclosingScript(n), Feature.ARROW_FUNCTIONS, compiler);
+    compiler.reportChangeToEnclosingScope(iife);
   }
 
   private void extractClass(NodeTraversal t, Node classNode) {
@@ -170,7 +245,7 @@ public final class Es6ExtractClasses extends NodeTraversal.AbstractPostOrderCall
 
     Node statement = NodeUtil.getEnclosingStatement(parent);
     // class name node used as LHS in newly created assignment
-    Node classNameLhs = astFactory.createName(name, type(classNode));
+    Node classNameLhs = astFactory.createConstantName(name, type(classNode));
     // class name node that replaces the class literal in the original statement
     Node classNameRhs = classNameLhs.cloneTree();
     classNode.replaceWith(classNameRhs);
@@ -218,11 +293,7 @@ public final class Es6ExtractClasses extends NodeTraversal.AbstractPostOrderCall
     compiler.reportChangeToEnclosingScope(classDeclaration);
   }
 
-  /**
-   * Add at-constructor to the JSDoc of the given node.
-   *
-   * @param node
-   */
+  /** Add at-constructor to the JSDoc of the given node. */
   private void addAtConstructor(Node node) {
     JSDocInfo.Builder builder = JSDocInfo.Builder.maybeCopyFrom(node.getJSDocInfo());
     builder.recordConstructor();

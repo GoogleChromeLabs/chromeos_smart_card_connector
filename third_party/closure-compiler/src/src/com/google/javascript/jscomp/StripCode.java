@@ -30,7 +30,7 @@ import java.util.IdentityHashMap;
 import java.util.Locale;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * A pass for stripping a list of provided JavaScript object types.
@@ -834,15 +834,21 @@ class StripCode implements CompilerPass {
     }
 
     private void logNotAStripName(String name, String reason) {
-      decisionsLog.log(() -> name + "\tnot a strip name: " + reason);
+      if (decisionsLog.isLogging()) {
+        decisionsLog.log(() -> name + "\tnot a strip name: " + reason);
+      }
     }
 
     private void logStripName(String name, String reason) {
-      decisionsLog.log(() -> name + "\tstrip name: " + reason);
+      if (decisionsLog.isLogging()) {
+        decisionsLog.log(() -> name + "\tstrip name: " + reason);
+      }
     }
 
     private void logStripName(String name, Supplier<String> reasonSupplier) {
-      decisionsLog.log(() -> name + "\tstrip name: " + reasonSupplier.get());
+      if (decisionsLog.isLogging()) {
+        decisionsLog.log(() -> name + "\tstrip name: " + reasonSupplier.get());
+      }
     }
 
     /**

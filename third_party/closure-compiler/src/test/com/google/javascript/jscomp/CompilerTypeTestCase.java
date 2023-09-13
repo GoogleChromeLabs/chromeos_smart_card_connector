@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -77,7 +76,7 @@ abstract class CompilerTypeTestCase {
   /**
    * A default set of externs for testing.
    *
-   * TODO(bradfordcsmith): Replace this with externs built by TestExternsBuilder.
+   * <p>TODO(bradfordcsmith): Replace this with externs built by TestExternsBuilder.
    */
   static final String DEFAULT_EXTERNS = CompilerTestCase.DEFAULT_EXTERNS;
 
@@ -89,12 +88,9 @@ abstract class CompilerTypeTestCase {
     CompilerOptions options = new CompilerOptions();
     options.setCodingConvention(getCodingConvention());
     options.setLanguage(LanguageMode.UNSUPPORTED);
-    options.setWarningLevel(
-        DiagnosticGroups.MISSING_PROPERTIES, CheckLevel.WARNING);
-    options.setWarningLevel(
-        DiagnosticGroups.MISPLACED_TYPE_ANNOTATION, CheckLevel.WARNING);
-    options.setWarningLevel(
-        DiagnosticGroups.INVALID_CASTS, CheckLevel.WARNING);
+    options.setWarningLevel(DiagnosticGroups.MISSING_PROPERTIES, CheckLevel.WARNING);
+    options.setWarningLevel(DiagnosticGroups.MISPLACED_TYPE_ANNOTATION, CheckLevel.WARNING);
+    options.setWarningLevel(DiagnosticGroups.INVALID_CASTS, CheckLevel.WARNING);
     options.setWarningLevel(DiagnosticGroups.LINT_CHECKS, CheckLevel.WARNING);
     options.setWarningLevel(DiagnosticGroups.JSDOC_MISSING_TYPE, CheckLevel.WARNING);
     options.setWarningLevel(DiagnosticGroups.BOUNDED_GENERICS, CheckLevel.WARNING);
@@ -139,7 +135,7 @@ abstract class CompilerTypeTestCase {
   protected void initializeNewCompiler(CompilerOptions options) {
     compiler = new Compiler();
     compiler.initOptions(options);
-    compiler.setFeatureSet(compiler.getFeatureSet().without(Feature.MODULES));
+    compiler.markFeatureNotAllowed(Feature.MODULES);
     registry = compiler.getTypeRegistry();
   }
 
@@ -198,6 +194,10 @@ abstract class CompilerTypeTestCase {
 
   protected ObjectType getNativeArrayType() {
     return getNativeObjectType(JSTypeNative.ARRAY_TYPE);
+  }
+
+  protected ObjectType getNativeReadonlyArrayType() {
+    return getNativeObjectType(JSTypeNative.READONLY_ARRAY_TYPE);
   }
 
   protected ObjectType getNativeStringObjectType() {

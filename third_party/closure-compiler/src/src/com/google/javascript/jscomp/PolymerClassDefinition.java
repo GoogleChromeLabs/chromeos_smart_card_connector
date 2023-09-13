@@ -36,7 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Parsed Polymer class (element) definition. Includes convenient fields for rewriting the class.
@@ -66,7 +66,7 @@ final class PolymerClassDefinition {
   final MemberDefinition constructor;
 
   /** The name of the native HTML element which this element extends. */
-  @Nullable final String nativeBaseElement;
+  final @Nullable String nativeBaseElement;
 
   /** Properties declared in the Polymer "properties" block. */
   final List<MemberDefinition> props;
@@ -75,15 +75,15 @@ final class PolymerClassDefinition {
   final Map<MemberDefinition, BehaviorDefinition> behaviorProps;
 
   /** Methods on the element. */
-  @Nullable final List<MemberDefinition> methods;
+  final @Nullable List<MemberDefinition> methods;
 
   /** Flattened list of behavior definitions used by this element. */
-  @Nullable final ImmutableList<BehaviorDefinition> behaviors;
+  final @Nullable ImmutableList<BehaviorDefinition> behaviors;
 
   /** Language features that should be carried over to the extraction destination. */
-  @Nullable final FeatureSet features;
+  final @Nullable FeatureSet features;
 
-  private String interfaceName = null;
+  private @Nullable String interfaceName = null;
 
   PolymerClassDefinition(
       DefinitionType defType,
@@ -93,12 +93,12 @@ final class PolymerClassDefinition {
       Node descriptor,
       JSDocInfo classInfo,
       MemberDefinition constructor,
-      String nativeBaseElement,
+      @Nullable String nativeBaseElement,
       List<MemberDefinition> props,
-      Map<MemberDefinition, BehaviorDefinition> behaviorProps,
+      @Nullable Map<MemberDefinition, BehaviorDefinition> behaviorProps,
       List<MemberDefinition> methods,
-      ImmutableList<BehaviorDefinition> behaviors,
-      FeatureSet features) {
+      @Nullable ImmutableList<BehaviorDefinition> behaviors,
+      @Nullable FeatureSet features) {
     this.defType = defType;
     this.definition = definition;
     this.target = target;
@@ -118,8 +118,7 @@ final class PolymerClassDefinition {
    * Validates the class definition and if valid, destructively extracts the class definition from
    * the AST.
    */
-  @Nullable
-  static PolymerClassDefinition extractFromCallNode(
+  static @Nullable PolymerClassDefinition extractFromCallNode(
       Node callNode,
       AbstractCompiler compiler,
       ModuleMetadata moduleMetadata,
@@ -195,11 +194,7 @@ final class PolymerClassDefinition {
     overwriteMembersIfPresent(
         properties,
         PolymerPassStaticUtils.extractProperties(
-            descriptor,
-            DefinitionType.ObjectLiteral,
-            compiler,
-            /** constructor= */
-            null));
+            descriptor, DefinitionType.ObjectLiteral, compiler, /* constructor= */ null));
 
     // Behaviors might get included multiple times for the same element. See test case
     // testDuplicatedBehaviorsAreCopiedOnce
@@ -289,8 +284,7 @@ final class PolymerClassDefinition {
    * Validates the class definition and if valid, extracts the class definition from the AST. As
    * opposed to the Polymer 1 extraction, this operation is non-destructive.
    */
-  @Nullable
-  static PolymerClassDefinition extractFromClassNode(
+  static @Nullable PolymerClassDefinition extractFromClassNode(
       Node classNode, AbstractCompiler compiler, GlobalNamespace globalNames) {
     checkState(classNode != null && classNode.isClass());
 
@@ -344,7 +338,7 @@ final class PolymerClassDefinition {
       ctorInfo = NodeUtil.getBestJSDocInfo(constructor);
     }
 
-    List<MemberDefinition> properties =
+    ImmutableList<MemberDefinition> properties =
         PolymerPassStaticUtils.extractProperties(
             propertiesDescriptor, DefinitionType.ES6Class, compiler, constructor);
 

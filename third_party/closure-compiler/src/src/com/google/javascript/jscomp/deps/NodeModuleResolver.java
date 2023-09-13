@@ -28,7 +28,7 @@ import com.google.javascript.jscomp.deps.ModuleLoader.PathEscaper;
 import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Resolution algorithm for NodeJS. See https://nodejs.org/api/modules.html#modules_all_together
@@ -188,8 +188,7 @@ public class NodeModuleResolver extends ModuleResolver {
   }
 
   @Override
-  @Nullable
-  public String resolveJsModule(
+  public @Nullable String resolveJsModule(
       String scriptAddress, String moduleAddress, String sourcename, int lineno, int colno) {
     String loadAddress;
     if (ModuleLoader.isAbsoluteIdentifier(moduleAddress)
@@ -207,7 +206,7 @@ public class NodeModuleResolver extends ModuleResolver {
     return loadAddress;
   }
 
-  public String resolveJsModuleFile(String scriptAddress, String moduleAddress) {
+  public @Nullable String resolveJsModuleFile(String scriptAddress, String moduleAddress) {
     for (String extension : FILE_EXTENSIONS_TO_SEARCH) {
       String moduleAddressCandidate = moduleAddress + extension;
       String canonicalizedCandidatePath = canonicalizePath(scriptAddress, moduleAddressCandidate);
@@ -232,8 +231,8 @@ public class NodeModuleResolver extends ModuleResolver {
     return null;
   }
 
-  @Nullable
-  private String resolveJsModuleNodeFileOrDirectory(String scriptAddress, String moduleAddress) {
+  private @Nullable String resolveJsModuleNodeFileOrDirectory(
+      String scriptAddress, String moduleAddress) {
     String loadAddress;
     loadAddress = resolveJsModuleFile(scriptAddress, moduleAddress);
     if (loadAddress == null) {
@@ -242,8 +241,8 @@ public class NodeModuleResolver extends ModuleResolver {
     return loadAddress;
   }
 
-  @Nullable
-  private String resolveJsModuleNodeDirectory(String scriptAddress, String moduleAddress) {
+  private @Nullable String resolveJsModuleNodeDirectory(
+      String scriptAddress, String moduleAddress) {
     if (moduleAddress.endsWith(ModuleLoader.MODULE_SLASH)) {
       moduleAddress = moduleAddress.substring(0, moduleAddress.length() - 1);
     }
@@ -265,8 +264,7 @@ public class NodeModuleResolver extends ModuleResolver {
     return null;
   }
 
-  @Nullable
-  private String resolveJsModuleFromRegistry(String scriptAddress, String moduleAddress) {
+  private @Nullable String resolveJsModuleFromRegistry(String scriptAddress, String moduleAddress) {
     String normalizedScriptAddress =
         (ModuleLoader.isAmbiguousIdentifier(scriptAddress) ? ModuleLoader.MODULE_SLASH : "")
             + scriptAddress;

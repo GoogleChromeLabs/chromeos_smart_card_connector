@@ -49,7 +49,7 @@ import com.google.javascript.rhino.jstype.StaticTypedScope;
 import java.io.Serializable;
 import java.util.Set;
 import java.util.function.Consumer;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * When parsing a jsdoc, a type-annotation string is parsed to a type AST. Somewhat confusingly, we
@@ -98,7 +98,7 @@ public final class JSTypeExpression implements Serializable {
    * @param names The set of names to replace in this type expression
    * @return the new root after replacing the names
    */
-  private static Node replaceNames(Node n, Set<String> names) {
+  private static @Nullable Node replaceNames(Node n, Set<String> names) {
     if (n == null) {
       return null;
     }
@@ -156,18 +156,18 @@ public final class JSTypeExpression implements Serializable {
     }
   }
 
-  /** @return Whether this expression denotes an optional {@code @param}. */
+  /** Does this expression denote an optional {@code @param}? */
   public boolean isOptionalArg() {
     return root.getToken() == Token.EQUALS;
   }
 
-  /** @return Whether this expression denotes a rest args {@code @param}. */
+  /** Does this expression denote a rest args {@code @param}? */
   public boolean isVarArgs() {
     return root.getToken() == Token.ITER_REST;
   }
 
   /** Evaluates the type expression into a {@code JSType} object. */
-  public JSType evaluate(StaticTypedScope scope, JSTypeRegistry registry) {
+  public JSType evaluate(@Nullable StaticTypedScope scope, JSTypeRegistry registry) {
     JSType type = registry.createTypeFromCommentNode(root, sourceName, scope);
     root.setJSType(type);
     return type;

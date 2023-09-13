@@ -28,13 +28,14 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.Subject;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.javascript.jscomp.AbstractScope;
 import com.google.javascript.jscomp.AbstractVar;
 import com.google.javascript.jscomp.TypedVar;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.testing.TypeSubject;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * A Truth Subject for the AbstractScope class. Usage:
@@ -126,12 +127,14 @@ public final class ScopeSubject extends Subject {
     }
 
     /** Expects the declared variable to be declared on the subject scope. */
+    @CanIgnoreReturnValue
     public DeclarationSubject directly() {
       expectScope("", "directly", actual);
       return this;
     }
 
     /** Expects the declared variable to be declared on the given scope. */
+    @CanIgnoreReturnValue
     public DeclarationSubject on(AbstractScope<?, ?> scope) {
       checkState(
           scope != actual,
@@ -141,24 +144,28 @@ public final class ScopeSubject extends Subject {
     }
 
     /** Expects the declared variable to be declared on the closest container scope. */
+    @CanIgnoreReturnValue
     public DeclarationSubject onClosestContainerScope() {
       expectScope("on", "the closest container scope", actual.getClosestContainerScope());
       return this;
     }
 
     /** Expects the declared variable to be declared on the closest hoist scope. */
+    @CanIgnoreReturnValue
     public DeclarationSubject onClosestHoistScope() {
       expectScope("on", "the closest hoist scope", actual.getClosestHoistScope());
       return this;
     }
 
     /** Expects the declared variable to be declared on the global scope. */
+    @CanIgnoreReturnValue
     public DeclarationSubject globally() {
       expectScope("", "globally", actual.getGlobalScope());
       return this;
     }
 
     /** Expects the declared variable to be declared on any scope other than the subject. */
+    @CanIgnoreReturnValue
     public DeclarationSubject onSomeParent() {
       if (var != null && var.getScope() == actual) {
         failWithoutActual(
@@ -171,6 +178,7 @@ public final class ScopeSubject extends Subject {
     }
 
     /** Expects the declared variable to be declared on some scope with the given label. */
+    @CanIgnoreReturnValue
     public DeclarationSubject onScopeLabeled(String expectedLabel) {
       checkNotNull(expectedLabel);
       String actualLabel = getLabel(var.getScopeRoot());
@@ -197,8 +205,7 @@ public final class ScopeSubject extends Subject {
   }
 
   /** Returns the name of the label applied to n, or null if none exists. */
-  @Nullable
-  private String getLabel(Node n) {
+  private @Nullable String getLabel(Node n) {
     // If the node is labeled it will be the second child of a LABEL and the first child
     // will be a LABEL_NAME.
     Node parent = n.getParent();

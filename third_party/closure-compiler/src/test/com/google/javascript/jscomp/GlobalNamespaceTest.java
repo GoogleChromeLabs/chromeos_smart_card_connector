@@ -19,13 +19,14 @@ package com.google.javascript.jscomp;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.javascript.jscomp.CompilerTypeTestCase.lines;
-import static com.google.javascript.rhino.testing.Asserts.assertThrows;
 import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 import static com.google.javascript.rhino.testing.TypeSubject.assertType;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.GlobalNamespace.AstChange;
 import com.google.javascript.jscomp.GlobalNamespace.Inlinability;
@@ -39,8 +40,7 @@ import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 import com.google.javascript.rhino.jstype.JSType;
-import java.util.Collection;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -49,7 +49,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class GlobalNamespaceTest {
 
-  @Nullable private Compiler lastCompiler = null;
+  private @Nullable Compiler lastCompiler = null;
+  private boolean assumeStaticInheritanceIsNotUsed = true;
 
   @Test
   public void detectsPropertySetsInAssignmentOperators() {
@@ -77,8 +78,8 @@ public final class GlobalNamespaceTest {
   public void firstGlobalAssignmentIsConsideredDeclaration() {
     GlobalNamespace namespace = parse("");
     Name n = namespace.createNameForTesting("a");
-    Ref set1 = n.addSingleRefForTesting(Ref.Type.SET_FROM_GLOBAL);
-    Ref set2 = n.addSingleRefForTesting(Ref.Type.SET_FROM_GLOBAL);
+    Ref set1 = n.addSingleRefForTesting(IR.name("set1"), Ref.Type.SET_FROM_GLOBAL);
+    Ref set2 = n.addSingleRefForTesting(IR.name("set2"), Ref.Type.SET_FROM_GLOBAL);
 
     assertThat(n.getRefs()).containsExactly(set1, set2).inOrder();
 
@@ -128,7 +129,7 @@ public final class GlobalNamespaceTest {
     Name a = namespace.getSlot("a");
 
     assertThat(a).isNotNull();
-    assertThat(a.getRefs()).hasSize(4);
+    assertThat(a.getRefs()).hasSize(3);
     assertThat(a.getLocalSets()).isEqualTo(0);
     assertThat(a.getGlobalSets()).isEqualTo(2);
   }
@@ -216,8 +217,8 @@ public final class GlobalNamespaceTest {
   public void localAssignmentWillNotBeConsideredADeclaration() {
     GlobalNamespace namespace = parse("");
     Name n = namespace.createNameForTesting("a");
-    Ref set1 = n.addSingleRefForTesting(Ref.Type.SET_FROM_GLOBAL);
-    Ref localSet = n.addSingleRefForTesting(Ref.Type.SET_FROM_LOCAL);
+    Ref set1 = n.addSingleRefForTesting(IR.name("set1"), Ref.Type.SET_FROM_GLOBAL);
+    Ref localSet = n.addSingleRefForTesting(IR.name("localSet"), Ref.Type.SET_FROM_LOCAL);
 
     assertThat(n.getRefs()).containsExactly(set1, localSet).inOrder();
 
@@ -363,13 +364,13 @@ public final class GlobalNamespaceTest {
     Node oldNode = refA.getNode();
     Node newNode = IR.name("A");
 
-    assertThat(nameA.getRefsForNode(oldNode)).containsExactly(refA);
+    assertThat(nameA.getRefForNode(oldNode)).isEqualTo(refA);
 
     nameA.updateRefNode(refA, newNode);
 
     assertThat(refA.getNode()).isEqualTo(newNode);
-    assertThat(nameA.getRefsForNode(oldNode)).isEmpty();
-    assertThat(nameA.getRefsForNode(newNode)).containsExactly(refA);
+    assertThat(nameA.getRefForNode(oldNode)).isNull();
+    assertThat(nameA.getRefForNode(newNode)).isEqualTo(refA);
   }
 
   @Test
@@ -381,14 +382,14 @@ public final class GlobalNamespaceTest {
 
     Node oldNode = refA.getNode();
 
-    assertThat(nameA.getRefsForNode(oldNode)).containsExactly(refA);
+    assertThat(nameA.getRefForNode(oldNode)).isEqualTo(refA);
 
     nameA.updateRefNode(refA, null);
 
     assertThat(refA.getNode()).isNull();
-    assertThat(nameA.getRefsForNode(oldNode)).isEmpty();
+    assertThat(nameA.getRefForNode(oldNode)).isNull();
     // cannot get refs for null
-    assertThrows(NullPointerException.class, () -> nameA.getRefsForNode(null));
+    assertThrows(NullPointerException.class, () -> nameA.getRefForNode(null));
     // cannot update the node again once it's been set to null
     assertThrows(IllegalArgumentException.class, () -> nameA.updateRefNode(refA, null));
     assertThrows(IllegalStateException.class, () -> nameA.updateRefNode(refA, oldNode));
@@ -422,22 +423,25 @@ public final class GlobalNamespaceTest {
 
     Name nameA = namespace.getOwnSlot("A");
     // first ref is declaration of A
-    Ref setTwinRef = Iterables.get(nameA.getRefs(), 1); // second is the SET twin
-    Ref getTwinRef = Iterables.get(nameA.getRefs(), 2); // third is the GET twin
+    Ref twinRef = Iterables.get(nameA.getRefs(), 1); // second is the GET_AND_SET twin
 
     // confirm that they start as twins
-    assertThat(setTwinRef.getTwin()).isEqualTo(getTwinRef);
-    assertThat(getTwinRef.getTwin()).isEqualTo(setTwinRef);
+    assertThat(twinRef.isTwin()).isTrue();
+    assertThat(twinRef.isSetFromGlobal()).isTrue();
+    assertThat(twinRef.isAliasingGet()).isTrue();
 
-    Node oldNode = getTwinRef.getNode();
-    assertThat(setTwinRef.getNode()).isEqualTo(oldNode);
+    Node oldNode = twinRef.getNode();
 
-    // confirm that they are both associated with oldNode
-    assertThat(nameA.getRefsForNode(oldNode)).containsExactly(setTwinRef, getTwinRef);
+    // confirm that it is associated with oldNode
+    assertThat(nameA.getRefForNode(oldNode)).isEqualTo(twinRef);
+
+    // confirm that nameA correctly tracks its aliasingGets and globalSets
+    assertThat(nameA.getGlobalSets()).isEqualTo(2);
+    assertThat(nameA.getAliasingGets()).isEqualTo(1);
   }
 
   @Test
-  public void updateRefNodeRemovesTwinRelationship() {
+  public void updateRefNodeCanRemoveTwinRefs() {
     GlobalNamespace namespace =
         parse(
             lines(
@@ -446,32 +450,27 @@ public final class GlobalNamespaceTest {
 
     Name nameA = namespace.getOwnSlot("A");
     // first ref is declaration of A
-    Ref setTwinRef = Iterables.get(nameA.getRefs(), 1); // second is the SET twin
-    Ref getTwinRef = Iterables.get(nameA.getRefs(), 2); // third is the GET twin
+    Ref twinRef = Iterables.get(nameA.getRefs(), 1); // second is the GET_AND_SET twin
 
-    Node oldNode = getTwinRef.getNode();
+    Node oldNode = twinRef.getNode();
 
     // move the getTwinRef
     Node newNode = IR.name("A");
-    nameA.updateRefNode(getTwinRef, newNode);
+    nameA.updateRefNode(twinRef, newNode);
 
     // see confirmTwinsAreCreated() for verification of the original twin relationship
 
     // confirm that getTwinRef has been updated
-    assertThat(getTwinRef.getNode()).isEqualTo(newNode);
-    assertThat(nameA.getRefsForNode(newNode)).containsExactly(getTwinRef);
+    assertThat(twinRef.getNode()).isEqualTo(newNode);
+    assertThat(nameA.getRefForNode(newNode)).isEqualTo(twinRef);
+    assertThat(twinRef.isTwin()).isTrue();
 
-    // confirm that the getTwinRef and setTwinRef are no longer twins
-    assertThat(getTwinRef.getTwin()).isNull();
-    assertThat(setTwinRef.getTwin()).isNull();
-
-    // confirm that setTwinRef remains otherwise unchanged
-    assertThat(setTwinRef.getNode()).isEqualTo(oldNode);
-    assertThat(nameA.getRefsForNode(oldNode)).containsExactly(setTwinRef);
+    // confirm that all references to oldNode are removed.
+    assertThat(nameA.getRefForNode(oldNode)).isNull();
   }
 
   @Test
-  public void removeTwinRefsTogether() {
+  public void removeTwinRef() {
     GlobalNamespace namespace =
         parse(
             lines(
@@ -480,46 +479,21 @@ public final class GlobalNamespaceTest {
 
     Name nameA = namespace.getOwnSlot("A");
     // first ref is declaration of A
-    Ref setTwinRef = Iterables.get(nameA.getRefs(), 1); // second is the SET twin
-    Ref getTwinRef = Iterables.get(nameA.getRefs(), 2); // third is the GET twin
+    Ref twinRef = Iterables.get(nameA.getRefs(), 1); // second is the GET_AND_SET twin
 
     // see confirmTwinsAreCreated() for verification of the original twin relationship
 
-    Node oldNode = getTwinRef.getNode();
-
-    nameA.removeRef(setTwinRef);
-
-    assertThat(nameA.getRefs()).doesNotContain(setTwinRef);
-    assertThat(nameA.getRefs()).contains(getTwinRef); // twin is still there
-    assertThat(getTwinRef.getTwin()).isNull(); // and not a twin anymore
-    assertThat(nameA.getRefsForNode(oldNode)).containsExactly(getTwinRef);
-  }
-
-  @Test
-  public void removeOneRefOfAPairOfTwins() {
-    GlobalNamespace namespace =
-        parse(
-            lines(
-                "let A;", //
-                "const B = A = 3;")); // A will have twin refs here
-
-    Name nameA = namespace.getOwnSlot("A");
-    // first ref is declaration of A
-    Ref setTwinRef = Iterables.get(nameA.getRefs(), 1); // second is the SET twin
-    Ref getTwinRef = Iterables.get(nameA.getRefs(), 2); // third is the GET twin
-
-    // see confirmTwinsAreCreated() for verification of the original twin relationship
-
-    Node oldNode = getTwinRef.getNode();
+    Node oldNode = twinRef.getNode();
 
     // confirm that they are both associated with oldNode
-    assertThat(nameA.getRefsForNode(oldNode)).containsExactly(setTwinRef, getTwinRef);
+    assertThat(nameA.getRefForNode(oldNode)).isEqualTo(twinRef);
 
-    nameA.removeTwinRefs(setTwinRef);
+    nameA.removeRef(twinRef);
 
-    assertThat(nameA.getRefs()).doesNotContain(setTwinRef);
-    assertThat(nameA.getRefs()).doesNotContain(getTwinRef);
-    assertThat(nameA.getRefsForNode(oldNode)).isEmpty();
+    assertThat(nameA.getRefs()).doesNotContain(twinRef);
+    assertThat(nameA.getRefForNode(oldNode)).isNull();
+    assertThat(nameA.getAliasingGets()).isEqualTo(0);
+    assertThat(nameA.getGlobalSets()).isEqualTo(1);
   }
 
   @Test
@@ -529,9 +503,9 @@ public final class GlobalNamespaceTest {
     Name foo = namespace.getOwnSlot("Foo");
     Name bar = namespace.getOwnSlot("Bar");
     Name baz = namespace.getOwnSlot("Baz");
-    Collection<Ref> originalFooRefs = ImmutableList.copyOf(foo.getRefs());
-    Collection<Ref> originalBarRefs = ImmutableList.copyOf(bar.getRefs());
-    Collection<Ref> originalBazRefs = ImmutableList.copyOf(baz.getRefs());
+    ImmutableList<Ref> originalFooRefs = ImmutableList.copyOf(foo.getRefs());
+    ImmutableList<Ref> originalBarRefs = ImmutableList.copyOf(bar.getRefs());
+    ImmutableList<Ref> originalBazRefs = ImmutableList.copyOf(baz.getRefs());
 
     // Rescan all of the nodes for which we got refs as if they were newly added
     Node root = lastCompiler.getJsRoot();
@@ -737,6 +711,28 @@ public final class GlobalNamespaceTest {
 
     assertThat(cDotX.getGlobalSets()).isEqualTo(1);
     assertThat(cDotX.getParent()).isEqualTo(c);
+  }
+
+  @Test
+  public void testLocalVarsDefinedinStaticBlocks() {
+    GlobalNamespace namespace = parse("class C{ static{ var x; }}");
+    assertThat(namespace.getSlot("x")).isNull();
+  }
+
+  @Test
+  public void testAddPropertytoGlobalObjectinClassStaticBlock() {
+    GlobalNamespace namespace = parse("const a = {}; class C{ static { a.b = 1;}}");
+
+    Name a = namespace.getSlot("a");
+
+    assertThat(a.getGlobalSets()).isEqualTo(1);
+    assertThat(a.getTotalSets()).isEqualTo(1);
+
+    Name ab = namespace.getSlot("a.b");
+
+    assertThat(ab.getParent()).isEqualTo(a);
+    assertThat(ab.getGlobalSets()).isEqualTo(0);
+    assertThat(ab.getLocalSets()).isEqualTo(1);
   }
 
   @Test
@@ -1066,6 +1062,26 @@ public final class GlobalNamespaceTest {
   }
 
   @Test
+  public void testCannotCollapseConditionalObjectLitProperty() {
+    GlobalNamespace namespace = parse("var foo = x || {prop: 0}; use(foo.prop);");
+
+    Name fooProp = namespace.getSlot("foo.prop");
+
+    // We should not convert foo.prop -> foo$prop because use(foo) might read foo.prop
+    assertThat(fooProp.canCollapse()).isFalse();
+  }
+
+  @Test
+  public void testCannotCollapseConditionalObjectLitNestedProperty() {
+    GlobalNamespace namespace = parse("var foo = x || {prop: {nested: 0}}; use(foo.prop.nested);");
+
+    Name fooProp = namespace.getSlot("foo.prop.nested");
+
+    // We should not convert foo.prop -> foo$prop because use(foo) might read foo.prop
+    assertThat(fooProp.canCollapse()).isFalse();
+  }
+
+  @Test
   public void testGitHubIssue3733() {
     GlobalNamespace namespace =
         parse(
@@ -1212,6 +1228,19 @@ public final class GlobalNamespaceTest {
 
     Name fooProp = namespace.getSlot("Foo.prop");
     assertThat(fooProp.canCollapse()).isFalse();
+  }
+
+  @Test
+  public void testCannotCollapseOrInlineDeletedProperty() {
+    GlobalNamespace namespace =
+        parse(
+            lines(
+                "const global = window;", //
+                "delete global.HTMLElement;",
+                "global.HTMLElement = (class {});"));
+
+    Name deletedProp = namespace.getSlot("global.HTMLElement");
+    assertThat(deletedProp.canCollapseOrInline()).isEqualTo(Inlinability.DO_NOT_INLINE);
   }
 
   @Test
@@ -1447,20 +1476,11 @@ public final class GlobalNamespaceTest {
     assertThat(x.getDeclaration()).isNotNull();
   }
 
-  private boolean assumeStaticInheritanceIsNotUsed = true;
-
   // This method exists for testing module metadata lookups.
   private GlobalNamespace parseAndGatherModuleData(String js) {
-    Compiler compiler = new Compiler();
-    CompilerOptions options = new CompilerOptions();
-    // Don't optimize, because we want to know how GlobalNamespace responds to the original code
-    // in `js`.
-    options.setSkipNonTranspilationPasses(true);
-    options.setWrapGoogModulesForWhitespaceOnly(false);
-    // Test the latest features supported for input and don't transpile, because we want to test how
-    // GlobalNamespace deals with the language features actually present in `js`.
-    options.setAssumeStaticInheritanceIsNotUsed(assumeStaticInheritanceIsNotUsed);
-    compiler.compile(SourceFile.fromCode("ex.js", ""), SourceFile.fromCode("test.js", js), options);
+    CompilerOptions options = getDefaultOptions();
+    Compiler compiler = compile(js, options);
+
     // Disabling transpilation also disables these passes that we need to have run when
     // testing behavior related to module metadata.
     new GatherModuleMetadata(
@@ -1470,24 +1490,34 @@ public final class GlobalNamespaceTest {
         .process(compiler.getExternsRoot(), compiler.getJsRoot());
     assertThat(compiler.getErrors()).isEmpty();
     this.lastCompiler = compiler;
-
     return new GlobalNamespace(compiler, compiler.getRoot());
   }
 
   private GlobalNamespace parse(String js) {
-    Compiler compiler = new Compiler();
+    CompilerOptions options = getDefaultOptions();
+    compile(js, options);
+    return new GlobalNamespace(this.lastCompiler, this.lastCompiler.getRoot());
+  }
+
+  private CompilerOptions getDefaultOptions() {
     CompilerOptions options = new CompilerOptions();
     options.setLanguage(LanguageMode.UNSUPPORTED);
     // Don't optimize, because we want to know how GlobalNamespace responds to the original code
     // in `js`.
     options.setSkipNonTranspilationPasses(true);
+    options.setWrapGoogModulesForWhitespaceOnly(false);
     // Test the latest features supported for input and don't transpile, because we want to test how
     // GlobalNamespace deals with the language features actually present in `js`.
     options.setAssumeStaticInheritanceIsNotUsed(assumeStaticInheritanceIsNotUsed);
+    return options;
+  }
+
+  @CanIgnoreReturnValue
+  private Compiler compile(String js, CompilerOptions options) {
+    Compiler compiler = new Compiler();
     compiler.compile(SourceFile.fromCode("ex.js", ""), SourceFile.fromCode("test.js", js), options);
     assertThat(compiler.getErrors()).isEmpty();
     this.lastCompiler = compiler;
-
-    return new GlobalNamespace(compiler, compiler.getRoot());
+    return compiler;
   }
 }

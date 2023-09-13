@@ -22,11 +22,11 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.javascript.jscomp.ControlFlowGraph.Branch;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
+import com.google.javascript.jscomp.base.format.SimpleFormat;
 import com.google.javascript.jscomp.graph.Annotation;
 import com.google.javascript.jscomp.graph.DiGraph.DiGraphEdge;
 import com.google.javascript.jscomp.graph.DiGraph.DiGraphNode;
 import com.google.javascript.jscomp.graph.LatticeElement;
-import com.google.javascript.jscomp.parsing.parser.util.format.SimpleFormat;
 import com.google.javascript.rhino.Node;
 import java.util.ArrayDeque;
 import java.util.Comparator;
@@ -36,7 +36,7 @@ import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * A framework to help writing static program analysis.
@@ -421,6 +421,7 @@ abstract class DataFlowAnalysis<N, L extends LatticeElement> {
       ScopeCreator scopeCreator,
       Map<String, Var> allVarsInFn) {
 
+    // Optimize for Class Static Blocks.
     checkArgument(jsScope.isFunctionScope());
 
     AbstractPostOrderCallback finder =
@@ -428,19 +429,30 @@ abstract class DataFlowAnalysis<N, L extends LatticeElement> {
           @Override
           public void visit(NodeTraversal t, Node n, Node parent) {
 
-            Node enclosingBlock = NodeUtil.getEnclosingFunction(n);
-            if (jsScope.getRootNode() == enclosingBlock || !n.isName() || parent.isFunction()) {
+            if (!n.isName() || parent.isFunction()) {
               return;
             }
 
             String name = n.getString();
             Var var = t.getScope().getVar(name);
-            if (var != null) {
-              Node enclosingScopeNode = NodeUtil.getEnclosingFunction(var.getNode());
 
-              if (enclosingScopeNode == jsScope.getRootNode()) {
-                escaped.add(var);
-              }
+            if (var == null) {
+              return;
+            }
+
+            Scope variableCfgScope = var.getScope().getClosestCfgRootScope();
+
+            // If the current examined scope and var decleration scope are different then var is
+            // 'not escaped'.
+            if (variableCfgScope != jsScope) {
+              return;
+            }
+
+            Scope referenceCfgScope = t.getScope().getClosestCfgRootScope();
+
+            // Variable is referenced outside of decleration scope it is 'escaped'.
+            if (referenceCfgScope != variableCfgScope) {
+              escaped.add(var);
             }
           }
         };

@@ -17,36 +17,36 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.javascript.jscomp.JsMessage.Style.CLOSURE;
-import static com.google.javascript.jscomp.JsMessage.Style.LEGACY;
-import static com.google.javascript.jscomp.JsMessage.Style.RELAX;
+import static com.google.javascript.jscomp.JsMessageVisitor.MESSAGE_HAS_NO_VALUE;
+import static com.google.javascript.jscomp.JsMessageVisitor.MESSAGE_NOT_INITIALIZED_CORRECTLY;
 import static com.google.javascript.jscomp.JsMessageVisitor.MESSAGE_TREE_MALFORMED;
-import static com.google.javascript.jscomp.JsMessageVisitor.isLowerCamelCaseWithNumericSuffixes;
-import static com.google.javascript.jscomp.JsMessageVisitor.toLowerCamelCaseWithNumericSuffixes;
 import static com.google.javascript.jscomp.testing.JSCompCorrespondences.DESCRIPTION_EQUALITY;
 import static com.google.javascript.jscomp.testing.JSCompCorrespondences.DIAGNOSTIC_EQUALITY;
 import static com.google.javascript.jscomp.testing.JSErrorSubject.assertError;
+import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.debugging.sourcemap.FilePosition;
 import com.google.debugging.sourcemap.SourceMapGeneratorV3;
-import com.google.javascript.jscomp.JsMessage.Style;
+import com.google.javascript.jscomp.JsMessage.Part;
+import com.google.javascript.jscomp.JsMessageVisitor.ExtractedIcuTemplateParts;
+import com.google.javascript.jscomp.JsMessageVisitor.IcuMessageTemplateString;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.Token;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.nullness.Nullable;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Test for {@link JsMessageVisitor}.
- *
- */
+/** Test for {@link JsMessageVisitor}. */
 @RunWith(JUnit4.class)
 public final class JsMessageVisitorTest {
   private static final Joiner LINE_JOINER = Joiner.on('\n');
@@ -70,79 +70,217 @@ public final class JsMessageVisitorTest {
     }
   }
 
-  private CompilerOptions compilerOptions;
+  private @Nullable CompilerOptions compilerOptions;
   private Compiler compiler;
   private List<JsMessage> messages;
-  private JsMessage.Style mode;
+  private List<JsMessageDefinition> messageDefinitions;
+  private List<IcuTemplateDefinition> icuTemplateDefinitions;
   private boolean renameMessages = false;
 
   @Before
   public void setUp() throws Exception {
     messages = new ArrayList<>();
-    mode = JsMessage.Style.LEGACY;
+    messageDefinitions = new ArrayList<>();
+    icuTemplateDefinitions = new ArrayList<>();
     compilerOptions = null;
     renameMessages = false;
   }
 
   @Test
-  public void testJsMessageOnVar() {
+  public void testIcuTemplateParsing() {
+    final IcuMessageTemplateString icuMessageTemplateString =
+        new IcuMessageTemplateString(
+            lines(
+                "{NUM_PEOPLE, plural, offset:1 ",
+                // Some placeholders are ignored, because there's no additional information
+                // for them (original code or example text). There's no need to generate
+                // placeholder parts for those.
+                "=0 {I see {START_BOLD}no one at all{END_BOLD} in {INTERPOLATION_2}.}",
+                "=1 {I see {INTERPOLATION_1} in {INTERPOLATION_2}.}",
+                "=2 {I see {INTERPOLATION_1} and one other person in {INTERPOLATION_2}.}",
+                "other {I see {INTERPOLATION_1} and # other people in {INTERPOLATION_2}.}",
+                "}"));
+    final ExtractedIcuTemplateParts extractedParts =
+        icuMessageTemplateString.extractParts(
+            ImmutableSet.of("INTERPOLATION_1", "INTERPOLATION_2", "MISSING"));
+
+    // The non-existent placeholder name "MISSING" should be missing from this list.
+    // JsMessageVisitor will notice the name is missing from the resulting set of
+    // seen placeholders and report an error, though we won't do that in this test.
+    assertThat(extractedParts.extractedPlaceholderNames)
+        .containsExactly("INTERPOLATION_1", "INTERPOLATION_2");
+    final ImmutableList<Part> parts = extractedParts.extractedParts;
+
+    assertThat(parts.get(0).getString())
+        .isEqualTo(
+            "{NUM_PEOPLE, plural, offset:1 \n=0 {I see {START_BOLD}no one at all{END_BOLD} in ");
+    assertThat(parts.get(1).getCanonicalPlaceholderName()).isEqualTo("INTERPOLATION_2");
+    assertThat(parts.get(2).getString()).isEqualTo(".}\n=1 {I see ");
+    assertThat(parts.get(3).getCanonicalPlaceholderName()).isEqualTo("INTERPOLATION_1");
+    assertThat(parts.get(4).getString()).isEqualTo(" in ");
+    assertThat(parts.get(5).getCanonicalPlaceholderName()).isEqualTo("INTERPOLATION_2");
+    assertThat(parts.get(6).getString()).isEqualTo(".}\n=2 {I see ");
+    assertThat(parts.get(7).getCanonicalPlaceholderName()).isEqualTo("INTERPOLATION_1");
+    assertThat(parts.get(8).getString()).isEqualTo(" and one other person in ");
+    assertThat(parts.get(9).getCanonicalPlaceholderName()).isEqualTo("INTERPOLATION_2");
+    assertThat(parts.get(10).getString()).isEqualTo(".}\nother {I see ");
+    assertThat(parts.get(11).getCanonicalPlaceholderName()).isEqualTo("INTERPOLATION_1");
+    assertThat(parts.get(12).getString()).isEqualTo(" and # other people in ");
+    assertThat(parts.get(13).getCanonicalPlaceholderName()).isEqualTo("INTERPOLATION_2");
+    assertThat(parts.get(14).getString()).isEqualTo(".}\n}");
+  }
+
+  @Test
+  public void testIcuTemplate() {
     extractMessagesSafely(
-        "/** @desc Hello */ var MSG_HELLO = goog.getMsg('a')");
+        lines(
+            "const MSG_ICU_EXAMPLE = declareIcuTemplate(",
+            "    `{NUM_PEOPLE, plural, offset:1 ",
+            "        =0 {I see no one at all in {INTERPOLATION_2}.}",
+            "        =1 {I see {INTERPOLATION_1} in {INTERPOLATION_2}.}",
+            "        =2 {I see {INTERPOLATION_1} and one other person in {INTERPOLATION_2}.}",
+            "        other {I see {INTERPOLATION_1} and # other people in {INTERPOLATION_2}.}",
+            "    }`,",
+            "    {",
+            "      description: 'ICU example message',",
+            "      original_code: {",
+            "        'INTERPOLATION_1': '{{getPerson()}}',",
+            "        'INTERPOLATION_2': '{{getPlaceName()}}',",
+            "      },",
+            "      example: {",
+            "        'INTERPOLATION_1': 'Jane Doe',",
+            "        'INTERPOLATION_2': 'Paris, France',",
+            "      }",
+            "    });",
+            ""));
+    assertThat(compiler.getWarnings()).isEmpty();
+    assertThat(icuTemplateDefinitions).hasSize(1);
+    IcuTemplateDefinition definition = icuTemplateDefinitions.get(0);
+
+    final Node messageNode = definition.getMessageNode();
+    assertNode(messageNode).isCall().hasFirstChildThat().isName("declareIcuTemplate");
+
+    final Node templateTextNode = definition.getTemplateTextNode();
+    assertNode(templateTextNode).hasToken(Token.TEMPLATELIT);
+
+    JsMessage msg = definition.getMessage();
+    assertThat(msg.getKey()).isEqualTo("MSG_ICU_EXAMPLE");
+    assertThat(msg.getDesc()).isEqualTo("ICU example message");
+    assertThat(msg.asIcuMessageString())
+        .isEqualTo(
+            lines(
+                "{NUM_PEOPLE, plural, offset:1 ",
+                "        =0 {I see no one at all in {INTERPOLATION_2}.}",
+                "        =1 {I see {INTERPOLATION_1} in {INTERPOLATION_2}.}",
+                "        =2 {I see {INTERPOLATION_1} and one other person in {INTERPOLATION_2}.}",
+                "        other {I see {INTERPOLATION_1} and # other people in {INTERPOLATION_2}.}",
+                "    }"));
+    // NOTE: "testcode" is the file name used by compiler.parseTestCode(code)
+    assertThat(msg.getSourceName()).isEqualTo("testcode:1");
+  }
+
+  @Test
+  public void testIcuTemplatePlaceholderTypo() {
+    extractMessages(
+        lines(
+            "const MSG_ICU_EXAMPLE = declareIcuTemplate(",
+            "    `{NUM_PEOPLE, plural, offset:1 ",
+            "        =0 {I see no one at all in {INTERPOLATION_2}.}",
+            "        =1 {I see {INTERPOLATION_1} in {INTERPOLATION_2}.}",
+            "        =2 {I see {INTERPOLATION_1} and one other person in {INTERPOLATION_2}.}",
+            "        other {I see {INTERPOLATION_1} and # other people in {INTERPOLATION_2}.}",
+            "    }`,",
+            "    {",
+            "      description: 'ICU example message',",
+            "      example: {",
+            "        'INTERPOLATION_1': 'Jane Doe',",
+            // This placeholder name doesn't match any placeholders in the message, so it should
+            // be reported as an error
+            "        'INTERPOLATION_TYPO_2': 'Paris, France',",
+            "      }",
+            "    });",
+            ""));
+    final ImmutableList<JSError> actualErrors = compiler.getErrors();
+    assertThat(actualErrors)
+        .comparingElementsUsing(DIAGNOSTIC_EQUALITY)
+        .containsExactly(MESSAGE_TREE_MALFORMED);
+    assertThat(actualErrors)
+        .comparingElementsUsing(DESCRIPTION_EQUALITY)
+        .containsExactly("Message parse tree malformed. Unknown placeholder: INTERPOLATION_TYPO_2");
+    assertThat(compiler.getWarnings()).isEmpty();
+    // The malformed message is skipped.
+    assertThat(messages).isEmpty();
+  }
+
+  @Test
+  public void testJsMessageOnVar() {
+    extractMessagesSafely("/** @desc Hello */ var MSG_HELLO = goog.getMsg('a')");
     assertThat(compiler.getWarnings()).isEmpty();
     assertThat(messages).hasSize(1);
 
     JsMessage msg = messages.get(0);
     assertThat(msg.getKey()).isEqualTo("MSG_HELLO");
     assertThat(msg.getDesc()).isEqualTo("Hello");
-    assertThat(msg.getSourceName()).isEqualTo("[testcode]:1");
+    // NOTE: "testcode" is the file name used by compiler.parseTestCode(code)
+    assertThat(msg.getSourceName()).isEqualTo("testcode:1");
   }
 
   @Test
   public void testJsMessageOnLet() {
     compilerOptions = new CompilerOptions();
-    extractMessagesSafely(
-        "/** @desc Hello */ let MSG_HELLO = goog.getMsg('a')");
+    extractMessagesSafely("/** @desc Hello */ let MSG_HELLO = goog.getMsg('a')");
     assertThat(compiler.getWarnings()).isEmpty();
     assertThat(messages).hasSize(1);
 
     JsMessage msg = messages.get(0);
     assertThat(msg.getKey()).isEqualTo("MSG_HELLO");
     assertThat(msg.getDesc()).isEqualTo("Hello");
-    assertThat(msg.getSourceName()).isEqualTo("[testcode]:1");
+    // NOTE: "testcode" is the file name used by compiler.parseTestCode(code)
+    assertThat(msg.getSourceName()).isEqualTo("testcode:1");
   }
 
   @Test
   public void testJsMessageOnConst() {
     compilerOptions = new CompilerOptions();
-    extractMessagesSafely(
-        "/** @desc Hello */ const MSG_HELLO = goog.getMsg('a')");
+    extractMessagesSafely("/** @desc Hello */ const MSG_HELLO = goog.getMsg('a')");
     assertThat(compiler.getWarnings()).isEmpty();
     assertThat(messages).hasSize(1);
 
     JsMessage msg = messages.get(0);
     assertThat(msg.getKey()).isEqualTo("MSG_HELLO");
     assertThat(msg.getDesc()).isEqualTo("Hello");
-    assertThat(msg.getSourceName()).isEqualTo("[testcode]:1");
+    // NOTE: "testcode" is the file name used by compiler.parseTestCode(code)
+    assertThat(msg.getSourceName()).isEqualTo("testcode:1");
   }
 
   @Test
   public void testJsMessagesWithSrcMap() throws Exception {
     SourceMapGeneratorV3 sourceMap = new SourceMapGeneratorV3();
-    sourceMap.addMapping("source1.html", null, new FilePosition(10, 0),
-        new FilePosition(0, 0), new FilePosition(0, 100));
-    sourceMap.addMapping("source2.html", null, new FilePosition(10, 0),
-        new FilePosition(1, 0), new FilePosition(1, 100));
+    sourceMap.addMapping(
+        "source1.html",
+        null,
+        new FilePosition(10, 0),
+        new FilePosition(0, 0),
+        new FilePosition(0, 100));
+    sourceMap.addMapping(
+        "source2.html",
+        null,
+        new FilePosition(10, 0),
+        new FilePosition(1, 0),
+        new FilePosition(1, 100));
     StringBuilder output = new StringBuilder();
     sourceMap.appendTo(output, "unused.js");
 
     compilerOptions = new CompilerOptions();
-    compilerOptions.inputSourceMaps = ImmutableMap.of(
-       "[testcode]", new SourceMapInput(
-           SourceFile.fromCode("example.srcmap", output.toString())));
+    // NOTE: "testcode" is the file name used by compiler.parseTestCode(code)
+    compilerOptions.inputSourceMaps =
+        ImmutableMap.of(
+            "testcode",
+            new SourceMapInput(SourceFile.fromCode("example.srcmap", output.toString())));
 
     extractMessagesSafely(
         "/** @desc Hello */ var MSG_HELLO = goog.getMsg('a');\n"
-        + "/** @desc Hi */ var MSG_HI = goog.getMsg('b');\n");
+            + "/** @desc Hi */ var MSG_HI = goog.getMsg('b');\n");
     assertThat(compiler.getWarnings()).isEmpty();
     assertThat(messages).hasSize(2);
 
@@ -159,14 +297,89 @@ public final class JsMessageVisitorTest {
 
   @Test
   public void testJsMessageOnProperty() {
-    extractMessagesSafely("/** @desc a */ " +
-        "pint.sub.MSG_MENU_MARK_AS_UNREAD = goog.getMsg('a')");
+    extractMessagesSafely("/** @desc a */ pint.sub.MSG_MENU_MARK_AS_UNREAD = goog.getMsg('a')");
     assertThat(compiler.getWarnings()).isEmpty();
     assertThat(messages).hasSize(1);
 
     JsMessage msg = messages.get(0);
     assertThat(msg.getKey()).isEqualTo("MSG_MENU_MARK_AS_UNREAD");
     assertThat(msg.getDesc()).isEqualTo("a");
+  }
+
+  @Test
+  public void testJsMessageOnPublicField() {
+    extractMessages(
+        lines(
+            "class Foo {",
+            "  /** @desc overflow menu */",
+            "  MSG_OVERFLOW_MENU = goog.getMsg('More options');",
+            "}"));
+    assertThat(compiler.getWarnings()).isEmpty();
+    assertThat(messages).hasSize(1);
+    JsMessage msg = messages.get(0);
+    assertThat(msg.getKey()).isEqualTo("MSG_OVERFLOW_MENU");
+    assertThat(msg.asJsMessageString()).isEqualTo("More options");
+
+    // Anonymous class
+    extractMessages(
+        lines(
+            "foo(class {", "  /** @desc hi */", "  MSG_HELLO = goog.getMsg('Greetings');", "});"));
+    assertThat(compiler.getWarnings()).isEmpty();
+    assertThat(messages).hasSize(2);
+    msg = messages.get(1);
+    assertThat(msg.getKey()).isEqualTo("MSG_HELLO");
+    assertThat(msg.asJsMessageString()).isEqualTo("Greetings");
+  }
+
+  @Test
+  public void testErrorOnPublicFields() {
+    extractMessages(
+        lines(
+            "class Foo {", //
+            "  /** @desc */",
+            "  MSG_WITH_NO_RHS;",
+            "}"));
+    assertThat(compiler.getWarnings()).isEmpty();
+    assertOneError(MESSAGE_HAS_NO_VALUE);
+  }
+
+  @Test
+  public void testErrorOnStaticField() {
+    extractMessages(
+        lines(
+            "class Bar {", //
+            "  /** @desc */",
+            "  static MSG_STATIC_FIELD_WITH_NO_RHS;",
+            "}"));
+    assertThat(compiler.getWarnings()).isEmpty();
+    assertOneError(MESSAGE_HAS_NO_VALUE);
+  }
+
+  @Test
+  public void testJsMessageOnPublicStaticField() {
+    extractMessages(
+        lines(
+            "class Bar {",
+            "  /** @desc menu */",
+            "  static MSG_MENU = goog.getMsg('Options');",
+            "}"));
+    assertThat(compiler.getWarnings()).isEmpty();
+    assertThat(messages).hasSize(1);
+    JsMessage msg = messages.get(0);
+    assertThat(msg.getKey()).isEqualTo("MSG_MENU");
+    assertThat(msg.asJsMessageString()).isEqualTo("Options");
+
+    extractMessages(
+        lines(
+            "let G = class {",
+            "  /** @desc apples */",
+            "  static MSG_FRUIT = goog.getMsg('Apples');",
+            "}"));
+    assertThat(compiler.getWarnings()).isEmpty();
+    assertThat(messages).hasSize(2);
+    msg = messages.get(1);
+    assertThat(msg.getKey()).isEqualTo("MSG_FRUIT");
+    assertThat(msg.asJsMessageString()).isEqualTo("Apples");
   }
 
   @Test
@@ -192,14 +405,9 @@ public final class JsMessageVisitorTest {
   public void testMsgInEnum() {
     extractMessages(
         LINE_JOINER.join(
-            "/**",
-            " * @enum {number}",
-            " */",
-            "var MyEnum = {",
-            "  MSG_ONE: 0",
-            "};"));
-    assertThat(compiler.getErrors()).hasSize(1);
-    assertError(compiler.getErrors().get(0)).hasType(MESSAGE_TREE_MALFORMED);
+            "/**", " * @enum {number}", " */", "var MyEnum = {", "  MSG_ONE: 0", "};"));
+    assertThat(compiler.getWarnings()).hasSize(1);
+    assertError(compiler.getWarnings().get(0)).hasType(MESSAGE_NOT_INITIALIZED_CORRECTLY);
   }
 
   @Test
@@ -221,9 +429,8 @@ public final class JsMessageVisitorTest {
 
   @Test
   public void testJsMessageOnObjLit() {
-    extractMessagesSafely("" +
-        "pint.sub = {" +
-        "/** @desc a */ MSG_MENU_MARK_AS_UNREAD: goog.getMsg('a')}");
+    extractMessagesSafely(
+        "pint.sub = {" + "/** @desc a */ MSG_MENU_MARK_AS_UNREAD: goog.getMsg('a')}");
     assertThat(compiler.getWarnings()).isEmpty();
     assertThat(messages).hasSize(1);
 
@@ -234,20 +441,19 @@ public final class JsMessageVisitorTest {
 
   @Test
   public void testInvalidJsMessageOnObjLit() {
-    extractMessages(""
-        + "pint.sub = {"
-        + "  /** @desc a */ MSG_MENU_MARK_AS_UNREAD: undefined"
-        + "}");
-    assertThat(compiler.getErrors()).hasSize(1);
-    assertError(compiler.getErrors().get(0)).hasType(JsMessageVisitor.MESSAGE_TREE_MALFORMED);
+    extractMessages(
+        "" + "pint.sub = {" + "  /** @desc a */ MSG_MENU_MARK_AS_UNREAD: undefined" + "}");
+    assertThat(compiler.getWarnings()).hasSize(1);
+    assertError(compiler.getWarnings().get(0)).hasType(MESSAGE_NOT_INITIALIZED_CORRECTLY);
   }
 
   @Test
   public void testJsMessageAliasOnObjLit() {
-    extractMessagesSafely(""
-        + "pint.sub = {"
-        + "  MSG_MENU_MARK_AS_UNREAD: another.namespace.MSG_MENU_MARK_AS_UNREAD"
-        + "}");
+    extractMessagesSafely(
+        ""
+            + "pint.sub = {"
+            + "  MSG_MENU_MARK_AS_UNREAD: another.namespace.MSG_MENU_MARK_AS_UNREAD"
+            + "}");
   }
 
   @Test
@@ -271,8 +477,8 @@ public final class JsMessageVisitorTest {
   @Test
   public void testMessageAliasedToObject_nonMSGNameIsNotAllowed() {
     extractMessages("a.b.MSG_FOO_ALIAS = someVarName;");
-    assertThat(compiler.getErrors()).hasSize(1);
-    assertError(compiler.getErrors().get(0)).hasType(MESSAGE_TREE_MALFORMED);
+    assertThat(compiler.getWarnings()).hasSize(1);
+    assertError(compiler.getWarnings().get(0)).hasType(MESSAGE_NOT_INITIALIZED_CORRECTLY);
   }
 
   @Test
@@ -289,11 +495,12 @@ public final class JsMessageVisitorTest {
 
   @Test
   public void testMessageDefinedInExportsIsNotOrphaned() {
-    extractMessagesSafely(""
-        + "exports = {"
-        + "  /** @desc Description. */"
-        + "  MSG_FOO: goog.getMsg('Foo'),"
-        + "};");
+    extractMessagesSafely(
+        ""
+            + "exports = {"
+            + "  /** @desc Description. */"
+            + "  MSG_FOO: goog.getMsg('Foo'),"
+            + "};");
     assertThat(compiler.getWarnings()).isEmpty();
   }
 
@@ -322,10 +529,24 @@ public final class JsMessageVisitorTest {
 
   @Test
   public void testOrphanedJsMessage() {
-    extractMessagesSafely("goog.getMsg('a')");
+    extractMessages("goog.getMsg('a')");
     assertThat(messages).isEmpty();
 
-    assertThat(compiler.getWarnings())
+    assertThat(compiler.getErrors())
+        .comparingElementsUsing(DIAGNOSTIC_EQUALITY)
+        .containsExactly(JsMessageVisitor.MESSAGE_NODE_IS_ORPHANED);
+  }
+
+  @Test
+  public void testOrphanedIcuTemplate() {
+    extractMessages(
+        lines(
+            "const {declareIcuTemplate} = goog.require('goog.i18n.messages');", //
+            "",
+            "declareIcuTemplate('a')"));
+    assertThat(messages).isEmpty();
+
+    assertThat(compiler.getErrors())
         .comparingElementsUsing(DIAGNOSTIC_EQUALITY)
         .containsExactly(JsMessageVisitor.MESSAGE_NODE_IS_ORPHANED);
   }
@@ -351,9 +572,9 @@ public final class JsMessageVisitorTest {
     assertThat(messages).isEmpty();
 
     JSError malformedTreeError = compiler.getErrors().get(0);
-    assertError(malformedTreeError).hasType(JsMessageVisitor.MESSAGE_TREE_MALFORMED);
+    assertError(malformedTreeError).hasType(MESSAGE_TREE_MALFORMED);
     assertThat(malformedTreeError.getDescription())
-        .isEqualTo("Message parse tree malformed. " + "STRING or ADD node expected; found: POS");
+        .isEqualTo("Message parse tree malformed. literal string or concatenation expected");
   }
 
   @Test
@@ -367,7 +588,7 @@ public final class JsMessageVisitorTest {
 
     JsMessage msg = messages.get(0);
     assertThat(msg.getKey()).isEqualTo("MSG_HELLO");
-    assertThat(msg.toString()).isEqualTo("hello");
+    assertThat(msg.asJsMessageString()).isEqualTo("hello");
   }
 
   @Test
@@ -380,7 +601,7 @@ public final class JsMessageVisitorTest {
     assertThat(messages).isEmpty();
 
     JSError malformedTreeError = compiler.getErrors().get(0);
-    assertError(malformedTreeError).hasType(JsMessageVisitor.MESSAGE_TREE_MALFORMED);
+    assertError(malformedTreeError).hasType(MESSAGE_TREE_MALFORMED);
     assertThat(malformedTreeError.getDescription())
         .isEqualTo(
             "Message parse tree malformed."
@@ -388,111 +609,29 @@ public final class JsMessageVisitorTest {
   }
 
   @Test
-  public void testEmptyMessage() {
-    // This is an edge case. Empty messages are useless, but shouldn't fail
-    extractMessagesSafely("var MSG_EMPTY = '';");
-
-    assertThat(messages).hasSize(1);
-    JsMessage msg = messages.get(0);
-    assertThat(msg.getKey()).isEqualTo("MSG_EMPTY");
-    assertThat(msg.toString()).isEmpty();
-  }
-
-  @Test
-  public void testConcatOfStrings() {
-    extractMessagesSafely("var MSG_NOTEMPTY = 'aa' + 'bbb' \n + ' ccc';");
-
-    assertThat(messages).hasSize(1);
-    JsMessage msg = messages.get(0);
-    assertThat(msg.getKey()).isEqualTo("MSG_NOTEMPTY");
-    assertThat(msg.toString()).isEqualTo("aabbb ccc");
-  }
-
-  @Test
-  public void testLegacyFormatDescription() {
-    extractMessagesSafely("var MSG_SILLY = 'silly test message';\n"
-        + "var MSG_SILLY_HELP = 'help text';");
-
-    assertThat(messages).hasSize(1);
-    JsMessage msg = messages.get(0);
-    assertThat(msg.getKey()).isEqualTo("MSG_SILLY");
-    assertThat(msg.getDesc()).isEqualTo("help text");
-    assertThat(msg.toString()).isEqualTo("silly test message");
-  }
-
-  @Test
-  public void testLegacyFormatParametizedFunction() {
-    extractMessagesSafely("var MSG_SILLY = function(one, two) {"
-        + "  return one + ', ' + two + ', buckle my shoe';"
-        + "};");
-
-    assertThat(messages).hasSize(1);
-    JsMessage msg = messages.get(0);
-    assertThat(msg.getKey()).isEqualTo("MSG_SILLY");
-    assertThat(msg.getDesc()).isNull();
-    assertThat(msg.toString()).isEqualTo("{$one}, {$two}, buckle my shoe");
-  }
-
-  @Test
-  public void testLegacyMessageWithDescAnnotation() {
-    // Well, is was better do not allow legacy messages with @desc annotations,
-    // but people love to mix styles so we need to check @desc also.
-    extractMessagesSafely(
-        "/** @desc The description */ var MSG_A = 'The Message';");
-
-    assertThat(messages).hasSize(1);
-    assertThat(compiler.getWarnings()).isEmpty();
-    JsMessage msg = messages.get(0);
-    assertThat(msg.getKey()).isEqualTo("MSG_A");
-    assertThat(msg.toString()).isEqualTo("The Message");
-    assertThat(msg.getDesc()).isEqualTo("The description");
-  }
-
-  @Test
-  public void testLegacyMessageWithDescAnnotationAndHelpVar() {
-    mode = RELAX;
-
-    // Well, is was better do not allow legacy messages with @desc annotations,
-    // but people love to mix styles so we need to check @desc also.
-    extractMessagesSafely(
-        "var MSG_A_HELP = 'This is a help var';\n" +
-        "/** @desc The description in @desc*/ var MSG_A = 'The Message';");
-
-    assertThat(messages).hasSize(1);
-    assertThat(compiler.getWarnings()).hasSize(1);
-    JsMessage msg = messages.get(0);
-    assertThat(msg.getKey()).isEqualTo("MSG_A");
-    assertThat(msg.toString()).isEqualTo("The Message");
-    assertThat(msg.getDesc()).isEqualTo("The description in @desc");
-  }
-
-  @Test
   public void testClosureMessageWithHelpPostfix() {
-    extractMessagesSafely("/** @desc help text */\n"
-        + "var MSG_FOO_HELP = goog.getMsg('Help!');");
+    extractMessagesSafely("/** @desc help text */\n" + "var MSG_FOO_HELP = goog.getMsg('Help!');");
 
     assertThat(messages).hasSize(1);
     JsMessage msg = messages.get(0);
     assertThat(msg.getKey()).isEqualTo("MSG_FOO_HELP");
     assertThat(msg.getDesc()).isEqualTo("help text");
-    assertThat(msg.toString()).isEqualTo("Help!");
+    assertThat(msg.asJsMessageString()).isEqualTo("Help!");
   }
 
   @Test
   public void testClosureMessageWithoutGoogGetmsg() {
-    mode = CLOSURE;
 
     extractMessages("var MSG_FOO_HELP = 'I am a bad message';");
 
     assertThat(messages).isEmpty();
     assertThat(compiler.getWarnings()).hasSize(1);
     assertError(compiler.getWarnings().get(0))
-        .hasType(JsMessageVisitor.MESSAGE_NOT_INITIALIZED_USING_NEW_SYNTAX);
+        .hasType(JsMessageVisitor.MESSAGE_NOT_INITIALIZED_CORRECTLY);
   }
 
   @Test
   public void testAllowOneMSGtoAliasAnotherMSG() {
-    mode = CLOSURE;
 
     // NOTE: tsickle code generation can end up creating new MSG_* variables that are temporary
     // aliases of existing ones that were defined correctly using goog.getMsg(). Don't complain
@@ -507,13 +646,12 @@ public final class JsMessageVisitorTest {
     assertThat(messages).hasSize(1);
     JsMessage msg = messages.get(0);
     assertThat(msg.getKey()).isEqualTo("MSG_FOO");
-    assertThat(msg.toString()).isEqualTo("Foo message");
+    assertThat(msg.asJsMessageString()).isEqualTo("Foo message");
     assertThat(compiler.getWarnings()).isEmpty();
   }
 
   @Test
   public void testDisallowOneMSGtoAliasNONMSG() {
-    mode = CLOSURE;
 
     // NOTE: tsickle code generation can end up creating new MSG_* variables that are temporary
     // aliases of existing ones that were defined correctly using goog.getMsg(). Don't complain
@@ -528,51 +666,77 @@ public final class JsMessageVisitorTest {
     assertThat(messages).isEmpty();
     assertThat(compiler.getWarnings()).hasSize(1);
     assertError(compiler.getWarnings().get(0))
-        .hasType(JsMessageVisitor.MESSAGE_NOT_INITIALIZED_USING_NEW_SYNTAX);
+        .hasType(JsMessageVisitor.MESSAGE_NOT_INITIALIZED_CORRECTLY);
   }
 
   @Test
   public void testClosureFormatParametizedFunction() {
-    extractMessagesSafely("/** @desc help text */"
-        + "var MSG_SILLY = goog.getMsg('{$adjective} ' + 'message', "
-        + "{'adjective': 'silly'});");
+    extractMessagesSafely(
+        lines(
+            "/** @desc help text */",
+            "var MSG_SILLY = goog.getMsg('{$adjective} ' + 'message', ",
+            "{'adjective': 'silly'});"));
 
-    assertThat(messages).hasSize(1);
-    JsMessage msg = messages.get(0);
+    assertThat(messageDefinitions).hasSize(1);
+    final JsMessageDefinition jsMessageDefinition = messageDefinitions.get(0);
+
+    // `goog.getMsg(...)`
+    final Node messageNode = jsMessageDefinition.getMessageNode();
+    assertNode(messageNode).isCall().hasFirstChildThat().matchesQualifiedName("goog.getMsg");
+
+    // `'{$adjective} ' + 'message'`
+    final Node templateTextNode = jsMessageDefinition.getTemplateTextNode();
+    assertNode(templateTextNode).hasToken(Token.ADD).hasFirstChildThat().isString("{$adjective} ");
+
+    // `{'adjective': ...}`
+    final Node placeholderValuesNode = jsMessageDefinition.getPlaceholderValuesNode();
+    assertNode(placeholderValuesNode)
+        .isObjectLit()
+        .hasFirstChildThat()
+        .hasToken(Token.STRING_KEY)
+        .hasStringThat()
+        .isEqualTo("adjective");
+
+    // Map containing "adjective" -> string node containing "silly"
+    final ImmutableMap<String, Node> placeholderValueMap =
+        jsMessageDefinition.getPlaceholderValueMap();
+    assertThat(placeholderValueMap).hasSize(1);
+    assertNode(placeholderValueMap.get("adjective")).isString("silly");
+
+    JsMessage msg = jsMessageDefinition.getMessage();
     assertThat(msg.getKey()).isEqualTo("MSG_SILLY");
     assertThat(msg.getDesc()).isEqualTo("help text");
-    assertThat(msg.toString()).isEqualTo("{$adjective} message");
+    assertThat(msg.asJsMessageString()).isEqualTo("{$adjective} message");
   }
 
   @Test
   public void testHugeMessage() {
-    extractMessagesSafely("/**" +
-        " * @desc A message with lots of stuff.\n" +
-        " * @hidden\n" +
-        " */" +
-        "var MSG_HUGE = goog.getMsg(" +
-        "    '{$startLink_1}Google{$endLink}' +" +
-        "    '{$startLink_2}blah{$endLink}{$boo}{$foo_001}{$boo}' +" +
-        "    '{$foo_002}{$xxx_001}{$image}{$image_001}{$xxx_002}'," +
-        "    {'startLink_1': '<a href=http://www.google.com/>'," +
-        "     'endLink': '</a>'," +
-        "     'startLink_2': '<a href=\"' + opt_data.url + '\">'," +
-        "     'boo': opt_data.boo," +
-        "     'foo_001': opt_data.foo," +
-        "     'foo_002': opt_data.boo.foo," +
-        "     'xxx_001': opt_data.boo + opt_data.foo," +
-        "     'image': htmlTag7," +
-        "     'image_001': opt_data.image," +
-        "     'xxx_002': foo.callWithOnlyTopLevelKeys(" +
-        "         bogusFn, opt_data, null, 'bogusKey1'," +
-        "         opt_data.moo, 'bogusKey2', param10)});");
+    extractMessagesSafely(
+        "/**"
+            + " * @desc A message with lots of stuff.\n"
+            + " */"
+            + "var MSG_HUGE = goog.getMsg("
+            + "    '{$startLink_1}Google{$endLink}' +"
+            + "    '{$startLink_2}blah{$endLink}{$boo}{$foo_001}{$boo}' +"
+            + "    '{$foo_002}{$xxx_001}{$image}{$image_001}{$xxx_002}',"
+            + "    {'startLink_1': '<a href=http://www.google.com/>',"
+            + "     'endLink': '</a>',"
+            + "     'startLink_2': '<a href=\"' + opt_data.url + '\">',"
+            + "     'boo': opt_data.boo,"
+            + "     'foo_001': opt_data.foo,"
+            + "     'foo_002': opt_data.boo.foo,"
+            + "     'xxx_001': opt_data.boo + opt_data.foo,"
+            + "     'image': htmlTag7,"
+            + "     'image_001': opt_data.image,"
+            + "     'xxx_002': foo.callWithOnlyTopLevelKeys("
+            + "         bogusFn, opt_data, null, 'bogusKey1',"
+            + "         opt_data.moo, 'bogusKey2', param10)});");
 
     assertThat(messages).hasSize(1);
     JsMessage msg = messages.get(0);
     assertThat(msg.getKey()).isEqualTo("MSG_HUGE");
     assertThat(msg.getDesc()).isEqualTo("A message with lots of stuff.");
-    assertThat(msg.isHidden()).isTrue();
-    assertThat(msg.toString())
+    assertThat(msg.asJsMessageString())
         .isEqualTo(
             "{$startLink_1}Google{$endLink}{$startLink_2}blah{$endLink}"
                 + "{$boo}{$foo_001}{$boo}{$foo_002}{$xxx_001}{$image}"
@@ -591,6 +755,39 @@ public final class JsMessageVisitorTest {
   }
 
   @Test
+  public void testUnnamedIcuTemplate() {
+    // Unlike `goog.getMsg()` we do require a description for anonymous ICU templates.
+    // Requiring the description is less complicated, and there doesn't seem to be any reaon
+    // not to require them.
+    extractMessagesSafely(
+        "var MSG_UNNAMED = declareIcuTemplate('Hullo', {description: 'description'});");
+
+    assertThat(icuTemplateDefinitions).hasSize(1);
+    JsMessage msg = icuTemplateDefinitions.get(0).getMessage();
+    assertThat(msg.getDesc()).isEqualTo("description");
+    assertThat(msg.getKey()).isEqualTo("MSG_16LJMYKCXT84X");
+    assertThat(msg.getId()).isEqualTo("MSG_16LJMYKCXT84X");
+  }
+
+  @Test
+  public void testMeaningGetsUsedAsIdIfTheresNoGenerator() {
+    extractMessagesSafely(
+        lines(
+            "/**", //
+            " * @desc some description",
+            " * @meaning some meaning",
+            " */",
+            "var MSG_HULLO = goog.getMsg('Hullo');"));
+
+    assertThat(messages).hasSize(1);
+    JsMessage msg = messages.get(0);
+    assertThat(msg.getDesc()).isEqualTo("some description");
+    assertThat(msg.getKey()).isEqualTo("MSG_HULLO");
+    assertThat(msg.getMeaning()).isEqualTo("some meaning");
+    assertThat(msg.getId()).isEqualTo("some meaning");
+  }
+
+  @Test
   public void testEmptyTextMessage() {
     extractMessagesSafely("/** @desc text */ var MSG_FOO = goog.getMsg('');");
 
@@ -603,8 +800,8 @@ public final class JsMessageVisitorTest {
 
   @Test
   public void testEmptyTextComplexMessage() {
-    extractMessagesSafely("/** @desc text */ var MSG_BAR = goog.getMsg("
-        + "'' + '' + ''     + ''\n+'');");
+    extractMessagesSafely(
+        "/** @desc text */ var MSG_BAR = goog.getMsg(" + "'' + '' + ''     + ''\n+'');");
 
     assertThat(messages).hasSize(1);
     assertThat(compiler.getWarnings())
@@ -643,10 +840,15 @@ public final class JsMessageVisitorTest {
   public void testMsgVarWithIncorrectRightSide() {
     extractMessages("var MSG_SILLY = 0;");
 
-    assertThat(compiler.getErrors())
+    final ImmutableList<JSError> warnings = compiler.getWarnings();
+    assertThat(warnings)
+        .comparingElementsUsing(DIAGNOSTIC_EQUALITY)
+        .containsExactly(MESSAGE_NOT_INITIALIZED_CORRECTLY);
+    assertThat(warnings)
         .comparingElementsUsing(DESCRIPTION_EQUALITY)
         .containsExactly(
-            "Message parse tree malformed. Cannot parse value of " + "message MSG_SILLY");
+            "Message must be initialized using a call to goog.getMsg or"
+                + " goog.i18n.messages.declareIcuTemplate");
   }
 
   @Test
@@ -654,69 +856,70 @@ public final class JsMessageVisitorTest {
     extractMessages("DP_DatePicker.MSG_DATE_SELECTION = {};");
 
     assertThat(messages).isEmpty();
-    assertThat(compiler.getErrors())
+    final ImmutableList<JSError> warnings = compiler.getWarnings();
+    assertThat(warnings)
+        .comparingElementsUsing(DIAGNOSTIC_EQUALITY)
+        .containsExactly(MESSAGE_NOT_INITIALIZED_CORRECTLY);
+    assertThat(warnings)
         .comparingElementsUsing(DESCRIPTION_EQUALITY)
         .containsExactly(
-            "Message parse tree malformed."
-                + " Message must be initialized using goog.getMsg function.");
+            "Message must be initialized using a call to goog.getMsg or"
+                + " goog.i18n.messages.declareIcuTemplate");
   }
 
   @Test
   public void testUnrecognizedFunction() {
-    mode = CLOSURE;
     extractMessages("DP_DatePicker.MSG_DATE_SELECTION = somefunc('a')");
 
     assertThat(messages).isEmpty();
     assertThat(compiler.getErrors())
         .comparingElementsUsing(DESCRIPTION_EQUALITY)
         .containsExactly(
-            "Message parse tree malformed. Message initialized using unrecognized function. "
-                + "Please use goog.getMsg() instead.");
+            "Message parse tree malformed. Message must be initialized using a call to goog.getMsg"
+                + " or declareIcuTemplate (from goog.i18n.messages).");
   }
 
   @Test
   public void testExtractPropertyMessage() {
-    extractMessagesSafely("/**"
-        + " * @desc A message that demonstrates placeholders\n"
-        + " * @hidden\n"
-        + " */"
-        + "a.b.MSG_SILLY = goog.getMsg(\n"
-        + "    '{$adjective} ' + '{$someNoun}',\n"
-        + "    {'adjective': adj, 'someNoun': noun});");
+    extractMessagesSafely(
+        "/**"
+            + " * @desc A message that demonstrates placeholders\n"
+            + " */"
+            + "a.b.MSG_SILLY = goog.getMsg(\n"
+            + "    '{$adjective} ' + '{$someNoun}',\n"
+            + "    {'adjective': adj, 'someNoun': noun});");
 
     assertThat(messages).hasSize(1);
     JsMessage msg = messages.get(0);
     assertThat(msg.getKey()).isEqualTo("MSG_SILLY");
-    assertThat(msg.toString()).isEqualTo("{$adjective} {$someNoun}");
+    assertThat(msg.asJsMessageString()).isEqualTo("{$adjective} {$someNoun}");
     assertThat(msg.getDesc()).isEqualTo("A message that demonstrates placeholders");
-    assertThat(msg.isHidden()).isTrue();
   }
 
   @Test
   public void testExtractPropertyMessageInFunction() {
-    extractMessagesSafely(""
-        + "function f() {\n"
-        + "  /**\n"
-        + "   * @desc A message that demonstrates placeholders\n"
-        + "   * @hidden\n"
-        + "   */\n"
-        + "  a.b.MSG_SILLY = goog.getMsg(\n"
-        + "      '{$adjective} ' + '{$someNoun}',\n"
-        + "      {'adjective': adj, 'someNoun': noun});\n"
-        + "}");
+    extractMessagesSafely(
+        ""
+            + "function f() {\n"
+            + "  /**\n"
+            + "   * @desc A message that demonstrates placeholders\n"
+            + "   * @hidden\n"
+            + "   */\n"
+            + "  a.b.MSG_SILLY = goog.getMsg(\n"
+            + "      '{$adjective} ' + '{$someNoun}',\n"
+            + "      {'adjective': adj, 'someNoun': noun});\n"
+            + "}");
 
     assertThat(messages).hasSize(1);
     JsMessage msg = messages.get(0);
     assertThat(msg.getKey()).isEqualTo("MSG_SILLY");
-    assertThat(msg.toString()).isEqualTo("{$adjective} {$someNoun}");
+    assertThat(msg.asJsMessageString()).isEqualTo("{$adjective} {$someNoun}");
     assertThat(msg.getDesc()).isEqualTo("A message that demonstrates placeholders");
-    assertThat(msg.isHidden()).isTrue();
   }
 
   @Test
   public void testAlmostButNotExternalMessage() {
-    extractMessagesSafely(
-        "/** @desc External */ var MSG_EXTERNAL = goog.getMsg('External');");
+    extractMessagesSafely("/** @desc External */ var MSG_EXTERNAL = goog.getMsg('External');");
     assertThat(compiler.getWarnings()).isEmpty();
     assertThat(messages).hasSize(1);
     assertThat(messages.get(0).isExternal()).isFalse();
@@ -743,39 +946,15 @@ public final class JsMessageVisitorTest {
 
   @Test
   public void testIsValidMessageNameStrict() {
-    JsMessageVisitor visitor = new DummyJsVisitor(CLOSURE);
+    JsMessageVisitor visitor = new DummyJsVisitor();
 
-    assertThat(visitor.isMessageName("MSG_HELLO", true)).isTrue();
-    assertThat(visitor.isMessageName("MSG_", true)).isTrue();
-    assertThat(visitor.isMessageName("MSG_HELP", true)).isTrue();
-    assertThat(visitor.isMessageName("MSG_FOO_HELP", true)).isTrue();
+    assertThat(visitor.isMessageName("MSG_HELLO")).isTrue();
+    assertThat(visitor.isMessageName("MSG_")).isTrue();
+    assertThat(visitor.isMessageName("MSG_HELP")).isTrue();
+    assertThat(visitor.isMessageName("MSG_FOO_HELP")).isTrue();
 
-    assertThat(visitor.isMessageName("_FOO_HELP", true)).isFalse();
-    assertThat(visitor.isMessageName("MSGFOOP", true)).isFalse();
-  }
-
-  @Test
-  public void testIsValidMessageNameRelax() {
-    JsMessageVisitor visitor = new DummyJsVisitor(RELAX);
-
-    assertThat(visitor.isMessageName("MSG_HELP", false)).isFalse();
-    assertThat(visitor.isMessageName("MSG_FOO_HELP", false)).isFalse();
-  }
-
-  @Test
-  public void testIsValidMessageNameLegacy() {
-    theseAreLegacyMessageNames(new DummyJsVisitor(RELAX));
-    theseAreLegacyMessageNames(new DummyJsVisitor(LEGACY));
-  }
-
-  private void theseAreLegacyMessageNames(JsMessageVisitor visitor) {
-    assertThat(visitor.isMessageName("MSG_HELLO", false)).isTrue();
-    assertThat(visitor.isMessageName("MSG_", false)).isTrue();
-
-    assertThat(visitor.isMessageName("MSG_HELP", false)).isFalse();
-    assertThat(visitor.isMessageName("MSG_FOO_HELP", false)).isFalse();
-    assertThat(visitor.isMessageName("_FOO_HELP", false)).isFalse();
-    assertThat(visitor.isMessageName("MSGFOOP", false)).isFalse();
+    assertThat(visitor.isMessageName("_FOO_HELP")).isFalse();
+    assertThat(visitor.isMessageName("MSGFOOP")).isFalse();
   }
 
   @Test
@@ -786,7 +965,7 @@ public final class JsMessageVisitorTest {
     ImmutableList<JSError> errors = compiler.getErrors();
     assertThat(errors).hasSize(1);
     JSError error = errors.get(0);
-    assertThat(error.getType()).isEqualTo(JsMessageVisitor.MESSAGE_TREE_MALFORMED);
+    assertThat(error.getType()).isEqualTo(MESSAGE_TREE_MALFORMED);
     assertThat(error.getDescription())
         .isEqualTo(
             "Message parse tree malformed. Unrecognized message " + "placeholder referenced: foo");
@@ -794,59 +973,79 @@ public final class JsMessageVisitorTest {
 
   @Test
   public void testUnusedReferenesAreNotOK() {
-    extractMessages("/** @desc AA */ "
-        + "var MSG_FOO = goog.getMsg('lalala:', {foo:1});");
+    extractMessages("/** @desc AA */ " + "var MSG_FOO = goog.getMsg('lalala:', {foo:1});");
     assertThat(messages).isEmpty();
     ImmutableList<JSError> errors = compiler.getErrors();
     assertThat(errors).hasSize(1);
     JSError error = errors.get(0);
-    assertThat(error.getType()).isEqualTo(JsMessageVisitor.MESSAGE_TREE_MALFORMED);
+    assertThat(error.getType()).isEqualTo(MESSAGE_TREE_MALFORMED);
     assertThat(error.getDescription())
         .isEqualTo("Message parse tree malformed. Unused message placeholder: " + "foo");
   }
 
   @Test
   public void testDuplicatePlaceHoldersAreBad() {
-    extractMessages("var MSG_FOO = goog.getMsg("
-        + "'{$foo}:', {'foo': 1, 'foo' : 2});");
+    extractMessages("var MSG_FOO = goog.getMsg(" + "'{$foo}:', {'foo': 1, 'foo' : 2});");
 
     assertThat(messages).isEmpty();
     ImmutableList<JSError> errors = compiler.getErrors();
     assertThat(errors).hasSize(1);
     JSError error = errors.get(0);
-    assertThat(error.getType()).isEqualTo(JsMessageVisitor.MESSAGE_TREE_MALFORMED);
+    assertThat(error.getType()).isEqualTo(MESSAGE_TREE_MALFORMED);
     assertThat(error.getDescription())
-        .isEqualTo("Message parse tree malformed. Duplicate placeholder " + "name: foo");
+        .isEqualTo("Message parse tree malformed. duplicate string key: foo");
   }
 
   @Test
   public void testDuplicatePlaceholderReferencesAreOk() {
-    extractMessagesSafely("var MSG_FOO = goog.getMsg("
-        + "'{$foo}:, {$foo}', {'foo': 1});");
+    extractMessagesSafely("var MSG_FOO = goog.getMsg(" + "'{$foo}:, {$foo}', {'foo': 1});");
 
     assertThat(messages).hasSize(1);
     JsMessage msg = messages.get(0);
-    assertThat(msg.toString()).isEqualTo("{$foo}:, {$foo}");
+    assertThat(msg.asJsMessageString()).isEqualTo("{$foo}:, {$foo}");
   }
 
   @Test
   public void testCamelcasePlaceholderNamesAreOk() {
-    extractMessagesSafely("var MSG_WITH_CAMELCASE = goog.getMsg("
-        + "'Slide {$slideNumber}:', {'slideNumber': opt_index + 1});");
+    extractMessagesSafely(
+        "var MSG_WITH_CAMELCASE = goog.getMsg("
+            + "'Slide {$slideNumber}:', {'slideNumber': opt_index + 1});");
 
     assertThat(messages).hasSize(1);
     JsMessage msg = messages.get(0);
     assertThat(msg.getKey()).isEqualTo("MSG_WITH_CAMELCASE");
-    assertThat(msg.toString()).isEqualTo("Slide {$slideNumber}:");
-    List<CharSequence> parts = msg.parts();
+    assertThat(msg.asJsMessageString()).isEqualTo("Slide {$slideNumber}:");
+    ImmutableList<Part> parts = msg.getParts();
     assertThat(parts).hasSize(3);
-    assertThat(((JsMessage.PlaceholderReference) parts.get(1)).getName()).isEqualTo("slideNumber");
+    assertThat(parts.get(1).getJsPlaceholderName()).isEqualTo("slideNumber");
+    assertThat(parts.get(1).getCanonicalPlaceholderName()).isEqualTo("SLIDE_NUMBER");
   }
 
   @Test
-  public void testWithNonCamelcasePlaceholderNamesAreNotOk() {
-    extractMessages("var MSG_WITH_CAMELCASE = goog.getMsg("
-        + "'Slide {$slide_number}:', {'slide_number': opt_index + 1});");
+  public void testNonCamelcasePlaceholderNamesAreNotOkInMsgText() {
+    extractMessages(
+        lines(
+            "var MSG_WITH_CAMELCASE = goog.getMsg(",
+            "    'Slide {$SLIDE_NUMBER}:',",
+            "    {'slideNumber': opt_index + 1});"));
+
+    assertThat(messages).isEmpty();
+    ImmutableList<JSError> errors = compiler.getErrors();
+    assertThat(errors).hasSize(1);
+    JSError error = errors.get(0);
+    assertThat(error.getType()).isEqualTo(MESSAGE_TREE_MALFORMED);
+    assertThat(error.getDescription())
+        .isEqualTo(
+            "Message parse tree malformed. Placeholder name not in lowerCamelCase: SLIDE_NUMBER");
+  }
+
+  @Test
+  public void testNonCamelcasePlaceholderNamesAreNotOkInPlaceholderObject() {
+    extractMessages(
+        lines(
+            "var MSG_WITH_CAMELCASE = goog.getMsg(",
+            "    'Slide {$slideNumber}:',",
+            "    {'SLIDE_NUMBER': opt_index + 1});"));
 
     assertThat(messages).isEmpty();
     ImmutableList<JSError> errors = compiler.getErrors();
@@ -855,47 +1054,24 @@ public final class JsMessageVisitorTest {
     assertThat(error.getType()).isEqualTo(JsMessageVisitor.MESSAGE_TREE_MALFORMED);
     assertThat(error.getDescription())
         .isEqualTo(
-            "Message parse tree malformed. Placeholder name not in "
-                + "lowerCamelCase: slide_number");
+            "Message parse tree malformed. Unrecognized message placeholder referenced:"
+                + " slideNumber");
   }
 
   @Test
   public void testUnquotedPlaceholdersAreOk() {
-    extractMessagesSafely("/** @desc Hello */ "
-        + "var MSG_FOO = goog.getMsg('foo {$unquoted}:', {unquoted: 12});");
+    extractMessagesSafely(
+        "/** @desc Hello */ " + "var MSG_FOO = goog.getMsg('foo {$unquoted}:', {unquoted: 12});");
 
     assertThat(messages).hasSize(1);
     assertThat(compiler.getWarnings()).isEmpty();
   }
 
   @Test
-  public void testIsLowerCamelCaseWithNumericSuffixes() {
-    assertThat(isLowerCamelCaseWithNumericSuffixes("name")).isTrue();
-    assertThat(isLowerCamelCaseWithNumericSuffixes("NAME")).isFalse();
-    assertThat(isLowerCamelCaseWithNumericSuffixes("Name")).isFalse();
-
-    assertThat(isLowerCamelCaseWithNumericSuffixes("a4Letter")).isTrue();
-    assertThat(isLowerCamelCaseWithNumericSuffixes("A4_LETTER")).isFalse();
-
-    assertThat(isLowerCamelCaseWithNumericSuffixes("startSpan_1_23")).isTrue();
-    assertThat(isLowerCamelCaseWithNumericSuffixes("startSpan_1_23b")).isFalse();
-    assertThat(isLowerCamelCaseWithNumericSuffixes("START_SPAN_1_23")).isFalse();
-
-    assertThat(isLowerCamelCaseWithNumericSuffixes("")).isFalse();
-  }
-
-  @Test
-  public void testToLowerCamelCaseWithNumericSuffixes() {
-    assertThat(toLowerCamelCaseWithNumericSuffixes("NAME")).isEqualTo("name");
-    assertThat(toLowerCamelCaseWithNumericSuffixes("A4_LETTER")).isEqualTo("a4Letter");
-    assertThat(toLowerCamelCaseWithNumericSuffixes("START_SPAN_1_23")).isEqualTo("startSpan_1_23");
-  }
-
-  @Test
   public void testDuplicateMessageError() {
     extractMessages(
-        "(function () {/** @desc Hello */ var MSG_HELLO = goog.getMsg('a')})" +
-        "(function () {/** @desc Hello2 */ var MSG_HELLO = goog.getMsg('a')})");
+        "(function () {/** @desc Hello */ var MSG_HELLO = goog.getMsg('a')})"
+            + "(function () {/** @desc Hello2 */ var MSG_HELLO = goog.getMsg('a')})");
 
     assertThat(compiler.getWarnings()).isEmpty();
     assertOneError(JsMessageVisitor.MESSAGE_DUPLICATE_KEY);
@@ -904,21 +1080,21 @@ public final class JsMessageVisitorTest {
   @Test
   public void testNoDuplicateErrorOnExternMessage() {
     extractMessagesSafely(
-        "(function () {/** @desc Hello */ " +
-        "var MSG_EXTERNAL_2 = goog.getMsg('a')})" +
-        "(function () {/** @desc Hello2 */ " +
-        "var MSG_EXTERNAL_2 = goog.getMsg('a')})");
+        "(function () {/** @desc Hello */ "
+            + "var MSG_EXTERNAL_2 = goog.getMsg('a')})"
+            + "(function () {/** @desc Hello2 */ "
+            + "var MSG_EXTERNAL_2 = goog.getMsg('a')})");
   }
 
   @Test
   public void testUsingMsgPrefixWithFallback() {
     extractMessages(
-        "function f() {\n" +
-        "/** @desc Hello */ var MSG_UNNAMED_1 = goog.getMsg('hello');\n" +
-        "/** @desc Hello */ var MSG_UNNAMED_2 = goog.getMsg('hello');\n" +
-        "var x = goog.getMsgWithFallback(\n" +
-        "    MSG_UNNAMED_1, MSG_UNNAMED_2);\n" +
-        "}\n");
+        "function f() {\n"
+            + "/** @desc Hello */ var MSG_UNNAMED_1 = goog.getMsg('hello');\n"
+            + "/** @desc Hello */ var MSG_UNNAMED_2 = goog.getMsg('hello');\n"
+            + "var x = goog.getMsgWithFallback(\n"
+            + "    MSG_UNNAMED_1, MSG_UNNAMED_2);\n"
+            + "}\n");
     assertNoErrors();
   }
 
@@ -978,26 +1154,26 @@ public final class JsMessageVisitorTest {
   @Test
   public void testErrorWhenUsingMsgPrefixWithFallback() {
     extractMessages(
-        "/** @desc Hello */ var MSG_HELLO_1 = goog.getMsg('hello');\n" +
-        "/** @desc Hello */ var MSG_HELLO_2 = goog.getMsg('hello');\n" +
-        "/** @desc Hello */ " +
-        "var MSG_HELLO_3 = goog.getMsgWithFallback(MSG_HELLO_1, MSG_HELLO_2);");
-    assertOneError(JsMessageVisitor.MESSAGE_TREE_MALFORMED);
+        "/** @desc Hello */ var MSG_HELLO_1 = goog.getMsg('hello');\n"
+            + "/** @desc Hello */ var MSG_HELLO_2 = goog.getMsg('hello');\n"
+            + "/** @desc Hello */ "
+            + "var MSG_HELLO_3 = goog.getMsgWithFallback(MSG_HELLO_1, MSG_HELLO_2);");
+    assertOneError(MESSAGE_TREE_MALFORMED);
   }
 
   @Test
   public void testRenamedMessages_var() {
     renameMessages = true;
 
-    extractMessagesSafely(
-        "/** @desc Hello */ var MSG_HELLO = goog.getMsg('a')");
+    extractMessagesSafely("/** @desc Hello */ var MSG_HELLO = goog.getMsg('a')");
     assertThat(compiler.getWarnings()).isEmpty();
     assertThat(messages).hasSize(1);
 
     JsMessage msg = messages.get(0);
     assertThat(msg.getKey()).isEqualTo("MSG_HELLO");
     assertThat(msg.getDesc()).isEqualTo("Hello");
-    assertThat(msg.getSourceName()).isEqualTo("[testcode]:1");
+    // NOTE: "testcode" is the file name used by compiler.parseTestCode(code)
+    assertThat(msg.getSourceName()).isEqualTo("testcode:1");
   }
 
   @Test
@@ -1014,14 +1190,245 @@ public final class JsMessageVisitorTest {
   }
 
   @Test
-  public void testGetMsgWithHtml() {
-    extractMessagesSafely("/** @desc Hello */ var MSG_HELLO = goog.getMsg('a', {}, {html: true})");
+  public void testGetMsgWithOptions() {
+    extractMessagesSafely(
+        lines(
+            "/** @desc Hello */",
+            "var MSG_HELLO =",
+            "    goog.getMsg(",
+            "        'Hello, {$name}',",
+            "        {",
+            "          'name': getName(),",
+            "        },",
+            "        {",
+            "          html: false,",
+            "          unescapeHtmlEntities: true,",
+            "          example: {",
+            "            'name': 'George',",
+            "          },",
+            "          original_code: {",
+            "            'name': 'getName()',",
+            "          },",
+            "        })"));
     assertThat(compiler.getWarnings()).isEmpty();
     assertThat(messages).hasSize(1);
 
     JsMessage msg = messages.get(0);
+    // MSG_HELLO =
     assertThat(msg.getKey()).isEqualTo("MSG_HELLO");
+    // * @desc Hello
     assertThat(msg.getDesc()).isEqualTo("Hello");
+
+    JsMessageDefinition msgDefinition = messageDefinitions.get(0);
+
+    // goog.getMsg(...)
+    final Node callNode = msgDefinition.getMessageNode();
+    assertNode(callNode).isCall().hasFirstChildThat().matchesQualifiedName("goog.getMsg");
+
+    assertNode(msgDefinition.getTemplateTextNode()).isString("Hello, {$name}");
+
+    // `{ 'name': getName() }`
+    final Node placeholderValuesNode = msgDefinition.getPlaceholderValuesNode();
+    assertNode(placeholderValuesNode).isObjectLit();
+    assertThat(callNode.getChildAtIndex(2)).isSameInstanceAs(placeholderValuesNode);
+
+    // placeholder name 'name' maps to the `getName()` call in the values map
+    final ImmutableMap<String, Node> placeholderValueMap = msgDefinition.getPlaceholderValueMap();
+    assertThat(placeholderValueMap.keySet()).containsExactly("name");
+    final Node nameValueNode = placeholderValueMap.get("name");
+    assertNode(nameValueNode).isCall().hasOneChildThat().isName("getName");
+    assertThat(nameValueNode.getGrandparent()).isSameInstanceAs(placeholderValuesNode);
+
+    // `html: false`
+    assertThat(msgDefinition.shouldEscapeLessThan()).isFalse();
+    // `unescapeHtmlEntities: true`
+    assertThat(msgDefinition.shouldUnescapeHtmlEntities()).isTrue();
+
+    // `example: { 'name': 'George' }`
+    assertThat(msg.getPlaceholderNameToExampleMap()).containsExactly("name", "George");
+    // `original_code: {'name': 'getName()' }`
+    assertThat(msg.getPlaceholderNameToOriginalCodeMap()).containsExactly("name", "getName()");
+  }
+
+  @Test
+  public void testGoogGetMsgWithNoArgs() {
+    extractMessages(
+        lines(
+            "/** @desc something */",
+            "const MSG_X = goog.getMsg();", // no arguments
+            ""));
+    assertThat(compiler.getErrors())
+        .comparingElementsUsing(DESCRIPTION_EQUALITY)
+        .containsExactly("Message parse tree malformed. Message string literal expected");
+  }
+
+  @Test
+  public void testGoogGetMsgWithBadValuesArg() {
+    extractMessages(
+        lines(
+            "/** @desc something */", //
+            "const MSG_X =",
+            "    goog.getMsg(",
+            "        'Hello, {$name}',",
+            "        getName());", // should be an object literal
+            ""));
+    assertThat(compiler.getErrors())
+        .comparingElementsUsing(DESCRIPTION_EQUALITY)
+        .containsExactly("Message parse tree malformed. object literal expected");
+  }
+
+  @Test
+  public void testGoogGetMsgWithBadValuesKey() {
+    extractMessages(
+        lines(
+            "/** @desc something */", //
+            "const MSG_X =",
+            "    goog.getMsg(",
+            "        'Hello, {$name}',",
+            "        {",
+            "          [name]: getName()", // a computed key is not allowed
+            "        });"));
+    assertThat(compiler.getErrors())
+        .comparingElementsUsing(DESCRIPTION_EQUALITY)
+        .containsExactly("Message parse tree malformed. string key expected");
+  }
+
+  @Test
+  public void testGoogGetMsgWithBadOptionsArg() {
+    extractMessages(
+        lines(
+            "/** @desc something */", //
+            "const MSG_X =",
+            "    goog.getMsg(",
+            "        'Hello, {$name}',",
+            "        { 'name': getName() },",
+            "        options);", // options bag must be an object literal
+            ""));
+    assertThat(compiler.getErrors())
+        .comparingElementsUsing(DESCRIPTION_EQUALITY)
+        .containsExactly("Message parse tree malformed. object literal expected");
+  }
+
+  @Test
+  public void testGoogGetMsgWithComputedKeyInOptions() {
+    extractMessages(
+        lines(
+            "/** @desc something */", //
+            "const MSG_X =",
+            "    goog.getMsg(",
+            "        'Hello, {$name}',",
+            "        { 'name': getName() },",
+            "        {",
+            "          [options]: true", // option names cannot be computed keys
+            "        });"));
+    assertThat(compiler.getErrors())
+        .comparingElementsUsing(DESCRIPTION_EQUALITY)
+        .containsExactly("Message parse tree malformed. string key expected");
+  }
+
+  @Test
+  public void testGoogGetMsgWithUnknownOption() {
+    extractMessages(
+        lines(
+            "/** @desc something */", //
+            "const MSG_X =",
+            "    goog.getMsg(",
+            "        'Hello, {$name}',",
+            "        { 'name': getName() },",
+            "        {",
+            "          unknownOption: true", // not a valid option name
+            "        });"));
+    assertThat(compiler.getErrors())
+        .comparingElementsUsing(DESCRIPTION_EQUALITY)
+        .containsExactly("Message parse tree malformed. Unknown option: unknownOption");
+  }
+
+  @Test
+  public void testGoogGetMsgWithInvalidBooleanOption() {
+    extractMessages(
+        lines(
+            "/** @desc something */", //
+            "const MSG_X =",
+            "    goog.getMsg(",
+            "        'Hello, {$name}',",
+            "        { 'name': getName() },",
+            "        {",
+            "          html: 'true'", // boolean option value must be a boolean literal
+            "        });"));
+    assertThat(compiler.getErrors())
+        .comparingElementsUsing(DESCRIPTION_EQUALITY)
+        .containsExactly("Message parse tree malformed. html: Literal true or false expected");
+  }
+
+  @Test
+  public void testGoogGetMsgWithOriginalCodeForInvalidExample() {
+    extractMessages(
+        lines(
+            "/** @desc something */", //
+            "const MSG_X =",
+            "    goog.getMsg(",
+            "        'Hello, {$name}',",
+            "        { 'name': getName() },",
+            "        {",
+            "          example: 'name: something'", // not an object literal
+            "        });"));
+    assertThat(compiler.getErrors())
+        .comparingElementsUsing(DESCRIPTION_EQUALITY)
+        .containsExactly("Message parse tree malformed. object literal expected");
+  }
+
+  @Test
+  public void testGoogGetMsgWithInvalidOriginalCodeValue() {
+    extractMessages(
+        lines(
+            "/** @desc something */", //
+            "const MSG_X =",
+            "    goog.getMsg(",
+            "        'Hello, {$name}',",
+            "        { 'name': getName() },",
+            "        {",
+            "          original_code: {",
+            "            'name': getName()", // value is not a string
+            "          }",
+            "        });"));
+    assertThat(compiler.getErrors())
+        .comparingElementsUsing(DESCRIPTION_EQUALITY)
+        .containsExactly("Message parse tree malformed. literal string or concatenation expected");
+  }
+
+  @Test
+  public void testGoogGetMsgWithOriginalCodeForUnknownPlaceholder() {
+    extractMessages(
+        lines(
+            "/** @desc something */", //
+            "const MSG_X =",
+            "    goog.getMsg(",
+            "        'Hello, {$name}',",
+            "        { 'name': getName() },",
+            "        {",
+            "          original_code: {",
+            "            'unknownPlaceholder': 'something'", // not a valid placeholder name
+            "          }",
+            "        });"));
+    assertThat(compiler.getErrors())
+        .comparingElementsUsing(DESCRIPTION_EQUALITY)
+        .containsExactly("Message parse tree malformed. Unknown placeholder: unknownPlaceholder");
+  }
+
+  @Test
+  public void testGetMsgWithGoogScope() {
+    extractMessagesSafely(
+        lines(
+            "/** @desc Suggestion Code found outside of <head> tag. */",
+            "var $jscomp$scope$12345$0$MSG_CONSUMER_SURVEY_CODE_OUTSIDE_BODY_TAG =",
+            "goog.getMsg('Code should be added to <body> tag.');"));
+    assertThat(compiler.getWarnings()).isEmpty();
+    assertThat(messages).hasSize(1);
+
+    JsMessage msg = messages.get(0);
+    assertThat(msg.getId()).isEqualTo("MSG_CONSUMER_SURVEY_CODE_OUTSIDE_BODY_TAG");
+    assertThat(msg.getKey())
+        .isEqualTo("$jscomp$scope$12345$0$MSG_CONSUMER_SURVEY_CODE_OUTSIDE_BODY_TAG");
   }
 
   private void assertNoErrors() {
@@ -1056,25 +1463,35 @@ public final class JsMessageVisitorTest {
   private class CollectMessages extends JsMessageVisitor {
 
     private CollectMessages(Compiler compiler) {
-      super(compiler, mode, null);
+      super(compiler, null);
     }
 
     @Override
-    protected void processJsMessage(JsMessage message,
-        JsMessageDefinition definition) {
-      messages.add(message);
+    protected void processJsMessageDefinition(JsMessageDefinition definition) {
+      messages.add(definition.getMessage());
+      messageDefinitions.add(definition);
+    }
+
+    @Override
+    protected void processIcuTemplateDefinition(IcuTemplateDefinition definition) {
+      icuTemplateDefinitions.add(definition);
+      messages.add(definition.getMessage());
     }
   }
 
   private static class DummyJsVisitor extends JsMessageVisitor {
 
-    private DummyJsVisitor(Style style) {
-      super(null, style, null);
+    private DummyJsVisitor() {
+      super(null, null);
     }
 
     @Override
-    protected void processJsMessage(JsMessage message,
-        JsMessageDefinition definition) {
+    protected void processJsMessageDefinition(JsMessageDefinition definition) {
+      // no-op
+    }
+
+    @Override
+    protected void processIcuTemplateDefinition(IcuTemplateDefinition definition) {
       // no-op
     }
   }

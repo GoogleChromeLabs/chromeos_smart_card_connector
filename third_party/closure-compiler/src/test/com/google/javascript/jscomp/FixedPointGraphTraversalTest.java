@@ -28,10 +28,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Test for FixedPointGraphTraversal.
- *
- */
+/** Test for FixedPointGraphTraversal. */
 @RunWith(JUnit4.class)
 public final class FixedPointGraphTraversalTest {
 
@@ -54,7 +51,11 @@ public final class FixedPointGraphTraversalTest {
 
   private DiGraph<Counter, String> graph;
 
-  private Counter A, B, C, D, E;
+  private Counter A;
+  private Counter B;
+  private Counter C;
+  private Counter D;
+  private Counter E;
   private final CounterIncrementer callback = new CounterIncrementer();
   private FixedPointGraphTraversal<Counter, String> traversal =
       FixedPointGraphTraversal.newTraversal(callback);

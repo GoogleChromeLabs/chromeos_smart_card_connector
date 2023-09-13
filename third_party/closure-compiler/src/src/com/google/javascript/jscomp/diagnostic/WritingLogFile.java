@@ -18,9 +18,11 @@ package com.google.javascript.jscomp.diagnostic;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
 import com.google.errorprone.annotations.MustBeClosed;
+import com.google.gson.stream.JsonWriter;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
@@ -102,6 +104,18 @@ final class WritingLogFile extends LogFile {
     return logInternal(LogsGson.toJson(value.get()));
   }
 
+  @CanIgnoreReturnValue
+  @Override
+  public LogFile logJson(StreamedJsonProducer producer) {
+    try (JsonWriter writer = new JsonWriter(this.writer)) {
+      producer.writeJson(writer);
+    } catch (IOException ex) {
+      throw new AssertionError(ex);
+    }
+    return this;
+  }
+
+  @CanIgnoreReturnValue
   private LogFile logInternal(String value) {
     try {
       // It's fine to pass a fully rendered string because we know we're going to use it by the
@@ -120,5 +134,10 @@ final class WritingLogFile extends LogFile {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  @Override
+  public boolean isLogging() {
+    return true;
   }
 }

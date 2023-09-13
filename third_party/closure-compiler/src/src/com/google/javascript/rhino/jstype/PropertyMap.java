@@ -51,7 +51,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** Representation for a collection of properties on an object. */
 final class PropertyMap {
@@ -61,7 +61,7 @@ final class PropertyMap {
   // Because the extended interfaces are resolved dynamically, this gets
   // messy :(. If type-resolution was more well-defined, we could
   // just reference primary parents and secondary parents directly.
-  private ObjectType parentSource = null;
+  private @Nullable ObjectType parentSource = null;
 
   // The map of our own properties.
   private final Map<String, Property> properties;
@@ -73,7 +73,7 @@ final class PropertyMap {
    * (e.g. structural type equality). Since the results don't change often, this cache eliminates
    * most of the cost.
    */
-  @Nullable private ImmutableSortedSet<String> cachedKeySet = null;
+  private @Nullable ImmutableSortedSet<String> cachedKeySet = null;
 
   /**
    * A "timestamp" for map mutations to validate {@link #cachedKeySet}.
@@ -106,6 +106,7 @@ final class PropertyMap {
   }
 
   /** Returns the direct parent of this property map. */
+  @Nullable
   PropertyMap getPrimaryParent() {
     if (parentSource == null) {
       return null;
@@ -128,6 +129,7 @@ final class PropertyMap {
     return parentSource.getCtorExtendedInterfaces();
   }
 
+  @Nullable
   OwnedProperty findTopMost(String name) {
     // Check primary parents which always has precendence over secondary.
     OwnedProperty found = null;
@@ -158,6 +160,7 @@ final class PropertyMap {
     return null;
   }
 
+  @Nullable
   OwnedProperty findClosest(String name) {
     // Check primary parents which always has precendence over secondary.
     for (PropertyMap map = this; map != null; map = map.getPrimaryParent()) {
@@ -211,14 +214,14 @@ final class PropertyMap {
       }
     }
 
-    /**
+    /*
      * If any counter is greater than this counter, there has been a mutation and the cache must be
      * rebuilt.
      */
     if (maxAncestorCounter != this.cachedKeySetCounter || this.cachedKeySet == null) {
       TreeSet<String> keys = new TreeSet<>();
       for (PropertyMap ancestor : ancestors) {
-        /**
+        /*
          * Update the counters in all ancestors.
          *
          * <p>This update scheme is convergent. As long as there are no mutations, calls {@link

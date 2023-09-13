@@ -23,6 +23,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.javascript.jscomp.NodeTraversal.ScopedCallback;
 import com.google.javascript.rhino.Node;
 import java.util.ArrayList;
@@ -30,7 +31,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * A root pass that is a container for other passes that should run on with a single call graph.
@@ -69,8 +70,9 @@ class OptimizeCalls implements CompilerPass {
   static final class Builder {
     private AbstractCompiler compiler;
     private final ImmutableList.Builder<CallGraphCompilerPass> passes = ImmutableList.builder();
-    @Nullable private Boolean considerExterns; // Nullable to force users to specify a value.
+    private @Nullable Boolean considerExterns; // Nullable to force users to specify a value.
 
+    @CanIgnoreReturnValue
     public Builder setCompiler(AbstractCompiler compiler) {
       this.compiler = compiler;
       return this;
@@ -86,11 +88,13 @@ class OptimizeCalls implements CompilerPass {
      * <p>This setting allows extern references to be effectively invisible to passes that should
      * not mutate them.
      */
+    @CanIgnoreReturnValue
     public Builder setConsiderExterns(boolean b) {
       this.considerExterns = b;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addPass(CallGraphCompilerPass pass) {
       this.passes.add(pass);
       return this;
@@ -319,16 +323,6 @@ class OptimizeCalls implements CompilerPass {
     }
 
     /**
-     * Whether the provided node acts as the target function in a new or call expression including
-     * .call expressions. For example, returns true for 'x' in 'x.call()'.
-     */
-    // TODO(rishipal): Remove this function's usage; use
-    //  `isNormalOrOptChainCallOrNewTarget` instead.
-    static boolean isCallOrNewTarget(Node n) {
-      return isCallTarget(n) || isNewTarget(n);
-    }
-
-    /**
      * Whether the provided node acts as the target function in a new or call or optional chain call
      * expression including .call expressions. For example, returns true for 'x' in 'x?.call()'.
      */
@@ -459,13 +453,25 @@ class OptimizeCalls implements CompilerPass {
           maybeAddPropReference(n.getString(), n);
           break;
 
+        case CALL:
+          // If we are using goog.reflect.objectProperty on this symbol, we will assume that it
+          // gets referenced.
+          Node fnName = n.getFirstChild();
+          if (compiler.getCodingConvention().isPropertyRenameFunction(fnName)) {
+            Node propName = NodeUtil.getArgumentForCallOrNew(n, 0);
+            if (propName != null) {
+              maybeAddPropReference(propName.getString(), n);
+            }
+          }
+          break;
+
         case STRING_KEY:
         case GETTER_DEF:
         case SETTER_DEF:
         case MEMBER_FUNCTION_DEF:
         case MEMBER_FIELD_DEF:
           // ignore quoted keys.
-          if (!n.isQuotedString()) {
+          if (!n.isQuotedStringKey()) {
             maybeAddPropReference(n.getString(), n);
           }
           break;

@@ -50,6 +50,7 @@ import com.google.javascript.rhino.Node;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
+import org.jspecify.nullness.Nullable;
 
 /**
  * The object type represents instances of JavaScript objects such as
@@ -84,7 +85,7 @@ public class PrototypeObjectType extends ObjectType {
   // If this is a function prototype, then this is the owner.
   // A PrototypeObjectType can only be the prototype of one function. If we try
   // to do this for multiple functions, then we'll have to create a new one.
-  private FunctionType ownerFunction = null;
+  private @Nullable FunctionType ownerFunction = null;
 
   // Whether the toString representation of this should be pretty-printed,
   // by printing all properties.
@@ -388,7 +389,7 @@ public class PrototypeObjectType extends ObjectType {
   }
 
   @Override
-  public String getReferenceName() {
+  public @Nullable String getReferenceName() {
     if (className != null) {
       return className;
     } else if (ownerFunction != null) {

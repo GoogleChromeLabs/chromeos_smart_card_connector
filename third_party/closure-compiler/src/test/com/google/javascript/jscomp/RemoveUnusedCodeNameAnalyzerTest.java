@@ -77,8 +77,8 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
   }
 
   private static class MarkNoSideEffectCallsAndRemoveUnusedCodeRunner implements CompilerPass {
-    PureFunctionIdentifier.Driver pureFunctionIdentifier;
-    RemoveUnusedCode removeUnusedCode;
+    final PureFunctionIdentifier.Driver pureFunctionIdentifier;
+    final RemoveUnusedCode removeUnusedCode;
 
     MarkNoSideEffectCallsAndRemoveUnusedCodeRunner(Compiler compiler) {
       this.pureFunctionIdentifier = new PureFunctionIdentifier.Driver(compiler);
@@ -108,6 +108,8 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
     super.setUp();
     // Allow testing of features that aren't fully supported for output yet.
     enableNormalize();
+    // TODO(bradfordcsmith): Stop normalizing the expected output or document why it is necessary.
+    enableNormalizeExpectedOutput();
     enableGatherExternProperties();
   }
 
@@ -240,12 +242,13 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
             "}"));
 
     test(
-        srcs(lines(
-            "if (true) {", // preserve newline
-            "  let x = 1;",
-            "} else {",
-            "  let x = 1;",
-            "}")),
+        srcs(
+            lines(
+                "if (true) {", // preserve newline
+                "  let x = 1;",
+                "} else {",
+                "  let x = 1;",
+                "}")),
         expected("if (true); else;"));
   }
 
@@ -533,10 +536,7 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
   @Test
   public void testNoSideEffectAnnotation14() {
     String externs = "function c(){};" + "c.prototype.f = /**@nosideeffects*/function(){};";
-    test(
-        externs(externs),
-        srcs("var o = new c; var a = o.f()"),
-        expected("new c"));
+    test(externs(externs), srcs("var o = new c; var a = o.f()"), expected("new c"));
   }
 
   @Test
@@ -721,13 +721,17 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
     test("class D {} class C extends D {}", "");
   }
 
-  /** @bug 67430253 */
+  /**
+   * @bug 67430253
+   */
   @Test
   public void testEs6ClassExtendsQualifiedName1() {
     testSame("var ns = {}; ns.Class1 = class {}; class Class2 extends ns.Class1 {}; use(Class2);");
   }
 
-  /** @bug 67430253 */
+  /**
+   * @bug 67430253
+   */
   @Test
   public void testEs6ClassExtendsQualifiedName2() {
     test(
@@ -817,66 +821,6 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
   @Test
   public void testInherits5() {
     testSame("var a = {}; goog.inherits(externfoo, a);");
-  }
-
-  @Test
-  public void testMixin1() {
-    testSame("Function.prototype.mixin = function(base) { goog.mixin(this.prototype, base); };");
-  }
-
-  @Test
-  public void testMixin2() {
-    testSame("var a = {}; goog.mixin(externfoo.prototype, a.prototype);");
-  }
-
-  @Test
-  public void testMixin3() {
-    test("var b = {}; goog.mixin(b.prototype, externfoo.prototype);", "");
-  }
-
-  @Test
-  public void testMixin4() {
-    testSame("var b = {}; goog.mixin(b.prototype, externfoo.prototype); new b()");
-  }
-
-  @Test
-  public void testMixin5() {
-    test(
-        lines(
-            "var b = {}; var c = {};",
-            "goog.mixin(b.prototype, externfoo.prototype);",
-            "goog.mixin(c.prototype, externfoo.prototype);",
-            "new b()"),
-        lines("var b = {};", "goog.mixin(b.prototype, externfoo.prototype);", "new b()"));
-  }
-
-  @Test
-  public void testMixin6() {
-    test(
-        lines(
-            "var b = {}; var c = {};",
-            "goog.mixin(c.prototype, externfoo.prototype), ",
-            "goog.mixin(b.prototype, externfoo.prototype);",
-            "new b()"),
-        lines(
-            "var b = {};            ",
-            "                                              ",
-            "goog.mixin(b.prototype, externfoo.prototype);",
-            "new b()"));
-  }
-
-  @Test
-  public void testMixin7() {
-    test(
-        lines(
-            "var b = {}; var c = {};",
-            "var d = (goog.mixin(c.prototype, externfoo.prototype), ",
-            "    goog.mixin(b.prototype, externfoo.prototype));",
-            "new b()"),
-        lines(
-            "var b = {};", // preserve newline
-            "goog.mixin(b.prototype, externfoo.prototype);",
-            "new b()"));
   }
 
   @Test
@@ -1097,9 +1041,11 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
     test(
         externs("function f(){} function g() {} function h() {}"),
         srcs(
-          "var i = 0; var j = 0;                      for (i = 1 + f() + g() + h(); i = 0; j++);"),
+            "var i = 0; var j = 0;                      for (i = 1 + f() + g() + h(); i = 0;"
+                + " j++);"),
         expected(
-          "           var j = 0; 1 + f() + g() + h(); for (                       ;     0; j++);"));
+            "           var j = 0; 1 + f() + g() + h(); for (                       ;     0;"
+                + " j++);"));
   }
 
   @Test
@@ -1115,8 +1061,7 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
     test(
         externs("function f(){} function g() {} function h() {}"),
         srcs("var i = 0, j = 0, k = 0; for (i = f(), j = g(), k = h(); i = 0;);"),
-        expected(
-            "                         for (    f(),     g(),     h();     0;);"));
+        expected("                         for (    f(),     g(),     h();     0;);"));
   }
 
   @Test
@@ -1317,37 +1262,6 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
   @Test
   public void testComplexNestedAssigns4() {
     testSame("var x = 0; var y = x += 3; window.alert(y);");
-  }
-
-  @Test
-  public void testUnintendedUseOfInheritsInLocalScope1() {
-    testSame(
-        "goog.mixin = function() {}; "
-            + "(function() { var x = {}; var y = {}; goog.mixin(x, y); })();");
-  }
-
-  @Test
-  public void testUnintendedUseOfInheritsInLocalScope2() {
-    testSame(
-        "goog.mixin = function() {}; "
-            + "var x = {}; var y = {}; (function() { goog.mixin(x, y); })();");
-  }
-
-  @Test
-  public void testUnintendedUseOfInheritsInLocalScope3() {
-    testSame(
-        "goog.mixin = function() {}; "
-            + "var x = {}; var y = {}; (function() { goog.mixin(x, y); })(); "
-            + "window.alert(x);");
-  }
-
-  @Test
-  public void testUnintendedUseOfInheritsInLocalScope4() {
-    // Ensures that the "goog$mixin" variable doesn't get stripped out,
-    // even when it's only used in a local scope.
-    testSame(
-        "var goog$mixin = function() {}; "
-            + "(function() { var x = {}; var y = {}; goog$mixin(x, y); })();");
   }
 
   @Test
@@ -3032,5 +2946,12 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
             "function Base() {}", // preserve newline
             "Base.prototype.foo =  `foo ${bar}`;"),
         "");
+  }
+
+  @Test
+  public void testPureOrBreakMyCode() {
+    test("const a = /** @pureOrBreakMyCode */(alert());", "");
+    test("let a = /** @pureOrBreakMyCode */(alert());", "");
+    test("var a = /** @pureOrBreakMyCode */(alert());", "");
   }
 }

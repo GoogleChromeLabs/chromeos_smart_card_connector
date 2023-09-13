@@ -29,8 +29,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Provides a framework for checking code against a set of user configured conformance rules. The
@@ -71,8 +70,7 @@ public final class CheckConformance implements NodeTraversal.Callback, CompilerP
      * <p>Returning null means that there is no precondition. This is convenient, but can be a major
      * performance hit.
      */
-    @Nullable
-    default Precondition getPrecondition() {
+    default @Nullable Precondition getPrecondition() {
       return Precondition.CHECK_ALL;
     }
 
@@ -125,12 +123,16 @@ public final class CheckConformance implements NodeTraversal.Callback, CompilerP
   @Override
   public final boolean shouldTraverse(NodeTraversal t, Node n, Node parent) {
     // Don't inspect extern files
-    return !n.isScript() || !t.getInput().getSourceFile().isExtern();
+    return !n.isScript() || isScriptOfInterest(t.getInput().getSourceFile());
+  }
+
+  private boolean isScriptOfInterest(SourceFile sf) {
+    return !sf.isWeak() && !sf.isExtern();
   }
 
   @Override
   public void visit(NodeTraversal t, Node n, Node parent) {
-    /**
+    /*
      * Use counted loops and backward iteration for performance.
      *
      * <p>These loops are run a huge number of times. The overhead of enhanced-for loops and even
@@ -250,26 +252,27 @@ public final class CheckConformance implements NodeTraversal.Callback, CompilerP
   }
 
   private static void removeDuplicates(Requirement.Builder requirement) {
-    final Set<String> list1 = ImmutableSet.copyOf(requirement.getWhitelistList());
+    final ImmutableSet<String> list1 = ImmutableSet.copyOf(requirement.getWhitelistList());
     requirement.clearWhitelist().addAllWhitelist(list1);
 
-    final Set<String> allowlist = ImmutableSet.copyOf(requirement.getAllowlistList());
+    final ImmutableSet<String> allowlist = ImmutableSet.copyOf(requirement.getAllowlistList());
     requirement.clearAllowlist().addAllAllowlist(allowlist);
 
-    final Set<String> list2 = ImmutableSet.copyOf(requirement.getWhitelistRegexpList());
+    final ImmutableSet<String> list2 = ImmutableSet.copyOf(requirement.getWhitelistRegexpList());
     requirement.clearWhitelistRegexp().addAllWhitelistRegexp(list2);
 
-    final Set<String> allowlistRegexp = ImmutableSet.copyOf(requirement.getAllowlistRegexpList());
+    final ImmutableSet<String> allowlistRegexp =
+        ImmutableSet.copyOf(requirement.getAllowlistRegexpList());
     requirement.clearAllowlistRegexp().addAllAllowlistRegexp(allowlistRegexp);
 
-    final Set<String> list3 = ImmutableSet.copyOf(requirement.getOnlyApplyToList());
+    final ImmutableSet<String> list3 = ImmutableSet.copyOf(requirement.getOnlyApplyToList());
     requirement.clearOnlyApplyTo().addAllOnlyApplyTo(list3);
 
-    final Set<String> list4 = ImmutableSet.copyOf(requirement.getOnlyApplyToRegexpList());
+    final ImmutableSet<String> list4 = ImmutableSet.copyOf(requirement.getOnlyApplyToRegexpList());
     requirement.clearOnlyApplyToRegexp().addAllOnlyApplyToRegexp(list4);
   }
 
-  private static Rule initRule(AbstractCompiler compiler, Requirement requirement) {
+  private static @Nullable Rule initRule(AbstractCompiler compiler, Requirement requirement) {
     try {
       switch (requirement.getType()) {
         case CUSTOM:
@@ -284,6 +287,8 @@ public final class CheckConformance implements NodeTraversal.Callback, CompilerP
           return new ConformanceRules.BannedDependencyRegex(compiler, requirement);
         case BANNED_ENHANCE:
           return new ConformanceRules.BannedEnhance(compiler, requirement);
+        case BANNED_MODS_REGEX:
+          return new ConformanceRules.BannedModsRegex(compiler, requirement);
         case BANNED_NAME:
         case BANNED_NAME_CALL:
           return new ConformanceRules.BannedName(compiler, requirement);
@@ -299,10 +304,10 @@ public final class CheckConformance implements NodeTraversal.Callback, CompilerP
           return new ConformanceRules.RestrictedMethodCall(compiler, requirement);
         case RESTRICTED_PROPERTY_WRITE:
           return new ConformanceRules.RestrictedPropertyWrite(compiler, requirement);
-        default:
-          reportInvalidRequirement(compiler, requirement, "unknown requirement type");
-          return null;
+        case BANNED_STRING_REGEX:
+          return new ConformanceRules.BannedStringRegex(compiler, requirement);
       }
+      throw new AssertionError();
     } catch (InvalidRequirementSpec e) {
       reportInvalidRequirement(compiler, requirement, e.getMessage());
       return null;
@@ -322,6 +327,7 @@ public final class CheckConformance implements NodeTraversal.Callback, CompilerP
   private static void reportInvalidRequirement(
       AbstractCompiler compiler, Requirement requirement, String reason) {
     compiler.report(
-        JSError.make(INVALID_REQUIREMENT_SPEC, reason, TextFormat.printToString(requirement)));
+        JSError.make(
+            INVALID_REQUIREMENT_SPEC, reason, TextFormat.printer().printToString(requirement)));
   }
 }

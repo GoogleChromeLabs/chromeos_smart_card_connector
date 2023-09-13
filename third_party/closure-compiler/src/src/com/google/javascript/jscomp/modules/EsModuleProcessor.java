@@ -26,19 +26,17 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.javascript.jscomp.AbstractCompiler;
 import com.google.javascript.jscomp.DiagnosticType;
-import com.google.javascript.jscomp.Es6ToEs3Util;
 import com.google.javascript.jscomp.JSError;
 import com.google.javascript.jscomp.NodeTraversal;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.jscomp.NodeUtil;
 import com.google.javascript.jscomp.Scope;
+import com.google.javascript.jscomp.TranspilationUtil;
 import com.google.javascript.jscomp.Var;
-import com.google.javascript.jscomp.deps.ModuleLoader;
 import com.google.javascript.jscomp.deps.ModuleLoader.ModulePath;
 import com.google.javascript.jscomp.modules.ModuleMapCreator.ModuleProcessor;
 import com.google.javascript.jscomp.modules.ModuleMetadataMap.ModuleMetadata;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.Token;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -47,7 +45,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Collects information related to and resolves ES imports and exports. Also performs several ES
@@ -189,13 +187,13 @@ public final class EsModuleProcessor implements NodeTraversal.Callback, ModulePr
    * </ul>
    */
   private final class UnresolvedModuleBuilder {
-    private final ModuleLoader.ModulePath path;
+    private final ModulePath path;
     private final Node root;
     private final Map<String, Import> importsByLocalName;
     private final List<Export> exports;
     private final Set<String> exportedNames;
 
-    UnresolvedModuleBuilder(ModuleLoader.ModulePath path, Node root) {
+    UnresolvedModuleBuilder(ModulePath path, Node root) {
       this.path = path;
       this.root = root;
       importsByLocalName = new HashMap<>();
@@ -271,19 +269,19 @@ public final class EsModuleProcessor implements NodeTraversal.Callback, ModulePr
   private final class UnresolvedEsModule extends UnresolvedModule {
 
     private final ModuleMetadata metadata;
-    private final ModuleLoader.ModulePath path;
+    private final ModulePath path;
     private final ImmutableMap<String, Import> importsByLocalName;
     private final ImmutableList<Export> localExports;
     private final ImmutableList<Export> indirectExports;
     private final ImmutableList<Export> starExports;
-    private ImmutableSet<String> exportedNames;
+    private @Nullable ImmutableSet<String> exportedNames;
     private final Map<String, ResolveExportResult> resolvedImports;
     private final Map<String, ResolveExportResult> resolvedExports;
-    private Module resolved;
+    private @Nullable Module resolved;
 
     private UnresolvedEsModule(
         ModuleMetadata metadata,
-        ModuleLoader.ModulePath path,
+        ModulePath path,
         ImmutableMap<String, Import> importsByLocalName,
         ImmutableList<Export> localExports,
         ImmutableList<Export> indirectExports,
@@ -503,7 +501,7 @@ public final class EsModuleProcessor implements NodeTraversal.Callback, ModulePr
             compiler.report(
                 JSError.make(
                     e.exportNode(),
-                    Es6ToEs3Util.CANNOT_CONVERT_YET,
+                    TranspilationUtil.CANNOT_CONVERT_YET,
                     "Wildcard export for non-ES module"));
           }
         }
@@ -670,8 +668,8 @@ public final class EsModuleProcessor implements NodeTraversal.Callback, ModulePr
   }
 
   private final AbstractCompiler compiler;
-  private UnresolvedModuleBuilder currentModuleBuilder;
-  private ModuleMetadata metadata;
+  private @Nullable UnresolvedModuleBuilder currentModuleBuilder;
+  private @Nullable ModuleMetadata metadata;
 
   @Override
   public UnresolvedModule process(
@@ -803,23 +801,25 @@ public final class EsModuleProcessor implements NodeTraversal.Callback, ModulePr
   private void visitExportNameDeclaration(NodeTraversal t, Node export, Node declaration) {
     //    export var Foo;
     //    export let {a, b:[c,d]} = {};
-    List<Node> lhsNodes = NodeUtil.findLhsNodesInNode(declaration);
-    for (Node lhs : lhsNodes) {
-      checkState(lhs.isName());
-      String name = lhs.getString();
-      if (!currentModuleBuilder.add(
-          Export.builder()
-              .exportName(name)
-              .moduleRequest(null)
-              .importName(null)
-              .localName(name)
-              .modulePath(t.getInput().getPath())
-              .exportNode(export)
-              .nameNode(lhs)
-              .moduleMetadata(metadata)
-              .build())) {
-        t.report(export, DUPLICATE_EXPORT, name);
-      }
+    NodeUtil.visitLhsNodesInNode(
+        declaration, lhs -> addExportNameDeclaration(t, lhs, export, declaration));
+  }
+
+  private void addExportNameDeclaration(NodeTraversal t, Node lhs, Node export, Node declaration) {
+    checkState(lhs.isName());
+    String name = lhs.getString();
+    if (!currentModuleBuilder.add(
+        Export.builder()
+            .exportName(name)
+            .moduleRequest(null)
+            .importName(null)
+            .localName(name)
+            .modulePath(t.getInput().getPath())
+            .exportNode(export)
+            .nameNode(lhs)
+            .moduleMetadata(metadata)
+            .build())) {
+      t.report(export, DUPLICATE_EXPORT, name);
     }
   }
 
@@ -851,7 +851,7 @@ public final class EsModuleProcessor implements NodeTraversal.Callback, ModulePr
       visitExportDefault(t, export);
     } else if (export.hasTwoChildren()) {
       visitExportFrom(t, export);
-    } else if (export.getFirstChild().getToken() == Token.EXPORT_SPECS) {
+    } else if (export.getFirstChild().isExportSpecs()) {
       visitExportSpecs(t, export);
     } else {
       Node declaration = export.getFirstChild();

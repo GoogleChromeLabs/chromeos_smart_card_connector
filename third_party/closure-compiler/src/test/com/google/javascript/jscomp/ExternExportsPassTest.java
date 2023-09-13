@@ -19,15 +19,14 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.javascript.jscomp.testing.NoninjectingCompiler;
 import java.util.function.Consumer;
+import org.jspecify.nullness.Nullable;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link ExternExportsPass}.
- *
- */
+/** Tests for {@link ExternExportsPass}. */
 @RunWith(JUnit4.class)
 public final class ExternExportsPassTest extends CompilerTestCase {
 
@@ -48,7 +47,7 @@ public final class ExternExportsPassTest extends CompilerTestCase {
   @Override
   public CompilerOptions getOptions() {
     CompilerOptions options = super.getOptions();
-    options.externExportsPath = "externs.js";
+    options.setExternExportsPath("exports.js");
     // Check types so we can make sure our exported externs have type information.
     options.setCheckSymbols(true);
     return options;
@@ -277,13 +276,7 @@ public final class ExternExportsPassTest extends CompilerTestCase {
   public void testRecord() {
     compileAndCheck(
         "/** @record */ function Iface() {}; goog.exportSymbol('Iface', Iface)",
-        lines(
-            "/**",
-            " * @record",
-            " */",
-            "var Iface = function() {",
-            "};",
-            ""));
+        lines("/**", " * @record", " */", "var Iface = function() {", "};", ""));
   }
 
   @Test
@@ -618,11 +611,7 @@ public final class ExternExportsPassTest extends CompilerTestCase {
             "/** @const */ a.b = {};",
             "a.b.c = function(d, e, f) {};",
             "goog.exportProperty(a.b, 'none', a.b.none)"),
-        lines(
-            "var a;",
-            "a.b;",
-            "a.b.none;",
-            ""));
+        lines("var a;", "a.b;", "a.b.none;", ""));
   }
 
   @Test
@@ -786,10 +775,7 @@ public final class ExternExportsPassTest extends CompilerTestCase {
             "return param1 + param2;",
             "};",
             "goog.exportSymbol('externalName', internalName)"),
-        lines(
-            "var externalName = function(param1, param2) {",
-            "};",
-            ""));
+        lines("var externalName = function(param1, param2) {", "};", ""));
   }
 
   @Test
@@ -804,18 +790,11 @@ public final class ExternExportsPassTest extends CompilerTestCase {
             "internalName = function() {",
             "};",
             "goog.exportSymbol('externalName', internalName)"),
-        lines(
-            "/**",
-            " * @constructor",
-            " */",
-            "var externalName = function() {",
-            "};",
-            ""));
+        lines("/**", " * @constructor", " */", "var externalName = function() {", "};", ""));
   }
 
   @Test
-  public void exportTranspiledClass() {
-    enableTranspile();
+  public void exportClass() {
     compileAndCheck(
         lines(
             "var internalName;",
@@ -881,14 +860,12 @@ public final class ExternExportsPassTest extends CompilerTestCase {
             "internalName = function() {",
             "};",
             "goog.exportSymbol('externalName', internalName)"),
-        lines(
-            "var externalName = function() {",
-            "};",
-            ""));
+        lines("var externalName = function() {", "};", ""));
   }
 
   @Test
-  public void exportTranspiledClassWithoutTypeCheck() {
+  @Ignore("(b/141729691): this test fails, but unlikely to fix as this feature is deprecated")
+  public void exportClassWithoutTypeCheck() {
     // For now, skipping type checking should prevent generating
     // annotations of any kind, so, e.g., @constructor is not preserved.
     // This is probably not ideal, but since JSDocInfo for functions is attached
@@ -896,7 +873,6 @@ public final class ExternExportsPassTest extends CompilerTestCase {
     // is false), we don't really have a choice.
 
     disableTypeCheck();
-    enableTranspile();
 
     compileAndCheck(
         lines(
@@ -933,7 +909,6 @@ public final class ExternExportsPassTest extends CompilerTestCase {
   // x.Y is present in the generated externs but lacks the @constructor annotation.
   @Test
   public void exportMethodButNotTheClass() {
-    enableTranspile();
     compileAndCheck(
         lines(
             "x.Y = class {",
@@ -1245,38 +1220,37 @@ public final class ExternExportsPassTest extends CompilerTestCase {
             " */",
             "var E = {A:'a', B:'b'};",
             "goog.exportSymbol('E', E);"),
-        lines(
-            "/** @enum {string} */",
-            "var E = {A:1, B:2};",
-            ""));
+        lines("/** @enum {string} */", "var E = {A:1, B:2};", ""));
   }
 
   @Test
   public void testExportWithReferenceToEnum() {
-    String js = lines(
-        "/**",
-        " * @enum {number}",
-        " * @export",
-        " */",
-        "var E = {A:1, B:2};",
-        "goog.exportSymbol('E', E);",
-        "",
-        "/**",
-        " * @param {!E} e",
-        " * @export",
-        " */",
-        "function f(e) {}",
-        "goog.exportSymbol('f', f);");
-    String expected = lines(
-        "/** @enum {number} */",
-        "var E = {A:1, B:2};",
-        "/**",
-        " * @param {E} e",
-        " * @return {undefined}",
-        " */",
-        "var f = function(e) {",
-        "};",
-        "");
+    String js =
+        lines(
+            "/**",
+            " * @enum {number}",
+            " * @export",
+            " */",
+            "var E = {A:1, B:2};",
+            "goog.exportSymbol('E', E);",
+            "",
+            "/**",
+            " * @param {!E} e",
+            " * @export",
+            " */",
+            "function f(e) {}",
+            "goog.exportSymbol('f', f);");
+    String expected =
+        lines(
+            "/** @enum {number} */",
+            "var E = {A:1, B:2};",
+            "/**",
+            " * @param {E} e",
+            " * @return {undefined}",
+            " */",
+            "var f = function(e) {",
+            "};",
+            "");
 
     // NOTE: The type should print {E} for the @param, but is not.
     compileAndCheck(js, expected.replace("{E}", "{number}"));
@@ -1287,8 +1261,7 @@ public final class ExternExportsPassTest extends CompilerTestCase {
    * initializer for prototype because every namespace has one automatically.
    */
   @Test
-  public void exportDontEmitPrototypePathPrefixForTranspiledClassMethod() {
-    enableTranspile();
+  public void exportDontEmitPrototypePathPrefixForClassMethod() {
     compileAndCheck(
         lines(
             "var Foo = class {",
@@ -1321,8 +1294,7 @@ public final class ExternExportsPassTest extends CompilerTestCase {
    * exported functions and the client uses them correctly.
    */
   @Test
-  public void useExportsAsExternsWithTranspiledClass() {
-    enableTranspile();
+  public void useExportsAsExternsWithClass() {
     String librarySource =
         lines(
             "var InternalName = class {",
@@ -1351,24 +1323,26 @@ public final class ExternExportsPassTest extends CompilerTestCase {
 
   @Test
   public void testDontWarnOnExportFunctionWithUnknownReturnType() {
-    String librarySource = lines(
-        "var InternalName = function() {",
-        "  return 6;",
-        "};",
-        "goog.exportSymbol('ExternalName', InternalName)");
+    String librarySource =
+        lines(
+            "var InternalName = function() {",
+            "  return 6;",
+            "};",
+            "goog.exportSymbol('ExternalName', InternalName)");
 
     compileAndExportExterns(librarySource);
   }
 
   @Test
   public void testDontWarnOnExportConstructorWithUnknownReturnType() {
-    String librarySource = lines(
-        "/**",
-        " * @constructor",
-        " */",
-        "var InternalName = function() {",
-        "};",
-        "goog.exportSymbol('ExternalName', InternalName)");
+    String librarySource =
+        lines(
+            "/**",
+            " * @constructor",
+            " */",
+            "var InternalName = function() {",
+            "};",
+            "goog.exportSymbol('ExternalName', InternalName)");
 
     compileAndExportExterns(librarySource);
   }
@@ -1416,13 +1390,7 @@ public final class ExternExportsPassTest extends CompilerTestCase {
   public void testExportConstructor() {
     compileAndCheck(
         "/** @constructor */ var a = function() {}; goog.exportSymbol('foobar', a)",
-        lines(
-            "/**",
-            " * @constructor",
-            " */",
-            "var foobar = function() {",
-            "};",
-            ""));
+        lines("/**", " * @constructor", " */", "var foobar = function() {", "};", ""));
   }
 
   @Test
@@ -1460,14 +1428,7 @@ public final class ExternExportsPassTest extends CompilerTestCase {
   public void testExportLocalPropertyInConstructor() {
     compileAndCheck(
         "/** @constructor */function F() { /** @export */ this.x = 5;} goog.exportSymbol('F', F);",
-        lines(
-            "/**",
-            " * @constructor",
-            " */",
-            "var F = function() {",
-            "};",
-            "F.prototype.x;",
-            ""));
+        lines("/**", " * @constructor", " */", "var F = function() {", "};", "F.prototype.x;", ""));
   }
 
   @Test
@@ -1477,28 +1438,14 @@ public final class ExternExportsPassTest extends CompilerTestCase {
             "/** @constructor */function F() { /** @export */ this.x = 5;}",
             "goog.exportSymbol('F', F);",
             "goog.exportProperty(F.prototype, 'x', F.prototype.x);"),
-        lines(
-            "/**",
-            " * @constructor",
-            " */",
-            "var F = function() {",
-            "};",
-            "F.prototype.x;",
-            ""));
+        lines("/**", " * @constructor", " */", "var F = function() {", "};", "F.prototype.x;", ""));
   }
 
   @Test
   public void testExportLocalPropertyInConstructor3() {
     compileAndCheck(
         "/** @constructor */function F() { /** @export */ this.x;} goog.exportSymbol('F', F);",
-        lines(
-            "/**",
-            " * @constructor",
-            " */",
-            "var F = function() {",
-            "};",
-            "F.prototype.x;",
-            ""));
+        lines("/**", " * @constructor", " */", "var F = function() {", "};", "F.prototype.x;", ""));
   }
 
   @Test
@@ -1522,13 +1469,7 @@ public final class ExternExportsPassTest extends CompilerTestCase {
   public void testExportLocalPropertyNotInConstructor() {
     compileAndCheck(
         "/** @this {?} */ function f() { /** @export */ this.x = 5;} goog.exportSymbol('f', f);",
-        lines(
-            "/**",
-            " * @return {undefined}",
-            " */",
-            "var f = function() {",
-            "};",
-            ""));
+        lines("/**", " * @return {undefined}", " */", "var f = function() {", "};", ""));
   }
 
   @Test
@@ -1541,13 +1482,7 @@ public final class ExternExportsPassTest extends CompilerTestCase {
             "  return 1;",
             "};",
             "goog.exportSymbol('id', id);"),
-        lines(
-            "/**",
-            " * @return {?}",
-            " */",
-            "var id = function() {",
-            "};",
-            ""));
+        lines("/**", " * @return {?}", " */", "var id = function() {", "};", ""));
   }
 
   @Test
@@ -1692,15 +1627,16 @@ public final class ExternExportsPassTest extends CompilerTestCase {
   @Test
   public void testDontWarnOnExportFunctionWithUnknownParameterTypes() {
     /* This source is missing types for the b and c parameters */
-    String librarySource = lines(
-        "/**",
-        " * @param {number} a",
-        " * @return {number}",
-        " */",
-        "var InternalName = function(a,b,c) {",
-        "  return 6;",
-        "};",
-        "goog.exportSymbol('ExternalName', InternalName)");
+    String librarySource =
+        lines(
+            "/**",
+            " * @param {number} a",
+            " * @return {number}",
+            " */",
+            "var InternalName = function(a,b,c) {",
+            "  return 6;",
+            "};",
+            "goog.exportSymbol('ExternalName', InternalName)");
 
     compileAndExportExterns(librarySource);
   }
@@ -1715,8 +1651,8 @@ public final class ExternExportsPassTest extends CompilerTestCase {
   }
 
   /**
-   * Compiles the passed in JavaScript with the passed in externs and returns
-   * the new externs exported by the this pass.
+   * Compiles the passed in JavaScript with the passed in externs and returns the new externs
+   * exported by the this pass.
    *
    * @param js the source to be compiled
    * @param externs the externs the {@code js} source needs
@@ -1726,19 +1662,21 @@ public final class ExternExportsPassTest extends CompilerTestCase {
   }
 
   /**
-   * Compiles the passed in JavaScript with the passed in externs and returns
-   * the new externs exported by the this pass.
+   * Compiles the passed in JavaScript with the passed in externs and returns the new externs
+   * exported by the this pass.
    *
    * @param js the source to be compiled
    * @param externs the externs the {@code js} source needs
    * @param consumer consumer for the externs generated from {@code js}
    */
-  private void compileAndExportExterns(String js, String externs, final Consumer<String> consumer) {
-    js = lines(
-        "/** @const */ var goog = {};",
-        "goog.exportSymbol = function(a, b) {};",
-        "goog.exportProperty = function(a, b, c) {};",
-        js);
+  private void compileAndExportExterns(
+      String js, String externs, final @Nullable Consumer<String> consumer) {
+    js =
+        lines(
+            "/** @const */ var goog = {};",
+            "goog.exportSymbol = function(a, b) {};",
+            "goog.exportProperty = function(a, b, c) {};",
+            js);
 
     test(
         externs(externs),

@@ -22,16 +22,19 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import com.google.javascript.jscomp.AbstractCompiler.LifeCycleStage;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
+import org.jspecify.nullness.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** @author nicksantos@google.com (Nick Santos) */
+/**
+ * @author nicksantos@google.com (Nick Santos)
+ */
 @RunWith(JUnit4.class)
 public final class ValidityCheckTest extends CompilerTestCase {
 
-  private CompilerPass otherPass = null;
+  private @Nullable CompilerPass otherPass = null;
 
   @Before
   @Override

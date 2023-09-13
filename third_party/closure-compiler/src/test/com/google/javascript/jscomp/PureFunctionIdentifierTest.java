@@ -26,6 +26,7 @@ import com.google.javascript.jscomp.testing.JSCompCorrespondences;
 import com.google.javascript.rhino.Node;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.nullness.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -158,6 +159,8 @@ public final class PureFunctionIdentifierTest extends CompilerTestCase {
 
     // Allow testing of features that are not yet fully supported.
     enableNormalize();
+    // TODO(bradfordcsmith): Stop normalizing the expected output or document why it is necessary.
+    enableNormalizeExpectedOutput();
     disableCompareJsDoc();
     enableGatherExternProperties();
     enableTypeCheck();
@@ -547,6 +550,46 @@ public final class PureFunctionIdentifierTest extends CompilerTestCase {
   }
 
   @Test
+  public void testMultipleFunctionDefinitionsOnlyOneWithNoSideEffectsJsDoc() {
+    String source =
+        lines(
+            "let b = undefined;",
+            "if (true) {",
+            "  b = /** @nosideeffects */(function(){throw 0;});",
+            "} else {",
+            "  b = () => {}",
+            "}",
+            "b()");
+    assertPureCallsMarked(source, ImmutableList.of("b"));
+  }
+
+  @Test
+  public void testNoSideEffectsNoPropagationFromOtherCalls() {
+    String source =
+        lines(
+            "var hasSideEffects = function() { throw 0; }",
+            "var foo = /** @nosideeffects */ function(){ hasSideEffects(); return 0; };",
+            "var bar = function(){ hasSideEffects(); return 0; };",
+            "foo();",
+            "bar();");
+    // bar is not marked as pure because it inherits side effects from hasSideEffects
+    assertPureCallsMarked(source, ImmutableList.of("foo"));
+  }
+
+  @Test
+  public void testNoSideEffectsNoPropagationToOtherCalls() {
+    String source =
+        lines(
+            "var liesAboutSideEffects = /** @nosideeffects */ function() { throw 0; }",
+            "var foo = function(){ liesAboutSideEffects(); return 0; };",
+            "var bar = function(){ liesAboutSideEffects(); return 0; };",
+            "foo();",
+            "bar();");
+    assertPureCallsMarked(
+        source, ImmutableList.of("liesAboutSideEffects", "liesAboutSideEffects", "foo", "bar"));
+  }
+
+  @Test
   public void testAnnotationInExternStubs1() {
     // In the case where a property is defined first as a stub and then with a FUNCTION:
     // we have to make a conservative assumption about the behaviour of the extern, since the stub
@@ -594,10 +637,7 @@ public final class PureFunctionIdentifierTest extends CompilerTestCase {
             "externObj5.prototype.propWithAnnotatedStubAfter;");
 
     enableTypeCheck();
-    testSame(
-        externs(externs),
-        srcs("o.prototype.propWithAnnotatedStubAfter"),
-        warning(TypeValidator.DUP_VAR_DECLARATION_TYPE_MISMATCH));
+    testSame(externs(externs), srcs("o.prototype.propWithAnnotatedStubAfter"));
     assertThat(noSideEffectCalls).isEmpty();
   }
 
@@ -621,10 +661,7 @@ public final class PureFunctionIdentifierTest extends CompilerTestCase {
             "externObj5.prototype.propWithAnnotatedStubAfter;");
 
     enableTypeCheck();
-    testSame(
-        externs(externs),
-        srcs("o.prototype.propWithAnnotatedStubAfter"),
-        warning(TypeValidator.DUP_VAR_DECLARATION));
+    testSame(externs(externs), srcs("o.prototype.propWithAnnotatedStubAfter"));
     assertThat(noSideEffectCalls).isEmpty();
   }
 
@@ -632,7 +669,7 @@ public final class PureFunctionIdentifierTest extends CompilerTestCase {
   public void testNoSideEffectsSimple() {
     String prefix = "function f(){";
     String suffix = "} f()";
-    List<String> expected = ImmutableList.of("f");
+    ImmutableList<String> expected = ImmutableList.of("f");
 
     assertPureCallsMarked(prefix + "" + suffix, expected);
     assertPureCallsMarked(prefix + "return 1" + suffix, expected);
@@ -1428,7 +1465,7 @@ public final class PureFunctionIdentifierTest extends CompilerTestCase {
 
   @Test
   public void testThrow_insideTry_afterNestedTry_hasNoSideEffects() {
-    /** Ensure we track the stack of trys correctly, rather than just toggling a boolean. */
+    /* Ensure we track the stack of trys correctly, rather than just toggling a boolean. */
     String source =
         lines(
             "function f() {",
@@ -1449,7 +1486,7 @@ public final class PureFunctionIdentifierTest extends CompilerTestCase {
 
   @Test
   public void testThrow_insideFunction_insideTry_hasNoSideEffects() {
-    /** Ensure we track the stack of trys correctly, rather than just toggling a boolean. */
+    /* Ensure we track the stack of trys correctly, rather than just toggling a boolean. */
     String source =
         lines(
             "function f() {",
@@ -2141,6 +2178,11 @@ public final class PureFunctionIdentifierTest extends CompilerTestCase {
   }
 
   @Test
+  public void testClassInstantiation_literal_implicitCtor_noSuperclass_isPure() {
+    assertPureCallsMarked("new class C {}", ImmutableList.of("class C {}"));
+  }
+
+  @Test
   public void testClassInstantiation_pureCtor_noSuperclass_isPure() {
     assertPureCallsMarked(
         lines(
@@ -2150,6 +2192,12 @@ public final class PureFunctionIdentifierTest extends CompilerTestCase {
             "",
             "new C()"),
         ImmutableList.of("C"));
+  }
+
+  @Test
+  public void testClassInstantiation_literal_pureCtor_noSuperclass_isPure() {
+    assertPureCallsMarked(
+        "new class C { constructor() {} }", ImmutableList.of("class C { constructor() {} }"));
   }
 
   @Test
@@ -2175,6 +2223,15 @@ public final class PureFunctionIdentifierTest extends CompilerTestCase {
   }
 
   @Test
+  public void testClassInstantiation_literal_implictCtor_pureSuperclassCtor_isPure() {
+    assertPureCallsMarked(
+        lines(
+            "class A { }", // Implicit ctor is pure.
+            "new class C extends A { }"),
+        ImmutableList.of("class C extends A { }"));
+  }
+
+  @Test
   public void testClassInstantiation_implictCtor_impureSuperclassCtor_isImpure() {
     assertNoPureCalls(
         lines(
@@ -2184,6 +2241,16 @@ public final class PureFunctionIdentifierTest extends CompilerTestCase {
             "class C extends A { }",
             "",
             "new C()"));
+  }
+
+  @Test
+  public void testClassInstantiation_literal_implictCtor_impureSuperclassCtor_isImpure() {
+    assertNoPureCalls(
+        lines(
+            "class A {",
+            "  constructor() { throw 0; }",
+            "}", //
+            "new class C extends A { }"));
   }
 
   @Test
@@ -2695,7 +2762,7 @@ public final class PureFunctionIdentifierTest extends CompilerTestCase {
     // TODO(b/127862986): We could consider iteration over a known Array value to be pure.
     assertNoPureCalls(
         lines(
-            "function foo(a) { for await (const t of a) { } }", //
+            "async function foo(a) { for await (const t of a) { } }", //
             "foo(x);"));
   }
 
@@ -2748,7 +2815,7 @@ public final class PureFunctionIdentifierTest extends CompilerTestCase {
     assertNoPureCalls(
         lines(
             "function foo(a) { const [...x] = a; }", //
-            "foo(x);"));
+            "foo(v);"));
   }
 
   @Test
@@ -2813,7 +2880,7 @@ public final class PureFunctionIdentifierTest extends CompilerTestCase {
     assertNoPureCalls(
         lines(
             // We use an array-literal so that it's not just the iteration that's impure.
-            "function foo() { for await (const t of []) { } }", //
+            "async function foo() { for await (const t of []) { } }", //
             "foo();"));
   }
 
@@ -3009,7 +3076,8 @@ public final class PureFunctionIdentifierTest extends CompilerTestCase {
     assertPureCallsMarked(source, expected, null);
   }
 
-  void assertPureCallsMarked(String source, final List<String> expected, final Postcondition post) {
+  void assertPureCallsMarked(
+      String source, final List<String> expected, final @Nullable Postcondition post) {
     testSame(
         srcs(source),
         postcondition(

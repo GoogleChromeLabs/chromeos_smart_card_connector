@@ -24,7 +24,7 @@ import com.google.errorprone.annotations.DoNotCall;
 import com.google.javascript.jscomp.graph.StandardUnionFind;
 import com.google.javascript.rhino.Node;
 import java.util.LinkedHashMap;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * The disambiguation clusters for a given property name.
@@ -40,9 +40,9 @@ final class PropertyClustering {
 
   private final StandardUnionFind<ColorGraphNode> clusters = new StandardUnionFind<>();
 
-  @Nullable private ColorGraphNode originalNameClusterRep;
+  private @Nullable ColorGraphNode originalNameClusterRep;
 
-  @Nullable private Invalidation lastInvalidation;
+  private @Nullable Invalidation lastInvalidation;
 
   PropertyClustering(String name) {
     this.name = checkNotNull(name);

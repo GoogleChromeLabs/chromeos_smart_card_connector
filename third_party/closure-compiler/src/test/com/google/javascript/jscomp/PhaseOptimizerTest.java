@@ -18,28 +18,21 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.javascript.jscomp.PhaseOptimizer.FEATURES_NOT_SUPPORTED_BY_PASS;
-import static com.google.javascript.jscomp.testing.JSCompCorrespondences.DIAGNOSTIC_EQUALITY;
 
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.CompilerOptions.TracerMode;
 import com.google.javascript.jscomp.PhaseOptimizer.Loop;
-import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link PhaseOptimizer}.
- *
- */
+/** Tests for {@link PhaseOptimizer}. */
 @RunWith(JUnit4.class)
 public final class PhaseOptimizerTest {
   private final List<String> passesRun = new ArrayList<>();
@@ -185,107 +178,28 @@ public final class PhaseOptimizerTest {
     }
   }
 
-  @Test
-  public void testPassOrdering() {
-    Loop loop = optimizer.addFixedPointLoop();
-    List<String> optimalOrder = new ArrayList<>(
-        PhaseOptimizer.OPTIMAL_ORDER);
-    Random random = new Random();
-    while (!optimalOrder.isEmpty()) {
-      addLoopedPass(
-          loop, optimalOrder.remove(random.nextInt(optimalOrder.size())), 0);
-    }
-    optimizer.process(null, dummyRoot);
-    assertThat(passesRun).isEqualTo(PhaseOptimizer.OPTIMAL_ORDER);
-  }
-
-  @Test
-  public void testProgress() {
-    final List<Double> progressList = new ArrayList<>();
-    compiler = new Compiler() {
-      @Override void setProgress(double p, String name) {
-        progressList.add(p);
-      }
-    };
-    compiler.initCompilerOptionsIfTesting();
-    optimizer = new PhaseOptimizer(compiler, null).withProgress(
-        new PhaseOptimizer.ProgressRange(0, 100));
-    addOneTimePass("x1");
-    addOneTimePass("x2");
-    addOneTimePass("x3");
-    addOneTimePass("x4");
-    optimizer.process(null, dummyRoot);
-    assertThat(progressList).hasSize(4);
-    assertThat(Math.round(progressList.get(0))).isEqualTo(25);
-    assertThat(Math.round(progressList.get(1))).isEqualTo(50);
-    assertThat(Math.round(progressList.get(2))).isEqualTo(75);
-    assertThat(Math.round(progressList.get(3))).isEqualTo(100);
-  }
-
-  @Test
-  public void testSetSkipUnsupportedPasses() {
-    compiler.getOptions().setSkipUnsupportedPasses(true);
-    addUnsupportedPass("testPassFactory");
-
-    assertPasses();
-
-    // Error will be converted to warning by a `WarningsGuard`.
-    assertThat(compiler.getErrors())
-        .comparingElementsUsing(DIAGNOSTIC_EQUALITY)
-        .containsExactly(FEATURES_NOT_SUPPORTED_BY_PASS);
-  }
-
-  @Test
-  public void testSetDontSkipUnsupportedPasses() {
-    compiler.getOptions().setSkipUnsupportedPasses(false);
-    addUnsupportedPass("testPassFactory");
-
-    assertPasses("testPassFactory");
-
-    assertThat(compiler.getErrors())
-        .comparingElementsUsing(DIAGNOSTIC_EQUALITY)
-        .containsExactly(FEATURES_NOT_SUPPORTED_BY_PASS);
-  }
-
-  public void assertPasses(String ... names) {
+  public void assertPasses(String... names) {
     optimizer.process(null, dummyRoot);
     assertThat(passesRun).isEqualTo(ImmutableList.copyOf(names));
   }
 
   private void addOneTimePass(String name) {
-    optimizer.addOneTimePass(
-        createPassFactory(name, 0, true));
+    optimizer.addOneTimePass(createPassFactory(name, 0, true));
   }
 
   private void addLoopedPass(Loop loop, String name, int numChanges) {
-    loop.addLoopedPass(
-        createPassFactory(name, numChanges, false));
+    loop.addLoopedPass(createPassFactory(name, numChanges, false));
   }
 
-  /** Adds a pass with the given name that does not support some of the features used in the AST. */
-  private void addUnsupportedPass(String name) {
-    compiler.setFeatureSet(FeatureSet.latest());
-    optimizer.addOneTimePass(
-        createPassFactory(name, createPass(name, 0), true, FeatureSet.BARE_MINIMUM));
-  }
-
-  private PassFactory createPassFactory(
-      String name, int numChanges, boolean isOneTime) {
+  private PassFactory createPassFactory(String name, int numChanges, boolean isOneTime) {
     return createPassFactory(name, createPass(name, numChanges), isOneTime);
   }
 
-  private PassFactory createPassFactory(
-      String name, final CompilerPass pass, boolean isOneTime) {
-    return createPassFactory(name, pass, isOneTime, FeatureSet.latest());
-  }
-
-  private PassFactory createPassFactory(
-      String name, final CompilerPass pass, boolean isOneTime, FeatureSet featureSet) {
+  private PassFactory createPassFactory(String name, final CompilerPass pass, boolean isOneTime) {
     return PassFactory.builder()
         .setName(name)
         .setRunInFixedPointLoop(!isOneTime)
         .setInternalFactory((compiler) -> pass)
-        .setFeatureSet(featureSet)
         .build();
   }
 
@@ -293,7 +207,8 @@ public final class PhaseOptimizerTest {
     final PhaseOptimizerTest self = this;
     final int[] numChangesClosure = new int[] {numChanges};
     return new CompilerPass() {
-      @Override public void process(Node externs, Node root) {
+      @Override
+      public void process(Node externs, Node root) {
         passesRun.add(name);
         if (numChangesClosure[0] > 0) {
           numChangesClosure[0] = numChangesClosure[0] - 1;

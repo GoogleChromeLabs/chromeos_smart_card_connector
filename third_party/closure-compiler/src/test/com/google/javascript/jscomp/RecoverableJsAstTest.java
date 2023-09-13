@@ -29,15 +29,13 @@ import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import org.jspecify.nullness.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Unit tests for {@link RecoverableJsAst}.
- *
- */
+/** Unit tests for {@link RecoverableJsAst}. */
 @RunWith(JUnit4.class)
 public class RecoverableJsAstTest {
   private Path tempFile;
@@ -95,7 +93,6 @@ public class RecoverableJsAstTest {
     checkParseErrors(realAst, makeDefensiveCopy(ast1), "Parse error. Semi-colon expected");
   }
 
-
   private RecoverableJsAst makeDefensiveCopy(SourceAst ast) {
     // NOTE: We reuse RecoverableJsAst as a way of making tree clones, because
     // compilation mutates the tree.  This is unrelated to testing
@@ -104,7 +101,7 @@ public class RecoverableJsAstTest {
   }
 
   private void setSourceCode(String code) throws IOException {
-    Files.write(tempFile, code.getBytes(UTF_8));
+    Files.writeString(tempFile, code);
   }
 
   private SourceAst createRealAst() {
@@ -128,7 +125,10 @@ public class RecoverableJsAstTest {
     checkCompile(realAst, ast, expected, ImmutableList.<String>of());
   }
 
-  private void checkCompile(SourceAst realAst, RecoverableJsAst ast, String expected,
+  private void checkCompile(
+      SourceAst realAst,
+      RecoverableJsAst ast,
+      @Nullable String expected,
       ImmutableList<String> expectedErrors) {
     Compiler compiler = new Compiler();
 
@@ -137,16 +137,15 @@ public class RecoverableJsAstTest {
 
     JSChunk module = new JSChunk("m0");
     module.add(new CompilerInput(ast));
-    compiler.compileModules(ImmutableList.<SourceFile>of(),
-        ImmutableList.of(module),
-        createCompilerOptions());
+    compiler.compileModules(
+        ImmutableList.<SourceFile>of(), ImmutableList.of(module), createCompilerOptions());
 
     Node mainRoot = compiler.getRoot().getLastChild();
 
     Node expectedRoot = null;
     if (expected != null) {
-      expectedRoot = parseExpectedJs(ImmutableList.of(
-          SourceFile.fromCode("expected.js", expected)));
+      expectedRoot =
+          parseExpectedJs(ImmutableList.of(SourceFile.fromCode("expected.js", expected)));
       expectedRoot.detach();
     }
 
@@ -168,9 +167,7 @@ public class RecoverableJsAstTest {
     assertThat(ast.getAstRoot(compiler)).isNotSameInstanceAs(realAst.getAstRoot(compiler));
   }
 
-  /**
-   * Parses expected JS inputs and returns the root of the parse tree.
-   */
+  /** Parses expected JS inputs and returns the root of the parse tree. */
   protected Node parseExpectedJs(List<SourceFile> inputs) {
     Compiler compiler = new Compiler();
 

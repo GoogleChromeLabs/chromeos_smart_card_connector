@@ -16,13 +16,13 @@
 
 package com.google.javascript.jscomp;
 
+import static com.google.javascript.jscomp.deps.ModuleLoader.INVALID_MODULE_PATH;
 import static com.google.javascript.jscomp.deps.ModuleLoader.LOAD_WARNING;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.javascript.jscomp.deps.ModuleLoader.PathEscaper;
 import com.google.javascript.jscomp.deps.ModuleLoader.ResolutionMode;
-import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,7 +33,7 @@ public class Es6RelativizeImportPathsTest extends CompilerTestCase {
 
   private ImmutableMap<String, String> prefixReplacements;
   private ResolutionMode moduleResolutionMode;
-  private List<String> moduleRoots;
+  private ImmutableList<String> moduleRoots;
 
   @Override
   @Before
@@ -87,6 +87,7 @@ public class Es6RelativizeImportPathsTest extends CompilerTestCase {
   @Test
   public void testAbsolutePathsStayTheSame() {
     // Absolute means that with a scheme, not those starting with "/"
+    ignoreWarnings(INVALID_MODULE_PATH);
     testSame(
         srcs(
             SourceFile.fromCode(

@@ -22,7 +22,7 @@ import com.google.javascript.jscomp.colors.Color;
 import java.util.Collection;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Fail-fast replacement for `ColorSerializer`.
@@ -38,11 +38,11 @@ class ColorSerializer {
     throw new RuntimeException("Serialization not yet supported in JS version of compiler");
   }
 
-  ImmutableList<TypePointer> addColors(Collection<Color> colors) {
+  ImmutableList<Integer> addColors(Collection<Color> colors) {
     throw new RuntimeException("Serialization not yet supported in JS version of compiler");
   }
 
-  TypePointer addColor(Color color) {
+  Integer addColor(Color color) {
     throw new RuntimeException("Serialization not yet supported in JS version of compiler");
   }
 

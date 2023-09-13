@@ -23,11 +23,12 @@ import com.google.javascript.jscomp.NodeTraversal.AbstractShallowCallback;
 import com.google.javascript.jscomp.ReferenceCollector.Behavior;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.QualifiedName;
 import com.google.javascript.rhino.Token;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Checks variables to see if they are referenced before their declaration, or if they are
@@ -68,13 +69,17 @@ class VariableReferenceCheck implements CompilerPass {
       DiagnosticType.disabled(
           "JSC_UNUSED_LOCAL_ASSIGNMENT", "Value assigned to local variable {0} is never read");
 
+  private static final QualifiedName GOOG_REQUIRE = QualifiedName.of("goog.require");
+  private static final QualifiedName GOOG_REQUIRE_TYPE = QualifiedName.of("goog.requireType");
+  private static final QualifiedName GOOG_FORWARD_DECLARE = QualifiedName.of("goog.forwardDeclare");
+
   private final AbstractCompiler compiler;
 
   private final boolean checkUnusedLocals;
 
   // NOTE(nicksantos): It's a lot faster to use a shared Set that
   // we clear after each method call, because the Set never gets too big.
-  private final Set<BasicBlock> blocksWithDeclarations = new HashSet<>();
+  private final Set<BasicBlock> blocksWithDeclarations = new LinkedHashSet<>();
 
   // These types do not permit a block-scoped declaration inside them without an explicit block.
   // e.g. if (b) let x;
@@ -82,6 +87,8 @@ class VariableReferenceCheck implements CompilerPass {
   private static final ImmutableSet<Token> BLOCKLESS_DECLARATION_FORBIDDEN_STATEMENTS =
       Sets.immutableEnumSet(
           Token.IF, Token.FOR, Token.FOR_IN, Token.FOR_OF, Token.FOR_AWAIT_OF, Token.WHILE);
+
+  private static final QualifiedName GOOG_SCOPE = QualifiedName.of("goog.scope");
 
   public VariableReferenceCheck(AbstractCompiler compiler) {
     this.compiler = compiler;
@@ -105,7 +112,7 @@ class VariableReferenceCheck implements CompilerPass {
     private final Set<String> varsInFunctionBody;
 
     private ReferenceCheckingBehavior() {
-      varsInFunctionBody = new HashSet<>();
+      varsInFunctionBody = new LinkedHashSet<>();
     }
 
     @Override
@@ -141,7 +148,7 @@ class VariableReferenceCheck implements CompilerPass {
       NodeTraversal.traverse(
           compiler,
           param.getParentNode().getSecondChild(),
-          /**
+          /*
            * Do a shallow check since cases like: {@code
            *   function f(y = () => x, x = 5) { return y(); }
            * } is legal. We are going to miss cases like: {@code
@@ -278,7 +285,7 @@ class VariableReferenceCheck implements CompilerPass {
   /**
    * @return The reference to the hoisted function, if the variable is one
    */
-  private Reference lookForHoistedFunction(List<Reference> references) {
+  private @Nullable Reference lookForHoistedFunction(List<Reference> references) {
     for (Reference reference : references) {
       if (reference.isHoistedFunction()) {
         blocksWithDeclarations.add(reference.getBasicBlock());
@@ -301,61 +308,73 @@ class VariableReferenceCheck implements CompilerPass {
    */
   private boolean checkRedeclaration(
       Var v, Reference reference, Node referenceNode, Reference hoistedFn, BasicBlock basicBlock) {
-    boolean allowDupe =
-        VarCheck.hasDuplicateDeclarationSuppression(compiler, referenceNode, v.getNameNode());
     boolean letConstShadowsVar = v.getParentNode().isVar()
         && (reference.isLetDeclaration() || reference.isConstDeclaration());
     boolean isVarNodeSameAsReferenceNode = v.getNode() == reference.getNode();
     // We disallow redeclaration of caught exceptions
     boolean shadowCatchVar = v.getParentNode().isCatch() && !isVarNodeSameAsReferenceNode;
-    boolean shadowParam = v.isParam() && NodeUtil.isBlockScopedDeclaration(referenceNode)
-        && v.getScope() == reference.getScope().getParent();
-    boolean shadowDetected = false;
-    if (!allowDupe) {
-      // Look through all the declarations we've found so far, and
-      // check if any of them are before this block.
-      for (BasicBlock declaredBlock : blocksWithDeclarations) {
-        if (declaredBlock.provablyExecutesBefore(basicBlock)) {
-          shadowDetected = true;
-          DiagnosticType diagnosticType;
-          Node warningNode = referenceNode;
-          if (v.isLet()
-              || v.isConst()
-              || v.isClass()
-              || letConstShadowsVar
-              || shadowCatchVar
-              || shadowParam
-              || v.isImport()) {
-            // These cases are all hard errors that violate ES6 semantics
-            diagnosticType = REDECLARED_VARIABLE_ERROR;
-          } else if (reference.getNode().getParent().isCatch() || allowDupe) {
-            return false;
-          } else {
-            // These diagnostics are for valid, but suspicious, code, and are suppressible.
-            // For vars defined in the global scope, give the same error as VarCheck
-            diagnosticType =
-                v.getScope().isGlobal()
-                    ? VarCheck.VAR_MULTIPLY_DECLARED_ERROR
-                    : REDECLARED_VARIABLE;
-            // Since we skip hoisted functions, we would have the wrong warning node in cases
-            // where the redeclaration is a function declaration. Check for that case.
-            if (isVarNodeSameAsReferenceNode
-                && hoistedFn != null
-                && v.getName().equals(hoistedFn.getNode().getString())) {
-              warningNode = hoistedFn.getNode();
-            }
-          }
-          compiler.report(
-              JSError.make(warningNode, diagnosticType, v.getName(), locationOf(v.getNode())));
-          return true;
+
+    if (isRedeclaration(basicBlock)
+        && !VarCheck.hasDuplicateDeclarationSuppression(compiler, referenceNode, v.getNameNode())) {
+      final DiagnosticType diagnosticType;
+      Node warningNode = referenceNode;
+      boolean shadowParam =
+          v.isParam()
+              && NodeUtil.isBlockScopedDeclaration(referenceNode)
+              && v.getScope() == reference.getScope().getParent();
+
+      boolean isFunctionDecl =
+          (v.getParentNode() != null
+              && v.getParentNode().isFunction()
+              && v.getParentNode().getFirstChild() == referenceNode);
+
+      if (v.isLet()
+          || v.isConst()
+          || v.isClass()
+          || letConstShadowsVar
+          || shadowCatchVar
+          || shadowParam
+          || v.isImport()
+          || isFunctionDecl) {
+        // These cases are all hard errors that violate ES6 semantics
+        diagnosticType = REDECLARED_VARIABLE_ERROR;
+      } else if (reference.getNode().getParent().isCatch()) {
+        return false;
+      } else {
+        // These diagnostics are for valid, but suspicious, code, and are suppressible.
+        // For vars defined in the global scope, give the same error as VarCheck
+        diagnosticType =
+            v.getScope().isGlobal() ? VarCheck.VAR_MULTIPLY_DECLARED_ERROR : REDECLARED_VARIABLE;
+        // Since we skip hoisted functions, we would have the wrong warning node in cases
+        // where the redeclaration is a function declaration. Check for that case.
+        if (isVarNodeSameAsReferenceNode
+            && hoistedFn != null
+            && v.getName().equals(hoistedFn.getNode().getString())) {
+          warningNode = hoistedFn.getNode();
         }
       }
+      compiler.report(
+          JSError.make(warningNode, diagnosticType, v.getName(), locationOf(v.getNode())));
+      return true;
     }
 
-    if (!shadowDetected && (letConstShadowsVar || shadowCatchVar)
-        && v.getScope() == reference.getScope()) {
+    if ((letConstShadowsVar || shadowCatchVar) && v.getScope() == reference.getScope()) {
       compiler.report(JSError.make(referenceNode, REDECLARED_VARIABLE_ERROR, v.getName()));
       return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Returns whether the given block executes after any known declarations of the variable being
+   * visited.
+   */
+  private boolean isRedeclaration(BasicBlock newDeclaration) {
+    for (BasicBlock previousDeclaration : blocksWithDeclarations) {
+      if (previousDeclaration.provablyExecutesBefore(newDeclaration)) {
+        return true;
+      }
     }
     return false;
   }
@@ -382,6 +401,12 @@ class VariableReferenceCheck implements CompilerPass {
       if (curr.isName() && curr.getString().equals(v.getName())) {
         return false;
       }
+    }
+
+    // RHS of public fields are not early references
+    Node referenceScopeRoot = reference.getScope().getRootNode();
+    if (referenceScopeRoot.isMemberFieldDef() && !referenceScopeRoot.isStaticMember()) {
+      return false;
     }
 
     // Only generate warnings for early references in the same function scope/global scope in
@@ -424,7 +449,7 @@ class VariableReferenceCheck implements CompilerPass {
     if (s.isFunctionBlockScope()) {
       Node function = s.getRootNode().getParent();
       Node callee = function.getPrevious();
-      inGoogScope = callee != null && callee.matchesQualifiedName("goog.scope");
+      inGoogScope = callee != null && GOOG_SCOPE.matches(callee);
     }
 
     if (inGoogScope) {
@@ -438,9 +463,9 @@ class VariableReferenceCheck implements CompilerPass {
         Node lhs = statement.getFirstChild();
         Node rhs = lhs.getFirstChild();
         if (rhs != null
-            && (NodeUtil.isCallTo(rhs, "goog.forwardDeclare")
-                || NodeUtil.isCallTo(rhs, "goog.requireType")
-                || NodeUtil.isCallTo(rhs, "goog.require")
+            && (NodeUtil.isCallTo(rhs, GOOG_FORWARD_DECLARE)
+                || NodeUtil.isCallTo(rhs, GOOG_REQUIRE_TYPE)
+                || NodeUtil.isCallTo(rhs, GOOG_REQUIRE)
                 || rhs.isQualifiedName())) {
           // No warning. module imports will be caught by the unused-require check, and if the
           // right side is a qualified name then this is likely an alias used in type annotations.

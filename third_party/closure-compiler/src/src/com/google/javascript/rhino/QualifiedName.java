@@ -41,7 +41,7 @@
 package com.google.javascript.rhino;
 
 import com.google.common.collect.ImmutableList;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Abstraction over a qualified name. Unifies Node-based qualified names and string-based names,
@@ -73,8 +73,7 @@ public abstract class QualifiedName {
    * Returns the qualified name of the owner, or null for simple names. For the name "foo.bar.baz",
    * this returns an object representing "foo.bar".
    */
-  @Nullable
-  public abstract QualifiedName getOwner();
+  public abstract @Nullable QualifiedName getOwner();
 
   /**
    * Returns outer-most term of this qualified name, or the entire name for simple names. For the
@@ -148,7 +147,7 @@ public abstract class QualifiedName {
     }
 
     @Override
-    public QualifiedName getOwner() {
+    public @Nullable QualifiedName getOwner() {
       return size > 1 ? new StringListQname(terms, size - 1) : null;
     }
 
@@ -257,7 +256,7 @@ public abstract class QualifiedName {
     }
 
     @Override
-    public QualifiedName getOwner() {
+    public @Nullable QualifiedName getOwner() {
       return node.isGetProp() ? new NodeQname(node.getFirstChild()) : null;
     }
 

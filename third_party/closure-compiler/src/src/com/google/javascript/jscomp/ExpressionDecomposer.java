@@ -35,7 +35,7 @@ import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.JSTypeNative;
 import java.util.ArrayDeque;
 import java.util.EnumSet;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Partially or fully decomposes an expression with respect to some sub-expression. Initially this
@@ -79,7 +79,7 @@ class ExpressionDecomposer {
   private final ImmutableSet<String> knownConstantFunctions;
   private final Scope scope;
   private final EnumSet<Workaround> enabledWorkarounds;
-  @Nullable private final JSType unknownType;
+  private final @Nullable JSType unknownType;
 
   /**
    * Create an ExpressionDecomposer.
@@ -220,14 +220,14 @@ class ExpressionDecomposer {
 
           Node left = expressionParent.getFirstChild();
           switch (left.getToken()) {
+            case ARRAY_PATTERN:
             case GETELEM:
-              decomposeSubExpressions(left.getLastChild(), null, state);
-              // Fall through.
             case GETPROP:
               decomposeSubExpressions(left.getFirstChild(), null, state);
               break;
             default:
-              throw new IllegalStateException("Expected a property access: " + left.toStringTree());
+              throw new IllegalStateException(
+                  "Expected a property access or array pattern: " + left.toStringTree());
           }
         }
       } else if (expressionParent.isCall()
@@ -421,7 +421,7 @@ class ExpressionDecomposer {
    * @param n The node with which to start iterating.
    * @param stopNode A node after which to stop iterating.
    */
-  private void decomposeSubExpressions(Node n, Node stopNode, DecompositionState state) {
+  private void decomposeSubExpressions(Node n, @Nullable Node stopNode, DecompositionState state) {
     if (n == null || n == stopNode) {
       return;
     }
@@ -831,8 +831,7 @@ class ExpressionDecomposer {
    * @return For the subExpression, find the nearest statement Node before which it can be inlined.
    *     Null if no such location can be found.
    */
-  @Nullable
-  static Node findInjectionPoint(Node subExpression) {
+  static @Nullable Node findInjectionPoint(Node subExpression) {
     Node expressionRoot = findExpressionRoot(subExpression);
     checkNotNull(expressionRoot);
 
@@ -870,8 +869,7 @@ class ExpressionDecomposer {
    * <p>If {@code subExpression} is not contained by a statement where inlining is known to be
    * possible, {@code null} is returned. For example, the condition expression of a WHILE loop.
    */
-  @Nullable
-  private static Node findExpressionRoot(Node subExpression) {
+  private static @Nullable Node findExpressionRoot(Node subExpression) {
     Node child = subExpression;
     for (Node current : child.getAncestors()) {
       Node parent = current.getParent();
@@ -1001,6 +999,13 @@ class ExpressionDecomposer {
         // As later expressions may reference the earlier expression, it would be necessary to
         // rewrite references when extracting the expressions:
         // `var temp1 = 5; var temp2 = 2 * temp1; for (let x = temp1, y = temp2; ...`
+        return DecompositionType.UNDECOMPOSABLE;
+      }
+
+      if (parent.isTaggedTemplateLit() && !parent.getBooleanProp(Node.FREE_CALL)) {
+        // We're looking at something like: something.method`${subExpression()}`
+        // You can't use the `.call(something, ...)` trick for a tagged template literal.
+        // TODO(b/251958225): Implement decomposition of this case.
         return DecompositionType.UNDECOMPOSABLE;
       }
 
@@ -1210,7 +1215,7 @@ class ExpressionDecomposer {
         // simple names as constants.
         return false;
       }
-      // This is a superset of "NodeUtil.mayHaveSideEffects".
+      // This is a superset of "AstAnalyzer.mayHaveSideEffects".
       return NodeUtil.canBeSideEffected(tree, this.knownConstantFunctions, scope);
     } else {
       // The function called doesn't have side-effects but check to see if there

@@ -21,7 +21,6 @@ import static com.google.javascript.jscomp.CheckJSDoc.DEFAULT_PARAM_MUST_BE_MARK
 import static com.google.javascript.jscomp.CheckJSDoc.DISALLOWED_MEMBER_JSDOC;
 import static com.google.javascript.jscomp.CheckJSDoc.INVALID_DEFINE_ON_LET;
 import static com.google.javascript.jscomp.CheckJSDoc.INVALID_MODIFIES_ANNOTATION;
-import static com.google.javascript.jscomp.CheckJSDoc.INVALID_NO_SIDE_EFFECT_ANNOTATION;
 import static com.google.javascript.jscomp.CheckJSDoc.JSDOC_IN_BLOCK_COMMENT;
 import static com.google.javascript.jscomp.CheckJSDoc.JSDOC_ON_RETURN;
 import static com.google.javascript.jscomp.CheckJSDoc.MISPLACED_ANNOTATION;
@@ -29,6 +28,7 @@ import static com.google.javascript.jscomp.CheckJSDoc.MISPLACED_MSG_ANNOTATION;
 import static com.google.javascript.jscomp.CheckJSDoc.MISPLACED_SUPPRESS;
 
 import com.google.javascript.jscomp.parsing.Config.JsDocParsing;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -36,6 +36,15 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link CheckJSDoc}. */
 @RunWith(JUnit4.class)
 public final class CheckJsDocTest extends CompilerTestCase {
+
+  private JsDocParsing jsdocParsingMode;
+
+  @Override
+  @Before
+  public void setUp() throws Exception {
+    super.setUp();
+    this.jsdocParsingMode = JsDocParsing.INCLUDE_DESCRIPTIONS_WITH_WHITESPACE;
+  }
 
   @Override
   protected CompilerPass getProcessor(final Compiler compiler) {
@@ -46,7 +55,7 @@ public final class CheckJsDocTest extends CompilerTestCase {
   protected CompilerOptions getOptions() {
     CompilerOptions options = super.getOptions();
     options.setWarningLevel(DiagnosticGroups.MISPLACED_SUPPRESS, CheckLevel.WARNING);
-    options.setParseJsDocDocumentation(JsDocParsing.INCLUDE_DESCRIPTIONS_WITH_WHITESPACE);
+    options.setParseJsDocDocumentation(jsdocParsingMode);
     options.setPreserveDetailedSourceInfo(true);
     return options;
   }
@@ -552,6 +561,12 @@ public final class CheckJsDocTest extends CompilerTestCase {
     testWarning("/** @desc Foo. */ const {bar} = goog.getMsg('x');", MISPLACED_MSG_ANNOTATION);
     testWarning(
         "var bar;\n/** @desc Foo. */ ({bar} = goog.getMsg('x'));", MISPLACED_MSG_ANNOTATION);
+
+    // allow in TS code
+    testNoWarning(
+        srcs(
+            SourceFile.fromCode(
+                "foo.closure.js", "/** @desc Foo. */ var bar = goog.getMsg('hello');")));
   }
 
   @Test
@@ -951,37 +966,33 @@ public final class CheckJsDocTest extends CompilerTestCase {
   }
 
   @Test
-  public void testInvalidAnnotation1() {
-    testError("/** @nosideeffects */ function foo() {}", INVALID_NO_SIDE_EFFECT_ANNOTATION);
+  public void testNoSideEffectsAnnotation1() {
+    testSame("/** @nosideeffects */ function foo() {}");
   }
 
   @Test
-  public void testInvalidAnnotation2() {
-    testError("var f = /** @nosideeffects */ function() {}", INVALID_NO_SIDE_EFFECT_ANNOTATION);
+  public void testNoSideEffectsAnnotation2() {
+    testSame("var f = /** @nosideeffects */ function() {}");
   }
 
   @Test
-  public void testInvalidAnnotation3() {
-    testError("/** @nosideeffects */ var f = function() {}", INVALID_NO_SIDE_EFFECT_ANNOTATION);
+  public void testNoSideEffectsAnnotation3() {
+    testSame("/** @nosideeffects */ var f = function() {}");
   }
 
   @Test
-  public void testInvalidAnnotation4() {
-    testError(
-        "var f = function() {};" + "/** @nosideeffects */ f.x = function() {}",
-        INVALID_NO_SIDE_EFFECT_ANNOTATION);
+  public void testNoSideEffectsAnnotation4() {
+    testSame("var f = function() {};" + "/** @nosideeffects */ f.x = function() {}");
   }
 
   @Test
-  public void testInvalidAnnotation5() {
-    testError(
-        "var f = function() {};" + "f.x = /** @nosideeffects */ function() {}",
-        INVALID_NO_SIDE_EFFECT_ANNOTATION);
+  public void testNoSideEffectsAnnotation5() {
+    testSame("var f = function() {};" + "f.x = /** @nosideeffects */ function() {}");
   }
 
   @Test
-  public void testInvalidAnnotation_withES6Modules() {
-    testError("export /** @nosideeffects */ function foo() {}", INVALID_NO_SIDE_EFFECT_ANNOTATION);
+  public void testNoSideEffectsAnnotations() {
+    testSame("export /** @nosideeffects */ function foo() {}");
   }
 
   @Test
@@ -1051,9 +1062,20 @@ public final class CheckJsDocTest extends CompilerTestCase {
     testSame("/** @suppress {duplicate} @type {Foo} */ ns.something.foo;");
     testSame("/** @suppress {with} */ with (o) { x; }");
 
-    testWarning("/** @suppress {uselessCode} */ goog.require('unused.Class');", MISPLACED_SUPPRESS);
+    // Suppressions are not allowed:
+    //  * on arbitrary sub-expressions within a statement
+    //  * on control-flow structures like loops, if, switch, or on blocks
     testWarning("const {/** @suppress {duplicate} */ Foo} = foo();", MISPLACED_SUPPRESS);
     testWarning("foo(/** @suppress {duplicate} */ ns.x = 7);", MISPLACED_SUPPRESS);
+    testWarning("/** @suppress {duplicate} */ switch (0) { default: ; }", MISPLACED_SUPPRESS);
+    testWarning("/** @suppress {duplicate} */ do {} while (true);", MISPLACED_SUPPRESS);
+    testWarning("/** @suppress {duplicate} */ while (true) {}", MISPLACED_SUPPRESS);
+    testWarning("/** @suppress {duplicate} */ for (; true; ) {}", MISPLACED_SUPPRESS);
+    testWarning("/** @suppress {duplicate} */ { (0); }", MISPLACED_SUPPRESS);
+    testWarning("/** @suppress {duplicate} */ if (true) {}", MISPLACED_SUPPRESS);
+
+    testSame("/** @suppress {uselessCode} */ goog.require('unused.Class');");
+    testSame("/** @suppress {checkTypes} */ foo(0);");
 
     testSame("/** @suppress {visibility} */ a.x_ = 0;");
     testSame("/** @suppress {visibility} */ a.x_ += 0;");
@@ -1169,20 +1191,6 @@ public final class CheckJsDocTest extends CompilerTestCase {
   }
 
   @Test
-  public void testLocaleFileOnScriptOK() {
-    testSame(
-        lines(
-            "/** @fileoverview", //
-            " * @localeFile",
-            " */"));
-  }
-
-  @Test
-  public void testLocaleFileNotOnScriptIsNotAllowed() {
-    testWarning("/** @fileoverview */ /** @localeFile */ var x;", MISPLACED_ANNOTATION);
-  }
-
-  @Test
   public void testConstructorFieldError_withTypeAnnotation() {
     testSame("class C { /** @constructor */ x = function() {}; }");
   }
@@ -1205,5 +1213,32 @@ public final class CheckJsDocTest extends CompilerTestCase {
   @Test
   public void testPublicClassComputedField_typeDefError() {
     testWarning("class C { /** @typedef {number} */ [x] = 2;}", MISPLACED_ANNOTATION);
+  }
+
+  @Test
+  public void testMangleClosureModuleExportsContentsTypes() {
+    // disable parsing anything besides types; otherwise this test case fails because the
+    // "sourceComment"s from the actual/expected JSDocInfo do not match
+    jsdocParsingMode = JsDocParsing.TYPES_ONLY;
+
+    test(
+        "/** @type {!module$exports$foo$bar} */ let x;",
+        "/** @type {!UnrecognizedType_module$exports$foo$bar} */ let x;");
+    test(
+        srcs(
+            "goog.module('foo.bar'); exports = class {};",
+            "/** @type {!module$exports$foo$bar} */ let x;"),
+        expected(
+            "goog.module('foo.bar'); exports = class {};",
+            "/** @type {!UnrecognizedType_module$exports$foo$bar} */ let x;"));
+    test(
+        "/** @type {!module$exports$foo$bar.A.B} */ let x;",
+        "/** @type {!UnrecognizedType_module$exports$foo$bar.A.B} */ let x;");
+    test(
+        "/** @type {!module$contents$foo$bar_local} */ let x;",
+        "/** @type {!UnrecognizedType_module$contents$foo$bar_local} */ let x;");
+    test(
+        "/** @type {!Array<module$exports$foo$bar>} */ let x;",
+        "/** @type {!Array<UnrecognizedType_module$exports$foo$bar>} */ let x;");
   }
 }

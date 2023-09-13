@@ -29,6 +29,7 @@ import com.google.common.collect.TreeMultimap;
 import com.google.common.io.CharSource;
 import com.google.common.io.CharStreams;
 import com.google.common.io.Files;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -38,6 +39,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
+import org.jspecify.nullness.Nullable;
 
 /**
  * An extension of {@code WarningsGuard} that provides functionality to maintain a list of warnings
@@ -50,7 +52,7 @@ public class AllowlistWarningsGuard extends WarningsGuard {
   private static final Splitter LINE_SPLITTER = Splitter.on('\n');
 
   /** The set of allowlisted warnings, same format as {@code formatWarning}. */
-  private final Set<String> allowlist;
+  private final ImmutableSet<String> allowlist;
 
   /** Pattern to match line number in error descriptions. */
   private static final Pattern LINE_NUMBER = Pattern.compile(":-?\\d+");
@@ -76,9 +78,11 @@ public class AllowlistWarningsGuard extends WarningsGuard {
    * Loads legacy warnings list from the set of strings. During development line numbers are changed
    * very often - we just cut them and compare without ones.
    *
+   * <p>Also remove lines starting with "#" or are blank lines.
+   *
    * @return known legacy warnings without line numbers.
    */
-  protected Set<String> normalizeAllowlist(Set<String> allowlist) {
+  public static ImmutableSet<String> normalizeAllowlist(Set<String> allowlist) {
     Set<String> result = new HashSet<>();
     for (String line : allowlist) {
       String trimmed = line.trim();
@@ -94,11 +98,11 @@ public class AllowlistWarningsGuard extends WarningsGuard {
   }
 
   @Override
-  public CheckLevel level(JSError error) {
+  public @Nullable CheckLevel level(JSError error) {
     if (error.getDefaultLevel().equals(CheckLevel.ERROR)) {
       return null;
     }
-    if (containWarning(formatWarning(error))) {
+    if (!allowlist.isEmpty() && containWarning(formatWarning(error))) {
       // If the message matches the guard we use WARNING, so that it
       // - Shows up on stderr, and
       // - Gets caught by the AllowlistBuilder downstream in the pipeline
@@ -177,7 +181,7 @@ public class AllowlistWarningsGuard extends WarningsGuard {
    */
   protected String formatWarning(JSError error, boolean withMetaData) {
     StringBuilder sb = new StringBuilder();
-    sb.append(error.getSourceName()).append(":");
+    sb.append(normalizeSourceName(error.getSourceName())).append(":");
     if (withMetaData) {
       sb.append(error.getLineNumber());
     }
@@ -195,6 +199,15 @@ public class AllowlistWarningsGuard extends WarningsGuard {
     return sb.toString();
   }
 
+  private String normalizeSourceName(String sourceName) {
+    if (sourceName != null) {
+      // e.g.
+      // "blaze-out/k8-fastbuild/genfiles/some/path/foo.js" -> "some/path/foo.js"
+      return sourceName.replaceFirst("blaze-out/[^/]*/(bin|genfiles)/", "");
+    }
+    return sourceName;
+  }
+
   public static String getFirstLine(String warning) {
     int lineLength = warning.indexOf('\n');
     if (lineLength > 0) {
@@ -206,23 +219,26 @@ public class AllowlistWarningsGuard extends WarningsGuard {
   /** Allowlist builder */
   public class AllowlistBuilder implements ErrorHandler {
     private final Set<JSError> warnings = new LinkedHashSet<>();
-    private String productName = null;
-    private String generatorTarget = null;
-    private String headerNote = null;
+    private @Nullable String productName = null;
+    private @Nullable String generatorTarget = null;
+    private @Nullable String headerNote = null;
 
     /** Fill in your product name to get a fun message! */
+    @CanIgnoreReturnValue
     public AllowlistBuilder setProductName(String name) {
       this.productName = name;
       return this;
     }
 
     /** Fill in instructions on how to generate this allowlist. */
+    @CanIgnoreReturnValue
     public AllowlistBuilder setGeneratorTarget(String name) {
       this.generatorTarget = name;
       return this;
     }
 
     /** A note to include at the top of the allowlist file. */
+    @CanIgnoreReturnValue
     public AllowlistBuilder setNote(String note) {
       this.headerNote  = note;
       return this;

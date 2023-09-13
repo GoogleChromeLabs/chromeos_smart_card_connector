@@ -51,12 +51,11 @@ public final class JsDocTokenStreamTest {
 
   @Test
   public void testJsDocTokenization1() {
-    List<JsDocToken> tokens = ImmutableList.of(
-        STAR, ANNOTATION, LEFT_CURLY, STRING, RIGHT_CURLY, EOL, STAR, ANNOTATION);
-    List<String> strings = ImmutableList.of("type", "string", "private");
+    ImmutableList<JsDocToken> tokens =
+        ImmutableList.of(STAR, ANNOTATION, LEFT_CURLY, STRING, RIGHT_CURLY, EOL, STAR, ANNOTATION);
+    ImmutableList<String> strings = ImmutableList.of("type", "string", "private");
     testJSDocTokenStream(" * @type {string}\n * @private", tokens, strings);
-    testJSDocTokenStream(" *    @type { string } \n * @private",
-        tokens, strings);
+    testJSDocTokenStream(" *    @type { string } \n * @private", tokens, strings);
     testJSDocTokenStream(" * @type   {  string}\n * @private", tokens, strings);
     testJSDocTokenStream(" * @type {string  }\n * @private", tokens, strings);
     testJSDocTokenStream(" * @type {string}\n *   @private", tokens, strings);
@@ -65,9 +64,18 @@ public final class JsDocTokenStreamTest {
 
   @Test
   public void testJsDocTokenization2() {
-    List<JsDocToken> tokens = ImmutableList.of(
-        ANNOTATION, LEFT_CURLY, STRING, LEFT_ANGLE, STRING, PIPE, STRING, RIGHT_ANGLE, RIGHT_CURLY);
-    List<String> strings = ImmutableList.of("param", "Array", "string", "null");
+    ImmutableList<JsDocToken> tokens =
+        ImmutableList.of(
+            ANNOTATION,
+            LEFT_CURLY,
+            STRING,
+            LEFT_ANGLE,
+            STRING,
+            PIPE,
+            STRING,
+            RIGHT_ANGLE,
+            RIGHT_CURLY);
+    ImmutableList<String> strings = ImmutableList.of("param", "Array", "string", "null");
     testJSDocTokenStream("@param {Array.<string|null>}", tokens, strings);
     testJSDocTokenStream("@param {Array.<string|null>}", tokens, strings);
     testJSDocTokenStream("@param {Array.<string |null>}", tokens, strings);
@@ -78,31 +86,38 @@ public final class JsDocTokenStreamTest {
     testJSDocTokenStream("@param {  Array.<string|null>}", tokens, strings);
     testJSDocTokenStream("@param {Array.<string|   null>}  ", tokens, strings);
     testJSDocTokenStream("@param {Array.<string|null>}", tokens, strings);
-    testJSDocTokenStream("     @param { Array .< string |null > } ",
-        tokens, strings);
+    testJSDocTokenStream("     @param { Array .< string |null > } ", tokens, strings);
   }
 
   @Test
   public void testJsDocTokenization4() {
-    List<JsDocToken> tokens = ImmutableList.of(
-        ANNOTATION, LEFT_CURLY, STRING, LEFT_ANGLE, LEFT_PAREN, STRING, COMMA,
-        STRING, RIGHT_PAREN, RIGHT_ANGLE, RIGHT_CURLY, EOF);
-    List<String> strings = ImmutableList.of("param", "Array", "string", "null");
+    ImmutableList<JsDocToken> tokens =
+        ImmutableList.of(
+            ANNOTATION,
+            LEFT_CURLY,
+            STRING,
+            LEFT_ANGLE,
+            LEFT_PAREN,
+            STRING,
+            COMMA,
+            STRING,
+            RIGHT_PAREN,
+            RIGHT_ANGLE,
+            RIGHT_CURLY,
+            EOF);
+    ImmutableList<String> strings = ImmutableList.of("param", "Array", "string", "null");
     testJSDocTokenStream("@param {Array.<(string,null)>}", tokens, strings);
     testJSDocTokenStream("@param {Array  .<(string,null)> } ", tokens, strings);
-    testJSDocTokenStream(" @param {Array.<  (  string,null)>}",
-        tokens, strings);
+    testJSDocTokenStream(" @param {Array.<  (  string,null)>}", tokens, strings);
     testJSDocTokenStream("@param {Array.<(string  , null)>}", tokens, strings);
-    testJSDocTokenStream("@param {Array.<(string,   null)  > }  ",
-        tokens, strings);
-    testJSDocTokenStream("@param {  Array  .<  (string,null)>}   ",
-        tokens, strings);
+    testJSDocTokenStream("@param {Array.<(string,   null)  > }  ", tokens, strings);
+    testJSDocTokenStream("@param {  Array  .<  (string,null)>}   ", tokens, strings);
   }
 
   @Test
   public void testJsDocTokenization5() {
-    List<JsDocToken> tokens = ImmutableList.of(ANNOTATION, STRING, EOC, EOF);
-    List<String> strings = ImmutableList.of("param", "foo.Bar");
+    ImmutableList<JsDocToken> tokens = ImmutableList.of(ANNOTATION, STRING, EOC, EOF);
+    ImmutableList<String> strings = ImmutableList.of("param", "foo.Bar");
     testJSDocTokenStream("@param foo.Bar*/", tokens, strings);
     testJSDocTokenStream(" @param   foo.Bar*/", tokens, strings);
     testJSDocTokenStream(" @param foo.Bar   */", tokens, strings);
@@ -110,9 +125,9 @@ public final class JsDocTokenStreamTest {
 
   @Test
   public void testJsDocTokenization6() {
-    List<JsDocToken> tokens = ImmutableList.of(
-        ANNOTATION, EOL, ANNOTATION, EOL, ANNOTATION, EOC);
-    List<String> strings = ImmutableList.of("hidden", "static", "desc");
+    ImmutableList<JsDocToken> tokens =
+        ImmutableList.of(ANNOTATION, EOL, ANNOTATION, EOL, ANNOTATION, EOC);
+    ImmutableList<String> strings = ImmutableList.of("hidden", "static", "desc");
     testJSDocTokenStream("@hidden\n@static\n@desc*/", tokens, strings);
     testJSDocTokenStream("@hidden\n @static\n@desc*/", tokens, strings);
     testJSDocTokenStream("@hidden\n@static\n @desc*/", tokens, strings);
@@ -125,9 +140,9 @@ public final class JsDocTokenStreamTest {
 
   @Test
   public void testJsDocTokenization7() {
-    List<JsDocToken> tokens =
+    ImmutableList<JsDocToken> tokens =
         ImmutableList.of(ITER_REST, ITER_REST, ITER_REST, ITER_REST, ITER_REST, LEFT_ANGLE, EOC);
-    List<String> strings = ImmutableList.of();
+    ImmutableList<String> strings = ImmutableList.of();
 
     testJSDocTokenStream("................<*/", tokens, strings);
     testJSDocTokenStream("............... .<*/", tokens, strings);
@@ -139,44 +154,42 @@ public final class JsDocTokenStreamTest {
 
   @Test
   public void testJsDocTokenization8() {
-    List<JsDocToken> tokens = ImmutableList.of(
-        STAR, ANNOTATION, STRING, STRING, STRING, STRING, STRING, STRING,
-        STRING, EOL, EOC);
-    List<String> strings = ImmutableList.of(
-        "param", "foo.Bar", "opt_name", "this", "parameter", "is", "a", "name");
+    ImmutableList<JsDocToken> tokens =
+        ImmutableList.of(
+            STAR, ANNOTATION, STRING, STRING, STRING, STRING, STRING, STRING, STRING, EOL, EOC);
+    ImmutableList<String> strings =
+        ImmutableList.of("param", "foo.Bar", "opt_name", "this", "parameter", "is", "a", "name");
     testJSDocTokenStream(
-        " * @param foo.Bar opt_name this parameter is a name\n" +
-        " */", tokens, strings);
+        " * @param foo.Bar opt_name this parameter is a name\n" + " */", tokens, strings);
     testJSDocTokenStream(
-        "  *  @param foo.Bar opt_name this parameter is a name \n" +
-        " */ ", tokens, strings);
+        "  *  @param foo.Bar opt_name this parameter is a name \n" + " */ ", tokens, strings);
   }
 
   @Test
   public void testJsDocTokenization9() {
-    List<JsDocToken> tokens = ImmutableList.of(
-        STAR, ANNOTATION, STRING, STRING, STRING, STRING, STRING, ANNOTATION,
-        STRING, EOL, EOC);
-    List<String> strings = ImmutableList.of(
-        "param", "foo.Bar", "opt_name", "this", "parameter", "does",
-        "media", "blah");
+    ImmutableList<JsDocToken> tokens =
+        ImmutableList.of(
+            STAR, ANNOTATION, STRING, STRING, STRING, STRING, STRING, ANNOTATION, STRING, EOL, EOC);
+    ImmutableList<String> strings =
+        ImmutableList.of(
+            "param", "foo.Bar", "opt_name", "this", "parameter", "does", "media", "blah");
     testJSDocTokenStream(
-        " * @param foo.Bar opt_name this parameter does @media blah\n" +
-        " */", tokens, strings);
+        " * @param foo.Bar opt_name this parameter does @media blah\n" + " */", tokens, strings);
   }
 
   @Test
   public void testJsDocTokenization10() {
-    List<JsDocToken> tokens = ImmutableList.of(STRING, LEFT_ANGLE, STRING, RIGHT_ANGLE, EOC);
-    List<String> strings = ImmutableList.of("Array", "String");
+    ImmutableList<JsDocToken> tokens =
+        ImmutableList.of(STRING, LEFT_ANGLE, STRING, RIGHT_ANGLE, EOC);
+    ImmutableList<String> strings = ImmutableList.of("Array", "String");
     testJSDocTokenStream("Array<String>*/", tokens, strings);
   }
 
   @Test
   public void testJsDocTokenization11() {
-    List<JsDocToken> tokens = ImmutableList.of(
-        ANNOTATION, LEFT_CURLY, STRING, QMARK, RIGHT_CURLY, EOC, EOF);
-    List<String> strings = ImmutableList.of("param", "string");
+    ImmutableList<JsDocToken> tokens =
+        ImmutableList.of(ANNOTATION, LEFT_CURLY, STRING, QMARK, RIGHT_CURLY, EOC, EOF);
+    ImmutableList<String> strings = ImmutableList.of("param", "string");
     testJSDocTokenStream("@param {string?}*/", tokens, strings);
     testJSDocTokenStream(" @param {string?}*/", tokens, strings);
     testJSDocTokenStream("@param { string?}*/", tokens, strings);
@@ -188,16 +201,17 @@ public final class JsDocTokenStreamTest {
 
   @Test
   public void testJsDocTokenization12() {
-    List<JsDocToken> tokens = ImmutableList.of(STRING, ITER_REST, EOC);
-    List<String> strings = ImmutableList.of("function");
+    ImmutableList<JsDocToken> tokens = ImmutableList.of(STRING, ITER_REST, EOC);
+    ImmutableList<String> strings = ImmutableList.of("function");
 
     testJSDocTokenStream("function ...*/", tokens, strings);
   }
 
   @Test
   public void testJsDocTokenization13() {
-    List<JsDocToken> tokens = ImmutableList.of(ITER_REST, LEFT_SQUARE, STRING, RIGHT_SQUARE, EOC);
-    List<String> strings = ImmutableList.of("number");
+    ImmutableList<JsDocToken> tokens =
+        ImmutableList.of(ITER_REST, LEFT_SQUARE, STRING, RIGHT_SQUARE, EOC);
+    ImmutableList<String> strings = ImmutableList.of("number");
 
     testJSDocTokenStream("...[number]*/", tokens, strings);
   }
@@ -208,16 +222,17 @@ public final class JsDocTokenStreamTest {
     // followed by a comma (,) we are allowing this case to parse this way.
     // This is a simplification of the tokenizer, but the extra complexity is
     // never used.
-    List<JsDocToken> tokens = ImmutableList.of(STRING, LEFT_SQUARE, STRING, EOC);
-    List<String> strings = ImmutableList.of("foo", "bar...");
+    ImmutableList<JsDocToken> tokens = ImmutableList.of(STRING, LEFT_SQUARE, STRING, EOC);
+    ImmutableList<String> strings = ImmutableList.of("foo", "bar...");
 
     testJSDocTokenStream("foo[ bar...*/", tokens, strings);
   }
 
   @Test
   public void testJsDocTokenization15() {
-    List<JsDocToken> tokens = ImmutableList.of(STRING, LEFT_SQUARE, STRING, COMMA, ITER_REST, EOC);
-    List<String> strings = ImmutableList.of("foo", "bar");
+    ImmutableList<JsDocToken> tokens =
+        ImmutableList.of(STRING, LEFT_SQUARE, STRING, COMMA, ITER_REST, EOC);
+    ImmutableList<String> strings = ImmutableList.of("foo", "bar");
 
     testJSDocTokenStream("foo[ bar,...*/", tokens, strings);
     testJSDocTokenStream("foo[ bar ,...*/", tokens, strings);
@@ -228,42 +243,43 @@ public final class JsDocTokenStreamTest {
 
   @Test
   public void testJsDocTokenization16() {
-    List<JsDocToken> tokens =
+    ImmutableList<JsDocToken> tokens =
         ImmutableList.of(STRING, COLON, COLON, COLON, ITER_REST, STRING, COLON, STRING, EOC);
-    List<String> strings = ImmutableList.of("foo", "bar", "bar2");
+    ImmutableList<String> strings = ImmutableList.of("foo", "bar", "bar2");
 
     testJSDocTokenStream("foo:::...bar:bar2*/", tokens, strings);
   }
 
   @Test
   public void testJsDocTokenization17() {
-    List<JsDocToken> tokens = ImmutableList.of(STRING, EOL, EOC);
-    List<String> strings = ImmutableList.of("..");
+    ImmutableList<JsDocToken> tokens = ImmutableList.of(STRING, EOL, EOC);
+    ImmutableList<String> strings = ImmutableList.of("..");
 
     testJSDocTokenStream("..\n*/", tokens, strings);
   }
 
   @Test
   public void testJsDocTokenization18() {
-    List<JsDocToken> tokens = ImmutableList.of(STRING, EOL, EOC);
-    List<String> strings = ImmutableList.of(".");
+    ImmutableList<JsDocToken> tokens = ImmutableList.of(STRING, EOL, EOC);
+    ImmutableList<String> strings = ImmutableList.of(".");
 
     testJSDocTokenStream(".\n*/", tokens, strings);
   }
 
   @Test
   public void testJsDocTokenization19() {
-    List<JsDocToken> tokens = ImmutableList.of(ANNOTATION, LEFT_CURLY, STAR, RIGHT_CURLY, EOC);
-    List<String> strings = ImmutableList.of("type", "*");
+    ImmutableList<JsDocToken> tokens =
+        ImmutableList.of(ANNOTATION, LEFT_CURLY, STAR, RIGHT_CURLY, EOC);
+    ImmutableList<String> strings = ImmutableList.of("type", "*");
 
     testJSDocTokenStream("@type {*}*/", tokens, strings);
   }
 
   @Test
   public void testJsDocTokenization20() {
-    List<JsDocToken> tokens = ImmutableList.of(
-        ANNOTATION, LEFT_CURLY, BANG, STRING, RIGHT_CURLY, EOC, EOF);
-    List<String> strings = ImmutableList.of("param", "Object");
+    ImmutableList<JsDocToken> tokens =
+        ImmutableList.of(ANNOTATION, LEFT_CURLY, BANG, STRING, RIGHT_CURLY, EOC, EOF);
+    ImmutableList<String> strings = ImmutableList.of("param", "Object");
     testJSDocTokenStream("@param {!Object}*/", tokens, strings);
     testJSDocTokenStream(" @param {!Object}*/", tokens, strings);
     testJSDocTokenStream("@param {! Object}*/", tokens, strings);
@@ -275,9 +291,9 @@ public final class JsDocTokenStreamTest {
 
   @Test
   public void testJsDocTokenization21() {
-    List<JsDocToken> tokens = ImmutableList.of(
-        ANNOTATION, LEFT_CURLY, STRING, EQUALS, RIGHT_CURLY, EOC, EOF);
-    List<String> strings = ImmutableList.of("param", "Object");
+    ImmutableList<JsDocToken> tokens =
+        ImmutableList.of(ANNOTATION, LEFT_CURLY, STRING, EQUALS, RIGHT_CURLY, EOC, EOF);
+    ImmutableList<String> strings = ImmutableList.of("param", "Object");
     testJSDocTokenStream("@param {Object=}*/", tokens, strings);
     testJSDocTokenStream(" @param {Object=}*/", tokens, strings);
     testJSDocTokenStream("@param { Object =}*/", tokens, strings);

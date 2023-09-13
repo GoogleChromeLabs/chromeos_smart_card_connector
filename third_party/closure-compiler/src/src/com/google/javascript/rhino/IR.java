@@ -218,11 +218,7 @@ public class IR {
     return new Node(Token.RETURN, expr);
   }
 
-  public static Node yield() {
-    return new Node(Token.YIELD);
-  }
-
-  public static Node yield(Node expr) {
+  public static Node yieldNode(Node expr) {
     checkState(mayBeExpression(expr));
     return new Node(Token.YIELD, expr);
   }
@@ -590,6 +586,16 @@ public class IR {
     return binaryOp(Token.ASSIGN_COALESCE, expr1, expr2);
   }
 
+  /** "&" */
+  public static Node bitwiseAnd(Node expr1, Node expr2) {
+    return binaryOp(Token.BITAND, expr1, expr2);
+  }
+
+  /** ">>" */
+  public static Node rightShift(Node expr1, Node expr2) {
+    return binaryOp(Token.RSH, expr1, expr2);
+  }
+
   // TODO(johnlenz): the rest of the ops
 
   // literals
@@ -679,7 +685,7 @@ public class IR {
   }
 
   public static Node stringKey(String s, Node value) {
-    checkState(mayBeExpression(value));
+    checkState(mayBeExpression(value) || value.isDefaultValue() || value.isObjectPattern());
     Node stringKey = stringKey(s);
     stringKey.addChildToFront(value);
     return stringKey;

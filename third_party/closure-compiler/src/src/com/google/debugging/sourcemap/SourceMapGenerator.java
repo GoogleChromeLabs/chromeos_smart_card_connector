@@ -19,8 +19,7 @@ package com.google.debugging.sourcemap;
 
 import java.io.IOException;
 import java.util.List;
-
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Collects information mapping the generated (compiled) source back to
@@ -41,13 +40,10 @@ public interface SourceMapGenerator {
    * Appends the index source map to the given buffer.
    *
    * @param out The stream to which the map will be appended.
-   * @param name The name of the generated source file that this source map
-   *   represents.
+   * @param name The name of the generated source file that this source map represents.
    * @param sections An ordered list of map sections to include in the index.
-   * @throws IOException
    */
-  void appendIndexMapTo(
-      Appendable out, String name, List<SourceMapSection> sections)
+  void appendIndexMapTo(Appendable out, String name, List<SourceMapSection> sections)
       throws IOException;
 
   /**
@@ -100,9 +96,6 @@ public interface SourceMapGenerator {
    */
   void setStartingPosition(int offsetLine, int offsetIndex);
 
-  /**
-   * Whether to perform additional validation on the source map.
-   * @param validate
-   */
+  /** Whether to perform additional validation on the source map. */
   void validate(boolean validate);
 }

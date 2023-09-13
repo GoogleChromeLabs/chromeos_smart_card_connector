@@ -30,8 +30,7 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.ExtensionRegistry;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.util.List;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Class that deserializes an AstNode-tree representing a SCRIPT into a Node-tree.
@@ -44,6 +43,7 @@ final class ScriptNodeDeserializer {
 
   private final SourceFile sourceFile;
   private final ByteString scriptBytes;
+  private final String sourceMappingURL;
   private final Optional<ColorPool.ShardView> colorPoolShard;
   private final StringPool stringPool;
   private final ImmutableList<SourceFile> filePool;
@@ -55,6 +55,7 @@ final class ScriptNodeDeserializer {
       ImmutableList<SourceFile> filePool) {
     this.scriptBytes = ast.getScript();
     this.sourceFile = filePool.get(ast.getSourceFile() - 1);
+    this.sourceMappingURL = ast.getSourceMappingUrl();
     this.colorPoolShard = colorPoolShard;
     this.stringPool = stringPool;
     this.filePool = filePool;
@@ -90,7 +91,7 @@ final class ScriptNodeDeserializer {
       return ScriptNodeDeserializer.this;
     }
 
-    private Node visit(AstNode astNode, Node parent, @Nullable Node sourceFileTemplate) {
+    private Node visit(AstNode astNode, @Nullable Node parent, @Nullable Node sourceFileTemplate) {
       if (sourceFileTemplate == null || astNode.getSourceFile() != 0) {
         // 0 == 'not set'
         sourceFileTemplate =
@@ -106,15 +107,18 @@ final class ScriptNodeDeserializer {
       if (astNode.hasType() && this.owner().colorPoolShard.isPresent()) {
         n.setColor(this.owner().colorPoolShard.get().getColor(astNode.getType()));
       }
-      if (astNode.getBooleanPropertyCount() > 0) {
-        n.deserializeProperties(filterOutCastProp(astNode.getBooleanPropertyList()));
+      long properties = astNode.getBooleanProperties();
+      if (properties > 0) {
+        n.deserializeProperties(filterOutCastProp(astNode.getBooleanProperties()));
       }
       n.setJSDocInfo(JSDocSerializer.deserializeJsdoc(astNode.getJsdoc(), stringPool));
       n.setLinenoCharno(currentLine, currentColumn);
       this.previousLine = currentLine;
       this.previousColumn = currentColumn;
 
-      for (AstNode child : astNode.getChildList()) {
+      int children = astNode.getChildCount();
+      for (int i = 0; i < children; i++) {
+        AstNode child = astNode.getChild(i);
         Node deserializedChild = this.visit(child, n, sourceFileTemplate);
         n.addChildToBack(deserializedChild);
         // record script features here instead of while visiting child because some features are
@@ -152,6 +156,11 @@ final class ScriptNodeDeserializer {
           }
           return;
 
+        case PARAM_LIST:
+        case CALL:
+        case NEW:
+          return;
+
         case STRING_KEY:
           if (node.isShorthandProperty()) {
             this.addScriptFeature(Feature.EXTENDED_OBJECT_LITERALS);
@@ -175,6 +184,12 @@ final class ScriptNodeDeserializer {
           this.addScriptFeature(Feature.SETTER);
           if (parent.isClassMembers()) {
             this.addScriptFeature(Feature.CLASS_GETTER_SETTER);
+          }
+          return;
+
+        case BLOCK:
+          if (parent.isClassMembers()) {
+            this.addScriptFeature(Feature.CLASS_STATIC_BLOCK);
           }
           return;
 
@@ -202,6 +217,7 @@ final class ScriptNodeDeserializer {
           this.addScriptFeature(Feature.BIGINT);
           return;
         case EXPONENT:
+        case ASSIGN_EXPONENT:
           this.addScriptFeature(Feature.EXPONENT_OP);
           return;
         case TAGGED_TEMPLATELIT:
@@ -281,6 +297,14 @@ final class ScriptNodeDeserializer {
     private void addScriptFeature(Feature x) {
       this.scriptFeatures = this.scriptFeatures.with(x);
     }
+  }
+
+  public String getSourceMappingURL() {
+    return sourceMappingURL;
+  }
+
+  public SourceFile getSourceFile() {
+    return sourceFile;
   }
 
   /**
@@ -562,7 +586,7 @@ final class ScriptNodeDeserializer {
         return IR.stringKey(getString(n));
       case QUOTED_STRING_KEY:
         Node quotedStringKey = IR.stringKey(getString(n));
-        quotedStringKey.setQuotedString();
+        quotedStringKey.setQuotedStringKey();
         return quotedStringKey;
       case CASE:
         return new Node(Token.CASE);
@@ -585,14 +609,14 @@ final class ScriptNodeDeserializer {
       case QUOTED_GETTER_DEF:
         Node getterDef = Node.newString(Token.GETTER_DEF, getString(n));
         if (n.getKind().equals(NodeKind.QUOTED_GETTER_DEF)) {
-          getterDef.setQuotedString();
+          getterDef.setQuotedStringKey();
         }
         return getterDef;
       case RENAMABLE_SETTER_DEF:
       case QUOTED_SETTER_DEF:
         Node setterDef = Node.newString(Token.SETTER_DEF, getString(n));
         if (n.getKind().equals(NodeKind.QUOTED_SETTER_DEF)) {
-          setterDef.setQuotedString();
+          setterDef.setQuotedStringKey();
         }
         return setterDef;
 
@@ -630,18 +654,10 @@ final class ScriptNodeDeserializer {
    * <p>This is because it doesn't make sense to have that property present on nodes that don't have
    * colors.
    */
-  private List<NodeProperty> filterOutCastProp(List<NodeProperty> nodeProperties) {
+  private long filterOutCastProp(long nodeProperties) {
     if (colorPoolShard.isPresent()) {
       return nodeProperties; // we are deserializing colors, so this is fine.
     }
-    for (int i = 0; i < nodeProperties.size(); i++) {
-      if (nodeProperties.get(i).equals(NodeProperty.COLOR_FROM_CAST)) {
-        return ImmutableList.<NodeProperty>builder()
-            .addAll(nodeProperties.subList(0, i))
-            .addAll(nodeProperties.subList(i + 1, nodeProperties.size()))
-            .build();
-      }
-    }
-    return nodeProperties;
+    return nodeProperties & ~(1L << NodeProperty.COLOR_FROM_CAST.getNumber());
   }
 }

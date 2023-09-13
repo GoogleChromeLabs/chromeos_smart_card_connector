@@ -17,6 +17,7 @@ package com.google.javascript.jscomp;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.jstype.FunctionType;
@@ -127,6 +128,7 @@ public final class InvalidatingTypes {
       return new InvalidatingTypes(this.typeToLocation.build());
     }
 
+    @CanIgnoreReturnValue
     public Builder addAllTypeMismatches(Iterable<TypeMismatch> mismatches) {
       for (TypeMismatch mismatch : mismatches) {
         this.addTypeWithReason(mismatch.getFound(), mismatch.getLocation());
@@ -176,6 +178,13 @@ public final class InvalidatingTypes {
       }
       if (type.isTemplatizedType()) {
         type = type.toMaybeTemplatizedType().getReferencedType();
+      }
+      if (isAmbiguousOrStructuralType(type)) {
+        // This type is inherently invalidating. Putting it in the map wastes memory.
+        // This also fixes a performance regression: previously we saw ~4k structural types
+        // hash to the same bucket in the "typeToLocation" map, causing >100 seconds spent in
+        // hash map lookups for some builds.
+        return;
       }
 
       this.typeToLocation.put(type, location);

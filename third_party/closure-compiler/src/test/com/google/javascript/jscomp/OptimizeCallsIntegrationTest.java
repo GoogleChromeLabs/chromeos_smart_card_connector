@@ -45,6 +45,8 @@ public final class OptimizeCallsIntegrationTest extends CompilerTestCase {
   public void setUp() throws Exception {
     super.setUp();
     enableNormalize();
+    // TODO(bradfordcsmith): Stop normalizing the expected output or document why it is necessary.
+    enableNormalizeExpectedOutput();
     enableGatherExternProperties();
   }
 
@@ -506,6 +508,17 @@ public final class OptimizeCallsIntegrationTest extends CompilerTestCase {
         "var b=function(c,d,e){return d};b(1,2,3);use(b(new use(),4,new use()))",
         "var b=function(c,d  ){return d};b(0,2  );use(b(new use(),4,new use()))");
 
+    test(
+        "var a=0; var b=function(c,d){return d};b((a++, 1),2);use(b(new use(),4));use(a)",
+        "var a=0;var b=function(c,d){return d};b((a++, 0),2);use(b(new use(),4));use(a)");
+
+    test(
+        "var a=0;var b=function(c,d){return d};b((a++,a++,1),2);use(b(new use(),4));use(a)",
+        "var a=0;var b=function(c,d){return d};b((a++,a++,0),2);use(b(new use(),4));use(a)");
+
+    testSame(
+        "var a=0; var b=function(c,d){return d};b((a++, 1, a++),2);use(b(new use(),4));use(a)");
+
     // Recursive calls are OK.
     test(
         "var b=function(c,d){b(1,2);return d};b(3,4);use(b(5,6))",
@@ -770,13 +783,17 @@ public final class OptimizeCallsIntegrationTest extends CompilerTestCase {
     test(
         "function f(c = 1, d = 2){};f(1,2,3);f(4,5,6)",
         "function f(            ){};f(     );f(     )");
-    testSame("function f(c = alert()){};f(undefined);f(4)");
+    test(
+        "function f(c = alert()){};f(undefined);f(4)",
+        "function f(c = alert()){};f(         );f(4)");
     test(
         "function f(c = alert()){};f();f()", //
         "function f(){var c = alert();};f();f()");
     // TODO(johnlenz): handle this like the "no value" case above and
     // allow the default value to inlined into the body.
-    testSame("function f(c = alert()){};f(undefined);f(undefined)");
+    test(
+        "function f(c = alert()){};f(undefined);f(undefined)",
+        "function f(c = alert()){};f(          );f(        )");
   }
 
   @Test
@@ -853,5 +870,23 @@ public final class OptimizeCallsIntegrationTest extends CompilerTestCase {
             "var x = new Bar();",
             "x.foo = function(param) { return param; };",
             "x.foo();"));
+  }
+
+  @Test
+  public void testUndefinedLiterals_beforeOtherUnused() {
+    test(
+        lines(
+            "", //
+            "function foo(a, b) { use(a); }",
+            // check that this undefined gets removed if it is before another unused param
+            "foo(undefined, 3);",
+            "foo(void 0, 4);",
+            ""),
+        lines(
+            "", //
+            "function foo(a) { use(a); }",
+            "foo();",
+            "foo();",
+            ""));
   }
 }

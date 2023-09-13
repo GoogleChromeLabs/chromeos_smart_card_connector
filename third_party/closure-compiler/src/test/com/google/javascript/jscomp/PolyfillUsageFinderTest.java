@@ -32,6 +32,7 @@ import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 import com.google.javascript.rhino.testing.NodeSubject;
 import java.util.function.Consumer;
+import org.jspecify.nullness.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -235,10 +236,10 @@ public final class PolyfillUsageFinderTest {
     }
 
     static final class Builder {
-      private Polyfills polyfillsTable = null;
-      private Compiler compiler = null;
-      private PolyfillUsageFinder polyfillUsageFinder = null;
-      private Node rootNode = null;
+      private @Nullable Polyfills polyfillsTable = null;
+      private @Nullable Compiler compiler = null;
+      private @Nullable PolyfillUsageFinder polyfillUsageFinder = null;
+      private @Nullable Node rootNode = null;
 
       Builder withPolyfillTableLines(String... polyfillTableLines) {
         polyfillsTable = Polyfills.fromTable(lines(polyfillTableLines));
@@ -344,7 +345,7 @@ public final class PolyfillUsageFinderTest {
       return this;
     }
 
-    PolyfillSubject hasKind(Polyfill.Kind expectedKind) {
+    PolyfillSubject hasKind(Kind expectedKind) {
       check("kind").that(actual.kind).isEqualTo(expectedKind);
       return this;
     }

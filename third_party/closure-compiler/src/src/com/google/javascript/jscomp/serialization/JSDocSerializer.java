@@ -25,6 +25,7 @@ import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 import java.util.TreeSet;
+import org.jspecify.nullness.Nullable;
 
 /** Utilities for serializing and deserializing JSDoc necessary for optimzations. */
 public final class JSDocSerializer {
@@ -44,7 +45,8 @@ public final class JSDocSerializer {
     return deserializeJsdoc(serializeJsdoc(jsdoc, stringPool), stringPool.build());
   }
 
-  static OptimizationJsdoc serializeJsdoc(JSDocInfo jsdoc, StringPool.Builder stringPool) {
+  static @Nullable OptimizationJsdoc serializeJsdoc(
+      JSDocInfo jsdoc, StringPool.Builder stringPool) {
     if (jsdoc == null) {
       return null;
     }
@@ -59,6 +61,10 @@ public final class JSDocSerializer {
       builder.setLicenseTextPointer(stringPool.put(jsdoc.getLicense()));
     }
 
+    if (jsdoc.isSassGeneratedCssTs()) {
+      builder.addKind(JsdocTag.JSDOC_SASS_GENERATED_CSS_TS);
+    }
+
     if (jsdoc.isNoInline()) {
       builder.addKind(JsdocTag.JSDOC_NO_INLINE);
     }
@@ -66,21 +72,12 @@ public final class JSDocSerializer {
       builder.addKind(JsdocTag.JSDOC_NO_COLLAPSE);
     }
 
-    if (jsdoc.isLocaleFile()) {
-      builder.addKind(JsdocTag.JSDOC_LOCALE_FILE);
-    }
-    if (jsdoc.isLocaleObject()) {
-      builder.addKind(JsdocTag.JSDOC_LOCALE_OBJECT);
-    }
-    if (jsdoc.isLocaleSelect()) {
-      builder.addKind(JsdocTag.JSDOC_LOCALE_SELECT);
-    }
-    if (jsdoc.isLocaleValue()) {
-      builder.addKind(JsdocTag.JSDOC_LOCALE_VALUE);
-    }
-
     if (jsdoc.isProvideGoog()) {
       builder.addKind(JsdocTag.JSDOC_PROVIDE_GOOG);
+    }
+
+    if (jsdoc.isProvideAlreadyProvided()) {
+      builder.addKind(JsdocTag.JSDOC_PROVIDE_ALREADY_PROVIDED);
     }
 
     if (jsdoc.isTypeSummary()) {
@@ -163,6 +160,9 @@ public final class JSDocSerializer {
     if (jsdoc.getSuppressions().contains("messageConventions")) {
       builder.addKind(JsdocTag.JSDOC_SUPPRESS_MESSAGE_CONVENTION);
     }
+    if (jsdoc.getSuppressions().contains("untranspilableFeatures")) {
+      builder.addKind(JsdocTag.JSDOC_SUPPRESS_UNTRANSPILABLE_FEATURES);
+    }
 
     OptimizationJsdoc result = builder.build();
     if (OptimizationJsdoc.getDefaultInstance().equals(result)) {
@@ -205,7 +205,8 @@ public final class JSDocSerializer {
 
   private static final JSTypeExpression placeholderType = createPlaceholderType();
 
-  static JSDocInfo deserializeJsdoc(OptimizationJsdoc serializedJsdoc, StringPool stringPool) {
+  static @Nullable JSDocInfo deserializeJsdoc(
+      OptimizationJsdoc serializedJsdoc, StringPool stringPool) {
     if (serializedJsdoc == null) {
       return null;
     }
@@ -246,21 +247,11 @@ public final class JSDocSerializer {
         case JSDOC_NO_INLINE:
           builder.recordNoInline();
           continue;
-        case JSDOC_LOCALE_FILE:
-          builder.recordLocaleFile();
-          continue;
-        case JSDOC_LOCALE_OBJECT:
-          builder.recordLocaleObject();
-          continue;
-        case JSDOC_LOCALE_SELECT:
-          builder.recordLocaleSelect();
-          continue;
-        case JSDOC_LOCALE_VALUE:
-          builder.recordLocaleValue();
-          continue;
-
         case JSDOC_PROVIDE_GOOG:
           builder.recordProvideGoog();
+          continue;
+        case JSDOC_PROVIDE_ALREADY_PROVIDED:
+          builder.recordProvideAlreadyProvided();
           continue;
 
         case JSDOC_TYPE_SUMMARY_FILE:
@@ -332,8 +323,21 @@ public final class JSDocSerializer {
           suppressions.add("messageConventions");
           continue;
 
+          // ReportUntranspilableFeatures pass will run in stage2 since it uses languageOut
+          // information. It reports diagnostic {@code UNTRANSPILABLE_FEATURE_PRESENT} that can be
+          // supppressed using `untranspilableFeatures` suppression tag.
+          // Hence we must propagate it.
+        case JSDOC_SUPPRESS_UNTRANSPILABLE_FEATURES:
+          suppressions = (suppressions != null ? suppressions : new TreeSet<>());
+          suppressions.add("untranspilableFeatures");
+          continue;
+
         case JSDOC_FILEOVERVIEW:
           builder.recordFileOverview("");
+          continue;
+
+        case JSDOC_SASS_GENERATED_CSS_TS:
+          builder.recordSassGeneratedCssTs();
           continue;
 
         case JSDOC_UNSPECIFIED:

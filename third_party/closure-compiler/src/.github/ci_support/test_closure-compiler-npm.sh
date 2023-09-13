@@ -20,7 +20,7 @@
 #   - PWD = closure-compiler-npm repo root
 #
 # Params:
-#   1. File name of compiler_unshaded_deploy.jar
+#   1. File name of compiler_uberjar_deploy.jar
 function main() {
   local compiler_jar="$1"
 
@@ -35,17 +35,14 @@ function main() {
   #
   # TODO(nickreid): This should be done using scripts from inside the NPM repo
   cp "${compiler_jar}" "packages/google-closure-compiler-java/compiler.jar"
-  cp "${compiler_jar}" "packages/google-closure-compiler-osx/compiler.jar"
-  cp "${compiler_jar}" "packages/google-closure-compiler-linux/compiler.jar"
-  cp "${compiler_jar}" "packages/google-closure-compiler-windows/compiler.jar"
 
-  # Run all the tests inside closure-compiler-npm. This will use the version
+  # Run the java tests inside closure-compiler-npm. This will use the version
   # of the compiler we just copied into it.
   #
   # The NPM repo is divided into multiple Yarn workspaces: one for each
-  # variant of the compiler, including the Graal native builds.
-  yarn workspaces run build
-  yarn workspaces run test
+  # variant of the compiler, including the Graal native builds. We only
+  # need to test the java build.
+  yarn workspace google-closure-compiler run test --java-only --colors
 }
 
 main "$@"

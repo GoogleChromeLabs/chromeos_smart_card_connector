@@ -16,7 +16,7 @@
 
 package com.google.javascript.jscomp.deps;
 
-import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
@@ -30,8 +30,7 @@ import com.google.javascript.jscomp.JSError;
 import com.google.javascript.jscomp.deps.ModuleLoader.ModuleResolverFactory;
 import com.google.javascript.jscomp.deps.ModuleLoader.PathEscaper;
 import java.util.Comparator;
-import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Limited superset of the {@link BrowserModuleResolver} that allows for replacing some path
@@ -90,17 +89,16 @@ public class BrowserWithTransformedPrefixesModuleResolver extends ModuleResolver
       PathEscaper pathEscaper,
       ImmutableMap<String, String> prefixReplacements) {
     super(modulePaths, moduleRootPaths, errorHandler, pathEscaper);
-    Set<PrefixReplacement> p =
+    this.prefixReplacements =
         prefixReplacements.entrySet().stream()
             .map(entry -> PrefixReplacement.of(entry.getKey(), entry.getValue()))
-            .collect(
-                toImmutableSortedSet(
-                    // Sort by length in descending order to prefixes are applied most specific to
-                    // least specific.
-                    Comparator.<PrefixReplacement>comparingInt(r -> r.prefix().length())
-                        .reversed()
-                        .thenComparing(PrefixReplacement::prefix)));
-    this.prefixReplacements = ImmutableSet.copyOf(p);
+            .sorted(
+                // Sort by length in descending order to prefixes are applied most specific to
+                // least specific.
+                Comparator.<PrefixReplacement>comparingInt(r -> r.prefix().length())
+                    .reversed()
+                    .thenComparing(PrefixReplacement::prefix))
+            .collect(toImmutableSet());
     this.expectedPrefixes =
         this.prefixReplacements.stream()
             .map(PrefixReplacement::prefix)
@@ -108,9 +106,8 @@ public class BrowserWithTransformedPrefixesModuleResolver extends ModuleResolver
             .collect(joining(", "));
   }
 
-  @Nullable
   @Override
-  public String resolveJsModule(
+  public @Nullable String resolveJsModule(
       String scriptAddress, String moduleAddress, String sourcename, int lineno, int colno) {
     String transformedAddress = moduleAddress;
 

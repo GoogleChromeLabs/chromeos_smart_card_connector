@@ -285,6 +285,191 @@ chrome.accessibilityFeatures.animationPolicy;
 
 /**
  * @const
+ * @see https://developer.chrome.com/extensions/browserAction.html
+ */
+chrome.action = {};
+
+
+/**
+ * @typedef {{
+ *   tabId: (number|undefined)
+ * }}
+ * @see https://developer.chrome.com/extensions/action#type-TabDetails
+ */
+chrome.action.TabDetails;
+
+
+/**
+ * @typedef {{
+ *   isOnToolbar: boolean
+ * }}
+ * @see https://developer.chrome.com/extensions/action#type-UserSettings
+ */
+chrome.action.UserSettings;
+
+
+/**
+ * @typedef {{
+ *   windowId: (number|undefined)
+ * }}
+ * @see https://developer.chrome.com/extensions/action#type-OpenPopupOptions
+ */
+chrome.action.OpenPopupOptions;
+
+
+/**
+ * @param {{
+ *   title: string,
+ *   tabId: (number|undefined)
+ * }} details
+ * @param {function(): void=} opt_callback
+ * @return {undefined}
+ * @see https://developer.chrome.com/extensions/action#method-setTitle
+ */
+chrome.action.setTitle = function(details, opt_callback) {};
+
+
+/**
+ * @param {!chrome.action.TabDetails} details
+ * @param {function(string): void} callback
+ * @return {undefined}
+ * @see https://developer.chrome.com/extensions/action#method-getTitle
+ */
+chrome.action.getTitle = function(details, callback) {};
+
+
+/**
+ * @param {!chrome.browserAction.SetIconImageData} details
+ * @param {function(): void=} opt_callback
+ * @return {undefined}
+ * @see https://developer.chrome.com/extensions/action#method-setIcon
+ */
+chrome.action.setIcon = function(details, opt_callback) {};
+
+
+/**
+ * @param {{
+ *   tabId: (number|undefined),
+ *   popup: string
+ * }} details
+ * @param {function(): void=} opt_callback
+ * @return {undefined}
+ * @see https://developer.chrome.com/extensions/action#method-setPopup
+ */
+chrome.action.setPopup = function(details, opt_callback) {};
+
+
+/**
+ * @param {!chrome.action.TabDetails} details
+ * @param {function(string): void} callback
+ * @return {undefined}
+ * @see https://developer.chrome.com/extensions/action#method-getPopup
+ */
+chrome.action.getPopup = function(details, callback) {};
+
+
+/**
+ * @param {{
+ *   text: string,
+ *   tabId: (number|undefined)
+ * }} details
+ * @param {function(): void=} opt_callback
+ * @return {undefined}
+ * @see https://developer.chrome.com/extensions/action#method-setBadgeText
+ */
+chrome.action.setBadgeText = function(details, opt_callback) {};
+
+
+/**
+ * @param {!chrome.action.TabDetails} details
+ * @param {function(string): void} callback
+ * @return {undefined}
+ * @see https://developer.chrome.com/extensions/action#method-getBadgeText
+ */
+chrome.action.getBadgeText = function(details, callback) {};
+
+
+/**
+ * @param {{
+ *   color: (string|!chrome.browserAction.ColorArray),
+ *   tabId: (number|undefined)
+ * }} details
+ * @param {function(): void=} opt_callback
+ * @return {undefined}
+ * @see https://developer.chrome.com/extensions/action#method-setBadgeBackgroundColor
+ */
+chrome.action.setBadgeBackgroundColor = function(details, opt_callback) {};
+
+
+/**
+ * @param {!chrome.action.TabDetails} details
+ * @param {function(!chrome.browserAction.ColorArray): void} callback
+ * @return {undefined}
+ * @see https://developer.chrome.com/extensions/action#method-getBadgeBackgroundColor
+ */
+chrome.action.getBadgeBackgroundColor = function(details, callback) {};
+
+
+/**
+ * @param {number=} opt_tabId
+ * @param {function(): void=} opt_callback
+ * @return {undefined}
+ * @see https://developer.chrome.com/extensions/action#method-enable
+ */
+chrome.action.enable = function(opt_tabId, opt_callback) {};
+
+
+/**
+ * @param {number=} opt_tabId
+ * @param {function(): void=} opt_callback
+ * @return {undefined}
+ * @see https://developer.chrome.com/extensions/action#method-disable
+ */
+chrome.action.disable = function(opt_tabId, opt_callback) {};
+
+
+/**
+ * @param {?number|undefined} tabId
+ * @param {function(boolean): void} callback
+ * @return {undefined}
+ * @see https://developer.chrome.com/extensions/action#method-isEnabled
+ */
+chrome.action.isEnabled = function(tabId, callback) {};
+
+
+/**
+ * @param {function(!chrome.action.UserSettings): void} callback
+ * @return {undefined}
+ * @see https://developer.chrome.com/extensions/action#method-getUserSettings
+ */
+chrome.action.getUserSettings = function(callback) {};
+
+
+/**
+ * @param {?chrome.action.OpenPopupOptions|undefined} options
+ * @param {function(): void} callback
+ * @return {undefined}
+ * @see https://developer.chrome.com/extensions/action#method-openPopup
+ */
+chrome.action.openPopup = function(options, callback) {};
+
+
+/**
+ * @interface
+ * @extends {ChromeBaseEvent<function(!Tab)>}
+ */
+chrome.action.ActionTabEvent = function() {};
+
+
+/**
+ * @type {!chrome.action.ActionTabEvent}
+ * @see https://developer.chrome.com/extensions/action#event-onClicked
+ */
+chrome.action.onClicked;
+
+
+/**
+ * @const
  * @see http://developer.chrome.com/apps/app.runtime.html
  */
 chrome.app.runtime = {};
@@ -2422,6 +2607,10 @@ chrome.enterprise.reportingPrivate.SettingValue = {
  *   screenLockSecured: chrome.enterprise.reportingPrivate.SettingValue,
  *   diskEncrypted: chrome.enterprise.reportingPrivate.SettingValue,
  *   macAddresses: (!Array<string>|undefined),
+ *   windowsMachineDomain: (!string|undefined),
+ *   windowsUserDomain: (!string|undefined),
+ *   securityPatchLevel: (!string|undefined),
+ *   secureBootEnabled: (!chrome.enterprise.reportingPrivate.SettingValue|undefined),
  * }}
  */
 chrome.enterprise.reportingPrivate.DeviceInfo;
@@ -2443,6 +2632,27 @@ chrome.enterprise.reportingPrivate.RealtimeUrlCheckMode = {
 };
 
 /**
+ * Represents possible states for the SafeBrowsingProtectionLevel policy
+ * @enum {number}
+ */
+chrome.enterprise.reportingPrivate.SafeBrowsingLevel = {
+  DISABLED: 0,
+  STANDARD: 0,
+  ENHANCED: 0,
+};
+
+/**
+ * Represents possible states for the PasswordProtectionWarningTrigger policy
+ * @enum {number}
+ */
+chrome.enterprise.reportingPrivate.PasswordProtectionTrigger = {
+  PASSWORD_PROTECTION_OFF: 0,
+  PASSWORD_REUSE: 0,
+  PHISHING_REUSE: 0,
+  POLICY_UNSET: 0,
+};
+
+/**
  * Type of the object returned by getContextInfo.
  * @typedef {?{
  *   browserAffiliationIds: (!Array<string>|undefined),
@@ -2453,6 +2663,15 @@ chrome.enterprise.reportingPrivate.RealtimeUrlCheckMode = {
  *   onSecurityEventProviders: (!Array<string>|undefined),
  *   realtimeUrlCheckMode: chrome.enterprise.reportingPrivate.RealtimeUrlCheckMode,
  *   browserVersion: string,
+ *   safeBrowsingProtectionLevel: chrome.enterprise.reportingPrivate.SafeBrowsingLevel,
+ *   siteIsolationEnabled: (!boolean|undefined),
+ *   builtInDnsClientEnabled: (!boolean|undefined),
+ *   passwordProtectionWarningTrigger: chrome.enterprise.reportingPrivate.PasswordProtectionTrigger,
+ *   chromeCleanupEnabled: (!boolean|undefined),
+ *   chromeRemoteDesktopAppBlocked: (!boolean|undefined),
+ *   thirdPartyBlockingEnabled: (!boolean|undefined),
+ *   osFirewall: chrome.enterprise.reportingPrivate.SettingValue,
+ *   systemDnsServers: (!Array<string>|undefined),
  * }}
  */
 chrome.enterprise.reportingPrivate.ContextInfo;
@@ -2692,6 +2911,9 @@ chrome.runtime.Manifest.prototype.oauth2;
 /** @type {!Array<(string|!Object)>} */
 chrome.runtime.Manifest.prototype.permissions;
 
+/** @type {!chrome.runtime.Manifest.ExternallyConnectable|undefined} */
+chrome.runtime.Manifest.prototype.externally_connectable
+
 
 /**
  * App-only manifest field.
@@ -2726,6 +2948,23 @@ chrome.runtime.Manifest.Oauth2.prototype.client_id;
 
 /**@type {!Array<string>} */
 chrome.runtime.Manifest.Oauth2.prototype.scopes;
+
+
+/**
+ * externally_connectable info in the manifest.
+ * @see https://developer.chrome.com/extensions/externally_connectable
+ * @constructor
+ */
+chrome.runtime.Manifest.ExternallyConnectable = function() {};
+
+/** @type {!Array<string>|undefined} */
+chrome.runtime.Manifest.ExternallyConnectable.prototype.ids;
+
+/** @type {!Array<string>|undefined} */
+chrome.runtime.Manifest.ExternallyConnectable.prototype.matches;
+
+/** @type {boolean|undefined} */
+chrome.runtime.Manifest.ExternallyConnectable.prototype.accepts_tls_channel_id;
 
 
 /**
@@ -5487,6 +5726,55 @@ chrome.mediaGalleries.onScanProgress;
 
 /**
  * @const
+ * @see https://developer.chrome.com/docs/extensions/reference/offscreen/
+ */
+chrome.offscreen = {};
+
+/**
+ * @typedef {{
+ *   justification: string,
+ *   reasons: !Array<!chrome.offscreen.Reason>,
+ *   url: string,
+ * }}
+ * @see https://developer.chrome.com/docs/extensions/reference/offscreen/#type-CreateParameters
+ */
+chrome.offscreen.CreateParameters;
+
+/**
+ * @enum {string}
+ * @see https://developer.chrome.com/docs/extensions/reference/offscreen/#type-Reason
+ */
+chrome.offscreen.Reason = {
+  TESTING: '',
+  AUDIO_PLAYBACK: '',
+  IFRAME_SCRIPTING: '',
+  DOM_SCRAPING: '',
+  BLOBS: '',
+  DOM_PARSER: '',
+  USER_MEDIA: '',
+  DISPLAY_MEDIA: '',
+  WEB_RTC: '',
+  CLIPBOARD: '',
+};
+
+/**
+ * @param {function(): void=} opt_callback
+ * @return {undefined}
+ * @see https://developer.chrome.com/docs/extensions/reference/offscreen/#method-closeDocument
+ */
+chrome.offscreen.closeDocument = function(opt_callback) {};
+
+/**
+ * @param {!chrome.offscreen.CreateParameters} parameters The parameters
+ *     describing the offscreen document to create.
+ * @param {function(): void=} opt_callback
+ * @return {undefined}
+ * @see https://developer.chrome.com/docs/extensions/reference/offscreen/#method-createDocument
+ */
+chrome.offscreen.createDocument = function(parameters, opt_callback) {};
+
+/**
+ * @const
  * @see https://developer.chrome.com/extensions/pageCapture.html
  */
 chrome.pageCapture = {};
@@ -6223,12 +6511,14 @@ chrome.sockets.tcp.setNoDelay = function(socketId, noDelay, callback) {};
  * @param {number} socketId
  * @param {string} peerAddress
  * @param {number} peerPort
- * @param {function(number)} callback
+ * @param {string|function(number)=} opt_dnsQueryTypeOrCallback
+ * @param {function(number)=} opt_callback
  * @see https://developer.chrome.com/apps/sockets_tcp#method-connect
  * @return {undefined}
  */
 chrome.sockets.tcp.connect = function(
-    socketId, peerAddress, peerPort, callback) {};
+    socketId, peerAddress, peerPort, opt_dnsQueryTypeOrCallback,
+    opt_callback) {};
 
 
 /**
@@ -6842,6 +7132,15 @@ chrome.system.display.Bounds;
 
 
 /**
+ * @enum {string}
+ * @see TODO(user): link to docs once published
+ */
+chrome.system.display.ActiveState = {
+  ACTIVE: '',
+  INACTIVE: '',
+};
+
+/**
  * @typedef {!{
  *   left: number,
  *   top: number,
@@ -7011,6 +7310,10 @@ chrome.system.display.DisplayUnitInfo.prototype.isInternal;
 
 /** @type {boolean} */
 chrome.system.display.DisplayUnitInfo.prototype.isEnabled;
+
+
+/** @type {?chrome.system.display.ActiveState} */
+chrome.system.display.DisplayUnitInfo.prototype.activeState;
 
 
 /** @type {number} */
@@ -10717,19 +11020,6 @@ chrome.serial.onReceiveError;
 /**
  * @const
  */
-chrome.musicManagerPrivate = {};
-
-
-/**
- * @param {function(string): void} callback
- * @return {undefined}
- */
-chrome.musicManagerPrivate.getDeviceId = function(callback) {};
-
-
-/**
- * @const
- */
 chrome.mediaGalleriesPrivate = {};
 
 
@@ -12145,3 +12435,16 @@ chrome.instanceID.onTokenRefresh = {};
  * @see https://developer.chrome.com/extensions/instanceID#event-onTokenRefresh
  */
 chrome.instanceID.onTokenRefresh.addListener = function(callback) {};
+
+/**
+ * @see https://developer.chrome.com/docs/extensions/reference/dom/
+ * @const
+ */
+chrome.dom = {};
+
+/**
+ * @param {!HTMLElement} element
+ * @return {!ShadowRoot | null}
+ * @see https://developer.chrome.com/docs/extensions/reference/dom/#method-openOrClosedShadowRoot
+ */
+chrome.dom.openOrClosedShadowRoot = function(element) {};

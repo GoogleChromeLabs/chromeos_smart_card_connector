@@ -1,5 +1,6 @@
 # [Google Closure Compiler](https://developers.google.com/closure/compiler/)
 
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/google/closure-compiler/badge)](https://api.securityscorecards.dev/projects/github.com/google/closure-compiler)
 [![Build Status](https://github.com/google/closure-compiler/workflows/Compiler%20CI/badge.svg)](https://github.com/google/closure-compiler/actions)
 [![Open Source Helpers](https://www.codetriage.com/google/closure-compiler/badges/users.svg)](https://www.codetriage.com/google/closure-compiler)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](https://github.com/google/closure-compiler/blob/master/code_of_conduct.md)
@@ -66,6 +67,10 @@ allows us to use `ADVANCED` optimizations:
 ```bash
 google-closure-compiler -O ADVANCED rollup.js --js_output_file rollup.min.js
 ```
+
+NOTE: The output below is just an example and not kept up-to-date. The
+  [Flags and Options wiki page](https://github.com/google/closure-compiler/wiki/Flags-and-Options)
+  is updated during each release.
 
 To see all of the compiler's options, type:
 
@@ -215,7 +220,7 @@ Prerequisite                                                               | Des
 -------------------------------------------------------------------------- | -----------
 [Java 8 or later](https://java.com)                                        | Used to compile the compiler's source code.
 [Git](https://git-scm.com/)                                                | Used by Bazel to download dependencies.
-[Bazelisk](https://docs.bazel.build/versions/master/install-bazelisk.html) | Used to build the various compiler targets.
+[Bazelisk](https://bazel.build/install/bazelisk) | Used to build the various compiler targets.
 
 ### Installing Bazelisk
 
@@ -227,19 +232,14 @@ makes it easy to use different Bazel versions for other projects.
 Bazelisk is available through many package managers. Feel free to use whichever
 you're most comfortable with.
 
-[Instructions for installing Bazelisk](https://docs.bazel.build/versions/master/install-bazelisk.html).
+[Instructions for installing Bazelisk](https://bazel.build/install/bazelisk).
 
 ### Building from a terminal
 
-You can trigger the build process easily with package.json scripts or by calling
-Bazel manually.
-
 ```bash
-# bazelisk build //:compiler_unshaded_deploy.jar
-yarn build
-
-# bazelisk build :all
-yarn build:all
+$ bazelisk build //:compiler_uberjar_deploy.jar
+# OR to build everything
+$ bazelisk build //:all
 ```
 
 ### Testing from a terminal
@@ -248,7 +248,7 @@ Tests can be executed in a similar way. The following command will run all tests
 in the repo.
 
 ```bash
-# bazelisk test //:all
+$ bazelisk test //:all
 ```
 
 There are hundreds of individual test targets, so it will take a few
@@ -270,7 +270,7 @@ directory. You can access it with a call to `java -jar ...` or by using the
 package.json script:
 
 ```bash
-# java -jar bazel-bin/compiler_unshaded_deploy.jar [...args]
+# java -jar bazel-bin/compiler_uberjar_deploy.jar [...args]
 yarn compile [...args]
 ```
 
@@ -500,7 +500,7 @@ options/arguments in your CUI application.</td>
 
   <tr>
     <td>Version</td>
-    <td>4.12</td>
+    <td>4.13</td>
   </tr>
 
   <tr>
@@ -647,7 +647,7 @@ without make's wrinkles and with the full portability of pure java code.</td>
 
   <tr>
     <td>Version</td>
-    <td>2.7</td>
+    <td>2.9.1</td>
   </tr>
 
   <tr>

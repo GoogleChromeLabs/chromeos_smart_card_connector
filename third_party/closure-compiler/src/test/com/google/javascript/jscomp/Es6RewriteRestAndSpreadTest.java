@@ -16,7 +16,7 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.javascript.rhino.testing.Asserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.testing.NoninjectingCompiler;
@@ -28,7 +28,12 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
-  private static final String EXTERNS_BASE = new TestExternsBuilder().addJSCompLibraries().build();
+  private static final String EXTERNS_BASE =
+      new TestExternsBuilder()
+          .addFunction()
+          .addJSCompLibraries()
+          .addExtra("$jscomp.getRestArguments = function(argument) {};")
+          .build();
 
   public Es6RewriteRestAndSpreadTest() {
     super(EXTERNS_BASE);
@@ -49,11 +54,9 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
     return (NoninjectingCompiler) super.getLastCompiler();
   }
 
-  @Override
   @Before
-  public void setUp() throws Exception {
-    super.setUp();
-
+  public void customSetUp() {
+    enableNormalize();
     setAcceptedLanguage(LanguageMode.ECMASCRIPT_2016);
     setLanguageOut(LanguageMode.ECMASCRIPT3);
     enableTypeInfoValidation();

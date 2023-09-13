@@ -29,7 +29,7 @@ import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.QualifiedName;
 import java.util.HashSet;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** A pass to detect references to fully qualified Closure namespaces. */
 public class CheckMissingRequires extends AbstractModuleCallback implements CompilerPass {
@@ -119,7 +119,7 @@ public class CheckMissingRequires extends AbstractModuleCallback implements Comp
     templateParamNames.addAll(info.getTemplateTypeNames());
     templateParamNames.addAll(info.getTypeTransformations().keySet());
     if (info.hasType()) {
-      visitJsDocExpr(t, currentModule, info.getType(), /* isStrongReference */ false);
+      visitJsDocExpr(t, currentModule, info.getType(), /* isStrongReference= */ false);
     }
     for (String param : info.getParameterNames()) {
       if (info.hasParameterType(param)) {
@@ -212,13 +212,13 @@ public class CheckMissingRequires extends AbstractModuleCallback implements Comp
 
       final DiagnosticType toReport;
       if (currentFile.isModule()) {
-        /**
+        /*
          * In files that represent modules, report a require without an alias the same as a totally
          * missing require.
          */
         toReport = isStrongReference ? MISSING_REQUIRE : MISSING_REQUIRE_TYPE;
       } else if (!hasAcceptableRequire(currentFile, subName, requiredFile, isStrongReference)) {
-        /**
+        /*
          * In files that aren't modules, report a qualified name reference only if there's no
          * require to satisfy it.
          */

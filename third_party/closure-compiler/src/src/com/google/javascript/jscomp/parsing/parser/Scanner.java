@@ -16,14 +16,17 @@
 
 package com.google.javascript.jscomp.parsing.parser;
 
+import static com.google.common.base.Strings.lenientFormat;
+
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
+import com.google.javascript.jscomp.parsing.parser.TemplateLiteralToken.ErrorLevel;
 import com.google.javascript.jscomp.parsing.parser.trees.Comment;
 import com.google.javascript.jscomp.parsing.parser.util.ErrorReporter;
 import com.google.javascript.jscomp.parsing.parser.util.SourcePosition;
 import com.google.javascript.jscomp.parsing.parser.util.SourceRange;
 import java.util.ArrayList;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Scans javascript source code into tokens. All entrypoints assume the caller is not expecting a
@@ -245,7 +248,7 @@ public class Scanner {
   }
 
   private boolean isValidIndex(int index) {
-    return index >= 0 & index < contentsLength;
+    return index >= 0 && index < contentsLength;
   }
 
   // 7.2 White Space
@@ -827,7 +830,7 @@ public class Scanner {
    * Converts unicode escapes in the given string to the equivalent unicode character. If there are
    * no escapes, returns the input unchanged. If there is an invalid escape sequence, returns null.
    */
-  private static String processUnicodeEscapes(String value) {
+  private static @Nullable String processUnicodeEscapes(String value) {
     while (value.contains("\\")) {
       int escapeStart = value.indexOf('\\');
       try {
@@ -888,7 +891,7 @@ public class Scanner {
       }
     }
     if (peekChar() != terminator) {
-      reportError(getPosition(beginIndex), "Unterminated string literal");
+      reportError(startingPosition, "Unterminated string literal");
     } else {
       nextChar();
     }
@@ -914,7 +917,7 @@ public class Scanner {
     SourcePosition startingPosition = getPosition(beginIndex);
     SkipTemplateCharactersResult skipTemplateCharactersResult = skipTemplateCharacters();
     if (isAtEnd()) {
-      reportError(getPosition(beginIndex), "Unterminated template literal");
+      reportError(startingPosition, "Unterminated template literal");
     }
 
     String value = getTokenString(beginIndex);
@@ -925,6 +928,7 @@ public class Scanner {
             endType,
             value,
             skipTemplateCharactersResult.getErrorMessage(),
+            skipTemplateCharactersResult.getErrorLevel(),
             skipTemplateCharactersResult.getPosition(),
             getTokenRange(startingPosition));
       case '$':
@@ -934,15 +938,17 @@ public class Scanner {
             middleType,
             value,
             skipTemplateCharactersResult.getErrorMessage(),
+            skipTemplateCharactersResult.getErrorLevel(),
             skipTemplateCharactersResult.getPosition(),
-            getTokenRange(beginIndex - 1));
+            getTokenRange(startingPosition));
       default: // Should have reported error already
         return new TemplateLiteralToken(
             endType,
             value,
             skipTemplateCharactersResult.getErrorMessage(),
+            skipTemplateCharactersResult.getErrorLevel(),
             skipTemplateCharactersResult.getPosition(),
-            getTokenRange(beginIndex - 1));
+            getTokenRange(startingPosition));
     }
   }
 
@@ -963,7 +969,7 @@ public class Scanner {
   }
 
   private SkipTemplateCharactersResult skipTemplateCharacters() {
-    SkipTemplateCharactersResult result = createSkipTemplateCharactersResult(null);
+    SkipTemplateCharactersResult result = createSkipTemplateCharactersResult(null, null);
     while (!isAtEnd()) {
       switch (peekChar()) {
         case '`':
@@ -987,8 +993,9 @@ public class Scanner {
     return result;
   }
 
-  @SuppressWarnings("IdentityBinaryExpression") // for "skipHexDigit() && skipHexDigit()"
-  private SkipTemplateCharactersResult skipTemplateLiteralEscapeSequence() {
+  // for "skipHexDigit() && skipHexDigit()"
+  @SuppressWarnings("IdentityBinaryExpression")
+  private @Nullable SkipTemplateCharactersResult skipTemplateLiteralEscapeSequence() {
     nextChar();
     if (isAtEnd()) {
       reportError("Unterminated template literal escape sequence");
@@ -1002,7 +1009,7 @@ public class Scanner {
     switch (next) {
       case '0':
         if (peekOctalDigit()) {
-          return createSkipTemplateCharactersResult("Invalid escape sequence");
+          return createSkipTemplateCharactersResult("Invalid escape sequence", ErrorLevel.ERROR);
         }
         return null;
       case '1':
@@ -1012,25 +1019,25 @@ public class Scanner {
       case '5':
       case '6':
       case '7':
-        return createSkipTemplateCharactersResult("Invalid escape sequence");
+        return createSkipTemplateCharactersResult("Invalid escape sequence", ErrorLevel.ERROR);
       case 'x':
         boolean doubleHexDigit = skipHexDigit() && skipHexDigit();
         if (!doubleHexDigit) {
-          return createSkipTemplateCharactersResult("Hex digit expected");
+          return createSkipTemplateCharactersResult("Hex digit expected", ErrorLevel.ERROR);
         }
         return null;
       case 'u':
         if (peek('{')) {
           nextChar();
           if (peek('}')) {
-            return createSkipTemplateCharactersResult("Empty unicode escape");
+            return createSkipTemplateCharactersResult("Empty unicode escape", ErrorLevel.ERROR);
           }
           boolean allHexDigits = true;
           while (!peek('}') && allHexDigits) {
             allHexDigits = allHexDigits && skipHexDigit();
           }
           if (!allHexDigits) {
-            return createSkipTemplateCharactersResult("Hex digit expected");
+            return createSkipTemplateCharactersResult("Hex digit expected", ErrorLevel.ERROR);
           }
           nextChar();
           return null;
@@ -1038,12 +1045,31 @@ public class Scanner {
           boolean quadHexDigit =
               skipHexDigit() && skipHexDigit() && skipHexDigit() && skipHexDigit();
           if (!quadHexDigit) {
-            return createSkipTemplateCharactersResult("Hex digit expected");
+            return createSkipTemplateCharactersResult("Hex digit expected", ErrorLevel.ERROR);
           }
           return null;
         }
-      default:
+        // https://tc39.es/ecma262/#prod-TemplateEscapeSequence
+      case '\\':
+      case 'b':
+      case 'f':
+      case 'n':
+      case 'r':
+      case 't':
+      case 'v':
+        // special meaning in template literal
+      case '$':
+      case '`':
         return null;
+      case '\'':
+        // special the error message for a single quote
+        return createSkipTemplateCharactersResult(
+            lenientFormat("Unnecessary escape: \"\\%s\" is equivalent to just \"%s\"", next, next),
+            ErrorLevel.WARNING);
+      default:
+        return createSkipTemplateCharactersResult(
+            lenientFormat("Unnecessary escape: '\\%s' is equivalent to just '%s'", next, next),
+            ErrorLevel.WARNING);
     }
   }
 
@@ -1330,21 +1356,28 @@ public class Scanner {
     typeParameterLevel--;
   }
 
-  private SkipTemplateCharactersResult createSkipTemplateCharactersResult(String message) {
-    return new SkipTemplateCharactersResult(message, getPosition());
+  private SkipTemplateCharactersResult createSkipTemplateCharactersResult(
+      @Nullable String message, @Nullable ErrorLevel errorLevel) {
+    return new SkipTemplateCharactersResult(message, errorLevel, getPosition());
   }
 
   private static class SkipTemplateCharactersResult {
-    @Nullable private final String errorMessage;
+    private final @Nullable String errorMessage;
     private final SourcePosition position;
+    private final ErrorLevel errorLevel;
 
-    SkipTemplateCharactersResult(String message, SourcePosition position) {
+    SkipTemplateCharactersResult(String message, ErrorLevel errorLevel, SourcePosition position) {
       this.errorMessage = message;
+      this.errorLevel = errorLevel;
       this.position = position;
     }
 
     String getErrorMessage() {
       return this.errorMessage;
+    }
+
+    ErrorLevel getErrorLevel() {
+      return this.errorLevel;
     }
 
     SourcePosition getPosition() {

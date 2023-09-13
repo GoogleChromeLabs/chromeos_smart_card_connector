@@ -18,18 +18,16 @@ package com.google.javascript.jscomp.graph;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import org.jspecify.nullness.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link com.google.javascript.jscomp.graph.GraphReachability}.
- *
- */
+/** Tests for {@link com.google.javascript.jscomp.graph.GraphReachability}. */
 @RunWith(JUnit4.class)
 public final class GraphReachabilityTest {
-  GraphReachability<String, String> reachability = null;
-  DiGraph<String, String> graph = null;
+  @Nullable GraphReachability<String, String> reachability = null;
+  @Nullable DiGraph<String, String> graph = null;
 
   @Test
   public void testSimple() {

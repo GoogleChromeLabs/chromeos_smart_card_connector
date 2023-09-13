@@ -17,13 +17,13 @@
 package com.google.javascript.jscomp.parsing.parser.trees;
 
 import com.google.javascript.jscomp.parsing.parser.util.SourceRange;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** Tree for public comptuted property fields */
 public class ComputedPropertyFieldTree extends ParseTree {
   public final ParseTree property;
   public final boolean isStatic;
-  @Nullable public final ParseTree initializer;
+  public final @Nullable ParseTree initializer;
 
   public ComputedPropertyFieldTree(
       SourceRange location, ParseTree property, boolean isStatic, ParseTree initializer) {

@@ -19,7 +19,7 @@ package com.google.javascript.jscomp.colors;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.javascript.jscomp.colors.ColorId.fromAscii;
 import static com.google.javascript.jscomp.testing.ColorSubject.assertThat;
-import static com.google.javascript.rhino.testing.Asserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
 import java.util.function.BiFunction;
@@ -149,36 +149,6 @@ public class ColorTest {
         ImmutableSet.of(
             setter.apply(Color.singleBuilder().setId(fromAscii("Foo")), first).build(),
             setter.apply(Color.singleBuilder().setId(fromAscii("Bar")), second).build()));
-  }
-
-  @Test
-  public void union_debugInfoTypenameFormat() {
-    // Given
-    Color a =
-        Color.singleBuilder()
-            .setId(fromAscii("A"))
-            .setDebugInfo(DebugInfo.builder().setCompositeTypename("A").build())
-            .build();
-    Color b =
-        Color.singleBuilder()
-            .setId(fromAscii("B"))
-            .setDebugInfo(DebugInfo.builder().setCompositeTypename("B").build())
-            .build();
-    Color c =
-        Color.singleBuilder()
-            .setId(fromAscii("C"))
-            .setDebugInfo(DebugInfo.builder().setCompositeTypename("C").build())
-            .build();
-
-    // When
-    Color ab = Color.createUnion(ImmutableSet.of(a, b));
-    Color ba = Color.createUnion(ImmutableSet.of(b, a));
-    Color abc = Color.createUnion(ImmutableSet.of(ab, c));
-
-    // Then
-    assertThat(ab.getDebugInfo().getCompositeTypename()).isEqualTo("(A|B)");
-    assertThat(ba.getDebugInfo().getCompositeTypename()).isEqualTo("(A|B)");
-    assertThat(abc.getDebugInfo().getCompositeTypename()).isEqualTo("(A|B|C)");
   }
 
   @Test

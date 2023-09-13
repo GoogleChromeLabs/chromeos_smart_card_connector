@@ -40,7 +40,7 @@
 package com.google.javascript.rhino.jstype;
 
 import com.google.common.collect.ImmutableList;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * An unresolved type that was forward declared. So we know it exists,
@@ -56,12 +56,12 @@ import javax.annotation.Nullable;
  */
 public final class NoResolvedType extends NoType {
   /** The name originally used to reference this type, or {@code null} if none. */
-  @Nullable private String referenceName;
+  private @Nullable String referenceName;
   /**
-   * Any template arguments to this type, or {@code null} if none.
-   * This field is not used for JSCompiler's type checking; it is only needed by Clutz.
+   * Any template arguments to this type, or {@code null} if none. This field is not used for
+   * JSCompiler's type checking; it is only needed by Clutz.
    */
-  @Nullable private ImmutableList<JSType> templateTypes;
+  private @Nullable ImmutableList<JSType> templateTypes;
 
   NoResolvedType(JSTypeRegistry registry) {
     super(registry);
@@ -80,14 +80,12 @@ public final class NoResolvedType extends NoType {
   }
 
   @Override
-  @Nullable
-  public String getReferenceName() {
+  public @Nullable String getReferenceName() {
     return referenceName;
   }
 
   @Override
-  @Nullable
-  public ImmutableList<JSType> getTemplateTypes() {
+  public @Nullable ImmutableList<JSType> getTemplateTypes() {
     return templateTypes;
   }
 

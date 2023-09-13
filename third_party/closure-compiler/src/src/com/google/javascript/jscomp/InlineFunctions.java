@@ -40,6 +40,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Inlines functions that are divided into two types: "direct call node replacement" (aka "direct")
@@ -229,6 +230,7 @@ class InlineFunctions implements CompilerPass {
       switch (n.getToken()) {
           // Functions expressions in the form of:
           //   (function(){})();
+        case OPTCHAIN_CALL:
         case CALL:
           Node fnNode = null;
           if (n.getFirstChild().isFunction()) {
@@ -403,7 +405,9 @@ class InlineFunctions implements CompilerPass {
     private final Map<Node, String> anonFunctionMap;
 
     CallVisitor(
-        Map<String, FunctionState> fns, Map<Node, String> anonFns, CallVisitorCallback callback) {
+        Map<String, FunctionState> fns,
+        Map<Node, String> anonFns,
+        @Nullable CallVisitorCallback callback) {
       this.functionMap = fns;
       this.anonFunctionMap = anonFns;
       this.callback = callback;
@@ -423,7 +427,7 @@ class InlineFunctions implements CompilerPass {
           } else if (child.isFunction()) {
             name = anonFunctionMap.get(child);
           } else if (NodeUtil.isFunctionObjectCall(n)) {
-            checkState(NodeUtil.isNormalGet(child));
+            checkState(NodeUtil.isNormalOrOptChainGet(child));
             Node fnIdentifyingNode = child.getFirstChild();
             if (fnIdentifyingNode.isName()) {
               name = fnIdentifyingNode.getString();
@@ -826,16 +830,16 @@ class InlineFunctions implements CompilerPass {
 
   /** Use to track the decisions that have been made about a function. */
   private static class FunctionState {
-    private Function fn = null;
-    private Node safeFnNode = null;
+    private @Nullable Function fn = null;
+    private @Nullable Node safeFnNode = null;
     private boolean inline = true;
     private boolean remove = true;
     private boolean inlineDirectly = false;
     private boolean referencesThis = false;
     private boolean hasInnerFunctions = false;
-    private Map<Node, Reference> references = null;
-    private JSChunk module = null;
-    private Set<String> namesToAlias = null;
+    private @Nullable Map<Node, Reference> references = null;
+    private @Nullable JSChunk module = null;
+    private @Nullable Set<String> namesToAlias = null;
 
     boolean hasExistingFunctionDefinition() {
       return (fn != null);

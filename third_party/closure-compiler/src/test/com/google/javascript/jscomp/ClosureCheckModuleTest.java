@@ -67,6 +67,43 @@ public final class ClosureCheckModuleTest extends CompilerTestCase {
   }
 
   @Test
+  public void testGoogModuleThisInSubclass() {
+    testSame(
+        lines(
+            "goog.module('xyz');",
+            "class Foo {", //
+            "  x = 5;",
+            "}",
+            "class Bar extends Foo {", //
+            "   z = this.x;",
+            "}"));
+  }
+
+  @Test
+  public void testGoogModuleThisOnFields() {
+    // Ensure `this.property` is allowed as an assignment on public fields.
+    testSame(
+        lines(
+            "goog.module('xyz');",
+            "class Foo {", //
+            "  x = 5;",
+            "  y = this.x",
+            "}"));
+  }
+
+  @Test
+  public void testStaticGoogModuleThisOnStaticFields() {
+    // Allow this to be allowed when a field is already declared
+    testSame(
+        lines(
+            "goog.module('math')", //
+            "class Foo {",
+            "  static x = 5;",
+            "  static y = this.x",
+            "}"));
+  }
+
+  @Test
   public void testGoogModuleReferencesThis() {
     testError("goog.module('xyz');\nfoo.call(this, 1, 2, 3);", GOOG_MODULE_REFERENCES_THIS);
 
@@ -713,6 +750,17 @@ public final class ClosureCheckModuleTest extends CompilerTestCase {
   }
 
   @Test
+  public void testLegalForwardDeclareNoAlias() {
+    testNoWarning(
+        lines(
+            "goog.module('x.y.z');",
+            "",
+            "goog.forwardDeclare('foo.utils');",
+            "",
+            "exports = function() { return foo.utils.doThing(''); };"));
+  }
+
+  @Test
   public void testSingleNameImportNoAlias1() {
     testError(
         lines(
@@ -731,6 +779,18 @@ public final class ClosureCheckModuleTest extends CompilerTestCase {
             "goog.module('x.y.z');",
             "",
             "var bar = goog.require('foo');",
+            "",
+            "exports = function() { return foo.doThing(''); };"),
+        REFERENCE_TO_SHORT_IMPORT_BY_LONG_NAME_INCLUDING_SHORT_NAME);
+  }
+
+  @Test
+  public void testSingleNameImportWithRenamingAlias_forwardDeclare() {
+    testError(
+        lines(
+            "goog.module('x.y.z');",
+            "",
+            "var bar = goog.forwardDeclare('foo');",
             "",
             "exports = function() { return foo.doThing(''); };"),
         REFERENCE_TO_SHORT_IMPORT_BY_LONG_NAME_INCLUDING_SHORT_NAME);

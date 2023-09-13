@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.function.Supplier;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Generates an AST for a JavaScript source file.
@@ -40,7 +41,7 @@ public class JsAst implements SourceAst {
   private final InputId inputId;
   private final SourceFile sourceFile;
 
-  private Node root;
+  private @Nullable Node root;
   private FeatureSet features;
 
   public JsAst(SourceFile sourceFile) {
@@ -63,7 +64,8 @@ public class JsAst implements SourceAst {
     }
     checkState(identical(this.root.getStaticSourceFile(), this.sourceFile));
     this.root.setInputId(this.inputId);
-
+    // Clear the cached source after parsing.  It will be re-read for snippet generation if needed.
+    sourceFile.clearCachedSource();
     return this.root;
   }
 

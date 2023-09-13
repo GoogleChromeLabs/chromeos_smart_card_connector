@@ -36,27 +36,56 @@ public final class J2clStringValueOfRewriterPassTest extends CompilerTestCase {
 
   @Test
   public void testRemoveStringValueOf() {
-    test("module$exports$java$lang$String$impl.m_valueOf__java_lang_Object('')", "String('')");
     test(
-        "module$exports$java$lang$String$impl.m_valueOf__java_lang_Object(null)", "String(null)");
-    test("module$exports$java$lang$String$impl.m_valueOf__java_lang_Object(undefined)", "'null'");
-    test("module$exports$java$lang$String$impl.m_valueOf__java_lang_Object(void 0)", "'null'");
+        "module$exports$java$lang$String$impl.m_valueOf__java_lang_Object__java_lang_String('')",
+        "String('')");
+    test(
+        "module$exports$java$lang$String$impl.m_valueOf__java_lang_Object__java_lang_String(null)",
+        "String(null)");
     test(
         lines(
-            "module$exports$java$lang$String$impl.m_valueOf__java_lang_Object('foo' +",
-            "    module$exports$java$lang$String$impl.m_valueOf__java_lang_Object(bar))"),
-        "String('foo' + module$exports$java$lang$String$impl.m_valueOf__java_lang_Object(bar))");
+            "module$exports$java$lang$String$impl",
+            "    .m_valueOf__java_lang_Object__java_lang_String(undefined)"),
+        "'null'");
     test(
-        "module$exports$java$lang$String$impl.m_valueOf__java_lang_Object(foo + 'bar' + baz)",
+        lines(
+            "module$exports$java$lang$String$impl",
+            "    .m_valueOf__java_lang_Object__java_lang_String(void 0)"),
+        "'null'");
+    test(
+        lines(
+            "module$exports$java$lang$String$impl",
+            "   .m_valueOf__java_lang_Object__java_lang_String('foo' +",
+            "       module$exports$java$lang$String$impl",
+            "           .m_valueOf__java_lang_Object__java_lang_String(bar))"),
+        lines(
+            "String('foo' + module$exports$java$lang$String$impl",
+            "   .m_valueOf__java_lang_Object__java_lang_String(bar))"));
+    test(
+        lines(
+            "module$exports$java$lang$String$impl",
+            "   .m_valueOf__java_lang_Object__java_lang_String(foo + 'bar' + baz)"),
         "String(foo + 'bar' + baz)");
     test(
-        "foo + module$exports$java$lang$String$impl.m_valueOf__java_lang_Object('bar' + baz)",
+        lines(
+            "foo + module$exports$java$lang$String$impl",
+            "   .m_valueOf__java_lang_Object__java_lang_String('bar' + baz)"),
         "foo + String('bar' + baz)");
-    test("module$exports$java$lang$String$impl.m_valueOf__java_lang_Object(1)", "String(1)");
     test(
-        "module$exports$java$lang$String$impl.m_valueOf__java_lang_Object(null + foo)",
+        "module$exports$java$lang$String$impl.m_valueOf__java_lang_Object__java_lang_String(1)",
+        "String(1)");
+    test(
+        lines(
+            "module$exports$java$lang$String$impl",
+            "    .m_valueOf__java_lang_Object__java_lang_String(null + foo)"),
         "String(null + foo)");
-    testSame("module$exports$java$lang$String$impl.m_valueOf__java_lang_Object(window)");
-    testSame("module$exports$java$lang$String$impl.m_valueOf__java_lang_Object([])");
+    testSame(
+        lines(
+            "module$exports$java$lang$String$impl",
+            "   .m_valueOf__java_lang_Object__java_lang_String(window)"));
+    testSame(
+        lines(
+            "module$exports$java$lang$String$impl",
+            "    .m_valueOf__java_lang_Object__java_lang_String([])"));
   }
 }

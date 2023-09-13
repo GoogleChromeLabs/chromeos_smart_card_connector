@@ -27,16 +27,19 @@ import com.google.javascript.jscomp.colors.Color;
 import com.google.javascript.jscomp.colors.StandardColors;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.QualifiedName;
 import com.google.javascript.rhino.StaticScope;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import org.jspecify.nullness.Nullable;
 
 /** Converts {@code super()} calls. */
 public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Callback {
   private static final String TMP_ERROR = "$jscomp$tmp$error";
   private static final String SUPER_THIS = "$jscomp$super$this";
+  private static final QualifiedName JSCOMP_INHERITS = QualifiedName.of("$jscomp.inherits");
 
   /** Stores superCalls for a constructor. */
   private static final class ConstructorData {
@@ -76,7 +79,7 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
         // TODO(bradfordcsmith): `super.prop` should have been removed before this code executes,
         //     but instead is being left untranspiled when there's no `extends` clause, so
         //     we have to report that problem here.
-        t.report(n, Es6ToEs3Util.CANNOT_CONVERT_YET, "super access with no extends clause");
+        t.report(n, TranspilationUtil.CANNOT_CONVERT_YET, "super access with no extends clause");
         return false;
       }
       // must be super(args)
@@ -654,10 +657,8 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
   /**
    * Is a variable with the given name defined in the source code being compiled?
    *
-   * <p>Please note that the call to {@code t.getScope()} is expensive, so we should avoid
-   * calling this method when possible.
-   * @param t
-   * @param varName
+   * <p>Please note that the call to {@code t.getScope()} is expensive, so we should avoid calling
+   * this method when possible.
    */
   private boolean isDefinedInSources(NodeTraversal t, String varName) {
     Var objectVar = t.getScope().getVar(varName);
@@ -719,7 +720,8 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
     return checkNotNull(superClassNameNode, "$jscomp.inherits() call not found.");
   }
 
-  private Node getSuperClassNameNodeIfIsInheritsStatement(Node statement, String className) {
+  private @Nullable Node getSuperClassNameNodeIfIsInheritsStatement(
+      Node statement, String className) {
     // $jscomp.inherits(ChildClass, SuperClass);
     if (!statement.isExprResult()) {
       return null;
@@ -729,7 +731,7 @@ public final class Es6ConvertSuperConstructorCalls implements NodeTraversal.Call
       return null;
     }
     Node jscompDotInherits = callNode.getFirstChild();
-    if (!jscompDotInherits.matchesQualifiedName("$jscomp.inherits")) {
+    if (!JSCOMP_INHERITS.matches(jscompDotInherits)) {
       return null;
     }
     Node classNameNode = checkNotNull(jscompDotInherits.getNext());

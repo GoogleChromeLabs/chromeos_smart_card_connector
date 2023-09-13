@@ -22,6 +22,7 @@ import com.google.javascript.jscomp.modules.ModuleMap;
 import com.google.javascript.jscomp.modules.ModuleMetadataMap;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
+import org.jspecify.nullness.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -30,7 +31,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class PolymerClassDefinitionTest extends CompilerTypeTestCase {
 
-  private Node polymerCall;
+  private @Nullable Node polymerCall;
 
   @Override
   @Before
@@ -125,51 +126,39 @@ public final class PolymerClassDefinitionTest extends CompilerTypeTestCase {
 
   @Test
   public void testDynamicDescriptor() {
-    PolymerClassDefinition def = parseAndExtractClassDefFromCall(
-        lines(
-            "var A = Polymer({",
-            "  is: x,",
-            "});"));
+    PolymerClassDefinition def =
+        parseAndExtractClassDefFromCall(lines("var A = Polymer({", "  is: x,", "});"));
 
     assertThat(def.target.getString()).isEqualTo("A");
   }
 
   @Test
   public void testDynamicDescriptor1() {
-    PolymerClassDefinition def = parseAndExtractClassDefFromCall(
-        lines(
-            "Polymer({",
-            "  is: x,",
-            "});"));
+    PolymerClassDefinition def =
+        parseAndExtractClassDefFromCall(lines("Polymer({", "  is: x,", "});"));
 
     assertThat(def.target.getString()).isEqualTo("XElement");
   }
 
   @Test
   public void testDynamicDescriptor2() {
-    PolymerClassDefinition def = parseAndExtractClassDefFromCall(
-        lines(
-            "Polymer({",
-            "  is: foo.bar,",
-            "});"));
+    PolymerClassDefinition def =
+        parseAndExtractClassDefFromCall(lines("Polymer({", "  is: foo.bar,", "});"));
 
     assertThat(def.target.getString()).isEqualTo("Foo$barElement");
   }
 
   @Test
   public void testDynamicDescriptor3() {
-    PolymerClassDefinition def = parseAndExtractClassDefFromCall(
-        lines(
-            "Polymer({",
-            "  is: this.bar,",
-            "});"));
+    PolymerClassDefinition def =
+        parseAndExtractClassDefFromCall(lines("Polymer({", "  is: this.bar,", "});"));
 
     assertThat(def.target.getString()).isEqualTo("This$barElement");
   }
 
   private PolymerClassDefinition parseAndExtractClassDefFromCall(String code) {
     Node rootNode = compiler.parseTestCode(code);
-    GlobalNamespace globalNamespace =  new GlobalNamespace(compiler, rootNode);
+    GlobalNamespace globalNamespace = new GlobalNamespace(compiler, rootNode);
 
     NodeUtil.visitPostOrder(
         rootNode,

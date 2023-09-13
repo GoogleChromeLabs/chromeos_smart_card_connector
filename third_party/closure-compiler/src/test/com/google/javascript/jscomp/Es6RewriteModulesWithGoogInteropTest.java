@@ -28,7 +28,6 @@ import static com.google.javascript.jscomp.RhinoErrorReporter.UNRECOGNIZED_TYPE_
 import static com.google.javascript.jscomp.TypeCheck.INEXISTENT_PROPERTY;
 import static com.google.javascript.jscomp.TypeCheck.POSSIBLE_INEXISTENT_PROPERTY;
 import static com.google.javascript.jscomp.modules.EsModuleProcessor.NAMESPACE_IMPORT_CANNOT_USE_STAR;
-import static com.google.javascript.jscomp.modules.ModuleMapCreator.MISSING_NAMESPACE_IMPORT;
 
 import com.google.javascript.jscomp.testing.TestExternsBuilder;
 import com.google.javascript.jscomp.type.ReverseAbstractInterpreter;
@@ -519,6 +518,39 @@ public final class Es6RewriteModulesWithGoogInteropTest extends CompilerTestCase
   }
 
   @Test
+  public void testGoogRequireForDeclareModuleId_inGoogLoadModule() {
+    test(
+        srcs(
+            CLOSURE_BASE,
+            SourceFile.fromCode("es6.js", "export var x; goog.declareModuleId('my.es6');"),
+            SourceFile.fromCode(
+                "goog.js",
+                lines(
+                    "goog.loadModule(function(exports) {",
+                    "goog.module('closure.module');",
+                    "const es6 = goog.require('my.es6');",
+                    "use(es6, es6.x);",
+                    "return exports;",
+                    "});"))),
+        expected(
+            CLOSURE_BASE,
+            SourceFile.fromCode(
+                "es6.js",
+                lines(
+                    "var x$$module$es6;/** @const */ var module$es6={};",
+                    "/** @const */ module$es6.x=x$$module$es6;")),
+            SourceFile.fromCode(
+                "goog.js",
+                lines(
+                    "goog.loadModule(function(exports) {",
+                    "goog.module('closure.module');",
+                    "const es6 = module$es6;",
+                    "use(es6, es6.x);",
+                    "return exports;",
+                    "});"))));
+  }
+
+  @Test
   public void testGoogRequireTypeForDeclareModuleId() {
     test(
         srcs(
@@ -547,6 +579,43 @@ public final class Es6RewriteModulesWithGoogInteropTest extends CompilerTestCase
                     " * @param {module$es6.x} a",
                     " */",
                     "function f(a) {}"))));
+  }
+
+  @Test
+  public void testGoogRequireTypeForDeclareModuleId_inLoadModule() {
+    test(
+        srcs(
+            CLOSURE_BASE,
+            SourceFile.fromCode("es6.js", "export class x {}; goog.declareModuleId('my.es6');"),
+            SourceFile.fromCode(
+                "goog.js",
+                lines(
+                    "goog.loadModule(function(exports) {",
+                    "goog.module('bar')",
+                    "const es6 = goog.requireType('my.es6');",
+                    "/** @param {es6.x} a */",
+                    "function f(a) {}",
+                    "return exports;",
+                    "});"))),
+        expected(
+            CLOSURE_BASE,
+            SourceFile.fromCode(
+                "es6.js",
+                lines(
+                    "class x$$module$es6 {}",
+                    "/** @const */ var module$es6={};",
+                    "/** @const */ module$es6.x = x$$module$es6;")),
+            SourceFile.fromCode(
+                "goog.js",
+                lines(
+                    "goog.loadModule(function(exports) {",
+                    "goog.module('bar')",
+                    "/**",
+                    " * @param {module$es6.x} a",
+                    " */",
+                    "function f(a) {}",
+                    "return exports;",
+                    "});"))));
   }
 
   @Test
@@ -690,7 +759,7 @@ public final class Es6RewriteModulesWithGoogInteropTest extends CompilerTestCase
   }
 
   @Test
-  public void testGoogRequireTypeForNonEs6LhsNonConst() {
+  public void testGoogRequireTypeForNonEs6LhsNonConst1() {
     testError(
         srcs(
             SourceFile.fromCode("es6.js", "export var x; goog.declareModuleId('es6');"),
@@ -698,7 +767,10 @@ public final class Es6RewriteModulesWithGoogInteropTest extends CompilerTestCase
                 "closure.js",
                 lines("goog.module('my.module');", "var es6 = goog.requireType('es6');"))),
         error(REQUIRE_TYPE_FOR_ES6_SHOULD_BE_CONST));
+  }
 
+  @Test
+  public void testGoogRequireTypeForNonEs6LhsNonConst2() {
     testError(
         srcs(
             SourceFile.fromCode("es6.js", "export var x; goog.declareModuleId('es6');"),
@@ -1096,8 +1168,7 @@ public final class Es6RewriteModulesWithGoogInteropTest extends CompilerTestCase
 
   @Test
   public void testMissingRequireAssumesGoogProvide() {
-    ignoreWarnings(
-        MISSING_MODULE_OR_PROVIDE, MISSING_NAMESPACE_IMPORT, POSSIBLE_INEXISTENT_PROPERTY);
+    ignoreWarnings(MISSING_MODULE_OR_PROVIDE, POSSIBLE_INEXISTENT_PROPERTY);
 
     test(
         srcs(

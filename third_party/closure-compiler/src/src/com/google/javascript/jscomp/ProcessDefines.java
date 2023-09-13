@@ -25,6 +25,7 @@ import static java.util.stream.Collectors.toCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.javascript.jscomp.GlobalNamespace.Name;
 import com.google.javascript.jscomp.GlobalNamespace.Ref;
 import com.google.javascript.jscomp.base.Tri;
@@ -40,12 +41,12 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
- * Process variables annotated as {@code @define}. A define is
- * a special constant that may be overridden by later files and
- * manipulated by the compiler, much like C preprocessor {@code #define}s.
+ * Process variables annotated as {@code @define}. A define is a special constant that may be
+ * overridden by later files and manipulated by the compiler, much like C preprocessor {@code
+ * #define}s.
  */
 class ProcessDefines implements CompilerPass {
 
@@ -55,10 +56,11 @@ class ProcessDefines implements CompilerPass {
    */
   private static final ImmutableSet<String> KNOWN_DEFINES =
       ImmutableSet.of("COMPILED", "goog.DEBUG", "$jscomp.ISOLATE_POLYFILLS");
+
   private static final Node GOOG_DEFINE = IR.getprop(IR.name("goog"), "define");
 
   private final AbstractCompiler compiler;
-  private final JSTypeRegistry registry;
+  private final @Nullable JSTypeRegistry registry;
   private final ImmutableMap<String, Node> replacementValuesFromFlags;
   private final Mode mode;
   private final Supplier<GlobalNamespace> namespaceSupplier;
@@ -106,6 +108,11 @@ class ProcessDefines implements CompilerPass {
   static final DiagnosticType CLOSURE_DEFINES_ERROR =
       DiagnosticType.error("JSC_CLOSURE_DEFINES_ERROR", "Invalid CLOSURE_DEFINES definition");
 
+  static final DiagnosticType CLOSURE_DEFINES_MULTIPLE =
+      DiagnosticType.error(
+          "JSC_CLOSURE_DEFINES_MULTIPLE",
+          "Multiple CLOSURE_DEFINES definitions for {0}. First occurrence: {1}");
+
   static final DiagnosticType NON_GLOBAL_CLOSURE_DEFINES_ERROR =
       DiagnosticType.error(
           "JSC_NON_GLOBAL_CLOSURE_DEFINES_ERROR",
@@ -152,11 +159,13 @@ class ProcessDefines implements CompilerPass {
       this.compiler = compiler;
     }
 
+    @CanIgnoreReturnValue
     Builder putReplacements(Map<String, Node> replacementValues) {
       this.replacementValues.putAll(replacementValues);
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder setMode(Mode x) {
       this.mode = x;
       return this;
@@ -167,11 +176,13 @@ class ProcessDefines implements CompilerPass {
      * multiple check passes. Accepts a supplier because the namespace may not exist at
      * pass-creation time.
      */
+    @CanIgnoreReturnValue
     Builder injectNamespace(Supplier<GlobalNamespace> namespaceSupplier) {
       this.namespaceSupplier = namespaceSupplier;
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder setRecognizeClosureDefines(boolean recognizeClosureDefines) {
       this.recognizeClosureDefines = recognizeClosureDefines;
       return this;
@@ -185,7 +196,7 @@ class ProcessDefines implements CompilerPass {
   @Override
   public void process(Node externs, Node root) {
     this.initNamespace(externs, root);
-    this.collectDefines();
+    this.collectDefines(root);
     this.reportInvalidDefineLocations(root);
     this.collectValidDefineValueExpressions();
     this.validateDefineDeclarations();
@@ -194,7 +205,7 @@ class ProcessDefines implements CompilerPass {
 
   final ImmutableSet<String> collectDefineNames(Node externs, Node root) {
     this.initNamespace(externs, root);
-    this.collectDefines();
+    this.collectDefines(root);
 
     return ImmutableSet.copyOf(this.defineByDefineName.keySet());
   }
@@ -259,8 +270,7 @@ class ProcessDefines implements CompilerPass {
    *   <li>If nothing was found, and this is defined via a goog.define call, replace the call with
    *       the default value.
    */
-  @Nullable
-  private Node getReplacementForDefine(Define define) {
+  private @Nullable Node getReplacementForDefine(Define define) {
     Node replacementFromFlags = this.replacementValuesFromFlags.get(define.defineName);
     if (replacementFromFlags != null) {
       return replacementFromFlags;
@@ -282,18 +292,18 @@ class ProcessDefines implements CompilerPass {
   /** Only defines of literal number, string, or boolean are supported. */
   private boolean isValidDefineType(JSTypeExpression expression) {
     JSType type = registry.evaluateTypeExpressionInGlobalScope(expression);
-    return !type.isUnknownType()
-        && type.isSubtypeOf(registry.getNativeType(NUMBER_STRING_BOOLEAN));
+    return !type.isUnknownType() && type.isSubtypeOf(registry.getNativeType(NUMBER_STRING_BOOLEAN));
   }
 
   /** Finds all defines, and creates a {@link Define} data structure for each one. */
-  private void collectDefines() {
+  private void collectDefines(Node root) {
+    if (this.recognizeClosureDefines) {
+      NodeTraversal.builder()
+          .setCompiler(this.compiler)
+          .setCallback(new ClosureDefinesCollector())
+          .traverse(root);
+    }
     for (Name name : this.namespace.getAllSymbols()) {
-      if (this.recognizeClosureDefines && name.getFullName().equals("CLOSURE_DEFINES")) {
-        collectClosureDefinesValues(name);
-        continue;
-      }
-
       Ref declaration = this.selectDefineDeclaration(name);
       if (declaration == null) {
         continue;
@@ -319,7 +329,7 @@ class ProcessDefines implements CompilerPass {
         totalSets += existingDefine.name.getTotalSets();
       }
 
-      /**
+      /*
        * We have to report this here because otherwise we don't remember which names have the same
        * define name. It's not worth it tracking a set of names, because it makes the rest of the
        * pass more complex.
@@ -339,11 +349,10 @@ class ProcessDefines implements CompilerPass {
     }
   }
 
-  @Nullable
-  private Ref selectDefineDeclaration(Name name) {
+  private @Nullable Ref selectDefineDeclaration(Name name) {
     for (Ref ref : name.getRefs()) {
       // Make sure we don't select a local set as the declaration.
-      if (!Ref.Type.SET_FROM_GLOBAL.equals(ref.type)) {
+      if (!ref.isSetFromGlobal()) {
         continue;
       }
 
@@ -364,7 +373,7 @@ class ProcessDefines implements CompilerPass {
     return null;
   }
 
-  private static Node getValueParentForDefine(Ref declaration) {
+  private static @Nullable Node getValueParentForDefine(Ref declaration) {
     // Note: this may be a NAME, a GETPROP, or even STRING_KEY or GETTER_DEF. We only care
     // about the first two, in which case the parent should be either VAR/CONST or ASSIGN.
     // We could accept STRING_KEY (i.e. `@define` on a property in an object literal), but
@@ -447,7 +456,7 @@ class ProcessDefines implements CompilerPass {
                 define.defineName));
       }
 
-      /**
+      /*
        * Process defines should not depend on check types being enabled, so we look for the JSDoc
        * instead of the inferred type.
        */
@@ -464,7 +473,7 @@ class ProcessDefines implements CompilerPass {
       return;
     }
 
-    /**
+    /*
      * This has to be done using a traversal because the global namespace doesn't record symbols
      * which only appear in local scopes.
      *
@@ -484,7 +493,8 @@ class ProcessDefines implements CompilerPass {
               }
 
               if (n.matchesName("CLOSURE_DEFINES")
-                  && NodeUtil.isNameDeclaration(parent)
+                  && (NodeUtil.isNameDeclaration(parent)
+                      || (parent.isGetElem() && parent.getParent().isAssign()))
                   && !NodeUtil.getEnclosingScopeRoot(n).isRoot()) {
                 compiler.report(JSError.make(n, NON_GLOBAL_CLOSURE_DEFINES_ERROR));
               }
@@ -492,28 +502,53 @@ class ProcessDefines implements CompilerPass {
         .traverse(root);
   }
 
-  private void collectClosureDefinesValues(Name closureDefines) {
-    // var CLOSURE_DEFINES = {};
-    for (Ref ref : closureDefines.getRefs()) {
-      if (!ref.isSet()) {
-        continue;
-      }
+  private class ClosureDefinesCollector implements NodeTraversal.Callback {
 
-      Node n = ref.getNode();
-      if (!(NodeUtil.isNameDeclaration(n.getParent())
-          && n.hasOneChild()
-          && n.getFirstChild().isObjectLit())) {
-        continue;
-      }
+    @Override
+    public boolean shouldTraverse(NodeTraversal t, Node n, Node parent) {
+      // In particular, don't traverse into modules or functions - only script top level scopes.
+      return n.isRoot()
+          || n.isScript()
+          || n.isExprResult()
+          || n.isAssign()
+          || NodeUtil.isNameDeclaration(n);
+    }
 
-      for (Node c = n.getFirstFirstChild(); c != null; c = c.getNext()) {
-        if (c.isStringKey() && isValidClosureDefinesValue(c.getFirstChild())) {
-          this.replacementValuesFromClosureDefines.put(
-              c.getString(), c.getFirstChild().cloneNode());
-        } else if (this.mode.check) {
-          compiler.report(JSError.make(n, CLOSURE_DEFINES_ERROR));
+    @Override
+    public void visit(NodeTraversal t, Node n, Node parent) {
+      if (NodeUtil.isNameDeclaration(n) && n.getFirstChild().matchesName("CLOSURE_DEFINES")) {
+        // var CLOSURE_DEFINES = {...};
+        Node valueNode = n.getFirstFirstChild();
+        if (valueNode != null && valueNode.isObjectLit()) {
+          for (Node c = valueNode.getFirstChild(); c != null; c = c.getNext()) {
+            handleClosureDefinesValue(c, c.getFirstChild(), n);
+          }
+        }
+      } else if (n.isAssign()) {
+        // CLOSURE_DEFINES['...'] = ...;
+        Node lhs = n.getFirstChild();
+        if (lhs.isGetElem() && lhs.getFirstChild().matchesName("CLOSURE_DEFINES")) {
+          handleClosureDefinesValue(lhs.getSecondChild(), n.getSecondChild(), n);
         }
       }
+    }
+  }
+
+  private void handleClosureDefinesValue(Node stringNode, Node valueNode, Node errorNode) {
+    if ((stringNode.isStringKey() || stringNode.isStringLit())
+        && isValidClosureDefinesValue(valueNode)) {
+      String key = stringNode.getString();
+      if (replacementValuesFromClosureDefines.containsKey(key)) {
+        compiler.report(
+            JSError.make(
+                errorNode,
+                CLOSURE_DEFINES_MULTIPLE,
+                key,
+                replacementValuesFromClosureDefines.get(key).getLocation()));
+      }
+      replacementValuesFromClosureDefines.put(key, valueNode);
+    } else if (mode.check) {
+      compiler.report(JSError.make(errorNode, CLOSURE_DEFINES_ERROR));
     }
   }
 
@@ -540,14 +575,14 @@ class ProcessDefines implements CompilerPass {
     } else if (define.valueParent.isFromExterns()) {
       return true;
     } else {
-      return this.isValidDefineValue(define.value).toBoolean(false);
+      return isValidDefineValue(define.value).toBoolean(false);
     }
   }
 
   private static boolean isGlobalConst(Name name) {
     return name.getTotalSets() == 1
         && name.getDeclaration() != null
-        && name.getDeclaration().type.equals(Ref.Type.SET_FROM_GLOBAL);
+        && name.getDeclaration().isSetFromGlobal();
   }
 
   /**
@@ -634,7 +669,7 @@ class ProcessDefines implements CompilerPass {
    * Checks whether the NAME node is inside either a CONST or a @const VAR. Returns the RHS node if
    * so, otherwise returns null.
    */
-  private static Node getConstantDeclValue(Node name) {
+  private static @Nullable Node getConstantDeclValue(Node name) {
     Node parent = name.getParent();
     if (parent == null) {
       return null;
@@ -665,8 +700,8 @@ class ProcessDefines implements CompilerPass {
      */
     final Ref declaration;
 
-    @Nullable final Node valueParent;
-    @Nullable final Node value;
+    final @Nullable Node valueParent;
+    final @Nullable Node value;
 
     public Define(
         String defineName,
@@ -676,7 +711,6 @@ class ProcessDefines implements CompilerPass {
         @Nullable Node value) {
       checkState(valueParent == null || value == null || value.getParent() == valueParent);
       checkState(declaration.isSet());
-      checkState(declaration.name.equals(name));
 
       this.defineName = defineName;
       this.name = name;
@@ -754,7 +788,9 @@ class ProcessDefines implements CompilerPass {
     return true;
   }
 
-  /** @return Whether the argument checked out okay */
+  /**
+   * @return Whether the argument checked out okay
+   */
   private boolean verifyNotNull(Node methodName, Node arg) {
     if (arg == null) {
       compiler.report(
@@ -767,7 +803,9 @@ class ProcessDefines implements CompilerPass {
     return true;
   }
 
-  /** @return Whether the argument checked out okay */
+  /**
+   * @return Whether the argument checked out okay
+   */
   private boolean verifyIsLast(Node methodName, Node arg) {
     if (arg.getNext() != null) {
       compiler.report(
@@ -780,7 +818,9 @@ class ProcessDefines implements CompilerPass {
     return true;
   }
 
-  /** @return Whether the argument checked out okay */
+  /**
+   * @return Whether the argument checked out okay
+   */
   private boolean verifyOfType(Node methodName, Node arg, Token desiredType) {
     if (arg.getToken() != desiredType) {
       compiler.report(

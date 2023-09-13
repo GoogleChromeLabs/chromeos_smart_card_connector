@@ -28,6 +28,7 @@ import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.jspecify.nullness.Nullable;
 
 // TODO(user): Convert this class to a builder/autovalue.
 /** A utility class to assist in creating JS bundle files. */
@@ -71,7 +72,7 @@ public final class ClosureBundler {
       Transpiler transpiler,
       Transpiler es6ModuleTranspiler,
       EvalMode mode,
-      String sourceUrl,
+      @Nullable String sourceUrl,
       String path,
       Object minifier,
       Map<String, String> sourceMapCache,
@@ -188,9 +189,9 @@ public final class ClosureBundler {
   /** Append the contents of the CharSource to the supplied appendable. */
   public void appendTo(Appendable out, DependencyInfo info, CharSource content) throws IOException {
     String code = content.read();
-    if (info.isModule()) {
+    if (info.isGoogModule()) {
       mode.appendGoogModule(transpile(code), out, sourceUrl);
-    } else if ("es6".equals(info.getLoadFlags().get("module")) && transpiler == Transpiler.NULL) {
+    } else if (info.isEs6Module() && transpiler == Transpiler.NULL) {
       // TODO(johnplaisted): Make the default transpiler the ES_MODULE_TO_CJS_TRANSPILER. Currently
       // some code is passing in unicode identifiers in non-ES6 modules the compiler fails to parse.
       // Once this compiler bug is fixed we can always transpile.
@@ -293,7 +294,8 @@ public final class ClosureBundler {
       }
     };
 
-    abstract void appendTraditional(String s, Appendable out, String sourceUrl) throws IOException;
+    abstract void appendTraditional(String s, Appendable out, @Nullable String sourceUrl)
+        throws IOException;
 
     abstract void appendGoogModule(String s, Appendable out, String sourceUrl) throws IOException;
   }

@@ -29,7 +29,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Compute the "liveness" of all local variables. A variable is "live" at a point of a program if
@@ -138,10 +138,8 @@ class LiveVariablesAnalysis
    * function parameters, and it from the function block scope when we are ignoring function
    * parameters.
    *
-   * @param cfg
    * @param jsScope the function scope
    * @param jsScopeChild null or function block scope
-   * @param compiler
    * @param scopeCreator Es6 Scope creator
    * @param allVarsDeclaredInFunction mapping of names to vars of everything reachable in a function
    */
@@ -298,10 +296,7 @@ class LiveVariablesAnalysis
           } else {
             checkState(c.isDestructuringLhs(), c);
             if (!conditional) {
-              Iterable<Node> allVars = NodeUtil.findLhsNodesInNode(c);
-              for (Node lhsNode : allVars) {
-                addToSetIfLocal(lhsNode, kill);
-              }
+              NodeUtil.visitLhsNodesInNode(c, (lhsNode) -> addToSetIfLocal(lhsNode, kill));
             }
             computeGenKill(c.getFirstChild(), gen, kill, conditional);
             computeGenKill(c.getSecondChild(), gen, kill, conditional);
@@ -358,12 +353,13 @@ class LiveVariablesAnalysis
           computeGenKill(lhs.getNext(), gen, kill, conditional);
         } else if (n.isAssign() && n.getFirstChild().isDestructuringPattern()) {
           if (!conditional) {
-            Iterable<Node> allVars = NodeUtil.findLhsNodesInNode(n);
-            for (Node child : allVars) {
-              if (child.isName()) {
-                addToSetIfLocal(child, kill);
-              }
-            }
+            NodeUtil.visitLhsNodesInNode(
+                n,
+                (child) -> {
+                  if (child.isName()) {
+                    addToSetIfLocal(child, kill);
+                  }
+                });
           }
           computeGenKill(n.getFirstChild(), gen, kill, conditional);
           computeGenKill(n.getSecondChild(), gen, kill, conditional);

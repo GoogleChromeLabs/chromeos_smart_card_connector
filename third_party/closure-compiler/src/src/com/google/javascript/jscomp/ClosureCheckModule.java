@@ -29,12 +29,13 @@ import com.google.javascript.jscomp.modules.ModuleMetadataMap;
 import com.google.javascript.jscomp.modules.ModuleMetadataMap.ModuleMetadata;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.QualifiedName;
 import com.google.javascript.rhino.Token;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Checks that goog.module() is used correctly.
@@ -85,6 +86,11 @@ public final class ClosureCheckModule extends AbstractModuleCallback implements 
       DiagnosticType.error(
           "JSC_INVALID_DESTRUCTURING_REQUIRE",
           "Destructuring goog.require must be a simple object pattern.");
+
+  static final DiagnosticType AWAIT_GOOG_REQUIRE_CALLS =
+      DiagnosticType.error(
+          "JSC_AWAIT_GOOG_REQUIRE_CALLS",
+          "goog.require(Type) and goog.forwardDeclare can not be in an 'await' expression.");
 
   static final DiagnosticType LET_GOOG_REQUIRE =
       DiagnosticType.disabled(
@@ -162,24 +168,33 @@ public final class ClosureCheckModule extends AbstractModuleCallback implements 
           "JSC_LEGACY_NAMESPACE_ARGUMENT",
           "goog.module.declareLegacyNamespace() takes no arguments");
 
+  private static final QualifiedName GOOG_MODULE = QualifiedName.of("goog.module");
+  private static final QualifiedName GOOG_PROVIDE = QualifiedName.of("goog.provide");
+  private static final QualifiedName GOOG_REQUIRE = QualifiedName.of("goog.require");
+  private static final QualifiedName GOOG_REQUIRE_TYPE = QualifiedName.of("goog.requireType");
+  private static final QualifiedName GOOG_MODULE_GET = QualifiedName.of("goog.module.get");
+  private static final QualifiedName GOOG_FORWARD_DECLARE = QualifiedName.of("goog.forwardDeclare");
+  private static final QualifiedName GOOG_MODULE_DECLARE_LEGACY_NAMESPACE =
+      QualifiedName.of("goog.module.declareLegacyNamespace");
+
   private static class ModuleInfo {
     // Name of the module in question (i.e. the argument to goog.module)
     private final String name;
     // Mapping from fully qualified goog.required names to the import LHS node.
     // For standalone goog.require()s the value is the EXPR_RESULT node.
-    private final Map<String, Node> importsByLongRequiredName = new HashMap<>();
+    private final Map<String, Node> importsByLongRequiredName = new LinkedHashMap<>();
     // Module-local short names for goog.required symbols.
-    private final Set<String> shortImportNames = new HashSet<>();
+    private final Set<String> shortImportNames = new LinkedHashSet<>();
     // A map from the export names "exports.name" to the nodes of those named exports.
     // The default export is keyed with just "exports"
-    private final Map<String, Node> exportNodesByName = new HashMap<>();
+    private final Map<String, Node> exportNodesByName = new LinkedHashMap<>();
 
     ModuleInfo(String moduleName) {
       this.name = moduleName;
     }
   }
 
-  private ModuleInfo currentModuleInfo = null;
+  private @Nullable ModuleInfo currentModuleInfo = null;
 
   public ClosureCheckModule(AbstractCompiler compiler, ModuleMetadataMap moduleMetadataMap) {
     super(compiler, moduleMetadataMap);
@@ -214,11 +229,11 @@ public final class ClosureCheckModule extends AbstractModuleCallback implements 
       @Nullable Node moduleScopeRoot) {
     Node parent = n.getParent();
     if (currentModuleInfo == null) {
-      if (NodeUtil.isCallTo(n, "goog.module")) {
+      if (NodeUtil.isCallTo(n, GOOG_MODULE)) {
         t.report(n, GOOG_MODULE_IN_NON_MODULE);
       } else if (NodeUtil.isGoogModuleDeclareLegacyNamespaceCall(n)) {
         t.report(n, DECLARE_LEGACY_NAMESPACE_IN_NON_MODULE);
-      } else if (NodeUtil.isCallTo(n, "goog.provide")) {
+      } else if (NodeUtil.isCallTo(n, GOOG_PROVIDE)) {
         // This error is reported here, rather than in a provide-specific pass, because it
         // must be reported prior to ClosureRewriteModule converting legacy goog.modules into
         // goog.provides.
@@ -233,19 +248,19 @@ public final class ClosureCheckModule extends AbstractModuleCallback implements 
     switch (n.getToken()) {
       case CALL:
         Node callee = n.getFirstChild();
-        if (callee.matchesQualifiedName("goog.module")) {
+        if (GOOG_MODULE.matches(callee)) {
           if (!currentModuleInfo.name.equals(extractFirstArgumentName(n))) {
             t.report(n, MULTIPLE_MODULES_IN_FILE);
           } else if (!isFirstExpressionInGoogModule(parent)) {
             t.report(n, GOOG_MODULE_MISPLACED);
           }
-        } else if (callee.matchesQualifiedName("goog.require")
-            || callee.matchesQualifiedName("goog.requireType")
-            || callee.matchesQualifiedName("goog.forwardDeclare")) {
+        } else if (GOOG_REQUIRE.matches(callee)
+            || GOOG_REQUIRE_TYPE.matches(callee)
+            || GOOG_FORWARD_DECLARE.matches(callee)) {
           checkRequireCall(t, n, parent);
-        } else if (callee.matchesQualifiedName("goog.module.get") && t.inModuleHoistScope()) {
+        } else if (GOOG_MODULE_GET.matches(callee) && t.inModuleHoistScope()) {
           t.report(n, MODULE_USES_GOOG_MODULE_GET);
-        } else if (callee.matchesQualifiedName("goog.module.declareLegacyNamespace")) {
+        } else if (GOOG_MODULE_DECLARE_LEGACY_NAMESPACE.matches(callee)) {
           checkLegacyNamespaceCall(t, n, parent);
         }
         break;
@@ -343,12 +358,13 @@ public final class ClosureCheckModule extends AbstractModuleCallback implements 
   }
 
   private void checkImproperReferenceToImport(
-      NodeTraversal t, Node n, String qname, String nextQnamePart) {
+      NodeTraversal t, Node n, String qname, @Nullable String nextQnamePart) {
     if (qname == null) {
       return;
     }
 
-    if (!currentModuleInfo.importsByLongRequiredName.containsKey(qname)) {
+    Node importLhs = currentModuleInfo.importsByLongRequiredName.get(qname);
+    if (importLhs == null) {
       return;
     }
 
@@ -356,10 +372,7 @@ public final class ClosureCheckModule extends AbstractModuleCallback implements 
       return;
     }
 
-    Node importLhs = currentModuleInfo.importsByLongRequiredName.get(qname);
-    if (importLhs == null) {
-      // Fall through.
-    } else if (importLhs.isName()) {
+    if (importLhs.isName()) {
       this.compiler.report(
           JSError.make(
               n,
@@ -384,6 +397,14 @@ public final class ClosureCheckModule extends AbstractModuleCallback implements 
           return;
         }
       }
+    }
+    if (importLhs.isExprResult() && NodeUtil.isGoogForwardDeclareCall(importLhs.getOnlyChild())) {
+      // goog.forwardDeclare does not need to be aliased.
+      // This is because goog.forwardDeclares that are aliased have stricter semantics than those
+      // that are not aliased: aliased goog.forwardDeclares always need to reference a namespace
+      // that's actually defined, while non-aliased forwardDeclares may reference namespaces that
+      // do not actually exist.
+      return;
     }
 
     this.compiler.report(JSError.make(n, REFERENCE_TO_FULLY_QUALIFIED_IMPORT_NAME, qname));
@@ -430,7 +451,7 @@ public final class ClosureCheckModule extends AbstractModuleCallback implements 
     }
   }
 
-  private static String extractFirstArgumentName(Node callNode) {
+  private static @Nullable String extractFirstArgumentName(Node callNode) {
     Node firstArg = callNode.getSecondChild();
     if (firstArg != null && firstArg.isStringLit()) {
       return firstArg.getString();
@@ -444,13 +465,18 @@ public final class ClosureCheckModule extends AbstractModuleCallback implements 
     switch (parent.getToken()) {
       case EXPR_RESULT:
         String key = extractFirstArgumentName(callNode);
-        if (!currentModuleInfo.importsByLongRequiredName.containsKey(key)) {
-          currentModuleInfo.importsByLongRequiredName.put(key, parent);
-        }
+        currentModuleInfo.importsByLongRequiredName.putIfAbsent(key, parent);
         return;
       case NAME:
       case DESTRUCTURING_LHS:
         checkShortGoogRequireCall(t, callNode, parent.getParent());
+        return;
+      case AWAIT:
+        Token grandParentToken = parent.getParent().getToken();
+        if (grandParentToken.equals(Token.DESTRUCTURING_LHS)
+            || grandParentToken.equals(Token.NAME)) {
+          checkShortGoogRequireCall(t, callNode, parent.getGrandparent());
+        }
         return;
       default:
         break;
@@ -459,8 +485,7 @@ public final class ClosureCheckModule extends AbstractModuleCallback implements 
   }
 
   private void checkShortGoogRequireCall(NodeTraversal t, Node callNode, Node declaration) {
-    if (declaration.isLet()
-        && !callNode.getFirstChild().matchesQualifiedName("goog.forwardDeclare")) {
+    if (declaration.isLet() && !GOOG_FORWARD_DECLARE.matches(callNode.getFirstChild())) {
       t.report(declaration, LET_GOOG_REQUIRE);
     }
     if (!declaration.hasOneChild()) {
@@ -472,7 +497,7 @@ public final class ClosureCheckModule extends AbstractModuleCallback implements 
       if (!isValidDestructuringImport(lhs)) {
         t.report(declaration, INVALID_DESTRUCTURING_REQUIRE);
       }
-      if (callNode.getFirstChild().matchesQualifiedName("goog.forwardDeclare")) {
+      if (GOOG_FORWARD_DECLARE.matches(callNode.getFirstChild())) {
         t.report(lhs, INVALID_DESTRUCTURING_FORWARD_DECLARE);
       }
     } else {
@@ -480,12 +505,14 @@ public final class ClosureCheckModule extends AbstractModuleCallback implements 
       checkShortName(t, lhs, callNode.getLastChild().getString());
     }
     currentModuleInfo.importsByLongRequiredName.put(extractFirstArgumentName(callNode), lhs);
-    for (Node nameNode : NodeUtil.findLhsNodesInNode(declaration)) {
-      String name = nameNode.getString();
-      if (!currentModuleInfo.shortImportNames.add(name)) {
-        t.report(nameNode, DUPLICATE_NAME_SHORT_REQUIRE, name);
-      }
-    }
+    NodeUtil.visitLhsNodesInNode(
+        declaration,
+        (nameNode) -> {
+          String name = nameNode.getString();
+          if (!currentModuleInfo.shortImportNames.add(name)) {
+            t.report(nameNode, DUPLICATE_NAME_SHORT_REQUIRE, name);
+          }
+        });
   }
 
   private static void checkShortName(NodeTraversal t, Node shortNameNode, String namespace) {

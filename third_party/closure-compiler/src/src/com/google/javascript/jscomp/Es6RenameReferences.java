@@ -16,69 +16,55 @@
 
 package com.google.javascript.jscomp;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.Table;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
-import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
-import java.util.List;
 
-/**
- * Renames references in code and JSDoc when necessary.
- */
+/** Renames references in code. */
 final class Es6RenameReferences extends AbstractPostOrderCallback {
 
-  private static final Splitter SPLIT_ON_DOT = Splitter.on('.').limit(2);
-
+  /**
+   * Map from the root node of a scope + the original variable name to a new name for the variable.
+   *
+   * <p>An entry in this map means we should rename a variable that was originally declared in the
+   * scope with the given root and had the original variable name to the new name.
+   */
   private final Table<Node, String, String> renameTable;
-  private final boolean typesOnly;
-
-  Es6RenameReferences(Table<Node, String, String> renameTable, boolean typesOnly) {
-    this.renameTable = renameTable;
-    this.typesOnly = typesOnly;
-  }
 
   Es6RenameReferences(Table<Node, String, String> renameTable) {
-    this(renameTable, /* typesOnly= */ false);
+    this.renameTable = renameTable;
   }
 
   @Override
   public void visit(NodeTraversal t, Node n, Node parent) {
-    if (!typesOnly && NodeUtil.isReferenceName(n)) {
-      renameReference(t, n, false);
-    }
-
-    JSDocInfo info = n.getJSDocInfo();
-    if (info != null) {
-      for (Node root : info.getTypeNodes()) {
-        renameTypeNodeRecursive(t, root);
-      }
+    if (NodeUtil.isReferenceName(n)) {
+      renameReference(t, n, n.getString());
     }
   }
 
-  private void renameTypeNodeRecursive(NodeTraversal t, Node n) {
-    if (n.isStringLit()) {
-      renameReference(t, n, true);
-    }
-
-    for (Node child = n.getFirstChild(); child != null; child = child.getNext()) {
-      renameTypeNodeRecursive(t, child);
-    }
-  }
-
-  private void renameReference(NodeTraversal t, Node n, boolean isType) {
-    String fullName = n.getString();
-    List<String> split = SPLIT_ON_DOT.splitToList(fullName);
-    String oldName = split.get(0);
+  /**
+   * @param t The NodeTraversal.
+   * @param oldName The root name of a qualified name.
+   */
+  private void renameReference(NodeTraversal t, Node n, String oldName) {
     Scope current = t.getScope();
+    // You should be wondering:
+    //
+    // Why are we searching up the stack of scopes here instead of just looking up the Var for
+    // oldName and getting the scope from that?
+    //
+    // The answer is:
+    //
+    // When Es6RewriteBlockScopedDeclaration uses this class, it has already modified the scopes so
+    // that `oldName` is no longer declared in its original scope.
+    //
+    // I don't know if the other users of this class are also modifying the scopes in advance.
+    // - bradfordcsmith@google.com
     while (current != null) {
       String newName = renameTable.get(current.getRootNode(), oldName);
       if (newName != null) {
-        String rest = split.size() == 2 ? "." + split.get(1) : "";
-        n.setString(newName + rest);
-        if (!isType) {
-          t.reportCodeChange();
-        }
+        n.setString(newName);
+        t.reportCodeChange();
         return;
       } else if (current.hasOwnSlot(oldName)) {
         return;

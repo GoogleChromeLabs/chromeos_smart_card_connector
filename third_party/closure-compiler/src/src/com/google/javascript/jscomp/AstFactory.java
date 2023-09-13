@@ -24,6 +24,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.javascript.jscomp.AbstractCompiler.LifeCycleStage;
 import com.google.javascript.jscomp.colors.Color;
 import com.google.javascript.jscomp.colors.ColorId;
 import com.google.javascript.jscomp.colors.ColorRegistry;
@@ -44,7 +45,7 @@ import com.google.javascript.rhino.jstype.TemplateTypeReplacer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Creates AST nodes and subtrees.
@@ -69,10 +70,10 @@ final class AstFactory {
 
   private static final Splitter DOT_SPLITTER = Splitter.on(".");
 
-  @Nullable private final ColorRegistry colorRegistry;
-  @Nullable private final JSTypeRegistry registry;
+  private final @Nullable ColorRegistry colorRegistry;
+  private final @Nullable JSTypeRegistry registry;
   // We need the unknown type so frequently, it's worth caching it.
-  private final JSType unknownType;
+  private final @Nullable JSType unknownType;
   private static final Supplier<Color> bigintNumberStringColor =
       Suppliers.memoize(
           () ->
@@ -87,38 +88,43 @@ final class AstFactory {
   }
 
   private final TypeMode typeMode;
+  private final LifeCycleStage lifeCycleStage;
 
-  private AstFactory(JSTypeRegistry registry) {
+  private AstFactory(LifeCycleStage lifeCycleStage, JSTypeRegistry registry) {
+    this.lifeCycleStage = lifeCycleStage;
     this.registry = registry;
     this.colorRegistry = null;
     this.unknownType = getNativeType(JSTypeNative.UNKNOWN_TYPE);
     this.typeMode = TypeMode.JSTYPE;
   }
 
-  private AstFactory() {
+  private AstFactory(LifeCycleStage lifeCycleStage) {
+    this.lifeCycleStage = lifeCycleStage;
     this.registry = null;
     this.colorRegistry = null;
     this.unknownType = null;
     this.typeMode = TypeMode.NONE;
   }
 
-  private AstFactory(ColorRegistry colorRegistry) {
+  private AstFactory(LifeCycleStage lifeCycleStage, ColorRegistry colorRegistry) {
+    this.lifeCycleStage = lifeCycleStage;
     this.registry = null;
     this.colorRegistry = colorRegistry;
     this.unknownType = null;
     this.typeMode = TypeMode.COLOR;
   }
 
-  static AstFactory createFactoryWithoutTypes() {
-    return new AstFactory();
+  static AstFactory createFactoryWithoutTypes(LifeCycleStage lifeCycleStage) {
+    return new AstFactory(lifeCycleStage);
   }
 
-  static AstFactory createFactoryWithTypes(JSTypeRegistry registry) {
-    return new AstFactory(registry);
+  static AstFactory createFactoryWithTypes(LifeCycleStage lifeCycleStage, JSTypeRegistry registry) {
+    return new AstFactory(lifeCycleStage, registry);
   }
 
-  static AstFactory createFactoryWithColors(ColorRegistry colorRegistry) {
-    return new AstFactory(colorRegistry);
+  static AstFactory createFactoryWithColors(
+      LifeCycleStage lifeCycleStage, ColorRegistry colorRegistry) {
+    return new AstFactory(lifeCycleStage, colorRegistry);
   }
 
   /** Does this class instance add types to the nodes it creates? */
@@ -213,6 +219,64 @@ final class AstFactory {
   }
 
   /**
+   * Returns a new LABEL node.
+   *
+   * <p>Breaks have no type information, so this is functionally the same as calling {@code
+   * IR.label()}. It exists so that a pass can be consistent about always using {@code AstFactory}
+   * to create new nodes.
+   */
+  Node createLabel(Node label, Node stmt) {
+    return IR.label(label, stmt);
+  }
+
+  /**
+   * Returns a new CATCH node.
+   *
+   * <p>CATCH have no type information, so this is functionally the same as calling {@code
+   * IR.catchNode()}. It exists so that a pass can be consistent about always using {@code
+   * AstFactory} to create new nodes.
+   */
+  Node createCatch(Node error, Node block) {
+    return IR.catchNode(error, block);
+  }
+
+  /**
+   * Returns a new TRY-FINALLY node.
+   *
+   * <p>TRY-FINALLY have no type information, so this is functionally the same as calling {@code
+   * IR.tryFinally()}. It exists so that a pass can be consistent about always using {@code
+   * AstFactory} to create new nodes.
+   */
+  Node createTryFinally(Node tryBlock, Node finallyBlock) {
+    return IR.tryFinally(tryBlock, finallyBlock);
+  }
+
+  /**
+   * Returns a new TRY-CATCH-FINALLY node.
+   *
+   * <p>TRY-CATCH-FINALLY have no type information, so this is functionally the same as calling
+   * {@code IR.tryCatchFinally()}. It exists so that a pass can be consistent about always using
+   * {@code AstFactory} to create new nodes.
+   */
+  Node createTryCatchFinally(Node tryBlock, Node catchNode, Node finallyBlock) {
+    checkState(tryBlock.isBlock());
+    checkState(catchNode.isCatch());
+    checkState(finallyBlock.isBlock());
+    return IR.tryCatchFinally(tryBlock, catchNode, finallyBlock);
+  }
+
+  /**
+   * Returns a new THROW node.
+   *
+   * <p>THROW have no type information, so this is functionally the same as calling {@code
+   * IR.throwNode()}. It exists so that a pass can be consistent about always using {@code
+   * AstFactory} to create new nodes.
+   */
+  Node createThrow(Node expr) {
+    return IR.throwNode(expr);
+  }
+
+  /**
    * Returns a new {@code return} statement.
    *
    * <p>Return statements have no type information, so this is functionally the same as calling
@@ -230,7 +294,7 @@ final class AstFactory {
    * @param value value to yield
    */
   Node createYield(Type type, Node value) {
-    Node result = IR.yield(value);
+    Node result = IR.yieldNode(value);
     this.setJSTypeOrColor(type, result);
     return result;
   }
@@ -321,12 +385,14 @@ final class AstFactory {
    * <p>With the optimization colors type system, we can support inferring the type of this for
    * constructors but not generic functions annotated @this
    */
-  Node createThisForEs6ClassMember(Node functionNode) {
-    checkState(
-        functionNode.isMemberFunctionDef() && functionNode.getParent().isClassMembers(),
-        functionNode);
-    Node classNode = functionNode.getGrandparent();
-    if (functionNode.isStaticMember()) {
+  Node createThisForEs6ClassMember(Node memberNode) {
+    checkArgument(memberNode.getParent().isClassMembers());
+    checkArgument(
+        memberNode.isMemberFunctionDef()
+            || memberNode.isMemberFieldDef()
+            || memberNode.isComputedFieldDef());
+    Node classNode = memberNode.getGrandparent();
+    if (memberNode.isStaticMember()) {
       final Node result = IR.thisNode();
       setJSTypeOrColor(type(classNode), result);
       return result;
@@ -335,8 +401,7 @@ final class AstFactory {
     }
   }
 
-  @Nullable
-  private JSType getTypeOfThisForFunctionNode(Node functionNode) {
+  private @Nullable JSType getTypeOfThisForFunctionNode(Node functionNode) {
     assertNotAddingColors();
     if (isAddingTypes()) {
       FunctionType functionType = getFunctionType(functionNode);
@@ -346,8 +411,7 @@ final class AstFactory {
     }
   }
 
-  @Nullable
-  private Type getTypeOfThisForEs6Class(Node functionNode) {
+  private @Nullable Type getTypeOfThisForEs6Class(Node functionNode) {
     checkArgument(functionNode.isClass(), functionNode);
     switch (this.typeMode) {
       case JSTYPE:
@@ -385,9 +449,7 @@ final class AstFactory {
    * classes but not generic functions annotated @this.
    */
   Node createThisAliasReferenceForEs6Class(String aliasName, Node functionNode) {
-    final Node result = IR.name(aliasName);
-    setJSTypeOrColor(getTypeOfThisForEs6Class(functionNode), result);
-    return result;
+    return createName(aliasName, getTypeOfThisForEs6Class(functionNode));
   }
 
   /**
@@ -441,7 +503,18 @@ final class AstFactory {
    * <p>e.g. `const variableName = value;`
    */
   Node createSingleConstNameDeclaration(String variableName, Node value) {
-    return IR.constNode(createName(variableName, type(value.getJSType(), value.getColor())), value);
+    Node nameNode = createConstantName(variableName, type(value.getJSType(), value.getColor()));
+    return IR.constNode(nameNode, value);
+  }
+
+  /**
+   * Creates a new `const` declaration statement for an object pattern.
+   *
+   * <p>e.g. `const {Foo} = value;`
+   */
+  Node createSingleConstObjectPatternDeclaration(Node objectPattern, Node value) {
+    checkState(objectPattern.isObjectPattern(), "not an object pattern: %s", objectPattern);
+    return IR.constNode(objectPattern, value);
   }
 
   /**
@@ -472,28 +545,90 @@ final class AstFactory {
     return createSingleConstNameDeclaration(aliasName, createArgumentsReference());
   }
 
+  /**
+   * Creates a name node with the provided type information.
+   *
+   * <p>NOTE: You should use {@link #createName(StaticScope, String)} when creating a new name node
+   * that references an existing variable. That version will look up the declaration of the variable
+   * and ensure this reference to it is correct by adding type information and / or any other
+   * necessary data.
+   *
+   * <p>If you are creating a reference to a variable that won't be visible in the current scope
+   * (e.g. because you are creating a new variable), you can use this method. However, if you've
+   * just created the variable declaration, you could also just clone the {@code NAME} node from it
+   * to create the new reference.
+   */
   Node createName(String name, Type type) {
     Node result = IR.name(name);
     setJSTypeOrColor(type, result);
+    if (lifeCycleStage.isNormalized() && name.startsWith("$jscomp")) {
+      // $jscomp will always be a constant and needs to be marked that way to satisfy
+      // the normalization invariants.
+      result.putBooleanProp(Node.IS_CONSTANT_NAME, true);
+    }
     return result;
   }
 
-  Node createName(StaticScope scope, String name) {
+  /** Use this when you know you need to create a constant name for const declarations */
+  Node createConstantName(String name, Type type) {
     Node result = IR.name(name);
-    switch (this.typeMode) {
-      case JSTYPE:
-        JSType definitionType = getVarDefinitionNode(scope, name).getJSType();
-        // TODO(b/149843534): crash instead of defaulting to unknown
-        result.setJSType(definitionType != null ? definitionType : unknownType);
-        break;
-      case COLOR:
-        Color definitionColor = getVarDefinitionNode(scope, name).getColor();
-        // TODO(b/149843534): crash instead of defaulting to unknown
-        result.setColor(definitionColor != null ? definitionColor : StandardColors.UNKNOWN);
-        break;
-      case NONE:
-        break;
+    setJSTypeOrColor(type, result);
+    if (lifeCycleStage.isNormalized()) {
+      result.putBooleanProp(Node.IS_CONSTANT_NAME, true);
     }
+    return result;
+  }
+
+  Node createName(@Nullable StaticScope scope, String name) {
+    final Node result = IR.name(name);
+
+    if (lifeCycleStage.isNormalized() || !typeMode.equals(TypeMode.NONE)) {
+      // We need a scope to maintain normalization and / or propagate type information
+      checkNotNull(
+          scope,
+          "A scope is required [lifeCycleStage: %s, typeMode: %s]",
+          lifeCycleStage,
+          typeMode);
+      final StaticSlot var = scope.getSlot(name);
+      if (var == null) {
+        // TODO(bradfordcsmith): Why is this special exception needed?
+        // There are a few cases where `$jscomp` isn't found in the code (implying that runtime
+        // library injection somehow didn't happen), but we do perform transpilations which require
+        // it to exist. Can we fix that?
+        // This only happens when type checking is not being done.
+        checkState(
+            name.equals("$jscomp") && typeMode.equals(TypeMode.NONE),
+            "Missing var %s in scope %s",
+            name,
+            scope);
+      } else {
+        final StaticRef declaration =
+            checkNotNull(
+                var.getDeclaration(), "Cannot find type for var with missing declaration %s", var);
+        final Node varDefinitionNode =
+            checkNotNull(declaration.getNode(), "Missing node for declaration %s", declaration);
+
+        // Normalization requires that all references to a constant variable have this property.
+        if (varDefinitionNode.getBooleanProp(Node.IS_CONSTANT_NAME)) {
+          result.putBooleanProp(Node.IS_CONSTANT_NAME, true);
+        }
+        switch (typeMode) {
+          case JSTYPE:
+            JSType definitionType = varDefinitionNode.getJSType();
+            // TODO(b/149843534): crash instead of defaulting to unknown
+            result.setJSType(definitionType != null ? definitionType : unknownType);
+            break;
+          case COLOR:
+            Color definitionColor = varDefinitionNode.getColor();
+            // TODO(b/149843534): crash instead of defaulting to unknown
+            result.setColor(definitionColor != null ? definitionColor : StandardColors.UNKNOWN);
+            break;
+          case NONE:
+            break;
+        }
+      }
+    }
+
     return result;
   }
 
@@ -641,7 +776,9 @@ final class AstFactory {
     return result;
   }
 
-  /** @deprecated Use {@link #createGetProp(Node, String, Type)} instead. */
+  /**
+   * @deprecated Use {@link #createGetProp(Node, String, Type)} instead.
+   */
   @Deprecated
   Node createGetPropWithoutColor(Node receiver, String propertyName) {
     assertNotAddingColors();
@@ -823,6 +960,18 @@ final class AstFactory {
     return result;
   }
 
+  Node createBitwiseAnd(Node left, Node right) {
+    Node result = IR.bitwiseAnd(left, right);
+    setJSTypeOrColor(type(JSTypeNative.NUMBER_TYPE, StandardColors.NUMBER), result);
+    return result;
+  }
+
+  Node createRightShift(Node left, Node right) {
+    Node result = IR.rightShift(left, right);
+    setJSTypeOrColor(type(JSTypeNative.NUMBER_TYPE, StandardColors.NUMBER), result);
+    return result;
+  }
+
   Node createCall(Node callee, Type resultType, Node... args) {
     Node result = NodeUtil.newCallNode(callee, args);
     setJSTypeOrColor(resultType, result);
@@ -903,8 +1052,8 @@ final class AstFactory {
       case JSTYPE:
         JSType classJSType = classType.getJSType(registry);
         FunctionType constructorType = checkNotNull(classJSType.toMaybeFunctionType());
-      ObjectType instanceType = checkNotNull(constructorType.getInstanceType());
-      result.setJSType(instanceType);
+        ObjectType instanceType = checkNotNull(constructorType.getInstanceType());
+        result.setJSType(instanceType);
         break;
       case COLOR:
         result.setColor(getInstanceOfColor(classType.getColor(colorRegistry)));
@@ -962,7 +1111,7 @@ final class AstFactory {
 
   public Node createQuotedStringKey(String key, Node value) {
     Node result = IR.stringKey(key, value);
-    result.setQuotedString();
+    result.setQuotedStringKey();
     return result;
   }
 
@@ -1026,16 +1175,16 @@ final class AstFactory {
     Node result = IR.arrowFunction(IR.name(""), IR.paramList(), expression);
     switch (this.typeMode) {
       case JSTYPE:
-      // It feels like we should be adding type-of-this here, but it should remain unknown,
-      // because you're allowed to supply any kind of value of `this` when calling an arrow
-      // function. It will just be ignored in favor of the `this` in the scope where the
-      // arrow was defined.
-      FunctionType functionType =
-          FunctionType.builder(registry)
-              .withReturnType(expression.getJSTypeRequired())
-              .withParameters()
-              .buildAndResolve();
-      result.setJSType(functionType);
+        // It feels like we should be adding type-of-this here, but it should remain unknown,
+        // because you're allowed to supply any kind of value of `this` when calling an arrow
+        // function. It will just be ignored in favor of the `this` in the scope where the
+        // arrow was defined.
+        FunctionType functionType =
+            FunctionType.builder(registry)
+                .withReturnType(expression.getJSTypeRequired())
+                .withParameters()
+                .buildAndResolve();
+        result.setJSType(functionType);
         break;
       case COLOR:
         result.setColor(StandardColors.TOP_OBJECT);
@@ -1097,11 +1246,11 @@ final class AstFactory {
     Node result = IR.arraylit(elements);
     switch (this.typeMode) {
       case JSTYPE:
-      result.setJSType(
-          registry.createTemplatizedType(
-              registry.getNativeObjectType(JSTypeNative.ARRAY_TYPE),
-              // TODO(nickreid): Use a reasonable template type. Remeber to consider SPREAD.
-              getNativeType(JSTypeNative.UNKNOWN_TYPE)));
+        result.setJSType(
+            registry.createTemplatizedType(
+                registry.getNativeObjectType(JSTypeNative.ARRAY_TYPE),
+                // TODO(nickreid): Use a reasonable template type. Remeber to consider SPREAD.
+                getNativeType(JSTypeNative.UNKNOWN_TYPE)));
         break;
       case COLOR:
         result.setColor(colorRegistry.get(StandardColors.ARRAY_ID));
@@ -1338,15 +1487,6 @@ final class AstFactory {
         registry.getNativeType(nativeType), "native type not found: %s", nativeType);
   }
 
-  private Node getVarDefinitionNode(StaticScope scope, String name) {
-    StaticSlot var = checkNotNull(scope.getSlot(name), "Missing var %s in scope %s", name, scope);
-
-    StaticRef declaration =
-        checkNotNull(
-            var.getDeclaration(), "Cannot find type for var with missing declaration %s", var);
-    return checkNotNull(declaration.getNode(), "Missing node for declaration %s", declaration);
-  }
-
   private JSType getJsTypeForProperty(Node receiver, String propertyName) {
     // NOTE: we use both findPropertyType and getPropertyType because they are subtly
     // different: findPropertyType works on JSType, autoboxing scalars and joining unions,
@@ -1416,26 +1556,26 @@ final class AstFactory {
   }
 
   private static final class JSTypeOrColor implements Type {
-    private final JSType jstype;
-    private final JSTypeNative jstypeNative;
-    private final Color color;
-    private final ColorId colorId;
+    private final @Nullable JSType jstype;
+    private final @Nullable JSTypeNative jstypeNative;
+    private final @Nullable Color color;
+    private final @Nullable ColorId colorId;
 
-    JSTypeOrColor(JSTypeNative jstypeNative, ColorId colorId) {
+    JSTypeOrColor(@Nullable JSTypeNative jstypeNative, ColorId colorId) {
       this.jstypeNative = jstypeNative;
       this.jstype = null;
       this.color = null;
       this.colorId = colorId;
     }
 
-    JSTypeOrColor(JSTypeNative jstypeNative, Color color) {
+    JSTypeOrColor(JSTypeNative jstypeNative, @Nullable Color color) {
       this.jstypeNative = jstypeNative;
       this.jstype = null;
       this.color = color;
       this.colorId = null;
     }
 
-    JSTypeOrColor(JSType jstype, Color color) {
+    JSTypeOrColor(@Nullable JSType jstype, @Nullable Color color) {
       this.jstype = jstype;
       this.jstypeNative = null;
       this.color = color;

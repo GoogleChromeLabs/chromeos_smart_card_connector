@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import org.jspecify.nullness.Nullable;
 
 /**
  * An AST for JavaScript regular expressions.
@@ -117,7 +118,7 @@ public abstract class RegExpTree {
   public static RegExpTree parseRegExp(
       final String pattern, final String flags) {
 
-    /** A recursive descent parser that closes over pattern and flags above. */
+    /* A recursive descent parser that closes over pattern and flags above. */
     class Parser {
       /** The number of characters in pattern consumed. */
       int pos;
@@ -679,7 +680,8 @@ public abstract class RegExpTree {
        */
       private RegExpTree parseRepetition(RegExpTree body) {
         if (pos == limit) { return body; }
-        int min, max;
+        int min;
+        int max;
         switch (pattern.charAt(pos)) {
           case '+':
             ++pos;
@@ -794,7 +796,8 @@ public abstract class RegExpTree {
 
     Concatenation c = (Concatenation) t;
     if (c.elements.isEmpty()) { return false; }
-    RegExpTree first = c.elements.get(0), last = Iterables.getLast(c.elements);
+    RegExpTree first = c.elements.get(0);
+    RegExpTree last = Iterables.getLast(c.elements);
     if (!(first instanceof Anchor && last instanceof Anchor)) { return false; }
     return ((Anchor) first).type == '^' && ((Anchor) last).type == '$';
   }
@@ -1085,7 +1088,8 @@ public abstract class RegExpTree {
   /** Represents a repeating item such as ...+, ...*, or ...{0,1} */
   public static final class Repetition extends RegExpTree {
     final RegExpTree body;
-    final int min, max;
+    final int min;
+    final int max;
     final boolean greedy;
 
     Repetition(RegExpTree body, int min, int max, boolean greedy) {
@@ -1200,7 +1204,7 @@ public abstract class RegExpTree {
       int bodyLen = bodyEnd - bodyStart;
       int min = this.min;
       int max = this.max;
-      if (min >= 2 && max == Integer.MAX_VALUE || max - min <= 1) {
+      if ((min >= 2 && max == Integer.MAX_VALUE) || max - min <= 1) {
         int expanded =
            // If min == max then we want to try expanding to the limit and
            // attach the empty suffix, which is equivalent to min = max = 1,
@@ -1682,7 +1686,7 @@ public abstract class RegExpTree {
     private final String propertyValue;
     private final boolean negated;
 
-    UnicodePropertyEscape(String propertyName, String propertyValue, boolean negated) {
+    UnicodePropertyEscape(@Nullable String propertyName, String propertyValue, boolean negated) {
       checkState(propertyValue != null);
       checkArgument(
           propertyName == null || !propertyName.isEmpty(),
@@ -2115,13 +2119,14 @@ public abstract class RegExpTree {
           }
         }
 
-        RegExpTree simplifyPairwise(RegExpTree before, RegExpTree after) {
+        @Nullable RegExpTree simplifyPairwise(RegExpTree before, RegExpTree after) {
           if (before instanceof Text && after instanceof Text) {
             return new Text(
                 ((Text) before).text + ((Text) after).text).simplify(flags);
           }
           // Fold adjacent repetitions.
-          int beforeMin = 1, beforeMax = 1;
+          int beforeMin = 1;
+          int beforeMax = 1;
           RegExpTree beforeBody = before;
           boolean beforeGreedy = false;
           if (before instanceof Repetition) {
@@ -2131,7 +2136,8 @@ public abstract class RegExpTree {
             beforeBody = r.body;
             beforeGreedy = r.greedy;
           }
-          int afterMin = 1, afterMax = 1;
+          int afterMin = 1;
+          int afterMax = 1;
           RegExpTree afterBody = after;
           boolean afterGreedy = false;
           if (after instanceof Repetition) {

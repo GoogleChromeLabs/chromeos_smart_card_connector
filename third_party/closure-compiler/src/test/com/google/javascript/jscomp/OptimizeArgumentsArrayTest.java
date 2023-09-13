@@ -20,10 +20,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Unit tests for {@link OptimizeArgumentsArray}.
- *
- */
+/** Unit tests for {@link OptimizeArgumentsArray}. */
 @RunWith(JUnit4.class)
 public final class OptimizeArgumentsArrayTest extends CompilerTestCase {
 
@@ -45,18 +42,14 @@ public final class OptimizeArgumentsArrayTest extends CompilerTestCase {
 
   @Test
   public void testSimple() {
-    test(
-      "function foo()   { alert(arguments[0]); }",
-      "function foo(p0) { alert(          p0); }");
+    test("function foo()   { alert(arguments[0]); }", "function foo(p0) { alert(          p0); }");
   }
 
   @Test
   public void testNoVarArgs() {
     testSame("function f(a,b,c) { alert(a + b + c) }");
 
-    test(
-        "function f(a,b,c) { alert(arguments[0]) }",
-        "function f(a,b,c) { alert(           a) }");
+    test("function f(a,b,c) { alert(arguments[0]) }", "function f(a,b,c) { alert(           a) }");
   }
 
   @Test
@@ -66,8 +59,7 @@ public final class OptimizeArgumentsArrayTest extends CompilerTestCase {
 
   @Test
   public void testArgumentRefOnNamedParameter() {
-    test("function f(a,b) { alert(arguments[0]) }",
-         "function f(a,b) { alert(a) }");
+    test("function f(a,b) { alert(arguments[0]) }", "function f(a,b) { alert(a) }");
   }
 
   @Test
@@ -79,92 +71,106 @@ public final class OptimizeArgumentsArrayTest extends CompilerTestCase {
 
   @Test
   public void testTwoFourArgsTwoUsed() {
-    test("function foo() { alert(arguments[0] + arguments[3]); }",
-         "function foo(p0, p1, p2, p3) { alert(p0 + p3); }");
+    test(
+        "function foo() { alert(arguments[0] + arguments[3]); }",
+        "function foo(p0, p1, p2, p3) { alert(p0 + p3); }");
   }
 
   @Test
   public void testOneRequired() {
-    test("function foo(req0, var_args) { alert(req0 + arguments[1]); }",
-         "function foo(req0, var_args) { alert(req0 + var_args); }");
+    test(
+        "function foo(req0, var_args) { alert(req0 + arguments[1]); }",
+        "function foo(req0, var_args) { alert(req0 + var_args); }");
   }
 
   @Test
   public void testTwoRequiredSixthVarArgReferenced() {
-    test("function foo(r0, r1, var_args) {alert(r0 + r1 + arguments[5]);}",
-         "function foo(r0, r1, var_args, p0, p1, p2) { alert(r0 + r1 + p2); }");
+    test(
+        "function foo(r0, r1, var_args) {alert(r0 + r1 + arguments[5]);}",
+        "function foo(r0, r1, var_args, p0, p1, p2) { alert(r0 + r1 + p2); }");
   }
 
   @Test
   public void testTwoRequiredOneOptionalFifthVarArgReferenced() {
-    test("function foo(r0, r1, opt_1)"
-       + "  {alert(r0 + r1 + opt_1 + arguments[4]);}",
-         "function foo(r0, r1, opt_1, p0, p1)"
-       + "  {alert(r0 + r1 + opt_1 + p1); }");
+    test(
+        "function foo(r0, r1, opt_1)" + "  {alert(r0 + r1 + opt_1 + arguments[4]);}",
+        "function foo(r0, r1, opt_1, p0, p1)" + "  {alert(r0 + r1 + opt_1 + p1); }");
   }
 
   @Test
   public void testTwoRequiredTwoOptionalSixthVarArgReferenced() {
-    test("function foo(r0, r1, opt_1, opt_2)"
-       + "  {alert(r0 + r1 + opt_1 + opt_2 + arguments[5]);}",
-         "function foo(r0, r1, opt_1, opt_2, p0, p1)"
-       + "  {alert(r0 + r1 + opt_1 + opt_2 + p1); }");
+    test(
+        "function foo(r0, r1, opt_1, opt_2)" + "  {alert(r0 + r1 + opt_1 + opt_2 + arguments[5]);}",
+        "function foo(r0, r1, opt_1, opt_2, p0, p1)" + "  {alert(r0 + r1 + opt_1 + opt_2 + p1); }");
   }
 
   @Test
   public void testInnerFunctions() {
-    test("function f() { function b(  ) { arguments[0]  }}",
-         "function f() { function b(p0) {            p0 }}");
+    test(
+        "function f() { function b(  ) { arguments[0]  }}",
+        "function f() { function b(p0) {            p0 }}");
 
-    test("function f(  ) { function b() { }  arguments[0] }",
-         "function f(p0) { function b() { }            p0 }");
+    test(
+        "function f(  ) { function b() { }  arguments[0] }",
+        "function f(p0) { function b() { }            p0 }");
 
-    test("function f( )  { arguments[0]; function b(  ) { arguments[0] }}",
-         "function f(p1) {           p1; function b(p0) {           p0 }}");
+    test(
+        "function f( )  { arguments[0]; function b(  ) { arguments[0] }}",
+        "function f(p1) {           p1; function b(p0) {           p0 }}");
   }
 
   @Test
   public void testInnerFunctionsWithNamedArgumentInInnerFunction() {
-    test("function f() { function b(x   ) { arguments[1] }}",
-         "function f() { function b(x,p0) {           p0 }}");
+    test(
+        "function f() { function b(x   ) { arguments[1] }}",
+        "function f() { function b(x,p0) {           p0 }}");
 
-    test("function f(  ) { function b(x) { }  arguments[0] }",
-         "function f(p0) { function b(x) { }            p0 }");
+    test(
+        "function f(  ) { function b(x) { }  arguments[0] }",
+        "function f(p0) { function b(x) { }            p0 }");
 
-    test("function f( )  { arguments[0]; function b(x   ) { arguments[1] }}",
-         "function f(p1) {           p1; function b(x,p0) {           p0 }}");
+    test(
+        "function f( )  { arguments[0]; function b(x   ) { arguments[1] }}",
+        "function f(p1) {           p1; function b(x,p0) {           p0 }}");
   }
 
   @Test
   public void testInnerFunctionsWithNamedArgumentInOutterFunction() {
-    test("function f(x) { function b(  ) { arguments[0] }}",
-         "function f(x) { function b(p0) {           p0 }}");
+    test(
+        "function f(x) { function b(  ) { arguments[0] }}",
+        "function f(x) { function b(p0) {           p0 }}");
 
-    test("function f(x   ) { function b() { }  arguments[1] }",
-         "function f(x,p0) { function b() { }            p0 }");
+    test(
+        "function f(x   ) { function b() { }  arguments[1] }",
+        "function f(x,p0) { function b() { }            p0 }");
 
-    test("function f(x   ) { arguments[1]; function b(  ) { arguments[0] }}",
-         "function f(x,p1) {           p1; function b(p0) {           p0 }}");
+    test(
+        "function f(x   ) { arguments[1]; function b(  ) { arguments[0] }}",
+        "function f(x,p1) {           p1; function b(p0) {           p0 }}");
   }
 
   @Test
   public void testInnerFunctionsWithNamedArgumentInInnerAndOutterFunction() {
-    test("function f(x) { function b(x   ) { arguments[1] }}",
-         "function f(x) { function b(x,p0) {           p0 }}");
+    test(
+        "function f(x) { function b(x   ) { arguments[1] }}",
+        "function f(x) { function b(x,p0) {           p0 }}");
 
-    test("function f(x   ) { function b(x) { }  arguments[1] }",
-         "function f(x,p0) { function b(x) { }            p0 }");
+    test(
+        "function f(x   ) { function b(x) { }  arguments[1] }",
+        "function f(x,p0) { function b(x) { }            p0 }");
 
-    test("function f(x   ) { arguments[1]; function b(x   ) { arguments[1] }}",
-         "function f(x,p1) {           p1; function b(x,p0) {           p0 }}");
+    test(
+        "function f(x   ) { arguments[1]; function b(x   ) { arguments[1] }}",
+        "function f(x,p1) {           p1; function b(x,p0) {           p0 }}");
   }
 
   @Test
   public void testInnerFunctionsAfterArguments() {
     // This caused a bug earlier due to incorrect push and pop of the arguments
     // access stack.
-    test("function f(  ) { arguments[0]; function b() { function c() { }} }",
-         "function f(p0) {           p0; function b() { function c() { }} }");
+    test(
+        "function f(  ) { arguments[0]; function b() { function c() { }} }",
+        "function f(p0) {           p0; function b() { function c() { }} }");
   }
 
   @Test
@@ -219,8 +225,7 @@ public final class OptimizeArgumentsArrayTest extends CompilerTestCase {
   public void testArrowFunctionIsInnerFunction() {
 
     test(
-        "function f()   { ( ) => { arguments[0] } }",
-        "function f(p0) { ( ) => {           p0 } }");
+        "function f()   { ( ) => { arguments[0] } }", "function f(p0) { ( ) => {           p0 } }");
 
     // Arrow function after argument
     test(
@@ -271,7 +276,7 @@ public final class OptimizeArgumentsArrayTest extends CompilerTestCase {
 
   @Test
   public void testNestedFunctions() {
-    //Arrow inside arrow inside vanilla function
+    // Arrow inside arrow inside vanilla function
 
     test(
         "function f()   { () => { () => { arguments[0]; } } }",
@@ -284,7 +289,6 @@ public final class OptimizeArgumentsArrayTest extends CompilerTestCase {
     test(
         "function f()       { () => { alert(arguments[0]); () => { arguments[1]; } } }",
         "function f(p0, p1) { () => { alert(          p0); () => {           p1; } } }");
-
   }
 
   @Test
@@ -351,5 +355,34 @@ public final class OptimizeArgumentsArrayTest extends CompilerTestCase {
             "if (typeof arguments != \"undefined\") {", //
             "  console.log(arguments);",
             "}"));
+  }
+
+  @Test
+  public void testGettersCannotHaveAnyParams() {
+    // Getters cannot have any parameters; synthesizing them would be an error.
+    testSame("class Foo { get prop() { arguments[0] } }");
+    testSame("const a = { get prop() { arguments[0] } }");
+
+    // Ensure references in nested functions are still eligible.
+    test(
+        "class Foo { get prop() { function f(  ) { arguments[0] } } }", //
+        "class Foo { get prop() { function f(p0) {           p0 } } }");
+  }
+
+  @Test
+  public void testSettersCanOnlyHaveOneParam() {
+    // Setters can only have one parameter; synthesizing any more would be an error.
+    testSame("class Foo { set prop(x) { arguments[1] } }");
+    testSame("const a = { set prop(x) { arguments[1] } }");
+
+    // We can still replace references to the first param.
+    test(
+        "class Foo { set prop(x) { arguments[0]; arguments[1] } }", //
+        "class Foo { set prop(x) {            x; arguments[1] } }");
+
+    // Ensure references in nested functions are still eligible.
+    test(
+        "class Foo { set prop(x) { function f(  ) { arguments[0] } } }", //
+        "class Foo { set prop(x) { function f(p0) {           p0 } } }");
   }
 }

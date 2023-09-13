@@ -24,6 +24,7 @@ import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 import java.util.ArrayList;
 import java.util.Map;
+import org.jspecify.nullness.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -36,7 +37,7 @@ public final class OptimizeCallsTest extends CompilerTestCase {
   private OptimizeCalls.ReferenceMap references;
 
   // Whether to consider externs during the next collection. Must be explicitly set.
-  private Boolean considerExterns = null;
+  private @Nullable Boolean considerExterns = null;
 
   @Override
   @Before
@@ -290,6 +291,27 @@ public final class OptimizeCallsTest extends CompilerTestCase {
         .inOrder();
   }
 
+  @Test
+  public void testReferenceCollection_reflectedProps() {
+    considerExterns = false;
+
+    test(
+        srcs(
+            lines(
+                "class C {",
+                "  m() {",
+                "    console.log('hello');",
+                "  }",
+                "}",
+                "C.prototype[goog.reflect.objectProperty('m', C.prototype)]();")));
+
+    final ImmutableMap<String, ArrayList<Node>> nameToRefs =
+        ImmutableMap.copyOf(references.getPropReferences());
+    assertThat(nameToRefs.get("m"))
+        .comparingElementsUsing(HAS_TOKEN)
+        .containsExactly(Token.MEMBER_FUNCTION_DEF, Token.CALL)
+        .inOrder();
+  }
 
   private static final Correspondence<Map.Entry<String, Node>, String> KEY_EQUALITY =
       Correspondence.transforming(Map.Entry::getKey, "has key");

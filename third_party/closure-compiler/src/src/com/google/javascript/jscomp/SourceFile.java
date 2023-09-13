@@ -25,6 +25,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.GwtIncompatible;
 import com.google.common.io.CharStreams;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.InlineMe;
 import com.google.javascript.jscomp.serialization.SourceFileProto;
 import com.google.javascript.jscomp.serialization.SourceFileProto.FileOnDisk;
 import com.google.javascript.jscomp.serialization.SourceFileProto.ZipEntryOnDisk;
@@ -34,13 +36,11 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.Reader;
 import java.io.Serializable;
 import java.io.StringReader;
+import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
-import java.nio.charset.MalformedInputException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -50,7 +50,7 @@ import java.util.List;
 import java.util.function.Supplier;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /**
  * An abstract representation of a source file that provides access to language-neutral features.
@@ -59,17 +59,12 @@ import javax.annotation.Nullable;
  * string. Loading is done as lazily as possible to minimize IO delays and memory cost of source
  * text.
  */
-public final class SourceFile implements StaticSourceFile, Serializable {
-
-  private static final long serialVersionUID = 1L;
+public final class SourceFile implements StaticSourceFile {
   private static final String UTF8_BOM = "\uFEFF";
 
   private static final String BANG_SLASH = "!" + Platform.getFileSeperator();
 
-  /**
-   * Number of lines in the region returned by {@link #getRegion(int)}.
-   * This length must be odd.
-   */
+  /** Number of lines in the region returned by {@link #getRegion(int)}. This length must be odd. */
   private static final int SOURCE_EXCERPT_REGION_LENGTH = 5;
 
   /**
@@ -85,9 +80,14 @@ public final class SourceFile implements StaticSourceFile, Serializable {
   private final CodeLoader loader;
 
   // Source Line Information
-  private transient int[] lineOffsets = null;
+  private int @Nullable [] lineOffsets = null;
 
-  private transient volatile String code = null;
+  private volatile @Nullable String code = null;
+
+  // Code statistics used for metrics.
+  // For both of these, a negative value means we haven't counted yet.
+  private int numLines = -1;
+  private int numBytes = -1;
 
   private SourceFile(CodeLoader loader, String fileName, SourceKind kind) {
     if (isNullOrEmpty(fileName)) {
@@ -108,16 +108,54 @@ public final class SourceFile implements StaticSourceFile, Serializable {
     findLineOffsets();
     if (lineno < 1 || lineno > lineOffsets.length) {
       throw new IllegalArgumentException(
-          "Expected line number between 1 and " + lineOffsets.length +
-          "\nActual: " + lineno);
+          "Expected line number between 1 and " + lineOffsets.length + "\nActual: " + lineno);
     }
     return lineOffsets[lineno - 1];
   }
 
-  /** @return The number of lines in this source file. */
+  /**
+   * Returns the number of lines in the source file.
+   *
+   * <p>NOTE: this may be stale if the SourceFile has been {@link #clearCachedSource cleared} and
+   * the file has changed on disk. If being fully accurate is required call {@link #getCode} and
+   * then call this method.
+   */
   int getNumLines() {
-    findLineOffsets();
-    return lineOffsets.length;
+    if (numLines < 0) {
+      // A negative value means we need to read in the code and calculate this information.
+      // Otherwise, assume the file hasn't changed since we read it.
+      try {
+        var unused = getCode();
+      } catch (IOException e) {
+        // this is consistent with old behavior of this method.
+        return 0;
+      }
+    }
+    return numLines;
+  }
+
+  /**
+   * Returns the number of bytes in the source file
+   *
+   * <p>Oddly, bytes is defined as 'length of code as a Java String' this is accurate assuming files
+   * only use Latin1 characters but may be inaccurate outside of that.
+   *
+   * <p>NOTE: this may be stale if the SourceFile has been {@link #clearCachedSource cleared} and
+   * the file has changed on disk. If being fully accurate is required call {@link #getCode} and
+   * then call this method.
+   */
+  int getNumBytes() {
+    if (numBytes < 0) {
+      // A negative value means we need to read in the code and calculate this information.
+      // Otherwise, assume the file hasn't changed since we read it.
+      try {
+        var unused = getCode();
+      } catch (IOException e) {
+        // this is consistent with old behavior of this method.
+        return 0;
+      }
+    }
+    return numBytes;
   }
 
   private void findLineOffsets() {
@@ -125,24 +163,28 @@ public final class SourceFile implements StaticSourceFile, Serializable {
       return;
     }
 
-    if (this.code == null) {
+    String localCode = this.code;
+    if (localCode == null) {
       try {
-        // Loading the code calls `findLineOffsets`.
-        // It's possible to have lineOffsets without code after deserialization.
-        this.getCode();
+        localCode = this.getCode();
       } catch (IOException e) {
+        localCode = "";
         this.lineOffsets = new int[1];
+        return;
       }
-
-      checkNotNull(this.lineOffsets);
-      return;
     }
 
-    String[] sourceLines = this.code.split("\n", -1);
-    this.lineOffsets = new int[sourceLines.length];
-    for (int ii = 1; ii < sourceLines.length; ++ii) {
-      this.lineOffsets[ii] = this.lineOffsets[ii - 1] + sourceLines[ii - 1].length() + 1;
+    // getCode() updates numLines, so this is always in sync with the code.
+    int[] offsets = new int[this.numLines];
+    int index = 1; // start at 1 since the offset for line 0 is always at byte 0
+    int offset = 0;
+    while ((offset = localCode.indexOf('\n', offset)) != -1) {
+      // +1 because this is the offset of the next line which is one past the newline
+      offset++;
+      offsets[index++] = offset;
     }
+    checkState(index == offsets.length);
+    this.lineOffsets = offsets;
   }
 
   /** Gets all the code in this source file. */
@@ -165,9 +207,7 @@ public final class SourceFile implements StaticSourceFile, Serializable {
     this.setCodeAndDoBookkeeping(code);
   }
 
-  /**
-   * Gets a reader for the code in this source file.
-   */
+  /** Gets a reader for the code in this source file. */
   @GwtIncompatible("java.io.Reader")
   public Reader getCodeReader() throws IOException {
     // Only synchronize if we need to
@@ -186,8 +226,9 @@ public final class SourceFile implements StaticSourceFile, Serializable {
     return new StringReader(this.getCode());
   }
 
-  private void setCodeAndDoBookkeeping(String sourceCode) {
+  private void setCodeAndDoBookkeeping(@Nullable String sourceCode) {
     this.code = null;
+    // Force recalculation of all of these values when they are requested.
     this.lineOffsets = null;
 
     if (sourceCode != null) {
@@ -196,12 +237,27 @@ public final class SourceFile implements StaticSourceFile, Serializable {
       }
 
       this.code = sourceCode;
-
-      this.findLineOffsets();
+      // Update numLines and numBytes
+      // NOTE: In some edit/refresh development workflows, we may end up re-reading the file
+      //       and getting different numbers than we got last time we read it, so we should
+      //       not have checkState() calls here to assert they have not changed.
+      // Misleading variable name.  This really stores the 'number of utf16' code points which is
+      // not the same as number of bytes.
+      this.numBytes = sourceCode.length();
+      int numLines = 1; // there is always at least one line
+      int index = 0;
+      while ((index = sourceCode.indexOf('\n', index)) != -1) {
+        index++;
+        numLines++;
+      }
+      this.numLines = numLines;
     }
   }
 
-  /** @deprecated alias of {@link #getName()}. Use that instead */
+  /**
+   * @deprecated alias of {@link #getName()}. Use that instead
+   */
+  @InlineMe(replacement = "this.getName()")
   @Deprecated
   public String getOriginalPath() {
     return this.getName();
@@ -264,11 +320,16 @@ public final class SourceFile implements StaticSourceFile, Serializable {
    * Gets the source line for the indicated line number.
    *
    * @param lineNumber the line number, 1 being the first line of the file.
-   * @return The line indicated. Does not include the newline at the end
-   *     of the file. Returns {@code null} if it does not exist,
-   *     or if there was an IO exception.
+   * @return The line indicated. Does not include the newline at the end of the file. Returns {@code
+   *     null} if it does not exist, or if there was an IO exception.
    */
-  public String getLine(int lineNumber) {
+  public @Nullable String getLine(int lineNumber) {
+    String js;
+    try {
+      js = getCode();
+    } catch (IOException e) {
+      return null;
+    }
     findLineOffsets();
     if (lineNumber > lineOffsets.length) {
       return null;
@@ -279,15 +340,6 @@ public final class SourceFile implements StaticSourceFile, Serializable {
     }
 
     int pos = lineOffsets[lineNumber - 1];
-    String js = "";
-    try {
-      // NOTE(nicksantos): Right now, this is optimized for few warnings.
-      // This is probably the right trade-off, but will be slow if there
-      // are lots of warnings in one file.
-      js = getCode();
-    } catch (IOException e) {
-      return null;
-    }
 
     if (js.indexOf('\n', pos) == -1) {
       // If next new line cannot be found, there are two cases
@@ -313,7 +365,13 @@ public final class SourceFile implements StaticSourceFile, Serializable {
    * @return The line(s) indicated. Returns {@code null} if it does not exist or if there was an IO
    *     exception.
    */
-  public Region getLines(int lineNumber, int length) {
+  public @Nullable Region getLines(int lineNumber, int length) {
+    String js;
+    try {
+      js = getCode();
+    } catch (IOException e) {
+      return null;
+    }
     findLineOffsets();
     if (lineNumber > lineOffsets.length) {
       return null;
@@ -324,13 +382,6 @@ public final class SourceFile implements StaticSourceFile, Serializable {
     }
     if (length <= 0) {
       length = 1;
-    }
-
-    String js = "";
-    try {
-      js = getCode();
-    } catch (IOException e) {
-      return null;
     }
 
     int pos = lineOffsets[lineNumber - 1];
@@ -360,7 +411,7 @@ public final class SourceFile implements StaticSourceFile, Serializable {
    * @return The line indicated. Returns {@code null} if it does not exist, or if there was an IO
    *     exception.
    */
-  public Region getRegion(int lineNumber) {
+  public @Nullable Region getRegion(int lineNumber) {
     String js = "";
     try {
       js = getCode();
@@ -391,8 +442,7 @@ public final class SourceFile implements StaticSourceFile, Serializable {
     if (end == -1) {
       int last = js.length() - 1;
       if (js.charAt(last) == '\n') {
-        return
-            new SimpleRegion(startLine, endLine, js.substring(pos, last));
+        return new SimpleRegion(startLine, endLine, js.substring(pos, last));
       } else {
         return new SimpleRegion(startLine, endLine, js.substring(pos));
       }
@@ -461,9 +511,59 @@ public final class SourceFile implements StaticSourceFile, Serializable {
     return builder().withPath(fileName).withContent(code).build();
   }
 
+  /**
+   * Reconciles serialized state in a {@link SourceFileProto} with the existing state in this file.
+   *
+   * <p>This should be called whenever initializing a compilation based on TypedAST protos. For
+   * these compilations, the compiler initalization methods require creating SourceFiles before
+   * deserializing TypedAST protos, so we sometimes get two copies of the same SourceFile.)
+   */
+  public void restoreCachedStateFrom(SourceFileProto protoSourceFile) {
+    checkState(
+        protoSourceFile.getFilename().equals(this.getName()),
+        "Cannot restore state for %s from %s",
+        this.getName(),
+        protoSourceFile.getFilename());
+    // TypedAST proto information is expected to be more accurate for:
+    //  1) whether a SourceFile contains an @extern annotation or not. In non-TypedAST
+    //    builds, we allow passing @extern files under the --js flag.  For TypedAST builds, we
+    //    could support this, but it's an uncommon pattern and trickier to support than ban.
+    //  2) tracking some extra state that is lazily computed in a SourceFile, like the number of
+    //     lines and bytes in a file. SourceFile::restoreCachedStateFrom handles this case.
+    // Note: the state in the proto might be incorrect in other cases, since some state cannot be
+    // computed during library-level typechecking (e.g. what files are in the weak chunk)
+    if (protoSourceFile.getSourceKind() == SourceFileProto.SourceKind.EXTERN) {
+      checkState(
+          this.getKind() == SourceKind.EXTERN,
+          "TypedAST compilations must pass all extern files as externs, not js, but found %s",
+          this.getName());
+    }
+
+    // Restore the number of lines/bytes from the proto, unless we already have cached
+    // numLines and numBytes. Offset by 1. the proto "unset" value is 0, where as in SourceFile we
+    // use "-1"
+    int protoNumLines = protoSourceFile.getNumLinesPlusOne() - 1;
+    int protoNumBytes = protoSourceFile.getNumBytesPlusOne() - 1;
+    // It's possible that this.numLines and protoNumLines are both not "-1" but contain
+    // conflicting values. This would happen if a file changes on disk after TypedAST
+    // proto serialization. We choose the proto value over this.numLines because this
+    // data is intended for metrics recording, which should care most about the size of a
+    // file when compilation began and parsing ran.
+    this.numLines = protoNumLines != -1 ? protoNumLines : this.numLines;
+    this.numBytes = protoNumBytes != -1 ? protoNumBytes : this.numBytes;
+  }
+
   @GwtIncompatible("java.io.Reader")
   public static SourceFile fromProto(SourceFileProto protoSourceFile) {
     SourceKind sourceKind = getSourceKindFromProto(protoSourceFile);
+    SourceFile sourceFile = fromProto(protoSourceFile, sourceKind);
+    // Restore the number of lines/bytes, which are offset by 1 in the proto.
+    sourceFile.numLines = protoSourceFile.getNumLinesPlusOne() - 1;
+    sourceFile.numBytes = protoSourceFile.getNumBytesPlusOne() - 1;
+    return sourceFile;
+  }
+
+  private static SourceFile fromProto(SourceFileProto protoSourceFile, SourceKind sourceKind) {
     switch (protoSourceFile.getLoaderCase()) {
       case PRELOADED_CONTENTS:
         return SourceFile.fromCode(
@@ -529,23 +629,25 @@ public final class SourceFile implements StaticSourceFile, Serializable {
   public static final class Builder {
     private SourceKind kind = SourceKind.STRONG;
     private Charset charset = UTF_8;
-    private String originalPath = null;
+    private @Nullable String originalPath = null;
 
-    private String path = null;
-    private Path pathWithFilesystem = null;
-    private String zipEntryPath = null;
+    private @Nullable String path = null;
+    private @Nullable Path pathWithFilesystem = null;
+    private @Nullable String zipEntryPath = null;
 
-    private Supplier<String> lazyContent = null;
+    private @Nullable Supplier<String> lazyContent = null;
 
     private Builder() {}
 
     /** Set the source kind. */
+    @CanIgnoreReturnValue
     public Builder withKind(SourceKind kind) {
       this.kind = kind;
       return this;
     }
 
     /** Set the charset to use when reading from an input stream or file. */
+    @CanIgnoreReturnValue
     public Builder withCharset(Charset charset) {
       this.charset = charset;
       return this;
@@ -559,11 +661,13 @@ public final class SourceFile implements StaticSourceFile, Serializable {
       return this.withPathInternal(path.toString(), path);
     }
 
+    @CanIgnoreReturnValue
     public Builder withContent(String x) {
       this.lazyContent = x::toString;
       return this;
     }
 
+    @CanIgnoreReturnValue
     @GwtIncompatible
     public Builder withContent(InputStream x) {
       this.lazyContent =
@@ -578,6 +682,7 @@ public final class SourceFile implements StaticSourceFile, Serializable {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder withZipEntryPath(String zipPath, String entryPath) {
       this.path = zipPath;
       this.zipEntryPath = entryPath;
@@ -593,6 +698,7 @@ public final class SourceFile implements StaticSourceFile, Serializable {
      *
      * <p>The name must still be unique.
      */
+    @CanIgnoreReturnValue
     public Builder withOriginalPath(String originalPath) {
       this.originalPath = originalPath;
       return this;
@@ -701,9 +807,7 @@ public final class SourceFile implements StaticSourceFile, Serializable {
       private static final long serialVersionUID = 1L;
 
       private final String serializableCharset;
-      // TODO(b/180553215): We shouldn't store this Path. We already have to reconstruct it from a
-      // string during deserialization.
-      private transient Path relativePath;
+      private final Path relativePath;
 
       OnDisk(Path relativePath, Charset c) {
         super();
@@ -714,9 +818,9 @@ public final class SourceFile implements StaticSourceFile, Serializable {
       @Override
       @GwtIncompatible
       String loadUncachedCode() throws IOException {
-        try (Reader r = this.openUncachedReader()) {
-          return CharStreams.toString(r);
-        } catch (MalformedInputException e) {
+        try {
+          return Files.readString(this.relativePath, this.getCharset());
+        } catch (CharacterCodingException e) {
           throw new IOException(
               "Failed to read: " + this.relativePath + ", is this input UTF-8 encoded?", e);
         }
@@ -726,18 +830,6 @@ public final class SourceFile implements StaticSourceFile, Serializable {
       @GwtIncompatible
       Reader openUncachedReader() throws IOException {
         return Files.newBufferedReader(this.relativePath, this.getCharset());
-      }
-
-      @GwtIncompatible
-      private void writeObject(ObjectOutputStream out) throws Exception {
-        out.defaultWriteObject();
-        out.writeObject(this.relativePath.toString());
-      }
-
-      @GwtIncompatible
-      private void readObject(ObjectInputStream in) throws Exception {
-        in.defaultReadObject();
-        this.relativePath = Paths.get((String) in.readObject());
       }
 
       private Charset getCharset() {
@@ -803,84 +895,13 @@ public final class SourceFile implements StaticSourceFile, Serializable {
     }
   }
 
-  public void restoreFrom(SourceFile other) {
-    // TODO(b/181147184): determine if this method is necessary after moving to TypedAST
-    this.code = other.code;
-    this.lineOffsets = other.lineOffsets;
-  }
-
-  @GwtIncompatible("ObjectOutputStream")
-  private void writeObject(ObjectOutputStream os) throws Exception {
-    checkState(
-        this.getKind().equals(SourceKind.NON_CODE),
-        "JS SourceFiles must not be serialized and are reconstructed by TypedAstDeserializer. "
-            + "\nHit on:  %s",
-        this);
-    os.defaultWriteObject();
-    this.serializeLineOffsetsToVarintDeltas(os);
-  }
-
-  @GwtIncompatible("ObjectInputStream")
-  private void readObject(ObjectInputStream in) throws Exception {
-    in.defaultReadObject();
-    this.deserializeVarintDeltasToLineOffsets(in);
-  }
-
-  private static final int SEVEN_BITS = 0b01111111;
-
-  @GwtIncompatible("ObjectOutputStream")
-  private void serializeLineOffsetsToVarintDeltas(ObjectOutputStream os) throws Exception {
-    if (this.lineOffsets == null) {
-      os.writeInt(-1);
-      return;
-    }
-
-    os.writeInt(this.lineOffsets.length);
-
-    // The first offset is always 0.
-    for (int intIndex = 1; intIndex < this.lineOffsets.length; intIndex++) {
-      int delta = this.lineOffsets[intIndex] - this.lineOffsets[intIndex - 1];
-      while (delta > SEVEN_BITS) {
-        os.writeByte(delta | ~SEVEN_BITS);
-        delta = delta >>> 7;
-      }
-      os.writeByte(delta);
-    }
-  }
-
-  @GwtIncompatible("ObjectInputStream")
-  private void deserializeVarintDeltasToLineOffsets(ObjectInputStream in) throws Exception {
-    int lineCount = in.readInt();
-    if (lineCount == -1) {
-      this.lineOffsets = null;
-      return;
-    }
-
-    int[] lineOffsets = new int[lineCount];
-
-    // The first offset is always 0.
-    for (int intIndex = 1; intIndex < lineCount; intIndex++) {
-      int delta = 0;
-      int shift = 0;
-
-      byte segment = in.readByte();
-      for (; segment < 0; segment = in.readByte()) {
-        delta |= (segment & SEVEN_BITS) << shift;
-        shift += 7;
-      }
-      delta |= segment << shift;
-
-      lineOffsets[intIndex] = delta + lineOffsets[intIndex - 1];
-    }
-
-    this.lineOffsets = lineOffsets;
-  }
-
   public SourceFileProto getProto() {
     return this.loader
         .toProtoLocationBuilder(this.getName())
         .setFilename(this.getName())
         .setSourceKind(sourceKindToProto(this.getKind()))
+        .setNumLinesPlusOne(this.numLines + 1)
+        .setNumBytesPlusOne(this.numBytes + 1)
         .build();
   }
 

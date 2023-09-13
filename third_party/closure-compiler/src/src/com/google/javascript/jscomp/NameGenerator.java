@@ -18,7 +18,7 @@ package com.google.javascript.jscomp;
 
 import java.io.Serializable;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 
 /** A class that generates unique JavaScript variable/property names. */
 public interface NameGenerator extends Serializable {
@@ -32,7 +32,7 @@ public interface NameGenerator extends Serializable {
    * @param prefix all generated names begin with this prefix.
    * @param reservedCharacters If specified these characters won't be used in generated names
    */
-  void reset(Set<String> reservedNames, String prefix, @Nullable char[] reservedCharacters);
+  void reset(Set<String> reservedNames, String prefix, char @Nullable [] reservedCharacters);
 
   /**
    * Reconfigures this NameGenerator, and resets it to the initial state.
@@ -49,16 +49,12 @@ public interface NameGenerator extends Serializable {
   void reset(
       Set<String> reservedNames,
       String prefix,
-      @Nullable char[] reservedFirstCharacters,
-      @Nullable char[] reservedNonFirstCharacters);
+      char @Nullable [] reservedFirstCharacters,
+      char @Nullable [] reservedNonFirstCharacters);
 
-  /**
-   * Returns a clone of this NameGenerator, reconfigured and reset.
-   */
+  /** Returns a clone of this NameGenerator, reconfigured and reset. */
   NameGenerator clone(
-      Set<String> reservedNames,
-      String prefix,
-      @Nullable char[] reservedCharacters);
+      Set<String> reservedNames, String prefix, char @Nullable [] reservedCharacters);
 
   /** Generates the next name. */
   public String generateNextName();

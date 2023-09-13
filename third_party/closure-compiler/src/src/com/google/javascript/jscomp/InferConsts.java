@@ -19,13 +19,13 @@ package com.google.javascript.jscomp;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Attaches the CONST_VAR annotation to any variable that's
  * 1) Provably well-defined and assigned once in its lifetime.
  * 2) Annotated 'const'
  * 3) Declared with the 'const' keyword.
- * 4) Is constant by naming convention.
  *
  * These 3 are considered semantically equivalent. Notice that a variable
  * in a loop is never considered const.
@@ -56,7 +56,7 @@ class InferConsts implements CompilerPass {
     }
   }
 
-  private void considerVar(Var v, ReferenceCollection refCollection) {
+  private void considerVar(Var v, @Nullable ReferenceCollection refCollection) {
     if (v.isImplicitGoogNamespace()) {
       return; // no name node for provided variables.
     }
@@ -65,9 +65,6 @@ class InferConsts implements CompilerPass {
     if (docInfo != null && docInfo.isConstant()) {
       nameNode.setDeclaredConstantVar(true);
     } else if (nameNode != null && nameNode.getParent().isConst()) {
-      nameNode.setDeclaredConstantVar(true);
-    } else if (nameNode != null
-        && compiler.getCodingConvention().isConstant(nameNode.getString())) {
       nameNode.setDeclaredConstantVar(true);
     }
     if (isInferredConst(v, refCollection)) {

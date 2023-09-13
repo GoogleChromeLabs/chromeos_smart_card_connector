@@ -19,9 +19,10 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.javascript.jscomp.NodeUtil.Visitor;
 import com.google.javascript.rhino.Node;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
@@ -37,6 +38,7 @@ public class ChangeVerifier {
     this.compiler = compiler;
   }
 
+  @CanIgnoreReturnValue
   ChangeVerifier snapshot(Node root) {
     // remove any existing snapshot data.
     clonesByCurrent.clear();
@@ -79,7 +81,7 @@ public class ChangeVerifier {
     final String passNameMsg = passName.isEmpty() ? "" : passName + ": ";
 
     // Gather all the scope nodes that existed when the snapshot was taken.
-    final Set<Node> snapshotScopeNodes = new HashSet<>();
+    final Set<Node> snapshotScopeNodes = new LinkedHashSet<>();
     NodeUtil.visitPreOrder(
         clonesByCurrent.get(root),
         new Visitor() {

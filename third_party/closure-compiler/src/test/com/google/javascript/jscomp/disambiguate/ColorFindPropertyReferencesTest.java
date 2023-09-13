@@ -55,7 +55,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.nullness.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -67,7 +67,7 @@ public final class ColorFindPropertyReferencesTest extends CompilerTestCase {
 
   private final Compiler compiler = new Compiler();
 
-  private CompilerPass processor;
+  private @Nullable CompilerPass processor;
   private ImmutableSet<String> expectedOriginalNameTypes = ImmutableSet.of();
 
   /**

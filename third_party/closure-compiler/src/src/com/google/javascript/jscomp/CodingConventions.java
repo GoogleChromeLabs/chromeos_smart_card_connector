@@ -16,8 +16,6 @@
 
 package com.google.javascript.jscomp;
 
-import static com.google.common.base.Preconditions.checkState;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.Immutable;
@@ -27,11 +25,13 @@ import com.google.javascript.rhino.NominalTypeBuilder;
 import com.google.javascript.rhino.QualifiedName;
 import com.google.javascript.rhino.StaticSourceFile;
 import com.google.javascript.rhino.jstype.FunctionType;
+import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import com.google.javascript.rhino.jstype.ObjectType;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Helper classes for dealing with coding conventions.
@@ -199,11 +199,6 @@ public final class CodingConventions {
     }
 
     @Override
-    public boolean isInlinableFunction(Node n) {
-      return nextConvention.isInlinableFunction(n);
-    }
-
-    @Override
     public DelegateRelationship getDelegateRelationship(Node callNode) {
       return nextConvention.getDelegateRelationship(callNode);
     }
@@ -354,11 +349,12 @@ public final class CodingConventions {
       return CodingConvention.super.isExported(name);
     }
 
+    private static final QualifiedName JSCOMP_INHERITS = QualifiedName.of("$jscomp.inherits");
+
     @Override
-    public SubclassRelationship getClassesDefinedByCall(Node callNode) {
+    public @Nullable SubclassRelationship getClassesDefinedByCall(Node callNode) {
       Node callName = callNode.getFirstChild();
-      if ((callName.matchesQualifiedName("$jscomp.inherits")
-              || callName.matchesName("$jscomp$inherits"))
+      if ((JSCOMP_INHERITS.matches(callName) || callName.matchesName("$jscomp$inherits"))
           && callNode.hasXChildren(3)) {
         Node subclass = callName.getNext();
         Node superclass = subclass.getNext();
@@ -410,7 +406,7 @@ public final class CodingConventions {
 
     @Override
     public List<String> identifyTypeDeclarationCall(Node n) {
-      return null;
+      return ImmutableList.of();
     }
 
     @Override
@@ -433,12 +429,6 @@ public final class CodingConventions {
     public void applySingletonGetter(
         NominalTypeBuilder classType, FunctionType getterType) {
       // do nothing.
-    }
-
-    @Override
-    public boolean isInlinableFunction(Node n) {
-      checkState(n.isFunction(), n);
-      return true;
     }
 
     @Override
@@ -523,8 +513,11 @@ public final class CodingConventions {
       return describeFunctionBind(n, false, false);
     }
 
+    private static final QualifiedName FUNCTION_PROTOTYPE_BIND_CALL =
+        QualifiedName.of("Function.prototype.bind.call");
+
     @Override
-    public Bind describeFunctionBind(
+    public @Nullable Bind describeFunctionBind(
         Node n, boolean callerChecksTypes, boolean iCheckTypes) {
       if (!n.isCall()) {
         return null;
@@ -532,7 +525,7 @@ public final class CodingConventions {
 
       Node callTarget = n.getFirstChild();
       if (callTarget.isQualifiedName()) {
-        if (callTarget.matchesQualifiedName("Function.prototype.bind.call")) {
+        if (FUNCTION_PROTOTYPE_BIND_CALL.matches(callTarget)) {
           // goog.bind(fn, self, args...);
           Node fn = callTarget.getNext();
           if (fn == null) {
@@ -546,8 +539,7 @@ public final class CodingConventions {
 
       if (callTarget.isGetProp() && callTarget.getString().equals("bind")) {
         Node maybeFn = callTarget.getFirstChild();
-        com.google.javascript.rhino.jstype.JSType maybeFnType =
-            maybeFn.getJSType();
+        JSType maybeFnType = maybeFn.getJSType();
         FunctionType fnType = null;
         if (iCheckTypes && maybeFnType != null) {
           fnType = maybeFnType.restrictByNotNullOrUndefined()
@@ -575,7 +567,7 @@ public final class CodingConventions {
       return ImmutableList.of();
     }
 
-    private static Node safeNext(Node n) {
+    private static @Nullable Node safeNext(Node n) {
       if (n != null) {
         return n.getNext();
       }

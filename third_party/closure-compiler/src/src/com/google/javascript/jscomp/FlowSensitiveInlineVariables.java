@@ -17,6 +17,7 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.Predicate;
@@ -32,12 +33,12 @@ import com.google.javascript.jscomp.graph.DiGraph.DiGraphEdge;
 import com.google.javascript.jscomp.graph.DiGraph.DiGraphNode;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import org.jspecify.nullness.Nullable;
 
 /**
  * Inline variables when possible. Using the information from {@link MaybeReachingVariableUse} and
@@ -82,7 +83,7 @@ class FlowSensitiveInlineVariables implements CompilerPass, ScopedCallback {
   private class SideEffectPredicate implements Predicate<Node> {
     // Check if there are side effects affecting the value of any of these names
     // (but not properties defined on that name)
-    private final Set<String> namesToCheck;
+    private final @Nullable Set<String> namesToCheck;
 
     public SideEffectPredicate() {
       namesToCheck = null;
@@ -177,11 +178,12 @@ class FlowSensitiveInlineVariables implements CompilerPass, ScopedCallback {
     SyntacticScopeCreator scopeCreator = (SyntacticScopeCreator) t.getScopeCreator();
 
     // Compute the forward reaching definition.
-    ControlFlowAnalysis cfa = new ControlFlowAnalysis(compiler, false, true);
-
-    // Process the body of the function.
-    cfa.process(null, functionScopeRoot);
-    cfg = cfa.getCfg();
+    cfg =
+        ControlFlowAnalysis.builder()
+            .setCompiler(compiler)
+            .setCfgRoot(functionScopeRoot)
+            .setIncludeEdgeAnnotations(true)
+            .computeCfg();
 
     HashSet<Var> escaped = new HashSet<>();
     Scope scope = t.getScope();
@@ -204,7 +206,8 @@ class FlowSensitiveInlineVariables implements CompilerPass, ScopedCallback {
     reachingUses.analyze();
     while (!candidates.isEmpty()) {
       Candidate c = candidates.iterator().next();
-      if (c.canInline(t.getScope())) {
+      Var candidateVar = checkNotNull(allVarsInFn.get(c.varName));
+      if (c.canInline(candidateVar.getScope())) {
         c.inlineVariable();
         candidates.remove(c);
 
@@ -284,7 +287,7 @@ class FlowSensitiveInlineVariables implements CompilerPass, ScopedCallback {
   }
 
   private class GatherCandidatesCfgNodeCallback extends AbstractCfgNodeTraversalCallback {
-    Node cfgNode = null;
+    @Nullable Node cfgNode = null;
 
     public void setCfgNode(Node cfgNode) {
       this.cfgNode = cfgNode;
@@ -312,7 +315,8 @@ class FlowSensitiveInlineVariables implements CompilerPass, ScopedCallback {
         }
 
         String name = n.getString();
-        if (compiler.getCodingConvention().isExported(name)) {
+        // This pass only runs on local scopes.
+        if (compiler.getCodingConvention().isExported(name, /* local= */ true)) {
           return;
         }
 
@@ -445,9 +449,7 @@ class FlowSensitiveInlineVariables implements CompilerPass, ScopedCallback {
         return false;
       }
 
-      Collection<Node> uses = reachingUses.getUses(varName, getDefCfgNode());
-
-      if (uses.size() != 1) {
+      if (!hasExactlyOne(reachingUses.getUses(varName, getDefCfgNode()))) {
         return false;
       }
 
@@ -476,6 +478,17 @@ class FlowSensitiveInlineVariables implements CompilerPass, ScopedCallback {
       }
 
       return true;
+    }
+
+    boolean hasExactlyOne(Iterable<Node> iterable) {
+      Iterator<Node> iterator = iterable.iterator();
+      if (iterator.hasNext()) {
+        iterator.next();
+        if (!iterator.hasNext()) {
+          return true;
+        }
+      }
+      return false;
     }
 
     /**
