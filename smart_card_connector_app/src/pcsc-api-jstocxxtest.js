@@ -111,7 +111,7 @@ async function establishContextOrThrow() {
  * @param {number} assertResultProtocol
  * @return {!Promise<!API.SCARDHANDLE>}
  */
-async function connectToCardOrThrow(
+async function connectToReaderOrThrow(
     sCardContext, readerName, shareMode, preferredProtocols,
     assertResultProtocol) {
   const result = await client.api.SCardConnect(
@@ -992,7 +992,7 @@ goog.exportSymbol('testPcscApi', {
             'cardType': SimulationConstants.COSMO_CARD_TYPE
           }]);
       const context = await establishContextOrThrow();
-      const cardHandle = await connectToCardOrThrow(
+      const cardHandle = await connectToReaderOrThrow(
           context, SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
           API.SCARD_SHARE_SHARED,
           /*preferredProtocols=*/ API.SCARD_PROTOCOL_T1,
@@ -1023,7 +1023,7 @@ goog.exportSymbol('testPcscApi', {
             'cardType': SimulationConstants.COSMO_CARD_TYPE
           }]);
       const context = await establishContextOrThrow();
-      const cardHandle = await connectToCardOrThrow(
+      const cardHandle = await connectToReaderOrThrow(
           context, SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
           API.SCARD_SHARE_SHARED,
           /*preferredProtocols=*/ API.SCARD_PROTOCOL_ANY,
@@ -1055,7 +1055,7 @@ goog.exportSymbol('testPcscApi', {
             'cardType': SimulationConstants.COSMO_CARD_TYPE
           }]);
       const context = await establishContextOrThrow();
-      const cardHandle = await connectToCardOrThrow(
+      const cardHandle = await connectToReaderOrThrow(
           context, SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
           API.SCARD_SHARE_SHARED,
           /*preferredProtocols=*/ API.SCARD_PROTOCOL_ANY,
@@ -1092,7 +1092,7 @@ goog.exportSymbol('testPcscApi', {
             'cardType': SimulationConstants.COSMO_CARD_TYPE
           }]);
       const context = await establishContextOrThrow();
-      const cardHandle = await connectToCardOrThrow(
+      const cardHandle = await connectToReaderOrThrow(
           context, SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
           API.SCARD_SHARE_SHARED,
           /*preferredProtocols=*/ API.SCARD_PROTOCOL_ANY,
@@ -1125,7 +1125,7 @@ goog.exportSymbol('testPcscApi', {
             'cardType': SimulationConstants.COSMO_CARD_TYPE
           }]);
       const context = await establishContextOrThrow();
-      const cardHandle = await connectToCardOrThrow(
+      const cardHandle = await connectToReaderOrThrow(
           context, SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
           API.SCARD_SHARE_SHARED,
           /*preferredProtocols=*/ API.SCARD_PROTOCOL_ANY,
@@ -1184,7 +1184,7 @@ goog.exportSymbol('testPcscApi', {
             'cardType': SimulationConstants.COSMO_CARD_TYPE
           }]);
       const context = await establishContextOrThrow();
-      const cardHandle = await connectToCardOrThrow(
+      const cardHandle = await connectToReaderOrThrow(
           context, SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
           API.SCARD_SHARE_SHARED,
           /*preferredProtocols=*/ API.SCARD_PROTOCOL_ANY,
