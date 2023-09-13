@@ -46,6 +46,9 @@ const SimulationConstants = GSC.TestingLibusbSmartCardSimulationConstants;
 const ArgMatcher = goog.testing.mockmatchers.ArgumentMatcher;
 
 const PNP_NOTIFICATION = GSC.PcscLiteCommon.Constants.PNP_NOTIFICATION;
+// The constant taken from PCSC implementation.
+// Id of the attribute signaling that device has been removed.
+const TAG_IFD_DEVICE_REMOVED = 0x0FB4;
 
 /** @type {GSC.IntegrationTestController?} */
 let testController;
@@ -715,7 +718,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
       await setSimulatedDevices(/*devices=*/[]);
 
       // Status should eventually return a READER_UNAVAILABLE error.
-      for (let requestId = 111; ; requestId += 1) {
+      for (let requestId = 111;; requestId += 1) {
         const ignore = goog.testing.mockmatchers.ignoreArgument;
         let savedArgs;
         getFreshMock('reportStatusResult')(
@@ -768,7 +771,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
       ]);
 
       // Status should eventually return a REMOVED_CARD error.
-      for (let requestId = 111; ; requestId += 1) {
+      for (let requestId = 111;; requestId += 1) {
         const ignore = goog.testing.mockmatchers.ignoreArgument;
         let savedArgs;
         getFreshMock('reportStatusResult')(
@@ -824,6 +827,31 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
           .dispatchEvent(
               'onGetAttribRequested', /*requestId=*/ 111, readerHandle,
               API.SCARD_ATTR_ATR_STRING)
+          .$waitAndVerify();
+    },
+
+    // Test that SetAttrib fails for unsupported attributes.
+    'testSetAttrib_error': async function() {
+      expectReportPlainResult(/*requestId=*/ 111, 'INVALID_PARAMETER');
+
+      await mockChromeApi
+          .dispatchEvent(
+              'onSetAttribRequested', /*requestId=*/ 111, readerHandle,
+              API.SCARD_ATTR_ATR_STRING, /*data=*/ new ArrayBuffer(0))
+          .$waitAndVerify();
+    },
+
+    // Test that SetAttrib works for supported attribute.
+    'testSetAttrib_success': async function() {
+      expectReportPlainResult(/*requestId=*/ 111, 'SUCCESS');
+
+      // TAG_IFD_DEVICE_REMOVED is used with a value of 0 here. This is a no-op.
+      // Nothing will happen to the reader. 
+      // The goal is just to test `SetAttrib` returning the `SUCCESS` value.
+      await mockChromeApi
+          .dispatchEvent(
+              'onSetAttribRequested', /*requestId=*/ 111, readerHandle,
+              TAG_IFD_DEVICE_REMOVED, /*data=*/ new Uint8Array(['0x0']))
           .$waitAndVerify();
     },
   }
