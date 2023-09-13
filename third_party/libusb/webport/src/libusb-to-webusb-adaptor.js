@@ -232,12 +232,12 @@ GSC.LibusbToWebusbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
 
   /** @override */
   async bulkTransfer(deviceId, deviceHandle, parameters) {
-    return this.genericTransfer_(deviceId, deviceHandle, parameters);
+    return await this.genericTransfer_(deviceId, deviceHandle, parameters);
   }
 
   /** @override */
   async interruptTransfer(deviceId, deviceHandle, parameters) {
-    return this.genericTransfer_(deviceId, deviceHandle, parameters);
+    return await this.genericTransfer_(deviceId, deviceHandle, parameters);
   }
 
   /**

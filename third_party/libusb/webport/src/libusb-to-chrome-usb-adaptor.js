@@ -144,13 +144,13 @@ GSC.LibusbToChromeUsbAdaptor = class extends GSC.LibusbToJsApiAdaptor {
 
   /** @override */
   async bulkTransfer(deviceId, deviceHandle, parameters) {
-    return this.genericTransfer_(
+    return await this.genericTransfer_(
         chrome.usb.bulkTransfer, deviceId, deviceHandle, parameters);
   }
 
   /** @override */
   async interruptTransfer(deviceId, deviceHandle, parameters) {
-    return this.genericTransfer_(
+    return await this.genericTransfer_(
         chrome.usb.interruptTransfer, deviceId, deviceHandle, parameters);
   }
 

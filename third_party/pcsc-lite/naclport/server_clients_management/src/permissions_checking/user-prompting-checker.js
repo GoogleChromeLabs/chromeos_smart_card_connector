@@ -346,7 +346,7 @@ UserPromptingChecker.prototype.promptUserForTrustedClient_ =
       this.logger,
       'Showing the user prompt for the known client ' + clientOrigin +
           ' named "' + trustedClientInfo.name + '"...');
-  return this.runPromptDialog_(clientOrigin, {
+  return await this.runPromptDialog_(clientOrigin, {
     'is_client_known': true,
     'client_info_link': getClientInfoLink(clientOrigin),
     'client_name': trustedClientInfo.name
@@ -364,7 +364,7 @@ UserPromptingChecker.prototype.promptUserForUntrustedClient_ =
       this.logger,
       'Showing the warning user prompt for the unknown client ' + clientOrigin +
           '...');
-  return this.runPromptDialog_(clientOrigin, {
+  return await this.runPromptDialog_(clientOrigin, {
     'is_client_known': false,
     'client_info_link': getClientInfoLink(clientOrigin),
     'client_name': getNameToShowForUnknownClient(clientOrigin)

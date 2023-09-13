@@ -59,56 +59,57 @@ GSC.LibusbProxyHook = class extends GSC.LibusbToJsApiAdaptor {
 
   /** @override */
   async listDevices() {
-    return this.getDelegateOrThrow().listDevices();
+    return await this.getDelegateOrThrow().listDevices();
   }
 
   /** @override */
   async getConfigurations(deviceId) {
-    return this.getDelegateOrThrow().getConfigurations(deviceId);
+    return await this.getDelegateOrThrow().getConfigurations(deviceId);
   }
 
   /** @override */
   async openDeviceHandle(deviceId) {
-    return this.getDelegateOrThrow().openDeviceHandle(deviceId);
+    return await this.getDelegateOrThrow().openDeviceHandle(deviceId);
   }
 
   /** @override */
   async closeDeviceHandle(deviceId, deviceHandle) {
-    return this.getDelegateOrThrow().closeDeviceHandle(deviceId, deviceHandle);
+    return await this.getDelegateOrThrow().closeDeviceHandle(
+        deviceId, deviceHandle);
   }
 
   /** @override */
   async claimInterface(deviceId, deviceHandle, interfaceNumber) {
-    return this.getDelegateOrThrow().claimInterface(
+    return await this.getDelegateOrThrow().claimInterface(
         deviceId, deviceHandle, interfaceNumber);
   }
 
   /** @override */
   async releaseInterface(deviceId, deviceHandle, interfaceNumber) {
-    return this.getDelegateOrThrow().releaseInterface(
+    return await this.getDelegateOrThrow().releaseInterface(
         deviceId, deviceHandle, interfaceNumber);
   }
 
   /** @override */
   async resetDevice(deviceId, deviceHandle) {
-    return this.getDelegateOrThrow().resetDevice(deviceId, deviceHandle);
+    return await this.getDelegateOrThrow().resetDevice(deviceId, deviceHandle);
   }
 
   /** @override */
   async controlTransfer(deviceId, deviceHandle, parameters) {
-    return this.getDelegateOrThrow().controlTransfer(
+    return await this.getDelegateOrThrow().controlTransfer(
         deviceId, deviceHandle, parameters);
   }
 
   /** @override */
   async bulkTransfer(deviceId, deviceHandle, parameters) {
-    return this.getDelegateOrThrow().bulkTransfer(
+    return await this.getDelegateOrThrow().bulkTransfer(
         deviceId, deviceHandle, parameters);
   }
 
   /** @override */
   async interruptTransfer(deviceId, deviceHandle, parameters) {
-    return this.getDelegateOrThrow().interruptTransfer(
+    return await this.getDelegateOrThrow().interruptTransfer(
         deviceId, deviceHandle, parameters);
   }
 };
