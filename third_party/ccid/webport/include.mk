@@ -26,9 +26,6 @@
 CCID_VERSION := 1.5.2
 
 
-CCID_LIB := google_smart_card_ccid
-
-
 CCID_DIR_PATH := $(THIRD_PARTY_DIR_PATH)/ccid
 
 
@@ -44,4 +41,4 @@ CCID_SUPPORTED_READERS_CONFIG_PATH := \
 # Helper target that generates the library's out directory.
 #
 
-$(eval $(call DEFINE_OUT_GENERATION,CCID_OUT,$(CCID_DIR_PATH)/webport/build,$(CCID_LIB)))
+$(eval $(call DEFINE_OUT_GENERATION,CCID_OUT,$(CCID_DIR_PATH)/webport/build,google_smart_card_ccid))

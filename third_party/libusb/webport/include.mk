@@ -23,9 +23,6 @@
 #
 
 
-LIBUSB_LIB := google_smart_card_libusb
-
-
 LIBUSB_DIR_PATH := $(THIRD_PARTY_DIR_PATH)/libusb
 
 

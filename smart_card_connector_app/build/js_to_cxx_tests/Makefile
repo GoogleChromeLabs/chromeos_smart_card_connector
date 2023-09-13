@@ -20,7 +20,6 @@ include ../../../common/make/common.mk
 
 include $(ROOT_PATH)/common/make/js_building_common.mk
 include $(ROOT_PATH)/common/make/executable_building.mk
-include $(ROOT_PATH)/common/cpp/include.mk
 include $(ROOT_PATH)/common/js/include.mk
 include $(ROOT_PATH)/common/integration_testing/include.mk
 include $(ROOT_PATH)/third_party/ccid/webport/include.mk
@@ -51,12 +50,12 @@ CXXFLAGS := \
 
 LIBS := \
   smart_card_connector_application \
-  $(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_LIB) \
-  $(PCSC_LITE_SERVER_LIB) \
-  $(PCSC_LITE_COMMON_LIB) \
-  $(CCID_LIB) \
-  $(LIBUSB_LIB) \
-  $(CPP_COMMON_LIB) \
+  google_smart_card_pcsc_lite_server_clients_management \
+  google_smart_card_pcsc_lite_server \
+  google_smart_card_pcsc_lite_common \
+  google_smart_card_ccid \
+  google_smart_card_libusb \
+  google_smart_card_common \
   $(DEFAULT_NACL_LIBS) \
 
 # In NaCl builds, extra libraries are needed.

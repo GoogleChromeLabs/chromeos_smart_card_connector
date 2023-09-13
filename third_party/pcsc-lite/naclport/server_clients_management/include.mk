@@ -32,10 +32,6 @@
 #
 
 
-PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_LIB := \
-	google_smart_card_pcsc_lite_server_clients_management
-
-
 PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_DIR_PATH := \
 	$(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/server_clients_management
 
@@ -53,4 +49,4 @@ PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_JS_COMPILER_INPUT_DIR_PATHS := \
 # Helper target that generates the library's out directory.
 #
 
-$(eval $(call DEFINE_OUT_GENERATION,PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_OUT,$(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_DIR_PATH)/build,$(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_LIB)))
+$(eval $(call DEFINE_OUT_GENERATION,PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_OUT,$(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_DIR_PATH)/build,google_smart_card_pcsc_lite_server_clients_management))
