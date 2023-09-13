@@ -21,6 +21,7 @@
 
 goog.require('GoogleSmartCard.ExecutableModule');
 goog.require('GoogleSmartCard.IntegrationTestController');
+goog.require('goog.testing.asserts');
 goog.require('goog.testing.jsunit');
 
 goog.setTestOnly();
@@ -32,7 +33,6 @@ const GSC = GoogleSmartCard;
 /** @type {GSC.IntegrationTestController?} */
 let testController;
 
-// TODO(emaxx): This test currently does nothing. Add real assertions.
 goog.exportSymbol('testExecutableModule', {
   'setUp': async function() {
     // Set up the controller and load the C/C++ executable module.
@@ -48,6 +48,38 @@ goog.exportSymbol('testExecutableModule', {
     }
   },
 
-  'testSmoke': function() {},
+  // Test that after the C++ code crashes via `GOOGLE_SMART_CARD_CHECK()`, the
+  // JS module object gets disposed of.
+  'testCrashViaCheck': async function() {
+    await testController.setUpCppHelper(
+        'LoggingTestHelper', /*helperArgument=*/ {});
+
+    try {
+      await testController.sendMessageToCppHelper(
+          'LoggingTestHelper', 'crash-via-check');
+      fail('Unexpectedly proceeded beyond crash');
+    } catch (e) {
+      // This is expected branch - discard the exception.
+    }
+
+    assert(testController.executableModule.isDisposed());
+  },
+
+  // Test that after the C++ code crashes via `GOOGLE_SMART_CARD_LOG_FATAL`, the
+  // JS module object gets disposed of.
+  'testCrashViaFatalLog': async function() {
+    await testController.setUpCppHelper(
+        'LoggingTestHelper', /*helperArgument=*/ {});
+
+    try {
+      await testController.sendMessageToCppHelper(
+          'LoggingTestHelper', 'crash-via-fatal-log');
+      fail('Unexpectedly proceeded beyond crash');
+    } catch (e) {
+      // This is expected branch - discard the exception.
+    }
+
+    assert(testController.executableModule.isDisposed());
+  },
 });
 });
