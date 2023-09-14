@@ -22,6 +22,7 @@ goog.provide('GoogleSmartCard.LibusbToChromeUsbAdaptor');
 goog.require('GoogleSmartCard.LibusbProxyDataModel');
 goog.require('GoogleSmartCard.LibusbToJsApiAdaptor');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.PromisifyExtensionApi');
 goog.require('goog.asserts');
 goog.require('goog.object');
 
@@ -227,18 +228,9 @@ GSC.LibusbToChromeUsbAdaptor.isApiAvailable = function() {
  * @param {...*} apiArguments The parameters to pass to the called method.
  * @return {!Promise<*>}
  */
-function promisify(apiMethod, ...apiArguments) {
-  return new Promise((resolve, reject) => {
-    apiMethod.call(chrome.usb, ...apiArguments, function(apiResult) {
-      if (chrome.runtime.lastError) {
-        const apiError = goog.object.get(
-            chrome.runtime.lastError, 'message', 'Unknown error');
-        reject(apiError);
-        return;
-      }
-      resolve(apiResult);
-    });
-  });
+async function promisify(apiMethod, ...apiArguments) {
+  return await GSC.PromisifyExtensionApi.promisify(
+      /*apiThat=*/ chrome.usb, apiMethod, ...apiArguments);
 }
 
 /**
