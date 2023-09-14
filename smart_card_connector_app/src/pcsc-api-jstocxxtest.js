@@ -1223,10 +1223,14 @@ goog.exportSymbol('testPcscApi', {
         await testController.sendMessageToCppHelper(
             'LoggingTestHelper', 'crash-via-check');
       } catch (e) {
-        // This is expected branch - discard the exception.
+        // This is the expected branch. Verify the error message.
+        assertContains('requester is disposed', e.toString());
+        assert(testController.executableModule.isDisposed());
+        assert(client.clientHandler.isDisposed());
+        return;
       }
 
-      assert(client.clientHandler.isDisposed());
+      fail('Unexpectedly proceeded beyond crash');
     },
   },
 
