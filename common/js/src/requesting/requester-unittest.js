@@ -224,7 +224,8 @@ goog.exportSymbol(
       try {
         await requester.postRequest({});
       } catch (e) {
-        // This is the expected branch.
+        // This is the expected branch. Verify the error message.
+        assertContains('requester is disposed', e.toString());
         return;
       }
       fail('Message posting unexpectedly succeeded');
