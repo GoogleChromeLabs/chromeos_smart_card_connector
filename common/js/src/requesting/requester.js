@@ -136,8 +136,11 @@ GSC.Requester = class extends goog.Disposable {
       this.messageChannel_.send(serviceName, messageData);
     } catch (e) {
       // If sending the message triggered an exception, use it to populate the
-      // response.
-      this.rejectRequest_(requestId, e);
+      // response. However, this is already done if the channel got immediately
+      // disposed of, since `disposeInternal()` cancels all ongoing requests.
+      if (!this.isDisposed()) {
+        this.rejectRequest_(requestId, e);
+      }
     }
 
     return promiseResolver.promise;

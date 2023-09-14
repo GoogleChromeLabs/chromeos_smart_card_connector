@@ -62,6 +62,18 @@ class PromiseTracker {
   }
 }
 
+/**
+ * @param {!goog.testing.messaging.MockMessageChannel} mockMessageChannel
+ */
+function disposeOfMockMessageChannel(mockMessageChannel) {
+  mockMessageChannel.dispose();
+  // Hack: call the protected disposeInternal() method in order to trigger the
+  // disposal notifications; the MockMessageChannel.dispose() doesn't call
+  // them.
+  mockMessageChannel[goog.reflect.objectProperty(
+      'disposeInternal', mockMessageChannel)]();
+}
+
 goog.exportSymbol('testRequester', function() {
   const REQUESTER_NAME = 'test-requester';
   const REQUEST_MESSAGE_TYPE = getRequestMessageType(REQUESTER_NAME);
@@ -133,12 +145,7 @@ goog.exportSymbol('testRequester', function() {
   // After that, dispose of the message channel. The promise for request #0 gets
   // rejected.
   const request0CompletionPromise = request1CompletionPromise.then(function() {
-    mockMessageChannel.dispose();
-    // Hack: call the protected disposeInternal() method in order to trigger the
-    // disposal notifications; the MockMessageChannel.dispose() doesn't call
-    // them.
-    mockMessageChannel[goog.reflect.objectProperty(
-        'disposeInternal', mockMessageChannel)]();
+    disposeOfMockMessageChannel(mockMessageChannel);
     return request0Promise.then(null, function(rejectionError) {
       assert(request0PromiseTracker.isResolved);
       assert(request1PromiseTracker.isResolved);
@@ -169,6 +176,8 @@ goog.exportSymbol('testRequester_disposed', function() {
   }, () => {});
 });
 
+// Test that an exception happening while sending the request message results in
+// a rejected response promise.
 goog.exportSymbol('testRequester_exceptionWhileSending', async function() {
   const REQUESTER_NAME = 'test-requester';
   const SEND_ERROR_MESSAGE = 'fake send error';
@@ -192,4 +201,32 @@ goog.exportSymbol('testRequester_exceptionWhileSending', async function() {
   }
   fail('Message posting unexpectedly succeeded');
 });
+
+// Test that if sending the request message results in immediate disposal and an
+// exception, the response promise is rejected correctly.
+goog.exportSymbol(
+    'testRequester_exceptionAndDisposalWhileSending', async function() {
+      const REQUESTER_NAME = 'test-requester';
+      const SEND_ERROR_MESSAGE = 'fake send error';
+
+      const mockControl = new goog.testing.MockControl();
+      const mockMessageChannel =
+          new goog.testing.messaging.MockMessageChannel(mockControl);
+      /** @type {?} */ mockMessageChannel.send;
+      // Set up mock that throws an exception when a message is sent.
+      mockMessageChannel.send(ignoreArgument, ignoreArgument).$does(() => {
+        disposeOfMockMessageChannel(mockMessageChannel);
+        throw new Error(SEND_ERROR_MESSAGE);
+      });
+      mockMessageChannel.send.$replay();
+      const requester = new Requester(REQUESTER_NAME, mockMessageChannel);
+
+      try {
+        await requester.postRequest({});
+      } catch (e) {
+        // This is the expected branch.
+        return;
+      }
+      fail('Message posting unexpectedly succeeded');
+    });
 });  // goog.scope
