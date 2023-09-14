@@ -213,7 +213,8 @@ goog.exportSymbol(
       const mockMessageChannel =
           new goog.testing.messaging.MockMessageChannel(mockControl);
       /** @type {?} */ mockMessageChannel.send;
-      // Set up mock that throws an exception when a message is sent.
+      // Set up mock that throws an exception and disposes of the channel when a
+      // message is sent.
       mockMessageChannel.send(ignoreArgument, ignoreArgument).$does(() => {
         disposeOfMockMessageChannel(mockMessageChannel);
         throw new Error(SEND_ERROR_MESSAGE);
