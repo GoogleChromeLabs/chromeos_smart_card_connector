@@ -23,6 +23,7 @@ include $(ROOT_PATH)/common/integration_testing/include.mk
 
 
 CXX_SOURCES := \
+  $(ROOT_PATH)/common/cpp/src/logging_integration_test_helper.cc \
 
 CXXFLAGS := \
   -I$(ROOT_PATH) \
