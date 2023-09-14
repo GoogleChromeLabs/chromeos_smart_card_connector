@@ -57,12 +57,13 @@ goog.exportSymbol('testExecutableModule', {
     try {
       await testController.sendMessageToCppHelper(
           'LoggingTestHelper', 'crash-via-check');
-      fail('Unexpectedly proceeded beyond crash');
     } catch (e) {
       // This is expected branch - discard the exception.
+      assert(testController.executableModule.isDisposed());
+      return;
     }
 
-    assert(testController.executableModule.isDisposed());
+    fail('Unexpectedly proceeded beyond crash');
   },
 
   // Test that after the C++ code crashes via `GOOGLE_SMART_CARD_LOG_FATAL`, the
@@ -74,12 +75,13 @@ goog.exportSymbol('testExecutableModule', {
     try {
       await testController.sendMessageToCppHelper(
           'LoggingTestHelper', 'crash-via-fatal-log');
-      fail('Unexpectedly proceeded beyond crash');
     } catch (e) {
       // This is expected branch - discard the exception.
+      assert(testController.executableModule.isDisposed());
+      return;
     }
 
-    assert(testController.executableModule.isDisposed());
+    fail('Unexpectedly proceeded beyond crash');
   },
 });
 });
