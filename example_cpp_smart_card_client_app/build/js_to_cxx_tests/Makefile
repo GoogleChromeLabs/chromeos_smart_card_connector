@@ -23,7 +23,6 @@ include ../../../common/make/common.mk
 
 include $(COMMON_DIR_PATH)/make/js_building_common.mk
 include $(COMMON_DIR_PATH)/make/executable_building.mk
-include $(COMMON_DIR_PATH)/cpp/include.mk
 include $(COMMON_DIR_PATH)/js/include.mk
 include $(COMMON_DIR_PATH)/integration_testing/include.mk
 

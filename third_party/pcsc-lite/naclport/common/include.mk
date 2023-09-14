@@ -37,9 +37,6 @@ PCSC_LITE_DIR_PATH := $(THIRD_PARTY_DIR_PATH)/pcsc-lite
 PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH := $(PCSC_LITE_DIR_PATH)/src/src/PCSC
 
 
-PCSC_LITE_COMMON_LIB := google_smart_card_pcsc_lite_common
-
-
 PCSC_LITE_COMMON_DIR_PATH := $(PCSC_LITE_DIR_PATH)/naclport/common
 
 

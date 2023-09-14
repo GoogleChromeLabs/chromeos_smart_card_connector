@@ -31,8 +31,5 @@
 #
 
 
-PCSC_LITE_CPP_DEMO_LIB := google_smart_card_pcsc_lite_cpp_demo
-
-
 PCSC_LITE_CPP_DEMO_DIR_PATH := \
 	$(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/cpp_demo

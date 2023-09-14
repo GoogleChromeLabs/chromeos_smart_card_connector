@@ -17,7 +17,6 @@ TARGET := executable_module
 
 include ../../../common/make/common.mk
 include $(COMMON_DIR_PATH)/make/executable_building.mk
-include $(COMMON_DIR_PATH)/cpp/include.mk
 include $(THIRD_PARTY_DIR_PATH)/ccid/webport/include.mk
 include $(THIRD_PARTY_DIR_PATH)/libusb/webport/include.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/common/include.mk
@@ -33,12 +32,12 @@ SOURCES := \
 
 LIBS := \
 	smart_card_connector_application \
-	$(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_LIB) \
-	$(PCSC_LITE_SERVER_LIB) \
-	$(PCSC_LITE_COMMON_LIB) \
-	$(CCID_LIB) \
-	$(LIBUSB_LIB) \
-	$(CPP_COMMON_LIB) \
+	google_smart_card_pcsc_lite_server_clients_management \
+	google_smart_card_pcsc_lite_server \
+	google_smart_card_pcsc_lite_common \
+	google_smart_card_ccid \
+	google_smart_card_libusb \
+	google_smart_card_common \
 	$(DEFAULT_NACL_LIBS) \
 
 DEPS :=

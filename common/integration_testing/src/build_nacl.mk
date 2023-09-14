@@ -41,7 +41,7 @@ $(eval $(call COMPILE_RULE,$(JS_TO_CXX_TEST_ENTRY_POINT_SOURCE),\
 # symbols comes before their provider).
 JS_TO_CXX_TEST_NACL_LIBS := \
 	$(INTEGRATION_TESTING_LIB) \
-	$(CPP_COMMON_LIB) \
+	google_smart_card_common \
 	$(DEFAULT_NACL_LIBS) \
 
 # Internal constant containing the list of additional JS sources to be passed to

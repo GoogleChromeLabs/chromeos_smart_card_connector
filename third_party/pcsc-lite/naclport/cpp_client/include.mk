@@ -32,9 +32,6 @@
 #
 
 
-PCSC_LITE_CLIENT_LIB := google_smart_card_pcsc_lite_client
-
-
 PCSC_LITE_CLIENT_DIR_PATH := \
 	$(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/cpp_client
 

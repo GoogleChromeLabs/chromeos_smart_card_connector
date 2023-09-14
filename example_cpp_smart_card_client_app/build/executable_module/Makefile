@@ -20,7 +20,6 @@ TARGET := executable_module
 include ../../../common/make/common.mk
 
 include $(COMMON_DIR_PATH)/make/executable_building.mk
-include $(COMMON_DIR_PATH)/cpp/include.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/common/include.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/cpp_client/include.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/cpp_demo/include.mk
@@ -60,11 +59,11 @@ SOURCES += \
 endif
 
 LIBS := \
-	$(PCSC_LITE_CPP_DEMO_LIB) \
-	$(PCSC_LITE_CLIENT_LIB) \
-	$(PCSC_LITE_COMMON_LIB) \
-	$(PCSC_LITE_CLIENT_LIB) \
-	$(CPP_COMMON_LIB) \
+	google_smart_card_pcsc_lite_cpp_demo \
+	google_smart_card_pcsc_lite_client \
+	google_smart_card_pcsc_lite_common \
+	google_smart_card_pcsc_lite_client \
+	google_smart_card_common \
 	$(DEFAULT_NACL_LIBS) \
 
 CPPFLAGS := \

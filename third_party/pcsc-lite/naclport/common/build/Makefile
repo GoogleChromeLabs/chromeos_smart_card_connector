@@ -30,8 +30,6 @@ include ../../../../../common/make/common.mk
 
 include $(COMMON_DIR_PATH)/make/executable_building.mk
 
-include $(COMMON_DIR_PATH)/cpp/include.mk
-
 include ../include.mk
 
 

@@ -32,9 +32,6 @@
 #
 
 
-PCSC_LITE_SERVER_LIB := google_smart_card_pcsc_lite_server
-
-
 PCSC_LITE_SERVER_DIR_PATH := $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/server
 
 
@@ -42,4 +39,4 @@ PCSC_LITE_SERVER_JS_COMPILER_INPUT_DIR_PATHS := \
 	$(PCSC_LITE_SERVER_DIR_PATH)/src
 
 
-$(eval $(call DEFINE_OUT_GENERATION,PCSC_LITE_SERVER_OUT,$(PCSC_LITE_SERVER_DIR_PATH)/build,$(PCSC_LITE_SERVER_LIB)))
+$(eval $(call DEFINE_OUT_GENERATION,PCSC_LITE_SERVER_OUT,$(PCSC_LITE_SERVER_DIR_PATH)/build,google_smart_card_pcsc_lite_server))

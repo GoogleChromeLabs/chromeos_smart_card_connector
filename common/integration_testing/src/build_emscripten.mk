@@ -38,7 +38,7 @@ $(eval $(call COMPILE_RULE,$(JS_TO_CXX_TEST_ENTRY_POINT_SOURCE),\
 # link against.
 JS_TO_CXX_TEST_EMSCRIPTEN_LIBS := \
 	$(INTEGRATION_TESTING_LIB) \
-	$(CPP_COMMON_LIB) \
+	google_smart_card_common \
 
 # TODO(emaxx): This is duplicated with build_nacl.mk; share it via a file.
 JS_TO_CXX_TEST_JS_COMPILER_INPUTS := \

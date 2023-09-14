@@ -18,8 +18,6 @@ include ../../make/common.mk
 
 include $(COMMON_DIR_PATH)/make/executable_building.mk
 
-include ../include.mk
-
 
 SOURCES_PATH := ../src
 
