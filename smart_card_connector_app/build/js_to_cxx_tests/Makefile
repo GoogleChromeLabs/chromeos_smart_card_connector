@@ -36,6 +36,7 @@ SOURCE_DIR := $(ROOT_PATH)/smart_card_connector_app/src/
 # targets (for ../executable_module/cpp_unittests/). Get rid of duplicate
 # compilation by putting them into static libraries.
 CXX_SOURCES := \
+  $(ROOT_PATH)/common/cpp/src/logging_integration_test_helper.cc \
   $(SOURCE_DIR)/application_integration_test_helper.cc \
   $(SOURCE_DIR)/testing_smart_card_simulation.cc \
 

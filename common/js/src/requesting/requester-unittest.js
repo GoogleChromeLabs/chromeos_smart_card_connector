@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+goog.require('GoogleSmartCard.AsyncAsserts');
 goog.require('GoogleSmartCard.Requester');
 goog.require('GoogleSmartCard.RequesterMessage');
 goog.require('GoogleSmartCard.RequesterMessage.RequestMessageData');
@@ -192,14 +193,11 @@ goog.exportSymbol('testRequester_exceptionWhileSending', async function() {
   mockMessageChannel.send.$replay();
   const requester = new Requester(REQUESTER_NAME, mockMessageChannel);
 
-  try {
+  const error = await GSC.AsyncAsserts.assertThrows(async () => {
     await requester.postRequest({});
-  } catch (e) {
-    // This is the expected branch. Verify the error message is passed through.
-    assertContains(SEND_ERROR_MESSAGE, e.toString());
-    return;
-  }
-  fail('Message posting unexpectedly succeeded');
+  });
+
+  assertContains(SEND_ERROR_MESSAGE, error.toString());
 });
 
 // Test that if sending the request message results in immediate disposal and an
@@ -222,13 +220,10 @@ goog.exportSymbol(
       mockMessageChannel.send.$replay();
       const requester = new Requester(REQUESTER_NAME, mockMessageChannel);
 
-      try {
+      const error = await GSC.AsyncAsserts.assertThrows(async () => {
         await requester.postRequest({});
-      } catch (e) {
-        // This is the expected branch. Verify the error message.
-        assertContains('requester is disposed', e.toString());
-        return;
-      }
-      fail('Message posting unexpectedly succeeded');
+      });
+
+      assertContains('requester is disposed', error.toString());
     });
 });  // goog.scope

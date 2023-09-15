@@ -20,6 +20,7 @@
  * Card Connector.
  */
 
+goog.require('GoogleSmartCard.AsyncAsserts');
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.IntegrationTestController');
 goog.require('GoogleSmartCard.LibusbProxyReceiver');
@@ -1205,6 +1206,28 @@ goog.exportSymbol('testPcscApi', {
           });
       assert(called);
       assertEquals(result.getErrorCode(), API.SCARD_E_INVALID_HANDLE);
+    },
+
+    // Test that no unexpected exceptions occur when the C++ module is crashing
+    // while there's a connected PC/SC client.
+    'testCrashWithActiveClient': async function() {
+      const BAD_CONTEXT = 123;
+      await testController.setUpCppHelper(
+          'LoggingTestHelper', /*helperArgument=*/ {});
+      await launchPcscServer(/*initialDevices=*/[]);
+      // Make a random call, to make sure all lazily created per-client state
+      // gets initialized.
+      await client.api.SCardIsValidContext(BAD_CONTEXT);
+
+      // Trigger the C++ module crash.
+      const error = await GSC.AsyncAsserts.assertThrows(async () => {
+        return await testController.sendMessageToCppHelper(
+            'LoggingTestHelper', 'crash-via-check');
+      });
+
+      assertContains('requester is disposed', error.toString());
+      assert(testController.executableModule.isDisposed());
+      assert(client.clientHandler.isDisposed());
     },
   },
 
