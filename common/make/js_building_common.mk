@@ -267,6 +267,7 @@ run_test: all
 	. $(ROOT_PATH)/env/python3_venv/bin/activate && \
 		$(ROOT_PATH)/common/js_test_runner/run-js-tests.py \
 			$(OUT_DIR_PATH)/index.html \
+			--chrome-path=$(CHROME_PATH) \
 			--chromedriver-path=$(ROOT_PATH)/env/chromedriver
 
 run_test_manually: all

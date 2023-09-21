@@ -80,6 +80,7 @@ all: $(OUT_DIR_PATH)/index.html
 #     server doesn't). SharedArrayBuffer is needed for multi-threaded
 #     Emscripten modules.
 JS_TO_CXX_TEST_RUN_PARAMS := \
+	--chrome-path=$(CHROME_PATH) \
 	--chromedriver-path=$(ROOT_PATH)/env/chromedriver \
 	--serve-via-web-server \
 	--timeout=3600 \
