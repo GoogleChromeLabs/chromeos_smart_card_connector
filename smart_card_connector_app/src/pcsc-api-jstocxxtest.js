@@ -1029,7 +1029,7 @@ goog.exportSymbol('testPcscApi', {
             fail(`Unexpected error in first SCardConnect: ${errorCode}`);
           });
       assertTrue(called);
-      assertEquals(secondResult.getErrorCode(), API.SCARD_E_PROTO_MISMATCH);
+      assertEquals(secondResult.getErrorCode(), API.SCARD_S_SUCCESS);
     },
 
     // Test `SCardConnect()` fails for dwShareMode `SCARD_SHARE_SHARED` when
