@@ -23,9 +23,12 @@
 
 goog.provide('GoogleSmartCard.Logging.CrashLoopDetection');
 
+goog.require('GoogleSmartCard.PromisifyExtensionApi');
+
 goog.scope(function() {
 
 const GSC = GoogleSmartCard;
+const promisify = GSC.PromisifyExtensionApi.promisify;
 
 // Name of the chrome.storage key that is used to track the recent crash
 // timestamps. The value is an array of timestamps (as integer milliseconds).
@@ -98,7 +101,7 @@ GSC.Logging.CrashLoopDetection.resetForTesting = function() {
  * Loads the recent crash timestamps from the persistent storage.
  * @return {!Promise<!Array<number>>}
  */
-function loadRecentCrashTimestamps() {
+async function loadRecentCrashTimestamps() {
   // Note that none of the error handling below throws assertions or emits
   // logs, since this code is triggered from handling another, and more severe,
   // error.
@@ -107,18 +110,18 @@ function loadRecentCrashTimestamps() {
     // likely due to a missing permission).
     return Promise.resolve([]);
   }
-  return new Promise(resolve => {
-    chrome.storage.local.get(STORAGE_KEY, function(loadedStorage) {
-      if (chrome.runtime.lastError ||
-          !Object.prototype.hasOwnProperty.call(loadedStorage, STORAGE_KEY) ||
-          !Array.isArray(loadedStorage[STORAGE_KEY])) {
-        resolve([]);
-        return;
-      }
-      resolve(loadedStorage[STORAGE_KEY].filter(item => {
-        return Number.isInteger(item);
-      }));
-    });
+  let loadedStorage;
+  try {
+    loadedStorage = await promisify(
+        chrome.storage.local, chrome.storage.local.get, STORAGE_KEY);
+  } catch (e) {
+    return [];
+  }
+  if (!Array.isArray(loadedStorage[STORAGE_KEY])) {
+    return [];
+  }
+  return loadedStorage[STORAGE_KEY].filter(item => {
+    return Number.isInteger(item);
   });
 }
 
