@@ -2196,7 +2196,7 @@ TEST_F(SmartCardConnectorApplicationConnectedReaderTest, GetAttribMaxinput) {
   EXPECT_THAT(attr, ElementsAre(0x05, 0x01, 0x00, 0x00));
 }
 
-// `SCardGetAttrib()` call from JS should return the expected number for the
+// `SCardGetAttrib()` call from JS should return an empty string for the
 // `SCARD_ATTR_VENDOR_IFD_SERIAL_NO` argument.
 TEST_F(SmartCardConnectorApplicationConnectedReaderTest,
        GetAttribVendorIfdSerialNo) {
