@@ -846,7 +846,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
       expectReportPlainResult(/*requestId=*/ 111, 'SUCCESS');
 
       // TAG_IFD_DEVICE_REMOVED is used with a value of 0 here. This is a no-op.
-      // Nothing will happen to the reader. 
+      // Nothing will happen to the reader.
       // The goal is just to test `SetAttrib` returning the `SUCCESS` value.
       await mockChromeApi
           .dispatchEvent(
@@ -854,6 +854,48 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
               TAG_IFD_DEVICE_REMOVED, /*data=*/ new Uint8Array(['0x0']))
           .$waitAndVerify();
     },
-  }
+  },
+
+  // Test Transmit success.
+  'testTransmit_success': async function() {
+    // Set up a reader and a card with a PIV profile.
+    await launchPcscServer(/*initialDevices=*/[{
+      'id': 123,
+      'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
+      'cardType': SimulationConstants.COSMO_CARD_TYPE,
+      'cardProfile': SimulationConstants.CHARISMATHICS_PIV_TYPE
+    }]);
+
+    const sCardContext = await establishContext(/*requestId=*/ 66);
+    readerHandle = await connect(
+        /*requestId=*/ 67, sCardContext,
+        SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+        chrome.smartCardProviderPrivate.ShareMode.SHARED,
+        /*preferredProtocols=*/ {'t1': true},
+        /*expectedProtocol=*/ chrome.smartCardProviderPrivate.Protocol.T1);
+
+    // Reply should contain the application identifier, followed by the status
+    // bytes that denote success: SW1=0x90, SW2=0x00. This corresponds to the
+    // fake reply built by `testing_smart_card_simulation.cc`.
+    expectReportDataResult(
+        /*requestId=*/ 111,
+        new Uint8Array([
+          ...SimulationConstants.APPLICATION_IDENTIFIER_CHARISMATHICS_PIV, 0x90,
+          0x00
+        ]).buffer,
+        'SUCCESS');
+
+    // Send the SELECT command (the format is per NIST 800-73-4).
+    const SELECT_COMMAND = new Uint8Array([
+      0x00, 0xA4, 0x04, 0x00, 0x09, 0xA0, 0x00, 0x00, 0x03, 0x08, 0x00, 0x00,
+      0x10, 0x00, 0x00
+    ]);
+    await mockChromeApi
+        .dispatchEvent(
+            'onTransmitRequested', /*requestId=*/ 111, readerHandle,
+            chrome.smartCardProviderPrivate.Protocol.T1,
+            /*data=*/ SELECT_COMMAND)
+        .$waitAndVerify();
+  },
 });
 });  // goog.scope
