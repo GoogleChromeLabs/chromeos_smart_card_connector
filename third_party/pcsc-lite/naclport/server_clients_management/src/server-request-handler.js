@@ -334,7 +334,7 @@ Pcsc.ServerRequestHandler = class extends goog.Disposable {
   serverMessageChannelDisposedListener_() {
     if (this.isDisposed())
       return;
-    goog.log.warning(
+    goog.log.info(
         this.logger, 'Server message channel was disposed, disposing...');
 
     // Note: this assignment is important because it prevents from sending of
