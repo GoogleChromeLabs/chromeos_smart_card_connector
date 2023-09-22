@@ -38,6 +38,7 @@ goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientInfo');
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistry');
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistryImpl');
 goog.require('GoogleSmartCard.PopupOpener');
+goog.require('GoogleSmartCard.PromisifyExtensionApi');
 goog.require('goog.iter');
 goog.require('goog.log');
 goog.require('goog.log.Logger');
@@ -58,6 +59,7 @@ const GSC = GoogleSmartCard;
 
 const PermissionsChecking =
     GSC.PcscLiteServerClientsManagement.PermissionsChecking;
+const promisify = GSC.PromisifyExtensionApi.promisify;
 
 /** @type {!GSC.PcscLiteServer.TrustedClientsRegistry|null} */
 let trustedClientsRegistryOverrideForTesting = null;
@@ -234,24 +236,16 @@ UserPromptingChecker.prototype.loadLocalStorage_ = async function() {
  * @return {!Promise<!Object>}
  */
 UserPromptingChecker.prototype.getLocalStorageRawData_ = async function() {
-  return new Promise((resolve, reject) => {
-    goog.log.fine(
-        this.logger,
-        'Loading local storage data with the stored user selections (the key ' +
-            'is "' + LOCAL_STORAGE_KEY + '")...');
-    chrome.storage.local.get(LOCAL_STORAGE_KEY, rawData => {
-      if (!chrome || !chrome.runtime || !chrome.runtime.lastError) {
-        resolve(rawData);
-        return;
-      }
-      let errorMessage = 'chrome.storage.local.get failed';
-      if (chrome && chrome.runtime && chrome.runtime.lastError &&
-          chrome.runtime.lastError.message) {
-        errorMessage += ': ' + chrome.runtime.lastError.message;
-      }
-      reject(new Error(errorMessage));
-    });
-  });
+  goog.log.fine(
+      this.logger,
+      `Loading local storage data with the stored user selections (the key ` +
+          `is "${LOCAL_STORAGE_KEY}")...`);
+  try {
+    return await promisify(
+        chrome.storage.local, chrome.storage.local.get, LOCAL_STORAGE_KEY);
+  } catch (e) {
+    throw new Error(`chrome.storage.local.get failed: ${e}`);
+  }
 };
 
 /**
