@@ -45,7 +45,7 @@ GSC.PromisifyExtensionApi.promisify = function(
     apiThat, apiMethod, ...apiArguments) {
   return new Promise((resolve, reject) => {
     apiMethod.call(apiThat, ...apiArguments, function(apiResult) {
-      if (chrome.runtime.lastError) {
+      if (chrome && chrome.runtime && chrome.runtime.lastError) {
         const apiError = goog.object.get(
             chrome.runtime.lastError, 'message', 'Unknown error');
         reject(apiError);
