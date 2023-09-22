@@ -53,8 +53,8 @@ PCSC_LITE_SOURCES_PATH := $(PCSC_LITE_DIR_PATH)/src/src
 # * FAKE_PCSC_NACL_SOCKET_FILE_NAME constant points to the file containing the
 #   fake socket file (it's used for tricking the original PC/SC-Lite code which
 #   calls stat() for this file - for the details see file
-#   src/winscard_msg_nacl.cc). Use a relative path, so that it works both inside
-#   the Smart Card Connector app and in unit tests.
+#   src/winscard_msg_webport.cc). Use a relative path, so that it works both
+#   inside the Smart Card Connector app and in unit tests.
 COMMON_CPPFLAGS := \
 	-DFAKE_PCSC_NACL_SOCKET_FILE_NAME='"executable-module-filesystem/pcsc/fake_socket_file"' \
 	-I$(ROOT_PATH) \
@@ -211,17 +211,17 @@ $(foreach src,$(PCSC_LITE_CLIENT_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PC
 # * Other files provide helper libraries and the implementation of the public
 #   interface of the library
 PCSC_LITE_SERVER_NACL_SOURCES := \
-	$(SOURCES_PATH)/auth_nacl.cc \
+	$(SOURCES_PATH)/auth_webport.cc \
 	$(SOURCES_PATH)/cmath.cc \
-	$(SOURCES_PATH)/dyn_nacl.cc \
-	$(SOURCES_PATH)/pcscdaemon_nacl.cc \
+	$(SOURCES_PATH)/dyn_webport.cc \
+	$(SOURCES_PATH)/pcscdaemon_webport.cc \
 	$(SOURCES_PATH)/public/pcsc_lite_server_web_port_service.cc \
-	$(SOURCES_PATH)/readerfactory_nacl.cc \
+	$(SOURCES_PATH)/readerfactory_webport.cc \
 	$(SOURCES_PATH)/server_sockets_manager.cc \
-	$(SOURCES_PATH)/sys_nacl.cc \
-	$(SOURCES_PATH)/unistd_nacl.cc \
+	$(SOURCES_PATH)/sys_webport.cc \
+	$(SOURCES_PATH)/unistd_webport.cc \
 	$(SOURCES_PATH)/utils_webport.cc \
-	$(SOURCES_PATH)/winscard_msg_nacl.cc \
+	$(SOURCES_PATH)/winscard_msg_webport.cc \
 
 PCSC_LITE_SERVER_NACL_CXXFLAGS := \
 	$(COMMON_CPPFLAGS) \
