@@ -2079,6 +2079,135 @@ TEST_F(SmartCardConnectorApplicationConnectedReaderTest, GetAttribAtr) {
                       TestingSmartCardSimulation::CardType::kCosmoId70));
 }
 
+// `SCardGetAttrib()` call from JS should return the single byte "1" for the
+// `SCARD_ATTR_ICC_INTERFACE_STATUS` argument when the card is present.
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest,
+       GetAttribInterfaceStatusPresent) {
+  std::vector<uint8_t> attr;
+  LONG return_code = SimulateGetAttribCallFromJsClient(
+      kFakeHandlerId, scard_handle(), SCARD_ATTR_ICC_INTERFACE_STATUS, attr);
+
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+  EXPECT_THAT(attr, ElementsAre(1));
+}
+
+// `SCardGetAttrib()` call from JS should return the single byte "0" for the
+// `SCARD_ATTR_ICC_INTERFACE_STATUS` argument when the card is missing.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       GetAttribInterfaceStatusMissing) {
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  SetUsbDevices({device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+  SCARDHANDLE scard_handle = 0;
+  DWORD active_protocol = 0;
+  EXPECT_EQ(SimulateConnectCallFromJsClient(
+                kFakeHandlerId, scard_context(), kGemaltoPcTwinReaderPcscName0,
+                SCARD_SHARE_DIRECT,
+                /*preferred_protocols=*/0, scard_handle, active_protocol),
+            SCARD_S_SUCCESS);
+  EXPECT_EQ(active_protocol, 0U);
+
+  std::vector<uint8_t> attr;
+  LONG return_code = SimulateGetAttribCallFromJsClient(
+      kFakeHandlerId, scard_handle, SCARD_ATTR_ICC_INTERFACE_STATUS, attr);
+
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+  EXPECT_THAT(attr, ElementsAre(0));
+}
+
+// `SCardGetAttrib()` call from JS should return the single byte "2" for the
+// `SCARD_ATTR_ICC_PRESENCE` argument when the card is present.
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest, GetAttribIccPresence) {
+  std::vector<uint8_t> attr;
+  LONG return_code = SimulateGetAttribCallFromJsClient(
+      kFakeHandlerId, scard_handle(), SCARD_ATTR_ICC_PRESENCE, attr);
+
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+  EXPECT_THAT(attr, ElementsAre(2));
+}
+
+// `SCardGetAttrib()` call from JS should return the single byte "0" for the
+// `SCARD_ATTR_ICC_PRESENCE` argument when the card is missing.
+TEST_F(SmartCardConnectorApplicationSingleClientTest, GetAttribIccPresence) {
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  SetUsbDevices({device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+  SCARDHANDLE scard_handle = 0;
+  DWORD active_protocol = 0;
+  EXPECT_EQ(SimulateConnectCallFromJsClient(
+                kFakeHandlerId, scard_context(), kGemaltoPcTwinReaderPcscName0,
+                SCARD_SHARE_DIRECT,
+                /*preferred_protocols=*/0, scard_handle, active_protocol),
+            SCARD_S_SUCCESS);
+  EXPECT_EQ(active_protocol, 0U);
+
+  std::vector<uint8_t> attr;
+  LONG return_code = SimulateGetAttribCallFromJsClient(
+      kFakeHandlerId, scard_handle, SCARD_ATTR_ICC_PRESENCE, attr);
+
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+  EXPECT_THAT(attr, ElementsAre(0));
+}
+
+// `SCardGetAttrib()` call from JS should return the four-byte device version
+// for the `SCARD_ATTR_VENDOR_IFD_VERSION` argument.
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest,
+       GetAttribVendorIfdVersion) {
+  std::vector<uint8_t> attr;
+  LONG return_code = SimulateGetAttribCallFromJsClient(
+      kFakeHandlerId, scard_handle(), SCARD_ATTR_VENDOR_IFD_VERSION, attr);
+
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+  // The value corresponds to the `version` field set for `kGemaltoPcTwinReader`
+  // in testing_smart_card_simulation.cc (padded with all-zero build numbers and
+  // in the opposite endianness).
+  EXPECT_THAT(attr, ElementsAre(0x00, 0x00, 0x00, 0x02));
+}
+
+// `SCardGetAttrib()` call from JS should return an empty string for the
+// `SCARD_ATTR_VENDOR_NAME` argument.
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest, GetAttribVendorName) {
+  std::vector<uint8_t> attr;
+  LONG return_code = SimulateGetAttribCallFromJsClient(
+      kFakeHandlerId, scard_handle(), SCARD_ATTR_VENDOR_NAME, attr);
+
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+  EXPECT_THAT(attr, IsEmpty());
+}
+
+// `SCardGetAttrib()` call from JS should return the expected number for the
+// `SCARD_ATTR_MAXINPUT` argument.
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest, GetAttribMaxinput) {
+  std::vector<uint8_t> attr;
+  LONG return_code = SimulateGetAttribCallFromJsClient(
+      kFakeHandlerId, scard_handle(), SCARD_ATTR_MAXINPUT, attr);
+
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+  // This value corresponds to the data encoded in the `kGemaltoPcTwinReader`'s
+  // device descriptor in testing_smart_card_simulation.cc.
+  EXPECT_THAT(attr, ElementsAre(0x05, 0x01, 0x00, 0x00));
+}
+
+// `SCardGetAttrib()` call from JS should return an empty string for the
+// `SCARD_ATTR_VENDOR_IFD_SERIAL_NO` argument.
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest,
+       GetAttribVendorIfdSerialNo) {
+  std::vector<uint8_t> attr;
+  LONG return_code = SimulateGetAttribCallFromJsClient(
+      kFakeHandlerId, scard_handle(), SCARD_ATTR_VENDOR_IFD_SERIAL_NO, attr);
+
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+  EXPECT_THAT(attr, IsEmpty());
+}
+
 // `SCardGetAttrib()` call from JS should fail when using a wrong handle.
 TEST_F(SmartCardConnectorApplicationSingleClientTest, GetAttribWrongHandle) {
   constexpr SCARDHANDLE kWrongScardHandle = 123456;
