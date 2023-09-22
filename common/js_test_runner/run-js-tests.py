@@ -82,10 +82,12 @@ def create_virtual_display(show_ui):
   """Returns a virtual display context manager."""
   return pyvirtualdisplay.Display(visible=show_ui)
 
-def create_driver(chromedriver_path, chrome_args):
+def create_driver(chromedriver_path, chrome_path, chrome_args):
   """Launches Chrome (Chromedriver) and returns the Selenium driver object."""
   service = webdriver.chrome.service.Service(executable_path=chromedriver_path)
   options = webdriver.chrome.options.Options()
+  if chrome_path:
+    options.binary_location = chrome_path
   # Collect all JS logs, not only warnings/errors which is the default.
   options.set_capability('goog:loggingPrefs', {'browser': 'ALL'})
   for arg in chrome_args:
@@ -155,6 +157,8 @@ def parse_command_line_args():
                       help='path to the HTML page that bundles the tests')
   parser.add_argument('--chromedriver-path', type=str, required=True,
                       help='path to chromedriver to be used by Selenium')
+  parser.add_argument('--chrome-path', type=str,
+                      help='custom path to Chrome to be used by Selenium')
   parser.add_argument('--serve-via-web-server', action='store_true',
                       help='host the whole directory via localhost webserver '
                            'and navigate to it instead of a file:// URL')
@@ -179,7 +183,8 @@ def main():
   with host_on_web_server_if_needed(args.serve_via_web_server,
                                     args.test_html_page_path) as url:
     with create_virtual_display(args.show_ui):
-      with create_driver(args.chromedriver_path, args.chrome_args) as driver:
+      with create_driver(args.chromedriver_path, args.chrome_path,
+                         args.chrome_args) as driver:
         sys.stderr.write('Running {}...\n'.format(url))
         load_test_page(driver, url)
         sys.stderr.write('Waiting for the test completion...\n')
