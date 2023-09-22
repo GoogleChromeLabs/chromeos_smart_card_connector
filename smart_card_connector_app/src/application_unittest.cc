@@ -2222,6 +2222,38 @@ TEST_F(SmartCardConnectorApplicationConnectedReaderTest, EndTransaction) {
   EXPECT_EQ(return_code, SCARD_S_SUCCESS);
 }
 
+// `SCardEndTransaction()` calls from JS should fail if there's no previous
+// `SCardBeginTransaction()` call.
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest,
+       EndTransactionWithoutBegin) {
+  // Act:
+  LONG return_code = SimulateEndTransactionCallFromJsClient(
+      kFakeHandlerId, scard_handle(), SCARD_LEAVE_CARD);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_E_NOT_TRANSACTED);
+}
+
+// `SCardEndTransaction()` calls from JS should fail if it's called more than
+// once for a single transaction.
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest,
+       EndTransactionDuplicate) {
+  // Arrange: begin and end a transaction.
+  EXPECT_EQ(
+      SimulateBeginTransactionCallFromJsClient(kFakeHandlerId, scard_handle()),
+      SCARD_S_SUCCESS);
+  EXPECT_EQ(SimulateEndTransactionCallFromJsClient(
+                kFakeHandlerId, scard_handle(), SCARD_LEAVE_CARD),
+            SCARD_S_SUCCESS);
+
+  // Act:
+  LONG return_code = SimulateEndTransactionCallFromJsClient(
+      kFakeHandlerId, scard_handle(), SCARD_LEAVE_CARD);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_E_NOT_TRANSACTED);
+}
+
 // `SCardEndTransaction()` calls from JS should fail when using a wrong handle.
 TEST_F(SmartCardConnectorApplicationSingleClientTest,
        EndTransactionWrongHandle) {
