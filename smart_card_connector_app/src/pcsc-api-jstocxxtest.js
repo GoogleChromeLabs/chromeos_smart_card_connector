@@ -983,6 +983,125 @@ goog.exportSymbol('testPcscApi', {
       assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
     },
 
+    // Test `SCardConnect()` successfully connects via the "T1" protocol if the
+    // previous connection via the "RAW" protocol was terminated by
+    // `SCardDisconnect` with `SCARD_RESET_CARD`.
+    'testSCardConnect_successProtocolChangeAfterReset': async function() {
+      await launchPcscServer(
+          /*initialDevices=*/[{
+            'id': 123,
+            'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
+            'cardType': SimulationConstants.COSMO_CARD_TYPE
+          }]);
+      const context = await establishContextOrThrow();
+      // Connect via the "RAW" protocol and disconnect.
+      const firstResult = await client.api.SCardConnect(
+          context, SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+          API.SCARD_SHARE_SHARED,
+          /*preferred_protocols=*/ API.SCARD_PROTOCOL_RAW);
+      let sCardHandle;
+      firstResult.get(
+          (sCardHandleArg) => {
+            sCardHandle = sCardHandleArg;
+          },
+          (errorCode) => {
+            fail(`Unexpected error in first SCardConnect: ${errorCode}`);
+          });
+      const disconnectResult =
+          await client.api.SCardDisconnect(sCardHandle, API.SCARD_RESET_CARD);
+      assertEquals(disconnectResult.getErrorCode(), API.SCARD_S_SUCCESS);
+
+      // Attempt connecting via a different protocol ("ANY" denotes "either T0
+      // or T1").
+      const secondResult = await client.api.SCardConnect(
+          context, SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+          API.SCARD_SHARE_SHARED,
+          /*preferred_protocols=*/ API.SCARD_PROTOCOL_ANY);
+
+      let called = false;
+      secondResult.get(
+          (sCardHandleArg, activeProtocol) => {
+            called = true;
+            assert(Number.isInteger(sCardHandle));
+            assertEquals(activeProtocol, API.SCARD_PROTOCOL_T1);
+          },
+          (errorCode) => {
+            fail(`Unexpected error in first SCardConnect: ${errorCode}`);
+          });
+      assertTrue(called);
+      assertEquals(secondResult.getErrorCode(), API.SCARD_E_PROTO_MISMATCH);
+    },
+
+    // Test `SCardConnect()` fails for dwShareMode `SCARD_SHARE_SHARED` when
+    // there's no card inserted.
+    'testSCardConnect_errorNoCard': async function() {
+      await launchPcscServer(
+          /*initialDevices=*/[
+            {'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}
+          ]);
+      const context = await establishContextOrThrow();
+
+      const result = await client.api.SCardConnect(
+          context, SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+          API.SCARD_SHARE_SHARED,
+          /*preferred_protocols=*/ API.SCARD_PROTOCOL_ANY);
+
+      let called = false;
+      result.get(
+          () => {
+            fail('Unexpectedly succeeded in SCardConnect');
+          },
+          (errorCode) => {
+            called = true;
+            assertEquals(errorCode, API.SCARD_E_NO_SMARTCARD);
+          });
+      assert(called);
+      assertEquals(result.getErrorCode(), API.SCARD_E_NO_SMARTCARD);
+    },
+
+    // Test `SCardConnect()` fails to connect via the "T1" protocol if the
+    // previous connection was using the "RAW" protocol.
+    'testSCardConnect_errorProtocolMismatch': async function() {
+      await launchPcscServer(
+          /*initialDevices=*/[{
+            'id': 123,
+            'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
+            'cardType': SimulationConstants.COSMO_CARD_TYPE
+          }]);
+      const context = await establishContextOrThrow();
+      // Simulate an empty UpdateAdminPolicy message to unblock the WaitAndGet()
+      // call. This is normally sent when admin-policy-service.js is first
+      // initialized.
+      // TODO(emaxx): Replace this by actually creating AdminPolicyService here.
+      testController.executableModule.getMessageChannel().send(
+          'update_admin_policy', /*payload=*/ {});
+      // Connect via the "RAW" protocol and disconnect.
+      const firstResult = await client.api.SCardConnect(
+          context, SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+          API.SCARD_SHARE_SHARED,
+          /*preferred_protocols=*/ API.SCARD_PROTOCOL_RAW);
+      let sCardHandle;
+      firstResult.get(
+          (sCardHandleArg) => {
+            sCardHandle = sCardHandleArg;
+          },
+          (errorCode) => {
+            fail(`Unexpected error in first SCardConnect: ${errorCode}`);
+          });
+      const disconnectResult =
+          await client.api.SCardDisconnect(sCardHandle, API.SCARD_LEAVE_CARD);
+      assertEquals(disconnectResult.getErrorCode(), API.SCARD_S_SUCCESS);
+
+      // Attempt connecting via a different protocol ("ANY" denotes "either T0
+      // or T1").
+      const secondResult = await client.api.SCardConnect(
+          context, SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+          API.SCARD_SHARE_SHARED,
+          /*preferred_protocols=*/ API.SCARD_PROTOCOL_ANY);
+
+      assertEquals(secondResult.getErrorCode(), API.SCARD_E_PROTO_MISMATCH);
+    },
+
     // Test `SCardDisconnect()` succeeds for a handle previously obtained via an
     // `SCardConnect()` call.
     'testSCardDisconnect_successLeave': async function() {
