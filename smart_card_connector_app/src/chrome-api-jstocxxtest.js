@@ -867,6 +867,33 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
       // The test `tearDown()` will verify that the disconnection works despite
       // the unended transaction.
     },
+
+    // Test that EndTransaction succeeds after transaction has begun.
+    'testEndTransaction_success': async function() {
+      // Start transaction
+      expectReportPlainResult(/*requestId=*/ 111, 'SUCCESS');
+      await mockChromeApi
+          .dispatchEvent(
+              'onBeginTransactionRequested', /*requestId=*/ 111, readerHandle)
+          .$waitAndVerify();
+
+      expectReportPlainResult(/*requestId=*/ 112, 'SUCCESS');
+      await mockChromeApi
+          .dispatchEvent(
+              'onEndTransactionRequested', /*requestId=*/ 112, readerHandle,
+              chrome.smartCardProviderPrivate.Disposition.LEAVE_CARD)
+          .$waitAndVerify();
+    },
+
+    // Test that EndTransaction fails without BeginTransaction.
+    'testEndTransaction_fail': async function() {
+      expectReportPlainResult(/*requestId=*/ 111, 'NOT_TRANSACTED');
+      await mockChromeApi
+          .dispatchEvent(
+              'onEndTransactionRequested', /*requestId=*/ 111, readerHandle,
+              chrome.smartCardProviderPrivate.Disposition.LEAVE_CARD)
+          .$waitAndVerify();
+    },
   },
 
   // Test Transmit success.
