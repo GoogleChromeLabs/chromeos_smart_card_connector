@@ -854,6 +854,19 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
               TAG_IFD_DEVICE_REMOVED, /*data=*/ new Uint8Array(['0x0']))
           .$waitAndVerify();
     },
+
+    // Test that BeginTransaction succeeds.
+    'testBeginTransaction': async function() {
+      expectReportPlainResult(/*requestId=*/ 111, 'SUCCESS');
+
+      await mockChromeApi
+          .dispatchEvent(
+              'onBeginTransactionRequested', /*requestId=*/ 111, readerHandle)
+          .$waitAndVerify();
+
+      // The test `tearDown()` will verify that the disconnection works despite
+      // the unended transaction.
+    },
   },
 
   // Test Transmit success.
