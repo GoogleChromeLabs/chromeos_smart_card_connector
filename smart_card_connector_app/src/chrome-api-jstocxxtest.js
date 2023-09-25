@@ -894,6 +894,39 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
               chrome.smartCardProviderPrivate.Disposition.LEAVE_CARD)
           .$waitAndVerify();
     },
+
+    // Test that Control succeeds for the `IOCTL_FEATURE_IFD_PIN_PROPERTIES`
+    // command and returns the properties.
+    'testControl_success': async function() {
+      // Corresponds to `IOCTL_FEATURE_IFD_PIN_PROPERTIES` in the CCID sources.
+      const IOCTL_FEATURE_IFD_PIN_PROPERTIES = 0x4233000A;
+      // The `PIN_PROPERTIES_STRUCTURE` struct as encoded blob, with the value
+      // that's expected for a standard reader.
+      const PIN_PROPERTIES_STRUCTURE =
+          new Uint8Array([0x00, 0x00, 0x07, 0x00]).buffer;
+      expectReportDataResult(
+          /*requestId=*/ 111, PIN_PROPERTIES_STRUCTURE, 'SUCCESS');
+      await mockChromeApi
+          .dispatchEvent(
+              'onControlRequested', /*requestId=*/ 111, readerHandle,
+              IOCTL_FEATURE_IFD_PIN_PROPERTIES, new ArrayBuffer(0))
+          .$waitAndVerify();
+    },
+
+    // Test that Control fails for the `IOCTL_SMARTCARD_VENDOR_IFD_EXCHANGE`
+    // command.
+    'testControl_fail': async function() {
+      // Corresponds to `IOCTL_SMARTCARD_VENDOR_IFD_EXCHANGE` in the CCID
+      // sources.
+      const IOCTL_SMARTCARD_VENDOR_IFD_EXCHANGE = 0x42000001;
+      expectReportDataResult(
+          /*requestId=*/ 111, new ArrayBuffer(0), 'NOT_TRANSACTED');
+      await mockChromeApi
+          .dispatchEvent(
+              'onControlRequested', /*requestId=*/ 111, readerHandle,
+              IOCTL_SMARTCARD_VENDOR_IFD_EXCHANGE, new ArrayBuffer(0))
+          .$waitAndVerify();
+    },
   },
 
   // Test Transmit success.
