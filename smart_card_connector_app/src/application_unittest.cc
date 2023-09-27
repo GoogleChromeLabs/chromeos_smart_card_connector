@@ -83,6 +83,9 @@ constexpr char kPnpNotification[] = R"(\\?PnP?\Notification)";
 constexpr char kGemaltoPcTwinReaderPcscName0[] = "Gemalto PC Twin Reader 00 00";
 constexpr char kDellSmartCardReaderKeyboardPcscName0[] =
     "Dell Dell Smart Card Reader Keyboard 00 00";
+// Corresponds to the `TAG_IFD_DEVICE_REMOVED` constant in the PC/SC
+// implementation.
+constexpr int kTagIfdDeviceRemoved = 0x0FB4;
 
 // Records reader_* messages sent to JS and allows to inspect them in tests.
 class ReaderNotificationObserver final {
@@ -2225,8 +2228,58 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, GetAttribWrongHandle) {
   EXPECT_EQ(return_code, SCARD_E_INVALID_HANDLE);
 }
 
+// `SCardSetAttrib()` calls from JS should succeed for `TAG_IFD_DEVICE_REMOVED`
+// and a single-byte zero blob argument.
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest,
+       SetAttribSuccessIfdDeviceRemovedWithSingleZero) {
+  // TAG_IFD_DEVICE_REMOVED with this parameter is a no-op, however the result
+  // is still "success".
+  LONG return_code = SimulateSetAttribCallFromJsClient(
+      kFakeHandlerId, scard_handle(), kTagIfdDeviceRemoved,
+      std::vector<uint8_t>{0});
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+}
+
+// `SCardSetAttrib()` calls from JS should succeed for `TAG_IFD_DEVICE_REMOVED`
+// and a multiple-byte blob argument.
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest,
+       SetAttribSuccessIfdDeviceRemovedWithMultipleBytes) {
+  // TAG_IFD_DEVICE_REMOVED with this parameter is a no-op, however the result
+  // is still "success".
+  LONG return_code = SimulateSetAttribCallFromJsClient(
+      kFakeHandlerId, scard_handle(), kTagIfdDeviceRemoved,
+      std::vector<uint8_t>{0, 1, 2});
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+}
+
+// `SCardSetAttrib()` calls from JS should fail for a supported attribute
+// (`TAG_IFD_DEVICE_REMOVED`) and an empty-blob argument.
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest,
+       SetAttribErrorIfdDeviceRemovedWithEmptyParam) {
+  LONG return_code = SimulateSetAttribCallFromJsClient(
+      kFakeHandlerId, scard_handle(), kTagIfdDeviceRemoved,
+      std::vector<uint8_t>{});
+  EXPECT_EQ(return_code, SCARD_E_INVALID_PARAMETER);
+}
+
+// `SCardSetAttrib()` calls from JS should fail for a supported attribute
+// (`TAG_IFD_DEVICE_REMOVED`) and an argument that exceeds the maximum allowed
+// size.
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest,
+       SetAttribErrorIfdDeviceRemovedWithOversizedParam) {
+  // The exact value doesn't matter, but it should exceed the `MAX_BUFFER_SIZE`
+  // constant in the PC/SC implementation (which is 264 at the moment).
+  const size_t kHugeSize = 10 * 1000;
+
+  LONG return_code = SimulateSetAttribCallFromJsClient(
+      kFakeHandlerId, scard_handle(), kTagIfdDeviceRemoved,
+      std::vector<uint8_t>(kHugeSize));
+  EXPECT_EQ(return_code, SCARD_E_INSUFFICIENT_BUFFER);
+}
+
 // `SCardSetAttrib()` calls from JS should fail for unsupported attributes.
-TEST_F(SmartCardConnectorApplicationConnectedReaderTest, SetAttribError) {
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest,
+       SetAttribErrorUnsupportedAttribute) {
   LONG return_code = SimulateSetAttribCallFromJsClient(
       kFakeHandlerId, scard_handle(), SCARD_ATTR_ATR_STRING,
       /*data_to_send=*/{});
