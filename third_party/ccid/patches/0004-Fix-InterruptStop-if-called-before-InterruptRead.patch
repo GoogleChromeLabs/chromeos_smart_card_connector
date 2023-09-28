@@ -1,0 +1,69 @@
+From eb7d6064f8bd901559c836e5578c43a7a7e85032 Mon Sep 17 00:00:00 2001
+From: Maksim Ivanov <emaxx@google.com>
+Date: Wed, 27 Sep 2023 17:53:11 +0200
+Subject: [PATCH] Fix InterruptStop if called before InterruptRead
+
+The goal is to make the polling termination (via
+TAG_IFD_STOP_POLLING_THREAD) actually work even when it's
+triggered before the InterruptRead has a chance to create and
+publish the polling_transfer.
+
+Without this patch, in some cases the termination was blocked for
+10 minutes, because the thread that does InterruptStop might still
+see the null polling_transfer meanwhile the other thread is about
+to start this transfer. The proposed solution is to remember in a
+separate (atomic) boolean flag whether the termination started, to
+avoid this kind of race condition.
+---
+ src/ccid_usb.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
+
+diff --git a/src/ccid_usb.c b/src/ccid_usb.c
+index 933ff760..c5d47c9a 100644
+--- a/src/ccid_usb.c
++++ b/src/ccid_usb.c
+@@ -113,6 +113,9 @@ typedef struct
+ 	 */
+ 	_ccid_descriptor ccid;
+ 
++	/* whether the polling should be terminated */
++	_Atomic bool terminated;
++
+ 	/* libusb transfer for the polling (or NULL) */
+ 	_Atomic (struct libusb_transfer *) polling_transfer;
+ 
+@@ -741,6 +744,7 @@ status_t OpenUSBByName(unsigned int reader_index, /*@null@*/ char *device)
+ 				usbDevice[reader_index].interface = interface;
+ 				usbDevice[reader_index].real_nb_opened_slots = 1;
+ 				usbDevice[reader_index].nb_opened_slots = &usbDevice[reader_index].real_nb_opened_slots;
++				atomic_init(&usbDevice[reader_index].terminated, false);
+ 				atomic_init(&usbDevice[reader_index].polling_transfer, NULL);
+ 				usbDevice[reader_index].disconnected = false;
+ 
+@@ -1526,6 +1530,14 @@ int InterruptRead(int reader_index, int timeout /* in ms */)
+ 
+ 	atomic_store(&usbDevice[reader_index].polling_transfer, transfer);
+ 
++	// The termination might've been requested by the other thread before the
++	// polling_transfer field was written. In that case, we have to cancel the
++	// transfer here as opposed to InterruptStop().
++	bool terminated = atomic_load(&usbDevice[reader_index].terminated);
++	if (terminated) {
++		libusb_cancel_transfer(transfer);
++	}
++
+ 	while (!completed)
+ 	{
+ 		ret = libusb_handle_events_completed(ctx, &completed);
+@@ -1590,6 +1602,11 @@ void InterruptStop(int reader_index)
+ 		return;
+ 	}
+ 
++	// Set the termination flag to handle the case in which the polling_transfer
++	// value read below is null. The order of operations is important, and it has
++	// to be opposite to the one in InterruptRead() to avoid race conditions.
++	atomic_store(&usbDevice[reader_index].terminated, true);
++
+ 	transfer = atomic_exchange(&usbDevice[reader_index].polling_transfer,
+ 		NULL);
+ 	if (transfer)
