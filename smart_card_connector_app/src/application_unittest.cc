@@ -75,6 +75,11 @@ namespace google_smart_card {
 
 namespace {
 
+// The upper boundary on how long the `Application` shutdown may take. Used
+// primarily to catch mistakes when the shutdown is hung completely or is
+// wrongly blocked on multi-minute timeouts.
+constexpr auto kApplicationShutdownTimeLimit = std::chrono::minutes(1);
+
 // The constant from the PC/SC-Lite API docs.
 constexpr char kPnpNotification[] = R"(\\?PnP?\Notification)";
 // Names of `TestingSmartCardSimulation::DeviceType` items as they appear in the
@@ -205,6 +210,16 @@ void WaitUntilPredicate(std::function<bool()> predicate) {
     std::this_thread::sleep_for(kPollingInterval);
 }
 
+template <typename Rep, typename Period>
+void AssertDurationNotLonger(std::function<void()> f,
+                             std::chrono::duration<Rep, Period> max_duration) {
+  std::chrono::steady_clock::time_point begin =
+      std::chrono::steady_clock::now();
+  f();
+  std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+  ASSERT_LE(end - begin, max_duration);
+}
+
 }  // namespace
 
 class SmartCardConnectorApplicationTest : public ::testing::Test {
@@ -219,7 +234,9 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
   }
 
   ~SmartCardConnectorApplicationTest() {
-    application_->ShutDownAndWait();
+    AssertDurationNotLonger([this] { application_->ShutDownAndWait(); },
+                            kApplicationShutdownTimeLimit);
+
 #ifdef __native_client__
     EXPECT_TRUE(UnmountNaclIoFolders());
 #endif  // __native_client__
@@ -2660,6 +2677,42 @@ TEST_F(SmartCardConnectorApplicationTwoClientsTest,
   EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
                                                SCARD_LEAVE_CARD),
             SCARD_S_SUCCESS);
+}
+
+// Test that the PC/SC server shuts down timely in the scenario when a new
+// reader is added shortly before that.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       ReaderAddedBeforeShutdown) {
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+
+  // Act:
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  SetUsbDevices({device});
+
+  // Nothing to assert explicitly here - the relevant assertion is in the test
+  // fixture destructor that verifies that the shutdown fits into a timeout.
+}
+
+// Same as above, but additionally makes a PC/SC call roundtrip to affect the
+// timings and increase the probabilty of catching bugs if they appear.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       ReaderAddedBeforeShutdownWithPcscCall) {
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+
+  // Act:
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  SetUsbDevices({device});
+  SetUpSCardContext();
+
+  // Nothing to assert explicitly here - see the comment in the previous test.
 }
 
 }  // namespace google_smart_card
