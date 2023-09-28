@@ -2698,7 +2698,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
 }
 
 // Same as above, but additionally makes a PC/SC call roundtrip to affect the
-// timings and increase the probabilty of calling bugs if they happen to appear.
+// timings and increase the probabilty of catching bugs if they appear.
 TEST_F(SmartCardConnectorApplicationSingleClientTest,
        ReaderAddedBeforeShutdownWithPcscCall) {
   // Arrange:
