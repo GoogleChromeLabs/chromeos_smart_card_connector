@@ -62,8 +62,10 @@ let mockChromeApi;
 let mockControl;
 /** @type {ChromeApiProvider?} */
 let chromeApiProvider;
-/** @type {number} */
+/** @type {number?} */
 let readerHandle;
+/** @type {number?} */
+let releasedContext;
 
 /**
  * @param {!Array} initialDevices
@@ -361,6 +363,131 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         .$waitAndVerify();
   },
 
+  // Tests that check that requests on an already released context return
+  // INVALID_HANDLE.
+  'testReleasedContext': {
+    'setUp': async function() {
+      await launchPcscServer(/*initialDevices=*/[]);
+      // Establish and release context.
+      releasedContext = await establishContext(/*requestId=*/ 123);
+      expectReportReleaseContext(/*requestId=*/ 124, 'SUCCESS');
+      await mockChromeApi
+          .dispatchEvent(
+              'onReleaseContextRequested', /*requestId=*/ 124, releasedContext)
+          .$waitAndVerify();
+    },
+
+    'tearDown': function() {
+      releasedContext = null;
+    },
+
+    // Test that ReleaseContext requested on an already released context
+    // returns INVALID_HANDLE error.
+    'testReleaseContext': async function() {
+      expectReportReleaseContext(/*requestId=*/ 1001, 'INVALID_HANDLE');
+      await mockChromeApi
+          .dispatchEvent(
+              'onReleaseContextRequested', /*requestId=*/ 1001, releasedContext)
+          .$waitAndVerify();
+    },
+
+    // Test that ListReaders requested on an already released context returns
+    // INVALID_HANDLE error.
+    'testListReaders': async function() {
+      expectReportListReaders(/*requestId=*/ 1001, [], 'INVALID_HANDLE');
+      await mockChromeApi
+          .dispatchEvent(
+              'onListReadersRequested', /*requestId=*/ 1001, releasedContext)
+          .$waitAndVerify();
+    },
+  },
+
+  // Tests that check that requests on an already released context return
+  // INVALID_HANDLE. Tests with a reader connected.
+  'testReleasedContextWithReader': {
+    'setUp': async function() {
+      await launchPcscServer(/*initialDevices=*/[]);
+
+      const sCardContext = await establishContext(/*requestId=*/ 123);
+
+      // Simulate reader connection and wait until PCSC finishes reader
+      // initialization.
+      expectReportGetStatusChange(
+          /*requestId=*/ 124, [{
+            'reader': PNP_NOTIFICATION,
+            'eventState': {'changed': true},
+            'eventCount': 0,
+            'atr': new ArrayBuffer(0)
+          }],
+          'SUCCESS');
+      const verifyResult = mockChromeApi
+                               .dispatchEvent(
+                                   'onGetStatusChangeRequested',
+                                   /*requestId=*/ 124, sCardContext,
+                                   /*timeout=*/ {}, [{
+                                     'reader': PNP_NOTIFICATION,
+                                     'currentState': {'unaware': true},
+                                     'currentCount': 0
+                                   }])
+                               .$waitAndVerify();
+      await setSimulatedDevices(
+          [{'id': 123, 'type': SimulationConstants.GEMALTO_DEVICE_TYPE}]);
+      await verifyResult;
+
+      expectReportReleaseContext(/*requestId=*/ 125, 'SUCCESS');
+      await mockChromeApi
+          .dispatchEvent(
+              'onReleaseContextRequested', /*requestId=*/ 125, sCardContext)
+          .$waitAndVerify();
+      releasedContext = sCardContext;
+    },
+
+    'tearDown': function() {
+      releasedContext = null;
+    },
+
+    // Test that GetStatusChange requested on an already released context
+    // returns INVALID_HANDLE error.
+    'testGetStatusChange': async function() {
+      expectReportGetStatusChange(/*requestId=*/ 1001, [], 'INVALID_HANDLE');
+      await mockChromeApi
+          .dispatchEvent(
+              'onGetStatusChangeRequested',
+              /*requestId=*/ 1001, releasedContext,
+              /*timeout=*/ {}, [{
+                'reader': PNP_NOTIFICATION,
+                'currentState': {'unaware': true},
+                'currentCount': 0
+              }])
+          .$waitAndVerify();
+    },
+
+    // Test that Cancel requested on an already released context returns
+    // INVALID_HANDLE error.
+    'testCancel': async function() {
+      expectReportPlainResult(/*requestId=*/ 1001, 'INVALID_HANDLE');
+      await mockChromeApi
+          .dispatchEvent(
+              'onCancelRequested', /*requestId=*/ 1001, releasedContext)
+          .$waitAndVerify();
+    },
+
+    // Test that Connect requested on an already released context returns
+    // INVALID_HANDLE error.
+    'testConnect': async function() {
+      expectReportConnectResult(
+          /*requestId=*/ 1001,
+          chrome.smartCardProviderPrivate.Protocol.UNDEFINED, 'INVALID_HANDLE');
+      await mockChromeApi
+          .dispatchEvent(
+              'onConnectRequested', /*requestId=*/ 1001, releasedContext,
+              SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+              chrome.smartCardProviderPrivate.ShareMode.DIRECT,
+              /*preferredProtocols=*/ {})
+          .$waitAndVerify();
+    }
+  },
+
   // Test ListReaders with no readers attached.
   'testListReaders_none': async function() {
     expectReportListReaders(/*requestId=*/ 124, [], 'NO_READERS_AVAILABLE');
@@ -370,24 +497,6 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
     await mockChromeApi
         .dispatchEvent(
             'onListReadersRequested', /*requestId=*/ 124, sCardContext)
-        .$waitAndVerify();
-  },
-
-  // Test that ListReaders requested with already released context returns
-  // INVALID_HANDLE error.
-  'testListReaders_releasedContext': async function() {
-    expectReportReleaseContext(/*requestId=*/ 124, 'SUCCESS');
-    expectReportListReaders(/*requestId=*/ 125, [], 'INVALID_HANDLE');
-
-    await launchPcscServer(/*initialDevices=*/[]);
-    const sCardContext = await establishContext(/*requestId=*/ 123);
-    await mockChromeApi
-        .dispatchEvent(
-            'onReleaseContextRequested', /*requestId=*/ 124, sCardContext)
-        .$waitAndVerify();
-    await mockChromeApi
-        .dispatchEvent(
-            'onListReadersRequested', /*requestId=*/ 125, sCardContext)
         .$waitAndVerify();
   },
 
@@ -408,8 +517,8 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
         .$waitAndVerify();
   },
 
-
-  // Test ListReaders returns a two-item list when there're two attached device.
+  // Test ListReaders returns a two-item list when there're two attached
+  // devices.
   'testListReaders_twoDevices': async function() {
     expectReportListReaders(
         /*requestId=*/ 124,
@@ -698,6 +807,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
               'onDisconnectRequested', /*requestId=*/ 68, readerHandle,
               chrome.smartCardProviderPrivate.Disposition.LEAVE_CARD)
           .$waitAndVerify();
+      readerHandle = null;
     },
 
     // Test that Status returns information about the card.
