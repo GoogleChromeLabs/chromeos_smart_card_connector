@@ -81,6 +81,17 @@ LibusbJsDevice MakeLibusbJsDevice(
       js_device.manufacturer_name = std::string("Dell");
       js_device.serial_number = std::string("");
       return js_device;
+    case DeviceType::kYubikey4C:
+      // Numbers are for a real device.
+      js_device.vendor_id = 0x1050;
+      js_device.product_id = 0x0404;
+      js_device.version = 0x0433;
+      // TODO: Remove explicit `std::string` construction after switching to
+      // feature-complete `std::optional` (after dropping NaCl support).
+      js_device.product_name = std::string("Yubikey 4 CCID");
+      js_device.manufacturer_name = std::string("Yubico");
+      js_device.serial_number = std::string("");
+      return js_device;
   }
   GOOGLE_SMART_CARD_NOTREACHED;
 }
@@ -178,6 +189,50 @@ MakeLibusbJsConfigurationDescriptors(DeviceType device_type) {
 
       return {config};
     }
+
+    case DeviceType::kYubikey4C: {
+      // Values are taken from a real device.
+
+      LibusbJsEndpointDescriptor endpoint1;
+      endpoint1.endpoint_address = 2;
+      endpoint1.direction = LibusbJsDirection::kOut;
+      endpoint1.type = LibusbJsEndpointType::kBulk;
+      endpoint1.max_packet_size = 64;
+
+      LibusbJsEndpointDescriptor endpoint2;
+      endpoint2.endpoint_address = 0x82;
+      endpoint2.direction = LibusbJsDirection::kIn;
+      endpoint2.type = LibusbJsEndpointType::kBulk;
+      endpoint2.max_packet_size = 64;
+
+      LibusbJsEndpointDescriptor endpoint3;
+      endpoint3.endpoint_address = 0x83;
+      endpoint3.direction = LibusbJsDirection::kIn;
+      endpoint3.type = LibusbJsEndpointType::kInterrupt;
+      endpoint3.max_packet_size = 8;
+
+      LibusbJsInterfaceDescriptor interface;
+      interface.interface_number = 0;
+      interface.interface_class = 0xB;
+      interface.interface_subclass = 0;
+      interface.interface_protocol = 0;
+      interface.extra_data = std::vector<uint8_t>(
+          {0x36, 0x21, 0x00, 0x01, 0x00, 0x07, 0x02, 0x00, 0x00, 0x00, 0xA0,
+           0x0F, 0x00, 0x00, 0xA0, 0x0F, 0x00, 0x00, 0x00, 0x00, 0xB0, 0x04,
+           0x00, 0x00, 0xB0, 0x04, 0x00, 0x00, 0xF6, 0x07, 0x00, 0x00, 0x00,
+           0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFE, 0x00, 0x04, 0x00,
+           0x00, 0x0C, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x01});
+      interface.endpoints.push_back(std::move(endpoint1));
+      interface.endpoints.push_back(std::move(endpoint2));
+      interface.endpoints.push_back(std::move(endpoint3));
+
+      LibusbJsConfigurationDescriptor config;
+      config.active = true;
+      config.configuration_value = 1;
+      config.interfaces.push_back(std::move(interface));
+
+      return {config};
+    }
   }
   GOOGLE_SMART_CARD_NOTREACHED;
 }
@@ -252,6 +307,9 @@ std::vector<uint8_t> MakeGetDataRatesResponse(DeviceType device_type) {
               0x00, 0x48, 0xE8, 0x01, 0x00, 0xBA, 0xDB, 0x00, 0x00, 0x36, 0x6E,
               0x01, 0x00, 0x24, 0xF4, 0x00, 0x00, 0xDD, 0x6D, 0x00, 0x00, 0x1B,
               0xB7, 0x00, 0x00};
+    }
+    case DeviceType::kYubikey4C: {
+      GOOGLE_SMART_CARD_LOG_FATAL << "Unexpected GET_DATA_RATES for kYubikey4C";
     }
   }
   GOOGLE_SMART_CARD_NOTREACHED;
@@ -345,6 +403,10 @@ std::vector<uint8_t> HandleSelectCommandApdu(
       apdu_response.push_back(sw2);
       return apdu_response;
     }
+    case CardProfile::kYubikey: {
+      GOOGLE_SMART_CARD_LOG_FATAL
+          << "Unexpected HandleSelectCommandApdu for kYubikey";
+    }
   }
   GOOGLE_SMART_CARD_NOTREACHED;
 }
@@ -421,6 +483,9 @@ std::vector<uint8_t> MakeXfrBlockTransferReply(
       case CardType::kCosmoId70:
         return MakeDataBlockTransferReply(sequence_number, icc_status,
                                           response_data);
+      case CardType::kYubikey:
+        GOOGLE_SMART_CARD_LOG_FATAL
+            << "Unexpected MakeXfrBlockTransferReply with PPS for kYubikey";
     }
     GOOGLE_SMART_CARD_NOTREACHED;
   }
@@ -441,6 +506,9 @@ std::vector<uint8_t> MakeXfrBlockTransferReply(
       case CardType::kCosmoId70:
         return MakeDataBlockTransferReply(sequence_number, icc_status,
                                           response_data);
+      case CardType::kYubikey:
+        GOOGLE_SMART_CARD_LOG_FATAL
+            << "Unexpected MakeXfrBlockTransferReply with IFS for kYubikey";
     }
     GOOGLE_SMART_CARD_NOTREACHED;
   }
@@ -528,7 +596,8 @@ EnumValueDescriptor<TestingSmartCardSimulation::DeviceType>::GetDescription() {
   return Describe("DeviceType")
       .WithItem(DeviceType::kGemaltoPcTwinReader, "gemaltoPcTwinReader")
       .WithItem(DeviceType::kDellSmartCardReaderKeyboard,
-                "dellSmartCardReaderKeyboard");
+                "dellSmartCardReaderKeyboard")
+      .WithItem(DeviceType::kYubikey4C, "yubikey4C");
 }
 
 template <>
@@ -660,6 +729,9 @@ std::vector<uint8_t> TestingSmartCardSimulation::GetCardAtr(
     case CardType::kCosmoId70:
       return {0x3B, 0xDB, 0x96, 0x00, 0x80, 0xB1, 0xFE, 0x45, 0x1F, 0x83, 0x00,
               0x31, 0xC0, 0x64, 0xC7, 0xFC, 0x10, 0x00, 0x01, 0x90, 0x00, 0x74};
+    case CardType::kYubikey:
+      return {0x3B, 0xF8, 0x13, 0x00, 0x00, 0x81, 0x31, 0xFE, 0x15,
+              0x59, 0x75, 0x62, 0x69, 0x6B, 0x65, 0x79, 0x34, 0xD4};
   }
   GOOGLE_SMART_CARD_NOTREACHED;
 }
@@ -679,6 +751,9 @@ TestingSmartCardSimulation::GetCardProfileApplicationIdentifier(
               0x50, 0x1A, 0x68, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x63, 0x73,
               0x72, 0x63, 0x2E, 0x6E, 0x69, 0x73, 0x74, 0x2E, 0x67, 0x6F, 0x76,
               0x2F, 0x6E, 0x70, 0x69, 0x76, 0x70};
+    case CardProfile::kYubikey:
+      GOOGLE_SMART_CARD_LOG_FATAL
+          << "Unexpected GetCardProfileApplicationIdentifier for kYubikey";
   }
   GOOGLE_SMART_CARD_NOTREACHED;
 }
