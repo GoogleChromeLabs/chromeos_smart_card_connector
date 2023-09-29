@@ -65,6 +65,14 @@ GSC.TestingLibusbSmartCardSimulationConstants.COSMO_ID_70_ATR =
       0x31, 0xC0, 0x64, 0xC7, 0xFC, 0x10, 0x00, 0x01, 0x90, 0x00, 0x74,
     ])).buffer;
 
+// SELECT command (the format is per NIST 800-73-4).
+/**@const */
+GSC.TestingLibusbSmartCardSimulationConstants.SELECT_COMMAND =
+    new Uint8Array([
+      0x00, 0xA4, 0x04, 0x00, 0x09, 0xA0, 0x00, 0x00, 0x03, 0x08, 0x00, 0x00,
+      0x10, 0x00, 0x00
+    ]).buffer;
+
 // Hardcoded application identifier that testing_smart_card_simulation.cc uses
 // for the CardProfile::kCharismathicsPiv.
 /**@const */
@@ -79,4 +87,10 @@ GSC.TestingLibusbSmartCardSimulationConstants
   0x3A, 0x2F, 0x2F, 0x63, 0x73, 0x72, 0x63, 0x2E, 0x6E, 0x69, 0x73, 0x74,
   0x2E, 0x67, 0x6F, 0x76, 0x2F, 0x6E, 0x70, 0x69, 0x76, 0x70
 ]);
+
+// The `PIN_PROPERTIES_STRUCTURE` struct as encoded blob, with the value
+// that's expected for a standard reader.
+/** @const */
+GSC.TestingLibusbSmartCardSimulationConstants.PIN_PROPERTIES_STRUCTURE =
+    new Uint8Array([0x00, 0x00, 0x07, 0x00]).buffer;
 });

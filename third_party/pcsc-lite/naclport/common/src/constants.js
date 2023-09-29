@@ -52,4 +52,9 @@ Constants.REQUESTER_TITLE = 'pcsc_lite_function_call';
 // The constant from the PC/SC-Lite API docs.
 /** @const */
 Constants.PNP_NOTIFICATION = String.raw`\\?PnP?\Notification`;
+
+// The constant taken from PCSC implementation.
+// Id of the attribute signaling that device has been removed.
+/** @const */
+Constants.TAG_IFD_DEVICE_REMOVED = 0x0FB4;
 });  // goog.scope
