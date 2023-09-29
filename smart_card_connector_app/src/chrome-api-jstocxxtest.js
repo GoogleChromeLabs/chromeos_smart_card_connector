@@ -643,6 +643,43 @@ const SIMPLE_TEST_CASES = {
             /*data=*/ SimulationConstants.SELECT_COMMAND)
         .$waitAndVerify();
   },
+
+  // Test that Control requested on an already terminated connection
+  // returns INVALID_HANDLE error.
+  'testTransmit_terminatedConnection': async function() {
+    // Set up a reader and a card with a PIV profile.
+    await launchPcscServer(/*initialDevices=*/[{
+      'id': 123,
+      'type': SimulationConstants.GEMALTO_DEVICE_TYPE,
+      'cardType': SimulationConstants.COSMO_CARD_TYPE,
+      'cardProfile': SimulationConstants.CHARISMATHICS_PIV_TYPE
+    }]);
+
+    // Connect to reader and terminate connection.
+    const sCardContext = await establishContext(/*requestId=*/ 66);
+    const sCardHandle = await connect(
+        /*requestId=*/ 67, sCardContext,
+        SimulationConstants.GEMALTO_PC_TWIN_READER_PCSC_NAME0,
+        chrome.smartCardProviderPrivate.ShareMode.SHARED,
+        /*preferredProtocols=*/ {'t1': true},
+        /*expectedProtocol=*/ chrome.smartCardProviderPrivate.Protocol.T1);
+    expectReportPlainResult(/*requestId=*/ 68, 'SUCCESS');
+    await mockChromeApi
+        .dispatchEvent(
+            'onDisconnectRequested', /*requestId=*/ 68, sCardHandle,
+            chrome.smartCardProviderPrivate.Disposition.LEAVE_CARD)
+        .$waitAndVerify();
+
+    // Check that Transmit will return INVALID_HANDLE.
+    expectReportDataResult(
+        /*requestId=*/ 69, new ArrayBuffer(0), 'INVALID_HANDLE');
+    await mockChromeApi
+        .dispatchEvent(
+            'onTransmitRequested', /*requestId=*/ 69, sCardHandle,
+            chrome.smartCardProviderPrivate.Protocol.T1,
+            /*data=*/ SimulationConstants.SELECT_COMMAND)
+        .$waitAndVerify();
+  },
 };
 
 const RELEASED_CONTEXT_TEST_CASES = {
@@ -935,6 +972,96 @@ const CONNECTED_READER_DISCONNECT_ON_TEARDOWN_TEST_CASES = {
   },
 };
 
+const TERMINATED_READER_CONNECTION_TEST_CASES = {
+  // Test that Disconnect requested on an already terminated connection
+  // returns INVALID_HANDLE error.
+  'testDisconnect': async function() {
+    expectReportPlainResult(/*requestId=*/ 201, 'INVALID_HANDLE');
+
+    await mockChromeApi
+        .dispatchEvent(
+            'onDisconnectRequested', /*requestId=*/ 201, readerHandle,
+            chrome.smartCardProviderPrivate.Disposition.LEAVE_CARD)
+        .$waitAndVerify();
+  },
+
+  // Test that Status requested on an already terminated connection
+  // returns INVALID_HANDLE error.
+  'testStatus': async function() {
+    expectReportStatusResult(
+        /*requestId=*/ 201, /*readerName=*/ '',
+        chrome.smartCardProviderPrivate.ConnectionState.ABSENT,
+        chrome.smartCardProviderPrivate.Protocol.UNDEFINED, new ArrayBuffer(0),
+        'INVALID_HANDLE');
+
+    await mockChromeApi
+        .dispatchEvent('onStatusRequested', /*requestId=*/ 201, readerHandle)
+        .$waitAndVerify();
+  },
+
+  // Test that GetAttrib requested on an already terminated connection
+  // returns INVALID_HANDLE error.
+  'testGetAttrib': async function() {
+    expectReportDataResult(
+        /*requestId=*/ 201, new ArrayBuffer(0),
+        /*resultCode=*/ 'INVALID_HANDLE');
+
+    await mockChromeApi
+        .dispatchEvent(
+            'onGetAttribRequested', /*requestId=*/ 201, readerHandle,
+            API.SCARD_ATTR_ATR_STRING)
+        .$waitAndVerify();
+  },
+
+  // Test that SetAttrib requested on an already terminated connection
+  // returns INVALID_HANDLE error.
+  'testSetAttrib': async function() {
+    expectReportPlainResult(/*requestId=*/ 201, 'INVALID_HANDLE');
+
+    await mockChromeApi
+        .dispatchEvent(
+            'onSetAttribRequested', /*requestId=*/ 201, readerHandle,
+            TAG_IFD_DEVICE_REMOVED, /*data=*/ new Uint8Array(['0x0']))
+        .$waitAndVerify();
+  },
+
+  // Test that BeginTransaction requested on an already terminated
+  // connection returns INVALID_HANDLE error.
+  'testBeginTransaction': async function() {
+    expectReportPlainResult(/*requestId=*/ 201, 'INVALID_HANDLE');
+
+    await mockChromeApi
+        .dispatchEvent(
+            'onBeginTransactionRequested', /*requestId=*/ 201, readerHandle)
+        .$waitAndVerify();
+  },
+
+  // Test that EndTransaction requested on an already terminated connection
+  // returns INVALID_HANDLE error.
+  'testEndTransaction': async function() {
+    expectReportPlainResult(/*requestId=*/ 201, 'INVALID_HANDLE');
+
+    await mockChromeApi
+        .dispatchEvent(
+            'onEndTransactionRequested', /*requestId=*/ 201, readerHandle,
+            chrome.smartCardProviderPrivate.Disposition.LEAVE_CARD)
+        .$waitAndVerify();
+  },
+
+  // Test that Control requested on an already terminated connection
+  // returns INVALID_HANDLE error.
+  'testControl': async function() {
+    expectReportDataResult(
+        /*requestId=*/ 201, new ArrayBuffer(0), 'INVALID_HANDLE');
+
+    await mockChromeApi
+        .dispatchEvent(
+            'onControlRequested', /*requestId=*/ 201, readerHandle,
+            IOCTL_FEATURE_IFD_PIN_PROPERTIES, new ArrayBuffer(0))
+        .$waitAndVerify();
+  },
+};
+
 goog.exportSymbol('testChromeApiProviderToCpp', {
   'setUp': async function() {
     // Set up the controller and load the C/C++ executable module.
@@ -1072,6 +1199,21 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
       },
 
       ...CONNECTED_READER_DISCONNECT_ON_TEARDOWN_TEST_CASES,
+    },
+
+    // Tests that check that requests on an already terminated reader connection
+    // return INVALID_HANDLE.
+    'testTerminatedConnection': {
+      'setUp': async function() {
+        expectReportPlainResult(/*requestId=*/ 101, 'SUCCESS');
+        await mockChromeApi
+            .dispatchEvent(
+                'onDisconnectRequested', /*requestId=*/ 101, readerHandle,
+                chrome.smartCardProviderPrivate.Disposition.LEAVE_CARD)
+            .$waitAndVerify();
+      },
+
+      ...TERMINATED_READER_CONNECTION_TEST_CASES,
     },
   },
 });
