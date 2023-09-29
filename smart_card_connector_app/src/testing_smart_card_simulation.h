@@ -52,9 +52,23 @@ namespace google_smart_card {
 class TestingSmartCardSimulation final : public RequestHandler {
  public:
   // Fake device to simulate.
-  enum class DeviceType { kGemaltoPcTwinReader, kDellSmartCardReaderKeyboard };
-  enum class CardType { kCosmoId70 };
-  enum class CardProfile { kCharismathicsPiv };
+  enum class DeviceType {
+    kGemaltoPcTwinReader,
+    kDellSmartCardReaderKeyboard,
+    kYubikey4C
+  };
+  enum class CardType {
+    // Usable with all non-Yubikey device types.
+    kCosmoId70,
+    // Only usable with Yubikey device types.
+    kYubikey,
+  };
+  enum class CardProfile {
+    // Usable with all non-Yubikey device types.
+    kCharismathicsPiv,
+    // Only usable with Yubikey device types.
+    kYubikey,
+  };
 
   // Represents whether an ICC (a smart card) is inserted into the reader and is
   // powered. Corresponds to "bmICCStatus" from CCID specs.
