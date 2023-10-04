@@ -231,52 +231,35 @@ function assertReaderStateEquals(a, b) {
       `${debugDumpFull(a)} != ${debugDumpFull(b)}`, readerStateEquals(a, b));
 }
 
-goog.exportSymbol('testPcscApi', {
-  'setUp': async function() {
-    // Set up the controller and load the C/C++ executable module.
-    testController = new GSC.IntegrationTestController();
-    await testController.initAsync();
-    // Stub out necessary globals.
-    ClientHandler.overridePermissionsCheckerForTesting(stubPermissionsChecker);
-    libusbProxyReceiver = new GSC.LibusbProxyReceiver(
-        testController.executableModule.getMessageChannel());
-    libusbProxyReceiver.addHook(new GSC.TestingLibusbSmartCardSimulationHook(
-        testController.executableModule.getMessageChannel()));
-    // Set up observers.
-    pcscReadinessTracker = new ReadinessTracker(
-        testController.executableModule.getMessageChannel());
-  },
-
-  'tearDown': async function() {
-    try {
-      await testController.disposeAsync();
-      pcscReadinessTracker.dispose();
-    } finally {
-      pcscReadinessTracker = null;
-      ClientHandler.overridePermissionsCheckerForTesting(null);
-      testController = null;
-    }
-  },
-
+// Test cases exposed under the "testPcscApi" key.
+const SIMPLE_TEST_CASES = {
   // Test that the PC/SC server can successfully start up.
   'testStartup': async function() {
     await launchPcscServer(/*initialDevices=*/[]);
     await pcscReadinessTracker.promise;
   },
 
-  // A group of tests that simulate a single client making PC/SC calls.
-  'testWithSingleClient': {
-    'setUp': function() {
-      client = createFakeClient();
-    },
+  // Test that the PC/SC server can shut down successfully when there's an
+  // active client.
+  'testShutdownWithActiveClient': async function() {
+    await launchPcscServer(/*initialDevices=*/[]);
+    createFakeClient();
+    await pcscReadinessTracker.promise;
+    // Intentionally don't dispose the client.
+  },
 
-    'tearDown': function() {
-      if (client) {
-        disposeFakeClient(client);
-        client = null;
-      }
-    },
+  // Same as above, but the client additionally made an API call.
+  // This verifies any lazily created internal state doesn't cause problems.
+  'testShutdownWithActiveClientAfterApiCall': async function() {
+    const BAD_CONTEXT = 123;
+    await launchPcscServer(/*initialDevices=*/[]);
+    const localClient = createFakeClient();
+    await localClient.api.SCardIsValidContext(BAD_CONTEXT);
+    // Intentionally don't dispose the client.
+  },
+};
 
+const TEST_CASES_WITH_SINGLE_CLIENT = {
     // Test `SCardEstablishContext()`.
     'testSCardEstablishContext': async function() {
       await launchPcscServer(/*initialDevices=*/[]);
@@ -704,126 +687,6 @@ goog.exportSymbol('testPcscApi', {
                   0x10000,
               /*atr=*/ new ArrayBuffer(0)));
       assertEquals(result.getErrorCode(), API.SCARD_S_SUCCESS);
-    },
-
-    // Group of tests that simulate incorrect requests sent by clients.
-    'testMalformedRequest': {
-      'setUp': async function() {
-        await launchPcscServer(/*initialDevices=*/[]);
-        await pcscReadinessTracker.promise;
-        // Dispose of the API object, because it'd complain about unexpected
-        // responses (to malformed requests we simulate below).
-        client.api.dispose();
-      },
-
-      'tearDown': async function() {
-        // Wait for some time before exiting, to let any possible bug have a
-        // chance to trigger an error.
-        await sleep(/*timeoutMillis=*/ 1000);
-        // Verify the C/C++ module hasn't crashed.
-        assertFalse(testController.executableModule.isDisposed());
-      },
-
-      // Test no exception happens when receiving a message with completely
-      // unexpected fields.
-      'testGarbage': function() {
-        const senderMessageChannel = client.apiMessageChannelPair.getSecond();
-        senderMessageChannel.send(/*serviceName=*/ 'foo', /*payload=*/ {});
-      },
-
-      // Test no exception happens when receiving a message with correct type,
-      // but empty data.
-      'testEmptyData': function() {
-        const MESSAGE_DATA = {};
-
-        const senderMessageChannel = client.apiMessageChannelPair.getSecond();
-        senderMessageChannel.send(PCSC_REQUEST_MESSAGE_TYPE, MESSAGE_DATA);
-      },
-
-      // Test no exception happens when receiving a message with no payload in
-      // the message data.
-      'testNoRequestPayload': function() {
-        const MESSAGE_DATA = {
-          'request_id': 1,
-        };
-
-        const senderMessageChannel = client.apiMessageChannelPair.getSecond();
-        senderMessageChannel.send(PCSC_REQUEST_MESSAGE_TYPE, MESSAGE_DATA);
-      },
-
-      // Test no exception happens when receiving a message with no request ID
-      // in the message data.
-      'testNoRequestId': function() {
-        const MESSAGE_DATA = {
-          'payload': {
-            'function_name': 'SCardIsValidContext',
-            'arguments': [0],
-          },
-        };
-
-        const senderMessageChannel = client.apiMessageChannelPair.getSecond();
-        senderMessageChannel.send(PCSC_REQUEST_MESSAGE_TYPE, MESSAGE_DATA);
-      },
-
-      // Test no exception happens when receiving a message with a wrong
-      // function name, not being part of the PC/SC API.
-      'testWrongFunction': function() {
-        const MESSAGE_DATA = {
-          'request_id': 1,
-          'payload': {
-            'function_name': 'SCardDemolish',
-            'arguments': [0],
-          },
-        };
-
-        const senderMessageChannel = client.apiMessageChannelPair.getSecond();
-        senderMessageChannel.send(PCSC_REQUEST_MESSAGE_TYPE, MESSAGE_DATA);
-      },
-
-      // Test no exception happens when receiving a message with function
-      // arguments not being an array.
-      'testNonArrayArguments': function() {
-        const MESSAGE_DATA = {
-          'request_id': 1,
-          'payload': {
-            'function_name': 'SCardIsValidContext',
-            'arguments': 0,
-          },
-        };
-
-        const senderMessageChannel = client.apiMessageChannelPair.getSecond();
-        senderMessageChannel.send(PCSC_REQUEST_MESSAGE_TYPE, MESSAGE_DATA);
-      },
-
-      // Test no exception happens when receiving a message with the function
-      // argument having an incorrect type.
-      'testWrongArgumentType': function() {
-        const MESSAGE_DATA = {
-          'request_id': 1,
-          'payload': {
-            'function_name': 'SCardIsValidContext',
-            'arguments': ['garbage'],
-          },
-        };
-
-        const senderMessageChannel = client.apiMessageChannelPair.getSecond();
-        senderMessageChannel.send(PCSC_REQUEST_MESSAGE_TYPE, MESSAGE_DATA);
-      },
-
-      // Test no exception happens when receiving a message with the function
-      // argument is unexpectedly negative number.
-      'testOutOfRangeArgument': function() {
-        const MESSAGE_DATA = {
-          'request_id': 1,
-          'payload': {
-            'function_name': 'SCardIsValidContext',
-            'arguments': [-1],
-          },
-        };
-
-        const senderMessageChannel = client.apiMessageChannelPair.getSecond();
-        senderMessageChannel.send(PCSC_REQUEST_MESSAGE_TYPE, MESSAGE_DATA);
-      },
     },
 
     // Test `SCardCancel()` terminates a running `SCardGetStatusChange()` call.
@@ -1348,25 +1211,175 @@ goog.exportSymbol('testPcscApi', {
       assert(testController.executableModule.isDisposed());
       assert(client.clientHandler.isDisposed());
     },
+};
+
+const MALFORMED_REQUEST_TEST_CASES = {
+      // Test no exception happens when receiving a message with completely
+      // unexpected fields.
+      'testGarbage': function() {
+        const senderMessageChannel = client.apiMessageChannelPair.getSecond();
+        senderMessageChannel.send(/*serviceName=*/ 'foo', /*payload=*/ {});
+      },
+
+      // Test no exception happens when receiving a message with correct type,
+      // but empty data.
+      'testEmptyData': function() {
+        const MESSAGE_DATA = {};
+
+        const senderMessageChannel = client.apiMessageChannelPair.getSecond();
+        senderMessageChannel.send(PCSC_REQUEST_MESSAGE_TYPE, MESSAGE_DATA);
+      },
+
+      // Test no exception happens when receiving a message with no payload in
+      // the message data.
+      'testNoRequestPayload': function() {
+        const MESSAGE_DATA = {
+          'request_id': 1,
+        };
+
+        const senderMessageChannel = client.apiMessageChannelPair.getSecond();
+        senderMessageChannel.send(PCSC_REQUEST_MESSAGE_TYPE, MESSAGE_DATA);
+      },
+
+      // Test no exception happens when receiving a message with no request ID
+      // in the message data.
+      'testNoRequestId': function() {
+        const MESSAGE_DATA = {
+          'payload': {
+            'function_name': 'SCardIsValidContext',
+            'arguments': [0],
+          },
+        };
+
+        const senderMessageChannel = client.apiMessageChannelPair.getSecond();
+        senderMessageChannel.send(PCSC_REQUEST_MESSAGE_TYPE, MESSAGE_DATA);
+      },
+
+      // Test no exception happens when receiving a message with a wrong
+      // function name, not being part of the PC/SC API.
+      'testWrongFunction': function() {
+        const MESSAGE_DATA = {
+          'request_id': 1,
+          'payload': {
+            'function_name': 'SCardDemolish',
+            'arguments': [0],
+          },
+        };
+
+        const senderMessageChannel = client.apiMessageChannelPair.getSecond();
+        senderMessageChannel.send(PCSC_REQUEST_MESSAGE_TYPE, MESSAGE_DATA);
+      },
+
+      // Test no exception happens when receiving a message with function
+      // arguments not being an array.
+      'testNonArrayArguments': function() {
+        const MESSAGE_DATA = {
+          'request_id': 1,
+          'payload': {
+            'function_name': 'SCardIsValidContext',
+            'arguments': 0,
+          },
+        };
+
+        const senderMessageChannel = client.apiMessageChannelPair.getSecond();
+        senderMessageChannel.send(PCSC_REQUEST_MESSAGE_TYPE, MESSAGE_DATA);
+      },
+
+      // Test no exception happens when receiving a message with the function
+      // argument having an incorrect type.
+      'testWrongArgumentType': function() {
+        const MESSAGE_DATA = {
+          'request_id': 1,
+          'payload': {
+            'function_name': 'SCardIsValidContext',
+            'arguments': ['garbage'],
+          },
+        };
+
+        const senderMessageChannel = client.apiMessageChannelPair.getSecond();
+        senderMessageChannel.send(PCSC_REQUEST_MESSAGE_TYPE, MESSAGE_DATA);
+      },
+
+      // Test no exception happens when receiving a message with the function
+      // argument is unexpectedly negative number.
+      'testOutOfRangeArgument': function() {
+        const MESSAGE_DATA = {
+          'request_id': 1,
+          'payload': {
+            'function_name': 'SCardIsValidContext',
+            'arguments': [-1],
+          },
+        };
+
+        const senderMessageChannel = client.apiMessageChannelPair.getSecond();
+        senderMessageChannel.send(PCSC_REQUEST_MESSAGE_TYPE, MESSAGE_DATA);
+      },
+};
+
+goog.exportSymbol('testPcscApi', {
+  'setUp': async function() {
+    // Set up the controller and load the C/C++ executable module.
+    testController = new GSC.IntegrationTestController();
+    await testController.initAsync();
+    // Stub out necessary globals.
+    ClientHandler.overridePermissionsCheckerForTesting(stubPermissionsChecker);
+    libusbProxyReceiver = new GSC.LibusbProxyReceiver(
+        testController.executableModule.getMessageChannel());
+    libusbProxyReceiver.addHook(new GSC.TestingLibusbSmartCardSimulationHook(
+        testController.executableModule.getMessageChannel()));
+    // Set up observers.
+    pcscReadinessTracker = new ReadinessTracker(
+        testController.executableModule.getMessageChannel());
   },
 
-  // Test that the PC/SC server can shut down successfully when there's an
-  // active client.
-  'testShutdownWithActiveClient': async function() {
-    await launchPcscServer(/*initialDevices=*/[]);
-    createFakeClient();
-    await pcscReadinessTracker.promise;
-    // Intentionally don't dispose the client.
+  'tearDown': async function() {
+    try {
+      await testController.disposeAsync();
+      pcscReadinessTracker.dispose();
+    } finally {
+      pcscReadinessTracker = null;
+      ClientHandler.overridePermissionsCheckerForTesting(null);
+      testController = null;
+    }
   },
 
-  // Same as above, but the client additionally made an API call.
-  // This verifies any lazily created internal state doesn't cause problems.
-  'testShutdownWithActiveClientAfterApiCall': async function() {
-    const BAD_CONTEXT = 123;
-    await launchPcscServer(/*initialDevices=*/[]);
-    const localClient = createFakeClient();
-    await localClient.api.SCardIsValidContext(BAD_CONTEXT);
-    // Intentionally don't dispose the client.
+  ...SIMPLE_TEST_CASES,
+
+  // A group of tests that simulate a single client making PC/SC calls.
+  'testWithSingleClient': {
+    'setUp': function() {
+      client = createFakeClient();
+    },
+
+    'tearDown': function() {
+      if (client) {
+        disposeFakeClient(client);
+        client = null;
+      }
+    },
+
+    ...TEST_CASES_WITH_SINGLE_CLIENT,
+
+    // Group of tests that simulate incorrect requests sent by clients.
+    'testMalformedRequest': {
+      'setUp': async function() {
+        await launchPcscServer(/*initialDevices=*/[]);
+        await pcscReadinessTracker.promise;
+        // Dispose of the API object, because it'd complain about unexpected
+        // responses (to malformed requests we simulate below).
+        client.api.dispose();
+      },
+
+      'tearDown': async function() {
+        // Wait for some time before exiting, to let any possible bug have a
+        // chance to trigger an error.
+        await sleep(/*timeoutMillis=*/ 1000);
+        // Verify the C/C++ module hasn't crashed.
+        assertFalse(testController.executableModule.isDisposed());
+      },
+
+      ...MALFORMED_REQUEST_TEST_CASES,
+    },
   },
 });
 });  // goog.scope
