@@ -1082,11 +1082,22 @@ LibusbJsProxy::WrapLibusbTransferCallback(libusb_transfer* transfer) {
       transfer->status = LIBUSB_TRANSFER_ERROR;
     }
 
+    // Remember the value of the flag upfront - see the comment below about the
+    // transfer instance lifetime.
+    const bool should_free =
+        (transfer->flags & LIBUSB_TRANSFER_FREE_TRANSFER) != 0;
+
     GOOGLE_SMART_CARD_CHECK(transfer->callback);
     transfer->callback(transfer);
+    // Note that the transfer instance cannot generally be used after this
+    // point, unless `should_free` is true. For instance, the callback might've
+    // set the "completed" flag, and another thread might've observed this flag
+    // and destroyed the transfer for that.
 
-    if (transfer->flags & LIBUSB_TRANSFER_FREE_TRANSFER) {
-      // Note that the transfer instance cannot be used after this point.
+    if (should_free) {
+      // Here, the usage of `transfer` is safe because when
+      // `LIBUSB_TRANSFER_FREE_TRANSFER` is used no other thread should've freed
+      // the transfer.
       LibusbFreeTransfer(transfer);
     }
   };
