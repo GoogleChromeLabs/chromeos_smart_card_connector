@@ -1717,9 +1717,8 @@ class SmartCardConnectorApplicationReaderCompatibilityTest
     : public SmartCardConnectorApplicationSingleClientTest,
       public ::testing::WithParamInterface<ReaderTestParam> {};
 
-// Same as above, but for readers that have card built into them, i.e., the card
-// is always present and cannot be removed.
-class SmartCardConnectorApplicationReaderWithBuiltinCardCompatibilityTest
+// Subset of the above, for readers that don't have the card built-in.
+class SmartCardConnectorApplicationReaderWithoutBuiltinCardCompatibilityTest
     : public SmartCardConnectorApplicationSingleClientTest,
       public ::testing::WithParamInterface<ReaderTestParam> {};
 
@@ -1734,17 +1733,28 @@ INSTANTIATE_TEST_SUITE_P(
         ReaderTestParam(TestingSmartCardSimulation::DeviceType::
                             kDellSmartCardReaderKeyboard,
                         TestingSmartCardSimulation::CardType::kCosmoId70,
-                        kDellSmartCardReaderKeyboardPcscName0)));
-
-INSTANTIATE_TEST_SUITE_P(
-    AllDevices,
-    SmartCardConnectorApplicationReaderWithBuiltinCardCompatibilityTest,
-    ::testing::Values(
+                        kDellSmartCardReaderKeyboardPcscName0),
         ReaderTestParam(TestingSmartCardSimulation::DeviceType::kYubikey4C,
                         TestingSmartCardSimulation::CardType::kYubikey,
                         kYubikey4CPcscName0)));
 
-TEST_P(SmartCardConnectorApplicationReaderCompatibilityTest, Basic) {
+INSTANTIATE_TEST_SUITE_P(
+    AllDevices,
+    SmartCardConnectorApplicationReaderWithoutBuiltinCardCompatibilityTest,
+    ::testing::Values(
+        ReaderTestParam(
+            TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader,
+            TestingSmartCardSimulation::CardType::kCosmoId70,
+            kGemaltoPcTwinReaderPcscName0),
+        ReaderTestParam(TestingSmartCardSimulation::DeviceType::
+                            kDellSmartCardReaderKeyboard,
+                        TestingSmartCardSimulation::CardType::kCosmoId70,
+                        kDellSmartCardReaderKeyboardPcscName0)));
+
+// Test that the reader and card are successfully initialized, and that
+// corresponding events are sent when they're inserted/removed.
+TEST_P(SmartCardConnectorApplicationReaderWithoutBuiltinCardCompatibilityTest,
+       Basic) {
   // Start up with no readers.
   StartApplication();
   SetUpJsClient();
@@ -1844,8 +1854,10 @@ TEST_P(SmartCardConnectorApplicationReaderCompatibilityTest, Basic) {
             SCARD_E_NO_READERS_AVAILABLE);
 }
 
-TEST_P(SmartCardConnectorApplicationReaderWithBuiltinCardCompatibilityTest,
-       Basic) {
+// Test that the reader (with an always-inserted card) is successfully
+// initialized, and that corresponding events are sent when it's
+// attached/removed.
+TEST_P(SmartCardConnectorApplicationReaderCompatibilityTest, Basic) {
   // Start up with no readers.
   StartApplication();
   SetUpJsClient();
@@ -1896,6 +1908,20 @@ TEST_P(SmartCardConnectorApplicationReaderWithBuiltinCardCompatibilityTest,
   EXPECT_THAT(reader_states[0],
               DictContains("atr", TestingSmartCardSimulation::GetCardAtr(
                                       GetParam().card_type)));
+
+  // Test connecting to the card.
+  SCARDHANDLE scard_handle = 0;
+  DWORD active_protocol = 0;
+  EXPECT_EQ(SimulateConnectCallFromJsClient(
+                kFakeHandlerId, scard_context(), GetParam().reader_pcsc_name,
+                SCARD_SHARE_SHARED, SCARD_PROTOCOL_ANY, scard_handle,
+                active_protocol),
+            SCARD_S_SUCCESS);
+  EXPECT_EQ(active_protocol, static_cast<DWORD>(SCARD_PROTOCOL_T1));
+  // Disconnect from the card.
+  EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
+                                               SCARD_LEAVE_CARD),
+            SCARD_S_SUCCESS);
 
   // Unplug the reader.
   SetUsbDevices({});
