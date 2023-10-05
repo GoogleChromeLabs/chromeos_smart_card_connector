@@ -851,32 +851,32 @@ int LibusbJsProxy::LibusbSubmitTransfer(libusb_transfer* transfer) {
 
   const UsbTransferDestination transfer_destination =
       CreateUsbTransferDestinationForTransfer(transfer);
+  const unsigned char transfer_type = transfer->type;
+  const int64_t js_device_id =
+      transfer->dev_handle->device()->js_device().device_id;
+  const int64_t js_device_handle = transfer->dev_handle->js_device_handle();
 
   context->AddAsyncTransferInFlight(async_request_state, transfer_destination,
                                     transfer);
+  // `transfer` should not be used after this point, because there's a chance
+  // that concurrent threads populate it with result immediately and free it.
 
   const auto js_api_callback = MakeLibusbJsTransferCallback(
       js_api_name, contexts_storage_.FindContextByAddress(context),
       transfer_destination, async_request_state);
 
-  switch (transfer->type) {
+  switch (transfer_type) {
     case LIBUSB_TRANSFER_TYPE_CONTROL:
-      js_call_adaptor_.AsyncCall(
-          js_api_callback, js_api_name,
-          transfer->dev_handle->device()->js_device().device_id,
-          transfer->dev_handle->js_device_handle(), control_transfer_params);
+      js_call_adaptor_.AsyncCall(js_api_callback, js_api_name, js_device_id,
+                                 js_device_handle, control_transfer_params);
       break;
     case LIBUSB_TRANSFER_TYPE_BULK:
-      js_call_adaptor_.AsyncCall(
-          js_api_callback, js_api_name,
-          transfer->dev_handle->device()->js_device().device_id,
-          transfer->dev_handle->js_device_handle(), generic_transfer_params);
+      js_call_adaptor_.AsyncCall(js_api_callback, js_api_name, js_device_id,
+                                 js_device_handle, generic_transfer_params);
       break;
     case LIBUSB_TRANSFER_TYPE_INTERRUPT:
-      js_call_adaptor_.AsyncCall(
-          js_api_callback, js_api_name,
-          transfer->dev_handle->device()->js_device().device_id,
-          transfer->dev_handle->js_device_handle(), generic_transfer_params);
+      js_call_adaptor_.AsyncCall(js_api_callback, js_api_name, js_device_id,
+                                 js_device_handle, generic_transfer_params);
       break;
     default:
       GOOGLE_SMART_CARD_NOTREACHED;

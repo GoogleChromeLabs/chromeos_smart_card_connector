@@ -84,10 +84,12 @@ constexpr auto kApplicationShutdownTimeLimit = std::chrono::minutes(1);
 constexpr char kPnpNotification[] = R"(\\?PnP?\Notification)";
 // Names of `TestingSmartCardSimulation::DeviceType` items as they appear in the
 // PC/SC-Lite API. The "0" suffix corresponds to the "00 00" part that contains
-// nonzeroes in case there are multiple devices with the same name.
+// nonzeroes in case there are multiple devices.
 constexpr char kGemaltoPcTwinReaderPcscName0[] = "Gemalto PC Twin Reader 00 00";
 constexpr char kDellSmartCardReaderKeyboardPcscName0[] =
     "Dell Dell Smart Card Reader Keyboard 00 00";
+constexpr char kDellSmartCardReaderKeyboardPcscName1[] =
+    "Dell Dell Smart Card Reader Keyboard 01 00";
 constexpr char kYubikey4CPcscName0[] = "Yubico YubiKey CCID 00 00";
 // Corresponds to the `TAG_IFD_DEVICE_REMOVED` constant in the PC/SC
 // implementation.
@@ -1346,6 +1348,230 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
               DictContains("event_state",
                            SCARD_STATE_CHANGED | SCARD_STATE_EMPTY | 0x10000));
   EXPECT_THAT(reader_states[0], DictContains("atr", std::vector<uint8_t>()));
+}
+
+// `SCardGetStatusChange()` call from JS correctly detects changes when there
+// are multiple readers attached simultaneously.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       SCardGetStatusChangeMultipleReaders) {
+  // Arrange: start from a single reader without a card.
+  TestingSmartCardSimulation::Device first_device;
+  first_device.id = 123;
+  first_device.type =
+      TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  SetUsbDevices({first_device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+
+  // Act: simulate plugging in another reader without a card.
+  TestingSmartCardSimulation::Device second_device;
+  second_device.id = 145;
+  second_device.type =
+      TestingSmartCardSimulation::DeviceType::kDellSmartCardReaderKeyboard;
+  SetUsbDevices({first_device, second_device});
+  // Request SCardGetStatusChange to check it observes the change in the list of
+  // readers, but no change for the first reader.
+  std::vector<Value> reader_states;
+  EXPECT_EQ(SimulateGetStatusChangeCallFromJsClient(
+                kFakeHandlerId, scard_context(),
+                /*timeout=*/INFINITE,
+                ArrayValueBuilder()
+                    .Add(DictValueBuilder()
+                             .Add("reader_name", kGemaltoPcTwinReaderPcscName0)
+                             .Add("current_state", SCARD_STATE_EMPTY)
+                             .Get())
+                    .Add(DictValueBuilder()
+                             .Add("reader_name", kPnpNotification)
+                             .Add("current_state", SCARD_STATE_UNAWARE)
+                             .Get())
+                    .Get(),
+                reader_states),
+            SCARD_S_SUCCESS);
+  ASSERT_THAT(reader_states, SizeIs(2));
+  EXPECT_THAT(reader_states[0],
+              DictContains("reader_name", kGemaltoPcTwinReaderPcscName0));
+  EXPECT_THAT(reader_states[0], DictContains("event_state", SCARD_STATE_EMPTY));
+  EXPECT_THAT(reader_states[1], DictContains("reader_name", kPnpNotification));
+  EXPECT_THAT(reader_states[1],
+              DictContains("event_state", SCARD_STATE_CHANGED));
+
+  // Simulate inserting a card into the second reader.
+  second_device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
+  SetUsbDevices({first_device, second_device});
+  // Request SCardGetStatusChange to check it observes the card insertion for
+  // the second reader, but no changes for the first reader or for the list of
+  // readers.
+  EXPECT_EQ(SimulateGetStatusChangeCallFromJsClient(
+                kFakeHandlerId, scard_context(),
+                /*timeout=*/INFINITE,
+                ArrayValueBuilder()
+                    .Add(DictValueBuilder()
+                             .Add("reader_name", kGemaltoPcTwinReaderPcscName0)
+                             .Add("current_state", SCARD_STATE_EMPTY)
+                             .Get())
+                    .Add(DictValueBuilder()
+                             .Add("reader_name",
+                                  kDellSmartCardReaderKeyboardPcscName1)
+                             .Add("current_state", SCARD_STATE_EMPTY)
+                             .Get())
+                    .Add(DictValueBuilder()
+                             .Add("reader_name", kPnpNotification)
+                             .Add("current_state", SCARD_STATE_UNAWARE)
+                             .Get())
+                    .Get(),
+                reader_states),
+            SCARD_S_SUCCESS);
+  ASSERT_THAT(reader_states, SizeIs(3));
+  EXPECT_THAT(reader_states[0],
+              DictContains("reader_name", kGemaltoPcTwinReaderPcscName0));
+  EXPECT_THAT(reader_states[0], DictContains("event_state", SCARD_STATE_EMPTY));
+  EXPECT_THAT(
+      reader_states[1],
+      DictContains("reader_name", kDellSmartCardReaderKeyboardPcscName1));
+  // Depending on the timing, PC/SC may or may not add the 0x10000 event counter
+  // (this depends on whether the internal monitoring thread got initialized
+  // before or after the card insertion).
+  EXPECT_THAT(
+      reader_states[1],
+      AnyOf(DictContains("event_state",
+                         SCARD_STATE_CHANGED | SCARD_STATE_PRESENT | 0x10000),
+            DictContains("event_state",
+                         SCARD_STATE_CHANGED | SCARD_STATE_PRESENT)));
+  EXPECT_THAT(reader_states[2], DictContains("reader_name", kPnpNotification));
+  EXPECT_THAT(reader_states[2],
+              DictContains("event_state", SCARD_STATE_UNAWARE));
+
+  // Simulate inserting a card into the first reader.
+  first_device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
+  SetUsbDevices({first_device, second_device});
+  // Request SCardGetStatusChange to check it observes the card insertion for
+  // the first reader, but no changes for the second reader or for the list of
+  // readers.
+  EXPECT_EQ(SimulateGetStatusChangeCallFromJsClient(
+                kFakeHandlerId, scard_context(),
+                /*timeout=*/INFINITE,
+                ArrayValueBuilder()
+                    .Add(DictValueBuilder()
+                             .Add("reader_name", kGemaltoPcTwinReaderPcscName0)
+                             .Add("current_state", SCARD_STATE_EMPTY)
+                             .Get())
+                    .Add(DictValueBuilder()
+                             .Add("reader_name",
+                                  kDellSmartCardReaderKeyboardPcscName1)
+                             .Add("current_state", SCARD_STATE_PRESENT)
+                             .Get())
+                    .Add(DictValueBuilder()
+                             .Add("reader_name", kPnpNotification)
+                             .Add("current_state", SCARD_STATE_UNAWARE)
+                             .Get())
+                    .Get(),
+                reader_states),
+            SCARD_S_SUCCESS);
+  ASSERT_THAT(reader_states, SizeIs(3));
+  EXPECT_THAT(reader_states[0],
+              DictContains("reader_name", kGemaltoPcTwinReaderPcscName0));
+  // Unlike above, due to the ordering of the reader events we expect the event
+  // counter to be incremented.
+  EXPECT_THAT(reader_states[0],
+              DictContains("event_state", SCARD_STATE_CHANGED |
+                                              SCARD_STATE_PRESENT | 0x10000));
+  EXPECT_THAT(
+      reader_states[1],
+      DictContains("reader_name", kDellSmartCardReaderKeyboardPcscName1));
+  EXPECT_THAT(reader_states[1],
+              AnyOf(DictContains("event_state", SCARD_STATE_PRESENT | 0x10000),
+                    DictContains("event_state", SCARD_STATE_PRESENT)));
+  EXPECT_THAT(reader_states[2], DictContains("reader_name", kPnpNotification));
+  EXPECT_THAT(reader_states[2],
+              DictContains("event_state", SCARD_STATE_UNAWARE));
+
+  // Simulate removing a card from the second reader.
+  second_device.card_type = {};
+  SetUsbDevices({first_device, second_device});
+  // Request SCardGetStatusChange to check it observes the card removal for the
+  // second reader, but no changes for the first reader or for the list of
+  // readers.
+  EXPECT_EQ(SimulateGetStatusChangeCallFromJsClient(
+                kFakeHandlerId, scard_context(),
+                /*timeout=*/INFINITE,
+                ArrayValueBuilder()
+                    .Add(DictValueBuilder()
+                             .Add("reader_name", kGemaltoPcTwinReaderPcscName0)
+                             .Add("current_state", SCARD_STATE_PRESENT)
+                             .Get())
+                    .Add(DictValueBuilder()
+                             .Add("reader_name",
+                                  kDellSmartCardReaderKeyboardPcscName1)
+                             .Add("current_state", SCARD_STATE_PRESENT)
+                             .Get())
+                    .Add(DictValueBuilder()
+                             .Add("reader_name", kPnpNotification)
+                             .Add("current_state", SCARD_STATE_UNAWARE)
+                             .Get())
+                    .Get(),
+                reader_states),
+            SCARD_S_SUCCESS);
+  ASSERT_THAT(reader_states, SizeIs(3));
+  EXPECT_THAT(reader_states[0],
+              DictContains("reader_name", kGemaltoPcTwinReaderPcscName0));
+  EXPECT_THAT(reader_states[0],
+              DictContains("event_state", SCARD_STATE_PRESENT | 0x10000));
+  EXPECT_THAT(
+      reader_states[1],
+      DictContains("reader_name", kDellSmartCardReaderKeyboardPcscName1));
+  // The event counter should get incremented now, becoming either 1 or 2.
+  EXPECT_THAT(
+      reader_states[1],
+      AnyOf(DictContains("event_state",
+                         SCARD_STATE_CHANGED | SCARD_STATE_EMPTY | 0x20000),
+            DictContains("event_state",
+                         SCARD_STATE_CHANGED | SCARD_STATE_EMPTY | 0x10000)));
+  EXPECT_THAT(reader_states[2], DictContains("reader_name", kPnpNotification));
+  EXPECT_THAT(reader_states[2],
+              DictContains("event_state", SCARD_STATE_UNAWARE));
+
+  // Simulate unplugging the first reader.
+  SetUsbDevices({second_device});
+  // Request SCardGetStatusChange to check it observes the first reader removal:
+  // the reader's state should be reported as "unavailable", and the change in
+  // the list of readers should be reported as well.
+  EXPECT_EQ(SimulateGetStatusChangeCallFromJsClient(
+                kFakeHandlerId, scard_context(),
+                /*timeout=*/INFINITE,
+                ArrayValueBuilder()
+                    .Add(DictValueBuilder()
+                             .Add("reader_name", kGemaltoPcTwinReaderPcscName0)
+                             .Add("current_state", SCARD_STATE_PRESENT)
+                             .Get())
+                    .Add(DictValueBuilder()
+                             .Add("reader_name",
+                                  kDellSmartCardReaderKeyboardPcscName1)
+                             .Add("current_state", SCARD_STATE_EMPTY)
+                             .Get())
+                    .Add(DictValueBuilder()
+                             .Add("reader_name", kPnpNotification)
+                             .Add("current_state", SCARD_STATE_UNAWARE)
+                             .Get())
+                    .Get(),
+                reader_states),
+            SCARD_S_SUCCESS);
+  ASSERT_THAT(reader_states, SizeIs(3));
+  EXPECT_THAT(reader_states[0],
+              DictContains("reader_name", kGemaltoPcTwinReaderPcscName0));
+  EXPECT_THAT(
+      reader_states[0],
+      DictContains("event_state", SCARD_STATE_CHANGED | SCARD_STATE_UNKNOWN |
+                                      SCARD_STATE_UNAVAILABLE));
+  EXPECT_THAT(
+      reader_states[1],
+      DictContains("reader_name", kDellSmartCardReaderKeyboardPcscName1));
+  EXPECT_THAT(reader_states[1],
+              AnyOf(DictContains("event_state", SCARD_STATE_EMPTY | 0x20000),
+                    DictContains("event_state", SCARD_STATE_EMPTY | 0x10000)));
+  EXPECT_THAT(reader_states[2], DictContains("reader_name", kPnpNotification));
+  EXPECT_THAT(reader_states[2],
+              DictContains("event_state", SCARD_STATE_CHANGED));
 }
 
 // `SCardGetStatusChange()` call from JS fails when using a wrong context.
