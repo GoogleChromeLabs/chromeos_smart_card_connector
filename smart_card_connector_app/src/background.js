@@ -166,42 +166,16 @@ if (GSC.ExecutableModule.TOOLCHAIN ===
   GSC.BackgroundPageUnloadPreventing.enable();
 }
 
-/** @type {GSC.ConnectorApp.ChromeApiProvider?} */
-let chromeApiProvider = null;
-
 if (chrome.smartCardProviderPrivate !== undefined) {
-  updateChromeApiProviderAvailability();
-  chrome.storage.onChanged.addListener(updateChromeApiProviderAvailability);
+  // This object's lifetime is bound to the message channel's one, hence we
+  // don't need to store it in a variable.
+  new GSC.ConnectorApp.ChromeApiProvider(
+      executableModule.getMessageChannel(), pcscLiteReadinessTracker.promise);
 } else {
   goog.log.info(
       logger,
       `chrome.smartCardProviderPrivate is not available. ` +
           `Requests from Web Smart Card API will not be handled.`);
-}
-
-/**
- * Updates the Chrome API provider availability based on extension policy.
- */
-function updateChromeApiProviderAvailability() {
-  const EXPOSE_CHROME_REQUESTS = 'expose_chrome_smart_card_api';
-  chrome.storage.managed.get(EXPOSE_CHROME_REQUESTS, (policies) => {
-    const policyEnabled = policies[EXPOSE_CHROME_REQUESTS] === true;
-    if (policyEnabled && !chromeApiProvider) {
-      goog.log.info(
-          logger,
-          'Creating ChromeApiProvider since expose_chrome_smart_card_api ' +
-              'is set to true.');
-      chromeApiProvider = new GSC.ConnectorApp.ChromeApiProvider(
-          executableModule.getMessageChannel(),
-          pcscLiteReadinessTracker.promise);
-    }
-    if (!policyEnabled && chromeApiProvider) {
-      goog.log.info(
-          logger, 'Disposing ChromeApiProvider based on the policy change.');
-      chromeApiProvider.dispose();
-      chromeApiProvider = null;
-    }
-  });
 }
 
 /**
