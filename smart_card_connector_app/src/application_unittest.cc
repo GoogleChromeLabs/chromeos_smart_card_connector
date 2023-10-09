@@ -2026,12 +2026,17 @@ TEST_P(SmartCardConnectorApplicationReaderWithoutBuiltinCardCompatibilityTest,
                     .Get(),
                 reader_states),
             SCARD_S_SUCCESS);
-  // Check that the card presence has been reported. The "event_state" field
-  // contains the number of card insertion/removal events in the higher 16 bits.
+  // Check that the card presence has been reported. Depending on timing
+  // (specifically, whether the reader monitoring thread starts before/after the
+  // card insertion), PC/SC-Lite may or may not return the additional counter in
+  // the higher 16 bits of the "event_state" field.
   ASSERT_THAT(reader_states, SizeIs(1));
-  EXPECT_THAT(reader_states[0],
-              DictContains("event_state", SCARD_STATE_CHANGED |
-                                              SCARD_STATE_PRESENT | 0x10000));
+  EXPECT_THAT(
+      reader_states[0],
+      AnyOf(DictContains("event_state",
+                         SCARD_STATE_CHANGED | SCARD_STATE_PRESENT | 0x10000),
+            DictContains("event_state",
+                         SCARD_STATE_CHANGED | SCARD_STATE_PRESENT)));
   EXPECT_THAT(reader_states[0],
               DictContains("atr", TestingSmartCardSimulation::GetCardAtr(
                                       GetParam().card_type)));
@@ -2054,10 +2059,14 @@ TEST_P(SmartCardConnectorApplicationReaderWithoutBuiltinCardCompatibilityTest,
   // Check that the card absence has been reported.
   ASSERT_THAT(reader_states, SizeIs(1));
   // The "event_state" field contains the number of card insertion/removal
-  // events in the higher 16 bits.
-  EXPECT_THAT(reader_states[0],
-              DictContains("event_state",
-                           SCARD_STATE_CHANGED | SCARD_STATE_EMPTY | 0x20000));
+  // events in the higher 16 bits. See the comment above on why its value can
+  // diverge.
+  EXPECT_THAT(
+      reader_states[0],
+      AnyOf(DictContains("event_state",
+                         SCARD_STATE_CHANGED | SCARD_STATE_EMPTY | 0x20000),
+            DictContains("event_state",
+                         SCARD_STATE_CHANGED | SCARD_STATE_EMPTY | 0x10000)));
   EXPECT_THAT(reader_states[0], DictContains("atr", Value::Type::kBinary));
 
   // Unplug the reader.
