@@ -240,9 +240,10 @@ void PcscLiteServerClientsManager::DeleteHandler(int64_t handler_id) {
 
 void PcscLiteServerClientsManager::DeleteAllHandlers() {
   if (!handler_map_.empty()) {
+    const size_t count = handler_map_.size();
     handler_map_.clear();
-    GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Deleted all "
-                                << handler_map_.size() << " client handlers";
+    GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Deleted all " << count
+                                << " client handlers";
   }
 }
 
