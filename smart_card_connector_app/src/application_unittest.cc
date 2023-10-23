@@ -95,6 +95,13 @@ constexpr char kYubikey4CPcscName0[] = "Yubico YubiKey CCID 00 00";
 // implementation.
 constexpr int kTagIfdDeviceRemoved = 0x0FB4;
 
+MATCHER_P(HasBitsSet,
+          bits,
+          /*description_string=*/std::string("has set bits ") +
+              ::testing::PrintToString(bits)) {
+  return (arg & bits) == bits;
+}
+
 // Records reader_* messages sent to JS and allows to inspect them in tests.
 class ReaderNotificationObserver final {
  public:
@@ -2188,6 +2195,80 @@ TEST_P(SmartCardConnectorApplicationReaderWithoutBuiltinCardCompatibilityTest,
   EXPECT_EQ(SimulateListReadersCallFromJsClient(kFakeHandlerId, scard_context(),
                                                 /*groups=*/Value(), readers),
             SCARD_E_NO_READERS_AVAILABLE);
+}
+
+// Test that repeated card insertions and removals are handled correctly.
+TEST_P(SmartCardConnectorApplicationReaderWithoutBuiltinCardCompatibilityTest,
+       RepeatedInsertRemove) {
+  constexpr int kIterationCount = 10;  // chosen semi-arbitrarily
+
+  // Arrange: start with an empty reader.
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = GetParam().device_type;
+  SetUsbDevices({device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+
+  // Act/assert: iterations of insertion/removal with connect/disconnect calls.
+  for (int iter = 0; iter < kIterationCount; ++iter) {
+    // Insert the card and wait until it's recognized.
+    device.card_type = GetParam().card_type;
+    SetUsbDevices({device});
+    std::vector<Value> reader_states;
+    EXPECT_EQ(SimulateGetStatusChangeCallFromJsClient(
+                  kFakeHandlerId, scard_context(),
+                  /*timeout=*/INFINITE,
+                  ArrayValueBuilder()
+                      .Add(DictValueBuilder()
+                               .Add("reader_name", GetParam().reader_pcsc_name)
+                               .Add("current_state", SCARD_STATE_EMPTY)
+                               .Get())
+                      .Get(),
+                  reader_states),
+              SCARD_S_SUCCESS);
+    ASSERT_THAT(reader_states, SizeIs(1));
+    EXPECT_THAT(
+        reader_states[0],
+        DictContainsLike("event_state",
+                         IsIntegerValue(HasBitsSet(SCARD_STATE_PRESENT))));
+
+    // Connect to the card.
+    SCARDHANDLE scard_handle = 0;
+    DWORD active_protocol = 0;
+    EXPECT_EQ(SimulateConnectCallFromJsClient(
+                  kFakeHandlerId, scard_context(), GetParam().reader_pcsc_name,
+                  SCARD_SHARE_SHARED, SCARD_PROTOCOL_ANY, scard_handle,
+                  active_protocol),
+              SCARD_S_SUCCESS);
+    EXPECT_EQ(active_protocol, static_cast<DWORD>(SCARD_PROTOCOL_T1));
+
+    // Disconnect from the card.
+    EXPECT_EQ(SimulateDisconnectCallFromJsClient(kFakeHandlerId, scard_handle,
+                                                 SCARD_LEAVE_CARD),
+              SCARD_S_SUCCESS);
+
+    // Remove the card.
+    device.card_type.reset();
+    SetUsbDevices({device});
+    EXPECT_EQ(SimulateGetStatusChangeCallFromJsClient(
+                  kFakeHandlerId, scard_context(),
+                  /*timeout=*/INFINITE,
+                  ArrayValueBuilder()
+                      .Add(DictValueBuilder()
+                               .Add("reader_name", GetParam().reader_pcsc_name)
+                               .Add("current_state", SCARD_STATE_PRESENT)
+                               .Get())
+                      .Get(),
+                  reader_states),
+              SCARD_S_SUCCESS);
+    ASSERT_THAT(reader_states, SizeIs(1));
+    EXPECT_THAT(
+        reader_states[0],
+        DictContainsLike("event_state",
+                         IsIntegerValue(HasBitsSet(SCARD_STATE_EMPTY))));
+  }
 }
 
 // Test that the reader (with an always-inserted card) is successfully
