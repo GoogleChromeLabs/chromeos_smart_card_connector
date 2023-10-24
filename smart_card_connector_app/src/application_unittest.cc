@@ -1305,9 +1305,10 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
                        TestingSmartCardSimulation::CardType::kCosmoId70)));
 }
 
-// Same as the previous test, however the card is inserted a bit later than when
-// the `SCardGetStatusChange()` call starts. The visible behavior should be the
-// same, however the test might exercise different implementation codepaths.
+// Same as the SCardGetStatusChangeCardInserting test above, however the card is
+// inserted a bit later than when the `SCardGetStatusChange()` call starts. The
+// visible behavior should be the same, however the test might exercise
+// different implementation codepaths.
 TEST_F(SmartCardConnectorApplicationSingleClientTest,
        SCardGetStatusChangeCardInsertingDelayed) {
   // Arrange: start with a single empty reader.
@@ -1401,9 +1402,10 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
   EXPECT_THAT(reader_states[0], DictContains("atr", std::vector<uint8_t>()));
 }
 
-// Same as the previous test, however the card is removed a bit later than when
-// the `SCardGetStatusChange()` call starts. The visible behavior should be the
-// same, however the test might exercise different implementation codepaths.
+// Same as the SCardGetStatusChangeCardRemoving test above, however the card is
+// removed a bit later than when the `SCardGetStatusChange()` call starts. The
+// visible behavior should be the same, however the test might exercise
+// different implementation codepaths.
 TEST_F(SmartCardConnectorApplicationSingleClientTest,
        SCardGetStatusChangeCardRemovingDelayed) {
   // Arrange: start with a card.
