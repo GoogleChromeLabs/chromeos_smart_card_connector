@@ -1305,6 +1305,58 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
                        TestingSmartCardSimulation::CardType::kCosmoId70)));
 }
 
+// Same as the SCardGetStatusChangeCardInserting test above, however the card is
+// inserted a bit later than when the `SCardGetStatusChange()` call starts. The
+// visible behavior should be the same, however the test might exercise
+// different implementation codepaths.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       SCardGetStatusChangeCardInsertingDelayed) {
+  // Arrange: start with a single empty reader.
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  SetUsbDevices({device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+  // Start a blocking `SCardGetStatusChange()` call on a different thread.
+  std::vector<Value> reader_states;
+  std::future<LONG> pending_return_code = std::async(std::launch::async, [&] {
+    return SimulateGetStatusChangeCallFromJsClient(
+        kFakeHandlerId, scard_context(),
+        /*timeout=*/INFINITE,
+        ArrayValueBuilder()
+            .Add(DictValueBuilder()
+                     .Add("reader_name", kGemaltoPcTwinReaderPcscName0)
+                     .Add("current_state", SCARD_STATE_EMPTY)
+                     .Get())
+            .Get(),
+        reader_states);
+  });
+  // Check that the call is actually blocked. The exact interval isn't important
+  // here - we just want some reasonably big probability of catching a bug if
+  // it's introduced.
+  EXPECT_EQ(pending_return_code.wait_for(std::chrono::seconds(1)),
+            std::future_status::timeout);
+
+  // Act: simulate the card insertion.
+  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
+  SetUsbDevices({device});
+  // Wait until the `SCardGetStatusChange()` call completes.
+  const LONG return_code = pending_return_code.get();
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+  EXPECT_THAT(reader_states[0],
+              DictContains("event_state", SCARD_STATE_CHANGED |
+                                              SCARD_STATE_PRESENT | 0x10000));
+  EXPECT_THAT(
+      reader_states[0],
+      DictContains("atr",
+                   TestingSmartCardSimulation::GetCardAtr(
+                       TestingSmartCardSimulation::CardType::kCosmoId70)));
+}
+
 // `SCardGetStatusChange()` call from JS detects when a card is removed.
 TEST_F(SmartCardConnectorApplicationSingleClientTest,
        SCardGetStatusChangeCardRemoving) {
@@ -1344,6 +1396,55 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
               DictContains("current_state", SCARD_STATE_PRESENT));
   // The "event_state" field contains the number of card insertion/removal
   // events in the higher 16 bits.
+  EXPECT_THAT(reader_states[0],
+              DictContains("event_state",
+                           SCARD_STATE_CHANGED | SCARD_STATE_EMPTY | 0x10000));
+  EXPECT_THAT(reader_states[0], DictContains("atr", std::vector<uint8_t>()));
+}
+
+// Same as the SCardGetStatusChangeCardRemoving test above, however the card is
+// removed a bit later than when the `SCardGetStatusChange()` call starts. The
+// visible behavior should be the same, however the test might exercise
+// different implementation codepaths.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       SCardGetStatusChangeCardRemovingDelayed) {
+  // Arrange: start with a card.
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
+  SetUsbDevices({device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+  // Start a blocking `SCardGetStatusChange()` call on a different thread.
+  std::vector<Value> reader_states;
+  std::future<LONG> pending_return_code = std::async(std::launch::async, [&] {
+    return SimulateGetStatusChangeCallFromJsClient(
+        kFakeHandlerId, scard_context(),
+        /*timeout=*/INFINITE,
+        ArrayValueBuilder()
+            .Add(DictValueBuilder()
+                     .Add("reader_name", kGemaltoPcTwinReaderPcscName0)
+                     .Add("current_state", SCARD_STATE_PRESENT)
+                     .Get())
+            .Get(),
+        reader_states);
+  });
+  // Check that the call is actually blocked. The exact interval isn't important
+  // here - we just want some reasonably big probability of catching a bug if
+  // it's introduced.
+  EXPECT_EQ(pending_return_code.wait_for(std::chrono::seconds(1)),
+            std::future_status::timeout);
+
+  // Act: simulate the card removal.
+  device.card_type = {};
+  SetUsbDevices({device});
+  // Wait until the `SCardGetStatusChange()` call completes.
+  const LONG return_code = pending_return_code.get();
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
   EXPECT_THAT(reader_states[0],
               DictContains("event_state",
                            SCARD_STATE_CHANGED | SCARD_STATE_EMPTY | 0x10000));
