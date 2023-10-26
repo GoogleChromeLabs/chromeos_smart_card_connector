@@ -26,10 +26,10 @@
 
 #include "common/cpp/src/public/global_context.h"
 #include "common/cpp/src/public/messaging/typed_message_router.h"
+#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/requesting/js_request_receiver.h"
 #include "common/cpp/src/public/requesting/request_receiver.h"
 #include "common/cpp/src/public/requesting/request_result.h"
-#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/value.h"
 #include "third_party/libusb/webport/src/libusb_js_proxy_data_model.h"
 
@@ -87,6 +87,11 @@ class TestingSmartCardSimulation final : public RequestHandler {
     optional<CardType> card_type;
     // A null value denotes "the card is uninitialized".
     optional<CardProfile> card_profile;
+  };
+
+  struct SlotChangeNotification {
+    RequestReceiver::ResultCallback pending_interrupt_transfer;
+    CcidIccStatus icc_status;
   };
 
   static const char* kRequesterName;
@@ -163,8 +168,11 @@ class TestingSmartCardSimulation final : public RequestHandler {
     DeviceState* FindDeviceStateById(int64_t device_id);
     DeviceState* FindDeviceStateByIdAndHandle(int64_t device_id,
                                               int64_t device_handle);
-    void UpdateDeviceState(const Device& device, DeviceState& device_state);
-    void NotifySlotChange(DeviceState& device_state);
+    std::vector<SlotChangeNotification> UpdateDevicesAndPrepareNotifications(
+        const std::vector<Device>& devices);
+    optional<SlotChangeNotification> UpdateDeviceState(
+        const Device& device,
+        DeviceState& device_state);
 
     GenericRequestResult HandleOutputBulkTransfer(
         const std::vector<uint8_t>& data_to_send,

@@ -109,6 +109,10 @@ EMSCRIPTEN_COMPILER_FLAGS := \
 # PTHREAD_POOL_SIZE_STRICT: Suppress runtime warnings when a new worker has to
 #   start for a new thread (this warning is confusing and is mostly useful in
 #   early days of development).
+# TOTAL_STACK: Increase the initial stack size (Emscripten's default 64KB are
+#   very tight, and while some code in this project calls
+#   pthread_attr_setstacksize() its parameters aren't chosen with Emscripten's
+#   heavy stack consumption in mind).
 # no-pthreads-mem-growth: Suppress the linker warning about the performance of
 #   the "Pthreads + ALLOW_MEMORY_GROWTH" combination.
 EMSCRIPTEN_LINKER_FLAGS := \
@@ -127,6 +131,7 @@ EMSCRIPTEN_LINKER_FLAGS := \
   -s MIN_SAFARI_VERSION=-1 \
   -s MODULARIZE=1 \
   -s PTHREAD_POOL_SIZE_STRICT=0 \
+  -s TOTAL_STACK=1048576 \
   -Wno-pthreads-mem-growth \
 
 ifeq ($(CONFIG),Release)
@@ -173,17 +178,12 @@ EMSCRIPTEN_COMMON_FLAGS += \
 # ASSERTIONS: Enable runtime checks, like for memory allocation errors.
 # DEMANGLE_SUPPORT: Demangle C++ function names in stack traces.
 # SAFE_HEAP: Enable memory access checks.
-# TOTAL_STACK: Increase the initial stack size (Emscripten's default 64KB are
-#   very tight for Debug builds, and while some code in this project calls
-#   pthread_attr_setstacksize() its parameters aren't chosen with Emscripten
-#   Debug's heavy stack consumption in mind).
 # Wno-limited-postlink-optimizations: Suppress a warning about limited
 #   optimizations.
 EMSCRIPTEN_LINKER_FLAGS += \
   -s ASSERTIONS=2 \
   -s DEMANGLE_SUPPORT=1 \
   -s SAFE_HEAP=1 \
-  -s TOTAL_STACK=1048576 \
   -Wno-limited-postlink-optimizations \
 
 else

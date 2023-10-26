@@ -21,6 +21,7 @@
 #include "common/cpp/src/public/logging/logging.h"
 #include "common/cpp/src/public/requesting/async_request.h"
 #include "common/cpp/src/public/requesting/remote_call_arguments_conversion.h"
+#include "common/cpp/src/public/requesting/remote_call_async_request.h"
 #include "common/cpp/src/public/requesting/remote_call_message.h"
 #include "common/cpp/src/public/requesting/request_result.h"
 #include "common/cpp/src/public/requesting/requester.h"
@@ -66,6 +67,8 @@ class RemoteCallAdaptor final {
                                                std::forward<Args>(args)...),
         callback, async_request);
   }
+
+  void AsyncCall(RemoteCallAsyncRequest remote_call_async_request);
 
   template <typename... PayloadFields>
   static bool ExtractResultPayload(GenericRequestResult generic_request_result,

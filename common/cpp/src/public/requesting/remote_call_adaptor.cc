@@ -16,6 +16,7 @@
 
 #include <utility>
 
+#include "common/cpp/src/public/requesting/remote_call_async_request.h"
 #include "common/cpp/src/public/requesting/remote_call_message.h"
 #include "common/cpp/src/public/value_conversion.h"
 
@@ -27,6 +28,12 @@ RemoteCallAdaptor::RemoteCallAdaptor(Requester* requester)
 }
 
 RemoteCallAdaptor::~RemoteCallAdaptor() = default;
+
+void RemoteCallAdaptor::AsyncCall(
+    RemoteCallAsyncRequest remote_call_async_request) {
+  StartAsyncRequest(std::move(remote_call_async_request.request_payload),
+                    remote_call_async_request.callback);
+}
 
 GenericRequestResult RemoteCallAdaptor::PerformSyncRequest(
     RemoteCallRequestPayload payload) {

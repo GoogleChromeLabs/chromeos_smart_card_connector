@@ -17,14 +17,16 @@
 #ifndef GOOGLE_SMART_CARD_THIRD_PARTY_LIBUSB_USB_TRANSFERS_PARAMETERS_STORAGE_H_
 #define GOOGLE_SMART_CARD_THIRD_PARTY_LIBUSB_USB_TRANSFERS_PARAMETERS_STORAGE_H_
 
+#include <deque>
 #include <map>
 #include <memory>
 #include <mutex>
-#include <set>
 
 #include <libusb.h>
 
+#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/requesting/async_request.h"
+#include "common/cpp/src/public/requesting/remote_call_async_request.h"
 #include "third_party/libusb/webport/src/libusb_js_proxy_data_model.h"
 #include "third_party/libusb/webport/src/usb_transfer_destination.h"
 
@@ -54,75 +56,82 @@ class UsbTransfersParametersStorage final {
       const UsbTransfersParametersStorage&) = delete;
   ~UsbTransfersParametersStorage();
 
-  struct Item {
-    Item();
-
-    Item(TransferAsyncRequestStatePtr async_request_state,
-         const UsbTransferDestination& transfer_destination,
-         libusb_transfer* transfer,
-         const std::chrono::time_point<std::chrono::high_resolution_clock>&
-             timeout);
-
+  struct Info {
     TransferAsyncRequestStatePtr async_request_state;
     UsbTransferDestination transfer_destination;
-    libusb_transfer* transfer;
+    libusb_transfer* transfer = nullptr;
     std::chrono::time_point<std::chrono::high_resolution_clock> timeout;
   };
 
   bool empty() const;
 
-  void Add(const Item& item);
-
   void Add(TransferAsyncRequestStatePtr async_request_state,
            const UsbTransferDestination& transfer_destination,
            libusb_transfer* transfer,
+           RemoteCallAsyncRequest prepared_js_call,
            const std::chrono::time_point<std::chrono::high_resolution_clock>&
                timeout);
 
   bool ContainsWithAsyncRequestState(
       const TransferAsyncRequestState* async_request_state) const;
-
   bool ContainsAsyncWithDestination(
       const UsbTransferDestination& transfer_destination) const;
-
   bool ContainsAsyncWithLibusbTransfer(const libusb_transfer* transfer) const;
 
-  Item GetByAsyncRequestState(
+  // These getters return copies, to avoid threading issues.
+  Info GetByAsyncRequestState(
       const TransferAsyncRequestState* async_request_state) const;
-
-  Item GetAsyncByDestination(
+  Info GetAsyncByDestination(
       const UsbTransferDestination& transfer_destination) const;
-
-  Item GetAsyncByLibusbTransfer(const libusb_transfer* transfer) const;
-
+  Info GetAsyncByLibusbTransfer(const libusb_transfer* transfer) const;
   // Returns the transfer with the minimum `timeout` value.
-  Item GetWithMinTimeout() const;
+  Info GetWithMinTimeout() const;
 
-  void Remove(const Item& item);
+  // Moves and returns `prepared_js_call` for an in-flight transfer with the
+  // specified destination, if there's any.
+  optional<RemoteCallAsyncRequest> ExtractPreparedJsCall(
+      const UsbTransferDestination& transfer_destination);
 
   void RemoveByAsyncRequestState(
       const TransferAsyncRequestState* async_request_state);
 
-  void RemoveByLibusbTransfer(const libusb_transfer* transfer);
-
  private:
-  bool FindByAsyncRequestState(
-      const TransferAsyncRequestState* async_request_state,
-      Item* result) const;
-  bool FindAsyncByDestination(
-      const UsbTransferDestination& transfer_destination,
-      Item* result) const;
-  bool FindAsyncByLibusbTransfer(const libusb_transfer* transfer,
-                                 Item* result) const;
+  // Holds `Info` and all related non-public fields.
+  struct Item {
+    Info info;
+    optional<RemoteCallAsyncRequest> prepared_js_call;
+  };
+
+  template <typename Key>
+  Item* FindItem(const Key& mapping_key,
+                 const std::map<Key, Item*>& mapping) const;
+  template <typename Key>
+  Item* GetFifoItem(const Key& mapping_key,
+                    const std::map<Key, std::deque<Item*>>& mapping) const;
+  template <typename Key>
+  bool RemoveItemFromMappedQueue(Item* item,
+                                 const Key& mapping_key,
+                                 std::map<Key, std::deque<Item*>>& mapping);
+
+  void Add(std::unique_ptr<Item> item);
+  void Remove(Item* item);
 
   mutable std::mutex mutex_;
-  std::map<const TransferAsyncRequestState*, Item> async_request_state_mapping_;
-  std::map<UsbTransferDestination, std::set<const TransferAsyncRequestState*>>
+  // Storage that owns `Item` objects.
+  std::map<const Item*, std::unique_ptr<Item>> items_;
+  // Mappings from various keys to `Item` pointers. We use `std::deque` to
+  // allow getters pick up transfers in the FIFO order.
+  std::map<const TransferAsyncRequestState*, Item*>
+      async_request_state_mapping_;
+  std::map<UsbTransferDestination, std::deque<Item*>>
       async_destination_mapping_;
-  std::map<const libusb_transfer*, Item> async_libusb_transfer_mapping_;
+  std::map<const libusb_transfer*, Item*> async_libusb_transfer_mapping_;
   std::map<std::chrono::time_point<std::chrono::high_resolution_clock>,
-           std::set<const TransferAsyncRequestState*>>
+           std::deque<Item*>>
       timeout_mapping_;
+  // Contains items which still have nonempty `prepared_js_call`.
+  std::map<UsbTransferDestination, std::deque<Item*>>
+      transfers_with_prepared_js_call_;
 };
 
 }  // namespace google_smart_card
