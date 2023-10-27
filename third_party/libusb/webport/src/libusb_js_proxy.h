@@ -19,6 +19,7 @@
 
 #include <stdint.h>
 
+#include <functional>
 #include <memory>
 #include <unordered_map>
 
@@ -28,10 +29,12 @@
 #include "common/cpp/src/public/messaging/typed_message_router.h"
 #include "common/cpp/src/public/requesting/js_requester.h"
 #include "common/cpp/src/public/requesting/remote_call_adaptor.h"
+#include "common/cpp/src/public/requesting/remote_call_async_request.h"
 #include "common/cpp/src/public/requesting/request_result.h"
 #include "third_party/libusb/webport/src/libusb_contexts_storage.h"
 #include "third_party/libusb/webport/src/libusb_interface.h"
 #include "third_party/libusb/webport/src/libusb_opaque_types.h"
+#include "third_party/libusb/webport/src/usb_transfer_destination.h"
 
 namespace google_smart_card {
 
@@ -128,6 +131,19 @@ class LibusbJsProxy final : public LibusbInterface {
       libusb_transfer* transfer);
   int LibusbHandleEventsWithTimeout(libusb_context* context,
                                     int timeout_seconds);
+  std::function<void(GenericRequestResult)> MakeLibusbJsTransferCallback(
+      const std::string& js_api_name,
+      std::weak_ptr<libusb_context> context,
+      const UsbTransferDestination& transfer_destination,
+      TransferAsyncRequestStatePtr async_request_state);
+  RemoteCallAsyncRequest PrepareTransferJsApiCall(
+      libusb_context* const context,
+      libusb_transfer* transfer,
+      const UsbTransferDestination& transfer_destination,
+      std::shared_ptr<TransferAsyncRequestState> async_request_state);
+  void MaybeStartTransferJsRequest(
+      libusb_context* const context,
+      const UsbTransferDestination& transfer_destination);
   int DoGenericSyncTranfer(libusb_transfer_type transfer_type,
                            libusb_device_handle* device_handle,
                            unsigned char endpoint_address,

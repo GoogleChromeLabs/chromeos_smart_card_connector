@@ -25,7 +25,9 @@
 
 #include <libusb.h>
 
+#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/requesting/async_request.h"
+#include "common/cpp/src/public/requesting/remote_call_async_request.h"
 #include "third_party/libusb/webport/src/libusb_js_proxy_data_model.h"
 #include "third_party/libusb/webport/src/usb_transfer_destination.h"
 
@@ -67,6 +69,7 @@ class UsbTransfersParametersStorage final {
   void Add(TransferAsyncRequestStatePtr async_request_state,
            const UsbTransferDestination& transfer_destination,
            libusb_transfer* transfer,
+           RemoteCallAsyncRequest prepared_js_call,
            const std::chrono::time_point<std::chrono::high_resolution_clock>&
                timeout);
 
@@ -85,6 +88,11 @@ class UsbTransfersParametersStorage final {
   // Returns the transfer with the minimum `timeout` value.
   Info GetWithMinTimeout() const;
 
+  // Moves and returns `prepared_js_call` for an in-flight transfer with the
+  // specified destination, if there's any.
+  optional<RemoteCallAsyncRequest> ExtractPreparedJsCall(
+      const UsbTransferDestination& transfer_destination);
+
   void RemoveByAsyncRequestState(
       const TransferAsyncRequestState* async_request_state);
 
@@ -92,7 +100,7 @@ class UsbTransfersParametersStorage final {
   // Holds `Info` and all related non-public fields.
   struct Item {
     Info info;
-    // TODO: add the pending JS call information here.
+    optional<RemoteCallAsyncRequest> prepared_js_call;
   };
 
   template <typename Key>
@@ -122,6 +130,9 @@ class UsbTransfersParametersStorage final {
   std::map<std::chrono::time_point<std::chrono::high_resolution_clock>,
            std::deque<Item*>>
       timeout_mapping_;
+  // Contains items which still have nonempty `prepared_js_call`.
+  std::map<UsbTransferDestination, std::deque<Item*>>
+      transfers_with_prepared_js_call_;
 };
 
 }  // namespace google_smart_card
