@@ -101,7 +101,7 @@ bool libusb_context::CancelTransfer(libusb_transfer* transfer) {
     return false;
   }
 
-  const UsbTransfersParametersStorage::Item parameters =
+  const UsbTransfersParametersStorage::Info parameters =
       transfers_in_flight_.GetAsyncByLibusbTransfer(transfer);
 
   if (!parameters.transfer_destination.IsInputDirection()) {
@@ -179,7 +179,7 @@ void libusb_context::RemoveTransferInFlight(
     const TransferAsyncRequestState* async_request_state) {
   GOOGLE_SMART_CARD_CHECK(async_request_state);
 
-  const UsbTransfersParametersStorage::Item parameters =
+  const UsbTransfersParametersStorage::Info parameters =
       transfers_in_flight_.GetByAsyncRequestState(async_request_state);
   libusb_transfer* const transfer = parameters.transfer;
   const TransferAsyncRequestStatePtr async_request_state_ptr =
@@ -241,7 +241,7 @@ bool libusb_context::ExtractTimedOutTransfer(
     TransferRequestResult* result) {
   if (transfers_in_flight_.empty())
     return false;
-  UsbTransfersParametersStorage::Item nearest =
+  UsbTransfersParametersStorage::Info nearest =
       transfers_in_flight_.GetWithMinTimeout();
   if (std::chrono::high_resolution_clock::now() < nearest.timeout)
     return false;
