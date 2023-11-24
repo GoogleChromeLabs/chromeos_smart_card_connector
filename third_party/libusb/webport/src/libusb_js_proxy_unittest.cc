@@ -1590,6 +1590,70 @@ TEST_P(LibusbJsProxyWithDeviceTest, AsyncInputControlTransferDataRerouting) {
   libusb()->LibusbFreeTransfer(transfer2);
 }
 
+// Verify that input transfers receive results in the FIFO order: the
+// first-submitted transfer gets the first-received reply from JS, etc.
+TEST_P(LibusbJsProxyWithDeviceTest, InputTransfersFifoOrdering) {
+  constexpr int kTransferCount = 100;
+  static_assert(kTransferCount < 256, "unexpected kTransferCount");
+  constexpr int kDataSizeBytes = 1;
+  static_assert(kDataSizeBytes > 0, "unexpected kDataSizeBytes");
+  constexpr int kTimeoutsMs = 100000;
+
+  // Arrange: prepare waiters for expected JS requests.
+  std::vector<std::unique_ptr<TestingGlobalContext::Waiter>> js_request_waiters(
+      kTransferCount);
+  for (int i = 0; i < kTransferCount; ++i) {
+    js_request_waiters[i] = global_context()->CreateRequestWaiter(
+        "libusb", "controlTransfer",
+        MakeExpectedInputControlTransferJsArgs(/*recipient=*/"endpoint",
+                                               /*request_type=*/"standard",
+                                               kDataSizeBytes));
+  }
+  // Create and submit transfers.
+  std::vector<int> transfer_completion_flags(kTransferCount);
+  std::vector<std::vector<uint8_t>> transfer_buffers(kTransferCount);
+  std::vector<libusb_transfer*> transfers(kTransferCount);
+  for (int i = 0; i < kTransferCount; ++i) {
+    transfer_buffers[i] = MakeLibusbInputControlTransferSetup(kDataSizeBytes);
+    transfers[i] = InitLibusbControlTransfer(kTimeoutsMs, transfer_buffers[i],
+                                             transfer_completion_flags[i]);
+    EXPECT_EQ(libusb()->LibusbSubmitTransfer(transfers[i]), LIBUSB_SUCCESS);
+  }
+  // Prepare fake transfer replies. Make them all different, so that the test
+  // can verify the ordering of the received replies.
+  std::vector<std::vector<uint8_t>> replies(kTransferCount);
+  for (int i = 0; i < kTransferCount; ++i) {
+    replies[i].resize(kDataSizeBytes);
+    replies[i][0] = static_cast<uint8_t>(i);
+  }
+
+  // Act: simulate JS request replies.
+  for (int i = 0; i < kTransferCount; ++i) {
+    js_request_waiters[i]->Reply(MakeInputTransferFakeJsReply(replies[i]));
+  }
+  // Wait until transfers are resolved, in the expected order.
+  for (int i = 0; i < kTransferCount; ++i) {
+    WaitForLibusbTransferCompletion(transfer_completion_flags[i]);
+    for (int j = i + 1; j < kTransferCount; ++j) {
+      EXPECT_FALSE(transfer_completion_flags[j]);
+    }
+  }
+
+  // Assert: verify the transfers received replies in the expected order.
+  for (int i = 0; i < kTransferCount; ++i) {
+    const auto& buffer = transfer_buffers[i];
+    EXPECT_EQ(std::vector<uint8_t>(
+                  buffer.begin() + LIBUSB_CONTROL_SETUP_SIZE,
+                  buffer.begin() + LIBUSB_CONTROL_SETUP_SIZE + kDataSizeBytes),
+              replies[i]);
+  }
+
+  // Cleanup:
+  for (int i = 0; i < kTransferCount; ++i) {
+    libusb()->LibusbFreeTransfer(transfers[i]);
+  }
+}
+
 INSTANTIATE_TEST_SUITE_P(
     ,
     LibusbJsProxyWithDeviceTest,
