@@ -101,5 +101,9 @@
   "chrome-extension://gpnmjjdkmdfmccnpepmianiomfahpbcc": {
     "name": "Ujambo Kiosk App (development)",
     "autoapprove": true
+  },
+  "chrome-extension://naabfciimcjlmnohcligmgihhpihloah": {
+    "name": "IDmelon Accesskey",
+    "autoapprove": true
   }
 }
