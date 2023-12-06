@@ -103,7 +103,6 @@
     "autoapprove": true
   },
   "chrome-extension://naabfciimcjlmnohcligmgihhpihloah": {
-    "name": "IDmelon Accesskey",
-    "autoapprove": true
+    "name": "IDmelon Accesskey"
   }
 }
