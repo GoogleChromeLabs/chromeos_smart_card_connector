@@ -84,7 +84,7 @@ Smart Card Connector app via Web Store:
 1. Mention the update of the CCID driver at the Release's description on GitHub.
    It's also nice to add a link to the CCID release notes (which are typically
    published at
-   [https://ludovicrousseau.blogspot.com/](https://ludovicrousseau.blogspot.com/)).
+   [https://blog.apdu.fr/](https://blog.apdu.fr/).
 
 2. File an internal bug to update the
    [https://support.google.com/chrome/a/answer/7014689](https://support.google.com/chrome/a/answer/7014689)
