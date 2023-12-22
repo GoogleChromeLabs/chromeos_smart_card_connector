@@ -84,4 +84,4 @@ Smart Card Connector app via Web Store:
 1. Mention the update of the PC/SC-Lite daemon at the Release's description on
    GitHub. It's also nice to add a link to the PC/SC-Lite release notes (which
    are typically published at
-   [https://ludovicrousseau.blogspot.com/](https://ludovicrousseau.blogspot.com/)).
+   [https://blog.apdu.fr/](https://blog.apdu.fr/)).
