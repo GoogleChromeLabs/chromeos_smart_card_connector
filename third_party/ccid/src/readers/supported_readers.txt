@@ -193,6 +193,7 @@
 
 # Alcor Micro
 0x058F:0x9522:Alcor Micro AU9522
+0x058F:0x9540:Alcor Micro AU95x0
 
 # Alpha-Project
 0x2A0C:0x0021:Alpha-Project ANGARA Token
@@ -995,9 +996,6 @@
 0x09C3:0x0008:ActivCard ActivCard USB Reader V2
 
 # Aladdin
-
-# Alcor Micro
-0x058F:0x9540:Alcor Micro AU9540
 
 # Athena
 0x0DC3:0x100F:Athena IDProtect Flash
