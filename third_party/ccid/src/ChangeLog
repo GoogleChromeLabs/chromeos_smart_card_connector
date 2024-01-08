@@ -1,4 +1,1514 @@
-commit 9a7ad431a184771fdb7228da922c89daf5d55acb (HEAD -> master, zotac/master)
+commit 343c7034c25fc7a2037a520ab7bcca71c9601110 (HEAD -> master, zotac/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jan 5 10:14:31 2024 +0100
+
+    Release 1.5.5
+    
+    Signed-off-by: Ludovic Rousseau <ludovic.rousseau@free.fr>
+
+ PCSC         |  2 +-
+ README.md    | 19 +++++++++++++++++++
+ configure.ac |  2 +-
+ 3 files changed, 21 insertions(+), 2 deletions(-)
+
+commit 7595edde9f0b6f21703a9002bec0241b32bbf06b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Jan 2 11:30:59 2024 +0100
+
+    supported_readers: change order betweeen Gemalto and GEMALTO
+
+ readers/supported_readers.txt | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+commit 22ccc77c58a7f13428a190f29157dee185e115cb (debug/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Dec 28 21:35:41 2023 +0100
+
+    Update to PCSC 2.0.1
+
+ PCSC | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit ee1163cb4544a91cf0997cc997cdca99da87fbbb
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Dec 20 17:23:15 2023 +0100
+
+    Add Imprivata USB CCID
+
+ readers/rf_IDEAS_USB_CCID_0xCCDB.txt | 57 ++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt        |  3 ++
+ 2 files changed, 60 insertions(+)
+
+commit cb34fd60f94936edf8230500e8d679e6e97029fe
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Dec 1 22:27:53 2023 +0100
+
+    Kapelse: simplify code
+    
+    Move the standard cases with the other USE_COMPOSITE_AS_MULTISLOT cases.
+
+ src/ccid_usb.c | 69 ++++++++++++++++++++++++++++------------------------------
+ 1 file changed, 33 insertions(+), 36 deletions(-)
+
+commit 833be7045b4ae9e4a7fbf42b8362a744e3000972
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Dec 1 22:05:40 2023 +0100
+
+    USE_COMPOSITE_AS_MULTISLOT: reset static_interface on error
+    
+    If a composite reader fails to load all the CCID interfaces then the
+    reader will be unloaded. We must reset the interface counter so that the
+    next reader will be handled correctly.
+
+ src/ccid_usb.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+commit 0ab15e4e433be784f5e4573ee463f4861779c844
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Dec 1 18:35:04 2023 +0100
+
+    The Kapelse Kap-Link2 always has 3 CCID interfaces
+    
+    No need to have a complex code or check config_desc->bNumInterfaces
+
+ src/ccid_usb.c | 11 +----------
+ 1 file changed, 1 insertion(+), 10 deletions(-)
+
+commit 3c997ef239fb587fd9cf44ba58b64538ba100af7
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Dec 1 18:33:04 2023 +0100
+
+    Set num_CCID_interfaces values for Kapelse readers
+    
+    We must set both values num_CCID_interfaces & max_interface_number for
+    USE_COMPOSITE_AS_MULTISLOT to work as expected.
+
+ src/ccid_usb.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+commit df660f178d3ee342ff04368e52c6b8f7e86d1d2b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Nov 30 22:07:30 2023 +0100
+
+    Add comments about Kapelse readers
+
+ src/ccid_usb.c | 19 ++++++++++++++++---
+ 1 file changed, 16 insertions(+), 3 deletions(-)
+
+commit 332d66dbe53b71450c23f6fd320266026d20b2e9
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Nov 30 21:59:47 2023 +0100
+
+    ccid_usb.c: Kapelse code reformat
+
+ src/ccid_usb.c | 48 ++++++++++++++++++++++++------------------------
+ 1 file changed, 24 insertions(+), 24 deletions(-)
+
+commit c43e0750fd7754fc1676b9043b063e2430181f0c
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Nov 29 23:02:20 2023 +0100
+
+    Simplify the code for USE_COMPOSITE_AS_MULTISLOT
+    
+    No need to check again which readers are composite since if a reader is
+    composite the value of max_interface_number has been set a few lines
+    earlier in the code.
+
+ src/ccid_usb.c | 16 ++--------------
+ 1 file changed, 2 insertions(+), 14 deletions(-)
+
+commit 73d9d3a9bd9e2905912a76d7e4615a9729d83fc2
+Author: Baptiste MORAINE <baptiste.moraine@kapelse.com>
+Date:   Fri Oct 20 13:37:25 2023 +0200
+
+    COMPOSITE_AS_MULTISLOT : Add Kapelse readers
+
+ src/ccid.h     |  3 +++
+ src/ccid_usb.c | 34 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 37 insertions(+)
+
+commit 5b2d6ee4da01e3a27d9740e03acd29939550a4d1
+Author: Baptiste MORAINE <baptiste.moraine@kapelse.com>
+Date:   Fri Oct 20 13:36:47 2023 +0200
+
+    COMPOSITE_AS_MULTISLOT: Avoid code duplication using num_interfaces
+    
+    Add a new field num_interfaces to _ccid_descriptor structure to store
+    the number of CCID interfaces of a composite USB device.
+
+ src/ccid.h       |  4 ++++
+ src/ccid_usb.c   | 11 +++++++++++
+ src/ifdhandler.c | 33 +++++----------------------------
+ 3 files changed, 20 insertions(+), 28 deletions(-)
+
+commit a8a844afdc65433bc5e2a6e467d1b1d6ca2eb5e0
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Nov 7 23:18:25 2023 +0100
+
+    configure: replace "case in" by AS_CASE() M4 macro
+    
+    https://autotools.info/autoconf/m4sh.html
+
+ configure.ac | 12 +++---------
+ 1 file changed, 3 insertions(+), 9 deletions(-)
+
+commit 41270c2dd4d6a999ff477878963b886153b5319d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Nov 7 23:12:29 2023 +0100
+
+    configure: replace "if then" by AS_IF() M4 macro
+    
+    https://autotools.info/autoconf/m4sh.html
+
+ configure.ac | 101 +++++++++++++++++++++++++----------------------------------
+ 1 file changed, 42 insertions(+), 59 deletions(-)
+
+commit b22b28d87f07193c9889484fba3129cb1ec35290
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Dec 15 18:53:25 2023 +0100
+
+    Updated version of ISBC_ESMART_reader.txt
+
+ readers/ISBC_ESMART_reader.txt | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+commit 61d3a60d02866f47a980fd8fb6074b517a0d4af4
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Dec 14 21:56:23 2023 +0100
+
+    Add rf IDEAS USB CCID
+    
+    The same idProduct is used for different readers:
+    - RDR-80x86AKU WAVE ID® Plus
+    - RDR-7x16AKU WAVE ID® Nano Reader (USB-A)
+    - RDR-7xU6AKU  WAVE ID® Nano USB-C Reader
+
+ readers/rf_IDEAS_USB_CCID.txt | 57 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  3 +++
+ 2 files changed, 60 insertions(+)
+
+commit 79abc35b965f64abedcedf9d705a79abf8d09e74
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Dec 4 18:31:04 2023 +0100
+
+    MacOSX/configure: update copyright date
+
+ MacOSX/configure | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 4a799ddeff405241328a02bbed32e35b382aece0
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Dec 4 18:29:47 2023 +0100
+
+    MacOSX/configure: fix warnings reported by shellcheck
+    
+    shellcheck - Shell script analysis tool
+
+ MacOSX/configure | 22 +++++++++++-----------
+ 1 file changed, 11 insertions(+), 11 deletions(-)
+
+commit 3d883a372be55d63d9757f3c39598871e0ff82c8
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Dec 4 18:19:56 2023 +0100
+
+    Add SIMHUB pcsc reader
+
+ readers/SIMHUB_pcsc_reader.txt | 49 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  |  3 +++
+ 2 files changed, 52 insertions(+)
+
+commit a26be9ece25466102bfd3ae7a3380d10a67986fc
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Nov 10 14:19:58 2023 +0100
+
+    Move Broadcom 58200 (idProduct 0x5844) in unsupported
+    
+    The reader has only a contactless interface and the contactless
+    interface is not supported.
+
+ readers/supported_readers.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 6a008607a16649c10f28df6788f6d9e22e5d0fec
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Nov 10 14:18:18 2023 +0100
+
+    Move Broadcom 58200 (idProduct 0x5845) in unsupported
+    
+    The reader has only a contactless interface and the contactless
+    interface is not supported.
+
+ readers/supported_readers.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 82f34191743e4790631f64e90b5c88217c414ab5
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Nov 10 14:09:04 2023 +0100
+
+    Add Broadcom Corp 58200 (idProduct: 0x5867) in unsupported
+
+ readers/Broadcom_58200_0x5867.txt | 52 +++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt     |  1 +
+ 2 files changed, 53 insertions(+)
+
+commit 86d1ced091e6127d120741df9d0e28f6335fcd63
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Nov 10 14:08:16 2023 +0100
+
+    Add Broadcom Corp 58200 (idProduct: 0x5866) in unsupported
+
+ readers/Broadcom_58200_0x5866.txt | 52 +++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt     |  1 +
+ 2 files changed, 53 insertions(+)
+
+commit d1fe62f51c02ff4e8f325c009c9e66e55e04ab97
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Nov 10 12:51:49 2023 +0100
+
+    Add Broadcom Corp 58200 (idProduct: 0x5865)
+
+ readers/Broadcom_58200_0x5865.txt | 106 ++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt     |   1 +
+ 2 files changed, 107 insertions(+)
+
+commit 6c7bc01ed5200d05936a23b5a421512ad61051f4
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Nov 10 12:48:25 2023 +0100
+
+    Add Broadcom Corp 58200 (idProduct: 0x5864)
+
+ readers/Broadcom_58200_0x5864.txt | 106 ++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt     |   1 +
+ 2 files changed, 107 insertions(+)
+
+commit a52efe4447f168b74109653b8655b1bd8b184b7c
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Nov 7 21:27:07 2023 +0100
+
+    Add Alpha-Project ANGARA Token
+
+ readers/Alpha-Project_ANGARA_Token.txt | 53 ++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt          |  3 ++
+ 2 files changed, 56 insertions(+)
+
+commit a8f05cc9132fc38806259fd5875066b17aba9076
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Nov 4 22:12:09 2023 +0100
+
+    Update/complete CCID references
+    
+    Indicate the CCID revision and chapter name.
+
+ src/ccid_usb.c | 2 +-
+ src/parse.c    | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+commit 68c4eb4ed8c308b9cb8fae507c26950922dcce57
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Nov 2 23:15:23 2023 +0100
+
+    Add Kapelse KAP-Move
+
+ readers/Kapelse_KAP-Move.txt  | 1172 +++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |    1 +
+ 2 files changed, 1173 insertions(+)
+
+commit 4ac2b98862f161e4baa498d9ed5d14ad8865ac0d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Nov 2 23:11:09 2023 +0100
+
+    Add Kapelse inSide
+
+ readers/Kapelse_inSide.txt    | 1172 +++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |    1 +
+ 2 files changed, 1173 insertions(+)
+
+commit 697ff7a3903d3666725f6f7e85c08d61f828ca4e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Nov 2 23:05:00 2023 +0100
+
+    Add KAPELSE KAP-eCV
+
+ readers/KAPELSE_KAP-eCV.txt   | 48 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  1 +
+ 2 files changed, 49 insertions(+)
+
+commit 9f7151ebac21118ef2ffeae3efdf713a60592f27
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Nov 2 23:01:50 2023 +0100
+
+    Add Kapelse Ti-Kap
+
+ readers/Kapelse_Ti-Kap.txt    | 1172 +++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |    3 +
+ 2 files changed, 1175 insertions(+)
+
+commit f4379ab73f6236d58ff1c47b632ed0790fe72901
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Nov 2 22:58:14 2023 +0100
+
+    Add KAPELSE KAP-LINK2
+
+ readers/KAPELSE_KAP-LINK2.txt | 153 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |   1 +
+ 2 files changed, 154 insertions(+)
+
+commit 9f02781628dacdf8cb6a420fef8911a26538606b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Nov 2 22:55:36 2023 +0100
+
+    Add KAPELSE eS-KAP-Ad
+
+ readers/KAPELSE_eS-KAP-Ad.txt | 104 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |   1 +
+ 2 files changed, 105 insertions(+)
+
+commit fa0fcc69ab9d71c8d3822e4d67f872e7794b1d8f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Nov 2 22:49:22 2023 +0100
+
+    Add KAPELSE KAP-GO
+
+ readers/KAPELSE_KAP-GO.txt    | 104 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |   1 +
+ 2 files changed, 105 insertions(+)
+
+commit 2d32e11659070209c29e8bea48083a3eee041521
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Nov 2 22:43:43 2023 +0100
+
+    Add KAPELSE KAP-Care
+
+ readers/KAPELSE_KAP-Care.txt  | 104 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |   1 +
+ 2 files changed, 105 insertions(+)
+
+commit 8ec8b6fb9553b4195307bd69d0d9db6a28e73658
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Nov 2 22:39:14 2023 +0100
+
+    Update KAPELSE_KAP-LINK.txt
+    
+    The new firmware supprts 3.0V
+
+ readers/KAPELSE_KAP-LINK.txt | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+commit b688eae34d17a9a96f8df1d382dd0688b6bc0b66 (tag: 1.5.4)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Oct 29 17:41:27 2023 +0100
+
+    Release 1.5.4
+    
+    Signed-off-by: Ludovic Rousseau <ludovic.rousseau@free.fr>
+
+ README.md    | 3 +++
+ configure.ac | 2 +-
+ 2 files changed, 4 insertions(+), 1 deletion(-)
+
+commit 509ed5e9a34cacd21623cd66f786eca5d8516a2e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Oct 29 12:54:39 2023 +0100
+
+    Update to PCSC 2.0.0
+
+ PCSC | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit f5a731e65f1c6b891b2be75c6e7c5e46de5e83dd
+Author: Maksim Ivanov <emaxx@google.com>
+Date:   Fri Oct 27 19:25:21 2023 +0200
+
+    Fix polling transfer restart after InterruptStop
+    
+    Fix the regression introduced in the "Fix InterruptStop if called
+    before InterruptRead" commit: it should be possible to start a new
+    polling transfer after the previous one has been stopped.
+    
+    This problem prevented the polling transfer from working after an
+    SCardDisconnect call, and led to using the sleep-based polling every
+    400 ms.
+    
+    Implementation-wise, the fix is to change the "terminate" flag to be
+    non-sticky, i.e., unset it after reading from it.
+
+ src/ccid_usb.c | 21 ++++++++++-----------
+ 1 file changed, 10 insertions(+), 11 deletions(-)
+
+commit 440ab83fe437fbab3853de84fb2d86ec9939e5c4 (tag: 1.5.3)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Oct 25 17:24:44 2023 +0200
+
+    Release 1.5.3
+    
+    Signed-off-by: Ludovic Rousseau <ludovic.rousseau@free.fr>
+
+ README.md    | 22 ++++++++++++++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 23 insertions(+), 1 deletion(-)
+
+commit 765b33809fe233be3fc3622f5636d150b013de38
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Oct 22 14:29:13 2023 +0200
+
+    Fix thread safe issue
+    
+    Declare ReaderIndex[] as _Atomic as it can be accessed from 2 different
+    threads.
+    
+    ==================
+    WARNING: ThreadSanitizer: data race (pid=4017)
+      Write of size 4 at 0x7fd1b32be970 by main thread (mutexes: write M0, write M1):
+        #0 ReleaseReaderIndex CCID/src/utils.c:81:21 (libccid.so+0xa672) (BuildId: 69b3a74d7af87f05c5edb71935a43b024a0fe968)
+        #1 FreeChannel CCID/src/ifdhandler.c:92:2 (libccid.so+0xa672)
+        #2 IFDHCloseChannel CCID/src/ifdhandler.c:302:2 (libccid.so+0xa672)
+        #3 IFDCloseIFD PCSC/src/ifdwrapper.c:190:7 (pcscd+0xd9e30) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #4 RFUnInitializeReader PCSC/src/readerfactory.c:1153:9 (pcscd+0xd9e30)
+        #5 removeReader PCSC/src/readerfactory.c:645:2 (pcscd+0xd9e30)
+        #6 _UnrefReader PCSC/src/readerfactory.c:120:3 (pcscd+0xd9e30)
+        #7 IFDCloseIFD PCSC/src/ifdwrapper.c:190:7 (pcscd+0xd9e30) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #8 RFUnInitializeReader PCSC/src/readerfactory.c:1153:9 (pcscd+0xd9e30)
+        #9 removeReader PCSC/src/readerfactory.c:645:2 (pcscd+0xd9e30)
+        #10 _UnrefReader PCSC/src/readerfactory.c:120:3 (pcscd+0xd9e30)
+        #11 RFRemoveReader PCSC/src/readerfactory.c:624:5 (pcscd+0xdd282) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #12 RFRemoveReader PCSC/src/readerfactory.c:624:5 (pcscd+0xdd282) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #13 RFRemoveReader PCSC/src/readerfactory.c:624:5 (pcscd+0xdd282) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #14 RFCleanupReaders PCSC/src/readerfactory.c:1396:9 (pcscd+0xddb9e) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #15 SVCServiceRunLoop PCSC/src/pcscdaemon.c:123:4 (pcscd+0xd9574) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #16 main PCSC/src/pcscdaemon.c:801:2 (pcscd+0xd8810) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+    
+      Previous read of size 4 at 0x7fd1b32be970 by thread T7:
+        #0 LunToReaderIndex CCID/src/utils.c:72:14 (libccid.so+0xf8aa) (BuildId: 69b3a74d7af87f05c5edb71935a43b024a0fe968)
+        #1 IFDHPolling CCID/src/ifdhandler.c:313:28 (libccid.so+0xb1bf) (BuildId: 69b3a74d7af87f05c5edb71935a43b024a0fe968)
+        #2 EHStatusHandlerThread PCSC/src/eventhandler.c:467:10 (pcscd+0xd6f9b) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+    
+      As if synchronized via sleep:
+        #0 nanosleep <null> (pcscd+0x515ed) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #1 SYS_Sleep PCSC/src/sys_unix.c:69:9 (pcscd+0xdfbf9) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #2 SVCServiceRunLoop PCSC/src/pcscdaemon.c:117:10 (pcscd+0xd956a) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #3 main PCSC/src/pcscdaemon.c:801:2 (pcscd+0xd8810) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+    
+      Location is global 'ReaderIndex' of size 64 at 0x7fd1b32be970 (libccid.so+0x22970)
+    
+      Mutex M0 (0x7b0c00000ed0) created at:
+        #0 pthread_mutex_init <null> (pcscd+0x555cf) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #1 RFAddReader PCSC/src/readerfactory.c:355:9 (pcscd+0xdb4b7) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #2 HPAddDevice PCSC/src/hotplug_libudev.c:512:8 (pcscd+0xe3409) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #3 HPScanUSB PCSC/src/hotplug_libudev.c:579:3 (pcscd+0xe2a1d) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #4 HPRegisterForHotplugEvents PCSC/src/hotplug_libudev.c:761:2 (pcscd+0xe2a1d)
+        #5 main PCSC/src/pcscdaemon.c:768:7 (pcscd+0xd8717) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+    
+      Mutex M1 (0x7fd1b32be948) created at:
+        #0 pthread_mutex_lock <null> (pcscd+0x71ada) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #1 CreateChannelByNameOrChannel CCID/src/ifdhandler.c:119:8 (libccid.so+0x82ae) (BuildId: 69b3a74d7af87f05c5edb71935a43b024a0fe968)
+        #2 IFDHCreateChannelByName CCID/src/ifdhandler.c:233:9 (libccid.so+0x7e55) (BuildId: 69b3a74d7af87f05c5edb71935a43b024a0fe968)
+        #3 IFDOpenIFD PCSC/src/ifdwrapper.c:136:9 (pcscd+0xdd0cb) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #4 RFInitializeReader PCSC/src/readerfactory.c:1121:8 (pcscd+0xdd0cb)
+        #5 RFAddReader PCSC/src/readerfactory.c:366:7 (pcscd+0xdb52a) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #6 RFAddReader PCSC/src/readerfactory.c:366:7 (pcscd+0xdb52a) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #7 HPAddDevice PCSC/src/hotplug_libudev.c:512:8 (pcscd+0xe3409) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #8 HPScanUSB PCSC/src/hotplug_libudev.c:579:3 (pcscd+0xe2a1d) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #9 HPRegisterForHotplugEvents PCSC/src/hotplug_libudev.c:761:2 (pcscd+0xe2a1d)
+        #10 main PCSC/src/pcscdaemon.c:768:7 (pcscd+0xd8717) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+    
+      Thread T7 (tid=4049, running) created by thread T4 at:
+        #0 pthread_create <null> (pcscd+0x53dfd) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #1 ThreadCreate PCSC/src/utils.c:184:8 (pcscd+0xe3cab) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #2 EHSpawnEventHandler PCSC/src/eventhandler.c:233:7 (pcscd+0xd6840) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #3 RFAddReader PCSC/src/readerfactory.c:397:8 (pcscd+0xdb6ba) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #4 HPAddDevice PCSC/src/hotplug_libudev.c:512:8 (pcscd+0xe3409) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+        #5 HPEstablishUSBNotifications PCSC/src/hotplug_libudev.c:646:6 (pcscd+0xe3783) (BuildId: 046d0874ce19c882d4f3b8ab5213aa4cd336cd5e)
+    
+    SUMMARY: ThreadSanitizer: data race CCID/src/utils.c:81:21 in ReleaseReaderIndex
+    ==================
+
+ src/utils.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 72f2f23cac671700dc2e8de21c083ab30bc46f10
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Oct 22 11:08:48 2023 +0200
+
+    Fix thread safe issue
+    
+    Declare LogLevel as _Atomic as it can be accessed from 2 different
+    threads.
+    
+    ==================
+    WARNING: ThreadSanitizer: data race (pid=35789)
+      Write of size 4 at 0x7f123aafe310 by thread T3 (mutexes: write M0):
+        #0 IFDHICCPresence CCID/src/ifdhandler.c:1986:12 (libccid.so+0xaa94) (BuildId: 34d145182e49b1532fafda06218243582b2f9366)
+        #1 IFDStatusICC PCSC/src/ifdwrapper.c:349:7 (pcscd+0xd7725) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+        #2 EHStatusHandlerThread PCSC/src/eventhandler.c:332:8 (pcscd+0xd6b26) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+    
+      Previous read of size 4 at 0x7f123aafe310 by thread T10:
+        #0 IFDHSetCapabilities CCID/src/ifdhandler.c:696:2 (libccid.so+0xb032) (BuildId: 34d145182e49b1532fafda06218243582b2f9366)
+        #1 IFDSetCapabilities PCSC/src/ifdwrapper.c:221:7 (pcscd+0xe6bc7) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+        #2 SCardSetAttrib PCSC/src/winscard.c:1470:7 (pcscd+0xe6bc7)
+        #3 ContextThread PCSC/src/winscard_svc.c:792:16 (pcscd+0xe6bc7)
+        #4 __tsan_thread_start_func <null> (pcscd+0x53d66) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+        #5 __tsan_thread_start_func <null> (pcscd+0x53d66) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+    
+      As if synchronized via sleep:
+        #0 nanosleep <null> (pcscd+0x515ed) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+        #1 SYS_USleep PCSC/src/sys_unix.c:87:9 (pcscd+0xd709a) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+        #2 EHStatusHandlerThread PCSC/src/eventhandler.c (pcscd+0xd709a)
+        #3 __tsan_thread_start_func <null> (pcscd+0x53d66) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+    
+      Location is global 'LogLevel' of size 4 at 0x7f123aafe310 (libccid.so+0x22310)
+    
+      Mutex M0 (0x7b0c00000ed0) created at:
+        #0 pthread_mutex_init <null> (pcscd+0x555cf) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+        #1 RFAddReader PCSC/src/readerfactory.c:355:9 (pcscd+0xdb5aa) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+        #2 HPAddDevice PCSC/src/hotplug_libudev.c:512:8 (pcscd+0xe33c9) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+        #3 HPScanUSB PCSC/src/hotplug_libudev.c:579:3 (pcscd+0xe29dd) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+        #4 HPRegisterForHotplugEvents PCSC/src/hotplug_libudev.c:761:2 (pcscd+0xe29dd)
+        #5 main PCSC/src/pcscdaemon.c:766:7 (pcscd+0xd87e7) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+    
+      Thread T3 (tid=35793, running) created by main thread at:
+        #0 pthread_create <null> (pcscd+0x53dfd) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+        #1 ThreadCreate PCSC/src/utils.c:184:8 (pcscd+0xe3c6b) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+        #2 EHSpawnEventHandler PCSC/src/eventhandler.c:233:7 (pcscd+0xd6910) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+        #3 RFAddReader PCSC/src/readerfactory.c:397:8 (pcscd+0xdb7ad) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+        #4 HPAddDevice PCSC/src/hotplug_libudev.c:512:8 (pcscd+0xe33c9) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+        #5 HPScanUSB PCSC/src/hotplug_libudev.c:579:3 (pcscd+0xe29dd) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+        #6 HPRegisterForHotplugEvents PCSC/src/hotplug_libudev.c:761:2 (pcscd+0xe29dd)
+        #7 main PCSC/src/pcscdaemon.c:766:7 (pcscd+0xd87e7) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+    
+      Thread T10 (tid=40070, running) created by main thread at:
+        #0 pthread_create <null> (pcscd+0x53dfd) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+        #1 ThreadCreate PCSC/src/utils.c:184:8 (pcscd+0xe3c6b) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+        #2 CreateContextThread PCSC/src/winscard_svc.c:239:7 (pcscd+0xd931e) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+        #3 SVCServiceRunLoop PCSC/src/pcscdaemon.c:131:9 (pcscd+0xd931e)
+        #4 main PCSC/src/pcscdaemon.c:799:2 (pcscd+0xd88e0) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+        #5 main PCSC/src/pcscdaemon.c:799:2 (pcscd+0xd88e0) (BuildId: 4d1e07aaf5145539b5a42a2ed57bb9b51830ddfe)
+    
+    SUMMARY: ThreadSanitizer: data race CCID/src/ifdhandler.c:1986:12 in IFDHICCPresence
+    ==================
+
+ src/debug.h      | 2 +-
+ src/ifdhandler.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+commit 8f197d0dcc11387f7864ba26e9379b014b03e137
+Author: Maksim Ivanov <emaxx@google.com>
+Date:   Tue Oct 17 11:20:48 2023 +0200
+
+    Fix possible use-after-free of polling_transfer
+    
+    Guard the multi-thread usage of polling_transfer with a mutex, to
+    prevent the race condition between InterruptStop() and
+    InterruptRead(): while the former is calling
+    libusb_cancel_transfer(), the latter might've already called
+    libusb_free_transfer() on the same pointer.
+    
+    This replaces the atomic variables that were previously used
+    for the polling_transfer pointer, because atomic variables don't
+    prevent this kind of use-after-free race condition.
+    
+    In practice, the probability of hitting the race condition was
+    presumably low, but the basic scenario is the
+    SCardConnect/SCardDisconnect calls overlapping with the time
+    moments when the card is inserted/removed.
+
+ src/ccid_usb.c | 46 +++++++++++++++++++++++++++-------------------
+ 1 file changed, 27 insertions(+), 19 deletions(-)
+
+commit 2896a6aa5090c15e746363e914555160b1c366d8
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Sep 29 14:08:02 2023 +0200
+
+    Add SCARDCONTOL.md in the archive
+    
+    This file contains documentation and should be distributed with the
+    source code.
+
+ Makefile.am | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit ceaa508c533aa373421070fc160732446da3f3b9
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Sep 28 21:43:34 2023 +0200
+
+    Add SpringCard M519 with idProduct: 0x621A
+
+ readers/SpringCard_M519_621A.txt | 57 ++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt    |  1 +
+ 2 files changed, 58 insertions(+)
+
+commit 231f08be678f6520ea8ca1a31c4d4171bc07ea97
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Sep 28 21:41:34 2023 +0200
+
+    Add SpringCard M519 with idProduct: 0x6212
+
+ readers/SpringCard_M519_6212.txt | 57 ++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt    |  1 +
+ 2 files changed, 58 insertions(+)
+
+commit eb7d6064f8bd901559c836e5578c43a7a7e85032
+Author: Maksim Ivanov <emaxx@google.com>
+Date:   Wed Sep 27 17:53:11 2023 +0200
+
+    Fix InterruptStop if called before InterruptRead
+    
+    The goal is to make the polling termination (via
+    TAG_IFD_STOP_POLLING_THREAD) actually work even when it's
+    triggered before the InterruptRead has a chance to create and
+    publish the polling_transfer.
+    
+    Without this patch, in some cases the termination was blocked for
+    10 minutes, because the thread that does InterruptStop might still
+    see the null polling_transfer meanwhile the other thread is about
+    to start this transfer. The proposed solution is to remember in a
+    separate (atomic) boolean flag whether the termination started, to
+    avoid this kind of race condition.
+
+ src/ccid_usb.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
+
+commit 8b600043624be978c2f83d257864cf1c956cd812
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Sep 11 18:54:50 2023 +0200
+
+    parse: do not ask to run as root if not needed
+    
+    On macOS it is expected to get the error:
+     idVendor:  0x0B05  Can't get iManufacturer string: LIBUSB_ERROR_INVALID_PARAM
+     idProduct: 0x1825  Can't get iProduct string: LIBUSB_ERROR_INVALID_PARAM
+    
+    Running as root does not solve the problem. So need to fail and ask to
+    re-run as root in that case.
+
+ src/parse.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit fe72a2e922274f5afc490b08a6c549985d6655d2
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Sep 8 21:13:58 2023 +0200
+
+    Add Identiv uTrust Token Flex
+
+ readers/Identiv_uTrust_Token_Flex.txt | 55 +++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt         |  1 +
+ 2 files changed, 56 insertions(+)
+
+commit 0895da5ec82e0e512d4342329b5ba1f106f5286e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Sep 7 20:10:02 2023 +0200
+
+    parse: remove output.txt after generation of output.bin
+    
+    The real output is output.bin so we can remove the temporary file
+    output.txt when no more useful.
+
+ src/parse.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+commit 789bccdee95e633d59d95f90baf8978536b3b1a3
+Author: Ludovic Rousseau <ludovic-l.rousseau@thalesgroup.com>
+Date:   Thu Sep 7 15:55:33 2023 +0200
+
+    parse: correctly handle fread() errors
+    
+    If no CCID reader is found then the size of the output.txt file is 0
+    bytes and fread(3) returns 0 but that is not an error.
+
+ src/parse.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit ff9a39b3918bc0afe49a83994497a37a84f8add2
+Author: Ludovic Rousseau <ludovic-l.rousseau@thalesgroup.com>
+Date:   Thu Sep 7 15:46:52 2023 +0200
+
+    parse: do not fail if "output.txt" does not exist
+    
+    We open the file in read + write mode and create the file if it does not
+    exist yet.
+
+ src/parse.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 0f2a0b3801612c727e097a759f9f75788915ca61
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Sep 4 18:45:22 2023 +0200
+
+    Add Aktiv Rutoken SCR 3101 NFC Reader
+
+ readers/Aktiv_Rutoken_SCR_3101_NFC_Reader.txt | 71 +++++++++++++++++++++++++++
+ readers/supported_readers.txt                 |  1 +
+ 2 files changed, 72 insertions(+)
+
+commit 116dd4418c1ad242104231c5f67ff585da0bbc54
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Aug 31 21:55:41 2023 +0200
+
+    Add ACS ACR40U ICC Reader
+
+ readers/ACS_ACR40U_ICC_Reader.txt | 57 +++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt     |  1 +
+ 2 files changed, 58 insertions(+)
+
+commit 249ebd367de2f8bdea39d9a9292f163be7947066
+Author: Godfrey Chung <godfrey.chung@acs.com.hk>
+Date:   Thu Aug 17 12:22:10 2023 +0800
+
+    Simulate ACS ACR1552 as multi-slot reader
+    
+    This reader has 2 CCID interfaces.
+
+ src/ccid.h       | 1 +
+ src/ccid_usb.c   | 2 ++
+ src/ifdhandler.c | 1 +
+ 3 files changed, 4 insertions(+)
+
+commit 67775961007e58a43c4219f0a9b11d5fff01fc14
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Aug 16 11:10:36 2023 +0200
+
+    Append "Reader" for ACS ACR1552 1S CL & ACR1552 CL
+    
+    ACS prefers to have the "Reader" added.
+
+ readers/supported_readers.txt | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 0f51f96189d202bf898191419c5d12eae28b07bf
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Aug 16 11:09:08 2023 +0200
+
+    Remove "Generated:" field
+
+ readers/supported_readers.txt | 1 -
+ 1 file changed, 1 deletion(-)
+
+commit 4a6c764d75681f68d22dc20bf80ef7d309d73ccf
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Aug 14 12:56:38 2023 +0200
+
+    Add ACS ACR1552 CL
+
+ readers/ACS_ACR1552.txt       | 56 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  1 +
+ 2 files changed, 57 insertions(+)
+
+commit ec6fbb81306a5df5fda978622deae18e3a340877
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Aug 11 14:24:53 2023 +0200
+
+    Add ACS ACR1552 1S CL
+
+ readers/ACS_ACR1552U.txt      | 110 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |   3 +-
+ 2 files changed, 112 insertions(+), 1 deletion(-)
+
+commit 283a35d91563c95c3ef097f19e3680e7bd477cd9
+Author: Maksim Ivanov <emaxx@google.com>
+Date:   Wed Jul 26 14:31:55 2023 +0000
+
+    Check num_altsetting before dereffing altsetting
+    
+    According to the libusb documentation,
+    libusb_interface::num_altsetting must be non-negative, hence it's
+    allowed to be zero, in which case dereferencing
+    libusb_interface::altsetting isn't allowed. Fix the places in the CCID
+    code that do this without proper checks.
+
+ src/ccid_usb.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+commit 6bf9eb6220cc09221cb790b16cb4983152cfcc0c
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jun 2 14:08:41 2023 +0200
+
+    Add Dexon Tecnologias Digitais LTDA eSmartDX
+
+ readers/Dexon_Tecnologias_Digitais_eSmartDX.txt | 57 +++++++++++++++++++++++++
+ readers/supported_readers.txt                   |  3 +-
+ 2 files changed, 59 insertions(+), 1 deletion(-)
+
+commit efba56b1b02e4605f14362a47f75fb58ac3e07ad
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jun 1 21:50:26 2023 +0200
+
+    parse: create output.bin file
+
+ configure.ac    |  2 ++
+ src/Makefile.am |  4 ++--
+ src/parse.c     | 38 +++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 41 insertions(+), 3 deletions(-)
+
+commit 31acd97f991b202b4215306bc094d3b3d95795a8
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jun 1 18:50:25 2023 +0200
+
+    parse: Redirect output to a file descriptor
+
+ src/parse.c | 209 +++++++++++++++++++++++++++++++-----------------------------
+ 1 file changed, 107 insertions(+), 102 deletions(-)
+
+commit 992026d7c7214f37a4351a4ae2e9057c8a50d57d
+Author: Godfrey Chung <godfrey.chung@acs.com.hk>
+Date:   Tue May 30 11:42:28 2023 +0800
+
+    Simulate ACS ACR1252IMP as multi-slot reader
+    
+    This reader has 2 CCID interfaces.
+
+ src/ccid.h       | 1 +
+ src/ccid_usb.c   | 2 ++
+ src/ifdhandler.c | 1 +
+ 3 files changed, 4 insertions(+)
+
+commit da8ef2eabf4f2e86a59c44ea185c5abf419d2a1e
+Author: Godfrey Chung <godfrey.chung@acs.com.hk>
+Date:   Tue May 30 11:35:48 2023 +0800
+
+    Simulate ACS ACR1252 as multi-slot reader
+    
+    This reader has 2 CCID interfaces.
+
+ src/ccid.h       | 1 +
+ src/ccid_usb.c   | 2 ++
+ src/ifdhandler.c | 1 +
+ 3 files changed, 4 insertions(+)
+
+commit baeab7622bfad20ebdd87484508e65d2fc6c1b73
+Author: Godfrey Chung <godfrey.chung@acs.com.hk>
+Date:   Tue May 30 11:22:57 2023 +0800
+
+    Simulate ACS ACR1251 as multi-slot reader
+    
+    This reader has 2 CCID interfaces.
+
+ src/ccid.h       | 1 +
+ src/ccid_usb.c   | 2 ++
+ src/ifdhandler.c | 1 +
+ 3 files changed, 4 insertions(+)
+
+commit 70e71afb3c121ac63319e0a49d620c7e0eb19999
+Author: Godfrey Chung <godfrey.chung@acs.com.hk>
+Date:   Mon May 29 11:58:41 2023 +0800
+
+    Simulate ACS ACR1581 as multi-slot reader
+    
+    This reader has 3 CCID interfaces.
+
+ src/ccid.h       | 1 +
+ src/ccid_usb.c   | 2 ++
+ src/ifdhandler.c | 4 ++++
+ 3 files changed, 7 insertions(+)
+
+commit bfdcbe4b6f02755727fae8ca38dac89881922b4c
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon May 29 11:56:28 2023 +0200
+
+    Update ACS_ACR1581 name
+    
+    Use ACS ACR1581 1S Dual Reader
+
+ readers/supported_readers.txt | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit daeb4412ebe7fa7be13a3b53f70a7ff252e73a12
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 26 14:26:53 2023 +0200
+
+    Firmware update for HID Global OMNIKEY 3x21 Smart Card Reader
+
+ readers/HID_Global_OMNIKEY_3x21_Smart_Card_Reader.txt | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+commit 3f1067474e78ba8799b3af5a5e3200234e3fc51f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 26 11:49:21 2023 +0200
+
+    Firmware update for HID Global OMNIKEY 5022 Smart Card Reader
+
+ readers/HID_Global_OMNIKEY_5022_Smart_Card_Reader.txt | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+commit 345f2a19bb46924bff1ef0c0ca72d88298559892
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 26 11:47:59 2023 +0200
+
+    Firmware update for HID OMNIKEY 5422
+
+ readers/HID_OMNIKEY_5422.txt | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+commit 94696d7e6f10ab3132cfa440a8dd2a0b2ed2da70
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 25 21:41:13 2023 +0200
+
+    Add ACS ACR1581
+
+ readers/ACS_ACR1581.txt       | 166 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |   1 +
+ 2 files changed, 167 insertions(+)
+
+commit 5a994d47ac59905ec07fc5db9af938080180fd90
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 25 21:35:28 2023 +0200
+
+    Add Excelsecu Card reader
+
+ readers/Excelsecu_Card_reader.txt | 57 +++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt     |  5 +++-
+ 2 files changed, 61 insertions(+), 1 deletion(-)
+
+commit cafe3e6431a57fc107d0856cea26530f614eca37
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon May 22 21:18:51 2023 +0200
+
+    ACS ACR40T ICC Reader
+
+ readers/ACS_ACR40T_ICC_Reader.txt | 79 +++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt     |  3 +-
+ 2 files changed, 81 insertions(+), 1 deletion(-)
+
+commit 998a6488481e3aaa455709c2427f9023e08d5ec4
+Author: Godfrey Chung <godfrey.chung@acs.com.hk>
+Date:   Fri May 19 11:18:03 2023 +0800
+
+    Simulate ACS WalletMate as multi-slot reader
+    
+    This reader has 2 CCID interfaces.
+
+ src/ccid.h       | 1 +
+ src/ccid_usb.c   | 2 ++
+ src/ifdhandler.c | 1 +
+ 3 files changed, 4 insertions(+)
+
+commit bc8c51ed61cce2d5710ceee8b9a0ede95089e641
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 18 15:55:29 2023 +0200
+
+    Add ACS WalletMate 1S CL Reader
+
+ readers/ACS_WalletMate_Dual_Reader.txt | 105 +++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt          |   3 +-
+ 2 files changed, 107 insertions(+), 1 deletion(-)
+
+commit 1da440ab96b68ac00da564ef642b31cc34508baf
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed May 17 16:44:34 2023 +0200
+
+    Revert "parse.c: fix build error"
+    
+    This reverts commit c72ec8f4fc46db2849a2a6ebd8be8e6559fabafc.
+
+ src/parse.c | 7 -------
+ 1 file changed, 7 deletions(-)
+
+commit 9e1481aa3f0a1cfcd33994087df563b52ccfbf3e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed May 17 16:29:11 2023 +0200
+
+    Revert "Suspend/resume now simulates a card removal"
+    
+    This reverts commit a4401951b904707a4f93442e96ad7b137c5aa798.
+    
+    We do not need this patch. We have 2 cases:
+    1. the card is used by an application and is powered up
+    
+    After the PC resumes the card will be "present" and "unpowered" so a
+    card removal event will be generated because the state known by the CCID
+    driver was "present" and "powered".
+    
+    2. the card is NOT used by an application and is not powered (because of
+       pcsc-lite auto power off feature)
+    
+    After the PC resumes the card will be "present" and "unpowered" (as
+    previously) so the CCID driver will be happy with this state and will
+    not signal a card removal event.
+    No need to report a card removal event when the card is not used by an
+    application.
+
+ src/ccid_usb.c | 5 -----
+ 1 file changed, 5 deletions(-)
+
+commit d1a3a090ca7b6eb14f028e79c8f54bfcb95ee1bc
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 12 17:29:16 2023 +0200
+
+    Circle CCR7115 ICC firmware update
+
+ readers/Circle_CCR7115_ICC.txt | 134 ++++++++++++++++++++++++++++++++++++-----
+ 1 file changed, 118 insertions(+), 16 deletions(-)
+
+commit c72ec8f4fc46db2849a2a6ebd8be8e6559fabafc
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Apr 30 17:39:06 2023 +0200
+
+    parse.c: fix build error
+    
+      CCLD     parse
+    Undefined symbols for architecture x86_64:
+      "_get_ccid_slot", referenced from:
+          _InterruptRead in parse-ccid_usb.o
+    ld: symbol(s) not found for architecture x86_64
+    clang: error: linker command failed with exit code 1 (use -v to see invocation)
+
+ src/parse.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+commit a4401951b904707a4f93442e96ad7b137c5aa798
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Apr 30 15:28:15 2023 +0200
+
+    Suspend/resume now simulates a card removal
+    
+    When a laptop (under GNU/Linux) is suspended and then resumed the libusb
+    interrupt read call fails with the error LIBUSB_TRANSFER_NO_DEVICE as if
+    the USB device had been removed.
+    
+    But, because of USB-persist or something else, udev does not generate
+    remove/insert USB events.
+    
+    The card has been powered off (during suspend) but is still present in
+    the reader. It is reported as present but unpowered. We need to generate
+    a card removal event to force pcscd and the application to negociate a
+    new connection to the card.
+    
+    This is done by setting the bPowerFlags field to MASK_POWERFLAGS_PUP to
+    indicate to IFDHICCPresence() to report the card as absent on the first
+    call (see lines 2004-2017 of ccid_usb.c).
+    
+    We now have:
+    [resume from suspend]
+    16178450 [139895155128000] ccid_usb.c:1532:InterruptRead() after (0) (5)
+    00000008 [139895155128000] ccid_usb.c:1544:InterruptRead() Simulate card removal
+    00000013 [139895155128000] ifdhandler.c:1955:IFDHICCPresence() usb:058f/9540:libudev:0:/dev/bus/usb/001/004 (lun: 0)
+    00000011 [139895155128000] -> 000000 65 00 00 00 00 00 09 00 00 00
+    00001705 [139895155128000] <- 000000 81 00 00 00 00 00 09 01 00 01
+    00000018 [139895155128000] ifdhandler.c:2081:IFDHICCPresence() Card absent
+    
+    The card is reported as absent even if bmICCStatus=01 indicates: ICC
+    present and inactive (no power).
+    
+    00000007 [139895155128000] eventhandler.c:358:EHStatusHandlerThread() Card Removed From Alcor Micro AU9540 00 00
+    00000009 [139895155128000] ifdhandler.c:318:IFDHPolling() usb:058f/9540:libudev:0:/dev/bus/usb/001/004 (lun: 0) 600000 ms
+    00000018 [139895155128000] ccid_usb.c:1486:InterruptRead() before (0), timeout: 600000 ms
+    00001706 [139895155128000] ccid_usb.c:1532:InterruptRead() after (0) (0)
+    00000010 [139895155128000] NotifySlotChange: 50 03
+    00000003 [139895155128000] ifdhandler.c:1955:IFDHICCPresence() usb:058f/9540:libudev:0:/dev/bus/usb/001/004 (lun: 0)
+    00000003 [139895155128000] -> 000000 65 00 00 00 00 00 0A 00 00 00
+    00000799 [139895155128000] <- 000000 81 00 00 00 00 00 0A 01 00 01
+    00000011 [139895155128000] ifdhandler.c:2081:IFDHICCPresence() Card present
+    
+    Same status for bmICCStatus but this time the card is reported present.
+    
+    pcscd will then generate a power up and report a SCARD_W_REMOVED_CARD
+    error where needed.
+
+ src/ccid_usb.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+commit 6f51f8f1e7e2c568f58c33c1c28446a74496f77a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Apr 14 14:20:53 2023 +0200
+
+    Disable USB-persist for CCID devices
+    
+    The Linux kernel tries to keep the USB connection during suspend/resume
+    cycles. This is a bad idea if the reader/token is unpluged while the
+    computer is suspended.
+    More documentation is available at
+    https://docs.kernel.org/driver-api/usb/persist.html
+    
+    If a CCID reader (including a composite one) is disconnected and
+    reconnected while the computer is suspended then the USB device will be
+    considered removed and connected again.
+    PC/SC applications will have to reconnect.
+    
+    Closes: https://github.com/LudovicRousseau/PCSC/issues/154
+    "USB resets leave the reader connection in a broken state #154"
+
+ src/92_pcscd_ccid.rules | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+commit 93bf19d1ae8107ae46a8d9979274277e2f4f8c34
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Apr 6 18:28:44 2023 +0200
+
+    macOS: complain if libusb is not a Universal Binary
+    
+    macOS now uses Universal Binary with arm64 and x86_64.
+
+ MacOSX/configure | 30 +++++++++++++-----------------
+ 1 file changed, 13 insertions(+), 17 deletions(-)
+
+commit 45f359cba909b816eed3fc140e10b0f2f93a6e37
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Apr 6 18:20:02 2023 +0200
+
+    AUTHORS: add authors of src/openct & src/towitoko
+
+ AUTHORS | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+commit 7235e242a77dd873eca9309130e5821743ef06b7
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Mar 19 12:56:59 2023 +0100
+
+    Add GHI NC001
+
+ readers/GHI_NC001.txt         | 48 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  5 ++++-
+ 2 files changed, 52 insertions(+), 1 deletion(-)
+
+commit 2951a306bb0e2faffa5537283c0b6045ebf98f57
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Mar 17 16:59:50 2023 +0100
+
+    Add CIRIGHT ONE PASS U2F
+
+ readers/CIRIGHT_ONE_PASS_U2F.txt | 50 ++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt    |  5 +++-
+ 2 files changed, 54 insertions(+), 1 deletion(-)
+
+commit 8eef43d44b17e5da7a19eb780abc8eae0c43f853
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Mar 8 15:09:19 2023 +0100
+
+    github actions: remove codespell
+
+ .github/workflows/codespell.yml | 17 -----------------
+ 1 file changed, 17 deletions(-)
+
+commit e340209e1d3281ea1d70140e93a64b1d12cdfdcb
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Mar 8 15:00:49 2023 +0100
+
+    github actions: move to actions/checkout@v3
+    
+    Fixes:
+    build
+    Node.js 12 actions are deprecated. Please update the following actions to use Node.js 16: actions/checkout@v2. For more information see: https://github.blog/changelog/2022-09-22-github-actions-all-actions-will-begin-running-on-node16-instead-of-node12/.
+
+ .github/workflows/build.yml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 194aae51724c12fa4451288ab9a861b41e0c1552
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Feb 20 21:50:38 2023 +0100
+
+    Add WCMi SD5931
+
+ readers/Wavecreating_SD5931.txt | 55 +++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt   |  5 +++-
+ 2 files changed, 59 insertions(+), 1 deletion(-)
+
+commit 1363cd7e29c572cba25406c4aa844cf7dccd1cf0
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Feb 20 21:40:07 2023 +0100
+
+    .gitignore: ignore all *.lo and *.o
+
+ .gitignore | 49 ++-----------------------------------------------
+ 1 file changed, 2 insertions(+), 47 deletions(-)
+
+commit eec7cdf03dda2bd26e320ead73b91da5a9d86443
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Mar 2 21:14:11 2023 +0100
+
+    configure.ac: fail if flex is not found
+    
+    We use the same mechanism in PCSC 3f89340785934785cf1490d3e788eefb25c50a69
+
+ configure.ac | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+commit 5469f5c468e36d5915a146e3402e9e2ebdf14c09
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Feb 10 18:55:11 2023 +0100
+
+    github actions: codespell: Use ignore_words_list
+
+ .github/workflows/codespell.yml | 2 ++
+ 1 file changed, 2 insertions(+)
+
+commit 40abcdcdc44eafa600a8fca479e31dcabc2487fe
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Feb 9 19:00:56 2023 +0100
+
+    codespell: Kobil_mIDentity_switch.c
+    
+    Error: ./contrib/Kobil_mIDentity_switch/Kobil_mIDentity_switch.c:53: Initally ==> Initially
+
+ contrib/Kobil_mIDentity_switch/Kobil_mIDentity_switch.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 928806243dbf2bd1682d05299bbb6a9a60557ee0
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Feb 9 19:00:14 2023 +0100
+
+    codespell: atr.c
+    
+    Error: ./src/towitoko/atr.c:93: enought ==> enough
+
+ src/towitoko/atr.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit dc88e9990c5322e6f7060ecbdc6913fd11310fc1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Feb 9 18:58:29 2023 +0100
+
+    codespell: atr.h
+    
+    Error: ./src/towitoko/atr.h:38: Paramenters ==> Parameters
+    Error: ./src/towitoko/atr.h:41: Maximun ==> Maximum
+    Error: ./src/towitoko/atr.h:66: paramenters ==> parameters
+    Error: ./src/towitoko/atr.h:95: declaraton ==> declaration
+
+ src/towitoko/atr.h | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+commit fa1af40993c8d2a002db355cecbefbb364f19364
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Feb 9 18:57:32 2023 +0100
+
+    codespell: pps.c
+    
+    Error: ./src/towitoko/pps.c:39: funtions ==> functions
+    Error: ./src/towitoko/pps.c:83: handsake ==> handshake
+
+ src/towitoko/pps.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit a69d8f589da465d1508437c54cc74c19906c1154
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Feb 9 18:56:53 2023 +0100
+
+    codespell: pps.h
+    
+    Error: ./src/towitoko/pps.h:33: Comunication ==> Communication
+
+ src/towitoko/pps.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 06a514d868f1154694a7fb88fdb2efc1223634a3
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Feb 9 18:55:53 2023 +0100
+
+    codespell: proto-t1.c
+    
+    Error: ./src/openct/proto-t1.c:120: parmaters ==> parameters
+    Error: ./src/openct/proto-t1.c:710: bloc ==> block
+
+ src/openct/proto-t1.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 22bf0d8bd80659aae9986f0203cfac476bbb5523
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Feb 9 18:54:44 2023 +0100
+
+    codespell: Makefile.am
+    
+    Error: ./src/Makefile.am:103: explicitely ==> explicitly
+
+ src/Makefile.am | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 8b001d791db5e8ef5c08fc1c1550a0024349643e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Feb 9 18:54:13 2023 +0100
+
+    codespell: commands.c
+    
+    Error: ./src/commands.c:386: occured ==> occurred
+    Error: ./src/commands.c:756: occured ==> occurred
+    Error: ./src/commands.c:2150: recieved ==> received
+    Error: ./src/commands.c:2161: recieved ==> received
+    Error: ./src/commands.c:2392: interger ==> integer
+
+ src/commands.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+commit 0819a6097927bedf6063a8f38a78eb17b4fd0cae
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Feb 9 18:52:53 2023 +0100
+
+    codespell ifdhandler.c
+    
+    Error: ./src/ifdhandler.c:262: independance ==> independence
+    Error: ./src/ifdhandler.c:296: disapeared ==> disappeared
+    Error: ./src/ifdhandler.c:867: explicitely ==> explicitly
+    Error: ./src/ifdhandler.c:920: bellow ==> below
+    Error: ./src/ifdhandler.c:959: negociable ==> negotiable
+    Error: ./src/ifdhandler.c:1172: negociated ==> negotiated
+    Error: ./src/ifdhandler.c:1963: independant ==> independent
+    Error: ./src/ifdhandler.c:2271: DATAS ==> DATA
+    Error: ./src/ifdhandler.c:2293: Caracter ==> Character
+
+ src/ifdhandler.c | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
+
+commit 9adad80c6fe2905e225399fefaf563d5a08f4b67
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Feb 9 18:50:14 2023 +0100
+
+    codespell: ccid_usb.c
+    
+    Error: ./src/ccid_usb.c:735: informations ==> information
+    Error: ./src/ccid_usb.c:1059: ressources ==> resources
+    Error: ./src/ccid_usb.c:1329: choosed ==> chose, chosen
+    Error: ./src/ccid_usb.c:1408: endianess ==> endianness
+    Error: ./src/ccid_usb.c:1906: Broacast ==> Broadcast
+
+ src/ccid_usb.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+commit 9f6d0dc7471e9a6f39a688e3b30e8946cba2837e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Feb 9 18:48:44 2023 +0100
+
+    codespell: ccid_serial.c
+    
+    Error: ./src/ccid_serial.c:883: anwser ==> answer
+    Error: ./src/ccid_serial.c:925: ressources ==> resources
+
+ src/ccid_serial.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 01ea8ff52c94346c4500b7b696587f17670bb575
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Feb 9 18:47:33 2023 +0100
+
+    codespell: defs.h
+    
+    Error: ./src/defs.h:78: formating ==> formatting
+
+ src/defs.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit aef91768608314ce696b557215a45283544f8c49
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Feb 9 18:46:48 2023 +0100
+
+    codespell: Info.plist.src
+    
+    Error: ./src/Info.plist.src:90: retreive ==> retrieve
+
+ src/Info.plist.src | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit f8a87e664b38b4fe037d55ca03e27755c0b01bf8
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Feb 9 18:44:38 2023 +0100
+
+    codespell: README.md
+    
+    Error: ./README.md:471: suport ==> support
+    Error: ./README.md:687: retreive ==> retrieve
+    Error: ./README.md:743: aplications ==> applications
+    Error: ./README.md:909: bu ==> by, be, but, bug, bun, bud, buy, bum
+    Error: ./README.md:910: bu ==> by, be, but, bug, bun, bud, buy, bum
+    Error: ./README.md:1352: negociation ==> negotiation
+    Error: ./README.md:1478: timout ==> timeout
+    Error: ./README.md:1511: swicth ==> switch
+
+ README.md | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+commit 4c2a1e0b9d1a10e43d905617d1371adf550b46d1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Feb 9 18:42:02 2023 +0100
+
+    codespell: SCARDGETATTRIB.md
+    
+    Error: ./SCARDGETATTRIB.md:70: unsing ==> using, unsigned
+
+ SCARDGETATTRIB.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 2c2b84e6ff3bc4e9ab39212abf5cd8c9799003da
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Feb 9 18:41:08 2023 +0100
+
+    codespell: INSTALL
+    
+    Error: ./INSTALL:35: explicitely ==> explicitly
+    Error: ./INSTALL:42: builing ==> building
+    Error: ./INSTALL:125: priviledges ==> privileges
+
+ INSTALL | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+commit 3184c40a7225a1fd69b739e2851e9d46a69f79e2
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Feb 9 18:39:41 2023 +0100
+
+    codespell: configure.ac
+    
+    Error: ./configure.ac:268: ressources ==> resources
+
+ configure.ac | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit f9e58a35e51eb9af32468fe365d7bec6f9e9bb26
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Feb 9 18:37:27 2023 +0100
+
+    github actions: add codespell check
+
+ .github/workflows/codespell.yml | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+commit fe3d81ff03933dc98f6a08ad8fed3e2c1d493253
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 4 17:41:26 2023 +0100
+
+    Do not cancel the interrupt USB read more than once
+    
+    InterruptStop() is called by SCardDisconnect() to return to a normal
+    timeout.
+    
+    If another SCardDisconnect() is called while a first one is running then
+    we may have troubles from the libusb library.
+    Something like a crash with:
+    pcscd: /var/tmp/portage/dev-libs/libusb-1.0.26/work/libusb-1.0.26/libusb/os/threads_posix.h:50: usbi_mutex_unlock: Assertion `pthread_mutex_unlock(mutex) == 0' failed.
+    
+    The libusb transfer handle (.polling_transfer) is now reset when used.
+    
+    Thanks to Christian Schaubschläger for the bug report.
+
+ src/ccid_usb.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+commit dc3961f65321dae79c8d0df3c07dfb41efa90cb1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 4 16:03:18 2023 +0100
+
+    IFDHPowerICC: fix a useless double power down
+    
+    The patch in abb793b270704b0a33f8027253015fc82abbf72e (Nov 2021) was not
+    correct. CmdPowerOff() was called twice.
+    
+    The log was:
+    00000006 [140455849096896] ifdhandler.c:1246:IFDHPowerICC() action: PowerDown, usb:058f/9540:libudev:0:/dev/bus/usb/003/002 (lun: 0)
+    00000007 [140455849096896] -> 000000 63 00 00 00 00 00 10 00 00 00
+    00041118 [140455849096896] <- 000000 81 00 00 00 00 00 10 01 00 01
+    00000024 [140455849096896] -> 000000 63 00 00 00 00 00 11 00 00 00
+    00041056 [140455849096896] <- 000000 81 00 00 00 00 00 11 01 00 01
+    00000023 [140455849096896] eventhandler.c:482:EHStatusHandlerThread() powerState: POWER_STATE_UNPOWERED
+
+ src/ifdhandler.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit ef2100e6d5bfc6b29df46561147c03516e435b6d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Feb 3 16:26:41 2023 +0100
+
+    INSTALL: improve the "Installation from source"
+    
+    Fixes: https://github.com/LudovicRousseau/CCID/issues/107
+
+ INSTALL | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 9a7ad431a184771fdb7228da922c89daf5d55acb (tag: 1.5.2)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Jan 31 16:26:09 2023 +0100
 
@@ -474,7 +1984,7 @@ Date:   Fri Jan 13 21:54:50 2023 +0100
  configure.ac | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit 6ba85f0626cb00af18be7fd17ff1c0144d373405 (origin/master, origin/HEAD, github/master)
+commit 6ba85f0626cb00af18be7fd17ff1c0144d373405
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Dec 6 17:22:14 2022 +0100
 
@@ -1014,7 +2524,7 @@ Date:   Fri May 20 17:55:11 2022 +0200
  readers/supported_readers.txt     |  3 ++-
  2 files changed, 59 insertions(+), 1 deletion(-)
 
-commit 4c75460a6a1831ca43bd968205755aa700a51fcf (debug/master)
+commit 4c75460a6a1831ca43bd968205755aa700a51fcf
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri May 13 13:46:12 2022 +0200
 
@@ -3964,7 +5474,7 @@ Date:   Mon Jun 29 17:35:30 2020 +0200
  INSTALL | 1 +
  1 file changed, 1 insertion(+)
 
-commit 4a0359f22ed0dc668d09459c2be97009e5669969 (tag: ccid-1.4.33, tag: 1.4.33)
+commit 4a0359f22ed0dc668d09459c2be97009e5669969 (tag: 1.4.33)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Thu Jun 25 20:17:51 2020 +0200
 
@@ -4123,7 +5633,7 @@ Date:   Wed Apr 22 14:52:34 2020 +0200
  examples/scardcontrol.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit 8f33a2ff60919f579ee17012e91f927491ef70be (tag: ccid-1.4.32, tag: 1.4.32)
+commit 8f33a2ff60919f579ee17012e91f927491ef70be (tag: 1.4.32)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Apr 22 11:14:30 2020 +0200
 
@@ -4287,7 +5797,7 @@ Date:   Wed Apr 15 11:21:15 2020 +0200
  src/ccid_usb.c | 4 +++-
  1 file changed, 3 insertions(+), 1 deletion(-)
 
-commit 4c8c809751211d35f4d417e1b086a554a79fd6e6 (zotac/usb, usb)
+commit 4c8c809751211d35f4d417e1b086a554a79fd6e6 (zotac/usb)
 Author: Stephan Guilloux (home) <stephan.guilloux@crisalid.com>
 Date:   Tue Apr 14 13:19:45 2020 +0200
 
@@ -4808,7 +6318,7 @@ Date:   Wed Aug 28 14:11:15 2019 +0200
  src/ccid.h | 3 +++
  2 files changed, 6 insertions(+)
 
-commit 743e9a9daf4dd27128eb6be8b13562f0ea695fd5 (tag: ccid-1.4.31, tag: 1.4.31)
+commit 743e9a9daf4dd27128eb6be8b13562f0ea695fd5 (tag: 1.4.31)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Aug 10 11:49:32 2019 +0200
 
@@ -5139,7 +6649,7 @@ Date:   Mon Sep 24 21:00:04 2018 +0200
  readers/supported_readers.txt |   3 +-
  2 files changed, 312 insertions(+), 1 deletion(-)
 
-commit db45750ebb2ce8d841f8e555e79f09108527aaa8 (tag: ccid-1.4.30, tag: 1.4.30)
+commit db45750ebb2ce8d841f8e555e79f09108527aaa8 (tag: 1.4.30)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Sep 19 09:33:32 2018 +0200
 
@@ -5589,7 +7099,7 @@ Date:   Fri Feb 23 23:23:30 2018 +0100
  readers/supported_readers.txt        |  3 +-
  2 files changed, 66 insertions(+), 1 deletion(-)
 
-commit 7ab9a8b3d2c91a9588388c489252628afc0469d0 (tag: ccid-1.4.29, tag: 1.4.29)
+commit 7ab9a8b3d2c91a9588388c489252628afc0469d0 (tag: 1.4.29)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Feb 21 09:43:01 2018 +0100
 
@@ -5797,7 +7307,7 @@ Date:   Fri Oct 20 17:46:08 2017 +0200
  src/ifdhandler.c | 81 --------------------------------------------------------
  1 file changed, 81 deletions(-)
 
-commit 70379da0cf79444d7035e0f42bea6f759f0a0886 (tag: ccid-1.4.28, tag: 1.4.28)
+commit 70379da0cf79444d7035e0f42bea6f759f0a0886 (tag: 1.4.28)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Oct 11 14:00:57 2017 +0200
 
@@ -6100,7 +7610,7 @@ Date:   Mon Jun 12 18:40:37 2017 +0200
  readers/supported_readers.txt         |  5 +++-
  2 files changed, 57 insertions(+), 1 deletion(-)
 
-commit a7dcbf296492f5056e1ba7abb8388531bb0a6708 (tag: ccid-1.4.27, tag: 1.4.27)
+commit a7dcbf296492f5056e1ba7abb8388531bb0a6708 (tag: 1.4.27)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun May 21 14:41:20 2017 +0200
 
@@ -6570,7 +8080,7 @@ Date:   Sat Jan 7 16:04:17 2017 +0100
  README | 1 -
  1 file changed, 1 deletion(-)
 
-commit 666a72c342f433fda1b77ff815fdfe728afc3ce7 (tag: ccid-1.4.26, tag: 1.4.26)
+commit 666a72c342f433fda1b77ff815fdfe728afc3ce7 (tag: 1.4.26)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Jan 7 15:44:45 2017 +0100
 
@@ -6908,7 +8418,7 @@ Date:   Fri Sep 30 10:48:43 2016 +0200
  src/ifdhandler.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit 3da71e26b368b39814618a83c2fc64e492941dc4 (tag: ccid-1.4.25, tag: 1.4.25)
+commit 3da71e26b368b39814618a83c2fc64e492941dc4 (tag: 1.4.25)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Sep 30 10:36:54 2016 +0200
 
@@ -7381,7 +8891,7 @@ Date:   Sun May 22 18:08:19 2016 +0200
  README | 1 +
  1 file changed, 1 insertion(+)
 
-commit a1197c49cee479f4187dfd05c900224b99127e17 (tag: ccid-1.4.24, tag: 1.4.24)
+commit a1197c49cee479f4187dfd05c900224b99127e17 (tag: 1.4.24)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun May 22 17:07:03 2016 +0200
 
@@ -7554,7 +9064,7 @@ Date:   Fri Apr 22 14:59:21 2016 +0200
  src/ccid_usb.c | 8 ++++----
  1 file changed, 4 insertions(+), 4 deletions(-)
 
-commit d636d54fdd07b416f591f28d84c6f0e3f4bda4f9 (tag: ccid-1.4.23, tag: 1.4.23)
+commit d636d54fdd07b416f591f28d84c6f0e3f4bda4f9 (tag: 1.4.23)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Apr 20 10:04:45 2016 +0200
 
@@ -7824,7 +9334,7 @@ Date:   Sun Jan 10 17:21:59 2016 +0100
  MacOSX/configure | 4 ++++
  1 file changed, 4 insertions(+)
 
-commit 894b184b85c6c45b017a0ea9bef6b3892d207942 (tag: ccid-1.4.22, tag: 1.4.22)
+commit 894b184b85c6c45b017a0ea9bef6b3892d207942 (tag: 1.4.22)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Jan 10 14:40:02 2016 +0100
 
@@ -8490,7 +10000,7 @@ Date:   Thu Oct 22 18:14:20 2015 +0200
  readers/supported_readers.txt    |  5 +++-
  2 files changed, 57 insertions(+), 1 deletion(-)
 
-commit 65886986170191a4b825bbf4701428e2d8442f1d (tag: ccid-1.4.21, tag: 1.4.21)
+commit 65886986170191a4b825bbf4701428e2d8442f1d (tag: 1.4.21)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Oct 21 20:38:46 2015 +0200
 
@@ -9080,7 +10590,7 @@ Date:   Fri Aug 7 20:49:15 2015 +0200
  readers/Rutoken_PINPad_in.txt                                  | 0
  9 files changed, 0 insertions(+), 0 deletions(-)
 
-commit 67b190c1c8144c60110a13fc3c07de9e8b992654 (tag: ccid-1.4.20, tag: 1.4.20)
+commit 67b190c1c8144c60110a13fc3c07de9e8b992654 (tag: 1.4.20)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Aug 5 13:21:33 2015 +0200
 
@@ -9292,7 +10802,7 @@ Date:   Thu May 14 21:06:03 2015 +0200
  readers/supported_readers.txt        |  3 +-
  2 files changed, 58 insertions(+), 1 deletion(-)
 
-commit a2d7335d8e2ccd2b29782edc88e9d82bd67d1891 (tag: ccid-1.4.19, tag: 1.4.19)
+commit a2d7335d8e2ccd2b29782edc88e9d82bd67d1891 (tag: 1.4.19)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed May 13 09:35:00 2015 +0200
 
@@ -10080,7 +11590,7 @@ Date:   Tue Sep 30 18:27:26 2014 +0000
  readers/supported_readers.txt        |  3 +-
  2 files changed, 58 insertions(+), 1 deletion(-)
 
-commit d0742d5f32194a6a8f842ec3ca411e0e5f93db66 (tag: ccid-1.4.18, tag: 1.4.18)
+commit d0742d5f32194a6a8f842ec3ca411e0e5f93db66 (tag: 1.4.18)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Sep 13 16:25:24 2014 +0000
 
@@ -10588,7 +12098,7 @@ Date:   Mon Jun 16 13:42:45 2014 +0000
  configure.ac | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit b141f937611ffdf6a13e0d4645895af020c62801 (tag: ccid-1.4.17, tag: 1.4.17)
+commit b141f937611ffdf6a13e0d4645895af020c62801 (tag: 1.4.17)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Jun 11 13:09:57 2014 +0000
 
@@ -10793,7 +12303,7 @@ Date:   Fri Apr 11 18:46:19 2014 +0000
  src/ccid.c | 4 ++++
  1 file changed, 4 insertions(+)
 
-commit 41d0291d1e2f6e63d902253897eb8042b08fd6c8 (tag: ccid-1.4.16, tag: 1.4.16)
+commit 41d0291d1e2f6e63d902253897eb8042b08fd6c8 (tag: 1.4.16)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Mar 23 15:13:34 2014 +0000
 
@@ -11079,7 +12589,7 @@ Date:   Tue Feb 18 19:10:10 2014 +0000
  readers/supported_readers.txt              |  5 ++-
  2 files changed, 55 insertions(+), 1 deletion(-)
 
-commit ba0142521f7defd81c94ddcad7687ef65f5e1ed1 (tag: ccid-1.4.15, tag: 1.4.15)
+commit ba0142521f7defd81c94ddcad7687ef65f5e1ed1 (tag: 1.4.15)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Feb 14 09:19:48 2014 +0000
 
@@ -11504,7 +13014,7 @@ Date:   Tue Nov 26 13:49:00 2013 +0000
  src/debug.h | 2 ++
  1 file changed, 2 insertions(+)
 
-commit 5a7356dc29f00dc2ba6b3558fb0e1f5a499f9702 (tag: ccid-1.4.14, tag: 1.4.14)
+commit 5a7356dc29f00dc2ba6b3558fb0e1f5a499f9702 (tag: 1.4.14)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Mon Nov 25 18:09:17 2013 +0000
 
@@ -11701,7 +13211,7 @@ Date:   Fri Oct 18 11:41:58 2013 +0000
  readers/extra_features/README.txt                  |  5 +++
  3 files changed, 68 insertions(+)
 
-commit 02b9c1c7ec6980322745fa4ae7558fc49c4d61be (tag: ccid-1.4.13, tag: 1.4.13)
+commit 02b9c1c7ec6980322745fa4ae7558fc49c4d61be (tag: 1.4.13)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Oct 9 10:00:52 2013 +0000
 
@@ -12009,7 +13519,7 @@ Date:   Tue Aug 20 16:40:33 2013 +0000
  readers/supported_readers.txt      |  5 +++-
  2 files changed, 56 insertions(+), 1 deletion(-)
 
-commit 9eb1d0af03e4d00ce7c3cbda8f70964752b23bd7 (tag: ccid-1.4.12, tag: 1.4.12)
+commit 9eb1d0af03e4d00ce7c3cbda8f70964752b23bd7 (tag: 1.4.12)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Mon Aug 12 21:43:09 2013 +0000
 
@@ -12361,7 +13871,7 @@ Date:   Wed Jun 12 12:07:54 2013 +0000
  ylwrap | 180 +++++++++++++++++++++++++++++++++++++----------------------------
  1 file changed, 102 insertions(+), 78 deletions(-)
 
-commit bb091a591b199128a06fc95427eaf5aa4e4711e8 (tag: ccid-1.4.11, tag: 1.4.11)
+commit bb091a591b199128a06fc95427eaf5aa4e4711e8 (tag: 1.4.11)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Jun 12 11:55:52 2013 +0000
 
@@ -13049,7 +14559,7 @@ Date:   Fri Apr 26 12:20:36 2013 +0000
  readers/Broadcom_5880v2.txt | 56 +++++++++++++++++++++++++++++++++++++++++++--
  1 file changed, 54 insertions(+), 2 deletions(-)
 
-commit c5d86a9a7057397c5e31cc8e52b51298c5b26359 (tag: ccid-1.4.10, tag: 1.4.10)
+commit c5d86a9a7057397c5e31cc8e52b51298c5b26359 (tag: 1.4.10)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Apr 16 12:43:58 2013 +0000
 
@@ -13547,7 +15057,7 @@ Date:   Tue Jan 22 17:39:58 2013 +0000
  readers/supported_readers.txt   |  3 ++-
  2 files changed, 58 insertions(+), 1 deletion(-)
 
-commit 104d711cd67a29831130cccb73772e6d8c06b16d (tag: ccid-1.4.9, tag: 1.4.9)
+commit 104d711cd67a29831130cccb73772e6d8c06b16d (tag: 1.4.9)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Jan 16 15:11:53 2013 +0000
 
@@ -13640,7 +15150,7 @@ Date:   Sun Oct 7 11:45:35 2012 +0000
  README | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit 2707566229c26c4e0b25914e41f3ae9d2685c0a0 (tag: ccid-1.4.8, tag: 1.4.8)
+commit 2707566229c26c4e0b25914e41f3ae9d2685c0a0 (tag: 1.4.8)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Oct 7 11:36:44 2012 +0000
 
@@ -13923,7 +15433,7 @@ Date:   Sat Jun 23 14:35:42 2012 +0000
  readers/CherryST1044U.txt | 12 ++++++++----
  1 file changed, 8 insertions(+), 4 deletions(-)
 
-commit aa9d7a8f584a348a554c7b0654d54e7de81de5db (tag: ccid-1.4.7, tag: 1.4.7)
+commit aa9d7a8f584a348a554c7b0654d54e7de81de5db (tag: 1.4.7)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Jun 22 08:53:40 2012 +0000
 
@@ -14425,7 +15935,7 @@ Date:   Sun Apr 8 07:53:56 2012 +0000
  readers/supported_readers.txt |  5 +++-
  2 files changed, 57 insertions(+), 1 deletion(-)
 
-commit 55fd3abef8024d6559dc15cbdf07b02071a9ff51 (tag: ccid-1.4.6, tag: 1.4.6)
+commit 55fd3abef8024d6559dc15cbdf07b02071a9ff51 (tag: 1.4.6)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Apr 6 16:16:19 2012 +0000
 
@@ -15334,7 +16844,7 @@ Date:   Fri Oct 14 11:50:35 2011 +0000
  readers/supported_readers.txt |   5 +-
  2 files changed, 115 insertions(+), 2 deletions(-)
 
-commit 81cee7ffb4624e625b686d04de9e086e28bf18c9 (tag: ccid-1.4.5, tag: 1.4.5)
+commit 81cee7ffb4624e625b686d04de9e086e28bf18c9 (tag: 1.4.5)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Oct 11 20:20:53 2011 +0000
 
@@ -16215,7 +17725,7 @@ Date:   Fri May 13 09:20:47 2011 +0000
  configure.in | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit 97292c00843822de2328c0ab64d503cfee27b58a (tag: ccid-1.4.4, tag: 1.4.4)
+commit 97292c00843822de2328c0ab64d503cfee27b58a (tag: 1.4.4)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri May 13 08:55:51 2011 +0000
 
@@ -16500,7 +18010,7 @@ Date:   Thu Apr 7 11:49:12 2011 +0000
  src/ccid_usb.c                |  1 +
  3 files changed, 6 insertions(+), 11 deletions(-)
 
-commit 9e310c9ae9afa49c67ddf517c5e616cb2d74df80 (tag: ccid-1.4.3, tag: 1.4.3)
+commit 9e310c9ae9afa49c67ddf517c5e616cb2d74df80 (tag: 1.4.3)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Apr 2 18:47:10 2011 +0000
 
@@ -16694,7 +18204,7 @@ Date:   Fri Feb 25 09:03:48 2011 +0000
  src/ifdhandler.c | 8 ++++----
  1 file changed, 4 insertions(+), 4 deletions(-)
 
-commit 55044cab63afc5b924c18d9107493713944e1e4d (tag: ccid-1.4.2, tag: 1.4.2)
+commit 55044cab63afc5b924c18d9107493713944e1e4d (tag: 1.4.2)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Feb 22 22:12:51 2011 +0000
 
@@ -17407,7 +18917,7 @@ Date:   Fri Dec 10 09:14:00 2010 +0000
  readers/Todos_Connectable.txt | 54 +++++++++++++++++++++++++++++++++++++++++++
  1 file changed, 54 insertions(+)
 
-commit 8fda904ac92a3566be8c258d4304338e0c21c6ef (tag: ccid-1.4.1, tag: 1.4.1)
+commit 8fda904ac92a3566be8c258d4304338e0c21c6ef (tag: 1.4.1)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Dec 3 14:41:27 2010 +0000
 
@@ -18171,7 +19681,7 @@ Date:   Thu Aug 5 18:09:04 2010 +0000
  configure.in | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit 5e4dbf89f56b7ef470db0b4bd0195e896a5be9b1 (tag: ccid-1.4.0, tag: 1.4.0)
+commit 5e4dbf89f56b7ef470db0b4bd0195e896a5be9b1 (tag: 1.4.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Aug 4 13:21:33 2010 +0000
 
@@ -18764,7 +20274,7 @@ Date:   Thu Jun 10 14:48:17 2010 +0000
  src/parse.c                                        | 284 +++++-----
  6 files changed, 522 insertions(+), 534 deletions(-)
 
-commit f4d7b9877cdd55583be1b0004ba7ec0ee85a42da (tag: ccid-1.3.13, tag: 1.3.13)
+commit f4d7b9877cdd55583be1b0004ba7ec0ee85a42da (tag: 1.3.13)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Jun 4 13:29:42 2010 +0000
 
@@ -18982,7 +20492,7 @@ Date:   Sat May 8 09:56:19 2010 +0000
  configure.in | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit c4bc4ddc487ff9f36491479d7084a86f042474a0 (tag: ccid-1.3.12, tag: 1.3.12)
+commit c4bc4ddc487ff9f36491479d7084a86f042474a0 (tag: 1.3.12)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat May 8 09:54:35 2010 +0000
 
@@ -20446,7 +21956,7 @@ Date:   Fri Jul 31 08:42:49 2009 +0000
  src/ccid.h | 3 +++
  1 file changed, 3 insertions(+)
 
-commit fc8b22909a9df37b6e64461a77be59949fe6d3f4 (tag: ccid-1.3.11, tag: 1.3.11)
+commit fc8b22909a9df37b6e64461a77be59949fe6d3f4 (tag: 1.3.11)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Jul 28 20:52:50 2009 +0000
 
@@ -21664,7 +23174,7 @@ Date:   Sat Mar 7 15:50:22 2009 +0000
  README | 16 ++++++++--------
  1 file changed, 8 insertions(+), 8 deletions(-)
 
-commit 0a53d04c7c0809a692ed1b62d2a257d195699b4a (tag: ccid-1.3.10, tag: 1.3.10)
+commit 0a53d04c7c0809a692ed1b62d2a257d195699b4a (tag: 1.3.10)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Mar 7 15:35:24 2009 +0000
 
@@ -22250,7 +23760,7 @@ Date:   Tue Nov 18 21:50:41 2008 +0000
  bootstrap | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit 0d1a44544d252ed615516da09e7c571ed0a3caae (tag: ccid-1.3.9, tag: 1.3.9)
+commit 0d1a44544d252ed615516da09e7c571ed0a3caae (tag: 1.3.9)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Nov 18 15:45:30 2008 +0000
 
@@ -23107,7 +24617,7 @@ Date:   Tue Jul 29 07:22:09 2008 +0000
  readers/Makefile.am                         |  1 +
  2 files changed, 54 insertions(+)
 
-commit 0ee15cad86cc0034b8e812adb3481b6d751faaf6 (tag: ccid-1.3.8, tag: 1.3.8)
+commit 0ee15cad86cc0034b8e812adb3481b6d751faaf6 (tag: 1.3.8)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Jun 27 15:28:44 2008 +0000
 
@@ -23417,7 +24927,7 @@ Date:   Mon Jun 9 08:17:23 2008 +0000
  reconf                         | 4 ++--
  5 files changed, 4 insertions(+), 4 deletions(-)
 
-commit c824a3209b85ba89e17ea6e6ce9f809fbe581c26 (tag: ccid-1.3.7, tag: 1.3.7)
+commit c824a3209b85ba89e17ea6e6ce9f809fbe581c26 (tag: 1.3.7)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Jun 8 09:01:21 2008 +0000
 
@@ -23774,7 +25284,7 @@ Date:   Thu May 8 12:02:18 2008 +0000
  README | 2 ++
  1 file changed, 2 insertions(+)
 
-commit 6aa78ac743112efbcd627780758102004837dbc9 (tag: ccid-1.3.6, tag: 1.3.6)
+commit 6aa78ac743112efbcd627780758102004837dbc9 (tag: 1.3.6)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Apr 30 12:45:12 2008 +0000
 
@@ -24218,7 +25728,7 @@ Date:   Wed Feb 27 12:02:45 2008 +0000
  readers/Vega-Alpha.txt | 51 ++++++++++++++++++++++++++++++++++++++++++++++++++
  3 files changed, 102 insertions(+)
 
-commit ace6e7d70e435b638b29efd9a5216b403974c76c (tag: ccid-1.3.5, tag: 1.3.5)
+commit ace6e7d70e435b638b29efd9a5216b403974c76c (tag: 1.3.5)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Feb 22 13:42:27 2008 +0000
 
@@ -24455,7 +25965,7 @@ Date:   Fri Feb 8 14:58:08 2008 +0000
  src/ifdhandler.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-commit d6aea064b698be40a731039b40c8254a08372e26 (tag: ccid-1.3.4, tag: 1.3.4)
+commit d6aea064b698be40a731039b40c8254a08372e26 (tag: 1.3.4)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Feb 8 14:43:36 2008 +0000
 
@@ -24569,7 +26079,7 @@ Date:   Thu Feb 7 07:49:12 2008 +0000
  src/ifdhandler.c | 1 +
  1 file changed, 1 insertion(+)
 
-commit 8c41cb313495cfb0cc15e6fb0519ae08479b11ca (tag: ccid-1.3.3, tag: 1.3.3)
+commit 8c41cb313495cfb0cc15e6fb0519ae08479b11ca (tag: 1.3.3)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Feb 6 14:26:30 2008 +0000
 
@@ -24861,7 +26371,7 @@ Date:   Thu Jan 24 09:21:13 2008 +0000
  src/commands.c | 8 ++++++++
  1 file changed, 8 insertions(+)
 
-commit 0b854d9332da6192aa3b4922a97cde740d84860a (tag: ccid-1.3.2, tag: 1.3.2)
+commit 0b854d9332da6192aa3b4922a97cde740d84860a (tag: 1.3.2)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Jan 22 19:33:39 2008 +0000
 
@@ -25148,7 +26658,7 @@ Date:   Fri Nov 16 14:43:59 2007 +0000
  README | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit e9335fa1741c4df27d3036fe09a57630d15727d7 (tag: ccid-1.3.1, tag: 1.3.1)
+commit e9335fa1741c4df27d3036fe09a57630d15727d7 (tag: 1.3.1)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Nov 16 13:27:00 2007 +0000
 
@@ -26047,7 +27557,7 @@ Date:   Thu May 10 13:05:51 2007 +0000
  contrib/RSA_SecurID/RSA_SecurID_getpasswd.1 | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit ec316fc748c8103840fd5a1bc54c044c7258fce8 (tag: ccid-1.3.0, tag: 1.3.0)
+commit ec316fc748c8103840fd5a1bc54c044c7258fce8 (tag: 1.3.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Thu May 10 09:16:42 2007 +0000
 
@@ -26969,7 +28479,7 @@ Date:   Tue Jan 30 15:01:50 2007 +0000
  src/ccid.c | 13 +++++++++++++
  1 file changed, 13 insertions(+)
 
-commit 949365adef6369b258129c77a57b8f235031d147 (tag: ccid-1.2.1, tag: 1.2.1)
+commit 949365adef6369b258129c77a57b8f235031d147 (tag: 1.2.1)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Jan 27 16:48:06 2007 +0000
 
@@ -27101,7 +28611,7 @@ Date:   Sat Jan 20 15:47:19 2007 +0000
  README | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit 1f320ef0e0e1b03bd259a666e222a08a48a2ecf4 (tag: ccid-1.2.0, tag: 1.2.0)
+commit 1f320ef0e0e1b03bd259a666e222a08a48a2ecf4 (tag: 1.2.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Jan 19 19:53:39 2007 +0000
 
@@ -28197,7 +29707,7 @@ Date:   Wed Sep 6 13:49:40 2006 +0000
  src/ifdhandler.c | 15 ++++++++++++++-
  1 file changed, 14 insertions(+), 1 deletion(-)
 
-commit c408dd5db5aab9566dd9f1f8c191252c739b4b73 (tag: ccid-1.1.0, tag: 1.1.0)
+commit c408dd5db5aab9566dd9f1f8c191252c739b4b73 (tag: 1.1.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Aug 11 17:20:57 2006 +0000
 
@@ -28955,7 +30465,7 @@ Date:   Sat Apr 22 15:54:22 2006 +0000
  src/Makefile.am | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit f16c909b3da4869eb00a221e3907001d1bb3295d (tag: ccid-1.0.1, tag: 1.0.1)
+commit f16c909b3da4869eb00a221e3907001d1bb3295d (tag: 1.0.1)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Apr 22 15:31:05 2006 +0000
 
@@ -29439,7 +30949,7 @@ Date:   Mon Mar 6 09:09:19 2006 +0000
  configure.in | 4 ++++
  1 file changed, 4 insertions(+)
 
-commit e6475898991f0e9c9414c8e2823f7bb7e0b55d46 (tag: ccid-1.0.0, tag: 1.0.0)
+commit e6475898991f0e9c9414c8e2823f7bb7e0b55d46 (tag: 1.0.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Mar 3 17:21:52 2006 +0000
 
@@ -30542,7 +32052,7 @@ Date:   Tue Nov 29 09:15:13 2005 +0000
  configure.in | 6 +++---
  1 file changed, 3 insertions(+), 3 deletions(-)
 
-commit 11516ae737ce5122394b474dcb852b9959735c90 (tag: ccid-0.9.4, tag: 0.9.4)
+commit 11516ae737ce5122394b474dcb852b9959735c90 (tag: 0.9.4)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Nov 27 19:44:29 2005 +0000
 
@@ -32662,7 +34172,7 @@ Date:   Thu Mar 17 10:11:14 2005 +0000
  configure.in | 13 +++++++------
  1 file changed, 7 insertions(+), 6 deletions(-)
 
-commit f9148888fe39c6844f932c3261706bc71419373d (tag: ccid-0.9.3, tag: 0.9.3)
+commit f9148888fe39c6844f932c3261706bc71419373d (tag: 0.9.3)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Mon Mar 14 19:36:21 2005 +0000
 
@@ -33910,7 +35420,7 @@ Date:   Tue Aug 17 16:56:19 2004 +0000
  src/Info.plist | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-commit 430640bfea8afad3464fcc6113db8c53da9a6ced (tag: ccid-0.9.2, tag: 0.9.2)
+commit 430640bfea8afad3464fcc6113db8c53da9a6ced (tag: 0.9.2)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Aug 15 20:43:59 2004 +0000
 
@@ -35036,7 +36546,7 @@ Date:   Fri Jul 2 12:06:44 2004 +0000
  src/openct/README | 7 +++++++
  1 file changed, 7 insertions(+)
 
-commit 264cf2ce141bf47385d841360d584e64b1a74187 (tag: ccid-0.9.1, tag: 0.9.1)
+commit 264cf2ce141bf47385d841360d584e64b1a74187 (tag: 0.9.1)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Thu Jul 1 11:42:39 2004 +0000
 
@@ -35144,7 +36654,7 @@ Date:   Wed Jun 30 14:41:18 2004 +0000
  src/towitoko/COPYING | 504 +++++++++++++++++++++++++++++++++++++++++++++++++++
  1 file changed, 504 insertions(+)
 
-commit 87f903f5610a480864f9357bfd8c22abc7c9ae6d (tag: ccid-0.9.0, tag: 0.9.0)
+commit 87f903f5610a480864f9357bfd8c22abc7c9ae6d (tag: 0.9.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Jun 30 14:06:29 2004 +0000
 
@@ -36360,7 +37870,7 @@ Date:   Tue Apr 6 06:52:34 2004 +0000
  src/ifdhandler.c | 74 ++++++++++++++++++++++++++++++++------------------------
  1 file changed, 42 insertions(+), 32 deletions(-)
 
-commit c986e5c2d69e352d3bd3d70f2191fc0eea50ec02 (tag: ccid-0.4.2, tag: 0.4.2)
+commit c986e5c2d69e352d3bd3d70f2191fc0eea50ec02 (tag: 0.4.2)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Mon Apr 5 09:56:52 2004 +0000
 
@@ -36538,7 +38048,7 @@ Date:   Tue Feb 24 21:16:51 2004 +0000
  Makefile.am | 8 ++++----
  1 file changed, 4 insertions(+), 4 deletions(-)
 
-commit 836596b64355779eaa919338ca9ae86758c88d38 (tag: ccid-0.4.1, tag: 0.4.1)
+commit 836596b64355779eaa919338ca9ae86758c88d38 (tag: 0.4.1)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Feb 14 12:46:18 2004 +0000
 
@@ -36586,7 +38096,7 @@ Date:   Sat Feb 14 12:26:09 2004 +0000
  src/Makefile.am | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit 34a5f203544fa61cd8ebc39091120bfd78df6e36 (tag: ccid-0.4.0, tag: 0.4.0)
+commit 34a5f203544fa61cd8ebc39091120bfd78df6e36 (tag: 0.4.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Feb 13 07:58:21 2004 +0000
 
@@ -37497,7 +39007,7 @@ Date:   Tue Nov 4 22:20:28 2003 +0000
  README | 2 ++
  1 file changed, 2 insertions(+)
 
-commit 62d5599a12f167a7452771caf9007510b76ccc90 (tag: ccid-0.3.2, tag: 0.3.2)
+commit 62d5599a12f167a7452771caf9007510b76ccc90 (tag: 0.3.2)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Nov 4 22:16:38 2003 +0000
 
@@ -37708,7 +39218,7 @@ Date:   Tue Oct 28 16:51:37 2003 +0000
  src/commands.c | 6 ++++--
  1 file changed, 4 insertions(+), 2 deletions(-)
 
-commit 91491164758800c36ad6e8515889114cc1e6d613 (tag: ccid-0.3.1, tag: 0.3.1)
+commit 91491164758800c36ad6e8515889114cc1e6d613 (tag: 0.3.1)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Sep 23 07:54:56 2003 +0000
 
@@ -37931,7 +39441,7 @@ Date:   Wed Sep 10 16:15:06 2003 +0000
  README | 5 +++--
  1 file changed, 3 insertions(+), 2 deletions(-)
 
-commit 5bb97c792ea0059af20ca01acbee48ecc81c4e46 (tag: ccid-0.3.0, tag: 0.3.0)
+commit 5bb97c792ea0059af20ca01acbee48ecc81c4e46 (tag: 0.3.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Sep 10 12:27:28 2003 +0000
 
@@ -38216,7 +39726,7 @@ Date:   Wed Aug 27 06:53:56 2003 +0000
  src/capabilities.c | 30 ------------------------------
  3 files changed, 1 insertion(+), 32 deletions(-)
 
-commit 75f9cf942f47aff203b9fbd2715ccd77a19628fb (tag: ccid-0.2.0, tag: 0.2.0)
+commit 75f9cf942f47aff203b9fbd2715ccd77a19628fb (tag: 0.2.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Aug 26 20:16:00 2003 +0000
 
@@ -38493,7 +40003,7 @@ Date:   Wed Aug 13 13:46:09 2003 +0000
  INSTALL | 58 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  1 file changed, 58 insertions(+)
 
-commit 2581d621ab7f6a02033ed652bdafad9fdf5df30f (tag: ccid-0.1.0, tag: 0.1.0)
+commit 2581d621ab7f6a02033ed652bdafad9fdf5df30f (tag: 0.1.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Aug 12 22:15:01 2003 +0000
 
