@@ -206,7 +206,7 @@ am_parse_OBJECTS = parse-parse.$(OBJEXT) parse-debug.$(OBJEXT) \
 	parse-ccid_usb.$(OBJEXT) parse-sys_unix.$(OBJEXT) \
 	$(am__objects_11)
 parse_OBJECTS = $(am_parse_OBJECTS)
-parse_DEPENDENCIES = $(am__DEPENDENCIES_1)
+parse_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 parse_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(parse_CFLAGS) $(CFLAGS) \
 	$(AM_LDFLAGS) $(LDFLAGS) -o $@
@@ -403,6 +403,8 @@ SHELL = @SHELL@
 STRIP = @STRIP@
 SYMBOL_VISIBILITY = @SYMBOL_VISIBILITY@
 VERSION = @VERSION@
+ZLIB_CFLAGS = @ZLIB_CFLAGS@
+ZLIB_LIBS = @ZLIB_LIBS@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
@@ -519,8 +521,8 @@ libccidtwin_la_CFLAGS = $(PCSC_CFLAGS) $(PTHREAD_CFLAGS) $(SYMBOL_VISIBILITY) \
 libccidtwin_la_LIBADD = $(PTHREAD_LIBS)
 libccidtwin_la_LDFLAGS = -avoid-version
 parse_SOURCES = parse.c debug.c ccid_usb.c sys_unix.c $(TOKEN_PARSER)
-parse_LDADD = $(LIBUSB_LIBS)
-parse_CFLAGS = $(PCSC_CFLAGS) $(LIBUSB_CFLAGS) -DSIMCLIST_NO_DUMPRESTORE
+parse_LDADD = $(LIBUSB_LIBS) $(ZLIB_LIBS)
+parse_CFLAGS = $(PCSC_CFLAGS) $(LIBUSB_CFLAGS) $(ZLIB_CFLAGS) -DSIMCLIST_NO_DUMPRESTORE
 EXTRA_DIST = Info.plist.src create_Info_plist.pl reader.conf.in \
 	towitoko/COPYING towitoko/README openct/LICENSE openct/README \
 	convert_version.pl 92_pcscd_ccid.rules
@@ -1352,7 +1354,7 @@ install_ccidtwin: libccidtwin.la
 		perl -ne "s|TARGET|$(ccidtwindir)/$(CCIDTWIN_LIB)| ; print" $(srcdir)/reader.conf.in > "$(DESTDIR)/$(serialconfdir)/libccidtwin"
 
 # do not uninstall the serial driver by default
-# use explicitely 'make uninstall_ccidtwin'
+# use explicitly 'make uninstall_ccidtwin'
 uninstall: $(LIBS_TO_UNINSTALL)
 
 uninstall_ccid:

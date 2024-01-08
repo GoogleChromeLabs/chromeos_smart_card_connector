@@ -253,6 +253,10 @@ status_t OpenUSBByName(unsigned int reader_index, /*@null@*/ char *device)
 	bool claim_failed = false;
 	int return_value = STATUS_SUCCESS;
 	const char * hpDirPath;
+#ifdef USE_COMPOSITE_AS_MULTISLOT
+	/* use the first CCID interface on first call */
+	static int static_interface = -1;
+#endif
 
 	DEBUG_COMM3("Reader index: %X, Device: " LOG_STRING, reader_index, device);
 
@@ -451,8 +455,8 @@ again_libusb:
 
 #ifdef USE_COMPOSITE_AS_MULTISLOT
 				/* use the first CCID interface on first call */
-				static int static_interface = -1;
 				int max_interface_number = -1;
+				int num_CCID_interfaces = 1;
 
 				/*
 				 * We can't talk to the two CCID interfaces
@@ -484,7 +488,13 @@ again_libusb:
 					case HID_OMNIKEY_5422:
 					case ALCOR_LINK_AK9567:
 					case ALCOR_LINK_AK9572:
+					case ACS_WALLETMATE:
+					case ACS_ACR1251:
+					case ACS_ACR1252:
+					case ACS_ACR1252IMP:
+					case ACS_ACR1552:
 						max_interface_number = 1; /* 2 interfaces */
+						num_CCID_interfaces = 2;  /* 2 CCID interfaces */
 						break;
 
 					/* For the Gemalto Prox-DU/SU the interfaces are:
@@ -495,6 +505,12 @@ again_libusb:
 					case GEMALTOPROXDU:
 					case GEMALTOPROXSU:
 						max_interface_number = 2; /* 3 interfaces */
+						num_CCID_interfaces = 2;  /* 2 CCID interfaces */
+						break;
+
+					case ACS_ACR1581:
+						max_interface_number = 2; /* 3 interfaces */
+						num_CCID_interfaces = 3;  /* 3 CCID interfaces */
 						break;
 
 					/* For the Feitian R502 the interfaces are:
@@ -505,6 +521,35 @@ again_libusb:
 					 */
 					case FEITIANR502DUAL:
 						max_interface_number = 3; /* 4 interfaces */
+						num_CCID_interfaces = 4;  /* 4 CCID interfaces */
+						break;
+
+					/* Kap-eCV: only the first interface is a CCID one
+					 * 0: CCID contactless
+					 * 1: HID
+					 * 2: CDC
+					 * We need to handle this case here even if
+					 * because we have a generic test for all Kapelse
+					 * readers (VENDOR_KAPELSE) later in the code
+					 */
+					case KAPELSE_KAPECV:
+						max_interface_number = 0;
+						num_CCID_interfaces = 1;
+						break;
+
+					/* Kap&Link2: only 3 first interfaces are CCID ones
+					 * 0: CCID contact
+					 * 1: CCID contactless
+					 * 2: CCID contactless
+					 * or, depending on user configuration:
+					 * 0: CCID contact
+					 * 1: CCID contactless
+					 * 2: CCID contactless
+					 * 3: CDC-ACM
+					 */
+					case KAPELSE_KAPLIN2:
+						max_interface_number = 2;
+						num_CCID_interfaces = 3;
 						break;
 				}
 
@@ -637,6 +682,15 @@ again:
 				}
 #endif
 
+#ifdef USE_COMPOSITE_AS_MULTISLOT
+				if ((VENDOR_KAPELSE == GET_VENDOR(readerID))
+					&& (-1 == max_interface_number))
+				{
+					/* Kapelse: all interfaces are CCID ones */
+					num_CCID_interfaces = config_desc->bNumInterfaces;
+					max_interface_number = num_CCID_interfaces-1;
+				}
+#endif
 
 				usb_interface = get_ccid_usb_interface(config_desc, &num);
 				if (usb_interface == NULL)
@@ -705,18 +759,13 @@ again:
 				}
 
 #ifdef USE_COMPOSITE_AS_MULTISLOT
-				if ((GEMALTOPROXDU == readerID)
-					|| (GEMALTOPROXSU == readerID)
-					|| (HID_OMNIKEY_5422 == readerID)
-					|| (ALCOR_LINK_AK9567 == readerID)
-					|| (ALCOR_LINK_AK9572 == readerID)
-					|| (FEITIANR502DUAL == readerID))
+				/* only if max_interface_number has a value set earlier */
+				if (max_interface_number >= 0)
 				{
 					/* use the next interface for the next "slot" */
 					static_interface = interface + 1;
 
 					/* reset for a next reader */
-					/* max interface number for all 3 readers is 2 */
 					if (static_interface > max_interface_number)
 						static_interface = -1;
 				}
@@ -737,7 +786,10 @@ again:
 				usbDevice[reader_index].terminate_requested = false;
 				usbDevice[reader_index].disconnected = false;
 
-				/* CCID common informations */
+				/* CCID common information */
+#ifdef USE_COMPOSITE_AS_MULTISLOT
+				usbDevice[reader_index].ccid.num_interfaces = num_CCID_interfaces;
+#endif
 				usbDevice[reader_index].ccid.real_bSeq = 0;
 				usbDevice[reader_index].ccid.pbSeq = &usbDevice[reader_index].ccid.real_bSeq;
 				usbDevice[reader_index].ccid.readerID =
@@ -838,6 +890,11 @@ end:
 		if (claim_failed)
 			return STATUS_COMM_ERROR;
 		DEBUG_INFO1("Device not found?");
+
+#ifdef USE_COMPOSITE_AS_MULTISLOT
+		static_interface = -1;
+#endif
+
 		return STATUS_NO_SUCH_DEVICE;
 	}
 
@@ -1061,7 +1118,7 @@ status_t CloseUSB(unsigned int reader_index)
 	/* one slot closed */
 	(*usbDevice[reader_index].nb_opened_slots)--;
 
-	/* release the allocated ressources for the last slot only */
+	/* release the allocated resources for the last slot only */
 	if (0 == *usbDevice[reader_index].nb_opened_slots)
 	{
 		struct usbDevice_MultiSlot_Extension *msExt;
@@ -1342,7 +1399,7 @@ bool ccid_check_firmware(struct libusb_device_descriptor *desc)
 		{
 			if (DriverOptions & DRIVER_OPTION_USE_BOGUS_FIRMWARE)
 			{
-				DEBUG_INFO3("Firmware (%X.%02X) is bogus! but you choosed to use it",
+				DEBUG_INFO3("Firmware (%X.%02X) is bogus! but you chose to use it",
 					desc->bcdDevice >> 8, desc->bcdDevice & 0xFF);
 				return false;
 			}
@@ -1380,7 +1437,7 @@ static unsigned int *get_data_rates(unsigned int reader_index,
 	else
 		len = bNumDataRatesSupported;
 
-	/* See CCID 3.7.3 page 25 */
+	/* See CCID v1.1 ch. 5.3.3 GET_DATA_RATES page 24  */
 	n = ControlUSB(reader_index,
 		0xA1, /* request type */
 		0x03, /* GET_DATA_RATES */
@@ -1421,7 +1478,7 @@ static unsigned int *get_data_rates(unsigned int reader_index,
 		return NULL;
 	}
 
-	/* convert in correct endianess */
+	/* convert in correct endianness */
 	for (i=0; i<n; i++)
 	{
 		uint_array[i] = dw2i(buffer, i*4);
@@ -1936,7 +1993,7 @@ static void Multi_InterruptStop(int reader_index)
 
 	pthread_mutex_lock(&msExt->mutex);
 
-	/* Broacast an interrupt to wake-up the slot's thread */
+	/* Broadcast an interrupt to wake-up the slot's thread */
 	msExt->buffer[interrupt_byte] |= interrupt_mask;
 	pthread_cond_broadcast(&msExt->condition);
 

@@ -145,6 +145,10 @@ typedef struct
 	 */
 	int IFD_bcdDevice;
 
+#ifdef USE_COMPOSITE_AS_MULTISLOT
+	int num_interfaces;
+#endif
+
 	/*
 	 * Gemalto extra features, if any
 	 */
@@ -251,7 +255,16 @@ typedef struct
 #define ALCOR_LINK_AK9567		0x2CE39567
 #define ALCOR_LINK_AK9572		0x2CE39573
 #define ALCORMICRO_AU9540		0x058f9540
+#define ACS_WALLETMATE			0x072F226B
+#define ACS_ACR1581				0x072F2301
+#define ACS_ACR1251				0x072F221A
+#define ACS_ACR1252				0x072F223B
+#define ACS_ACR1252IMP			0x072F2259
+#define ACS_ACR1552				0x072F2303
+#define KAPELSE_KAPLIN2         	0x29470105
+#define KAPELSE_KAPECV          	0x29470112
 
+#define VENDOR_KAPELSE 0x2947
 #define VENDOR_GEMALTO 0x08E6
 #define GET_VENDOR(readerID) ((readerID >> 16) & 0xFFFF)
 

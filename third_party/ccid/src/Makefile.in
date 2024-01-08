@@ -294,6 +294,8 @@ SHELL = @SHELL@
 STRIP = @STRIP@
 SYMBOL_VISIBILITY = @SYMBOL_VISIBILITY@
 VERSION = @VERSION@
+ZLIB_CFLAGS = @ZLIB_CFLAGS@
+ZLIB_LIBS = @ZLIB_LIBS@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
@@ -356,6 +358,7 @@ usbdropdir = @usbdropdir@
 ACLOCAL_AMFLAGS = -I m4
 SUBDIRS = readers examples contrib src
 EXTRA_DIST = bootstrap ChangeLog \
+	SCARDCONTOL.md \
 	SCARDGETATTRIB.md \
 	README.md \
 	$(AUX_DIST) \
