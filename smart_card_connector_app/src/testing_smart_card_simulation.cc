@@ -41,6 +41,8 @@ using CardProfile = TestingSmartCardSimulation::CardProfile;
 using CardType = TestingSmartCardSimulation::CardType;
 using CcidIccStatus = TestingSmartCardSimulation::CcidIccStatus;
 using DeviceType = TestingSmartCardSimulation::DeviceType;
+using SlotChangeNotification =
+    TestingSmartCardSimulation::SlotChangeNotification;
 
 const char* TestingSmartCardSimulation::kRequesterName =
     "testing_smart_card_simulation";
@@ -587,6 +589,16 @@ std::vector<uint8_t> MakeNotifySlotChangeTransferReply(CcidIccStatus icc_status,
   return {0x50, status_byte};
 }
 
+// Resolves the interrupt transfer with a RDR_to_PC_NotifySlotChange message.
+void NotifySlotChange(const SlotChangeNotification& notification) {
+  std::vector<uint8_t> transfer_result = MakeNotifySlotChangeTransferReply(
+      notification.icc_status, /*slot0_changed=*/true);
+  Value result_value =
+      ArrayValueBuilder().Add(std::move(transfer_result)).Get();
+  notification.pending_interrupt_transfer(
+      GenericRequestResult::CreateSuccessful(std::move(result_value)));
+}
+
 }  // namespace
 
 template <>
@@ -764,22 +776,13 @@ TestingSmartCardSimulation::ThreadSafeHandler::~ThreadSafeHandler() = default;
 
 void TestingSmartCardSimulation::ThreadSafeHandler::SetDevices(
     const std::vector<Device>& devices) {
-  std::unique_lock<std::mutex> lock(mutex_);
-
-  std::vector<DeviceState> old_device_states = device_states_;
-  device_states_.clear();
-  for (const auto& device : devices) {
-    DeviceState state;
-    // If this device was already present, reuse its state.
-    for (const auto& old_state : old_device_states) {
-      if (old_state.device.id == device.id)
-        state = old_state;
-    }
-    // Apply the new `Device` value. This also triggers state transitions (e.g.,
-    // whether a card is inserted) and notifications (e.g., replying to a
-    // pending interrupt transfer).
-    UpdateDeviceState(device, state);
-    device_states_.push_back(state);
+  std::vector<SlotChangeNotification> slot_change_notifications =
+      UpdateDevicesAndPrepareNotifications(devices);
+  // Run the slot change notifications outside the mutex, because these
+  // notifications may reentrantly trigger new USB requests which will
+  // synchronously call `ThreadSafeHandler` methods.
+  for (const auto& notification : slot_change_notifications) {
+    NotifySlotChange(notification);
   }
 }
 
@@ -1065,44 +1068,68 @@ TestingSmartCardSimulation::ThreadSafeHandler::FindDeviceStateByIdAndHandle(
   return nullptr;
 }
 
-void TestingSmartCardSimulation::ThreadSafeHandler::UpdateDeviceState(
+std::vector<SlotChangeNotification> TestingSmartCardSimulation::
+    ThreadSafeHandler::UpdateDevicesAndPrepareNotifications(
+        const std::vector<Device>& devices) {
+  std::unique_lock<std::mutex> lock(mutex_);
+
+  std::vector<DeviceState> old_device_states = device_states_;
+  device_states_.clear();
+  std::vector<SlotChangeNotification> notifications;
+  for (const auto& device : devices) {
+    DeviceState state;
+    // If this device was already present, reuse its state.
+    for (const auto& old_state : old_device_states) {
+      if (old_state.device.id == device.id)
+        state = old_state;
+    }
+    // Apply the new `Device` value. This also triggers state transitions (e.g.,
+    // whether a card is inserted) and generates notifications (e.g., replying
+    // to a pending interrupt transfer).
+    optional<SlotChangeNotification> notification =
+        UpdateDeviceState(device, state);
+    if (notification) {
+      notifications.push_back(*notification);
+    }
+    device_states_.push_back(state);
+  }
+  return notifications;
+}
+
+optional<SlotChangeNotification>
+TestingSmartCardSimulation::ThreadSafeHandler::UpdateDeviceState(
     const Device& device,
     DeviceState& device_state) {
   // Special handling for transitioning from the old `device_state.device` to
   // the new `device`.
+  bool slot_changed = false;
   if (device_state.icc_status == CcidIccStatus::kNotPresent &&
       device.card_type) {
     // Simulate card insertion.
     device_state.icc_status = CcidIccStatus::kPresentInactive;
-    NotifySlotChange(device_state);
+    slot_changed = true;
   } else if (device_state.icc_status != CcidIccStatus::kNotPresent &&
              !device.card_type) {
     // Simulate card removal.
     device_state.icc_status = CcidIccStatus::kNotPresent;
-    NotifySlotChange(device_state);
+    slot_changed = true;
   }
 
   // Apply the whole `device`, including the fields that didn't require special
   // handling above.
   device_state.device = device;
-}
 
-void TestingSmartCardSimulation::ThreadSafeHandler::NotifySlotChange(
-    DeviceState& device_state) {
-  if (device_state.pending_interrupt_transfers.empty())
-    return;
-
-  RequestReceiver::ResultCallback result_callback =
-      device_state.pending_interrupt_transfers.front();
-  device_state.pending_interrupt_transfers.pop();
-
-  // Resolve the interrupt transfer with a RDR_to_PC_NotifySlotChange message.
-  std::vector<uint8_t> transfer_result = MakeNotifySlotChangeTransferReply(
-      device_state.icc_status, /*slot0_changed=*/true);
-  Value result_value =
-      ArrayValueBuilder().Add(std::move(transfer_result)).Get();
-  result_callback(
-      GenericRequestResult::CreateSuccessful(std::move(result_value)));
+  // If applicable, prepare a slot change notification for the pending interrupt
+  // transfer.
+  if (slot_changed && !device_state.pending_interrupt_transfers.empty()) {
+    SlotChangeNotification notification;
+    notification.pending_interrupt_transfer =
+        device_state.pending_interrupt_transfers.front();
+    device_state.pending_interrupt_transfers.pop();
+    notification.icc_status = device_state.icc_status;
+    return notification;
+  }
+  return {};
 }
 
 }  // namespace google_smart_card
