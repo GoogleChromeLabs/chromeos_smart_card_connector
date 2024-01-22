@@ -28,6 +28,8 @@
 
 #include "common/cpp/src/public/logging/logging.h"
 #include "common/cpp/src/public/numeric_conversions.h"
+#include "common/cpp/src/public/optional.h"
+#include "common/cpp/src/public/requesting/remote_call_async_request.h"
 #include "common/cpp/src/public/requesting/request_result.h"
 
 #include "third_party/libusb/webport/src/libusb_js_proxy_constants.h"
@@ -125,6 +127,19 @@ libusb_context* GetLibusbTransferContextChecked(
   libusb_context* const result = GetLibusbTransferContext(transfer);
   GOOGLE_SMART_CARD_CHECK(result);
   return result;
+}
+
+std::string GetTransferJsApiName(libusb_transfer_type transfer_type) {
+  switch (transfer_type) {
+    case LIBUSB_TRANSFER_TYPE_CONTROL:
+      return kJsRequestControlTransfer;
+    case LIBUSB_TRANSFER_TYPE_BULK:
+      return kJsRequestBulkTransfer;
+    case LIBUSB_TRANSFER_TYPE_INTERRUPT:
+      return kJsRequestInterruptTransfer;
+    default:
+      GOOGLE_SMART_CARD_NOTREACHED;
+  }
 }
 
 }  // namespace
@@ -744,37 +759,6 @@ void CreateLibusbJsGenericTransferParameters(
   }
 }
 
-std::function<void(GenericRequestResult)> MakeLibusbJsTransferCallback(
-    const std::string& js_api_name,
-    std::weak_ptr<libusb_context> context,
-    const UsbTransferDestination& transfer_destination,
-    LibusbJsProxy::TransferAsyncRequestStatePtr async_request_state) {
-  return [js_api_name, context, transfer_destination,
-          async_request_state](GenericRequestResult js_result) {
-    const std::shared_ptr<libusb_context> locked_context = context.lock();
-    if (!locked_context) {
-      // The context that was used for the original transfer submission has been
-      // destroyed already.
-      return;
-    }
-    if (!js_result.is_successful()) {
-      GOOGLE_SMART_CARD_LOG_INFO << js_api_name
-                                 << " failed: " << js_result.error_message();
-    }
-    LibusbJsTransferResult js_transfer_result;
-    RequestResult<LibusbJsTransferResult> converted_result =
-        RemoteCallAdaptor::ConvertResultPayload(
-            std::move(js_result), &js_transfer_result, &js_transfer_result);
-    if (transfer_destination.IsInputDirection()) {
-      locked_context->OnInputTransferResultReceived(
-          transfer_destination, std::move(converted_result));
-    } else {
-      locked_context->OnOutputTransferResultReceived(
-          async_request_state, std::move(converted_result));
-    }
-  };
-}
-
 UsbTransferDestination CreateUsbTransferDestinationForTransfer(
     libusb_transfer* transfer) {
   GOOGLE_SMART_CARD_CHECK(transfer);
@@ -825,62 +809,20 @@ int LibusbJsProxy::LibusbSubmitTransfer(libusb_transfer* transfer) {
     ObtainActiveConfigDescriptor(transfer->dev_handle->device());
   }
 
-  std::string js_api_name;
-  LibusbJsGenericTransferParameters generic_transfer_params;
-  LibusbJsControlTransferParameters control_transfer_params;
-  switch (transfer->type) {
-    case LIBUSB_TRANSFER_TYPE_CONTROL:
-      js_api_name = kJsRequestControlTransfer;
-      if (!CreateLibusbJsControlTransferParameters(transfer,
-                                                   &control_transfer_params))
-        return LIBUSB_ERROR_INVALID_PARAM;
-      break;
-    case LIBUSB_TRANSFER_TYPE_BULK:
-      js_api_name = kJsRequestBulkTransfer;
-      CreateLibusbJsGenericTransferParameters(transfer,
-                                              &generic_transfer_params);
-      break;
-    case LIBUSB_TRANSFER_TYPE_INTERRUPT:
-      js_api_name = kJsRequestInterruptTransfer;
-      CreateLibusbJsGenericTransferParameters(transfer,
-                                              &generic_transfer_params);
-      break;
-    default:
-      GOOGLE_SMART_CARD_NOTREACHED;
-  }
-
   const UsbTransferDestination transfer_destination =
       CreateUsbTransferDestinationForTransfer(transfer);
-  const unsigned char transfer_type = transfer->type;
-  const int64_t js_device_id =
-      transfer->dev_handle->device()->js_device().device_id;
-  const int64_t js_device_handle = transfer->dev_handle->js_device_handle();
+  RemoteCallAsyncRequest prepared_js_call = PrepareTransferJsApiCall(
+      context, transfer, transfer_destination, async_request_state);
 
   context->AddAsyncTransferInFlight(async_request_state, transfer_destination,
-                                    transfer);
+                                    transfer, std::move(prepared_js_call));
   // `transfer` should not be used after this point, because there's a chance
   // that concurrent threads populate it with result immediately and free it.
 
-  const auto js_api_callback = MakeLibusbJsTransferCallback(
-      js_api_name, contexts_storage_.FindContextByAddress(context),
-      transfer_destination, async_request_state);
-
-  switch (transfer_type) {
-    case LIBUSB_TRANSFER_TYPE_CONTROL:
-      js_call_adaptor_.AsyncCall(js_api_callback, js_api_name, js_device_id,
-                                 js_device_handle, control_transfer_params);
-      break;
-    case LIBUSB_TRANSFER_TYPE_BULK:
-      js_call_adaptor_.AsyncCall(js_api_callback, js_api_name, js_device_id,
-                                 js_device_handle, generic_transfer_params);
-      break;
-    case LIBUSB_TRANSFER_TYPE_INTERRUPT:
-      js_call_adaptor_.AsyncCall(js_api_callback, js_api_name, js_device_id,
-                                 js_device_handle, generic_transfer_params);
-      break;
-    default:
-      GOOGLE_SMART_CARD_NOTREACHED;
-  }
+  // Start the JS API call if needed - we might not need it in case there's
+  // already an equivalent one currently running, or in case there's a pending
+  // result from a previously finished equivalent transfer.
+  MaybeStartTransferJsRequest(context, transfer_destination);
 
   return LIBUSB_SUCCESS;
 }
@@ -1112,6 +1054,100 @@ int LibusbJsProxy::LibusbHandleEventsWithTimeout(libusb_context* context,
           std::chrono::seconds(timeout_seconds),
       nullptr);
   return LIBUSB_SUCCESS;
+}
+
+std::function<void(GenericRequestResult)>
+LibusbJsProxy::MakeLibusbJsTransferCallback(
+    const std::string& js_api_name,
+    std::weak_ptr<libusb_context> context,
+    const UsbTransferDestination& transfer_destination,
+    TransferAsyncRequestStatePtr async_request_state) {
+  return [this, js_api_name, context, transfer_destination,
+          async_request_state](GenericRequestResult js_result) {
+    const std::shared_ptr<libusb_context> locked_context = context.lock();
+    if (!locked_context) {
+      // The context that was used for the original transfer submission has been
+      // destroyed already.
+      return;
+    }
+    if (!js_result.is_successful()) {
+      GOOGLE_SMART_CARD_LOG_INFO << js_api_name
+                                 << " failed: " << js_result.error_message();
+    }
+    LibusbJsTransferResult js_transfer_result;
+    RequestResult<LibusbJsTransferResult> converted_result =
+        RemoteCallAdaptor::ConvertResultPayload(
+            std::move(js_result), &js_transfer_result, &js_transfer_result);
+    if (transfer_destination.IsInputDirection()) {
+      locked_context->OnInputTransferResultReceived(
+          transfer_destination, std::move(converted_result));
+    } else {
+      locked_context->OnOutputTransferResultReceived(
+          async_request_state, std::move(converted_result));
+    }
+
+    // In case there are more transfers that were enqueued while waiting for an
+    // equivalent JS API call, a new call needs to be started.
+    MaybeStartTransferJsRequest(locked_context.get(), transfer_destination);
+  };
+}
+
+RemoteCallAsyncRequest LibusbJsProxy::PrepareTransferJsApiCall(
+    libusb_context* const context,
+    libusb_transfer* transfer,
+    const UsbTransferDestination& transfer_destination,
+    std::shared_ptr<TransferAsyncRequestState> async_request_state) {
+  const int64_t js_device_id =
+      transfer->dev_handle->device()->js_device().device_id;
+  const int64_t js_device_handle = transfer->dev_handle->js_device_handle();
+  const std::string js_api_name =
+      GetTransferJsApiName(static_cast<libusb_transfer_type>(transfer->type));
+
+  RemoteCallAsyncRequest async_request;
+  async_request.callback = MakeLibusbJsTransferCallback(
+      js_api_name, contexts_storage_.FindContextByAddress(context),
+      transfer_destination, async_request_state);
+
+  switch (transfer->type) {
+    case LIBUSB_TRANSFER_TYPE_CONTROL: {
+      LibusbJsControlTransferParameters transfer_params;
+      GOOGLE_SMART_CARD_CHECK(
+          CreateLibusbJsControlTransferParameters(transfer, &transfer_params));
+      async_request.request_payload = ConvertToRemoteCallRequestPayloadOrDie(
+          js_api_name, js_device_id, js_device_handle, transfer_params);
+      break;
+    }
+    case LIBUSB_TRANSFER_TYPE_BULK: {
+      LibusbJsGenericTransferParameters transfer_params;
+      CreateLibusbJsGenericTransferParameters(transfer, &transfer_params);
+      async_request.request_payload = ConvertToRemoteCallRequestPayloadOrDie(
+          js_api_name, js_device_id, js_device_handle, transfer_params);
+      break;
+    }
+    case LIBUSB_TRANSFER_TYPE_INTERRUPT: {
+      LibusbJsGenericTransferParameters transfer_params;
+      CreateLibusbJsGenericTransferParameters(transfer, &transfer_params);
+      async_request.request_payload = ConvertToRemoteCallRequestPayloadOrDie(
+          js_api_name, js_device_id, js_device_handle, transfer_params);
+      break;
+    }
+    default:
+      GOOGLE_SMART_CARD_NOTREACHED;
+  }
+
+  return async_request;
+}
+
+void LibusbJsProxy::MaybeStartTransferJsRequest(
+    libusb_context* const context,
+    const UsbTransferDestination& transfer_destination) {
+  GOOGLE_SMART_CARD_CHECK(context);
+
+  optional<RemoteCallAsyncRequest> prepared_js_call =
+      context->PrepareTransferJsCallForExecution(transfer_destination);
+  if (prepared_js_call) {
+    js_call_adaptor_.AsyncCall(std::move(*prepared_js_call));
+  }
 }
 
 int LibusbJsProxy::DoGenericSyncTranfer(libusb_transfer_type transfer_type,

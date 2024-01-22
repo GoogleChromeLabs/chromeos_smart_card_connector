@@ -20,17 +20,52 @@
 #include <utility>
 
 #include "common/cpp/src/public/logging/logging.h"
+#include "common/cpp/src/public/optional.h"
+#include "common/cpp/src/public/requesting/remote_call_async_request.h"
+
+using google_smart_card::optional;
+using google_smart_card::RemoteCallAsyncRequest;
 
 void libusb_context::AddAsyncTransferInFlight(
     TransferAsyncRequestStatePtr async_request_state,
     const UsbTransferDestination& transfer_destination,
-    libusb_transfer* transfer) {
+    libusb_transfer* transfer,
+    RemoteCallAsyncRequest prepared_js_call) {
   GOOGLE_SMART_CARD_CHECK(async_request_state);
   GOOGLE_SMART_CARD_CHECK(transfer);
 
   const std::unique_lock<std::mutex> lock(mutex_);
 
-  AddTransferInFlight(async_request_state, transfer_destination, transfer);
+  AddTransferInFlight(async_request_state, transfer_destination, transfer,
+                      std::move(prepared_js_call));
+}
+
+optional<RemoteCallAsyncRequest>
+libusb_context::PrepareTransferJsCallForExecution(
+    const UsbTransferDestination& transfer_destination) {
+  const std::unique_lock<std::mutex> lock(mutex_);
+
+  if (transfer_destination.IsInputDirection() &&
+      ongoing_input_js_api_transfers_.count(transfer_destination)) {
+    // Avoid making a new input transfer JS API call if there's already an
+    // equivalent one running: starting too many indefinitely-running transfers
+    // will eventually hit implementation limits in the browser or the OS. As
+    // all such transfers are considered interchangeable, we'll only start a new
+    // transfer after the previous one completes.
+    return {};
+  }
+  optional<RemoteCallAsyncRequest> prepared_js_call =
+      transfers_in_flight_.ExtractPreparedJsCall(transfer_destination);
+  if (!prepared_js_call) {
+    // Nothing to execute at the moment.
+    return {};
+  }
+  if (transfer_destination.IsInputDirection()) {
+    // Mark this transfer destination as having an active JS API call.
+    GOOGLE_SMART_CARD_CHECK(
+        ongoing_input_js_api_transfers_.insert(transfer_destination).second);
+  }
+  return prepared_js_call;
 }
 
 void libusb_context::WaitAndProcessAsyncTransferReceivedResults(
@@ -129,6 +164,10 @@ void libusb_context::OnInputTransferResultReceived(
   received_input_transfer_result_map_[transfer_destination].push(
       std::move(result));
 
+  const auto iter = ongoing_input_js_api_transfers_.find(transfer_destination);
+  GOOGLE_SMART_CARD_CHECK(iter != ongoing_input_js_api_transfers_.end());
+  ongoing_input_js_api_transfers_.erase(iter);
+
   condition_.notify_all();
 }
 
@@ -156,7 +195,8 @@ void libusb_context::OnOutputTransferResultReceived(
 void libusb_context::AddTransferInFlight(
     TransferAsyncRequestStatePtr async_request_state,
     const UsbTransferDestination& transfer_destination,
-    libusb_transfer* transfer) {
+    libusb_transfer* transfer,
+    RemoteCallAsyncRequest prepared_js_call) {
   GOOGLE_SMART_CARD_CHECK(async_request_state);
 
   std::chrono::time_point<std::chrono::high_resolution_clock> timeout;
@@ -170,7 +210,7 @@ void libusb_context::AddTransferInFlight(
   }
 
   transfers_in_flight_.Add(async_request_state, transfer_destination, transfer,
-                           timeout);
+                           std::move(prepared_js_call), timeout);
 
   condition_.notify_all();
 }

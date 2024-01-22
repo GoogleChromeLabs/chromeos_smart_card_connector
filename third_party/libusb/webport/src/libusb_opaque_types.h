@@ -37,7 +37,9 @@
 
 #include <libusb.h>
 
+#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/requesting/async_request.h"
+#include "common/cpp/src/public/requesting/remote_call_async_request.h"
 #include "common/cpp/src/public/requesting/request_result.h"
 #include "third_party/libusb/webport/src/libusb_js_proxy_data_model.h"
 #include "third_party/libusb/webport/src/usb_transfer_destination.h"
@@ -65,6 +67,9 @@
 // to the future transfers with the same device and the same set of parameters.
 struct libusb_context final
     : public std::enable_shared_from_this<libusb_context> {
+  template <typename T>
+  using optional = google_smart_card::optional<T>;
+  using RemoteCallAsyncRequest = google_smart_card::RemoteCallAsyncRequest;
   using TransferRequestResult = google_smart_card::RequestResult<
       google_smart_card::LibusbJsTransferResult>;
   using TransferAsyncRequestState = google_smart_card::AsyncRequestState<
@@ -86,7 +91,14 @@ struct libusb_context final
   void AddAsyncTransferInFlight(
       TransferAsyncRequestStatePtr async_request_state,
       const UsbTransferDestination& transfer_destination,
-      libusb_transfer* transfer);
+      libusb_transfer* transfer,
+      RemoteCallAsyncRequest prepared_js_call);
+
+  // Moves and returns `prepared_js_call` for an in-flight transfer with the
+  // specified destination, if there's any. This method is responsible for
+  // preventing running duplicate input transfer API calls concurrently.
+  optional<RemoteCallAsyncRequest> PrepareTransferJsCallForExecution(
+      const UsbTransferDestination& transfer_destination);
 
   // Blocks until either a new asynchronous transfer result is received (in
   // which case the transfer callback is executed), or the specified completed
@@ -127,7 +139,8 @@ struct libusb_context final
  private:
   void AddTransferInFlight(TransferAsyncRequestStatePtr async_request_state,
                            const UsbTransferDestination& transfer_destination,
-                           libusb_transfer* transfer);
+                           libusb_transfer* transfer,
+                           RemoteCallAsyncRequest prepared_js_call);
 
   void RemoveTransferInFlight(
       const TransferAsyncRequestState* async_request_state);
@@ -175,8 +188,9 @@ struct libusb_context final
   std::map<TransferAsyncRequestStatePtr, TransferRequestResult>
       received_output_transfer_result_map_;
   // This set stores pointers to the transfers for which the cancellation was
-  // requests.
+  // requested.
   std::set<libusb_transfer*> transfers_to_cancel_;
+  std::set<UsbTransferDestination> ongoing_input_js_api_transfers_;
 };
 
 // Definition of the libusb_device type declared in the libusb headers.

@@ -23,7 +23,9 @@
 #include <utility>
 
 #include "common/cpp/src/public/logging/logging.h"
+#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/requesting/async_request.h"
+#include "common/cpp/src/public/requesting/remote_call_async_request.h"
 #include "common/cpp/src/public/unique_ptr_utils.h"
 #include "third_party/libusb/webport/src/libusb_js_proxy_data_model.h"
 #include "third_party/libusb/webport/src/usb_transfer_destination.h"
@@ -92,6 +94,7 @@ bool UsbTransfersParametersStorage::empty() const {
 
 void UsbTransfersParametersStorage::Add(std::unique_ptr<Item> item) {
   GOOGLE_SMART_CARD_CHECK(item);
+  GOOGLE_SMART_CARD_CHECK(item->prepared_js_call);
 
   const std::unique_lock<std::mutex> lock(mutex_);
 
@@ -107,12 +110,15 @@ void UsbTransfersParametersStorage::Add(std::unique_ptr<Item> item) {
       async_libusb_transfer_mapping_.emplace(info.transfer, item_ptr).second);
   async_destination_mapping_[info.transfer_destination].push_back(item_ptr);
   timeout_mapping_[info.timeout].push_back(item_ptr);
+  transfers_with_prepared_js_call_[info.transfer_destination].push_back(
+      item_ptr);
 }
 
 void UsbTransfersParametersStorage::Add(
     TransferAsyncRequestStatePtr async_request_state,
     const UsbTransferDestination& transfer_destination,
     libusb_transfer* transfer,
+    RemoteCallAsyncRequest prepared_js_call,
     const std::chrono::time_point<std::chrono::high_resolution_clock>&
         timeout) {
   GOOGLE_SMART_CARD_CHECK(async_request_state);
@@ -122,6 +128,7 @@ void UsbTransfersParametersStorage::Add(
   stored_item->info.transfer_destination = transfer_destination;
   stored_item->info.transfer = transfer;
   stored_item->info.timeout = timeout;
+  stored_item->prepared_js_call = std::move(prepared_js_call);
   return Add(std::move(stored_item));
 }
 
@@ -190,6 +197,26 @@ UsbTransfersParametersStorage::GetWithMinTimeout() const {
   return found->info;
 }
 
+optional<RemoteCallAsyncRequest>
+UsbTransfersParametersStorage::ExtractPreparedJsCall(
+    const UsbTransferDestination& transfer_destination) {
+  const std::unique_lock<std::mutex> lock(mutex_);
+
+  Item* const item =
+      GetFifoItem(transfer_destination, transfers_with_prepared_js_call_);
+  if (!item) {
+    return {};
+  }
+  GOOGLE_SMART_CARD_CHECK(item->prepared_js_call);
+
+  RemoveItemFromMappedQueue(item, transfer_destination,
+                            transfers_with_prepared_js_call_);
+  RemoteCallAsyncRequest result = std::move(*item->prepared_js_call);
+  item->prepared_js_call.reset();
+  // TODO: Drop `std::move()` once NaCl build support is removed.
+  return std::move(result);
+}
+
 void UsbTransfersParametersStorage::Remove(Item* item) {
   GOOGLE_SMART_CARD_CHECK(item);
   const Info& info = item->info;
@@ -203,6 +230,8 @@ void UsbTransfersParametersStorage::Remove(Item* item) {
       item, info.transfer_destination, async_destination_mapping_));
   GOOGLE_SMART_CARD_CHECK(
       RemoveItemFromMappedQueue(item, info.timeout, timeout_mapping_));
+  RemoveItemFromMappedQueue(item, info.transfer_destination,
+                            transfers_with_prepared_js_call_);
 
   // Remove from `items_`. This must be the last operation with `item`.
   GOOGLE_SMART_CARD_CHECK(items_.erase(item));
