@@ -49,7 +49,9 @@ libusb_context::PrepareTransferJsCallForExecution(
       ongoing_input_js_api_transfers_.count(transfer_destination)) {
     // Avoid making a new input transfer JS API call if there's already an
     // equivalent one running: starting too many indefinitely-running transfers
-    // will eventually hit implementation limits in the browser or the OS.
+    // will eventually hit implementation limits in the browser or the OS. As
+    // all such transfers are considered interchangeable, we'll only start a new
+    // transfer after the previous one completes.
     return {};
   }
   optional<RemoteCallAsyncRequest> prepared_js_call =
