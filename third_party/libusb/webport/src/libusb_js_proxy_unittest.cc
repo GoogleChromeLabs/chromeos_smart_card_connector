@@ -1245,22 +1245,27 @@ TEST_P(LibusbJsProxyWithDeviceTest, ControlTransfersMultiThreadedStressTest) {
       100
 #endif
       ;
+  constexpr int kTotalIterations = kThreadCount * kIterationsPerThread;
 
   // Arrange.
-  for (int i = 0; i < kThreadCount * kIterationsPerThread; ++i) {
+  std::vector<std::unique_ptr<TestingGlobalContext::Waiter>>
+      input_transfer_waiters, output_transfer_waiters;
+  for (int i = 0; i < kTotalIterations; ++i) {
     // Each test thread iteration consists of one input and one output transfer
-    // - prepare replies for them in advance.
-    global_context()->WillReplyToRequestWith(
+    // - start waiting for them in advance. We don't use
+    // `WillReplyToRequestWith()`, because it'll lead to immediate reentrant
+    // replies and deep recursion levels in the test (something that's not
+    // possible in production, where USB requests are never resolved
+    // synchronously).
+    input_transfer_waiters.push_back(global_context()->CreateRequestWaiter(
         "libusb", "controlTransfer",
         MakeExpectedInputControlTransferJsArgs(/*recipient=*/"endpoint",
                                                /*request_type=*/"standard",
-                                               kData.size()),
-        MakeInputTransferFakeJsReply(kData));
-    global_context()->WillReplyToRequestWith(
+                                               kData.size())));
+    output_transfer_waiters.push_back(global_context()->CreateRequestWaiter(
         "libusb", "controlTransfer",
         MakeExpectedOutputControlTransferJsArgs(
-            /*recipient=*/"endpoint", /*request_type=*/"standard", kData),
-        MakeOutputTransferFakeJsReply());
+            /*recipient=*/"endpoint", /*request_type=*/"standard", kData)));
   }
 
   // Act.
@@ -1291,6 +1296,12 @@ TEST_P(LibusbJsProxyWithDeviceTest, ControlTransfersMultiThreadedStressTest) {
             static_cast<int>(data.size()));
       }
     });
+  }
+  for (int i = 0; i < kTotalIterations; ++i) {
+    input_transfer_waiters[i]->Wait();
+    input_transfer_waiters[i]->Reply(MakeInputTransferFakeJsReply(kData));
+    output_transfer_waiters[i]->Wait();
+    output_transfer_waiters[i]->Reply(MakeOutputTransferFakeJsReply());
   }
   for (size_t thread_index = 0; thread_index < kThreadCount; ++thread_index)
     threads[thread_index].join();
