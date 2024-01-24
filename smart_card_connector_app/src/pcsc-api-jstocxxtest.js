@@ -1330,8 +1330,12 @@ goog.exportSymbol('testPcscApi', {
 
   'tearDown': async function() {
     try {
-      await testController.disposeAsync();
-      pcscReadinessTracker.dispose();
+      if (testController) {
+        await testController.disposeAsync();
+      }
+      if (pcscReadinessTracker) {
+        pcscReadinessTracker.dispose();
+      }
     } finally {
       pcscReadinessTracker = null;
       ClientHandler.overridePermissionsCheckerForTesting(null);
