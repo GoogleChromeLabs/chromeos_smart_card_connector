@@ -1101,6 +1101,7 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
       }
     } finally {
       chromeApiProvider = null;
+      mockControl = null;
       pcscReadinessTracker = null;
       testController = null;
     }
