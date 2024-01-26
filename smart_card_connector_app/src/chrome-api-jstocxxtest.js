@@ -62,8 +62,8 @@ let libusbProxyReceiver;
 let pcscReadinessTracker;
 /** @type {MockChromeApi?} */
 let mockChromeApi;
-/** @type {!goog.testing.MockControl|undefined} */
-let mockControl;
+/** @type {!goog.testing.MockControl|null} */
+let mockControl = null;
 /** @type {ChromeApiProvider?} */
 let chromeApiProvider;
 /** @type {number?} */
