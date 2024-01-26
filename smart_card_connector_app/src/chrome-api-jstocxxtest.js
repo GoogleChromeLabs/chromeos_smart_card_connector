@@ -62,8 +62,8 @@ let libusbProxyReceiver;
 let pcscReadinessTracker;
 /** @type {MockChromeApi?} */
 let mockChromeApi;
-/** @type {!goog.testing.MockControl|undefined} */
-let mockControl;
+/** @type {!goog.testing.MockControl|null} */
+let mockControl = null;
 /** @type {ChromeApiProvider?} */
 let chromeApiProvider;
 /** @type {number?} */
@@ -1086,13 +1086,22 @@ goog.exportSymbol('testChromeApiProviderToCpp', {
 
   'tearDown': async function() {
     try {
-      await testController.disposeAsync();
-      pcscReadinessTracker.dispose();
-      assertTrue(chromeApiProvider.isDisposed());
-      // Check all mock expectations are satisfied.
-      mockControl.$verifyAll();
+      if (testController) {
+        await testController.disposeAsync();
+      }
+      if (pcscReadinessTracker) {
+        pcscReadinessTracker.dispose();
+      }
+      if (chromeApiProvider) {
+        assertTrue(chromeApiProvider.isDisposed());
+      }
+      if (mockControl) {
+        // Check all mock expectations are satisfied.
+        mockControl.$verifyAll();
+      }
     } finally {
       chromeApiProvider = null;
+      mockControl = null;
       pcscReadinessTracker = null;
       testController = null;
     }
