@@ -47,7 +47,7 @@ const PIN_DIALOG_URL = 'built-in-pin-dialog.html';
 
 const PIN_DIALOG_WINDOW_OPTIONS_OVERRIDES = {
   'alwaysOnTop': false,
-  'innerBounds': {'width': 230}
+  'width': 230,
 };
 
 const GSC = GoogleSmartCard;

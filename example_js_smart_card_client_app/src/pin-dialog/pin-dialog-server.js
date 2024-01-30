@@ -25,7 +25,7 @@ goog.scope(function() {
 const PIN_DIALOG_URL = 'pin-dialog.html';
 
 const PIN_DIALOG_WINDOW_OPTIONS_OVERRIDES = {
-  'innerBounds': {'width': 230}
+  'width': 230,
 };
 
 const GSC = GoogleSmartCard;
