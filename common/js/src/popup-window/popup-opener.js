@@ -134,6 +134,8 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
 GSC.PopupOpener.runModalDialog = function(url, opt_windowOptions, opt_data) {
   const createWindowOptions =
       goog.object.clone(DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS);
+  if (opt_windowOptions !== undefined)
+    Object.assign(createWindowOptions, opt_windowOptions);
 
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION)
     lastUsedPopupId++;
