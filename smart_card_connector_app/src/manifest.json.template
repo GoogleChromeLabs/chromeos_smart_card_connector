@@ -15,7 +15,12 @@ ${if CONFIG=Debug}
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlc6hy5++uljMusXcpXspmA3UH5t9ppVHj3FfxvVMPOFX0RLrDvXtfH3f/TkdyPsAzk1QDDQ1++lDatRa3xc4rOGa2ynXljOR9y6rWoqB5wwMOjB42AWSVZWNwpccRsYkMhML5s7uur+B4SERWeMasXuJUhTPweS48Mz0mvp9wZMQB9+xPNm93iUeUZvVtB63ksibx5B3UJUCBz1wSUXLnEoTjy6TR9XsQ+boZlRsk/jY79A+iMQZw72QBBXvWSfJRaeDj266Dz+Jyp0h4lxZJjg/pnL0Rp5s0zlhlSNm6zyrQ6lWMzagjP/2G95LWMNvLTE95oKqhP4hNaxYrI/pUQIDAQAB",
 ${endif}
 
+${if PACKAGING=app}
   "manifest_version": 2,
+${endif}
+${if PACKAGING=extension}
+  "manifest_version": 3,
+${endif}
 
   # Name and description strings are localized (see the messages files under
   # ./_locales/).
@@ -25,33 +30,31 @@ ${endif}
 
   "version": "1.5.0",
 
-  # Whether an application is an App or an Extension is determined by nesting or
-  # not nesting the background script information under the "app" key.
 ${if PACKAGING=app}
   "app": {
-${endif}
     "background": {
-
       # Using a non-persistent background page (event page) is a Chrome
       # requirement. In fact we never shut down after startup, but this is
       # achieved by calls made in the background script.
       "persistent": false,
-
       # Run the compiled background script produced by the Closure Compiler.
       "scripts": [
         "background.js"
       ]
-
-${if PACKAGING=app}
     }
-${endif}
   },
+${endif}
+${if PACKAGING=extension}
+  "background": {
+    "service_worker": "background.js"
+  },
+${endif}
 
 ${if PACKAGING=extension}
   # When compiled as an Extension, the main window is launched via a browser
   # action icon. (For reference, the App's UI is available via ChromeOS Launcher
   # and is implemented via `chrome.app.runtime.onLaunched`.)
-  "browser_action": {
+  "action": {
     "default_icon": "icon.png",
     "default_title": "__MSG_appShortName__",
     "default_popup": "window.html"
@@ -59,17 +62,21 @@ ${if PACKAGING=extension}
 
   # Allow executing WebAssembly code. (It's not needed when compiling as an App,
   # because the default CSP is less strict for Apps.)
-  "content_security_policy": "script-src 'self' 'wasm-eval'; object-src 'self'",
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
 ${endif}
 
   # Specify the minimum ChromeOS milestone on which we're guaranteed to work.
-  # When compiled as an Extension, the requirement is much higher because both
-  # WebUSB and WebAssembly are required in this mode and are only stable and
-  # reliable on new versions.
 ${if PACKAGING=app}
+  # This is the first version that understands the "chrome-untrusted://" URLs
+  # (https://crrev.com/c/1898159); attempting to load the App on earlier
+  # versions would result in "invalid manifest" errors.
   "minimum_chrome_version": "81",
 ${endif}
 ${if PACKAGING=extension}
+  # The earliest version containing the needed adjustments in WebUSB and
+  # WebAssembly.
   "minimum_chrome_version": "96",
 ${endif}
 
