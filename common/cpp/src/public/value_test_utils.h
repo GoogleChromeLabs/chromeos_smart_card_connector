@@ -22,6 +22,10 @@
 #include "common/cpp/src/public/value_conversion.h"
 #include "common/cpp/src/public/value_debug_dumping.h"
 
+#ifdef __native_client__
+#include "third_party/googletest/webport/src/polyfill_nacl.h"
+#endif
+
 namespace google_smart_card {
 
 inline void PrintTo(const Value& value, std::ostream* os) {
@@ -33,6 +37,15 @@ MATCHER_P(StrictlyEquals,
           /*description_string=*/std::string("strictly equals to ") +
               ::testing::PrintToString(value)) {
   return arg.StrictlyEquals(ConvertToValueOrDie(std::move(value)));
+}
+
+MATCHER_P(IsIntegerValue,
+          value_matcher,
+          /*description_string=*/std::string("is integer that ") +
+              ::testing::DescribeMatcher<int64_t>(value_matcher)) {
+  return arg.is_integer() &&
+         ::testing::ExplainMatchResult(value_matcher, arg.GetInteger(),
+                                       result_listener);
 }
 
 MATCHER_P(DictSizeIs,
@@ -54,6 +67,18 @@ MATCHER_P2(DictContains,
   return arg.is_dictionary() && arg.GetDictionaryItem(key) &&
          arg.GetDictionaryItem(key)->StrictlyEquals(
              ConvertToValueOrDie(std::move(value)));
+}
+
+MATCHER_P2(DictContainsLike,
+           key,
+           value_matcher,
+           /*description_string=*/std::string("dictionary has key \"") + key +
+               "\" with value " +
+               ::testing::DescribeMatcher<const Value&>(value_matcher,
+                                                        negation)) {
+  return arg.is_dictionary() && arg.GetDictionaryItem(key) &&
+         ::testing::ExplainMatchResult(
+             value_matcher, *arg.GetDictionaryItem(key), result_listener);
 }
 
 }  // namespace google_smart_card
