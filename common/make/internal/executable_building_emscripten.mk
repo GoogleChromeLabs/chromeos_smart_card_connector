@@ -107,7 +107,7 @@ EMSCRIPTEN_COMPILER_FLAGS := \
 # PTHREAD_POOL_SIZE_STRICT: Suppress runtime warnings when a new worker has to
 #   start for a new thread (this warning is confusing and is mostly useful in
 #   early days of development).
-# TOTAL_STACK: Increase the initial stack size (Emscripten's default 64KB are
+# STACK_SIZE: Increase the initial stack size (Emscripten's default 64KB are
 #   very tight, and while some code in this project calls
 #   pthread_attr_setstacksize() its parameters aren't chosen with Emscripten's
 #   heavy stack consumption in mind).
@@ -128,7 +128,7 @@ EMSCRIPTEN_LINKER_FLAGS := \
   -s MIN_SAFARI_VERSION=-1 \
   -s MODULARIZE=1 \
   -s PTHREAD_POOL_SIZE_STRICT=0 \
-  -s TOTAL_STACK=1048576 \
+  -s STACK_SIZE=1048576 \
   -Wno-pthreads-mem-growth \
 
 ifeq ($(CONFIG),Release)
