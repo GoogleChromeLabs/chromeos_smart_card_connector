@@ -36,12 +36,7 @@ const GSC = GoogleSmartCard;
  */
 GSC.Random.randomIntegerNumber = function() {
   const randomBytes = new Uint8Array(RANDOM_INTEGER_BYTE_COUNT);
-  if (typeof window !== 'undefined') {
-    window.crypto.getRandomValues(randomBytes);
-  } else {
-    // We're likely inside a Service Worker.
-    self.crypto.getRandomValues(randomBytes);
-  }
+  globalThis.crypto.getRandomValues(randomBytes);
   let result = 0;
   goog.array.forEach(randomBytes, function(byteValue) {
     result = result * 256 + byteValue;
