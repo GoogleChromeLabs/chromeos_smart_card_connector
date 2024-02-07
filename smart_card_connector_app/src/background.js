@@ -75,7 +75,7 @@ goog.log.info(
     logger,
     `The Smart Card Connector app (id "${chrome.runtime.id}", version ` +
         `${extensionManifest.version}) background script started. Browser ` +
-        `version: "${window.navigator.appVersion}".`);
+        `version: "${globalThis.navigator.appVersion}".`);
 
 /**
  * Loads the binary executable module depending on the toolchain configuration.
