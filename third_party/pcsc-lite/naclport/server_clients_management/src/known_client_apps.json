@@ -105,5 +105,8 @@
   "chrome-extension://naabfciimcjlmnohcligmgihhpihloah": {
     "name": "IDmelon Accesskey",
     "autoapprove": true
+  },
+  "chrome-extension://llebpckeffoilhileclionlofjgnhbdp": {
+    "name": "Net iD"
   }
 }
