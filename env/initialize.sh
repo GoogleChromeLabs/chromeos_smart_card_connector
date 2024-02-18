@@ -226,7 +226,7 @@ initialize_chromedriver() {
     return
   fi
   # Download Chromedriver.
-  local chromedriver_url="https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${chromedriver_version}/linux64/chromedriver-linux64.zip"
+  local chromedriver_url="https://storage.googleapis.com/chrome-for-testing-public/${chromedriver_version}/linux64/chromedriver-linux64.zip"
   if ! wget "${chromedriver_url}" ; then
     log_error_message "Failed to fetch chromedriver at ${chromedriver_url} ; skipping chromedriver installation..."
     return
