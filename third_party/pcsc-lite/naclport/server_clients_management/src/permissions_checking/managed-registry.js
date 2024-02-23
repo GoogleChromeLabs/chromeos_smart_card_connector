@@ -55,6 +55,13 @@ const PermissionsChecking =
 PermissionsChecking.ManagedRegistry = function() {
   /** @type {!goog.promise.Resolver} @private @const */
   this.managedStoragePromiseResolver_ = goog.Promise.withResolver();
+
+  /**
+   * Map storing promise resolvers per client origin for pending requests.
+   * @type {!Map.<string, !goog.promise.Resolver>} @private @const
+   */
+  this.pendingPermissionsResolvers_ = new Map();
+
   /**
    * @type {!Set.<string>}
    * @private
@@ -104,6 +111,25 @@ ManagedRegistry.prototype.getByOrigin = function(clientOrigin) {
       this);
 
   return promiseResolver.promise;
+};
+
+/**
+ * Stores the promise resolver of a pending permissions request.
+ * @param {string} clientOrigin
+ * @param {!goog.promise.Resolver} promiseResolver
+ */
+ManagedRegistry.prototype.startMonitoringPermissionsForClientOrigin = function(
+    clientOrigin, promiseResolver) {
+  this.pendingPermissionsResolvers_.set(clientOrigin, promiseResolver);
+};
+
+/**
+ * Removes the client origin and its corresponding permissions resolver.
+ * @param {string} clientOrigin
+ */
+ManagedRegistry.prototype.stopMonitoringPermissionsForClientOrigin = function(
+    clientOrigin) {
+  this.pendingPermissionsResolvers_.delete(clientOrigin);
 };
 
 /** @private */
@@ -167,6 +193,7 @@ ManagedRegistry.prototype.storageChangedListener_ = function(
           'Loaded the updated managed storage data with the allowed client ' +
               'origins: ' +
               GSC.DebugDump.debugDumpFull(this.allowedClientOrigins_));
+      this.updatePendingPermissionsResolvers_();
     }
   }
 };
@@ -208,6 +235,25 @@ ManagedRegistry.prototype.setAllowedClientOriginsFromStorageData_ = function(
   this.allowedClientOrigins_ = newAllowedClientOrigins;
   return true;
 };
+
+
+/**
+ * Resolves any pending permissions requests for allowed client origins.
+ * @private
+ */
+ManagedRegistry.prototype.updatePendingPermissionsResolvers_ = function() {
+  const clientOrigins = Array.from(this.pendingPermissionsResolvers_.keys());
+  goog.array.forEach(clientOrigins, (clientOrigin) => {
+    if (this.allowedClientOrigins_.has(clientOrigin)) {
+      const promiseResolver = this.pendingPermissionsResolvers_.get(
+          clientOrigin);
+      if (promiseResolver !== undefined) {
+        this.pendingPermissionsResolvers_.delete(clientOrigin);
+        promiseResolver.resolve();
+      }
+    }
+  });
+}
 
 /**
  * Returns a client origin from the given policy-configured string.

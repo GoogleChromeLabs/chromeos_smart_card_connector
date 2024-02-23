@@ -54,6 +54,9 @@ let WindowOptions;
 /** @const */
 GSC.PopupOpener.WindowOptions = WindowOptions;
 
+/** @type {!Map.<string, number>} */
+const clientOriginToWindowId = new Map();
+
 /** @type {!GSC.PopupOpener.WindowOptions} */
 const DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS = {
   'alwaysOnTop': true,
@@ -105,12 +108,15 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
           },
           createWindowCallback.bind(null, createdWindowExtends));
     } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
-      chrome.windows.create({
-        'url': url,
-        'type': 'popup',
-        'width': windowOptions['width'],
-        'setSelfAsOpener': true
-      });
+      chrome.windows.create(
+        {
+          'url': url,
+          'type': 'popup',
+          'width': windowOptions['width'],
+          'setSelfAsOpener': true
+        }, (createdWindow) => {
+          clientOriginToWindowId.set(windowOptions['id'], createdWindow.id);
+        });
     } else {
       GSC.Logging.failWithLogger(
           logger, `Unexpected packaging mode ${GSC.Packaging.MODE}`);
@@ -174,6 +180,26 @@ GSC.PopupOpener.runModalDialog = function(url, opt_windowOptions, opt_data) {
       createWindowOptions, modifiedData);
   return promiseResolver.promise;
 };
+
+/**
+ * Close modal dialog.
+ * @param {string} id The window ID of the window to be closed.
+ */
+GSC.PopupOpener.closeModalDialog = async function(id) {
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
+    const window = chrome.app.window.get(id);
+    if (window != null){
+      window.close();
+      return;
+    }
+  } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    const windowId = clientOriginToWindowId.get(id);
+    if (windowId !== undefined) {
+      clientOriginToWindowId.delete(id);
+      chrome.windows.remove(windowId);
+    }
+  }
+}
 
 /**
  * @param {!Object} createdWindowExtends

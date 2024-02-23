@@ -131,6 +131,21 @@ GSC.Pcsc.PolicyOrPromptingPermissionsChecker =
    * @private
    */
   checkByUserPromptingChecker_(clientOrigin, checkPromiseResolver) {
+    const promiseResolver = goog.Promise.withResolver();
+    promiseResolver.promise.then(checkPromiseResolver.resolve);
+    this.managedRegistry_.startMonitoringPermissionsForClientOrigin(
+        clientOrigin, promiseResolver);
+
+    checkPromiseResolver.promise.then(() => {
+      this.userPromptingChecker_.cancelUserPromptIfPending(clientOrigin);
+      this.managedRegistry_.stopMonitoringPermissionsForClientOrigin(
+          clientOrigin);
+    },
+    () => {
+      this.managedRegistry_.stopMonitoringPermissionsForClientOrigin(
+          clientOrigin);
+    });
+
     this.userPromptingChecker_.check(clientOrigin)
         .then(checkPromiseResolver.resolve, checkPromiseResolver.reject);
   }

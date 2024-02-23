@@ -39,6 +39,7 @@ goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistry');
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistryImpl');
 goog.require('GoogleSmartCard.PopupOpener');
 goog.require('GoogleSmartCard.PromisifyExtensionApi');
+goog.require('goog.Promise');
 goog.require('goog.iter');
 goog.require('goog.log');
 goog.require('goog.log.Logger');
@@ -51,9 +52,7 @@ const LOCAL_STORAGE_KEY = 'pcsc_lite_clients_user_selections';
 const USER_PROMPT_DIALOG_URL =
     'pcsc_lite_server_clients_management/user-prompt-dialog.html';
 
-const USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES = {
-  'width': 300
-};
+const USER_PROMPT_DIALOG_WINDOW_WIDTH = 300;
 
 const GSC = GoogleSmartCard;
 
@@ -86,6 +85,9 @@ PermissionsChecking.UserPromptingChecker = function() {
 
   /** @type {!Map.<string, !Promise<void>>} @private @const */
   this.checkPromiseMap_ = new Map();
+
+  /** @type {!Set.<string>} @private @const */
+  this.pendingClientOrigins_ = new Set();
 };
 
 const UserPromptingChecker = PermissionsChecking.UserPromptingChecker;
@@ -203,6 +205,22 @@ UserPromptingChecker.prototype.doCheck = async function(clientOrigin) {
   return Promise.reject(
       new Error('Rejected permission due to the stored user selection'));
 };
+
+/**
+ * @param {string} clientOrigin
+ * @return {!Promise<void>}
+ */
+UserPromptingChecker.prototype.cancelUserPromptIfPending = async function(
+    clientOrigin) {
+  if (this.pendingClientOrigins_.has(clientOrigin)) {
+    goog.log.info(
+      this.logger,
+      'Close the prompt dialog for client ' + clientOrigin +
+          ' as permissions have already been granted via the managed registry');
+    this.pendingClientOrigins_.delete(clientOrigin);
+    await GSC.PopupOpener.closeModalDialog(clientOrigin);
+  }
+}
 
 /**
  * @return {!Promise<!Map<string, boolean>>}
@@ -378,10 +396,22 @@ UserPromptingChecker.prototype.runPromptDialog_ =
       GSC.PopupOpener.runModalDialog;
   let dialogResult;
   try {
+    const userPromptDialogWindowOptions = {
+      'id': clientOrigin,
+      'width': USER_PROMPT_DIALOG_WINDOW_WIDTH,
+    };
+    this.pendingClientOrigins_.add(clientOrigin);
     dialogResult = await modalDialogRunner(
-        USER_PROMPT_DIALOG_URL, USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES,
+        USER_PROMPT_DIALOG_URL, userPromptDialogWindowOptions,
         userPromptDialogData);
   } catch (exc) {
+    if (!this.pendingClientOrigins_.has(clientOrigin)) {
+      // The user prompt has been cancelled because permission was granted by
+      // the managed registry.
+      return Promise.resolve();
+    }
+    this.pendingClientOrigins_.delete(clientOrigin);
+
     // Note that we don't remember negative user selections persistently.
     goog.log.info(
         this.logger,
@@ -393,6 +423,7 @@ UserPromptingChecker.prototype.runPromptDialog_ =
         'prompt dialog'));
   }
   if (!dialogResult) {
+    this.pendingClientOrigins_.delete(clientOrigin);
     // Note that we don't remember negative user selections persistently.
     goog.log.info(
         this.logger,
