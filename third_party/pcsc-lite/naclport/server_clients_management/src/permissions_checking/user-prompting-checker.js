@@ -216,7 +216,7 @@ UserPromptingChecker.prototype.cancelUserPromptIfPending = async function(
     goog.log.info(
       this.logger,
       'Close the prompt dialog for client ' + clientOrigin +
-          ' as permissions have already been granted via the managed registry');
+          ' as permissions have been granted via the managed registry');
     this.pendingClientOrigins_.delete(clientOrigin);
     await GSC.PopupOpener.closeModalDialog(clientOrigin);
   }

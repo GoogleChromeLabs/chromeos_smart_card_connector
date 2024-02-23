@@ -55,7 +55,7 @@ let WindowOptions;
 GSC.PopupOpener.WindowOptions = WindowOptions;
 
 /** @type {!Map.<string, number>} */
-const clientOriginToWindowId = new Map();
+const windowIdMap = new Map();
 
 /** @type {!GSC.PopupOpener.WindowOptions} */
 const DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS = {
@@ -115,7 +115,7 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
           'width': windowOptions['width'],
           'setSelfAsOpener': true
         }, (createdWindow) => {
-          clientOriginToWindowId.set(windowOptions['id'], createdWindow.id);
+          windowIdMap.set(windowOptions['id'], createdWindow.id);
         });
     } else {
       GSC.Logging.failWithLogger(
@@ -182,7 +182,7 @@ GSC.PopupOpener.runModalDialog = function(url, opt_windowOptions, opt_data) {
 };
 
 /**
- * Close modal dialog.
+ * Close the modal dialog with the given window ID.
  * @param {string} id The window ID of the window to be closed.
  */
 GSC.PopupOpener.closeModalDialog = async function(id) {
@@ -190,13 +190,12 @@ GSC.PopupOpener.closeModalDialog = async function(id) {
     const window = chrome.app.window.get(id);
     if (window != null){
       window.close();
-      return;
     }
   } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
-    const windowId = clientOriginToWindowId.get(id);
+    const windowId = windowIdMap.get(id);
     if (windowId !== undefined) {
-      clientOriginToWindowId.delete(id);
-      chrome.windows.remove(windowId);
+      windowIdMap.delete(id);
+      await chrome.windows.remove(windowId);
     }
   }
 }
