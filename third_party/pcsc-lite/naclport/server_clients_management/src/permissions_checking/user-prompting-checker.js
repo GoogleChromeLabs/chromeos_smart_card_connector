@@ -220,7 +220,7 @@ UserPromptingChecker.prototype.cancelUserPromptIfPending = async function(
     this.pendingClientOrigins_.delete(clientOrigin);
     await GSC.PopupOpener.closeModalDialog(clientOrigin);
   }
-}
+};
 
 /**
  * @return {!Promise<!Map<string, boolean>>}

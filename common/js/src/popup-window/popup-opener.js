@@ -188,7 +188,7 @@ GSC.PopupOpener.runModalDialog = function(url, opt_windowOptions, opt_data) {
 GSC.PopupOpener.closeModalDialog = async function(id) {
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
     const window = chrome.app.window.get(id);
-    if (window != null){
+    if (window !== null){
       window.close();
     }
   } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
@@ -198,7 +198,7 @@ GSC.PopupOpener.closeModalDialog = async function(id) {
       await chrome.windows.remove(windowId);
     }
   }
-}
+};
 
 /**
  * @param {!Object} createdWindowExtends

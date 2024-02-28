@@ -257,7 +257,7 @@ ManagedRegistry.prototype.updatePendingPermissionResolvers_ = function() {
       }
     }
   });
-}
+};
 
 /**
  * Returns a client origin from the given policy-configured string.
