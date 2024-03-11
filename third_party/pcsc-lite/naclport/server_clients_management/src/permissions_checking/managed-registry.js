@@ -55,6 +55,13 @@ const PermissionsChecking =
 PermissionsChecking.ManagedRegistry = function() {
   /** @type {!goog.promise.Resolver} @private @const */
   this.managedStoragePromiseResolver_ = goog.Promise.withResolver();
+
+  /**
+   * Map storing promise resolvers per client origin for pending requests.
+   * @type {!Map.<string, !goog.promise.Resolver>} @private @const
+   */
+  this.pendingPermissionResolvers_ = new Map();
+
   /**
    * @type {!Set.<string>}
    * @private
@@ -104,6 +111,29 @@ ManagedRegistry.prototype.getByOrigin = function(clientOrigin) {
       this);
 
   return promiseResolver.promise;
+};
+
+/**
+ * Adds the passed clientOrigin and promise resolver corresponding to a
+ * currently pending permissions request to a map. If the managed registry is
+ * updated whilst the request is still pending and a permission for the client
+ * origin is added, the promise will be resolved.
+ * @param {string} clientOrigin
+ * @param {!goog.promise.Resolver} promiseResolver
+ */
+ManagedRegistry.prototype.startMonitoringPermissionsForClientOrigin = function(
+    clientOrigin, promiseResolver) {
+  this.pendingPermissionResolvers_.set(clientOrigin, promiseResolver);
+};
+
+/**
+ * Removes the client origin and its corresponding permissions resolver from the
+ * map.
+ * @param {string} clientOrigin
+ */
+ManagedRegistry.prototype.stopMonitoringPermissionsForClientOrigin = function(
+    clientOrigin) {
+  this.pendingPermissionResolvers_.delete(clientOrigin);
 };
 
 /** @private */
@@ -167,6 +197,7 @@ ManagedRegistry.prototype.storageChangedListener_ = function(
           'Loaded the updated managed storage data with the allowed client ' +
               'origins: ' +
               GSC.DebugDump.debugDumpFull(this.allowedClientOrigins_));
+      this.updatePendingPermissionResolvers_();
     }
   }
 };
@@ -207,6 +238,25 @@ ManagedRegistry.prototype.setAllowedClientOriginsFromStorageData_ = function(
     return false;
   this.allowedClientOrigins_ = newAllowedClientOrigins;
   return true;
+};
+
+
+/**
+ * Resolves any pending permissions requests for allowed client origins.
+ * @private
+ */
+ManagedRegistry.prototype.updatePendingPermissionResolvers_ = function() {
+  const clientOrigins = Array.from(this.pendingPermissionResolvers_.keys());
+  goog.array.forEach(clientOrigins, (clientOrigin) => {
+    if (this.allowedClientOrigins_.has(clientOrigin)) {
+      const promiseResolver =
+          this.pendingPermissionResolvers_.get(clientOrigin);
+      if (promiseResolver !== undefined) {
+        this.pendingPermissionResolvers_.delete(clientOrigin);
+        promiseResolver.resolve();
+      }
+    }
+  });
 };
 
 /**

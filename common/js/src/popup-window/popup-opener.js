@@ -54,6 +54,9 @@ let WindowOptions;
 /** @const */
 GSC.PopupOpener.WindowOptions = WindowOptions;
 
+/** @type {!Map.<string, number>} */
+const windowIdMap = new Map();
+
 /** @type {!GSC.PopupOpener.WindowOptions} */
 const DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS = {
   'alwaysOnTop': true,
@@ -72,6 +75,11 @@ const logger = GSC.Logging.getScopedLogger('PopupWindow.PopupOpener');
  * ID used to differentiate between different popup instances.
  */
 let lastUsedPopupId = 0;
+
+/**
+ * Variable to track whether window removal is already being observed.
+ */
+let observingWindowRemoval = false;
 
 /**
  * Creates a new window.
@@ -105,12 +113,22 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
           },
           createWindowCallback.bind(null, createdWindowExtends));
     } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
-      chrome.windows.create({
-        'url': url,
-        'type': 'popup',
-        'width': windowOptions['width'],
-        'setSelfAsOpener': true
-      });
+      if (observingWindowRemoval === false) {
+        chrome.windows.onRemoved.addListener((windowId) => {
+          windowIdMap.delete(windowId);
+        });
+        observingWindowRemoval = true;
+      }
+      chrome.windows.create(
+          {
+            'url': url,
+            'type': 'popup',
+            'width': windowOptions['width'],
+            'setSelfAsOpener': true
+          },
+          (createdWindow) => {
+            windowIdMap.set(windowOptions['id'], createdWindow.id);
+          });
     } else {
       GSC.Logging.failWithLogger(
           logger, `Unexpected packaging mode ${GSC.Packaging.MODE}`);
@@ -173,6 +191,25 @@ GSC.PopupOpener.runModalDialog = function(url, opt_windowOptions, opt_data) {
       modifiedUrl.pathname + modifiedUrl.search + modifiedUrl.hash,
       createWindowOptions, modifiedData);
   return promiseResolver.promise;
+};
+
+/**
+ * Close the modal dialog with the given window ID.
+ * @param {string} id The window ID of the window to be closed.
+ */
+GSC.PopupOpener.closeModalDialog = async function(id) {
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
+    const window = chrome.app.window.get(id);
+    if (window !== null) {
+      window.close();
+    }
+  } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    const windowId = windowIdMap.get(id);
+    if (windowId !== undefined) {
+      windowIdMap.delete(id);
+      await chrome.windows.remove(windowId);
+    }
+  }
 };
 
 /**
