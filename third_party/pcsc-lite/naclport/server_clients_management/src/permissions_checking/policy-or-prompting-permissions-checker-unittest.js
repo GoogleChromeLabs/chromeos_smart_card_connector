@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2018 Google Inc. All Rights Reserved.
+ * Copyright 2024 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -234,7 +234,7 @@ goog.exportSymbol(
 goog.exportSymbol(
     'testPolicyOrPromptingPermissionChecker_UnrelatedStorageChange',
     runOnStorageChangedTest(
-      CLIENT_ORIGIN,
+        CLIENT_ORIGIN,
         {'foo': {'oldValue': ['bar'], 'newValue': []}} /* storageChanges */,
         'local' /* storageAreaName */, false /* expectPermissionsGranted */));
 });  // goog.scope

@@ -77,6 +77,11 @@ const logger = GSC.Logging.getScopedLogger('PopupWindow.PopupOpener');
 let lastUsedPopupId = 0;
 
 /**
+ * Variable to track whether window removal is already being observed.
+ */
+let observingWindowRemoval = false;
+
+/**
  * Creates a new window.
  * @param {string} url
  * @param {!WindowOptions} windowOptions
@@ -108,6 +113,12 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
           },
           createWindowCallback.bind(null, createdWindowExtends));
     } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+      if (observingWindowRemoval === false) {
+        chrome.windows.onRemoved.addListener((windowId) => {
+          windowIdMap.delete(windowId);
+        });
+        observingWindowRemoval = true;
+      }
       chrome.windows.create(
           {
             'url': url,
@@ -144,14 +155,8 @@ GSC.PopupOpener.runModalDialog = function(url, opt_windowOptions, opt_data) {
   if (opt_windowOptions !== undefined)
     Object.assign(createWindowOptions, opt_windowOptions);
 
-  if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
-    if (lastUsedPopupId === 0) {
-      chrome.windows.onRemoved.addListener((windowId) => {
-        windowIdMap.delete(windowId);
-      });
-    }
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION)
     lastUsedPopupId++;
-  }
 
   const promiseResolver = goog.Promise.withResolver();
 
