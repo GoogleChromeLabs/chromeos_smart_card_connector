@@ -136,15 +136,14 @@ GSC.Pcsc.PolicyOrPromptingPermissionsChecker =
     this.managedRegistry_.startMonitoringPermissionsForClientOrigin(
         clientOrigin, promiseResolver);
 
-    checkPromiseResolver.promise.then(() => {
-      this.userPromptingChecker_.cancelUserPromptIfPending(clientOrigin);
-      this.managedRegistry_.stopMonitoringPermissionsForClientOrigin(
-          clientOrigin);
-    },
-    () => {
-      this.managedRegistry_.stopMonitoringPermissionsForClientOrigin(
-          clientOrigin);
-    });
+    checkPromiseResolver.promise
+        .then(() => {
+          this.userPromptingChecker_.cancelUserPromptIfPending(clientOrigin);
+        })
+        .thenAlways(() => {
+          this.managedRegistry_.stopMonitoringPermissionsForClientOrigin(
+              clientOrigin);
+        });
 
     this.userPromptingChecker_.check(clientOrigin)
         .then(checkPromiseResolver.resolve, checkPromiseResolver.reject);

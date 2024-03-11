@@ -210,13 +210,13 @@ UserPromptingChecker.prototype.doCheck = async function(clientOrigin) {
  * @param {string} clientOrigin
  * @return {!Promise<void>}
  */
-UserPromptingChecker.prototype.cancelUserPromptIfPending = async function(
-    clientOrigin) {
+UserPromptingChecker.prototype.cancelUserPromptIfPending =
+    async function(clientOrigin) {
   if (this.pendingClientOrigins_.has(clientOrigin)) {
     goog.log.info(
-      this.logger,
-      'Close the prompt dialog for client ' + clientOrigin +
-          ' as permissions have been granted via the managed registry');
+        this.logger,
+        'Close the prompt dialog for client ' + clientOrigin +
+            ' as permissions have been granted via the managed registry');
     this.pendingClientOrigins_.delete(clientOrigin);
     await GSC.PopupOpener.closeModalDialog(clientOrigin);
   }

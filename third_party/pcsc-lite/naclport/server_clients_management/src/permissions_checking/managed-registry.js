@@ -249,8 +249,8 @@ ManagedRegistry.prototype.updatePendingPermissionResolvers_ = function() {
   const clientOrigins = Array.from(this.pendingPermissionResolvers_.keys());
   goog.array.forEach(clientOrigins, (clientOrigin) => {
     if (this.allowedClientOrigins_.has(clientOrigin)) {
-      const promiseResolver = this.pendingPermissionResolvers_.get(
-          clientOrigin);
+      const promiseResolver =
+          this.pendingPermissionResolvers_.get(clientOrigin);
       if (promiseResolver !== undefined) {
         this.pendingPermissionResolvers_.delete(clientOrigin);
         promiseResolver.resolve();

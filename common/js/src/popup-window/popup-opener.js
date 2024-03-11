@@ -109,14 +109,15 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
           createWindowCallback.bind(null, createdWindowExtends));
     } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
       chrome.windows.create(
-        {
-          'url': url,
-          'type': 'popup',
-          'width': windowOptions['width'],
-          'setSelfAsOpener': true
-        }, (createdWindow) => {
-          windowIdMap.set(windowOptions['id'], createdWindow.id);
-        });
+          {
+            'url': url,
+            'type': 'popup',
+            'width': windowOptions['width'],
+            'setSelfAsOpener': true
+          },
+          (createdWindow) => {
+            windowIdMap.set(windowOptions['id'], createdWindow.id);
+          });
     } else {
       GSC.Logging.failWithLogger(
           logger, `Unexpected packaging mode ${GSC.Packaging.MODE}`);
@@ -143,8 +144,14 @@ GSC.PopupOpener.runModalDialog = function(url, opt_windowOptions, opt_data) {
   if (opt_windowOptions !== undefined)
     Object.assign(createWindowOptions, opt_windowOptions);
 
-  if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION)
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    if (lastUsedPopupId === 0) {
+      chrome.windows.onRemoved.addListener((windowId) => {
+        windowIdMap.delete(windowId);
+      });
+    }
     lastUsedPopupId++;
+  }
 
   const promiseResolver = goog.Promise.withResolver();
 
@@ -188,7 +195,7 @@ GSC.PopupOpener.runModalDialog = function(url, opt_windowOptions, opt_data) {
 GSC.PopupOpener.closeModalDialog = async function(id) {
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
     const window = chrome.app.window.get(id);
-    if (window !== null){
+    if (window !== null) {
       window.close();
     }
   } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
