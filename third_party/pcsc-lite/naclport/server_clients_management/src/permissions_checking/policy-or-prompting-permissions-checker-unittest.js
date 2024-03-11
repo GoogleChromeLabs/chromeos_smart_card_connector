@@ -189,7 +189,7 @@ function runOnStorageChangedTest(
         // Resolve the test promise - by simply returning from this callback.
       };
       const reject = function() {
-        fail('Unexpected permissions check response')
+        fail('Unexpected permissions check response');
       };
       testPromise = expectPermissionsGranted ?
           permissionsCheckPromise.then(resolve, reject) :
@@ -208,7 +208,7 @@ function runOnStorageChangedTest(
 // Test that the user prompt is automatically closed and permissions are granted
 // when permissions are added to the managed storage.
 goog.exportSymbol(
-    'testPolicyOrPromptingPermissionChecker_OnStorageChanged_ApprovedViaManagedRegistry',
+    'testPolicyOrPromptingPermissionChecker_ApprovedOnManagedStorageChange',
     runOnStorageChangedTest(
         CLIENT_ORIGIN, {
           [MANAGED_STORAGE_KEY]:
@@ -220,7 +220,7 @@ goog.exportSymbol(
 // Regression test for issue #41.
 // Test that permissions are not granted on unrelated policy changes.
 goog.exportSymbol(
-    'testPolicyOrPromptingPermissionChecker_OnStorageChanged_UnrelatedOriginChange',
+    'testPolicyOrPromptingPermissionChecker_UnrelatedOriginChange',
     runOnStorageChangedTest(
         CLIENT_ORIGIN, {
           [MANAGED_STORAGE_KEY]:
@@ -230,9 +230,9 @@ goog.exportSymbol(
         false /* expectPermissionsGranted */));
 
 // Regression test for issue #41.
-// Test that permissions are not granted on unrelated policy changes.
+// Test that permissions are not granted on unrelated storage changes.
 goog.exportSymbol(
-    'testPolicyOrPromptingPermissionChecker_OnStorageChanged_UnrelatedStorageChange',
+    'testPolicyOrPromptingPermissionChecker_UnrelatedStorageChange',
     runOnStorageChangedTest(
       CLIENT_ORIGIN,
         {'foo': {'oldValue': ['bar'], 'newValue': []}} /* storageChanges */,
