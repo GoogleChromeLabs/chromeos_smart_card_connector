@@ -38,8 +38,8 @@
  * * Subscribing to a special Chrome Extensions API event that makes the App
  *   auto-loading.
  *
- * Note that the App's background page will be never unloaded as long as it has
- * an open messaging channel to Smart Card Connector - see
+ * Note that the application's background page will be never unloaded as long as
+ * it has an open messaging channel to Smart Card Connector - see
  * <https://chromeenterprise.google/policies/#ExtensionExtendedBackgroundLifetimeForPortConnectionsToUrls>.
  */
 
