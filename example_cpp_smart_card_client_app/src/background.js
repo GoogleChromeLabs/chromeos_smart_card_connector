@@ -49,7 +49,6 @@
 goog.provide('SmartCardClientApp.BackgroundMain');
 
 goog.require('GoogleSmartCard.AppUtils');
-goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.EmscriptenModule');
 goog.require('GoogleSmartCard.ExecutableModule');
 goog.require('GoogleSmartCard.Logging');

@@ -26,6 +26,7 @@ goog.require('GoogleSmartCard.LibusbToJsApiAdaptor');
 goog.require('GoogleSmartCard.LibusbToWebusbAdaptor');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.RemoteCallMessage');
+goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('GoogleSmartCard.StubLibusbToJsApiAdaptor');
 goog.require('goog.Thenable');
 goog.require('goog.log');

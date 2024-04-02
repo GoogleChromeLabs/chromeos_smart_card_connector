@@ -28,6 +28,7 @@
 
 goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.ManagedRegistry');
 
+goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.ExtensionId');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.MessagingOrigin');

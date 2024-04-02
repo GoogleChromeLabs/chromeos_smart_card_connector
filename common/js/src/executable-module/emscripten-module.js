@@ -22,6 +22,7 @@
 
 goog.provide('GoogleSmartCard.EmscriptenModule');
 
+goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.ExecutableModule');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PromiseHelpers');

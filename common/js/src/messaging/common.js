@@ -22,6 +22,7 @@
 
 goog.provide('GoogleSmartCard.MessagingCommon');
 
+goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.ObjectHelpers');
 goog.require('goog.asserts');

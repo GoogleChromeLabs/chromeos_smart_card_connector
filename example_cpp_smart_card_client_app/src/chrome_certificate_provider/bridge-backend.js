@@ -24,6 +24,7 @@
 
 goog.provide('SmartCardClientApp.CertificateProviderBridge.Backend');
 
+goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.DeferredProcessor');
 goog.require('GoogleSmartCard.ExecutableModule');
 goog.require('GoogleSmartCard.Logging');

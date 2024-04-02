@@ -18,6 +18,7 @@
 goog.provide('GoogleSmartCard.ConnectorApp.ChromeApiProvider');
 
 goog.require('GoogleSmartCard.DebugDump');
+goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PcscLiteClient.API');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ServerRequestHandler');
 goog.require('goog.Thenable');
