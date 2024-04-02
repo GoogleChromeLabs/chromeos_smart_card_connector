@@ -38,12 +38,9 @@
  * * Subscribing to a special Chrome Extensions API event that makes the App
  *   auto-loading.
  *
- * Note that the App's background page will be never unloaded by Chrome due to
- * inactivity (in contrast to how it usually manages the background pages - see
- * <https://developer.chrome.com/apps/event_pages#lifetime>), because having an
- * attached NaCl module disables this unloading mechanism (see
- * <http://crbug.com/472532>).
- * TODO(#220): Figure out the story with the Emscripten/WebAssembly builds.
+ * Note that the App's background page will be never unloaded as long as it has
+ * an open messaging channel to Smart Card Connector - see
+ * <https://chromeenterprise.google/policies/#ExtensionExtendedBackgroundLifetimeForPortConnectionsToUrls>.
  */
 
 goog.provide('SmartCardClientApp.BackgroundMain');
