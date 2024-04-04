@@ -108,7 +108,8 @@ GSC.PortMessageChannel = class extends goog.messaging.AbstractChannel {
     goog.asserts.assertObject(payload);
 
     const normalizedPayload =
-        GSC.ContainerHelpers.substituteArrayBuffersRecursively(payload);
+        GSC.ContainerHelpers.substituteArrayBufferLikeObjectsRecursively(
+            payload);
 
     const typedMessage = new GSC.TypedMessage(serviceName, normalizedPayload);
     const message = typedMessage.makeMessage();
