@@ -150,10 +150,12 @@ $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/about-window.css))
 
 
 # Rules for the background page unload preventing feature. This feature is only
-# used in the Emscripten builds - see the src/background.js file for
-# explanation. Here we add rules that compile the .js file for the iframe and
-# copy it, together with an .html file, to the out directory.
+# used in the non-extension Emscripten builds - see the src/background.js file
+# for explanation. Here we add rules that compile the .js file for the iframe
+# and copy it, together with an .html file, to the out directory.
 
 ifeq ($(TOOLCHAIN),emscripten)
+ifneq ($(PACKAGING),extension)
 $(eval $(JS_COMMON_BACKGROUND_PAGE_UNLOAD_PREVENTING_IFRAME_RULE))
+endif
 endif

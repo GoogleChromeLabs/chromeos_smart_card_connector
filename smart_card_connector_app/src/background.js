@@ -156,13 +156,16 @@ chrome.runtime.onConnectExternal.addListener(externalConnectionListener);
 chrome.runtime.onMessageExternal.addListener(externalMessageListener);
 
 if (GSC.ExecutableModule.TOOLCHAIN ===
-    GSC.ExecutableModule.Toolchain.EMSCRIPTEN) {
+        GSC.ExecutableModule.Toolchain.EMSCRIPTEN &&
+    GSC.Packaging.MODE !== GSC.Packaging.Mode.EXTENSION) {
   // Open a message channel to an invisible iframe, in order to keep our
   // background page always alive, and hence be responsive to incoming smart
   // card requests. The user who doesn't like extra resource usage can uninstall
   // our application if they don't actually use smart cards.
   // This trick wasn't needed for NaCl, since Chrome was keeping the extension's
   // page alive as long as the NaCl module is running.
+  // This code doesn't work in manifest v3, hence it's disabled in the
+  // `EXTENSION` packaging mode.
   GSC.BackgroundPageUnloadPreventing.enable();
 }
 
