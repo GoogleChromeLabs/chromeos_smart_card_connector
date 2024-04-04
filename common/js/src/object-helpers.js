@@ -22,6 +22,7 @@
 
 goog.provide('GoogleSmartCard.ObjectHelpers');
 
+goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('goog.log.Logger');
 goog.require('goog.object');
