@@ -92,7 +92,6 @@ goog.exportSymbol('testSubstituteArrayBuffersRecursively', function() {
   assertEquals(substituteArrayBufferLikeObjectsRecursively(Array), Array);
 });
 
-
 goog.exportSymbol('testSubstituteDataViewsRecursively', function() {
   const emptyView = new DataView(new ArrayBuffer(/*length=*/ 0));
   const buffer1234 = (new Uint8Array([1, 2, 3, 4])).buffer;
