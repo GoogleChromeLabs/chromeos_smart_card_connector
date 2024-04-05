@@ -76,11 +76,12 @@ goog.exportSymbol('testSubstituteArrayBuffersRecursively', function() {
 
   assertObjectEquals(substituteArrayBufferLikeObjectsRecursively({}), {});
   assertObjectEquals(
-      substituteArrayBufferLikeObjectsRecursively({foo: {bar: 1, baz: null}}),
-      {foo: {bar: 1, baz: null}});
+      substituteArrayBufferLikeObjectsRecursively(
+          {'foo': {'bar': 1, 'baz': null}}),
+      {'foo': {'bar': 1, 'baz': null}});
   assertObjectEquals(
-      substituteArrayBufferLikeObjectsRecursively({foo: buffer12}),
-      {foo: [1, 2]});
+      substituteArrayBufferLikeObjectsRecursively({'foo': buffer12}),
+      {'foo': [1, 2]});
 
   const uint8Array = new Uint8Array([1, 2, 255]);
   assertEquals(
