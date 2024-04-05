@@ -1,0 +1,86 @@
+From 33110fa1b497698321bb2a17b9f8d81afedd2b31 Mon Sep 17 00:00:00 2001
+From: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date: Fri, 5 Apr 2024 18:36:10 +0200
+Subject: [PATCH] Add AvidCard CAC Smart Card Reader
+
+---
+ readers/AvidCard_AvidCardCAC_A.txt | 55 ++++++++++++++++++++++++++++++
+ readers/supported_readers.txt      |  3 ++
+ 2 files changed, 58 insertions(+)
+ create mode 100644 readers/AvidCard_AvidCardCAC_A.txt
+
+diff --git a/readers/AvidCard_AvidCardCAC_A.txt b/readers/AvidCard_AvidCardCAC_A.txt
+new file mode 100644
+index 00000000..7809de5e
+--- /dev/null
++++ b/readers/AvidCard_AvidCardCAC_A.txt
+@@ -0,0 +1,55 @@
++ idVendor: 0x04E6
++  iManufacturer: AvidCard
++ idProduct: 0x5824
++  iProduct: AvidCardCAC_A
++ bcdDevice: 6.02 (firmware release?)
++ bLength: 9
++ bDescriptorType: 4
++ bInterfaceNumber: 0
++ bAlternateSetting: 0
++ bNumEndpoints: 3
++  bulk-IN, bulk-OUT and Interrupt-IN
++ bInterfaceClass: 0x0B [Chip Card Interface Device Class (CCID)]
++ bInterfaceSubClass: 0
++ bInterfaceProtocol: 0
++  bulk transfer, optional interrupt-IN (CCID)
++ iInterface: CCID Interface
++ CCID Class Descriptor
++  bLength: 0x36
++  bDescriptorType: 0x21
++  bcdCCID: 1.10
++  bMaxSlotIndex: 0x00
++  bVoltageSupport: 0x07
++   5.0V
++   3.0V
++   1.8V
++  dwProtocols: 0x0000 0x0003
++   T=0
++   T=1
++  dwDefaultClock: 4.800 MHz
++  dwMaximumClock: 16.000 MHz
++  bNumClockSupported: 0 (will use whatever is returned)
++   IFD does not support GET CLOCK FREQUENCIES request: LIBUSB_ERROR_PIPE
++  dwDataRate: 12903 bps
++  dwMaxDataRate: 600000 bps
++  bNumDataRatesSupported: 0 (will use whatever is returned)
++   IFD does not support GET_DATA_RATES request: LIBUSB_ERROR_PIPE
++  dwMaxIFSD: 252
++  dwSynchProtocols: 0x00000000
++  dwMechanical: 0x00000000
++   No special characteristics
++  dwFeatures: 0x000100BA
++   ....02 Automatic parameter configuration based on ATR data
++   ....08 Automatic ICC voltage selection
++   ....10 Automatic ICC clock frequency change according to parameters
++   ....20 Automatic baud rate change according to frequency and Fi, Di params
++   ....80 Automatic PPS made by the CCID
++   01.... TPDU level exchange
++  dwMaxCCIDMessageLength: 271 bytes
++  bClassGetResponse: 0xFF
++   echoes the APDU class
++  bClassEnvelope: 0xFF
++   echoes the APDU class
++  wLcdLayout: 0x0000
++  bPINSupport: 0x00
++  bMaxCCIDBusySlots: 1
+diff --git a/readers/supported_readers.txt b/readers/supported_readers.txt
+index b5b9713b..b70c1f37 100644
+--- a/readers/supported_readers.txt
++++ b/readers/supported_readers.txt
+@@ -227,6 +227,9 @@
+ # AvestUA
+ 0xC1A6:0x0131:AvestUA AvestKey
+ 
++# AvidCard
++0x04E6:0x5824:AvidCard CAC Smart Card Reader
++
+ # Avtor
+ 0x15CF:0x0019:Avtor SecureToken
+ 0x15CF:0x001D:Avtor SC Reader 371
