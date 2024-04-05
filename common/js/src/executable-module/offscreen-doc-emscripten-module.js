@@ -92,8 +92,12 @@ GSC.OffscreenDocEmscriptenModule = class extends GSC.ExecutableModule {
 
   /** @override */
   startLoading() {
+    // Listen for incoming message channels from the Offscreen Document once
+    // it's loaded.
     chrome.runtime.onConnect.addListener((port) => this.onConnect_(port));
 
+    // Load the Offscreen Document. The loading arguments are passed via URL
+    // query parameters.
     const url = new URL(OFFSCREEN_DOC_URL, globalThis.location.href);
     url.searchParams.append(URL_PARAM, this.moduleName_);
     chrome.offscreen.createDocument(
@@ -103,6 +107,8 @@ GSC.OffscreenDocEmscriptenModule = class extends GSC.ExecutableModule {
           'justification': OFFSCREEN_DOC_JUSTIFICATION,
         },
         () => this.onOffscreenDocCreated_());
+    // Once the document is loaded, it'll immediately start loading the
+    // Emscripten module and report the status to us via m
   }
 
   /** @override */
