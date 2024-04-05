@@ -110,7 +110,7 @@ goog.exportSymbol('testSubstituteDataViewsRecursively', function() {
       ['a', [1, 2, 3, 4]]);
 
   assertObjectEquals(
-      substituteArrayBufferLikeObjectsRecursively({foo: view23}),
-      {foo: [2, 3]});
+      substituteArrayBufferLikeObjectsRecursively({'foo': view23}),
+      {'foo': [2, 3]});
 });
 });  // goog.scope
