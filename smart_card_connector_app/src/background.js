@@ -31,6 +31,7 @@ goog.require('GoogleSmartCard.MessageChannelPool');
 goog.require('GoogleSmartCard.MessagingCommon');
 goog.require('GoogleSmartCard.MessagingOrigin');
 goog.require('GoogleSmartCard.NaclModule');
+goog.require('GoogleSmartCard.OffscreenDocEmscriptenModule');
 goog.require('GoogleSmartCard.Packaging');
 goog.require('GoogleSmartCard.PcscLiteServer.ReaderTracker');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.AdminPolicyService');
@@ -87,7 +88,10 @@ function createExecutableModule() {
       return new GSC.NaclModule(
           'executable_module.nmf', GSC.NaclModule.Type.PNACL);
     case GSC.ExecutableModule.Toolchain.EMSCRIPTEN:
-      return new GSC.EmscriptenModule('executable_module');
+      if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION)
+        return new GSC.OffscreenDocEmscriptenModule('executable_module');
+      else
+        return new GSC.EmscriptenModule('executable_module');
   }
   GSC.Logging.fail(
       `Cannot load executable module: unknown toolchain ` +

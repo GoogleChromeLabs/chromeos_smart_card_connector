@@ -75,9 +75,9 @@ ${if PACKAGING=app}
   "minimum_chrome_version": "81",
 ${endif}
 ${if PACKAGING=extension}
-  # The earliest version containing the needed adjustments in WebUSB and
-  # WebAssembly.
-  "minimum_chrome_version": "96",
+  # The version in which Offscreen Documents were introduced. This is needed for
+  # the background multi-threaded WebAssembly modules to work.
+  "minimum_chrome_version": "109",
 ${endif}
 
   "default_locale": "en",
@@ -119,6 +119,12 @@ ${endif}
     # Needed for detecting the ChromeOS Lock Screen state (used for disabling
     # the USB communication if we run in-session and the screen is locked).
     "loginState",
+
+${if PACKAGING=extension}
+    # Offscreen Documents are needed for running the background multi-threaded
+    # WebAssembly module.
+    "offscreen",
+${endif}
 
     # Needed to answer to PCSC requests from the browser. This is part of the
     # Web Smart Card API implementation.
