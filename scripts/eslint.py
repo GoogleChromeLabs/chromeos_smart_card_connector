@@ -18,6 +18,7 @@
 
 import argparse
 from internal import find_files_for_linting
+import os
 import os.path
 import subprocess
 import sys
@@ -42,7 +43,10 @@ def run_linter(path, args):
              '--resolve-plugins-relative-to', env_path]
   if args.fix:
     command += ['--fix']
-  return subprocess.call(command) == 0
+  env = os.environ.copy()
+  # Force the older "eslintrc" config.
+  env['ESLINT_USE_FLAT_CONFIG'] = 'false'
+  return subprocess.call(command, env=env) == 0
 
 def main():
   args = parse_command_line_args()
