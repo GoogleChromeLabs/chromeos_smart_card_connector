@@ -51,6 +51,9 @@ const WRAPPER_SUBLOGGER_SCOPE = 'Wrapper';
  * @extends GSC.ExecutableModule
  */
 GSC.EmscriptenModule = class extends GSC.ExecutableModule {
+  /**
+   * @param {string} moduleName
+   */
   constructor(moduleName) {
     super();
     /** @type {string} @const @private */

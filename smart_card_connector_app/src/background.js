@@ -31,6 +31,7 @@ goog.require('GoogleSmartCard.MessageChannelPool');
 goog.require('GoogleSmartCard.MessagingCommon');
 goog.require('GoogleSmartCard.MessagingOrigin');
 goog.require('GoogleSmartCard.NaclModule');
+goog.require('GoogleSmartCard.OffscreenDocEmscriptenModule');
 goog.require('GoogleSmartCard.Packaging');
 goog.require('GoogleSmartCard.PcscLiteServer.ReaderTracker');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.AdminPolicyService');
@@ -87,7 +88,10 @@ function createExecutableModule() {
       return new GSC.NaclModule(
           'executable_module.nmf', GSC.NaclModule.Type.PNACL);
     case GSC.ExecutableModule.Toolchain.EMSCRIPTEN:
-      return new GSC.EmscriptenModule('executable_module');
+      if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION)
+        return new GSC.OffscreenDocEmscriptenModule('executable_module');
+      else
+        return new GSC.EmscriptenModule('executable_module');
   }
   GSC.Logging.fail(
       `Cannot load executable module: unknown toolchain ` +
@@ -151,7 +155,6 @@ executableModule.startLoading();
 if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP)
   chrome.app.runtime.onLaunched.addListener(launchedListener);
 
-chrome.runtime.onConnect.addListener(connectionListener);
 chrome.runtime.onConnectExternal.addListener(externalConnectionListener);
 chrome.runtime.onMessageExternal.addListener(externalMessageListener);
 
@@ -212,24 +215,6 @@ function addOnExecutableModuleDisposedListener(listener) {
 function launchedListener() {
   goog.log.fine(logger, 'Received onLaunched event, opening window...');
   GSC.ConnectorApp.Background.MainWindowManaging.openWindowDueToUserRequest();
-}
-
-/**
- * Called when the onConnect event is received.
- * @param {!Port} port
- */
-function connectionListener(port) {
-  goog.log.fine(logger, 'Received onConnect event');
-  if (port.name === GSC.BackgroundPageUnloadPreventing.MESSAGING_PORT_NAME) {
-    // The opener is the iframe that's loaded by
-    // `GSC.BackgroundPageUnloadPreventing.enable()`. That component sets up its
-    // own onConnect event listener and manages the port itself, so just ignore
-    // it here.
-    return;
-  }
-  // The opener will send PC/SC commands - create a handler for processing them.
-  const portMessageChannel = new GSC.PortMessageChannel(port);
-  createClientHandler(portMessageChannel, undefined);
 }
 
 /**
