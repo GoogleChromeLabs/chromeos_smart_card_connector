@@ -180,7 +180,7 @@ GSC.PopupOpener.runModalDialog = function(url, opt_windowOptions, opt_data) {
   if (opt_data !== undefined)
     Object.assign(modifiedData, opt_data);
 
-  const modifiedUrl = new URL(url, window.location.href);
+  const modifiedUrl = new URL(url, globalThis.location.href);
 
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
     modifiedUrl.searchParams.append(

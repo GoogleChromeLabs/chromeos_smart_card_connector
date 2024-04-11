@@ -202,7 +202,10 @@ class OffscreenDocMessageChannel extends goog.messaging.AbstractChannel {
     super();
     /** @type {!goog.messaging.AbstractChannel|null} @private */
     this.underlyingChannel_ = null;
-    /** @type {!Array<!{serviceName: string, payload: (string|!Object)}>} @private */
+    /**
+     * @type {!Array<!{serviceName: string, payload:
+     *     (string|!Object)}>} @private
+     */
     this.pendingOutgoingMessages_ = [];
   }
 

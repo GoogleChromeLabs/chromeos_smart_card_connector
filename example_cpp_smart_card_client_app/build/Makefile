@@ -55,6 +55,12 @@ $(eval $(call BUILD_JS_SCRIPT,background.js,$(JS_COMPILER_INPUT_PATHS),SmartCard
 $(eval $(call BUILD_JS_SCRIPT,window.js,$(JS_COMPILER_INPUT_PATHS),SmartCardClientApp.WindowMain,$(JS_COMPILER_FLAGS)))
 $(eval $(call BUILD_JS_SCRIPT,built-in-pin-dialog.js,$(JS_COMPILER_INPUT_PATHS),SmartCardClientApp.BuiltInPinDialog.Main,$(JS_COMPILER_FLAGS)))
 
+ifeq ($(TOOLCHAIN),emscripten)
+ifeq ($(PACKAGING),extension)
+$(eval $(call BUILD_JS_SCRIPT,emscripten-offscreen-doc.js,$(JS_COMPILER_INPUT_PATHS),GoogleSmartCard.EmscriptenInOffscreenDocMain,$(JS_COMPILER_FLAGS)))
+endif
+endif
+
 
 # Rules for invoking recursive make files that build the app's binary executable
 # module (build rules for it can be found at ./executable_module/Makefile).
@@ -70,3 +76,9 @@ $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/window.html))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/window.css))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/built_in_pin_dialog/built-in-pin-dialog.css))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/built_in_pin_dialog/built-in-pin-dialog.html))
+
+ifeq ($(TOOLCHAIN),emscripten)
+ifeq ($(PACKAGING),extension)
+$(eval $(call COPY_TO_OUT_DIR_RULE,$(ROOT_PATH)/common/js/src/executable-module/emscripten-offscreen-doc.html))
+endif
+endif

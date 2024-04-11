@@ -50,6 +50,8 @@ goog.require('GoogleSmartCard.EmscriptenModule');
 goog.require('GoogleSmartCard.ExecutableModule');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.NaclModule');
+goog.require('GoogleSmartCard.OffscreenDocEmscriptenModule');
+goog.require('GoogleSmartCard.Packaging');
 goog.require('GoogleSmartCard.PcscLiteClient.NaclClientBackend');
 goog.require('GoogleSmartCard.PcscLiteCommon.Constants');
 goog.require('GoogleSmartCard.PopupOpener');
@@ -123,7 +125,7 @@ goog.log.info(
     logger,
     `The extension (id "${chrome.runtime.id}", version ` +
         `${extensionManifest.version}) background script started. Browser ` +
-        `version: "${window.navigator.appVersion}". System time: ` +
+        `version: "${globalThis.navigator.appVersion}". System time: ` +
         `"${formattedStartupTime}"`);
 
 /**
@@ -136,7 +138,10 @@ function createExecutableModule() {
       return new GSC.NaclModule(
           'executable_module.nmf', GSC.NaclModule.Type.PNACL);
     case GSC.ExecutableModule.Toolchain.EMSCRIPTEN:
-      return new GSC.EmscriptenModule('executable_module');
+      if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION)
+        return new GSC.OffscreenDocEmscriptenModule('executable_module');
+      else
+        return new GSC.EmscriptenModule('executable_module');
   }
   GSC.Logging.fail(
       `Cannot load executable module: unknown toolchain ` +
@@ -202,13 +207,19 @@ const builtInPinDialogBackend = new SmartCardClientApp.BuiltInPinDialog.Backend(
 // in advance.
 executableModule.startLoading();
 
-// Open the UI window when the user launches the app.
-chrome.app.runtime.onLaunched.addListener(() => {
-  GSC.PopupOpener.createWindow(MAIN_WINDOW_URL, MAIN_WINDOW_OPTIONS, {
-    'executableModuleMessageChannel': executableModule.getMessageChannel(),
+if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
+  // Open the UI window when the user launches the app.
+  chrome.app.runtime.onLaunched.addListener(() => {
+    GSC.PopupOpener.createWindow(MAIN_WINDOW_URL, MAIN_WINDOW_OPTIONS, {
+      'executableModuleMessageChannel': executableModule.getMessageChannel(),
+    });
   });
-});
+}
 
 // Automatically load the App (in the background) with Chrome startup.
 GSC.AppUtils.enableSelfAutoLoading();
+
+// Trigger the PC/SC test.
+executableModule.getMessageChannel().send(
+    'ui_backend', {'command': 'run_test'});
 });  // goog.scope
