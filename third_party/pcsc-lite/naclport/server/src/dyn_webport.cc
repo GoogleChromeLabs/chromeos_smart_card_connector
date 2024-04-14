@@ -81,14 +81,12 @@ const FunctionNameAndAddress kDriverIfdhandlerFunctions[] = {
 
 }  // namespace
 
-INTERNAL LONG DYN_LoadLibrary(void** pvLHandle, char* pcLibrary) {
-  *pvLHandle = static_cast<void*>(const_cast<char*>(kFakeLHandle));
-  return SCARD_S_SUCCESS;
+INTERNAL void* DYN_LoadLibrary(const char* pcLibrary) {
+  return static_cast<void*>(const_cast<char*>(kFakeLHandle));
 }
 
-INTERNAL LONG DYN_CloseLibrary(void** pvLHandle) {
-  GOOGLE_SMART_CARD_CHECK(*pvLHandle == kFakeLHandle);
-  *pvLHandle = nullptr;
+INTERNAL LONG DYN_CloseLibrary(void* pvLHandle) {
+  GOOGLE_SMART_CARD_CHECK(pvLHandle == kFakeLHandle);
   return SCARD_S_SUCCESS;
 }
 

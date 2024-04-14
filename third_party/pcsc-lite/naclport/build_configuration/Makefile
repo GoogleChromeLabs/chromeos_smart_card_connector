@@ -46,7 +46,7 @@ all: build.stamp
 build.stamp: $(shell find ../../src)
 	@rm -f build.stamp
 	@git clean -fX ../../src
-	cd ../../src && ./bootstrap && ./configure
+	cd ../../src && ./bootstrap && ./configure --disable-polkit
 	@touch build.stamp
 
 # Delete the stamp and PC/SC-Lite temporary build artifacts on "make clean".
