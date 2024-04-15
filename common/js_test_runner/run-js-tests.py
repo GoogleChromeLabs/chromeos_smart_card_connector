@@ -88,7 +88,7 @@ def create_virtual_display(show_ui):
   """Returns a virtual display context manager."""
   return pyvirtualdisplay.Display(visible=show_ui)
 
-def create_driver(chromedriver_path, chrome_path, chrome_args, timeout_seconds):
+def create_driver(chromedriver_path, chrome_path, chrome_args):
   """Launches Chrome (Chromedriver) and returns the Selenium driver object."""
   service = webdriver.chrome.service.Service(executable_path=chromedriver_path)
   options = webdriver.chrome.options.Options()
@@ -192,7 +192,7 @@ def main():
                                     args.test_html_page_path) as url:
     with create_virtual_display(args.show_ui):
       with create_driver(args.chromedriver_path, args.chrome_path,
-                         args.chrome_args, args.timeout) as driver:
+                         args.chrome_args) as driver:
         sys.stderr.write('Running {}...\n'.format(url))
         load_test_page(driver, url)
         sys.stderr.write('Waiting for the test completion...\n')
