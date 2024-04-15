@@ -40,6 +40,12 @@ from selenium.webdriver.support import ui as webdriver_ui
 import sys
 import threading
 
+# Increased timeout to workaround occasional "Timed out receiving message from
+# renderer" errors.
+# Note: This is independent from the overall timeout for the tests execution,
+# which is specified via our "--timeout" command line flag.
+PAGE_LOAD_TIMEOUT_SECONDS = 600
+
 @contextlib.contextmanager
 def host_on_web_server_if_needed(serve_via_web_server, test_html_page_path):
   if not serve_via_web_server:
@@ -82,7 +88,7 @@ def create_virtual_display(show_ui):
   """Returns a virtual display context manager."""
   return pyvirtualdisplay.Display(visible=show_ui)
 
-def create_driver(chromedriver_path, chrome_path, chrome_args):
+def create_driver(chromedriver_path, chrome_path, chrome_args, timeout_seconds):
   """Launches Chrome (Chromedriver) and returns the Selenium driver object."""
   service = webdriver.chrome.service.Service(executable_path=chromedriver_path)
   options = webdriver.chrome.options.Options()
@@ -92,7 +98,9 @@ def create_driver(chromedriver_path, chrome_path, chrome_args):
   options.set_capability('goog:loggingPrefs', {'browser': 'ALL'})
   for arg in chrome_args:
     options.add_argument(arg)
-  return webdriver.Chrome(service=service, options=options)
+  driver = webdriver.Chrome(service=service, options=options)
+  driver.set_page_load_timeout(PAGE_LOAD_TIMEOUT_SECONDS)
+  return driver
 
 def load_test_page(driver, url):
   """Navigates the Chromedriver to the given page."""
@@ -184,7 +192,7 @@ def main():
                                     args.test_html_page_path) as url:
     with create_virtual_display(args.show_ui):
       with create_driver(args.chromedriver_path, args.chrome_path,
-                         args.chrome_args) as driver:
+                         args.chrome_args, args.timeout) as driver:
         sys.stderr.write('Running {}...\n'.format(url))
         load_test_page(driver, url)
         sys.stderr.write('Waiting for the test completion...\n')
