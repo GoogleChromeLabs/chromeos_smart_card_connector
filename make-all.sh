@@ -30,7 +30,6 @@ set -eu
 
 
 CONFIGS="Release Debug"
-TOOLCHAINS="emscripten pnacl"
 
 
 log_message() {
