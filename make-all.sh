@@ -30,7 +30,6 @@ set -eu
 
 
 CONFIGS="Release Debug"
-TOOLCHAINS="emscripten pnacl"
 
 
 log_message() {
@@ -39,33 +38,46 @@ log_message() {
 	echo -e "\033[33;32m******* ${message} *******\033[0m"
 }
 
-make_with_toolchain_and_config() {
+make_specific_configuration() {
 	local build_dir=${1}
 	local targets=${2-}
 	local toolchain=${3-}
-	local config=${4-}
+	local packaging=${4-}
+	local config=${5-}
+
+	log_message "Building ${targets} in mode \"${toolchain} ${packaging} ${config}\"..."
 
 	if [ "${toolchain}" = pnacl ]; then
 		# NaCl build scripts still use Python 2, so enter the virtual environment.
 		source env/python2_venv/bin/activate
 	fi
 
-	TOOLCHAIN=${toolchain} CONFIG=${config} make -C ${build_dir} ${targets} -j10
+	TOOLCHAIN=${toolchain} CONFIG=${config} PACKAGING=${packaging} \
+		make -C ${build_dir} ${targets} -j10
 
 	if [ "${toolchain}" = pnacl ]; then
 		# Exit the virtual environment to avoid using Python 2 when it's not needed.
 		deactivate
 	fi
+
+	log_message "Successfully built ${targets} in mode \"${toolchain} ${packaging} ${config}\"."
+}
+
+make_all_configs() {
+	local build_dir=${1}
+	local targets=${2-}
+	local toolchain=${3-}
+	local packaging=${4-}
+
+	local config
+	for config in ${CONFIGS}; do
+		make_specific_configuration ${build_dir} ${targets} ${toolchain} ${packaging} ${config}
+	done
 }
 
 TARGET=${1-all}
 SCRIPTPATH=$(dirname $(realpath ${0}))
 cd ${SCRIPTPATH}
 
-for toolchain in ${TOOLCHAINS}; do
-	for config in ${CONFIGS}; do
-		log_message "Building ${TARGET} in mode \"${toolchain}\" \"${config}\"..."
-		make_with_toolchain_and_config . ${TARGET} ${toolchain} ${config}
-		log_message "Successfully built ${TARGET} in mode \"${toolchain}\" \"${config}\"."
-	done
-done
+make_all_configs . ${TARGET} pnacl app
+make_all_configs . ${TARGET} emscripten extension
