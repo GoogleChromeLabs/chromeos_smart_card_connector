@@ -23,6 +23,7 @@
 goog.provide('GoogleSmartCard.EmscriptenModule');
 
 goog.require('GoogleSmartCard.DebugDump');
+goog.require('GoogleSmartCard.DelayedMessageChannel');
 goog.require('GoogleSmartCard.ExecutableModule');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PromiseHelpers');
@@ -65,7 +66,10 @@ GSC.EmscriptenModule = class extends GSC.ExecutableModule {
     GSC.PromiseHelpers.suppressUnhandledRejectionError(
         this.loadPromiseResolver_.promise);
     /** @type {!EmscriptenModuleMessageChannel} @const @private */
-    this.messageChannel_ = new EmscriptenModuleMessageChannel();
+    this.realMessageChannel_ = new EmscriptenModuleMessageChannel();
+    /** @type {!GSC.DelayedMessageChannel} @const @private */
+    this.delayedMessageChannel_ = new GSC.DelayedMessageChannel();
+    this.delayedMessageChannel_.setUnderlyingChannel(this.realMessageChannel_);
     // The "Module" object exposed by the Emscripten framework.
     /** @type {!Object|null} @private */
     this.emscriptenApiModule_ = null;
@@ -103,7 +107,7 @@ GSC.EmscriptenModule = class extends GSC.ExecutableModule {
 
   /** @override */
   getMessageChannel() {
-    return this.messageChannel_;
+    return this.delayedMessageChannel_;
   }
 
   /** @override */
@@ -126,7 +130,8 @@ GSC.EmscriptenModule = class extends GSC.ExecutableModule {
       this.emscriptenApiModule_['pthread_terminateAllThreads']();
       delete this.emscriptenApiModule_;
     }
-    this.messageChannel_.dispose();
+    this.delayedMessageChannel_.dispose();
+    this.realMessageChannel_.dispose();
     super.disposeInternal();
   }
 
@@ -169,11 +174,17 @@ GSC.EmscriptenModule = class extends GSC.ExecutableModule {
         this.logger_, GoogleSmartCardModule,
         'GoogleSmartCardModule class not defined');
     this.googleSmartCardModule_ = new GoogleSmartCardModule((message) => {
-      this.messageChannel_.onMessageFromModule(message);
+      this.realMessageChannel_.onMessageFromModule(message);
     });
 
-    // Wire up outgoing messages with the module.
-    this.messageChannel_.onModuleCreated(this.googleSmartCardModule_);
+    // Fourth step: Wire up outgoing messages with the module.
+    // The method name is again a hardcoded convention (see the
+    // entry_point_emscripten.cc files).
+    // The method is accessed using the square bracket notation, to make sure
+    // that Closure Compiler doesn't rename this method call.
+    this.realMessageChannel_.setMessageSender(
+        (message) => this.googleSmartCardModule_['postMessage'](message));
+    this.delayedMessageChannel_.setReady();
   }
 
   /**
@@ -236,16 +247,28 @@ GSC.EmscriptenModule = class extends GSC.ExecutableModule {
 };
 
 /**
+ * Sends and receives messages to/from the Emscripten module.
+ *
+ * Can be instantiated in advance, to be wired up via `setMessageSender()`
+ * and `onMessageFromModule()` once the module is loaded, however `send()`
+ * cannot be called until that point.
  * @package
  */
 class EmscriptenModuleMessageChannel extends goog.messaging.AbstractChannel {
   constructor() {
     super();
-    /** @type {!Array<!Object>} @private */
-    this.pendingOutgoingMessages_ = [];
-    // Instance of the "GoogleSmartCardModule" class that is defined via Embind.
-    /** @type {?} @private */
-    this.googleSmartCardModule_ = null;
+    /** @type {function(!Object)|null} @private */
+    this.messageSender_ = null;
+  }
+
+  /**
+   * @param {function(!Object)} messageSender
+   * @package
+   */
+  setMessageSender(messageSender) {
+    GSC.Logging.check(messageSender);
+    GSC.Logging.check(!this.messageSender_);
+    this.messageSender_ = messageSender;
   }
 
   /** @override */
@@ -256,33 +279,14 @@ class EmscriptenModuleMessageChannel extends goog.messaging.AbstractChannel {
     const message = typedMessage.makeMessage();
     if (this.isDisposed())
       return;
-    if (!this.googleSmartCardModule_ || this.pendingOutgoingMessages_.length) {
-      // Enqueue the message: either the module isn't fully loaded yet or we're
-      // still sending the previously enqueued messages to it.
-      this.pendingOutgoingMessages_.push(message);
-      return;
-    }
-    this.sendNow_(message);
+    GSC.Logging.check(this.messageSender_);
+    this.messageSender_(message);
   }
 
   /** @override */
   disposeInternal() {
-    delete this.googleSmartCardModule_;
+    delete this.messageSender_;
     super.disposeInternal();
-  }
-
-  /**
-   * @param {?} googleSmartCardModule
-   * @package
-   */
-  onModuleCreated(googleSmartCardModule) {
-    this.googleSmartCardModule_ = googleSmartCardModule;
-    // Send all previously enqueued messages. Note that, in theory, new items
-    // might be added to the array while we're iterating over it, which should
-    // be fine as the for-of loop will visit all of them.
-    for (const message of this.pendingOutgoingMessages_)
-      this.sendNow_(message);
-    this.pendingOutgoingMessages_ = [];
   }
 
   /**
@@ -300,18 +304,6 @@ class EmscriptenModuleMessageChannel extends goog.messaging.AbstractChannel {
           GSC.DebugDump.debugDumpSanitized(message));
     }
     this.deliver(typedMessage.type, typedMessage.data);
-  }
-
-  /**
-   * @param {!Object} message
-   * @private
-   */
-  sendNow_(message) {
-    // Note: The method name must match the string in the GoogleSmartCardModule
-    // Embind class definition in the entry_point_emscripten.cc files.
-    // The method is accessed using the square bracket notation, to make sure
-    // that Closure Compiler doesn't rename this method call.
-    this.googleSmartCardModule_['postMessage'](message);
   }
 }
 });  // goog.scope
