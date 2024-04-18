@@ -172,7 +172,7 @@ const LibusbJsGenericTransferParameters =
 /**
  * The key strings must match the ones in libusb_js_proxy_data_model.cc.
  * @typedef {{
- *            receivedData:(!ArrayBuffer|DataView|!Array<number>|undefined),
+ *            receivedData:(!ArrayBuffer|!DataView|!Array<number>|undefined),
  *          }}
  */
 GSC.LibusbProxyDataModel.LibusbJsTransferResult;
