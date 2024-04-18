@@ -32,9 +32,11 @@
 
 goog.provide('GoogleSmartCard.OffscreenDocEmscriptenModule');
 
+goog.require('GoogleSmartCard.DelayedMessageChannel');
 goog.require('GoogleSmartCard.ExecutableModule');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PortMessageChannel');
+goog.require('GoogleSmartCard.PortMessageChannelWaiter');
 goog.require('GoogleSmartCard.PromiseHelpers');
 goog.require('goog.Promise');
 goog.require('goog.log');
@@ -75,8 +77,8 @@ GSC.OffscreenDocEmscriptenModule = class extends GSC.ExecutableModule {
     this.logger_ = GSC.Logging.getScopedLogger('OffscreenDocEmscriptenModule');
     /** @type {boolean} @private */
     this.offscreenDocActive_ = false;
-    /** @type {!OffscreenDocMessageChannel} @const @private */
-    this.messageChannel_ = new OffscreenDocMessageChannel();
+    /** @type {!GSC.DelayedMessageChannel} @const @private */
+    this.messageChannel_ = new GSC.DelayedMessageChannel();
     /** @type {!GSC.PortMessageChannel|null} @private */
     this.statusChannel_ = null;
     /** @type {!goog.promise.Resolver<void>} @const @private */
@@ -92,23 +94,8 @@ GSC.OffscreenDocEmscriptenModule = class extends GSC.ExecutableModule {
 
   /** @override */
   startLoading() {
-    // Listen for incoming message channels from the Offscreen Document once
-    // it's loaded.
-    chrome.runtime.onConnect.addListener((port) => this.onConnect_(port));
-
-    // Load the Offscreen Document. The loading arguments are passed via URL
-    // query parameters.
-    const url = new URL(OFFSCREEN_DOC_URL, globalThis.location.href);
-    url.searchParams.append(URL_PARAM, this.moduleName_);
-    chrome.offscreen.createDocument(
-        {
-          'url': url.toString(),
-          'reasons': OFFSCREEN_DOC_REASONS,
-          'justification': OFFSCREEN_DOC_JUSTIFICATION,
-        },
-        () => this.onOffscreenDocCreated_());
-    // Once the document is loaded, it'll immediately start loading the
-    // Emscripten module and report the status to us via m
+    // Start the asynchronous load operation.
+    this.load_();
   }
 
   /** @override */
@@ -132,58 +119,90 @@ GSC.OffscreenDocEmscriptenModule = class extends GSC.ExecutableModule {
     super.disposeInternal();
   }
 
-  /** @private */
-  onOffscreenDocCreated_() {
-    if (chrome && chrome.runtime && chrome.runtime.lastError) {
-      const error =
-          goog.object.get(chrome.runtime.lastError, 'message', 'Unknown error');
-      goog.log.warning(
-          this.logger_, `Failed to load the offscreen document: ${error}`);
-    } else {
-      this.offscreenDocActive_ = true;
-    }
+  /**
+   * @returns {!Promise<void>}
+   * @private
+   */
+  async load_() {
+    // Listen for the incoming message channel from the Offscreen Document.
+    const statusChannelWaiter =
+        new GSC.PortMessageChannelWaiter(STATUS_PORT_NAME);
 
-    if (this.offscreenDocActive_ && this.isDisposed()) {
-      // Edge case: we got destroyed while waiting for the
-      // `chrome.offscreen.createDocument()` completion; make sure to not leave
-      // the doc in that case as well.
+    // Prepare parameters for the Offscreen Document. The module name is passed
+    // via URL query parameters.
+    const url = new URL(OFFSCREEN_DOC_URL, globalThis.location.href);
+    url.searchParams.append(URL_PARAM, this.moduleName_);
+    const docParams = {
+      'url': url.toString(),
+      'reasons': OFFSCREEN_DOC_REASONS,
+      'justification': OFFSCREEN_DOC_JUSTIFICATION,
+    };
+
+    // Load the Offscreen Document.
+    await chrome.offscreen.createDocument(docParams);
+    if (this.isDisposed()) {
+      // If we got disposed of while waiting for the
+      // `chrome.offscreen.createDocument()` completion, the logic in
+      // `disposeInternal()` didn't have a chance to clean up the document.
       chrome.offscreen.closeDocument();
-    } else if (!this.offscreenDocActive_) {
-      this.dispose();
+      throw new Error('Disposed');
     }
+    this.offscreenDocActive_ = true;
+
+    // Wait until the Offscreen Document opens the status message channel.
+    const statusChannel = await statusChannelWaiter.getPromise();
+    if (this.isDisposed()) {
+      statusChannel.dispose();
+      throw new Error('Disposed');
+    }
+    this.statusChannel_ = statusChannel;
+
+    // Wait until the Offscreen Document signals us about the module's
+    // loaded/disposed status (whichever comes first).
+    await Promise.all([this.waitLoadedMessage_(), this.waitDisposedMessage_()]);
+
+    // Connect pipes for exchanging messages with the executable module in the
+    // Offscreen Document.
+    const messageChannelWaiter =
+        new GSC.PortMessageChannelWaiter(MESSAGING_PORT_NAME);
+    this.messageChannel_.setUnderlyingChannel(
+        await messageChannelWaiter.getPromise());
+    this.messageChannel_.setReady();
   }
 
   /**
-   * @param {!Port} port
+   * Returns a promise that gets resolved on receiving the "loaded" status
+   * message from the Offscreen Document.
+   * @return {!Promise<void>}
    * @private
    */
-  onConnect_(port) {
-    if (this.isDisposed())
-      return;
-    if (port.name === MESSAGING_PORT_NAME) {
-      // This connection is for exchanging messages with the executable module
-      // in the Offscreen Document.
-      this.messageChannel_.resolve(new GSC.PortMessageChannel(port));
-    } else if (port.name === STATUS_PORT_NAME) {
-      // This connection is for signaling the module's status.
-      this.statusChannel_ = new GSC.PortMessageChannel(port);
-      this.statusChannel_.registerService(
-          STATUS_LOADED, () => this.onLoadedInOffscreen_());
-      this.statusChannel_.registerService(
-          STATUS_DISPOSED, () => this.onDisposedInOffscreen_());
-    } else {
-      // Ignore - this is a connection originating from some other component.
-    }
+  async waitLoadedMessage_() {
+    await this.waitMessage_(STATUS_LOADED);
   }
 
-  /** @private */
-  onLoadedInOffscreen_() {
-    this.loadPromiseResolver_.resolve();
-  }
-
-  /** @private */
-  onDisposedInOffscreen_() {
+  /**
+   * Returns a promise that gets rejected on receiving the "disposed" status
+   * message from the Offscreen Document. Also disposes of `this`.
+   * @return {!Promise<void>}
+   * @private
+   */
+  async waitDisposedMessage_() {
+    await this.waitMessage_(STATUS_DISPOSED);
     this.dispose();
+    throw new Error('Disposed');
+  }
+
+  /**
+   * @param {string} awaitedMessageType
+   * @return {!Promise<void>}
+   * @private
+   */
+  waitMessage_(awaitedMessageType) {
+    return new Promise((resolve) => {
+      this.statusChannel_.registerService(awaitedMessageType, () => {
+        resolve();
+      });
+    });
   }
 };
 
@@ -192,65 +211,4 @@ GSC.OffscreenDocEmscriptenModule.MESSAGING_PORT_NAME = MESSAGING_PORT_NAME;
 GSC.OffscreenDocEmscriptenModule.STATUS_PORT_NAME = STATUS_PORT_NAME;
 GSC.OffscreenDocEmscriptenModule.STATUS_LOADED = STATUS_LOADED;
 GSC.OffscreenDocEmscriptenModule.STATUS_DISPOSED = STATUS_DISPOSED;
-
-/**
- * Initially accumulates all sent messages, and once resolved to a channel,
- * starts acting as a proxy to it.
- */
-class OffscreenDocMessageChannel extends goog.messaging.AbstractChannel {
-  constructor() {
-    super();
-    /** @type {!goog.messaging.AbstractChannel|null} @private */
-    this.underlyingChannel_ = null;
-    /** @type {!Array<!{serviceName: string, payload: (string|!Object)}>} @private */
-    this.pendingOutgoingMessages_ = [];
-  }
-
-  /** @override */
-  send(serviceName, payload) {
-    if (this.isDisposed())
-      return;
-    if (!this.underlyingChannel_ || this.pendingOutgoingMessages_.length > 0) {
-      // Enqueue the message until the proxied channel is set and all previously
-      // enqueued messages are sent.
-      this.pendingOutgoingMessages_.push({serviceName, payload});
-      return;
-    }
-    this.underlyingChannel_.send(serviceName, payload);
-  }
-
-  /**
-   * Makes ourselves to behave as a proxy to the given channel. Previously
-   * enqueued messages are sent immediately.
-   * @param {!goog.messaging.AbstractChannel} offscreenDocChannel
-   */
-  resolve(offscreenDocChannel) {
-    GSC.Logging.check(!this.underlyingChannel_);
-
-    this.underlyingChannel_ = offscreenDocChannel;
-
-    // Let ourselves receive all (unhandled) messages that are received on
-    // `offscreenDocChannel`.
-    offscreenDocChannel.registerDefaultService((serviceName, payload) => {
-      this.deliver(serviceName, payload);
-    });
-
-    // Send all previously enqueued messages. Note that, in theory, new items
-    // might be added to the array while we're iterating over it, which should
-    // be fine as the for-of loop will visit all of them.
-    for (const message of this.pendingOutgoingMessages_)
-      offscreenDocChannel.send(message.serviceName, message.payload);
-    this.pendingOutgoingMessages_ = [];
-  }
-
-  /** @override */
-  disposeInternal() {
-    this.pendingOutgoingMessages_ = [];
-    if (this.underlyingChannel_) {
-      this.underlyingChannel_.dispose();
-      this.underlyingChannel_ = null;
-    }
-    super.disposeInternal();
-  }
-}
 });  // goog.scope
