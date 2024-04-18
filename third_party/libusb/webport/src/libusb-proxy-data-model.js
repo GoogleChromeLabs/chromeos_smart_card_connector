@@ -72,7 +72,7 @@ const LibusbJsEndpointType = GSC.LibusbProxyDataModel.LibusbJsEndpointType;
  *            endpointAddress:number,
  *            direction:!LibusbJsDirection,
  *            type:!LibusbJsEndpointType,
- *            extraData:(!ArrayBuffer|undefined),
+ *            extraData:(!ArrayBuffer|!Array<number>|undefined),
  *            maxPacketSize:number
  *          }}
  */
@@ -88,7 +88,7 @@ const LibusbJsEndpointDescriptor =
  *            interfaceClass:number,
  *            interfaceSubclass:number,
  *            interfaceProtocol:number,
- *            extraData:(!ArrayBuffer|undefined),
+ *            extraData:(!ArrayBuffer|!Array<number>|undefined),
  *            endpoints:!Array<!LibusbJsEndpointDescriptor>
  *          }}
  */
@@ -103,7 +103,7 @@ const LibusbJsInterfaceDescriptor =
  * @typedef {{
  *            active:boolean,
  *            configurationValue:number,
- *            extraData:(!ArrayBuffer|undefined),
+ *            extraData:(!ArrayBuffer|!Array<number>|undefined),
  *            interfaces:!Array<!LibusbJsInterfaceDescriptor>
  *          }}
  */
@@ -147,7 +147,7 @@ const LibusbJsTransferRecipient =
  *            request:number,
  *            value:number,
  *            index:number,
- *            dataToSend:(!ArrayBuffer|undefined),
+ *            dataToSend:(!ArrayBuffer|!Array<number>|undefined),
  *            lengthToReceive:(number|undefined)
  *          }}
  */
@@ -160,7 +160,7 @@ const LibusbJsControlTransferParameters =
  * The key strings must match the ones in libusb_js_proxy_data_model.cc.
  * @typedef {{
  *            endpointAddress:number,
- *            dataToSend:(!ArrayBuffer|undefined),
+ *            dataToSend:(!ArrayBuffer|!Array<number>|undefined),
  *            lengthToReceive:(number|undefined)
  *          }}
  */
@@ -172,7 +172,7 @@ const LibusbJsGenericTransferParameters =
 /**
  * The key strings must match the ones in libusb_js_proxy_data_model.cc.
  * @typedef {{
- *            receivedData:(!ArrayBuffer|undefined),
+ *            receivedData:(!ArrayBuffer|!DataView|!Array<number>|undefined),
  *          }}
  */
 GSC.LibusbProxyDataModel.LibusbJsTransferResult;

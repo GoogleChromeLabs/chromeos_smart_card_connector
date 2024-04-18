@@ -24,8 +24,8 @@ goog.scope(function() {
 
 const GSC = GoogleSmartCard;
 const buildObjectFromMap = GSC.ContainerHelpers.buildObjectFromMap;
-const substituteArrayBuffersRecursively =
-    GSC.ContainerHelpers.substituteArrayBuffersRecursively;
+const substituteArrayBufferLikeObjectsRecursively =
+    GSC.ContainerHelpers.substituteArrayBufferLikeObjectsRecursively;
 
 goog.exportSymbol('testBuildObjectFromMap', function() {
   assertObjectEquals(buildObjectFromMap(new Map()), {});
@@ -49,37 +49,68 @@ goog.exportSymbol('testBuildObjectFromMap', function() {
 goog.exportSymbol('testSubstituteArrayBuffersRecursively', function() {
   const buffer12 = (new Uint8Array([1, 2])).buffer;
 
-  assertObjectEquals(substituteArrayBuffersRecursively(new ArrayBuffer(0)), []);
   assertObjectEquals(
-      substituteArrayBuffersRecursively(new ArrayBuffer(3)), [0, 0, 0]);
-  assertObjectEquals(substituteArrayBuffersRecursively(buffer12), [1, 2]);
+      substituteArrayBufferLikeObjectsRecursively(new ArrayBuffer(0)), []);
+  assertObjectEquals(
+      substituteArrayBufferLikeObjectsRecursively(new ArrayBuffer(3)),
+      [0, 0, 0]);
+  assertObjectEquals(
+      substituteArrayBufferLikeObjectsRecursively(buffer12), [1, 2]);
 
-  assertEquals(substituteArrayBuffersRecursively(undefined), undefined);
-  assertEquals(substituteArrayBuffersRecursively(null), null);
-  assertEquals(substituteArrayBuffersRecursively(false), false);
-  assertEquals(substituteArrayBuffersRecursively(true), true);
-  assertEquals(substituteArrayBuffersRecursively(123), 123);
-  assertEquals(substituteArrayBuffersRecursively('foo'), 'foo');
+  assertEquals(
+      substituteArrayBufferLikeObjectsRecursively(undefined), undefined);
+  assertEquals(substituteArrayBufferLikeObjectsRecursively(null), null);
+  assertEquals(substituteArrayBufferLikeObjectsRecursively(false), false);
+  assertEquals(substituteArrayBufferLikeObjectsRecursively(true), true);
+  assertEquals(substituteArrayBufferLikeObjectsRecursively(123), 123);
+  assertEquals(substituteArrayBufferLikeObjectsRecursively('foo'), 'foo');
 
-  assertObjectEquals(substituteArrayBuffersRecursively([]), []);
-  assertObjectEquals(substituteArrayBuffersRecursively([-1, 1000]), [-1, 1000]);
+  assertObjectEquals(substituteArrayBufferLikeObjectsRecursively([]), []);
   assertObjectEquals(
-      substituteArrayBuffersRecursively(['a', buffer12]), ['a', [1, 2]]);
+      substituteArrayBufferLikeObjectsRecursively([-1, 1000]), [-1, 1000]);
   assertObjectEquals(
-      substituteArrayBuffersRecursively([[buffer12]]), [[[1, 2]]]);
+      substituteArrayBufferLikeObjectsRecursively(['a', buffer12]),
+      ['a', [1, 2]]);
+  assertObjectEquals(
+      substituteArrayBufferLikeObjectsRecursively([[buffer12]]), [[[1, 2]]]);
 
-  assertObjectEquals(substituteArrayBuffersRecursively({}), {});
+  assertObjectEquals(substituteArrayBufferLikeObjectsRecursively({}), {});
   assertObjectEquals(
-      substituteArrayBuffersRecursively({foo: {bar: 1, baz: null}}),
-      {foo: {bar: 1, baz: null}});
+      substituteArrayBufferLikeObjectsRecursively(
+          {'foo': {'bar': 1, 'baz': null}}),
+      {'foo': {'bar': 1, 'baz': null}});
   assertObjectEquals(
-      substituteArrayBuffersRecursively({foo: buffer12}), {foo: [1, 2]});
+      substituteArrayBufferLikeObjectsRecursively({'foo': buffer12}),
+      {'foo': [1, 2]});
 
   const uint8Array = new Uint8Array([1, 2, 255]);
-  assertEquals(substituteArrayBuffersRecursively(uint8Array), uint8Array);
+  assertEquals(
+      substituteArrayBufferLikeObjectsRecursively(uint8Array), uint8Array);
 
   // A function/class isn't a sensible input, but verify such cases anyway.
-  assertEquals(substituteArrayBuffersRecursively(parseInt), parseInt);
-  assertEquals(substituteArrayBuffersRecursively(Array), Array);
+  assertEquals(substituteArrayBufferLikeObjectsRecursively(parseInt), parseInt);
+  assertEquals(substituteArrayBufferLikeObjectsRecursively(Array), Array);
+});
+
+goog.exportSymbol('testSubstituteDataViewsRecursively', function() {
+  const emptyView = new DataView(new ArrayBuffer(/*length=*/ 0));
+  const buffer1234 = (new Uint8Array([1, 2, 3, 4])).buffer;
+  const view1234 = new DataView(buffer1234);
+  const view23 = new DataView(buffer1234, /*byteOffset=*/ 1, /*byteLength=*/ 2);
+
+  assertObjectEquals(
+      substituteArrayBufferLikeObjectsRecursively(emptyView), []);
+  assertObjectEquals(
+      substituteArrayBufferLikeObjectsRecursively(view1234), [1, 2, 3, 4]);
+  assertObjectEquals(
+      substituteArrayBufferLikeObjectsRecursively(view23), [2, 3]);
+
+  assertObjectEquals(
+      substituteArrayBufferLikeObjectsRecursively(['a', view1234]),
+      ['a', [1, 2, 3, 4]]);
+
+  assertObjectEquals(
+      substituteArrayBufferLikeObjectsRecursively({'foo': view23}),
+      {'foo': [2, 3]});
 });
 });  // goog.scope
