@@ -94,8 +94,11 @@ GSC.OffscreenDocEmscriptenModule = class extends GSC.ExecutableModule {
 
   /** @override */
   startLoading() {
-    // Start the asynchronous load operation.
-    this.load_();
+    // Start the asynchronous load operation. Tie the load promise with its
+    // result.
+    this.load_().then(
+        () => this.loadPromiseResolver_.resolve(),
+        (error) => this.loadPromiseResolver_.reject(error));
   }
 
   /** @override */
