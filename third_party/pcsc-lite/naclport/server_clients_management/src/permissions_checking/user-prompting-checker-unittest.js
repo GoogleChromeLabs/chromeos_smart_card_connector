@@ -88,7 +88,7 @@ FakeTrustedClientsRegistry.prototype.getByOrigin = function(origin) {
     return Promise.resolve(FAKE_TRUSTED_CLIENT_INFO_1);
   if (origin === FAKE_CLIENT_3_ORIGIN)
     return Promise.resolve(FAKE_TRUSTED_CLIENT_INFO_3);
-  return Promise.reject();
+  return Promise.reject(new Error('untrusted'));
 };
 
 /** @override */
@@ -153,7 +153,7 @@ function getDialogMock(mockControl, mockedBehavior) {
       };
     case MockedDialogBehavior.USER_CANCELS:
       return function() {
-        return Promise.reject();
+        return Promise.reject(new Error('canceled'));
       };
   }
   goog.asserts.fail();

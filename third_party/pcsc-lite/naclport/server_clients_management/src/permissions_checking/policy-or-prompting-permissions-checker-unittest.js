@@ -58,7 +58,7 @@ function FakeTrustedClientsRegistry() {}
 FakeTrustedClientsRegistry.prototype.getByOrigin = function(origin) {
   if (origin === CLIENT_ORIGIN)
     return Promise.resolve(TRUSTED_CLIENT_INFO);
-  return Promise.reject();
+  return Promise.reject(new Error('untrusted'));
 };
 
 /** @override */
@@ -154,7 +154,7 @@ function runOnStorageChangedTest(
       const runModalDialogFake = function() {
         for (const listener of onStorageChangedListeners)
           listener(storageChanges, storageAreaName);
-        return Promise.reject();
+        return Promise.reject(new Error('dialog aborted'));
       };
       const closeModalDialogFake = function() {};
       setUpUserPromptingChecker(runModalDialogFake, closeModalDialogFake);
