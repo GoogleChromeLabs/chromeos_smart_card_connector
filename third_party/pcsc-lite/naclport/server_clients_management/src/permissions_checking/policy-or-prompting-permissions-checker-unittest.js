@@ -110,11 +110,14 @@ function setUpChromeStorageMock(mockControl, propertyReplacer) {
  * Sets up UserPromptingChecker for testing with a fake TrustedClientsRegistry
  * and a fake implementation for the user prompt dialog.
  * @param {!Function} runModalDialogFake
+ * @param {!Function} closeModalDialogFake
  */
-function setUpUserPromptingChecker(runModalDialogFake) {
+function setUpUserPromptingChecker(runModalDialogFake, closeModalDialogFake) {
   UserPromptingChecker.overrideTrustedClientsRegistryForTesting(
       new FakeTrustedClientsRegistry());
   UserPromptingChecker.overrideModalDialogRunnerForTesting(runModalDialogFake);
+  UserPromptingChecker.overrideModalDialogCloserForTesting(
+      closeModalDialogFake);
 }
 
 /**
@@ -154,7 +157,8 @@ function runOnStorageChangedTest(
           listener(storageChanges, storageAreaName);
         return goog.Promise.reject();
       };
-      setUpUserPromptingChecker(runModalDialogFake);
+      const closeModalDialogFake = function() {};
+      setUpUserPromptingChecker(runModalDialogFake, closeModalDialogFake);
 
       mockControl.$replayAll();
     }
