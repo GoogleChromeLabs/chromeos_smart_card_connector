@@ -31,16 +31,11 @@ goog.provide('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistry');
 goog.provide('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistryImpl');
 
 goog.require('GoogleSmartCard.DebugDump');
-goog.require('GoogleSmartCard.Json');
 goog.require('GoogleSmartCard.Logging');
-goog.require('goog.Promise');
-goog.require('goog.Thenable');
 goog.require('goog.asserts');
 goog.require('goog.log');
 goog.require('goog.log.Logger');
-goog.require('goog.net.XhrIo');
 goog.require('goog.object');
-goog.require('goog.promise.Resolver');
 
 goog.scope(function() {
 
@@ -54,10 +49,10 @@ const AUTOAPPROVE_FIELD = 'autoapprove';
 const GSC = GoogleSmartCard;
 
 /**
- * Test-only override of `goog.net.XhrIo.send()`.
- * @type {function(string, function(this: goog.net.XhrIo))|null}
+ * Test-only override of the `fetch()` API.
+ * @type {function(string):!Promise<!Response>|null}
  */
-let sendOverrideForTesting;
+let fetchOverrideForTesting = null;
 
 /**
  * This structure holds the information about a trusted client.
@@ -96,7 +91,7 @@ const TrustedClientsRegistry = GSC.PcscLiteServer.TrustedClientsRegistry;
  * The result is returned asynchronously as a promise (which will be rejected if
  * the given app isn't present in the config).
  * @param {string} origin
- * @return {!goog.Thenable.<!TrustedClientInfo>}
+ * @return {!Promise<!TrustedClientInfo>}
  */
 TrustedClientsRegistry.prototype.getByOrigin = function(origin) {};
 
@@ -109,7 +104,7 @@ TrustedClientsRegistry.prototype.getByOrigin = function(origin) {};
  * containing either the information for the i-th client in |originList| or
  * |null| if the client isn't present in the config.
  * @param {!Array.<string>} originList
- * @return {!goog.Thenable.<!Array.<?TrustedClientInfo>>}
+ * @return {!Promise<!Array.<?TrustedClientInfo>>}
  */
 TrustedClientsRegistry.prototype.tryGetByOrigins = function(originList) {};
 
@@ -123,13 +118,10 @@ TrustedClientsRegistry.prototype.tryGetByOrigins = function(originList) {};
  * @constructor
  */
 GSC.PcscLiteServer.TrustedClientsRegistryImpl = function() {
-  /**
-   * @type {!goog.promise.Resolver.<!Map.<string,!TrustedClientInfo>>} @private
-   *     @const
-   */
-  this.promiseResolver_ = goog.Promise.withResolver();
-
-  this.startLoadingJson_();
+  // Start the async operation to load the config. Remember the promise, so that
+  // all methods that need the config can await on this single load operation.
+  /** @type {!Promise.<!Map<string,!TrustedClientInfo>>} @private @const */
+  this.configPromise_ = this.loadConfigAndLog_();
 };
 
 const TrustedClientsRegistryImpl =
@@ -143,163 +135,121 @@ TrustedClientsRegistryImpl.prototype.logger =
     GSC.Logging.getScopedLogger('PcscLiteServer.TrustedClientsRegistry');
 
 /** @override */
-TrustedClientsRegistryImpl.prototype.getByOrigin = function(origin) {
-  const promiseResolver = goog.Promise.withResolver();
-
-  this.tryGetByOrigins([origin]).then(
-      infos => {
-        GSC.Logging.checkWithLogger(this.logger, infos.length === 1);
-        const info = infos[0];
-        if (info) {
-          promiseResolver.resolve(info);
-        } else {
-          promiseResolver.reject(new Error(
-              'The specified origin is not in the trusted clients registry'));
-        }
-      },
-      function(error) {
-        promiseResolver.reject(error);
-      });
-
-  return promiseResolver.promise;
+TrustedClientsRegistryImpl.prototype.getByOrigin = async function(origin) {
+  // Let `tryGetByOrigins()` do the actual work.
+  const infos = await this.tryGetByOrigins([origin]);
+  GSC.Logging.checkWithLogger(this.logger, infos.length === 1);
+  const info = infos[0];
+  if (!info) {
+    throw new Error(
+        'The specified origin is not in the trusted clients registry');
+  }
+  return info;
 };
 
 /** @override */
-TrustedClientsRegistryImpl.prototype.tryGetByOrigins = function(originList) {
-  const promiseResolver = goog.Promise.withResolver();
+TrustedClientsRegistryImpl.prototype.tryGetByOrigins =
+    async function(originList) {
+  // Wait for the config load operation to complete, if needed.
+  const config = await this.configPromise_;
 
-  this.promiseResolver_.promise.then(
-      function(originToInfoMap) {
-        const infos = [];
-        for (const origin of originList) {
-          const info = originToInfoMap.get(origin);
-          infos.push(info !== undefined ? info : null);
-        }
-        promiseResolver.resolve(infos);
-      },
-      function() {
-        promiseResolver.reject(
-            new Error('Failed to load the trusted clients registry'));
-      });
-
-  return promiseResolver.promise;
+  const infos = [];
+  for (const origin of originList) {
+    const info = config.get(origin);
+    infos.push(info !== undefined ? info : null);
+  }
+  return infos;
 };
 
 /**
- * @param {function(string, function(this: goog.net.XhrIo))|null} sendOverride
+ * @param {function(string):!Promise<!Response>|null} fetchOverride
  */
-TrustedClientsRegistryImpl.overrideSendForTesting = function(sendOverride) {
-  sendOverrideForTesting = sendOverride;
+TrustedClientsRegistryImpl.overrideFetchForTesting = function(fetchOverride) {
+  fetchOverrideForTesting = fetchOverride;
 };
 
-/** @private */
-TrustedClientsRegistryImpl.prototype.startLoadingJson_ = function() {
+/**
+ * @return {!Promise<!Map<string,!TrustedClientInfo>>}
+ * @private
+ */
+TrustedClientsRegistryImpl.prototype.loadConfigAndLog_ = async function() {
   goog.log.fine(
       this.logger,
-      'Loading registry from JSON file (URL: "' + JSON_CONFIG_URL + '")...');
-  const sender = sendOverrideForTesting || goog.net.XhrIo.send;
-  sender(JSON_CONFIG_URL, this.jsonLoadedCallback_.bind(this));
+      `Loading registry from JSON file (URL: "${JSON_CONFIG_URL}")...`);
+  let config;
+  try {
+    config = await this.loadConfig_();
+  } catch (e) {
+    goog.log.error(
+        this.logger,
+        `Failed to load the registry (URL: "${JSON_CONFIG_URL}"): ${e}`);
+    throw new Error('Failed to load the trusted client registry');
+  }
+  goog.log.fine(
+      this.logger,
+      `Successfully loaded registry from JSON file: ${
+          GSC.DebugDump.debugDumpFull(config)}`);
+  return config;
 };
 
-/** @private */
-TrustedClientsRegistryImpl.prototype.jsonLoadedCallback_ = function(e) {
-  /** @type {!goog.net.XhrIo} */
-  const xhrio = e.target;
+/**
+ * @return {!Promise<!Map<string,!TrustedClientInfo>>}
+ * @private
+ */
+TrustedClientsRegistryImpl.prototype.loadConfig_ = async function() {
+  const fetcher = fetchOverrideForTesting || fetch;
 
-  if (!xhrio.isSuccess() || !xhrio.getResponseText()) {
-    this.promiseResolver_.reject(
-        new Error('Failed to load the trusted clients registry'));
-    const errorReason = xhrio.isSuccess() ?
-        'the request completed with no data' :
-        xhrio.getLastError();
-    GSC.Logging.failWithLogger(
-        this.logger,
-        `Failed to load the trusted clients registry from JSON file (URL: "${
-            JSON_CONFIG_URL}") with the following error: ${errorReason}`);
-  }
+  const response = await fetcher(JSON_CONFIG_URL);
+  if (!response.ok)
+    throw new Error(`Fetching failed: ${response.statusText}`);
 
-  // Note: not using the xhrio.getResponseJson method as it breaks in the Chrome
-  // App environment (for details, see the GSC.Json.parse method).
-  GSC.Json.parse(xhrio.getResponseText())
-      .then(
-          function(json) {
-            GSC.Logging.checkWithLogger(this.logger, goog.isObject(json));
-            goog.asserts.assertObject(json);
-            this.parseJsonAndApply_(json);
-          },
-          function(exc) {
-            this.promiseResolver_.reject(
-                new Error('Failed to load the trusted clients registry'));
-            GSC.Logging.failWithLogger(
-                this.logger,
-                'Failed to load the trusted clients registry from JSON file ' +
-                    '(URL: "' + JSON_CONFIG_URL +
-                    '"): parsing failed with the following error: ' + exc);
-          },
-          this);
+  const json = await response.json();
+  GSC.Logging.checkWithLogger(this.logger, goog.isObject(json));
+  goog.asserts.assertObject(json);
+  return parseConfig(json);
 };
 
 /**
  * @param {!Object} json
- * @private
+ * @return {!Map<string,!TrustedClientInfo>}
  */
-TrustedClientsRegistryImpl.prototype.parseJsonAndApply_ = function(json) {
+function parseConfig(json) {
   /** @type {!Map.<string, !TrustedClientInfo>} */
   const originToInfoMap = new Map();
-  let success = true;
-  goog.object.forEach(json, function(value, key) {
-    const info = this.tryParseTrustedClientInfo_(key, value);
-    if (info) {
-      originToInfoMap.set(info.origin, info);
-    } else {
-      goog.log.warning(
-          this.logger,
-          'Failed to parse the following trusted clients registry JSON item: ' +
-              'key="' + key + '", value=' + GSC.DebugDump.debugDumpFull(value));
-      success = false;
+  goog.object.forEach(json, (value, key) => {
+    let info;
+    try {
+      info = parseTrustedClientInfo(key, value);
+    } catch (e) {
+      throw new Error(
+          `Failed to parse key=${key} value=${JSON.stringify(value)}: ${e}`);
     }
-  }, this);
-
-  if (success) {
-    goog.log.fine(
-        this.logger,
-        'Successfully loaded registry from JSON file: ' +
-            GSC.DebugDump.debugDumpFull(originToInfoMap));
-    this.promiseResolver_.resolve(originToInfoMap);
-  } else {
-    this.promiseResolver_.reject(
-        new Error('Failed to load the trusted clients registry'));
-    GSC.Logging.failWithLogger(
-        this.logger,
-        'Failed to load the trusted clients registry from JSON file (URL: "' +
-            JSON_CONFIG_URL + '"): parsing of some of the items finished ' +
-            'with errors');
-  }
-};
+    originToInfoMap.set(info.origin, info);
+  });
+  return originToInfoMap;
+}
 
 /**
  * @param {string} key
  * @param {*} value
- * @return {TrustedClientInfo?}
- * @private
+ * @return {!TrustedClientInfo}
  */
-TrustedClientsRegistryImpl.prototype.tryParseTrustedClientInfo_ = function(
-    key, value) {
+function parseTrustedClientInfo(key, value) {
   if (!goog.isObject(value))
-    return null;
+    throw new Error('Not an object');
 
   if (!goog.object.containsKey(value, CLIENT_NAME_FIELD))
-    return null;
+    throw new Error(`No ${CLIENT_NAME_FIELD} key`);
   const nameField = value[CLIENT_NAME_FIELD];
   if (typeof nameField !== 'string')
-    return null;
+    throw new Error(`The ${CLIENT_NAME_FIELD} value is not a string`);
 
   let autoapproveField = value[AUTOAPPROVE_FIELD];
   if (typeof autoapproveField === 'undefined')
     autoapproveField = false;
   else if (typeof autoapproveField !== 'boolean')
-    return null;
+    throw new Error(`The ${AUTOAPPROVE_FIELD} value is not a boolean`);
 
   return new TrustedClientInfo(key, nameField, autoapproveField);
-};
+}
 });  // goog.scope
