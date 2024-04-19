@@ -79,7 +79,7 @@ goog.exportSymbol('testPortMessageChannelWaiter', {
     // Act: simulate a port connection.
     simulateOnConnect(mockPort.getFakePort());
 
-    // Assert: the waiter should return the port (wrapper into a channel
+    // Assert: the waiter should return the port (wrapped into a channel
     // object).
     const portChannel = await waiter.getPromise();
     assertEquals(portChannel.getPortForTesting(), mockPort.getFakePort());
