@@ -136,14 +136,17 @@ GSC.Pcsc.PolicyOrPromptingPermissionsChecker =
     this.managedRegistry_.startMonitoringPermissionsForClientOrigin(
         clientOrigin, promiseResolver);
 
-    checkPromiseResolver.promise
-        .then(() => {
-          this.userPromptingChecker_.cancelUserPromptIfPending(clientOrigin);
-        })
-        .thenAlways(() => {
-          this.managedRegistry_.stopMonitoringPermissionsForClientOrigin(
-              clientOrigin);
-        });
+    const promise =
+        checkPromiseResolver.promise
+            .then(() => {
+              this.userPromptingChecker_.cancelUserPromptIfPending(
+                  clientOrigin);
+            })
+            .thenAlways(() => {
+              this.managedRegistry_.stopMonitoringPermissionsForClientOrigin(
+                  clientOrigin);
+            });
+    GSC.PromiseHelpers.suppressUnhandledRejectionError(promise);
 
     this.userPromptingChecker_.check(clientOrigin)
         .then(checkPromiseResolver.resolve, checkPromiseResolver.reject);
