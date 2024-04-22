@@ -132,9 +132,12 @@ GSC.OffscreenDocEmscriptenModule = class extends GSC.ExecutableModule {
    * @private
    */
   async load_() {
-    // Listen for the incoming message channel from the Offscreen Document.
+    // Listen for the incoming message channels from the Offscreen Document.
+    // This has to be set up before the Document loading starts.
     const statusChannelWaiter =
         new GSC.PortMessageChannelWaiter(STATUS_PORT_NAME);
+    const messageChannelWaiter =
+        new GSC.PortMessageChannelWaiter(MESSAGING_PORT_NAME);
 
     // Prepare parameters for the Offscreen Document. The module name is passed
     // via URL query parameters.
@@ -172,8 +175,6 @@ GSC.OffscreenDocEmscriptenModule = class extends GSC.ExecutableModule {
 
     // Connect pipes for exchanging messages with the executable module in the
     // Offscreen Document.
-    const messageChannelWaiter =
-        new GSC.PortMessageChannelWaiter(MESSAGING_PORT_NAME);
     this.messageChannel_.setUnderlyingChannel(
         await messageChannelWaiter.getPromise());
     this.messageChannel_.setReady();
