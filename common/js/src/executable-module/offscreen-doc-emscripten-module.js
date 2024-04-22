@@ -162,7 +162,8 @@ GSC.OffscreenDocEmscriptenModule = class extends GSC.ExecutableModule {
 
     // Wait until the Offscreen Document signals us about the module's
     // loaded/disposed status (whichever comes first).
-    await Promise.all([this.waitLoadedMessage_(), this.waitDisposedMessage_()]);
+    await Promise.race(
+        [this.waitForLoadedMessage_(), this.waitForDisposedMessage_()]);
 
     // Connect pipes for exchanging messages with the executable module in the
     // Offscreen Document.
@@ -179,8 +180,8 @@ GSC.OffscreenDocEmscriptenModule = class extends GSC.ExecutableModule {
    * @return {!Promise<void>}
    * @private
    */
-  async waitLoadedMessage_() {
-    await this.waitMessage_(STATUS_LOADED);
+  async waitForLoadedMessage_() {
+    await this.waitForMessage_(STATUS_LOADED);
   }
 
   /**
@@ -189,8 +190,8 @@ GSC.OffscreenDocEmscriptenModule = class extends GSC.ExecutableModule {
    * @return {!Promise<void>}
    * @private
    */
-  async waitDisposedMessage_() {
-    await this.waitMessage_(STATUS_DISPOSED);
+  async waitForDisposedMessage_() {
+    await this.waitForMessage_(STATUS_DISPOSED);
     this.dispose();
     throw new Error('Disposed');
   }
@@ -200,7 +201,7 @@ GSC.OffscreenDocEmscriptenModule = class extends GSC.ExecutableModule {
    * @return {!Promise<void>}
    * @private
    */
-  waitMessage_(awaitedMessageType) {
+  waitForMessage_(awaitedMessageType) {
     return new Promise((resolve) => {
       this.statusChannel_.registerService(awaitedMessageType, () => {
         resolve();
