@@ -17,8 +17,6 @@
 
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientInfo');
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistryImpl');
-goog.require('goog.json');
-goog.require('goog.net.HttpStatus');
 goog.require('goog.testing');
 goog.require('goog.testing.asserts');
 goog.require('goog.testing.jsunit');
@@ -52,7 +50,7 @@ let registry;
 async function fakeFetch(url) {
   assertEquals(
       url, 'pcsc_lite_server_clients_management/known_client_apps.json');
-  const body = goog.json.serialize(FAKE_TRUSTED_CLIENTS);
+  const body = JSON.stringify(FAKE_TRUSTED_CLIENTS);
   return new Response(body);
 }
 
