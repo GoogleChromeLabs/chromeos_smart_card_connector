@@ -82,7 +82,16 @@ JS_COMPILER_BACKGROUND_INPUT_PATHS := \
 	$(JS_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
 
 $(eval $(call BUILD_JS_SCRIPT,background.js,$(JS_COMPILER_BACKGROUND_INPUT_PATHS),GoogleSmartCard.ConnectorApp.BackgroundMain,$(JS_COMPILER_FLAGS)))
+
+#
+# Rules for compiling the emscripten-offscreen-doc.js file.
+#
+
+ifeq ($(TOOLCHAIN),emscripten)
+ifeq ($(PACKAGING),extension)
 $(eval $(call BUILD_JS_SCRIPT,emscripten-offscreen-doc.js,$(JS_COMPILER_BACKGROUND_INPUT_PATHS),GoogleSmartCard.EmscriptenInOffscreenDocMain,$(JS_COMPILER_FLAGS)))
+endif
+endif
 
 
 #
@@ -148,7 +157,12 @@ $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/window.css))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/card-present.png))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/about-window.html))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/about-window.css))
+
+ifeq ($(TOOLCHAIN),emscripten)
+ifeq ($(PACKAGING),extension)
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(ROOT_PATH)/common/js/src/executable-module/emscripten-offscreen-doc.html))
+endif
+endif
 
 
 # Rules for the background page unload preventing feature. This feature is only
