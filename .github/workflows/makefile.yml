@@ -226,6 +226,8 @@ jobs:
     steps:
     - name: >
         All tests passed.
+      run: ''
+    - name: >
         C/C++ test coverage:
         ${{ needs.collect-coverage.outputs.LINE_COVERAGE_PERCENT }} lines.
       run: ''
