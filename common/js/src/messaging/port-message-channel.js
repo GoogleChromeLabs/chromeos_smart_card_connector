@@ -102,6 +102,13 @@ GSC.PortMessageChannel = class extends goog.messaging.AbstractChannel {
     goog.log.fine(this.logger, 'Initialized successfully');
   }
 
+  /**
+   * @return {Port?}
+   */
+  getPortForTesting() {
+    return this.port_;
+  }
+
   /** @override */
   send(serviceName, payload) {
     GSC.Logging.checkWithLogger(this.logger, goog.isObject(payload));
