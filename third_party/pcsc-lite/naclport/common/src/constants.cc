@@ -27,6 +27,8 @@
 
 // These three variables are the global PC/SC-Lite API constants, defined in the
 // pcsclite.h header.
+// Their definitions in PC/SC-Lite source code are located in files that we
+// don't compile for the Smart Card Connector extension.
 const SCARD_IO_REQUEST g_rgSCardT0Pci = {SCARD_PROTOCOL_T0,
                                          sizeof(SCARD_IO_REQUEST)};
 const SCARD_IO_REQUEST g_rgSCardT1Pci = {SCARD_PROTOCOL_T1,
