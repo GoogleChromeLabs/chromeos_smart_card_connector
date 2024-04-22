@@ -88,6 +88,12 @@ PCSC_LITE_COMMON_CPPFLAGS := \
 # compiled (see also PCSC_LITE_SERVER_SVC_SOURCES,
 # PCSC_LITE_SERVER_DEBUGLOG_SOURCES, PCSC_LITE_SERVER_READERFACTORY_SOURCES
 # variables).
+#
+# Files intentionally skipped from compiling:
+# * libredirect.c: We don't need its functionality that allows intercepting
+#     PC/SC calls, and also it technically requires capabilities that are
+#     unavailable in our case (dynamically loaded libraries, environment
+#     variables).
 PCSC_LITE_SERVER_SOURCES := \
 	$(PCSC_LITE_SOURCES_PATH)/atrhandler.c \
 	$(PCSC_LITE_SOURCES_PATH)/error.c \

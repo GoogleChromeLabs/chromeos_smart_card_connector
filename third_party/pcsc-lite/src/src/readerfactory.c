@@ -168,7 +168,7 @@ LONG RFAddReader(const char *readerNameLong, int port, const char *library,
 		return SCARD_E_INVALID_VALUE;
 
 #ifdef FILTER_NAMES
-	const char *ro_filter = getenv("PCSCLITE_FILTER_IGNORE_READER_NAMES");
+	const char *ro_filter = SYS_GetEnv("PCSCLITE_FILTER_IGNORE_READER_NAMES");
 	if (ro_filter)
 	{
 		char *filter, *next;
@@ -584,7 +584,7 @@ LONG RFRemoveReader(const char *readerName, int port, int flags)
 		return SCARD_E_INVALID_VALUE;
 
 #ifdef FILTER_NAMES
-	extend = getenv("PCSCLITE_FILTER_EXTEND_READER_NAMES");
+	extend = SYS_GetEnv("PCSCLITE_FILTER_EXTEND_READER_NAMES");
 	if (extend)
 		extend_size = strlen(extend);
 #endif
@@ -802,7 +802,7 @@ LONG RFSetReaderName(READER_CONTEXT * rContext, const char *readerName,
 	}
 
 #ifdef FILTER_NAMES
-	extend = getenv("PCSCLITE_FILTER_EXTEND_READER_NAMES");
+	extend = SYS_GetEnv("PCSCLITE_FILTER_EXTEND_READER_NAMES");
 	if (NULL == extend)
 		extend = "";
 #endif
@@ -872,6 +872,7 @@ LONG RFReaderInfoById(SCARDHANDLE hCard, READER_CONTEXT * * sReader)
 
 LONG RFLoadReader(READER_CONTEXT * rContext)
 {
+	LONG ret = SCARD_S_SUCCESS;
 	if (rContext->vHandle != 0)
 	{
 		Log2(PCSC_LOG_INFO, "Reusing already loaded driver for %s",
@@ -880,7 +881,10 @@ LONG RFLoadReader(READER_CONTEXT * rContext)
 		return SCARD_S_SUCCESS;
 	}
 
-	return DYN_LoadLibrary(&rContext->vHandle, rContext->library);
+	rContext->vHandle = DYN_LoadLibrary(rContext->library);
+	if (NULL == rContext->vHandle)
+		ret = SCARD_F_UNKNOWN_ERROR;
+	return ret;
 }
 
 LONG RFBindFunctions(READER_CONTEXT * rContext)
@@ -999,7 +1003,8 @@ LONG RFUnloadReader(READER_CONTEXT * rContext)
 	if (*rContext->pFeeds == 1)
 	{
 		Log1(PCSC_LOG_INFO, "Unloading reader driver.");
-		(void)DYN_CloseLibrary(&rContext->vHandle);
+		(void)DYN_CloseLibrary(rContext->vHandle);
+		rContext->vHandle = NULL;
 	}
 
 	rContext->vHandle = NULL;
@@ -1423,7 +1428,7 @@ void RFWaitForReaderInit(void)
 		for (int i = 0; i < PCSCLITE_MAX_READERS_CONTEXTS; i++)
 		{
 			/* reader is present */
-			if (sReadersContexts[i]->vHandle != NULL)
+			if (sReadersContexts[i] && sReadersContexts[i]->vHandle != NULL)
 			{
 				/* but card state is not yet available */
 				if (READER_NOT_INITIALIZED

@@ -81,17 +81,31 @@ const FunctionNameAndAddress kDriverIfdhandlerFunctions[] = {
 
 }  // namespace
 
-INTERNAL LONG DYN_LoadLibrary(void** pvLHandle, char* pcLibrary) {
-  *pvLHandle = static_cast<void*>(const_cast<char*>(kFakeLHandle));
+// Stub for the function defined in PC/SC-Lite dyn_generic.h.
+//
+// Its real implementation loads a shared library with a driver, but our
+// implementation here does nothing because in Smart Card Connector we link
+// against the driver statically.
+INTERNAL void* DYN_LoadLibrary(const char* pcLibrary) {
+  return static_cast<void*>(const_cast<char*>(kFakeLHandle));
+}
+
+// Stub for the function defined in PC/SC-Lite dyn_generic.h.
+//
+// Its real implementation unloads the shared library that's loaded by
+// `DYN_LoadLibrary()`; in Smart Card Connector we don't need to do that (see
+// that function's comment above).
+INTERNAL LONG DYN_CloseLibrary(void* pvLHandle) {
+  GOOGLE_SMART_CARD_CHECK(pvLHandle == kFakeLHandle);
   return SCARD_S_SUCCESS;
 }
 
-INTERNAL LONG DYN_CloseLibrary(void** pvLHandle) {
-  GOOGLE_SMART_CARD_CHECK(*pvLHandle == kFakeLHandle);
-  *pvLHandle = nullptr;
-  return SCARD_S_SUCCESS;
-}
-
+// Stub for the function defined in PC/SC-Lite dyn_generic.h.
+//
+// Its real implementation returns a pointer for the given function name in the
+// given shared library; as we link statically against the driver in Smart Card
+// Connector, we only need to traverse a hardcoded map from names to function
+// addresses.
 INTERNAL LONG DYN_GetAddress(void* pvLHandle,
                              void** pvFHandle,
                              const char* pcFunction,

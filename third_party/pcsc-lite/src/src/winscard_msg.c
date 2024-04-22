@@ -82,26 +82,27 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define member_size(type, member) sizeof(((type *)0)->member)
 
+static char SocketName[member_size(struct sockaddr_un, sun_path)];
+static pthread_once_t SocketName_init_control = PTHREAD_ONCE_INIT;
+static void SocketName_init(void)
+{
+	/* socket name not yet initialized */
+	const char *socketNameEnv;
+
+	socketNameEnv = SYS_GetEnv("PCSCLITE_CSOCK_NAME");
+	if (socketNameEnv)
+		strncpy(SocketName, socketNameEnv, sizeof SocketName);
+	else
+		strncpy(SocketName, PCSCLITE_CSOCK_NAME, sizeof SocketName);
+
+	/* Ensure a NUL byte */
+	SocketName[sizeof SocketName -1] = '\0';
+}
+
 char *getSocketName(void)
 {
-	static char socketName[member_size(struct sockaddr_un, sun_path)];
-
-	if ('\0' == socketName[0])
-	{
-		/* socket name not yet initialized */
-		char *socketNameEnv;
-
-		socketNameEnv = getenv("PCSCLITE_CSOCK_NAME");
-		if (socketNameEnv)
-			strncpy(socketName, socketNameEnv, sizeof(socketName));
-		else
-			strncpy(socketName, PCSCLITE_CSOCK_NAME, sizeof(socketName));
-
-		/* Ensure a NUL byte */
-		socketName[sizeof socketName -1] = '\0';
-	}
-
-	return socketName;
+	pthread_once(&SocketName_init_control, SocketName_init);
+	return SocketName;
 }
 
 /**
@@ -506,7 +507,7 @@ INTERNAL LONG MessageReceive(void *buffer_void, uint64_t buffer_size,
 				 * other errors are fatal */
 				if (errno != EINTR && errno != EAGAIN)
 				{
-					/* connection reseted by pcscd? */
+					/* connection reset by pcscd? */
 					if (ECONNRESET == errno)
 						retval = SCARD_W_SECURITY_VIOLATION;
 					else

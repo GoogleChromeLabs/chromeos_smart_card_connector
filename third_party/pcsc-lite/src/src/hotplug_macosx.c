@@ -283,29 +283,22 @@ static HPDriverVector HPDriversGetFromDirectory(const char *driverBundlePath)
 			int j;
 			for (j=0; j<reader_nb; j++)
 			{
+				char stringBuffer[1000];
 				CFStringRef strValue = CFArrayGetValueAtIndex(vendorArray, j);
 
-				driverBundle->m_vendorId = strtoul(CFStringGetCStringPtr(strValue,
-					CFStringGetSystemEncoding()), NULL, 16);
+				CFStringGetCString(strValue, stringBuffer, sizeof stringBuffer,
+					kCFStringEncodingUTF8);
+				driverBundle->m_vendorId = strtoul(stringBuffer, NULL, 16);
 
 				strValue = CFArrayGetValueAtIndex(productArray, j);
-				driverBundle->m_productId = strtoul(CFStringGetCStringPtr(strValue,
-					CFStringGetSystemEncoding()), NULL, 16);
+				CFStringGetCString(strValue, stringBuffer, sizeof stringBuffer,
+					kCFStringEncodingUTF8);
+				driverBundle->m_productId = strtoul(stringBuffer, NULL, 16);
 
 				strValue = CFArrayGetValueAtIndex(friendlyNameArray, j);
-				const char *cstr = CFStringGetCStringPtr(strValue,
-					CFStringGetSystemEncoding());
-				if (NULL == cstr)
-				{
-					char utf8_str[200];
-					if (CFStringGetCString(strValue, utf8_str, sizeof utf8_str,
-						kCFStringEncodingUTF8))
-						driverBundle->m_friendlyName = strdup(utf8_str);
-					else
-						continue;
-				}
-				else
-					driverBundle->m_friendlyName = strdup(cstr);
+				CFStringGetCString(strValue, stringBuffer, sizeof stringBuffer,
+					kCFStringEncodingUTF8);
+				driverBundle->m_friendlyName = strdup(stringBuffer);
 
 				if (!driverBundle->m_libPath)
 					driverBundle->m_libPath = strdup(libPath);
@@ -326,49 +319,7 @@ static HPDriverVector HPDriversGetFromDirectory(const char *driverBundlePath)
 		}
 		else
 		{
-			CFStringRef strValue = blobValue;
-
-#ifdef DEBUG_HOTPLUG
-			Log3(PCSC_LOG_DEBUG, "Driver without alias: %s %s",
-				driverBundle->m_friendlyName, driverBundle->m_libPath);
-#endif
-
-			driverBundle->m_vendorId = strtoul(CFStringGetCStringPtr(strValue,
-					CFStringGetSystemEncoding()), NULL, 16);
-
-			strValue = (CFStringRef) CFDictionaryGetValue(dict,
-				CFSTR(PCSCLITE_HP_PRODKEY_NAME));
-			if (!strValue)
-			{
-				Log1(PCSC_LOG_ERROR, "error getting product ID from bundle");
-				return bundleVector;
-			}
-			driverBundle->m_productId = strtoul(CFStringGetCStringPtr(strValue,
-				CFStringGetSystemEncoding()), NULL, 16);
-
-			strValue = (CFStringRef) CFDictionaryGetValue(dict,
-				CFSTR(PCSCLITE_HP_NAMEKEY_NAME));
-			if (!strValue)
-			{
-				Log1(PCSC_LOG_ERROR, "error getting product friendly name from bundle");
-				driverBundle->m_friendlyName = strdup("unnamed device");
-			}
-			else
-			{
-				const char *cstr = CFStringGetCStringPtr(strValue,
-					CFStringGetSystemEncoding());
-
-				driverBundle->m_friendlyName = strdup(cstr);
-			}
-#ifdef DEBUG_HOTPLUG
-			Log2(PCSC_LOG_DEBUG, "VendorID: 0x%04X", driverBundle->m_vendorId);
-			Log2(PCSC_LOG_DEBUG, "ProductID: 0x%04X", driverBundle->m_productId);
-			Log2(PCSC_LOG_DEBUG, "Friendly name: %s", driverBundle->m_friendlyName);
-			Log2(PCSC_LOG_DEBUG, "Driver: %s", driverBundle->m_libPath);
-#endif
-
-			/* go to next bundle in the vector */
-			driverBundle++;
+			Log1(PCSC_LOG_ERROR, "Non array not supported");
 		}
 	}
 	CFRelease(bundleArray);

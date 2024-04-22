@@ -36,6 +36,7 @@ include ../include.mk
 SOURCES_PATH := ../src
 
 SOURCES := \
+	$(SOURCES_PATH)/constants.cc \
 	$(SOURCES_PATH)/public/pcsc_lite_tracing_wrapper.cc \
 	$(SOURCES_PATH)/public/scard_debug_dump.cc \
 	$(SOURCES_PATH)/public/scard_structs_serialization.cc \
