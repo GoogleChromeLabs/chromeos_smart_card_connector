@@ -85,10 +85,10 @@ function FakeTrustedClientsRegistry() {}
 FakeTrustedClientsRegistry.prototype.getByOrigin = function(origin) {
   // Only fake clients ##1 and 3 are trusted.
   if (origin === FAKE_CLIENT_1_ORIGIN)
-    return goog.Promise.resolve(FAKE_TRUSTED_CLIENT_INFO_1);
+    return Promise.resolve(FAKE_TRUSTED_CLIENT_INFO_1);
   if (origin === FAKE_CLIENT_3_ORIGIN)
-    return goog.Promise.resolve(FAKE_TRUSTED_CLIENT_INFO_3);
-  return goog.Promise.reject();
+    return Promise.resolve(FAKE_TRUSTED_CLIENT_INFO_3);
+  return Promise.reject(new Error('untrusted'));
 };
 
 /** @override */
@@ -145,15 +145,15 @@ function getDialogMock(mockControl, mockedBehavior) {
       };
     case MockedDialogBehavior.USER_APPROVES:
       return function() {
-        return goog.Promise.resolve(true);
+        return Promise.resolve(true);
       };
     case MockedDialogBehavior.USER_DENIES:
       return function() {
-        return goog.Promise.resolve(false);
+        return Promise.resolve(false);
       };
     case MockedDialogBehavior.USER_CANCELS:
       return function() {
-        return goog.Promise.reject();
+        return Promise.reject(new Error('canceled'));
       };
   }
   goog.asserts.fail();
