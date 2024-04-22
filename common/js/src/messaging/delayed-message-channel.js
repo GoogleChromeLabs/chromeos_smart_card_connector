@@ -51,6 +51,8 @@ GSC.DelayedMessageChannel = class extends goog.messaging.AbstractChannel {
    * @param {!goog.messaging.AbstractChannel} underlyingChannel
    */
   setUnderlyingChannel(underlyingChannel) {
+    if (this.isDisposed())
+      return;
     GSC.Logging.check(!this.underlyingChannel_);
     this.underlyingChannel_ = underlyingChannel;
     // Let ourselves receive all (unhandled) messages that were received on
@@ -65,6 +67,8 @@ GSC.DelayedMessageChannel = class extends goog.messaging.AbstractChannel {
    * messages are sent immediately.
    */
   setReady() {
+    if (this.isDisposed())
+      return;
     GSC.Logging.check(this.underlyingChannel_);
     GSC.Logging.check(!this.ready_);
     this.ready_ = true;

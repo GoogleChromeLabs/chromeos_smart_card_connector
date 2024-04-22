@@ -177,7 +177,8 @@ GSC.EmscriptenModule = class extends GSC.ExecutableModule {
       this.realMessageChannel_.onMessageFromModule(message);
     });
 
-    // Fourth step: Wire up outgoing messages with the module.
+    // Fourth step: Wire up outgoing messages with the module, and send out the
+    // messages that have been delayed from sending.
     // The method name is again a hardcoded convention (see the
     // entry_point_emscripten.cc files).
     // The method is accessed using the square bracket notation, to make sure

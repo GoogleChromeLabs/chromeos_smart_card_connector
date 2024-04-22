@@ -78,7 +78,7 @@ goog.exportSymbol('testDelayedMessageChannel', {
     delayed.setUnderlyingChannel(underlyingMock);
     delayed.setReady();
 
-    // Act.
+    // Act. Send messages in both directions.
     delayed.send(TYPE_1, DATA_1);
     underlyingMock.receive(TYPE_2, DATA_2);
 
