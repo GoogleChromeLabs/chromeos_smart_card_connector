@@ -219,7 +219,7 @@ jobs:
   # An empty job whose steps display the short summary of the run.
   summary:
     runs-on: ubuntu-latest
-    # Depend on all other jobs, so that we don't post a PR comment if any fails.
+    # Depend on all other jobs, so that we aren't triggered if something fails.
     needs: [build-emscripten, build-nacl, test-asan, collect-coverage, lint-js]
 
     steps:
