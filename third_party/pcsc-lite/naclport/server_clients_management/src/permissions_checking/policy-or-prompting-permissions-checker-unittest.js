@@ -19,7 +19,6 @@ goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientInfo');
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistry');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.UserPromptingChecker');
 goog.require('GoogleSmartCard.Pcsc.PolicyOrPromptingPermissionsChecker');
-goog.require('goog.Promise');
 goog.require('goog.Thenable');
 goog.require('goog.asserts');
 goog.require('goog.testing');

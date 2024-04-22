@@ -50,7 +50,7 @@ const GSC = GoogleSmartCard;
 
 /**
  * Test-only override of the `fetch()` API.
- * @type {function(string):!Promise<!Response>|null}
+ * @type {function(string):Promise<!Response>}
  */
 let fetchOverrideForTesting = null;
 
@@ -162,7 +162,7 @@ TrustedClientsRegistryImpl.prototype.tryGetByOrigins =
 };
 
 /**
- * @param {function(string):!Promise<!Response>|null} fetchOverride
+ * @param {function(string):Promise<!Response>} fetchOverride
  */
 TrustedClientsRegistryImpl.overrideFetchForTesting = function(fetchOverride) {
   fetchOverrideForTesting = fetchOverride;

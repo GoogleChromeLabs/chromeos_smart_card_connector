@@ -17,12 +17,11 @@
 
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientInfo');
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistryImpl');
-goog.require('goog.Thenable');
 goog.require('goog.json');
 goog.require('goog.net.HttpStatus');
 goog.require('goog.testing');
+goog.require('goog.testing.asserts');
 goog.require('goog.testing.jsunit');
-goog.require('goog.testing.net.XhrIo');
 
 goog.setTestOnly();
 
