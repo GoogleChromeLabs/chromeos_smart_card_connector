@@ -138,16 +138,19 @@ CXX_DIALECT := c++11
 # Documented at ../executable_building.mk. The implementation is mostly similar
 # to the one at executable_building_emscripten.mk.
 define COMPILE_RULE
+.PHONY: $(call OBJ_FILE_NAME,$(1))
 $(call OBJ_FILE_NAME,$(1)): $(1) | $(dir $(call OBJ_FILE_NAME,$(1)))dir.stamp
-	clang \
+	clang-tidy-16 \
+		$(1) \
+		-checks=bugprone*,-bugprone-easily-swappable-parameters,-bugprone-narrowing-conversions,-bugprone-reserved-identifier,-bugprone-suspicious-string-compare,-bugprone-assignment-in-if-condition,-clang-analyzer-security.insecureAPI.*,-clang-analyzer-optin.performance.Padding \
+		-- \
 		-o $(call OBJ_FILE_NAME,$(1)) \
 		-c \
 		-MMD \
 		-MP \
 		$(ANALYSIS_COMMON_FLAGS) \
 		$(ANALYSIS_COMPILER_FLAGS) \
-		$(2) \
-		$(1)
+		$(2)
 -include $(call DEP_FILE_NAME,$(1))
 all: $(call OBJ_FILE_NAME,$(1))
 endef
@@ -155,14 +158,9 @@ endef
 # Documented at ../executable_building.mk. The implementation is mostly similar
 # to the one at executable_building_emscripten.mk.
 define LIB_RULE
+.PHONY: $(LIB_DIR)/lib$(1).a
 $(LIB_DIR)/lib$(1).a: $(foreach src,$(2),$(call OBJ_FILE_NAME,$(src)))
-	@mkdir -p $(LIB_DIR)
-	@rm -f $(LIB_DIR)/lib$(1).a
-	llvm-ar \
-		crs \
-		$(LIB_DIR)/lib$(1).a \
-		$(foreach src,$(2),$(call OBJ_FILE_NAME,$(src))) \
-		$(3)
+
 all: $(LIB_DIR)/lib$(1).a
 
 # Rules for cleaning the library files on "make clean":
@@ -175,20 +173,13 @@ endef
 # Documented at ../executable_building.mk. The implementation is mostly similar
 # to the one at executable_building_emscripten.mk.
 define LINK_EXECUTABLE_RULE
+.PHONY: $(BUILD_DIR)/$(TARGET)
 $(BUILD_DIR)/$(TARGET): $(foreach src,$(1),$(call OBJ_FILE_NAME,$(src)))
 $(BUILD_DIR)/$(TARGET): $(foreach lib,$(2),$(LIB_DIR)/lib$(lib).a)
 $(BUILD_DIR)/$(TARGET): $(3)
 $(BUILD_DIR)/$(TARGET): | $(BUILD_DIR)/dir.stamp
 $(BUILD_DIR)/$(TARGET):
-	clang++ \
-		-pthread \
-		-o $(BUILD_DIR)/$(TARGET) \
-		-L$(LIB_DIR) \
-		$(foreach src,$(1),$(call OBJ_FILE_NAME,$(src))) \
-		$(foreach lib,$(2),-l$(lib)) \
-		$(ANALYSIS_COMMON_FLAGS) \
-		$(ANALYSIS_LINKER_FLAGS) \
-		$(4)
+
 all: $(BUILD_DIR)/$(TARGET)
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(BUILD_DIR)/$(TARGET)))
 endef
