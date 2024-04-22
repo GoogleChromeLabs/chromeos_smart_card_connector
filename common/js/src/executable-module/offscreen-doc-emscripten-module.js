@@ -65,6 +65,11 @@ const STATUS_PORT_NAME = 'offscreen_doc_emscripten_status';
 const STATUS_LOADED = 'loaded';
 const STATUS_DISPOSED = 'disposed';
 
+/**
+ * Runs the Emscripten module in an Offscreen Document.
+ *
+ * See the file comment above for the details.
+ */
 GSC.OffscreenDocEmscriptenModule = class extends GSC.ExecutableModule {
   /**
    * @param {string} moduleName
