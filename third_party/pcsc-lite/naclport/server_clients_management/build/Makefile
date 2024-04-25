@@ -53,6 +53,7 @@ SOURCES := \
 CXXFLAGS := \
 	-I$(ROOT_PATH) \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
+	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/build_configuration/build \
 	-std=$(CXX_DIALECT) \
 
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))

@@ -23,7 +23,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 // THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// This file is a manually built replacement for the Autotools-generated config
+// This file is a manually built replacement for the meson-generated config
 // file.
 
 #ifndef GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_SERVER_CONFIG_H_

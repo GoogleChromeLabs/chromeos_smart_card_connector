@@ -83,6 +83,7 @@ CCID_CPPFLAGS := \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src/public/logging/syslog \
 	-I$(ROOT_PATH)/third_party/libusb/src/libusb \
+	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/build_configuration/build \
 	-Wno-macro-redefined \
 
 $(foreach src,$(CCID_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CCID_CPPFLAGS))))
@@ -97,6 +98,7 @@ CCID_OPENCT_CPPFLAGS := \
 	-I$(CCID_NACL_SOURCES_PATH) \
 	-I$(CCID_SOURCES_PATH) \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
+	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/build_configuration/build \
 
 $(foreach src,$(CCID_OPENCT_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CCID_OPENCT_CPPFLAGS))))
 
@@ -128,6 +130,7 @@ CCID_TOWITOKO_CPPFLAGS := \
 	-I$(CCID_SOURCES_PATH) \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 	-I$(ROOT_PATH)/third_party/libusb/src/libusb \
+	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/build_configuration/build \
 
 $(foreach src,$(CCID_TOWITOKO_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CCID_TOWITOKO_CPPFLAGS))))
 

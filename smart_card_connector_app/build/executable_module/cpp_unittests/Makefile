@@ -27,6 +27,7 @@ SOURCES := \
 # -Wno-zero-length-array: Suppress warnings in the third-party reader.h file.
 CXXFLAGS := \
 	-I$(ROOT_PATH) \
+	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/build_configuration/build \
 	-I$(ROOT_PATH)/third_party/pcsc-lite/src/src/PCSC \
 	-pedantic \
 	-Wall \

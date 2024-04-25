@@ -122,6 +122,7 @@ PCSC_LITE_SERVER_CPPFLAGS := \
 	-DSCardStatus=SCardStatusServer \
 	-DSCardTransmit=SCardTransmitServer \
 	-I$(SOURCES_PATH) \
+	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/build_configuration/build \
 
 $(foreach src,$(PCSC_LITE_SERVER_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_CPPFLAGS))))
 
@@ -208,6 +209,7 @@ PCSC_LITE_CLIENT_SOURCES := \
 PCSC_LITE_SERVER_CLIENT_CPPFLAGS := \
 	$(PCSC_LITE_COMMON_CPPFLAGS) \
 	-I$(SOURCES_PATH) \
+	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/build_configuration/build \
 
 $(foreach src,$(PCSC_LITE_CLIENT_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_CLIENT_CPPFLAGS))))
 
@@ -232,6 +234,7 @@ PCSC_LITE_SERVER_NACL_SOURCES := \
 PCSC_LITE_SERVER_NACL_CXXFLAGS := \
 	$(COMMON_CPPFLAGS) \
 	-I$(PCSC_LITE_SOURCES_PATH) \
+	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/build_configuration/build \
 	-std=$(CXX_DIALECT) \
 
 $(foreach src,$(PCSC_LITE_SERVER_NACL_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_NACL_CXXFLAGS))))

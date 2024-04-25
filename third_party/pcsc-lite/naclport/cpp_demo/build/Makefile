@@ -42,6 +42,7 @@ SOURCES := \
 
 CXXFLAGS := \
 	-I$(ROOT_PATH) \
+	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/build_configuration/build \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 	-std=$(CXX_DIALECT) \
 

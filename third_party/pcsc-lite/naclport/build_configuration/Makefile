@@ -51,7 +51,9 @@ all: build.stamp
 build.stamp: $(shell find ../../src)
 	@rm -f build.stamp
 	@git clean -fX ../../src
-	cd ../../src && ./bootstrap && ./configure --disable-polkit
+	@rm -rf build
+	cd ../../src && \
+		meson setup ../naclport/build_configuration/build -Dpolkit=false
 	@touch build.stamp
 
 # Delete the stamp and PC/SC-Lite temporary build artifacts on "make clean".
