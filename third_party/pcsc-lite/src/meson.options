@@ -1,0 +1,8 @@
+option('libsystemd', type : 'boolean')
+option('libudev', type : 'boolean')
+option('libusb', type : 'boolean', value : false)
+option('polkit', type : 'boolean')
+option('usb', type : 'boolean')
+option('serial', type : 'boolean', value : false)
+option('systemdsystemunit', type : 'string', value : '/usr/lib/systemd/system')
+option('serialconfdir', type : 'string', value : '/etc/reader.conf.d')
