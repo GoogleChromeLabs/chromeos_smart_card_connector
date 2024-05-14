@@ -183,27 +183,41 @@ PcscDeviceInfo ParsePcscDeviceString(const std::string& pcsc_device_string) {
   return info;
 }
 
-void ResetUsbDevice(int usb_device_address) {
+bool UsbDeviceHasInterface(libusb_device* device, int usb_interface_number) {
+  libusb_config_descriptor* config = nullptr;
+  if (libusb_get_active_config_descriptor(device, &config) != LIBUSB_SUCCESS) {
+    return false;
+  }
+  bool result = false;
+  for (int i = 0; i < config->bNumInterfaces; ++i) {
+    if (config->interface[i].altsetting &&
+        config->interface[i].altsetting->bInterfaceNumber ==
+            usb_interface_number) {
+      result = true;
+    }
+  }
+  libusb_free_config_descriptor(config);
+  return result;
+}
+
+libusb_device_handle* FindAndOpenUsbDevice(int usb_device_address,
+                                           int usb_interface_number) {
   libusb_device** devices = nullptr;
   ssize_t count = libusb_get_device_list(/*ctx=*/nullptr, &devices);
   if (count < 0)
-    return;
+    return nullptr;
 
+  libusb_device_handle* result = nullptr;
   for (ssize_t i = 0; i < count; ++i) {
     libusb_device* device = devices[i];
-    if (libusb_get_device_address(device) == usb_device_address) {
-      libusb_device_handle* handle;
-      if (libusb_open(device, &handle) == LIBUSB_SUCCESS) {
-        GOOGLE_SMART_CARD_LOG_INFO
-            << "Applying reset USB device workaround in case the reader is in "
-               "unresponsive state";
-        libusb_reset_device(handle);
-        libusb_close(handle);
-      }
+    if (libusb_get_device_address(device) == usb_device_address &&
+        UsbDeviceHasInterface(device, usb_device_address)) {
+      libusb_open(device, &result);
     }
   }
 
   libusb_free_device_list(devices, /*unref_devices=*/1);
+  return result;
 }
 
 }  // namespace
@@ -409,10 +423,22 @@ void PcscLiteServerWebPortService::AttemptMitigateReaderError(
     // Bail out - too many retries.
     return;
   }
+  libusb_device_handle* device_handle =
+      FindAndOpenUsbDevice(info.usb_device_address, info.usb_interface_number);
+  if (!device_handle) {
+    // Either the device has already disappeared or this is a non-existing
+    // interface (possible because the JS counterpart filters out non-smart card
+    // interfaces - see smart-card-filter-libusb-hook.js).
+    return;
+  }
+
   if (retries == kReaderRetriesTillUsbReset) {
     // Additionally try resetting the USB device after a few unsuccessful
     // retries.
-    ResetUsbDevice(info.usb_device_address);
+    GOOGLE_SMART_CARD_LOG_INFO
+        << "Applying reset USB device workaround in case the reader is in "
+           "unresponsive state";
+    libusb_reset_device(device_handle);
   }
   // Increment the USB bus number. Roughly 1 second later, PC/SC-Lite will
   // enumerate all readers again, discover this reader as a new device and try
@@ -423,6 +449,8 @@ void PcscLiteServerWebPortService::AttemptMitigateReaderError(
                                 "case the USB access error was transient";
   libusb_web_port_service_->OverrideBusNumber(info.usb_device_address,
                                               new_bus_number);
+
+  libusb_close(device_handle);
 }
 
 void PcscLiteServerWebPortService::PostMessage(const char* type,
