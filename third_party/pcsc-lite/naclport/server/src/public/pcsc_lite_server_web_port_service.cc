@@ -94,7 +94,9 @@ constexpr char kReaderInitAddMessageType[] = "reader_init_add";
 constexpr char kReaderFinishAddMessageType[] = "reader_finish_add";
 constexpr char kReaderRemoveMessageType[] = "reader_remove";
 
+// How many times we retry connecting to a reader before giving up.
 constexpr int kMaximumReaderRetries = 60;
+// After how many unsuccessful retries we reset the USB device.
 constexpr int kReaderRetriesTillUsbReset = 10;
 
 // Message data for the message that notifies the JavaScript side that a reader
