@@ -142,9 +142,13 @@ class ReaderNotificationObserver final {
 
  private:
   void OnMessageToJs(const std::string& event_name, Value message_data) {
-    std::string notification =
-        event_name + ":" +
-        message_data.GetDictionaryItem("readerName")->GetString();
+    const Value* reader_name = message_data.GetDictionaryItem("readerName");
+    GOOGLE_SMART_CARD_CHECK(reader_name);
+    const Value* return_code = message_data.GetDictionaryItem("returnCode");
+
+    std::string notification = event_name + ":" + reader_name->GetString();
+    if (return_code && return_code->GetInteger() != 0)
+      notification += ":error";
 
     std::unique_lock<std::mutex> lock(mutex_);
     recorded_notifications_.push(notification);
@@ -3248,6 +3252,116 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
   SetUpSCardContext();
 
   // Nothing to assert explicitly here - see the comment in the previous test.
+}
+
+class SmartCardConnectorApplicationReaderErrorTest
+    : public SmartCardConnectorApplicationSingleClientTest,
+      public ::testing::WithParamInterface<
+          TestingSmartCardSimulation::ErrorMode> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    AllErrorModes,
+    SmartCardConnectorApplicationReaderErrorTest,
+    ::testing::Values(
+        TestingSmartCardSimulation::ErrorMode::kOpenDeviceError,
+        TestingSmartCardSimulation::ErrorMode::kClaimInterfaceError,
+        TestingSmartCardSimulation::ErrorMode::kBulkTransferError,
+        TestingSmartCardSimulation::ErrorMode::kBulkTransferUnrelatedReplies));
+
+// Reader initialization fails when there's a persistent USB error.
+TEST_P(SmartCardConnectorApplicationReaderErrorTest, ReaderInitFailure) {
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+
+  // Act: simulate a reader with a persistent error.
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  device.error_mode = GetParam();
+  SetUsbDevices({device});
+
+  // Assert:
+  EXPECT_EQ(reader_notification_observer().WaitAndPop(),
+            "reader_init_add:Gemalto PC Twin Reader");
+  EXPECT_EQ(reader_notification_observer().WaitAndPop(),
+            "reader_finish_add:Gemalto PC Twin Reader:error");
+  std::vector<std::string> readers;
+  EXPECT_EQ(SimulateListReadersCallFromJsClient(kFakeHandlerId, scard_context(),
+                                                /*groups=*/Value(), readers),
+            SCARD_E_NO_READERS_AVAILABLE);
+}
+
+namespace {
+
+struct TransientErrorTestParam {
+  TransientErrorTestParam(
+      TestingSmartCardSimulation::ErrorMode error_mode,
+      TestingSmartCardSimulation::ErrorCessation error_cessation)
+      : error_mode(error_mode), error_cessation(error_cessation) {}
+
+  TestingSmartCardSimulation::ErrorMode error_mode;
+  TestingSmartCardSimulation::ErrorCessation error_cessation;
+};
+
+}  // namespace
+
+class SmartCardConnectorApplicationReaderTransientErrorTest
+    : public SmartCardConnectorApplicationSingleClientTest,
+      public ::testing::WithParamInterface<TransientErrorTestParam> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    AllErrorModes,
+    SmartCardConnectorApplicationReaderTransientErrorTest,
+    ::testing::Values(
+        TransientErrorTestParam(
+            TestingSmartCardSimulation::ErrorMode::kOpenDeviceError,
+            TestingSmartCardSimulation::ErrorCessation::kAfterOneError),
+        TransientErrorTestParam(
+            TestingSmartCardSimulation::ErrorMode::kOpenDeviceError,
+            TestingSmartCardSimulation::ErrorCessation::kAfterTwoErrors),
+        TransientErrorTestParam(
+            TestingSmartCardSimulation::ErrorMode::kClaimInterfaceError,
+            TestingSmartCardSimulation::ErrorCessation::kAfterOneError),
+        TransientErrorTestParam(
+            TestingSmartCardSimulation::ErrorMode::kClaimInterfaceError,
+            TestingSmartCardSimulation::ErrorCessation::kAfterTwoErrors),
+        TransientErrorTestParam(
+            TestingSmartCardSimulation::ErrorMode::
+                kBulkTransferUnrelatedReplies,
+            TestingSmartCardSimulation::ErrorCessation::kAfterOneError),
+        TransientErrorTestParam(
+            TestingSmartCardSimulation::ErrorMode::
+                kBulkTransferUnrelatedReplies,
+            TestingSmartCardSimulation::ErrorCessation::kAfterTwoErrors)));
+
+// Reader initialization succeeds after retrying from temporary USB errors.
+TEST_P(SmartCardConnectorApplicationReaderTransientErrorTest,
+       ReaderSuccessAfterInitialError) {
+  // Arrange:
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+
+  // Act: simulate a reader with a temporary error.
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  device.error_mode = GetParam().error_mode;
+  device.error_cessation = GetParam().error_cessation;
+  SetUsbDevices({device});
+
+  // Assert: eventually the error notifications stop occurring and the reader
+  // gets successfully initialized.
+  do {
+  } while (reader_notification_observer().WaitAndPop() !=
+           "reader_finish_add:Gemalto PC Twin Reader");
+  std::vector<std::string> readers;
+  EXPECT_EQ(SimulateListReadersCallFromJsClient(kFakeHandlerId, scard_context(),
+                                                /*groups=*/Value(), readers),
+            SCARD_S_SUCCESS);
+  EXPECT_THAT(readers, ElementsAre(kGemaltoPcTwinReaderPcscName0));
 }
 
 }  // namespace google_smart_card

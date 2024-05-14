@@ -69,6 +69,26 @@ class TestingSmartCardSimulation final : public RequestHandler {
     // Only usable with Yubikey device types.
     kYubikey,
   };
+  enum class ErrorMode {
+    // "openDeviceHandle" will fail.
+    kOpenDeviceError,
+    // "claimInterface" will fail.
+    kClaimInterfaceError,
+    // "bulkTransfer" will fail.
+    kBulkTransferError,
+    // Input "bulkTransfer" will return data with incorrect sequence number.
+    // This simulates the scenario when we read the USB reply to a request that
+    // was sent by another extension (typically - another instance of Smart Card
+    // Connector in another Chrome profile before it was shut down).
+    kBulkTransferUnrelatedReplies,
+  };
+  enum class ErrorCessation {
+    // The error disappears after being triggered once.
+    kAfterOneError,
+    // The error disappears after being triggered twice. (We don't test ">2"
+    // cases because it wouldn't add much more value.)
+    kAfterTwoErrors,
+  };
 
   // Represents whether an ICC (a smart card) is inserted into the reader and is
   // powered. Corresponds to "bmICCStatus" from CCID specs.
@@ -87,6 +107,10 @@ class TestingSmartCardSimulation final : public RequestHandler {
     optional<CardType> card_type;
     // A null value denotes "the card is uninitialized".
     optional<CardProfile> card_profile;
+    // If set, the device will simulate the error.
+    optional<ErrorMode> error_mode;
+    // If set, the error disappears under the specified circumstances.
+    optional<ErrorCessation> error_cessation;
   };
 
   struct SlotChangeNotification {
@@ -179,6 +203,8 @@ class TestingSmartCardSimulation final : public RequestHandler {
         DeviceState& device_state);
     GenericRequestResult HandleInputBulkTransfer(int64_t length_to_receive,
                                                  DeviceState& device_state);
+
+    void UpdateErrorPerCessation(DeviceState& device_state);
 
     std::mutex mutex_;
     std::vector<DeviceState> device_states_;
