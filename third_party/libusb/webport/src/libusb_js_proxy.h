@@ -122,6 +122,10 @@ class LibusbJsProxy final : public LibusbInterface {
   int LibusbHandleEvents(libusb_context* ctx) override;
   int LibusbHandleEventsCompleted(libusb_context* ctx, int* completed) override;
 
+  // Makes the bus number to be reported to the specified value for the given
+  // device.
+  void OverrideBusNumber(int64_t device_address, uint8_t new_bus_number);
+
  private:
   const int kHandleEventsTimeoutSeconds = 60;
 
@@ -151,7 +155,6 @@ class LibusbJsProxy final : public LibusbInterface {
                            int length,
                            int* actual_length,
                            unsigned timeout);
-  void TryApplyTransientAccessErrorWorkaround(libusb_device* dev);
   // Fetches the descriptor from the JS side and stores it in
   // `libusb_device::js_config`.
   void ObtainActiveConfigDescriptor(libusb_device* dev);

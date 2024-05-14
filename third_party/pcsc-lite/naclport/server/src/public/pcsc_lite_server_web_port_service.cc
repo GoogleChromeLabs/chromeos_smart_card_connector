@@ -29,6 +29,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <libusb.h>
+
+#include <cstdio>
+#include <limits>
 #include <string>
 #include <thread>
 #include <utility>
@@ -39,6 +43,7 @@
 #include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_conversion.h"
+#include "third_party/libusb/webport/src/public/constants.h"
 #include "third_party/pcsc-lite/naclport/server/src/server_sockets_manager.h"
 
 #ifdef __EMSCRIPTEN__
@@ -88,6 +93,9 @@ constexpr char kLoggingPrefix[] = "[PC/SC-Lite NaCl port] ";
 constexpr char kReaderInitAddMessageType[] = "reader_init_add";
 constexpr char kReaderFinishAddMessageType[] = "reader_finish_add";
 constexpr char kReaderRemoveMessageType[] = "reader_remove";
+
+constexpr int kMaximumReaderRetries = 60;
+constexpr int kReaderRetriesTillUsbReset = 10;
 
 // Message data for the message that notifies the JavaScript side that a reader
 // is being added by the PC/SC-Lite daemon.
@@ -153,6 +161,49 @@ void PcscLiteServerDaemonThreadMain() {
   ContextsDeinitialize();
 }
 
+struct PcscDeviceInfo {
+  unsigned vendor_id = 0;
+  unsigned product_id = 0;
+  int usb_device_address = 0;
+  int usb_bus_number = 0;
+  int usb_interface_number = 0;
+};
+
+PcscDeviceInfo ParsePcscDeviceString(const std::string& pcsc_device_string) {
+  PcscDeviceInfo info;
+  // See PC/SC-Lite's hotplug_libusb.c where this format string is hardcoded.
+  // It's also parsed by CCID's ccid_usb.c, so the exact format is practically
+  // an API contract by PC/SC-Lite.
+  GOOGLE_SMART_CARD_CHECK(
+      std::sscanf(pcsc_device_string.c_str(), "usb:%x/%x:libusb-1.0:%d:%d:%d",
+                  &info.vendor_id, &info.product_id, &info.usb_bus_number,
+                  &info.usb_device_address, &info.usb_interface_number) == 5);
+  return info;
+}
+
+void ResetUsbDevice(int usb_device_address) {
+  libusb_device** devices = nullptr;
+  ssize_t count = libusb_get_device_list(/*ctx=*/nullptr, &devices);
+  if (count < 0)
+    return;
+
+  for (ssize_t i = 0; i < count; ++i) {
+    libusb_device* device = devices[i];
+    if (libusb_get_device_address(device) == usb_device_address) {
+      libusb_device_handle* handle;
+      if (libusb_open(device, &handle) == LIBUSB_SUCCESS) {
+        GOOGLE_SMART_CARD_LOG_INFO
+            << "Applying reset USB device workaround in case the reader is in "
+               "unresponsive state";
+        libusb_reset_device(handle);
+        libusb_close(handle);
+      }
+    }
+  }
+
+  libusb_free_device_list(devices, /*unref_devices=*/1);
+}
+
 }  // namespace
 
 template <>
@@ -189,8 +240,12 @@ StructValueDescriptor<ReaderRemoveMessageData>::GetDescription() {
 }
 
 PcscLiteServerWebPortService::PcscLiteServerWebPortService(
-    GlobalContext* global_context)
-    : global_context_(global_context) {
+    GlobalContext* global_context,
+    LibusbWebPortService* libusb_web_port_service)
+    : global_context_(global_context),
+      libusb_web_port_service_(libusb_web_port_service) {
+  GOOGLE_SMART_CARD_CHECK(global_context_);
+  GOOGLE_SMART_CARD_CHECK(libusb_web_port_service_);
   GOOGLE_SMART_CARD_CHECK(!g_pcsc_lite_server);
   g_pcsc_lite_server = this;
 }
@@ -205,8 +260,7 @@ PcscLiteServerWebPortService::~PcscLiteServerWebPortService() {
 }
 
 // static
-const PcscLiteServerWebPortService*
-PcscLiteServerWebPortService::GetInstance() {
+PcscLiteServerWebPortService* PcscLiteServerWebPortService::GetInstance() {
   GOOGLE_SMART_CARD_CHECK(g_pcsc_lite_server);
   return g_pcsc_lite_server;
 }
@@ -340,6 +394,33 @@ void PcscLiteServerWebPortService::PostReaderRemoveMessage(
   message_data.port = port;
   PostMessage(kReaderRemoveMessageType,
               ConvertToValueOrDie(std::move(message_data)));
+}
+
+void PcscLiteServerWebPortService::AttemptMitigateReaderError(
+    const std::string& pcsc_device_string) {
+  PcscDeviceInfo info = ParsePcscDeviceString(pcsc_device_string);
+
+  // We modify the USB bus number to trick the PC/SC-Lite logic into retrying
+  // initializing the reader.
+  int retries = info.usb_bus_number - kDefaultUsbBusNumber;
+  if (retries >= kMaximumReaderRetries) {
+    // Bail out - too many retries.
+    return;
+  }
+  if (retries == kReaderRetriesTillUsbReset) {
+    // Additionally try resetting the USB device after a few unsuccessful
+    // retries.
+    ResetUsbDevice(info.usb_device_address);
+  }
+  // Increment the USB bus number. Roughly 1 second later, PC/SC-Lite will
+  // enumerate all readers again, discover this reader as a new device and try
+  // initializing it.
+  int new_bus_number = info.usb_bus_number + 1;
+  GOOGLE_SMART_CARD_CHECK(new_bus_number < std::numeric_limits<uint8_t>::max());
+  GOOGLE_SMART_CARD_LOG_INFO << "Applying bus number increment workaround in "
+                                "case the USB access error was transient";
+  libusb_web_port_service_->OverrideBusNumber(info.usb_device_address,
+                                              new_bus_number);
 }
 
 void PcscLiteServerWebPortService::PostMessage(const char* type,

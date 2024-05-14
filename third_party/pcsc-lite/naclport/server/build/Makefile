@@ -232,6 +232,8 @@ PCSC_LITE_SERVER_NACL_SOURCES := \
 PCSC_LITE_SERVER_NACL_CXXFLAGS := \
 	$(COMMON_CPPFLAGS) \
 	-I$(PCSC_LITE_SOURCES_PATH) \
+	-I$(ROOT_PATH)/third_party/libusb/src/libusb \
+	-I$(ROOT_PATH)/third_party/libusb/webport/src \
 	-std=$(CXX_DIALECT) \
 
 $(foreach src,$(PCSC_LITE_SERVER_NACL_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_NACL_CXXFLAGS))))
