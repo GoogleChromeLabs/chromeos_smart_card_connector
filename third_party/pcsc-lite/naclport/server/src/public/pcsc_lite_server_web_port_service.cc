@@ -437,10 +437,16 @@ void PcscLiteServerWebPortService::AttemptMitigateReaderError(
     return;
   }
   libusb_device* device = FindUsbDevice(info.usb_device_address);
-  if (!device || !UsbDeviceHasInterface(device, info.usb_interface_number)) {
-    // The device has already disappeared or this is a non-existing interface
-    // (possible because the JS counterpart filters out non-smart card
-    // interfaces - see smart-card-filter-libusb-hook.js)
+  if (!device) {
+    // The device has already disappeared.
+    return;
+  }
+
+  if (!UsbDeviceHasInterface(device, info.usb_interface_number)) {
+    // This is a non-existing interface (possible because the JS counterpart
+    // filters out non-smart card interfaces - see
+    // smart-card-filter-libusb-hook.js).
+    libusb_unref_device(device);
     return;
   }
 
@@ -458,6 +464,8 @@ void PcscLiteServerWebPortService::AttemptMitigateReaderError(
                                 "case the USB access error was transient";
   libusb_web_port_service_->OverrideBusNumber(info.usb_device_address,
                                               new_bus_number);
+
+  libusb_unref_device(device);
 }
 
 void PcscLiteServerWebPortService::PostMessage(const char* type,
