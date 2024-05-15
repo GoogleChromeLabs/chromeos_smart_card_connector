@@ -24,7 +24,10 @@ goog.provide('GoogleSmartCard.PopupOpener');
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.MessageWaiter');
 goog.require('GoogleSmartCard.Packaging');
+goog.require('GoogleSmartCard.PopupConstants');
+goog.require('GoogleSmartCard.PortMessageChannelWaiter');
 goog.require('goog.Promise');
 goog.require('goog.Thenable');
 goog.require('goog.log');
@@ -120,12 +123,7 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
         observingWindowRemoval = true;
       }
       chrome.windows.create(
-          {
-            'url': url,
-            'type': 'popup',
-            'width': windowOptions['width'],
-            'setSelfAsOpener': true
-          },
+          {'url': url, 'type': 'popup', 'width': windowOptions['width']},
           (createdWindow) => {
             windowIdMap.set(windowOptions['id'], createdWindow.id);
           });
@@ -147,7 +145,7 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
  * @param {string} url
  * @param {!WindowOptions=} opt_windowOptions
  * @param {!Object=} opt_data Optional data to be passed to the created dialog.
- * @return {!goog.Thenable}
+ * @return {!Promise}
  */
 GSC.PopupOpener.runModalDialog = function(url, opt_windowOptions, opt_data) {
   const createWindowOptions =
@@ -155,42 +153,27 @@ GSC.PopupOpener.runModalDialog = function(url, opt_windowOptions, opt_data) {
   if (opt_windowOptions !== undefined)
     Object.assign(createWindowOptions, opt_windowOptions);
 
-  if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION)
-    lastUsedPopupId++;
-
-  const promiseResolver = goog.Promise.withResolver();
-
-  // Set data for corresponnding SCC mode
-  const modifiedData =
-      (GSC.Packaging.MODE === GSC.Packaging.Mode.APP ?
-           {
-             'resolveModalDialog': promiseResolver.resolve,
-             'rejectModalDialog': promiseResolver.reject
-           } :
-           {'popup_id': lastUsedPopupId});
-
-  // Set promiseResolver for SCC extension mode
-  if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
-    goog.global[`googleSmartCard_resolveModalDialog${lastUsedPopupId}`] =
-        promiseResolver.resolve;
-    goog.global[`googleSmartCard_rejectModalDialog${lastUsedPopupId}`] =
-        promiseResolver.reject;
-  }
-
+  // Additionally pass the auto-generated popup ID. The popup will use it to
+  // talk back to us when sending the result.
+  ++lastUsedPopupId;
+  const modifiedData = {[GSC.PopupConstants.POPUP_ID_KEY]: lastUsedPopupId};
   if (opt_data !== undefined)
     Object.assign(modifiedData, opt_data);
 
-  const modifiedUrl = new URL(url, window.location.href);
+  const modifiedUrl = new URL(url, globalThis.location.href);
 
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
     modifiedUrl.searchParams.append(
         'passed_data', JSON.stringify(modifiedData));
   }
 
+  // Start listening for the response message before opening the popup.
+  const promise = waitForPopupResult(lastUsedPopupId);
+
   GSC.PopupOpener.createWindow(
       modifiedUrl.pathname + modifiedUrl.search + modifiedUrl.hash,
       createWindowOptions, modifiedData);
-  return promiseResolver.promise;
+  return promise;
 };
 
 /**
@@ -230,5 +213,28 @@ function createWindowCallback(createdWindowExtends, createdWindow) {
           'into the created window: ' +
           GSC.DebugDump.debugDumpSanitized(createdWindowExtends));
   Object.assign(createdWindowScope, createdWindowExtends);
+}
+
+/**
+ * Resolves/rejects to the result/error received from the specified popup.
+ * @param {number} popupId
+ * @return {!Promise}
+ */
+async function waitForPopupResult(popupId) {
+  const portWaiter = new GSC.PortMessageChannelWaiter(
+      GSC.PopupConstants.PORT_NAME_PREFIX + popupId);
+  const port = await portWaiter.getPromise();
+  // Info-level messages from the generic port aren't very useful here.
+  GSC.Logging.setLoggerVerbosityAtMost(port.logger, goog.log.Level.WARNING);
+
+  // This can throw, indicating that the dialog has been closed.
+  const result = await GSC.MessageWaiter.wait(
+      port, GSC.PopupConstants.RESULT_MESSAGE_TYPE);
+
+  // Extract the result: either an error (needs to be thrown) or a value.
+  if (result.hasOwnProperty(GSC.PopupConstants.RESULT_ERROR_KEY)) {
+    throw result[GSC.PopupConstants.RESULT_ERROR_KEY];
+  }
+  return result[GSC.PopupConstants.RESULT_VALUE_KEY];
 }
 });  // goog.scope
