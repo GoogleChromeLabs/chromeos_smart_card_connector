@@ -35,6 +35,7 @@ goog.provide('GoogleSmartCard.OffscreenDocEmscriptenModule');
 goog.require('GoogleSmartCard.DelayedMessageChannel');
 goog.require('GoogleSmartCard.ExecutableModule');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.MessageWaiter');
 goog.require('GoogleSmartCard.PortMessageChannel');
 goog.require('GoogleSmartCard.PortMessageChannelWaiter');
 goog.require('GoogleSmartCard.PromiseHelpers');
@@ -187,7 +188,7 @@ GSC.OffscreenDocEmscriptenModule = class extends GSC.ExecutableModule {
    * @private
    */
   async waitForLoadedMessage_() {
-    await this.waitForMessage_(STATUS_LOADED);
+    await GSC.MessageWaiter.wait(this.statusChannel_, STATUS_LOADED);
   }
 
   /**
@@ -197,22 +198,9 @@ GSC.OffscreenDocEmscriptenModule = class extends GSC.ExecutableModule {
    * @private
    */
   async waitForDisposedMessage_() {
-    await this.waitForMessage_(STATUS_DISPOSED);
+    await GSC.MessageWaiter.wait(this.statusChannel_, STATUS_DISPOSED);
     this.dispose();
     throw new Error('Disposed');
-  }
-
-  /**
-   * @param {string} awaitedMessageType
-   * @return {!Promise<void>}
-   * @private
-   */
-  waitForMessage_(awaitedMessageType) {
-    return new Promise((resolve) => {
-      this.statusChannel_.registerService(awaitedMessageType, () => {
-        resolve();
-      });
-    });
   }
 };
 
