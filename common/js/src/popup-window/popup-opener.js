@@ -232,7 +232,7 @@ async function waitForPopupResult(popupId) {
       port, GSC.PopupConstants.RESULT_MESSAGE_TYPE);
 
   // Extract the result: either an error (needs to be thrown) or a value.
-  if (result.hasOwn(GSC.PopupConstants.RESULT_ERROR_KEY)) {
+  if (Object.hasOwn(result, GSC.PopupConstants.RESULT_ERROR_KEY)) {
     throw result[GSC.PopupConstants.RESULT_ERROR_KEY];
   }
   return result[GSC.PopupConstants.RESULT_VALUE_KEY];
