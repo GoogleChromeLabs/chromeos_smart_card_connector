@@ -17,12 +17,9 @@
 
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientInfo');
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistryImpl');
-goog.require('goog.Thenable');
-goog.require('goog.json');
-goog.require('goog.net.HttpStatus');
 goog.require('goog.testing');
+goog.require('goog.testing.asserts');
 goog.require('goog.testing.jsunit');
-goog.require('goog.testing.net.XhrIo');
 
 goog.setTestOnly();
 
@@ -44,32 +41,28 @@ const FAKE_TRUSTED_CLIENTS = {
 let registry;
 
 /**
- * Simulates the response delivery for a previously created mock Xhrio request.
+ * Test-only override of the `fetch()` API.
  *
  * The response contains a fake trusted clients JSON.
+ * @param {string} url
+ * @return {!Promise<!Response>}
  */
-function simulateXhrioResponse() {
-  const sentXhrios = goog.testing.net.XhrIo.getSendInstances();
-  assertEquals(1, sentXhrios.length);
-  const xhrio = sentXhrios[0];
+async function fakeFetch(url) {
   assertEquals(
-      xhrio.getLastUri(),
-      'pcsc_lite_server_clients_management/known_client_apps.json');
-  const response = goog.json.serialize(FAKE_TRUSTED_CLIENTS);
-  xhrio.simulateResponse(goog.net.HttpStatus.OK, response);
+      url, 'pcsc_lite_server_clients_management/known_client_apps.json');
+  const body = JSON.stringify(FAKE_TRUSTED_CLIENTS);
+  return new Response(body);
 }
 
 goog.exportSymbol('testTrustedClientsRegistry', {
   'setUp': function() {
-    TrustedClientsRegistryImpl.overrideSendForTesting(
-        goog.testing.net.XhrIo.send);
+    TrustedClientsRegistryImpl.overrideFetchForTesting(fakeFetch);
     registry = new TrustedClientsRegistryImpl();
-    simulateXhrioResponse();
   },
 
   'tearDown': function() {
     registry = null;
-    TrustedClientsRegistryImpl.overrideSendForTesting(null);
+    TrustedClientsRegistryImpl.overrideFetchForTesting(null);
   },
 
   'testGetByOrigin_success': async function() {

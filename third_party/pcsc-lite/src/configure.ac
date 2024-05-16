@@ -3,9 +3,9 @@
 
 AC_PREREQ([2.69])
 
-AC_INIT([pcsc-lite],[2.0.0])
+AC_INIT([pcsc-lite], [2.1.0])
 AC_CONFIG_SRCDIR(src/pcscdaemon.c)
-AM_INIT_AUTOMAKE(1.8 dist-bzip2 no-dist-gzip)
+AM_INIT_AUTOMAKE(1.8 dist-bzip2 no-dist-gzip foreign subdir-objects)
 AC_CONFIG_HEADERS([config.h])
 
 AC_CONFIG_MACRO_DIR(m4)
@@ -17,40 +17,28 @@ AC_PROG_CC
 AC_C_BIGENDIAN
 
 # Check for some target-specific stuff
-case "$host" in
-*-*-hpux*)
-	CPPFLAGS="$CPPFLAGS -D_HPUX_SOURCE -D_XOPEN_SOURCE_EXTENDED"
-	;;
-*-*-solaris*)
-	CPPFLAGS="$CPPFLAGS -I/usr/local/include"
-	LDFLAGS="$LDFLAGS -L/usr/local/lib -R/usr/local/lib"
-	need_dash_r=1
-	;;
-*-*-sunos4*)
-	CPPFLAGS="$CPPFLAGS -DSUNOS4"
-	;;
-*-*-aix*)
-	CPPFLAGS="$CPPFLAGS -I/usr/local/include"
-	LDFLAGS="$LDFLAGS -L/usr/local/lib"
-	if (test "$LD" != "gcc" && test -z "$blibpath"); then
-		blibpath="/usr/lib:/lib:/usr/local/lib"
-	fi
-	;;
-*-*-osf*)
-	CPPFLAGS="$CPPFLAGS -D_POSIX_PII_SOCKET"
-	;;
-*-*-darwin*)
-	AC_SUBST(COREFOUNDATION)
-	COREFOUNDATION="-Wl,-framework,CoreFoundation"
-	AC_SUBST(IOKIT)
-	IOKIT="-Wl,-framework,IOKit"
-	if test "$GCC" = "yes"; then
-		CFLAGS="$CFLAGS -no-cpp-precomp"
-	fi
-	use_libusb=no
-	AC_MSG_WARN([libusb disabled on Darwin for pcsc-lite])
-	;;
-esac
+AS_CASE(["$host"],
+	[*-*-hpux*], [CPPFLAGS="$CPPFLAGS -D_HPUX_SOURCE -D_XOPEN_SOURCE_EXTENDED"],
+	[*-*-solaris*], [
+		CPPFLAGS="$CPPFLAGS -I/usr/local/include"
+		LDFLAGS="$LDFLAGS -L/usr/local/lib -R/usr/local/lib"
+		need_dash_r=1 ],
+	[*-*-sunos4*], [CPPFLAGS="$CPPFLAGS -DSUNOS4"],
+	[*-*-aix*], [
+		CPPFLAGS="$CPPFLAGS -I/usr/local/include"
+		LDFLAGS="$LDFLAGS -L/usr/local/lib"
+		AS_IF([test "$LD" != "gcc" && test -z "$blibpath"],
+			[blibpath="/usr/lib:/lib:/usr/local/lib"])],
+	[*-*-osf*], [CPPFLAGS="$CPPFLAGS -D_POSIX_PII_SOCKET"],
+	[*-*-darwin*], [
+		AC_SUBST(COREFOUNDATION)
+		COREFOUNDATION="-Wl,-framework,CoreFoundation"
+		AC_SUBST(IOKIT)
+		IOKIT="-Wl,-framework,IOKit"
+		AS_IF([test "$GCC" = "yes"], [CFLAGS="$CFLAGS -no-cpp-precomp"])
+		use_libusb=no
+		AC_MSG_WARN([libusb disabled on Darwin for pcsc-lite])]
+)
 
 # Options
 AM_MAINTAINER_MODE
@@ -61,10 +49,7 @@ AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
 AC_PROG_LEX([noyywrap])
-if test $LEX = ":"
-then
-	AC_MSG_ERROR([no lex or flex found])
-fi
+AS_IF([test $LEX = ":"], [AC_MSG_ERROR([no lex or flex found])])
 PKG_PROG_PKG_CONFIG
 AM_PROG_CC_C_O
 AM_PROG_AR
@@ -73,7 +58,7 @@ AM_PROG_AR
 AX_PTHREAD([
  AC_DEFINE(HAVE_PTHREAD, 1,
   [Define if you have POSIX threads libraries and header files.])
-],[
+], [
  AC_MSG_ERROR([POSIX thread support required])
 ])
 
@@ -115,9 +100,7 @@ AC_FUNC_ALLOCA
 
 # C Compiler features
 AC_C_INLINE
-if test "$GCC" = "yes"; then
-	CFLAGS="-Wall -fno-common $CFLAGS"
-fi
+AS_IF([test "$GCC" = "yes"], [CFLAGS="-Wall -fno-common $CFLAGS"])
 
 # check if the compiler support -fvisibility=hidden (GCC >= 4)
 saved_CFLAGS="$CFLAGS"
@@ -136,20 +119,15 @@ AC_SEARCH_LIBS([dlopen], [dl dld], [], [
 
 # Use 'uname' output as an architecture define
 PCSC_ARCH=`uname | sed -e s,/,_,`
-case "$PCSC_ARCH" in
-Darwin)
-	PCSC_ARCH=MacOS
-	;;
-SunOS)
-	PCSC_ARCH=Solaris
-	;;
-esac
+AS_CASE(["$PCSC_ARCH"],
+	[Darwin], [PCSC_ARCH=MacOS],
+	[SunOS], [PCSC_ARCH=Solaris])
 AC_DEFINE_UNQUOTED(PCSC_ARCH, "$PCSC_ARCH", [PC/SC target architecture])
 PCSCLITE_FEATURES="${PCSCLITE_FEATURES} $PCSC_ARCH $host"
 
 # --disable-documentation
 AC_ARG_ENABLE(documentation,
-	AS_HELP_STRING([--disable-documentation],[do not build documentation]),
+	AS_HELP_STRING([--disable-documentation], [do not build documentation]),
 	[ enable_doc="${enableval}" ], [ enable_doc="yes" ] )
 AM_CONDITIONAL(ENABLE_DOC, test "$enable_doc" != "no")
 
@@ -161,53 +139,47 @@ AC_CHECK_LIB(rt, mq_getattr, [LIBS="$LIBS -lrt"])
 
 # check for libsystemd
 AC_ARG_ENABLE(libsystemd,
-	AS_HELP_STRING([--disable-libsystemd],[do not use libsystemd]),
+	AS_HELP_STRING([--disable-libsystemd], [do not use libsystemd]),
 	[ use_libsystemd="${enableval}" ], [ use_libsystemd="yes" ] )
-if test "$use_libsystemd" != "no"; then
-	PKG_CHECK_MODULES(LIBSYSTEMD, libsystemd,,
+AS_IF([test "$use_libsystemd" != "no"],
+	[PKG_CHECK_MODULES(LIBSYSTEMD, libsystemd,,
 		[ AC_MSG_ERROR([install libsystemd-dev or use --disable-libsystemd]) ])
 	AC_DEFINE(USE_LIBSYSTEMD, 1, [Use libsystemd])
-	PCSCLITE_FEATURES="${PCSCLITE_FEATURES} libsystemd"
-fi
+	PCSCLITE_FEATURES="${PCSCLITE_FEATURES} libsystemd"])
 
 # --disable-serial
 AC_ARG_ENABLE(serial,
-	AS_HELP_STRING([--disable-serial],[do not use serial reader.conf files]),
+	AS_HELP_STRING([--disable-serial], [do not use serial reader.conf files]),
 	[ use_serial="${enableval}" ], [ use_serial="yes" ] )
 AM_CONDITIONAL(ENABLE_SERIAL, test "$use_serial" != "no")
-if test "$use_serial" != "no"; then
-	AC_DEFINE(USE_SERIAL, 1, [Use serial conf file mechanism])
-	PCSCLITE_FEATURES="${PCSCLITE_FEATURES} serial"
-fi
+AS_IF([test "$use_serial" != "no"],
+	[AC_DEFINE(USE_SERIAL, 1, [Use serial conf file mechanism])
+	 PCSCLITE_FEATURES="${PCSCLITE_FEATURES} serial"])
 
 # --disable-usb
 AC_ARG_ENABLE(usb,
-	AS_HELP_STRING([--disable-usb],[do not use usb hotplug]),
+	AS_HELP_STRING([--disable-usb], [do not use usb hotplug]),
 	[ use_usb="${enableval}" ], [ use_usb="yes" ] )
 AM_CONDITIONAL(ENABLE_USB, test "$use_usb" != "no")
-if test "$use_usb" != "no"; then
-	AC_DEFINE(USE_USB, 1, [Use USB hotplug mechanism])
-	PCSCLITE_FEATURES="${PCSCLITE_FEATURES} usb"
-fi
+AS_IF([test "$use_usb" != "no"],
+	[AC_DEFINE(USE_USB, 1, [Use USB hotplug mechanism])
+	 PCSCLITE_FEATURES="${PCSCLITE_FEATURES} usb"])
 
 # --enable-libudev
 AC_ARG_ENABLE(libudev,
-	AS_HELP_STRING([--disable-libudev],[do not use libudev]),
+	AS_HELP_STRING([--disable-libudev], [do not use libudev]),
 	[ use_libudev="${enableval}" ],
-	[	if test "$PCSC_ARCH" != "Linux" ; then
-			use_libudev="no"
-		else
-			 use_libudev="${use_libudev-yes}"
-		fi ])
+	[ AS_IF([test "$PCSC_ARCH" != "Linux"],
+		[use_libudev="no"],
+		[use_libudev="${use_libudev-yes}"])
+	])
 
 # disable libudev check is USB is not used
-if test "$use_usb" = "no"; then
-	use_libudev="no"
-fi
+AS_IF([test "$use_usb" = "no"], [use_libudev="no"])
 
 # check if libudev is used
-if test "x$use_libudev" != xno ; then
-	PKG_CHECK_MODULES(LIBUDEV, libudev, [],
+AS_IF([test "x$use_libudev" != xno],
+	[PKG_CHECK_MODULES(LIBUDEV, libudev, [],
 		[ AC_MSG_ERROR([install libudev-dev or use --disable-libudev]) ])
 
 	saved_CPPFLAGS="$CPPFLAGS"
@@ -230,44 +202,40 @@ if test "x$use_libudev" != xno ; then
 
 	CPPFLAGS="$saved_CPPFLAGS"
 	LIBS="$saved_LIBS"
-fi
+	])
 AC_SUBST(LIBUDEV_CFLAGS)
 AC_SUBST(LIBUDEV_LIBS)
 
-if test x$use_libudev = xyes; then
-  AC_DEFINE(HAVE_LIBUDEV, 1, [Libudev is available])
-  PCSCLITE_FEATURES="${PCSCLITE_FEATURES} libudev"
-fi
+AS_IF([test x$use_libudev = xyes],
+	[AC_DEFINE(HAVE_LIBUDEV, 1, [Libudev is available])
+	 PCSCLITE_FEATURES="${PCSCLITE_FEATURES} libudev"])
 
 # --enable-libusb
 AC_ARG_ENABLE(libusb,
-	AS_HELP_STRING([--enable-libusb],[use libusb]),
+	AS_HELP_STRING([--enable-libusb], [use libusb]),
 	[ use_libusb="${enableval}" ],
-	[ if test "x$use_libudev" = xyes ; then use_libusb="${use_libusb-no}" ;
-	else use_libusb="${use_libusb-yes}" ; fi ] )
+	[ AS_IF([test "x$use_libudev" = xyes],
+		   	[use_libusb="${use_libusb-no}"],
+			[use_libusb="${use_libusb-yes}"])] )
 
 # disable libusb check is USB is not used
-if test "$use_usb" = "no"; then
-	use_libusb="no"
-fi
+AS_IF([test "$use_usb" = "no"], [use_libusb="no"])
 
 # check if libusb is used
-if test "x$use_libusb" != xno ; then
-	if  test "x$use_libudev" != xno ; then
-		AC_MSG_ERROR([You can't use libudev _and_ libusb. Select only one.])
-	fi
+AS_IF([test "x$use_libusb" != xno],
+	[
+	AS_IF([test "x$use_libudev" != xno],
+		[AC_MSG_ERROR([You can't use libudev _and_ libusb. Select only one.])])
 
 	PKG_CHECK_MODULES(LIBUSB, libusb-1.0, [],
 		[
 			AC_MSG_RESULT([no])
 			AC_CHECK_PROG([LIBUSBCONFIG], [libusb-config], [yes])
 
-			if test "$LIBUSBCONFIG" = "yes" ; then
-				LIBUSB_CFLAGS="$LIBUSB_CFLAGS `libusb-config --cflags`"
-				LIBUSB_LIBS="$LIBUSB_LIBS `libusb-config --libs`"
-			else
-				AC_MSG_WARN([libusb-config not found.])
-			fi
+			AS_IF([test "$LIBUSBCONFIG" = "yes"],
+				[LIBUSB_CFLAGS="$LIBUSB_CFLAGS `libusb-config --cflags`"
+				 LIBUSB_LIBS="$LIBUSB_LIBS `libusb-config --libs`" ],
+				[AC_MSG_WARN([libusb-config not found.])])
 		])
 
 	saved_CPPFLAGS="$CPPFLAGS"
@@ -290,70 +258,64 @@ if test "x$use_libusb" != xno ; then
 
 	CPPFLAGS="$saved_CPPFLAGS"
 	LIBS="$saved_LIBS"
-fi
+])
 AC_SUBST(LIBUSB_CFLAGS)
 AC_SUBST(LIBUSB_LIBS)
 
-if test x$use_libusb = xyes; then
-  AC_DEFINE(HAVE_LIBUSB, 1, [Libusb is available])
-  PCSCLITE_FEATURES="${PCSCLITE_FEATURES} libusb"
-fi
+AS_IF([test x$use_libusb = xyes],
+	[AC_DEFINE(HAVE_LIBUSB, 1, [Libusb is available])
+	 PCSCLITE_FEATURES="${PCSCLITE_FEATURES} libusb"])
 
-# --enable-polkit
+# --disable-polkit
 POLKIT_MINIMUM=0.111
 AC_ARG_ENABLE(polkit,
-	AS_HELP_STRING([--enable-polkit],
-		[Build with polkit support]),
-		use_polkit=$enableval, use_polkit=no)
-if test "$use_polkit" != "no"; then
-	PKG_CHECK_MODULES(POLKIT, [polkit-gobject-1 >= $POLKIT_MINIMUM], [use_polkit=yes], [use_polkit=no])
-	if test "$use_polkit" != "no";then
-		AC_DEFINE([HAVE_POLKIT], 1, [Build polkit access control support])
-		polkit_policy_dir=$($PKG_CONFIG polkit-gobject-1 --variable=policydir)
-		AC_SUBST(POLICY_DIR, [$polkit_policy_dir])
-		PCSCLITE_FEATURES="${PCSCLITE_FEATURES} polkit"
-	else
-	        use_polkit=no
-	        AC_MSG_ERROR([[
+	AS_HELP_STRING([--disable-polkit],
+		[do not build with polkit support]),
+		use_polkit=$enableval, use_polkit=yes)
+AS_IF([test "$use_polkit" != "no"],
+	[PKG_CHECK_MODULES(POLKIT, [polkit-gobject-1 >= $POLKIT_MINIMUM], [use_polkit=yes], [use_polkit=no])
+	AS_IF([test "$use_polkit" != "no"],
+		[AC_DEFINE([HAVE_POLKIT], 1, [Build polkit access control support])
+		 polkit_policy_dir=$($PKG_CONFIG polkit-gobject-1 --variable=policydir)
+		 AC_SUBST(POLICY_DIR, [$polkit_policy_dir])
+		 PCSCLITE_FEATURES="${PCSCLITE_FEATURES} polkit"],
+		[use_polkit=no
+		 AC_MSG_ERROR([[
 *** 
 *** polkit >= $POLKIT_MINIMUM was not found. Access control will be disabled.
 *** You may get it from http://www.freedesktop.org/software/polkit/
 *** ]])
-	fi
-fi
+		])
+])
 AM_CONDITIONAL(ENABLE_POLKIT, test "$use_polkit" != "no")
 
 # --with-systemdsystemunitdir=DIR
 AC_ARG_WITH([systemdsystemunitdir],
   AS_HELP_STRING([--with-systemdsystemunitdir=DIR], [Directory for systemd service files]),
   [], [with_systemdsystemunitdir=$($PKG_CONFIG --variable=systemdsystemunitdir systemd)])
-if test "x$with_systemdsystemunitdir" != xno; then
-  AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir])
-fi
+AS_IF([test "x$with_systemdsystemunitdir" != xno],
+	[AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir])])
 AM_CONDITIONAL(HAVE_SYSTEMD, [test -n "$with_systemdsystemunitdir" -a "x$with_systemdsystemunitdir" != xno ])
 
 # --enable-embedded
 AC_ARG_ENABLE(embedded,
-  AS_HELP_STRING([--enable-embedded],[limit RAM and CPU resources by disabling features (log)]),
+  AS_HELP_STRING([--enable-embedded], [limit RAM and CPU resources by disabling features (log)]),
   [ use_embedded="${enableval}" ])
 
-if test x$use_embedded = xyes; then
-  AC_DEFINE(NO_LOG, 1, [Disable logging support])
-  PCSCLITE_FEATURES="${PCSCLITE_FEATURES} nolog"
-fi
+AS_IF([test x$use_embedded = xyes],
+	[AC_DEFINE(NO_LOG, 1, [Disable logging support])
+	 PCSCLITE_FEATURES="${PCSCLITE_FEATURES} nolog"])
 
 # --enable-usbdropdir=DIR
 AC_ARG_ENABLE(usbdropdir,
-  AS_HELP_STRING([--enable-usbdropdir=DIR],[directory containing USB
+  AS_HELP_STRING([--enable-usbdropdir=DIR], [directory containing USB
 				  drivers (default /usr/local/lib/pcsc/drivers)]),
 [usbdropdir="${enableval}"], [usbdropdir=false])
-if test x${usbdropdir} = xfalse ; then
-	if test "x$libdir" != xNONE; then
-		usbdropdir="$libdir/pcsc/drivers"
-	else
-		usbdropdir="$ac_default_libdir/pcsc/drivers"
-	fi
-fi
+AS_IF([test x${usbdropdir} = xfalse],
+	[AS_IF([test "x$libdir" != xNONE],
+		[usbdropdir="$libdir/pcsc/drivers"],
+		[usbdropdir="$ac_default_libdir/pcsc/drivers"])
+])
 AX_RECURSIVE_EVAL($usbdropdir,usbdropdir_exp)
 usbdropdir=$usbdropdir_exp
 AC_DEFINE_UNQUOTED(PCSCLITE_HP_DROPDIR, "$usbdropdir", [directory containing USB drivers])
@@ -361,27 +323,24 @@ PCSCLITE_FEATURES="${PCSCLITE_FEATURES} usbdropdir=${usbdropdir}"
 
 # --enable-debugatr
 AC_ARG_ENABLE(debugatr,
-  AS_HELP_STRING([--enable-debugatr],[enable ATR debug messages from pcscd]),
-[ case "${enableval}" in
-  yes)	debugatr=true ;;
-  no)	debugatr=false ;;
-  *) AC_MSG_ERROR([bad value ${enableval} for --enable-debugatr]) ;;
-esac], [debugatr=false])
+  AS_HELP_STRING([--enable-debugatr], [enable ATR debug messages from pcscd]),
+[ AS_CASE(["${enableval}"],
+	[yes], [debugatr=true],
+	[no], [debugatr=false],
+	[*], [AC_MSG_ERROR([bad value ${enableval} for --enable-debugatr])])
+], [debugatr=false])
 
-if test x${debugatr} = xtrue ; then
-  AC_DEFINE(ATR_DEBUG, 1, [display ATR parsing debug messages.])
-  PCSCLITE_FEATURES="${PCSCLITE_FEATURES} debugatr"
-fi
+AS_IF([test x${debugatr} = xtrue],
+	[AC_DEFINE(ATR_DEBUG, 1, [display ATR parsing debug messages.])
+	 PCSCLITE_FEATURES="${PCSCLITE_FEATURES} debugatr"])
 
 # --enable-ipcdir=DIR
 AC_ARG_ENABLE(ipcdir,
-  AS_HELP_STRING([--enable-ipcdir=DIR],[directory containing IPC files
+  AS_HELP_STRING([--enable-ipcdir=DIR], [directory containing IPC files
 				  (default /run/pcscd)]),
 [ipcdir="${enableval}"], [ipcdir=false])
 
-if test x${ipcdir} = xfalse ; then
-	ipcdir="/run/pcscd"
-fi
+AS_IF([test x${ipcdir} = xfalse], [ipcdir="/run/pcscd"])
 AC_DEFINE_UNQUOTED(USE_IPCDIR, "$ipcdir", [directory containing IPC files])
 PCSCLITE_FEATURES="${PCSCLITE_FEATURES} ipcdir=${ipcdir}"
 
@@ -389,31 +348,28 @@ CPPFLAGS="-I\${top_srcdir}/src $CPPFLAGS"
 
 # --enable-confdir=DIR
 AC_ARG_ENABLE(confdir,
-AS_HELP_STRING([--enable-confdir=DIR],[directory containing reader configurations (default ${sysconfdir}/reader.conf.d)]),
+AS_HELP_STRING([--enable-confdir=DIR], [directory containing reader configurations (default ${sysconfdir}/reader.conf.d)]),
 	[confdir="${enableval}"],
 	[confdir="${sysconfdir}/reader.conf.d"])
 
 # --disable-filter
 AC_ARG_ENABLE(filter,
-  AS_HELP_STRING([--disable-filter],[disable reader filtering using
+  AS_HELP_STRING([--disable-filter], [disable reader filtering using
 				  PCSCLITE_FILTER_IGNORE_READER_NAMES and PCSCLITE_FILTER_EXTEND_READER_NAMES]),
   [ use_filter="${enableval}" ], [ use_filter="yes" ])
 
-if test x$use_filter = xyes; then
-  AC_DEFINE(FILTER_NAMES, 1, [Filter reader names])
-  PCSCLITE_FEATURES="${PCSCLITE_FEATURES} filter"
-fi
+AS_IF([test x$use_filter = xyes],
+	[AC_DEFINE(FILTER_NAMES, 1, [Filter reader names])
+	 PCSCLITE_FEATURES="${PCSCLITE_FEATURES} filter"])
 
 # --enable-strict
 AC_ARG_ENABLE(
 	[strict],
-	[AS_HELP_STRING([--enable-strict],[enable strict compile mode @<:@enabled@:>@])],
+	[AS_HELP_STRING([--enable-strict], [enable strict compile mode @<:@enabled@:>@])],
 	,
 	[enable_strict="no"]
 )
-if test "${enable_strict}" = "yes"; then
-	CFLAGS="-Wall -Wextra -Werror ${CFLAGS}"
-fi
+AS_IF([test "${enable_strict}" = "yes"], [CFLAGS="-Wall -Wextra -Werror ${CFLAGS}"])
 
 # Setup dist stuff
 AC_SUBST(usbdropdir)

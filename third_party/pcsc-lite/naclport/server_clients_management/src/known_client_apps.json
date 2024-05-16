@@ -1,12 +1,12 @@
 {
   "chrome-extension://dojmlffgommefdofbfdajjpgjgjoffjo": {
-    "name": "Charismathics Smart Card Middleware"
+    "name": "DriveLock Smart Card Middleware (CSSI)"
   },
   "chrome-extension://haeblkpifdemlfnkogkipmghfcbonief": {
-    "name": "CSSI Smart Card Middleware"
+    "name": "DriveLock Smart Card Middleware (CSSI)"
   },
   "chrome-extension://omlchkeefdkmmdndbpbhaapnnemfkobc": {
-    "name": "Charismathics Smart Card Middleware"
+    "name": "DriveLock Smart Card Middleware (CSSI)"
   },
   "chrome-extension://haiffjcadagjlijoggckpgfnoeiflnem": {
     "name": "Citrix Workspace"
@@ -88,7 +88,7 @@
     "name": "ChromeOS Terminal"
   },
   "chrome-extension://nebchommhahdcpcnbjbgmhnodjhnjnpd": {
-    "name": "DriveLock Smart Card Middleware Beta"
+    "name": "DriveLock Smart Card Middleware (CSSI) Beta"
   },
   "chrome-extension://kghimeaijcapoakcbhbelgkcdoiigbmn": {
     "name": "Ujambo Kiosk App",

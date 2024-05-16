@@ -6,7 +6,7 @@
  * Copyright (C) 2006-2009
  *  Ludovic Rousseau <ludovic.rousseau@free.fr>
  *
- * This file is dual licenced:
+ * This file is dual licensed:
  * - BSD-like, see the COPYING file
  * - GNU Lesser General Licence 2.1 or (at your option) any later version.
  *
@@ -189,7 +189,7 @@ PCSC_API const char* pcsc_stringify_error(const LONG pcscError)
 	/* case SCARD_E_WRITE_TOO_MANY: */
 	/* case SCARD_E_BAD_SEEK: */
 	/* case SCARD_E_INVALID_CHV: */
-	/* case SCARD_E_UNKNOWN_RES_MNG: */
+	/* case SCARD_E_UNKNOWN_RES_MSG: */
 	/* case SCARD_E_NO_SUCH_CERTIFICATE: */
 	/* case SCARD_E_CERTIFICATE_UNAVAILABLE: */
 	case SCARD_E_NO_READERS_AVAILABLE:

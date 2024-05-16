@@ -44,26 +44,33 @@ GSC.ContainerHelpers.buildObjectFromMap = function(map) {
 };
 
 /**
- * Recursively visits the given value and replaces all ArrayBuffer objects with
- * their Array views of bytes. Returns the resulting value after substitutions.
+ * Recursively visits the given value and replaces all ArrayBuffer and DataView
+ * objects with their Array views of bytes. Returns the resulting value after
+ * substitutions.
  * @param {?} value
  * @return {?}
  */
-GSC.ContainerHelpers.substituteArrayBuffersRecursively = function(value) {
-  const substituteArrayBuffersRecursively =
-      GSC.ContainerHelpers.substituteArrayBuffersRecursively;
+GSC.ContainerHelpers.substituteArrayBufferLikeObjectsRecursively = function(
+    value) {
+  const substituteArrayBufferLikeObjectsRecursively =
+      GSC.ContainerHelpers.substituteArrayBufferLikeObjectsRecursively;
   if (value instanceof ArrayBuffer) {
     // Convert the array buffer into an array of bytes.
     return Array.from(new Uint8Array(value));
   }
+  if (value instanceof DataView) {
+    // Convert the data view into an array of bytes.
+    return Array.from(
+        new Uint8Array(value.buffer, value.byteOffset, value.byteLength));
+  }
   if (Array.isArray(value)) {
     // Recursively process array items.
-    return value.map(substituteArrayBuffersRecursively);
+    return value.map(substituteArrayBufferLikeObjectsRecursively);
   }
   if (goog.isObject(value) && !goog.functions.isFunction(value) &&
       !ArrayBuffer.isView(value)) {
     // This is a dictionary-like object; process it recursively.
-    return goog.object.map(value, substituteArrayBuffersRecursively);
+    return goog.object.map(value, substituteArrayBufferLikeObjectsRecursively);
   }
   return value;
 };

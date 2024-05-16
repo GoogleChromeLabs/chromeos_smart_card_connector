@@ -29,6 +29,7 @@
 
 #include "misc.h"
 #include <winscard.h>
+#include "sys_generic.h"
 
 #define DEBUG
 
@@ -70,17 +71,10 @@
 
 #define p_SCardSetAttrib(fct) LONG(fct) (SCARDHANDLE hCard, DWORD dwAttrId, LPCBYTE pbAttr, DWORD cbAttrLen)
 
-#define p_pcsc_stringify_error(fct) const char *(fct)(const LONG pcscError)
-
 /* fake function to just return en error code */
 static LONG internal_error(void)
 {
 	return SCARD_F_INTERNAL_ERROR;
-}
-
-static const char * internal_stringify_error(void)
-{
-	return "No spy pcsc_stringify_error() function";
 }
 
 #pragma GCC diagnostic push
@@ -106,7 +100,6 @@ static struct
 	p_SCardCancel(*SCardCancel);
 	p_SCardGetAttrib(*SCardGetAttrib);
 	p_SCardSetAttrib(*SCardSetAttrib);
-	p_pcsc_stringify_error(*pcsc_stringify_error);
 } spy = {
 	/* initialized with the fake internal_error() function */
 	.SCardEstablishContext = (p_SCardEstablishContext(*))internal_error,
@@ -127,7 +120,6 @@ static struct
 	.SCardCancel = (p_SCardCancel(*))internal_error,
 	.SCardGetAttrib = (p_SCardGetAttrib(*))internal_error,
 	.SCardSetAttrib = (p_SCardSetAttrib(*))internal_error,
-	.pcsc_stringify_error = (p_pcsc_stringify_error(*))internal_stringify_error
 };
 #pragma GCC diagnostic pop
 
@@ -213,8 +205,8 @@ static void spy_quit(const char *fname, LONG rv)
 	struct timeval profile_time;
 
 	gettimeofday(&profile_time, NULL);
-	spy_line("<|%ld|%ld|%s|%s|0x%08lX", profile_time.tv_sec,
-		profile_time.tv_usec, fname, spy.pcsc_stringify_error(rv), rv);
+	spy_line("<|%ld|%ld|%s|0x%08lX", profile_time.tv_sec,
+		profile_time.tv_usec, fname, rv);
 }
 
 #define Enter() spy_enter(__FUNCTION__)
@@ -327,24 +319,20 @@ static void spy_readerstate(SCARD_READERSTATE * rgReaderStates, int cReaders)
 static LONG load_lib(void)
 {
 
-#define LIBPCSC_NOSPY "libpcsclite_nospy.so.1"
-#define LIBPCSC "libpcsclite.so.1"
+#define LIBPCSC "libpcsclite_real.so.1"
 
-	/* first try to load the NOSPY library
-	 * this is used for programs doing an explicit dlopen like
-	 * Perl and Python wrappers */
-	Lib_handle = dlopen(LIBPCSC_NOSPY, RTLD_LAZY);
+	const char *lib;
+
+	lib = SYS_GetEnv("LIBPCSCLITE_SPY_DELEGATE");
+	if (NULL == lib)
+		lib = LIBPCSC;
+
+	/* load the normal library */
+	Lib_handle = dlopen(lib, RTLD_LAZY);
 	if (NULL == Lib_handle)
 	{
-		log_line("%s", dlerror());
-
-		/* load the normal library */
-		Lib_handle = dlopen(LIBPCSC, RTLD_LAZY);
-		if (NULL == Lib_handle)
-		{
-			log_line("%s", dlerror());
-			return SCARD_F_INTERNAL_ERROR;
-		}
+		log_line("loading \"%s\" failed: %s", lib, dlerror());
+		return SCARD_F_INTERNAL_ERROR;
 	}
 
 #define get_symbol(s) do { spy.s = dlsym(Lib_handle, #s); if (NULL == spy.s) { log_line("%s", dlerror()); return SCARD_F_INTERNAL_ERROR; } } while (0)
@@ -375,7 +363,6 @@ static LONG load_lib(void)
 	get_symbol(SCardCancel);
 	get_symbol(SCardGetAttrib);
 	get_symbol(SCardSetAttrib);
-	get_symbol(pcsc_stringify_error);
 
 	return SCARD_S_SUCCESS;
 }
@@ -400,7 +387,7 @@ PCSC_API p_SCardEstablishContext(SCardEstablishContext)
 			return rv;
 
 		/* check if we can log */
-		home = getenv("HOME");
+		home = SYS_GetEnv("HOME");
 		if (NULL == home)
 			home = "/tmp";
 
@@ -590,13 +577,29 @@ PCSC_API p_SCardTransmit(SCardTransmit)
 
 	Enter();
 	spy_long(hCard);
-	spy_long(pioSendPci->dwProtocol);
-	spy_long(pioSendPci->cbPciLength);
+	if (pioSendPci)
+	{
+		spy_long(pioSendPci->dwProtocol);
+		spy_long(pioSendPci->cbPciLength);
+	}
+	else
+	{
+		spy_long(-1);
+		spy_long(-1);
+	}
 	spy_buffer(pbSendBuffer, cbSendLength);
 	rv = spy.SCardTransmit(hCard, pioSendPci, pbSendBuffer, cbSendLength,
 		pioRecvPci, pbRecvBuffer, pcbRecvLength);
-	spy_long(pioRecvPci->dwProtocol);
-	spy_long(pioRecvPci->cbPciLength);
+	if (pioRecvPci)
+	{
+		spy_long(pioRecvPci->dwProtocol);
+		spy_long(pioRecvPci->cbPciLength);
+	}
+	else
+	{
+		spy_long(-1);
+		spy_long(-1);
+	}
 	if (pcbRecvLength)
 		spy_buffer(pbRecvBuffer, *pcbRecvLength);
 	else
@@ -710,11 +713,3 @@ PCSC_API p_SCardSetAttrib(SCardSetAttrib)
 	return rv;
 }
 
-PCSC_API p_pcsc_stringify_error(pcsc_stringify_error)
-{
-	return spy.pcsc_stringify_error(pcscError);
-}
-
-PCSC_API const SCARD_IO_REQUEST g_rgSCardT0Pci = { SCARD_PROTOCOL_T0, sizeof(SCARD_IO_REQUEST) };
-PCSC_API const SCARD_IO_REQUEST g_rgSCardT1Pci = { SCARD_PROTOCOL_T1, sizeof(SCARD_IO_REQUEST) };
-PCSC_API const SCARD_IO_REQUEST g_rgSCardRawPci = { SCARD_PROTOCOL_RAW, sizeof(SCARD_IO_REQUEST) };

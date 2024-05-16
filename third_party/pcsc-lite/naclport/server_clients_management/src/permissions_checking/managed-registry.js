@@ -93,6 +93,7 @@ ManagedRegistry.prototype.logger =
  */
 ManagedRegistry.prototype.getByOrigin = function(clientOrigin) {
   const promiseResolver = goog.Promise.withResolver();
+  GSC.PromiseHelpers.suppressUnhandledRejectionError(promiseResolver.promise);
 
   this.managedStoragePromiseResolver_.promise.then(
       function() {

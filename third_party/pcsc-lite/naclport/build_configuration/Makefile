@@ -43,10 +43,15 @@ all: build.stamp
 # Before running the build, we clean old build artifacts. On completion, the
 # target creates build.stamp that allows Make to track file timestamps and
 # detect changes.
+#
+# --disable-polkit: Disable the polkit integration, which is used on *nix
+#   systems to control processes that have smart card access. On ChromeOS, the
+#   permission systems by the browser and by the Smart Card Connector extension
+#   are used instead.
 build.stamp: $(shell find ../../src)
 	@rm -f build.stamp
 	@git clean -fX ../../src
-	cd ../../src && ./bootstrap && ./configure
+	cd ../../src && ./bootstrap && ./configure --disable-polkit
 	@touch build.stamp
 
 # Delete the stamp and PC/SC-Lite temporary build artifacts on "make clean".

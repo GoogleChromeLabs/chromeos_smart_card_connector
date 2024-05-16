@@ -119,12 +119,12 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 			FCT_MAP_V3 psFunctions_v3;	/**< API V3.0 */
 		} psFunctions;	/**< driver functions */
 
-		LPVOID vHandle;			/**< Dlopen handle */
+		_Atomic LPVOID vHandle;			/**< Dlopen handle */
 		int version;			/**< IFD Handler version number */
 		int port;				/**< Port ID */
 		int slot;				/**< Current Reader Slot */
 		_Atomic SCARDHANDLE hLockId;	/**< Lock Id */
-		int LockCount;			/**< number of recursive locks */
+		_Atomic int LockCount;			/**< number of recursive locks */
 		_Atomic int32_t contexts;		/**< Number of open contexts */
 		int * pFeeds;			/**< Number of shared client to lib */
 		int * pMutex;			/**< Number of client to mutex */

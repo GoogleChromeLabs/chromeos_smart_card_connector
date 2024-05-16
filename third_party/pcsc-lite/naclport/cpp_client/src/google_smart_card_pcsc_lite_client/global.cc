@@ -108,15 +108,6 @@ void PcscLiteOverRequesterGlobal::ShutDown() {
 
 }  // namespace google_smart_card
 
-// These three variables are the global PC/SC-Lite API constants, defined in the
-// pcsclite.h header.
-const SCARD_IO_REQUEST g_rgSCardT0Pci = {SCARD_PROTOCOL_T0,
-                                         sizeof(SCARD_IO_REQUEST)};
-const SCARD_IO_REQUEST g_rgSCardT1Pci = {SCARD_PROTOCOL_T1,
-                                         sizeof(SCARD_IO_REQUEST)};
-const SCARD_IO_REQUEST g_rgSCardRawPci = {SCARD_PROTOCOL_RAW,
-                                          sizeof(SCARD_IO_REQUEST)};
-
 LONG SCardEstablishContext(DWORD dwScope,
                            LPCVOID pvReserved1,
                            LPCVOID pvReserved2,

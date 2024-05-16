@@ -39,6 +39,7 @@ jobs:
     - name: Compile
       env:
         TOOLCHAIN: emscripten
+        PACKAGING: extension
         CONFIG: ${{ matrix.build-config }}
       run: >
         source env/activate && make -j30
@@ -46,6 +47,7 @@ jobs:
     - name: Test
       env:
         TOOLCHAIN: emscripten
+        PACKAGING: extension
         CONFIG: ${{ matrix.build-config }}
       timeout-minutes: 75
       run: >
@@ -92,6 +94,7 @@ jobs:
     - name: Compile
       env:
         TOOLCHAIN: pnacl
+        PACKAGING: app
         CONFIG: ${{ matrix.build-config }}
       run: >
         source env/activate &&

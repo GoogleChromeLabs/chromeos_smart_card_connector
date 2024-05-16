@@ -149,14 +149,33 @@ LONG ContextsInitialize(int customMaxThreadCounter,
 void ContextsDeinitialize(void)
 {
 	int listSize;
+	(void)pthread_mutex_lock(&contextsList_lock);
 	listSize = list_size(&contextsList);
 #ifdef NO_LOG
 	(void)listSize;
 #endif
 	Log2(PCSC_LOG_DEBUG, "remaining threads: %d", listSize);
-	/* This is currently a no-op. It should terminate the threads properly. */
 
+	/* terminate all the client threads */
+	int rv = list_iterator_start(&contextsList);
+	if (0 == rv)
+		Log1(PCSC_LOG_ERROR, "list_iterator_start failed");
+	else
+	{
+		while (list_iterator_hasnext(&contextsList))
+		{
+			SCONTEXT * elt = list_iterator_next(&contextsList);
+			Log3(PCSC_LOG_DEBUG, "Cancel dwClientID=%d hContext: %p",
+				elt->dwClientID, elt);
+			EHTryToUnregisterClientForEvent(elt->dwClientID);
+			close(elt->dwClientID);
+			Log2(PCSC_LOG_DEBUG, "Waiting client: %d", elt->dwClientID);
+			pthread_join(elt->pthThread, NULL);
+			Log2(PCSC_LOG_INFO, "Client %d terminated", elt->dwClientID);
+		}
+	}
 	list_destroy(&contextsList);
+	(void)pthread_mutex_unlock(&contextsList_lock);
 }
 
 /**
@@ -497,16 +516,19 @@ static void * ContextThread(LPVOID newContext)
 				if (IsClientAuthorized(filedes, "access_card", coStr.szReader) == 0)
 				{
 					Log2(PCSC_LOG_CRITICAL, "Rejected unauthorized client for '%s'", coStr.szReader);
-					goto exit;
+
+					coStr.rv = SCARD_W_SECURITY_VIOLATION;
+					hCard = -1;
+					dwActiveProtocol = -1;
 				}
 				else
 				{
 					Log2(PCSC_LOG_DEBUG, "Authorized client for '%s'", coStr.szReader);
-				}
 
-				coStr.rv = SCardConnect(coStr.hContext, coStr.szReader,
-					coStr.dwShareMode, coStr.dwPreferredProtocols,
-					&hCard, &dwActiveProtocol);
+					coStr.rv = SCardConnect(coStr.hContext, coStr.szReader,
+						coStr.dwShareMode, coStr.dwPreferredProtocols,
+						&hCard, &dwActiveProtocol);
+				}
 
 				coStr.hCard = hCard;
 				coStr.dwActiveProtocol = dwActiveProtocol;
@@ -621,6 +643,8 @@ static void * ContextThread(LPVOID newContext)
 					/* signal the client only if it was still waiting */
 					if (SCARD_S_SUCCESS == rv)
 						caStr.rv = MSGSignalClient(fd, SCARD_E_CANCELLED);
+					else
+						caStr.rv = SCARD_S_SUCCESS;
 				}
 
 				WRITE_BODY(caStr);

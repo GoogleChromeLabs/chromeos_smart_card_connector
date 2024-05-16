@@ -40,6 +40,12 @@ from selenium.webdriver.support import ui as webdriver_ui
 import sys
 import threading
 
+# Increased timeout to workaround occasional "Timed out receiving message from
+# renderer" errors.
+# Note: This is independent from the overall timeout for the tests execution,
+# which is specified via our "--timeout" command line flag.
+PAGE_LOAD_TIMEOUT_SECONDS = 600
+
 @contextlib.contextmanager
 def host_on_web_server_if_needed(serve_via_web_server, test_html_page_path):
   if not serve_via_web_server:
@@ -92,7 +98,9 @@ def create_driver(chromedriver_path, chrome_path, chrome_args):
   options.set_capability('goog:loggingPrefs', {'browser': 'ALL'})
   for arg in chrome_args:
     options.add_argument(arg)
-  return webdriver.Chrome(service=service, options=options)
+  driver = webdriver.Chrome(service=service, options=options)
+  driver.set_page_load_timeout(PAGE_LOAD_TIMEOUT_SECONDS)
+  return driver
 
 def load_test_page(driver, url):
   """Navigates the Chromedriver to the given page."""

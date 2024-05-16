@@ -104,6 +104,7 @@ DWORD PHSetProtocol(struct ReaderContext * rContext,
 			/* App wants unsupported protocol */
 			return SET_PROTOCOL_WRONG_ARGUMENT;
 
+again:
 	Log2(PCSC_LOG_INFO, "Attempting PTS to T=%d",
 		(SCARD_PROTOCOL_T0 == ucChosen ? 0 : 1));
 	rv = IFDSetPTS(rContext, ucChosen, 0x00, 0x00, 0x00, 0x00);
@@ -119,9 +120,25 @@ DWORD PHSetProtocol(struct ReaderContext * rContext,
 			/* protocol not supported */
 			if (protocol != dwPreferred)
 			{
-				Log3(PCSC_LOG_INFO,
-					"Set PTS failed (%ld). Using T=%d", rv,
-					(SCARD_PROTOCOL_T0 == protocol) ? 0 : 1);
+				if (protocol & dwPreferred)
+				{
+					Log3(PCSC_LOG_INFO,
+						"Set PTS failed (%ld). Using T=%d", rv,
+						(SCARD_PROTOCOL_T0 == protocol) ? 0 : 1);
+
+					/* try again with the other protocol */
+					ucChosen = protocol;
+
+					/* but no other protocol should be tried after that */
+					dwPreferred = protocol;
+
+					goto again;
+				}
+				else
+				{
+					Log2(PCSC_LOG_INFO, "Set PTS failed (%ld)", rv);
+					protocol = SET_PROTOCOL_WRONG_ARGUMENT;
+				}
 			}
 			else
 			{

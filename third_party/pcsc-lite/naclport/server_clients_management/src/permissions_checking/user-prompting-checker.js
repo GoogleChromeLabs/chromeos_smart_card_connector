@@ -64,6 +64,8 @@ const promisify = GSC.PromisifyExtensionApi.promisify;
 let trustedClientsRegistryOverrideForTesting = null;
 /** @type {function(string,!GSC.PopupOpener.WindowOptions,!Object=)|null} */
 let modalDialogRunnerOverrideForTesting = null;
+/** @type {function(string)|null} */
+let modalDialogCloserOverrideForTesting = null;
 
 /**
  * This class encapsulates the part of the client app permission check that is
@@ -108,6 +110,14 @@ UserPromptingChecker.overrideTrustedClientsRegistryForTesting = function(
 UserPromptingChecker.overrideModalDialogRunnerForTesting = function(
     modalDialogRunner) {
   modalDialogRunnerOverrideForTesting = modalDialogRunner;
+};
+
+/**
+ * @param {function(string=)|null} modalDialogCloser
+ */
+UserPromptingChecker.overrideModalDialogCloserForTesting = function(
+    modalDialogCloser) {
+  modalDialogCloserOverrideForTesting = modalDialogCloser;
 };
 
 /**
@@ -218,7 +228,11 @@ UserPromptingChecker.prototype.cancelUserPromptIfPending =
         'Close the prompt dialog for client ' + clientOrigin +
             ' as permissions have been granted via the managed registry');
     this.pendingClientOrigins_.delete(clientOrigin);
-    await GSC.PopupOpener.closeModalDialog(clientOrigin);
+
+    const closer = modalDialogCloserOverrideForTesting !== null ?
+        modalDialogCloserOverrideForTesting :
+        GSC.PopupOpener.closeModalDialog;
+    await closer(clientOrigin);
   }
 };
 

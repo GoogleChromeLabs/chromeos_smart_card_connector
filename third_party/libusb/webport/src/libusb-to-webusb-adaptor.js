@@ -570,7 +570,7 @@ async function callWebusbDeviceControlTransferIn(webusbDevice, setup, length) {
 /**
  * @param {!Object} webusbDevice The WebUSB USBDevice object.
  * @param {!Object} setup The WebUSB USBControlTransferParameters value.
- * @param {!ArrayBuffer} data
+ * @param {!ArrayBuffer|!Array<number>} data
  * @return {!Promise<!Object>} The WebUSB USBOutTransferResult value.
  */
 async function callWebusbDeviceControlTransferOut(webusbDevice, setup, data) {
@@ -587,7 +587,7 @@ async function callWebusbDeviceControlTransferOut(webusbDevice, setup, data) {
           debugDumpSanitized(data)}): called`);
   try {
     const transferResult =
-        await webusbDevice['controlTransferOut'](setup, data);
+        await webusbDevice['controlTransferOut'](setup, toArrayBuffer(data));
     goog.log.info(
         logger,
         `${functionLogTitle}(): returned ${
@@ -632,7 +632,7 @@ async function callWebusbDeviceTransferIn(
 /**
  * @param {!Object} webusbDevice The WebUSB USBDevice object.
  * @param {number} endpointNumber
- * @param {!ArrayBuffer} data
+ * @param {!ArrayBuffer|!Array<number>} data
  * @return {!Promise<!Object>} The WebUSB USBOutTransferResult value.
  */
 async function callWebusbDeviceTransferOut(webusbDevice, endpointNumber, data) {
@@ -648,7 +648,7 @@ async function callWebusbDeviceTransferOut(webusbDevice, endpointNumber, data) {
           debugDumpSanitized(data)}): called`);
   try {
     const transferResult =
-        await webusbDevice['transferOut'](endpointNumber, data);
+        await webusbDevice['transferOut'](endpointNumber, toArrayBuffer(data));
     goog.log.info(
         logger,
         `${functionLogTitle}(): returned ${
@@ -934,6 +934,17 @@ async function fetchAndFillConfigurationExtraDataForOpenedDevice(
     // Jump to the next descriptor in the blob.
     offset += descriptorLength;
   }
+}
+
+/**
+ * Converts the array of bytes to an array buffer, if needed.
+ * @param {!ArrayBuffer|!Array<number>} value
+ * @return {!ArrayBuffer}
+ */
+function toArrayBuffer(value) {
+  if (value instanceof ArrayBuffer)
+    return value;
+  return (new Uint8Array(value)).buffer;
 }
 
 /**

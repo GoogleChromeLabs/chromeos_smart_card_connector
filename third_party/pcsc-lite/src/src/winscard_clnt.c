@@ -342,7 +342,8 @@ static int SCONTEXTMAP_seeker(const void *el, const void *key)
 /**
  * Make sure the initialization code is executed only once.
  */
-static short isExecuted = 0;
+static bool isExecuted = false;
+static pthread_once_t init_lib_control = PTHREAD_ONCE_INIT;
 
 
 /**
@@ -355,13 +356,7 @@ static pthread_mutex_t clientMutex = PTHREAD_MUTEX_INITIALIZER;
  * Area used to read status information about the readers.
  */
 static READER_STATE readerStates[PCSCLITE_MAX_READERS_CONTEXTS];
-
-/** Protocol Control Information for T=0 */
-PCSC_API const SCARD_IO_REQUEST g_rgSCardT0Pci = { SCARD_PROTOCOL_T0, sizeof(SCARD_IO_REQUEST) };
-/** Protocol Control Information for T=1 */
-PCSC_API const SCARD_IO_REQUEST g_rgSCardT1Pci = { SCARD_PROTOCOL_T1, sizeof(SCARD_IO_REQUEST) };
-/** Protocol Control Information for raw access */
-PCSC_API const SCARD_IO_REQUEST g_rgSCardRawPci = { SCARD_PROTOCOL_RAW, sizeof(SCARD_IO_REQUEST) };
+static pthread_mutex_t readerStatesMutex = PTHREAD_MUTEX_INITIALIZER;
 
 
 static LONG SCardAddContext(SCARDCONTEXT, DWORD);
@@ -498,6 +493,44 @@ DESTRUCTOR static void destructor(void)
 }
 #endif
 
+/*
+ * Do this only once:
+ * - Initialize context list.
+ */
+static void init_lib(void)
+{
+	int lrv;
+
+	/* NOTE: The list will be freed only if DESTRUCTOR is defined.
+	 * Applications which load and unload the library may leak
+	 * the list's internal structures. */
+	lrv = list_init(&contextMapList);
+	if (lrv < 0)
+	{
+		Log2(PCSC_LOG_CRITICAL, "list_init failed with return value: %d",
+			lrv);
+		return;
+	}
+
+	lrv = list_attributes_seeker(&contextMapList,
+			SCONTEXTMAP_seeker);
+	if (lrv <0)
+	{
+		Log2(PCSC_LOG_CRITICAL,
+			"list_attributes_seeker failed with return value: %d", lrv);
+		list_destroy(&contextMapList);
+		return;
+	}
+
+	if (SYS_GetEnv("PCSCLITE_NO_BLOCKING"))
+	{
+		Log1(PCSC_LOG_INFO, "Disable shared blocking");
+		sharing_shall_block = false;
+	}
+
+	isExecuted = true;
+}
+
 /**
  * @brief Creates a communication context to the PC/SC Resource
  * Manager.
@@ -540,44 +573,9 @@ static LONG SCardEstablishContextTH(DWORD dwScope,
 	else
 		*phContext = 0;
 
-	/*
-	 * Do this only once:
-	 * - Initialize context list.
-	 */
-	if (isExecuted == 0)
-	{
-		int lrv;
-
-		/* NOTE: The list will be freed only if DESTRUCTOR is defined.
-		 * Applications which load and unload the library may leak
-		 * the list's internal structures. */
-		lrv = list_init(&contextMapList);
-		if (lrv < 0)
-		{
-			Log2(PCSC_LOG_CRITICAL, "list_init failed with return value: %d",
-				lrv);
-			return SCARD_E_NO_MEMORY;
-		}
-
-		lrv = list_attributes_seeker(&contextMapList,
-				SCONTEXTMAP_seeker);
-		if (lrv <0)
-		{
-			Log2(PCSC_LOG_CRITICAL,
-				"list_attributes_seeker failed with return value: %d", lrv);
-			list_destroy(&contextMapList);
-			return SCARD_E_NO_MEMORY;
-		}
-
-		if (getenv("PCSCLITE_NO_BLOCKING"))
-		{
-			Log1(PCSC_LOG_INFO, "Disable shared blocking");
-			sharing_shall_block = false;
-		}
-
-		isExecuted = 1;
-	}
-
+	pthread_once(&init_lib_control, init_lib);
+	if (!isExecuted)
+		return SCARD_E_NO_MEMORY;
 
 	/* Establishes a connection to the server */
 	if (ClientSetupSession(&dwClientID) != 0)
@@ -1114,8 +1112,8 @@ error:
  * You might want to use this when you are selecting a few files and then
  * writing a large file so you can make sure that another application will
  * not change the current file. If another application has a lock on this
- * reader or this application is in \ref SCARD_SHARE_EXCLUSIVE there will be no
- * action taken.
+ * reader or this application is in \ref SCARD_SHARE_EXCLUSIVE the
+ * function will block until it can continue.
  *
  * @ingroup API
  * @param[in] hCard Connection made from SCardConnect().
@@ -1437,6 +1435,9 @@ retry:
 	if (rv == -1)
 		return SCARD_E_INVALID_HANDLE;
 
+	/* lock access to readerStates[] */
+	(void)pthread_mutex_lock(&readerStatesMutex);
+
 	/* synchronize reader states with daemon */
 	rv = getReaderStates(currentContextMap);
 	if (rv != SCARD_S_SUCCESS)
@@ -1480,6 +1481,7 @@ retry:
 	if (sharing_shall_block && (SCARD_E_SHARING_VIOLATION == rv))
 	{
 		(void)pthread_mutex_unlock(&currentContextMap->mMutex);
+		(void)pthread_mutex_unlock(&readerStatesMutex);
 		(void)SYS_USleep(PCSCLITE_LOCK_POLL_RATE);
 		goto retry;
 	}
@@ -1562,6 +1564,7 @@ retry:
 
 end:
 	(void)pthread_mutex_unlock(&currentContextMap->mMutex);
+	(void)pthread_mutex_unlock(&readerStatesMutex);
 
 	PROFILE_END(rv)
 
@@ -1743,10 +1746,17 @@ LONG SCardGetStatusChange(SCARDCONTEXT hContext, DWORD dwTimeout,
 		goto error;
 	}
 
+	/* lock access to readerStates[] */
+	(void)pthread_mutex_lock(&readerStatesMutex);
+
 	/* synchronize reader states with daemon */
 	rv = getReaderStatesAndRegisterForEvents(currentContextMap);
+
 	if (rv != SCARD_S_SUCCESS)
+	{
+		(void)pthread_mutex_unlock(&readerStatesMutex);
 		goto end;
+	}
 
 	/* check all the readers are already known */
 	for (j=0; j<cReaders; j++)
@@ -1768,10 +1778,12 @@ LONG SCardGetStatusChange(SCARDCONTEXT hContext, DWORD dwTimeout,
 			if (strcasecmp(readerName, "\\\\?PnP?\\Notification") != 0)
 			{
 				rv = SCARD_E_UNKNOWN_READER;
+				(void)pthread_mutex_unlock(&readerStatesMutex);
 				goto end;
 			}
 		}
 	}
+	(void)pthread_mutex_unlock(&readerStatesMutex);
 
 	/* Clear the event state for all readers */
 	for (j = 0; j < cReaders; j++)
@@ -1803,6 +1815,9 @@ LONG SCardGetStatusChange(SCARDCONTEXT hContext, DWORD dwTimeout,
 		{
 			const char *readerName;
 			int i;
+
+			/* lock access to readerStates[] */
+			(void)pthread_mutex_lock(&readerStatesMutex);
 
 			/* Looks for correct readernames */
 			readerName = currReader->szReader;
@@ -2049,6 +2064,8 @@ LONG SCardGetStatusChange(SCARDCONTEXT hContext, DWORD dwTimeout,
 					dwBreakFlag = 1;
 				}
 			}	/* End of SCARD_STATE_UNKNOWN */
+
+			(void)pthread_mutex_unlock(&readerStatesMutex);
 		}	/* End of SCARD_STATE_IGNORE */
 
 		/* Counter and resetter */
@@ -2105,7 +2122,9 @@ LONG SCardGetStatusChange(SCARDCONTEXT hContext, DWORD dwTimeout,
 				}
 
 				/* synchronize reader states with daemon */
+				(void)pthread_mutex_lock(&readerStatesMutex);
 				rv = getReaderStatesAndRegisterForEvents(currentContextMap);
+				(void)pthread_mutex_unlock(&readerStatesMutex);
 				if (rv != SCARD_S_SUCCESS)
 					goto end;
 
@@ -2868,6 +2887,9 @@ LONG SCardListReaders(SCARDCONTEXT hContext, /*@unused@*/ LPCSTR mszGroups,
 		return SCARD_E_INVALID_HANDLE;
 	}
 
+	/* lock access to readerStates[] */
+	(void)pthread_mutex_lock(&readerStatesMutex);
+
 	/* synchronize reader states with daemon */
 	rv = getReaderStates(currentContextMap);
 	if (rv != SCARD_S_SUCCESS)
@@ -2935,6 +2957,7 @@ end:
 	*pcchReaders = dwReadersLen;
 
 	(void)pthread_mutex_unlock(&currentContextMap->mMutex);
+	(void)pthread_mutex_unlock(&readerStatesMutex);
 
 	PROFILE_END(rv)
 	API_TRACE_OUT("%d", *pcchReaders)

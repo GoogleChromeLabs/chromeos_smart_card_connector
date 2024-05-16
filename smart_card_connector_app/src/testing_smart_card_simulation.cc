@@ -41,6 +41,8 @@ using CardProfile = TestingSmartCardSimulation::CardProfile;
 using CardType = TestingSmartCardSimulation::CardType;
 using CcidIccStatus = TestingSmartCardSimulation::CcidIccStatus;
 using DeviceType = TestingSmartCardSimulation::DeviceType;
+using ErrorCessation = TestingSmartCardSimulation::ErrorCessation;
+using ErrorMode = TestingSmartCardSimulation::ErrorMode;
 using SlotChangeNotification =
     TestingSmartCardSimulation::SlotChangeNotification;
 
@@ -817,6 +819,11 @@ TestingSmartCardSimulation::ThreadSafeHandler::OpenDeviceHandle(
   DeviceState* device_state = FindDeviceStateById(device_id);
   if (!device_state)
     return GenericRequestResult::CreateFailed("Unknown device");
+
+  if (device_state->device.error_mode == ErrorMode::kOpenDeviceError) {
+    UpdateErrorPerCessation(*device_state);
+    return GenericRequestResult::CreateFailed("Simulated error");
+  }
   if (device_state->opened_device_handle)
     return GenericRequestResult::CreateFailed("Device already opened");
   device_state->opened_device_handle = next_free_device_handle_;
@@ -851,6 +858,11 @@ TestingSmartCardSimulation::ThreadSafeHandler::ClaimInterface(
       FindDeviceStateByIdAndHandle(device_id, device_handle);
   if (!device_state)
     return GenericRequestResult::CreateFailed("Unknown device");
+
+  if (device_state->device.error_mode == ErrorMode::kClaimInterfaceError) {
+    UpdateErrorPerCessation(*device_state);
+    return GenericRequestResult::CreateFailed("Simulated error");
+  }
   if (device_state->claimed_interfaces.count(interface_number))
     return GenericRequestResult::CreateFailed("Interface already claimed");
   if (!DeviceInterfaceExists(device_state->device.type, interface_number))
@@ -919,6 +931,11 @@ TestingSmartCardSimulation::ThreadSafeHandler::BulkTransfer(
       FindDeviceStateByIdAndHandle(device_id, device_handle);
   if (!device_state)
     return GenericRequestResult::CreateFailed("Unknown device");
+
+  if (device_state->device.error_mode == ErrorMode::kBulkTransferError) {
+    UpdateErrorPerCessation(*device_state);
+    return GenericRequestResult::CreateFailed("Simulated error");
+  }
   if (!DeviceEndpointExists(device_state->device.type, params.endpoint_address))
     return GenericRequestResult::CreateFailed("Unknown endpoint");
   if (params.data_to_send)
@@ -1039,11 +1056,24 @@ TestingSmartCardSimulation::ThreadSafeHandler::HandleInputBulkTransfer(
     // Unexpected command - we have no reply prepared.
     GOOGLE_SMART_CARD_LOG_FATAL << "Unexpected input bulk transfer";
   }
-  if (device_state.next_bulk_transfer_reply.size() > length_to_receive)
-    return GenericRequestResult::CreateFailed("Transfer overflow");
+
+  std::vector<uint8_t> reply;
+  if (device_state.device.error_mode ==
+      ErrorMode::kBulkTransferUnrelatedReplies) {
+    UpdateErrorPerCessation(device_state);
+    // Reply with arbitrary contents.
+    constexpr uint8_t kUnrelatedSequenceNumber = 42;
+    const std::vector<uint8_t> kUnrelatedData = {0xDE, 0xAD, 0xBE, 0xEF};
+    reply = MakeDataBlockTransferReply(kUnrelatedSequenceNumber,
+                                       device_state.icc_status, kUnrelatedData);
+  } else {
+    reply = std::move(device_state.next_bulk_transfer_reply);
+    device_state.next_bulk_transfer_reply.clear();
+  }
+
+  GOOGLE_SMART_CARD_CHECK(reply.size() <= length_to_receive);
   LibusbJsTransferResult result;
-  result.received_data = std::move(device_state.next_bulk_transfer_reply);
-  device_state.next_bulk_transfer_reply.clear();
+  result.received_data = reply;
   return GenericRequestResult::CreateSuccessful(
       ConvertToValueOrDie(std::move(result)));
 }
@@ -1130,6 +1160,23 @@ TestingSmartCardSimulation::ThreadSafeHandler::UpdateDeviceState(
     return notification;
   }
   return {};
+}
+
+void TestingSmartCardSimulation::ThreadSafeHandler::UpdateErrorPerCessation(
+    DeviceState& device_state) {
+  if (!device_state.device.error_cessation)
+    return;
+  switch (*device_state.device.error_cessation) {
+    case ErrorCessation::kAfterOneError:
+      // No more error to simulate.
+      device_state.device.error_mode = {};
+      device_state.device.error_cessation = {};
+      break;
+    case ErrorCessation::kAfterTwoErrors:
+      // Simulate the error one more time.
+      device_state.device.error_cessation = ErrorCessation::kAfterOneError;
+      break;
+  }
 }
 
 }  // namespace google_smart_card

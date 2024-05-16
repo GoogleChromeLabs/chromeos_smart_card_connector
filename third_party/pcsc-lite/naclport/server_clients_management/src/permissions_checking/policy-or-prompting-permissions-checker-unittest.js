@@ -19,10 +19,8 @@ goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientInfo');
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistry');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.UserPromptingChecker');
 goog.require('GoogleSmartCard.Pcsc.PolicyOrPromptingPermissionsChecker');
-goog.require('goog.Promise');
 goog.require('goog.Thenable');
 goog.require('goog.asserts');
-goog.require('goog.promise.Resolver');
 goog.require('goog.testing');
 goog.require('goog.testing.MockControl');
 goog.require('goog.testing.PropertyReplacer');
@@ -58,8 +56,8 @@ function FakeTrustedClientsRegistry() {}
 /** @override */
 FakeTrustedClientsRegistry.prototype.getByOrigin = function(origin) {
   if (origin === CLIENT_ORIGIN)
-    return goog.Promise.resolve(TRUSTED_CLIENT_INFO);
-  return goog.Promise.reject();
+    return Promise.resolve(TRUSTED_CLIENT_INFO);
+  return Promise.reject(new Error('untrusted'));
 };
 
 /** @override */
@@ -110,11 +108,14 @@ function setUpChromeStorageMock(mockControl, propertyReplacer) {
  * Sets up UserPromptingChecker for testing with a fake TrustedClientsRegistry
  * and a fake implementation for the user prompt dialog.
  * @param {!Function} runModalDialogFake
+ * @param {!Function} closeModalDialogFake
  */
-function setUpUserPromptingChecker(runModalDialogFake) {
+function setUpUserPromptingChecker(runModalDialogFake, closeModalDialogFake) {
   UserPromptingChecker.overrideTrustedClientsRegistryForTesting(
       new FakeTrustedClientsRegistry());
   UserPromptingChecker.overrideModalDialogRunnerForTesting(runModalDialogFake);
+  UserPromptingChecker.overrideModalDialogCloserForTesting(
+      closeModalDialogFake);
 }
 
 /**
@@ -152,9 +153,10 @@ function runOnStorageChangedTest(
       const runModalDialogFake = function() {
         for (const listener of onStorageChangedListeners)
           listener(storageChanges, storageAreaName);
-        return goog.Promise.reject();
+        return Promise.reject(new Error('dialog aborted'));
       };
-      setUpUserPromptingChecker(runModalDialogFake);
+      const closeModalDialogFake = function() {};
+      setUpUserPromptingChecker(runModalDialogFake, closeModalDialogFake);
 
       mockControl.$replayAll();
     }

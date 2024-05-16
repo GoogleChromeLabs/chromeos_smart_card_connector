@@ -43,6 +43,10 @@ const moduleName =
     url.searchParams.get(GSC.OffscreenDocEmscriptenModule.URL_PARAM);
 GSC.Logging.check(moduleName);
 goog.asserts.assert(moduleName);
+// A quick sanity check against malicious URL parameters (in case the user was
+// tricked into opening our page via chrome-extension://). We don't want to
+// allow loading&executing arbitrary URLs.
+GSC.Logging.check(/^[0-9a-zA-Z_]+$/.test(moduleName));
 
 const emscriptenModule = new GSC.EmscriptenModule(moduleName);
 
