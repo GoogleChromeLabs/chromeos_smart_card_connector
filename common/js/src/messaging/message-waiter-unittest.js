@@ -33,6 +33,13 @@ let mockControl = null;
 /** @type {goog.testing.messaging.MockMessageChannel} */
 let channel = null;
 
+function disposeChannel() {
+  // Hack: call the protected disposeInternal() method in order to trigger the
+  // disposal notifications; MockMessageChannel.dispose() doesn't call them.
+  channel.dispose();
+  channel[goog.reflect.objectProperty('disposeInternal', channel)]();
+}
+
 goog.exportSymbol('testMessageWaiter', {
   'setUp': function() {
     mockControl = new goog.testing.MockControl();
@@ -73,11 +80,17 @@ goog.exportSymbol('testMessageWaiter', {
   'testDisposal': async function() {
     // Arrange.
     const promise = GSC.MessageWaiter.wait(channel, 'foo');
-    // Act. Hack: call the protected disposeInternal() method in order to
-    // trigger the disposal notifications; MockMessageChannel.dispose() doesn't
-    // call them.
-    channel.dispose();
-    channel[goog.reflect.objectProperty('disposeInternal', channel)]();
+    // Act.
+    disposeChannel();
+    // Assert.
+    assertRejects(promise);
+  },
+
+  'testAlreadyDisposed': async function() {
+    // Arrange.
+    disposeChannel();
+    // Act.
+    const promise = GSC.MessageWaiter.wait(channel, 'foo');
     // Assert.
     assertRejects(promise);
   },
