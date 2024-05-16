@@ -83,7 +83,7 @@ goog.exportSymbol('testMessageWaiter', {
     // Act.
     disposeChannel();
     // Assert.
-    assertRejects(promise);
+    await assertRejects(promise);
   },
 
   'testAlreadyDisposed': async function() {
@@ -92,7 +92,7 @@ goog.exportSymbol('testMessageWaiter', {
     // Act.
     const promise = GSC.MessageWaiter.wait(channel, 'foo');
     // Assert.
-    assertRejects(promise);
+    await assertRejects(promise);
   },
 });
 });
