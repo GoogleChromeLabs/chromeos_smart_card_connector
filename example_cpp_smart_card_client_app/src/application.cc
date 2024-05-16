@@ -230,24 +230,24 @@ class Application::ClientMessageFromUiHandler final
     // for those the locked_chrome_certificate_provider_api_bridge's
     // RequestPin() should be used instead (see the example in HandleRequest()
     // above).
-    // GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] Running built-in PIN "
-    //                            << "dialog demo...";
-    // const std::shared_ptr<BuiltInPinDialogServer> locked_pin_dialog_server =
-    //     built_in_pin_dialog_server_.lock();
-    // if (!locked_pin_dialog_server) {
-    //   GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] Skipped PIN dialog "
-    //                              << "demo: the shutdown process has started";
-    //   return;
-    // }
-    // std::string pin;
-    // if (locked_pin_dialog_server->RequestPin(&pin)) {
-    //   GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] received PIN of "
-    //                              << "length " << pin.length()
-    //                              << " entered by the user.";
-    // } else {
-    //   GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] PIN dialog was "
-    //                              << "canceled.";
-    // }
+    GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] Running built-in PIN "
+                               << "dialog demo...";
+    const std::shared_ptr<BuiltInPinDialogServer> locked_pin_dialog_server =
+        built_in_pin_dialog_server_.lock();
+    if (!locked_pin_dialog_server) {
+      GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] Skipped PIN dialog "
+                                 << "demo: the shutdown process has started";
+      return;
+    }
+    std::string pin;
+    if (locked_pin_dialog_server->RequestPin(&pin)) {
+      GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] received PIN of "
+                                 << "length " << pin.length()
+                                 << " entered by the user.";
+    } else {
+      GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] PIN dialog was "
+                                 << "canceled.";
+    }
 
     GOOGLE_SMART_CARD_LOG_INFO << "[PC/SC-Lite DEMO] Starting PC/SC-Lite "
                                << "demo...";
