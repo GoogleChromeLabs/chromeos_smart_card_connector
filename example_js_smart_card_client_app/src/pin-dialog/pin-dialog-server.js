@@ -18,7 +18,6 @@
 goog.provide('SmartCardClientApp.PinDialog.Server');
 
 goog.require('GoogleSmartCard.PopupOpener');
-goog.require('goog.Thenable');
 
 goog.scope(function() {
 
@@ -31,7 +30,7 @@ const PIN_DIALOG_WINDOW_OPTIONS_OVERRIDES = {
 const GSC = GoogleSmartCard;
 
 /**
- * @return {!goog.Thenable.<string>}
+ * @return {!IThenable.<string>}
  */
 SmartCardClientApp.PinDialog.Server.requestPin = function() {
   return GSC.PopupOpener.runModalDialog(
