@@ -26,10 +26,12 @@
 #ifndef GOOGLE_SMART_CARD_PCSC_LITE_SERVER_WEB_PORT_SERVICE_H_
 #define GOOGLE_SMART_CARD_PCSC_LITE_SERVER_WEB_PORT_SERVICE_H_
 
+#include <string>
 #include <thread>
 
 #include "common/cpp/src/public/global_context.h"
 #include "common/cpp/src/public/value.h"
+#include "third_party/libusb/webport/src/public/libusb_web_port_service.h"
 
 namespace google_smart_card {
 
@@ -44,13 +46,14 @@ namespace google_smart_card {
 //       concurrent to class construction or destruction are not thread safe.
 class PcscLiteServerWebPortService final {
  public:
-  explicit PcscLiteServerWebPortService(GlobalContext* global_context);
+  PcscLiteServerWebPortService(GlobalContext* global_context,
+                               LibusbWebPortService* libusb_web_port_service);
   PcscLiteServerWebPortService(const PcscLiteServerWebPortService&) = delete;
   PcscLiteServerWebPortService& operator=(const PcscLiteServerWebPortService&) =
       delete;
   ~PcscLiteServerWebPortService();
 
-  static const PcscLiteServerWebPortService* GetInstance();
+  static PcscLiteServerWebPortService* GetInstance();
 
   // Performs all necessary PC/SC-Lite daemon initialization steps and starts
   // the daemon.
@@ -78,10 +81,32 @@ class PcscLiteServerWebPortService final {
                                   long return_code) const;
   void PostReaderRemoveMessage(const char* reader_name, int port) const;
 
+  // Attempts to mitigate the reader initialization error via a retry and,
+  // optionally, resetting the USB device.
+  //
+  // This is mainly to work around issues shortly before/after the ChromeOS
+  // user login, session lock and unlock, whenever the Smart Card Connector is
+  // installed both in-session and on the Login/Lock Screen. (Most of the time
+  // there's only one instance that's actively doing USB communication: the
+  // in-session instance does this by reacting to the `chrome.loginState` state
+  // changes, and the Login/Lock Screen instance is force-killed by Chrome when
+  // a session becomes active. However, there's often a short period of time
+  // when both instances are alive and try to concurrently access USB.)
+  //
+  // There are two types of transient issues: (a) failure to connect to the
+  // device, and (b) receiving an unexpected USB transfer packet that was
+  // originally replying to the other instance's request.
+  //
+  // Simply retrying the reader initialization mitigates most of issues,
+  // however sometimes "b" causes the reader to end in an unresponsive state -
+  // this is why there's a second mitigation of resetting the USB device.
+  void AttemptMitigateReaderError(const std::string& pcsc_device_string);
+
  private:
   void PostMessage(const char* type, Value message_data) const;
 
   GlobalContext* const global_context_;
+  LibusbWebPortService* const libusb_web_port_service_;
   std::thread daemon_thread_;
 };
 

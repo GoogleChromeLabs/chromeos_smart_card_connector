@@ -785,47 +785,6 @@ TEST_P(LibusbJsProxyTest, BusNumberConstant) {
   FreeLibusbDevices(devices);
 }
 
-// Test that `LibusbGetBusNumber()` returns an incremented value if the
-// `LibusbOpen()` method failed previously.
-TEST_P(LibusbJsProxyTest, BusNumberWorkaroundAfterOpenFailure) {
-  // Arrange.
-  for (int i = 0; i < 2; ++i) {
-    global_context()->WillReplyToRequestWith(
-        "libusb", "listDevices",
-        /*arguments=*/Value(Value::Type::kArray),
-        /*result_to_reply_with=*/
-        ArrayValueBuilder()
-            .Add(DictValueBuilder()
-                     .Add("deviceId", 123)
-                     .Add("vendorId", 1)
-                     .Add("productId", 2)
-                     .Get())
-            .Get());
-  }
-  global_context()->WillReplyToRequestWithError(
-      "libusb", "openDeviceHandle",
-      /*arguments=*/ArrayValueBuilder().Add(123).Get(),
-      /*error_to_reply_with=*/"fake error");
-
-  // Act. Obtain the device from the device list.
-  std::vector<libusb_device*> devices = GetLibusbDevices();
-  ASSERT_EQ(devices.size(), 1U);
-  EXPECT_EQ(libusb()->LibusbGetBusNumber(devices[0]), 1);
-  // Attempt connecting to the device.
-  libusb_device_handle* device_handle = nullptr;
-  EXPECT_EQ(libusb()->LibusbOpen(devices[0], &device_handle),
-            LIBUSB_ERROR_OTHER);
-  FreeLibusbDevices(devices);
-  // Obtain the list of devices again.
-  devices = GetLibusbDevices();
-  ASSERT_EQ(devices.size(), 1U);
-
-  // Assert. The bus number should be incremented now.
-  EXPECT_EQ(libusb()->LibusbGetBusNumber(devices[0]), 2);
-
-  FreeLibusbDevices(devices);
-}
-
 INSTANTIATE_TEST_SUITE_P(
     ,
     LibusbJsProxyTest,
@@ -1016,39 +975,6 @@ TEST_P(LibusbJsProxyWithDeviceTest, InterfaceClaimingFailure) {
   // Act.
   EXPECT_EQ(libusb()->LibusbClaimInterface(device_handle_, kInterfaceNumber),
             LIBUSB_ERROR_OTHER);
-}
-
-// Test that `LibusbGetBusNumber()` returns an incremented value if the
-// `LibusbClaimInterface()` method failed previously.
-TEST_P(LibusbJsProxyWithDeviceTest,
-       BusNumberWorkaroundAfterInterfaceClaimingFailure) {
-  constexpr int kInterfaceNumber = 12;
-  // Arrange.
-  global_context()->WillReplyToRequestWith(
-      "libusb", "listDevices",
-      /*arguments=*/Value(Value::Type::kArray), MakeListDevicesFakeJsReply());
-  global_context()->WillReplyToRequestWithError(
-      "libusb", "claimInterface",
-      /*arguments=*/
-      ArrayValueBuilder()
-          .Add(kJsDeviceId)
-          .Add(kJsDeviceHandle)
-          .Add(kInterfaceNumber)
-          .Get(),
-      /*error_to_reply_with=*/"fake error");
-  EXPECT_EQ(libusb()->LibusbGetBusNumber(device_), 1);
-
-  // Act.
-  EXPECT_EQ(libusb()->LibusbClaimInterface(device_handle_, kInterfaceNumber),
-            LIBUSB_ERROR_OTHER);
-  // Obtain the list of devices again.
-  std::vector<libusb_device*> devices = GetLibusbDevices();
-  ASSERT_EQ(devices.size(), 1U);
-
-  // Assert. The bus number should be incremented now.
-  EXPECT_EQ(libusb()->LibusbGetBusNumber(devices[0]), 2);
-
-  FreeLibusbDevices(devices);
 }
 
 // Tests `LibusbControlTransfer()` successful scenario when sending data to the

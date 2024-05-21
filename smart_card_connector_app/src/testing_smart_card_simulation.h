@@ -88,6 +88,8 @@ class TestingSmartCardSimulation final : public RequestHandler {
     // The error disappears after being triggered twice. (We don't test ">2"
     // cases because it wouldn't add much more value.)
     kAfterTwoErrors,
+    // The error will disappear after USB "resetDevice".
+    kAfterReset,
   };
 
   // Represents whether an ICC (a smart card) is inserted into the reader and is
@@ -175,6 +177,7 @@ class TestingSmartCardSimulation final : public RequestHandler {
     GenericRequestResult ReleaseInterface(int64_t device_id,
                                           int64_t device_handle,
                                           int64_t interface_number);
+    GenericRequestResult ResetDevice(int64_t device_id, int64_t device_handle);
     GenericRequestResult ControlTransfer(
         int64_t device_id,
         int64_t device_handle,
