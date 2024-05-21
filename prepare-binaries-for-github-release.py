@@ -44,16 +44,16 @@ BINARY_CONTENTS_RELATIVES_PATHS = [
 # archives, accompanied with the relative target file paths.
 PATHS_TO_COPY = [
   ['example_js_standalone_smart_card_client_library/js_build/'
-   'app_emscripten_Debug/google-smart-card-client-library.js',
+   'extension_emscripten_Debug/google-smart-card-client-library.js',
    'google-smart-card-client-library.debug.js'],
   ['example_js_standalone_smart_card_client_library/js_build/'
-   'app_emscripten_Release/google-smart-card-client-library.js',
+   'extension_emscripten_Release/google-smart-card-client-library.js',
    'google-smart-card-client-library.js'],
   ['example_js_standalone_smart_card_client_library/js_build/'
-   'app_emscripten_Debug/google-smart-card-client-library-es-module.js',
+   'extension_emscripten_Debug/google-smart-card-client-library-es-module.js',
    'google-smart-card-client-library-es-module.debug.js'],
   ['example_js_standalone_smart_card_client_library/js_build/'
-   'app_emscripten_Release/google-smart-card-client-library-es-module.js',
+   'extension_emscripten_Release/google-smart-card-client-library-es-module.js',
    'google-smart-card-client-library-es-module.js'],
 ]
 
