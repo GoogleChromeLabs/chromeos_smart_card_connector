@@ -70,14 +70,9 @@ GSC.InPopupMainScript.showWindow = function() {
   chrome.app.window.current().show();
 };
 
-const popUpData = GSC.InPopupMainScript.getData();
-const popUpId = popUpData[GSC.PopupConstants.POPUP_ID_KEY];
-GSC.Logging.check(popUpId, 'Missing popup ID in received data');
-
-// Open a message channel to the opener. It'll be used to send the popup result,
-// and it allows the opener to be notified when we're closed.
-const portChannel = new GSC.PortMessageChannel(chrome.runtime.connect(
-    {'name': GSC.PopupConstants.PORT_NAME_PREFIX + popUpId}));
+// Open a message channel to the opener if needed. It'll be used to send the
+// popup result, and it allows the opener to be notified when we're closed.
+const channelToPopupOpener = openChannelToPopupOpener();
 
 /**
  * Resolves the modal dialog, passing the specified result to the caller in the
@@ -90,8 +85,9 @@ GSC.InPopupMainScript.resolveModalDialog = function(result) {
       logger,
       'The modal dialog is resolved with the following result: ' +
           GSC.DebugDump.debugDumpSanitized(result));
+  GSC.Logging.check(channelToPopupOpener);
 
-  portChannel.send(
+  channelToPopupOpener.send(
       GSC.PopupConstants.RESULT_MESSAGE_TYPE,
       {[GSC.PopupConstants.RESULT_VALUE_KEY]: result});
 
@@ -108,8 +104,9 @@ GSC.InPopupMainScript.rejectModalDialog = function(error) {
   goog.log.fine(
       logger,
       'The modal dialog is rejected with the following error: ' + error);
+  GSC.Logging.check(channelToPopupOpener);
 
-  portChannel.send(
+  channelToPopupOpener.send(
       GSC.PopupConstants.RESULT_MESSAGE_TYPE,
       {[GSC.PopupConstants.RESULT_ERROR_KEY]: error});
 
@@ -183,6 +180,20 @@ GSC.InPopupMainScript.setupRejectionOnWindowClose = function() {
     chrome.windows.onRemoved.addListener(windowCloseDialogRejectionListener);
   }
 };
+
+/**
+ * @return {GSC.PortMessageChannel}
+ */
+function openChannelToPopupOpener() {
+  const popUpData = GSC.InPopupMainScript.getData();
+  if (!popUpData)
+    return null;
+  const popUpId = popUpData[GSC.PopupConstants.POPUP_ID_KEY];
+  if (!popUpId)
+    return null;
+  return new GSC.PortMessageChannel(chrome.runtime.connect(
+      {'name': GSC.PopupConstants.PORT_NAME_PREFIX + popUpId}));
+}
 
 function closeWindow() {
   goog.log.fine(logger, 'Closing the window...');
