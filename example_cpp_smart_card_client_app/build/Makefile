@@ -30,6 +30,11 @@ include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/js_client/include.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/cpp_client/include.mk
 
 
+ifeq (app,$(PACKAGING))
+$(error Building as Chrome App is unsupported. Please set the environment variable: PACKAGING=extension)
+endif
+
+
 SOURCES_PATH := ../src
 
 
