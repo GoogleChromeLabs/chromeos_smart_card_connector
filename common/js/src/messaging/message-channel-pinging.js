@@ -58,7 +58,7 @@ const PING_RESPONDER_CHANNEL_ID = generateChannelId();
  * This constant represents the timeout in milliseconds after which the channel
  * is considered dead.
  */
-const PINGER_TIMEOUT_MILLISECONDS = goog.DEBUG ? 20 * 1000 : 600 * 1000;
+const PINGER_TIMEOUT_MILLISECONDS = 600 * 1000;
 
 /**
  * This constant represents the time in milliseconds between consecutive ping
