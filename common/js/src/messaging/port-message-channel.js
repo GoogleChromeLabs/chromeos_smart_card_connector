@@ -74,6 +74,7 @@ GSC.PortMessageChannel = class extends goog.messaging.AbstractChannel {
 
     /**
      * @type {!goog.log.Logger}
+     * @public
      * @const
      */
     this.logger = GSC.Logging.getScopedLogger(
