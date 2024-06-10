@@ -173,13 +173,11 @@ EMSCRIPTEN_COMMON_FLAGS += \
 #
 # Explanation:
 # ASSERTIONS: Enable runtime checks, like for memory allocation errors.
-# DEMANGLE_SUPPORT: Demangle C++ function names in stack traces.
 # SAFE_HEAP: Enable memory access checks.
 # Wno-limited-postlink-optimizations: Suppress a warning about limited
 #   optimizations.
 EMSCRIPTEN_LINKER_FLAGS += \
   -s ASSERTIONS=2 \
-  -s DEMANGLE_SUPPORT=1 \
   -s SAFE_HEAP=1 \
   -Wno-limited-postlink-optimizations \
 
