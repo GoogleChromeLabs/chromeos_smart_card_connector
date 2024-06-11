@@ -95,6 +95,12 @@ EMSCRIPTEN_COMPILER_FLAGS := \
 # ENVIRONMENT: Only generate support code for running in needed Web environments
 #   and skip support for others.
 # EXPORT_NAME: Name of the JavaScript function that loads the Emscripten module.
+# EXPORTED_RUNTIME_METHODS: Specify names of Emscripten `Module` object's
+#   properties that our code accesses:
+#   PThread: We call its `terminateAllThreads()` method in order to shut down
+#     all workers (this is needed primarily for integration tests that spawn a
+#     new module in every test case, as not tearing down the workers between
+#     test cases may lead to out-of-memory errors).
 # MIN_CHROME_VERSION: Skip generating Emscripten support code for very old
 #   Chrome versions. (The exact boundary is chosen similarly to
 #   minimum_chrome_version in
@@ -121,6 +127,7 @@ EMSCRIPTEN_LINKER_FLAGS := \
   -s DYNAMIC_EXECUTION=0 \
   -s ENVIRONMENT=web,worker \
   -s 'EXPORT_NAME="loadEmscriptenModule_$(TARGET)"' \
+  -s EXPORTED_RUNTIME_METHODS=PThread \
   -s MIN_CHROME_VERSION=96 \
   -s MIN_EDGE_VERSION=-1 \
   -s MIN_FIREFOX_VERSION=-1 \
