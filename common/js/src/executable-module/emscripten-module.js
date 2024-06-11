@@ -125,12 +125,8 @@ GSC.EmscriptenModule = class extends GSC.ExecutableModule {
       delete this.googleSmartCardModule_;
     }
     if (this.emscriptenApiModule_) {
-      // Terminate threads and worker pools that Emscripten may have reserved.
-      // Note that the "pthread_terminateAllThreads" property is created by the
-      // code injected from emscripten-module-js-epilog.js.inc and is just an
-      // alias to `Module.PThread.terminateAllThreads()`. The alias is needed to
-      // work around renamings that happen in the Release mode.
-      this.emscriptenApiModule_['pthread_terminateAllThreads']();
+      // `_exit()` destroys global and static objects and terminates workers.
+      this.emscriptenApiModule_['_exit']();
       delete this.emscriptenApiModule_;
     }
     this.delayedMessageChannel_.dispose();
