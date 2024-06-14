@@ -463,8 +463,10 @@ Backend.prototype.processSignatureRequest_ = function(request) {
             this.logger,
             'Responding to the signature request with the created signature: ' +
                 GSC.DebugDump.debugDumpSanitized(signature));
-        chrome.certificateProvider.reportSignature(
-            {signRequestId: request.signRequestId, signature: signature});
+        chrome.certificateProvider.reportSignature({
+          signRequestId: request.signRequestId,
+          signature: toArrayBuffer(signature)
+        });
       },
       function() {
         goog.log.info(
@@ -544,7 +546,7 @@ Backend.prototype.processSignDigestRequest_ = function(
             this.logger,
             'Responding to the digest sign request with the created ' +
                 'signature: ' + GSC.DebugDump.debugDumpSanitized(signature));
-        reportCallback(signature);
+        reportCallback(toArrayBuffer(signature));
       },
       function() {
         goog.log.info(
@@ -596,7 +598,8 @@ function transformFunctionArguments(functionName, functionArguments) {
  */
 function createClientCertificateInfo(executableModuleCertificateInfo) {
   return {
-    certificateChain: [executableModuleCertificateInfo['certificate']],
+    certificateChain:
+        [toArrayBuffer(executableModuleCertificateInfo['certificate'])],
     supportedAlgorithms: executableModuleCertificateInfo['supportedAlgorithms']
   };
 }
@@ -607,7 +610,7 @@ function createClientCertificateInfo(executableModuleCertificateInfo) {
  */
 function createCertificateInfo(executableModuleCertificateInfo) {
   return {
-    certificate: executableModuleCertificateInfo['certificate'],
+    certificate: toArrayBuffer(executableModuleCertificateInfo['certificate']),
     supportedHashes: goog.array.map(
         executableModuleCertificateInfo['supportedAlgorithms'],
         getHashFromAlgorithm)
@@ -638,5 +641,16 @@ function getHashFromAlgorithm(algorithm) {
   }
   GSC.Logging.fail(`Unknown algorithm ${algorithm}`);
   return chrome.certificateProvider.Hash.SHA1;
+}
+
+/**
+ * Converts the array of bytes to an array buffer, if needed.
+ * @param {!ArrayBuffer|!Array<number>} value
+ * @return {!ArrayBuffer}
+ */
+function toArrayBuffer(value) {
+  if (value instanceof ArrayBuffer)
+    return value;
+  return (new Uint8Array(value)).buffer;
 }
 });  // goog.scope
