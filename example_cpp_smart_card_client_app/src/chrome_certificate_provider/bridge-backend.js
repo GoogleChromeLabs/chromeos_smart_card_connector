@@ -602,6 +602,8 @@ function createClientCertificateInfo(executableModuleCertificateInfo) {
 }
 
 /**
+ * Converts the certificate information received from the C++ code into the
+ * (legacy) `CertificateInfo` object.
  * @param {!ExecutableModuleCertificateInfo} executableModuleCertificateInfo
  * @return {!chrome.certificateProvider.CertificateInfo}
  */
