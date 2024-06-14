@@ -34,7 +34,10 @@ EnumValueDescriptor<ccp::Algorithm>::GetDescription() {
       .WithItem(ccp::Algorithm::kRsassaPkcs1v15Sha384,
                 "RSASSA_PKCS1_v1_5_SHA384")
       .WithItem(ccp::Algorithm::kRsassaPkcs1v15Sha512,
-                "RSASSA_PKCS1_v1_5_SHA512");
+                "RSASSA_PKCS1_v1_5_SHA512")
+      .WithItem(ccp::Algorithm::kRsassaPssSha256, "RSASSA_PSS_SHA256")
+      .WithItem(ccp::Algorithm::kRsassaPssSha384, "RSASSA_PSS_SHA384")
+      .WithItem(ccp::Algorithm::kRsassaPssSha512, "RSASSA_PSS_SHA512");
 }
 
 template <>
