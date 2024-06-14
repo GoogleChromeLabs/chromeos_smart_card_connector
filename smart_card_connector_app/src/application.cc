@@ -43,7 +43,9 @@ Application::Application(
           MakeUnique<LibusbWebPortService>(global_context_,
                                            typed_message_router_)),
       pcsc_lite_server_web_port_service_(
-          MakeUnique<PcscLiteServerWebPortService>(global_context_)) {
+          MakeUnique<PcscLiteServerWebPortService>(
+              global_context_,
+              libusb_web_port_service_.get())) {
   ScheduleServicesInitialization();
 }
 

@@ -31,9 +31,9 @@
 #include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/requesting/remote_call_async_request.h"
 #include "common/cpp/src/public/requesting/request_result.h"
-
 #include "third_party/libusb/webport/src/libusb_js_proxy_constants.h"
 #include "third_party/libusb/webport/src/libusb_js_proxy_data_model.h"
+#include "third_party/libusb/webport/src/public/constants.h"
 
 namespace google_smart_card {
 
@@ -50,17 +50,6 @@ constexpr char kJsRequestResetDevice[] = "resetDevice";
 constexpr char kJsRequestControlTransfer[] = "controlTransfer";
 constexpr char kJsRequestBulkTransfer[] = "bulkTransfer";
 constexpr char kJsRequestInterruptTransfer[] = "interruptTransfer";
-
-//
-// We use stubs for the device bus number (as the JS API does not provide means
-// of retrieving it). We modify this for a device when opening the device fails.
-// This makes PCSC recognize it as a new device which causes PCSC to retry
-// opening it. The number of reconnection attempts is limited
-// by `kMaximumBusNumber` - `kDefaultBusNumber`.
-//
-
-constexpr uint8_t kDefaultBusNumber = 1;
-constexpr uint8_t kMaximumBusNumber = 64;
 
 //
 // Positions of the first non-zero bits in the libusb mask constants.
@@ -499,7 +488,7 @@ uint8_t LibusbJsProxy::LibusbGetBusNumber(libusb_device* dev) {
   if (bus_numbers_iterator != bus_numbers_.end()) {
     return bus_numbers_iterator->second;
   }
-  return kDefaultBusNumber;
+  return kDefaultUsbBusNumber;
 }
 
 uint8_t LibusbJsProxy::LibusbGetDeviceAddress(libusb_device* dev) {
@@ -526,7 +515,6 @@ int LibusbJsProxy::LibusbOpen(libusb_device* dev,
           std::move(request_result), &error_message, &js_device_handle)) {
     GOOGLE_SMART_CARD_LOG_WARNING << "LibusbOpen request failed: "
                                   << error_message;
-    TryApplyTransientAccessErrorWorkaround(dev);
     return LIBUSB_ERROR_OTHER;
   }
 
@@ -562,7 +550,6 @@ int LibusbJsProxy::LibusbClaimInterface(libusb_device_handle* dev,
   if (!request_result.is_successful()) {
     GOOGLE_SMART_CARD_LOG_WARNING << "LibusbClaimInterface request failed: "
                                   << request_result.error_message();
-    TryApplyTransientAccessErrorWorkaround(dev->device());
     return LIBUSB_ERROR_OTHER;
   }
   return LIBUSB_SUCCESS;
@@ -984,6 +971,11 @@ int LibusbJsProxy::LibusbHandleEventsCompleted(libusb_context* ctx,
   return LIBUSB_SUCCESS;
 }
 
+void LibusbJsProxy::OverrideBusNumber(int64_t device_address,
+                                      uint8_t new_bus_number) {
+  bus_numbers_[device_address] = new_bus_number;
+}
+
 libusb_context* LibusbJsProxy::SubstituteDefaultContextIfNull(
     libusb_context* context_or_nullptr) const {
   if (context_or_nullptr)
@@ -1192,23 +1184,6 @@ int LibusbJsProxy::DoGenericSyncTranfer(libusb_transfer_type transfer_type,
   if (actual_length)
     *actual_length = transfer.actual_length;
   return LibusbTransferStatusToLibusbErrorCode(transfer.status);
-}
-
-void LibusbJsProxy::TryApplyTransientAccessErrorWorkaround(libusb_device* dev) {
-  GOOGLE_SMART_CARD_CHECK(dev);
-
-  // Modify the device's (fake) bus number that we report so that next time the
-  // client code updates the device list it thinks it's a new device. This
-  // allows to work around transient access errors in case the device connection
-  // was taken for the first few seconds after our startup.
-  uint32_t new_bus_number = static_cast<uint32_t>(LibusbGetBusNumber(dev)) + 1;
-  if (new_bus_number > kMaximumBusNumber) {
-    // Don't apply the workaround after this number of times.
-    return;
-  }
-  GOOGLE_SMART_CARD_LOG_INFO << "Applying bus number increment workaround in "
-                                "case the USB access error was transient";
-  bus_numbers_[dev->js_device().device_id] = new_bus_number;
 }
 
 void LibusbJsProxy::ObtainActiveConfigDescriptor(libusb_device* dev) {

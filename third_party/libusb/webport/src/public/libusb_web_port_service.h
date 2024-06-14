@@ -66,6 +66,10 @@ class LibusbWebPortService final {
   // This function is safe to be called from any thread.
   void ShutDown();
 
+  // Makes the bus number to be reported as the specified value for the given
+  // device.
+  void OverrideBusNumber(int64_t device_address, uint8_t new_bus_number);
+
  private:
   // Use the "pimpl" pattern, so that other code can include our .h file without
   // transitively including all of our internal implementation headers (which

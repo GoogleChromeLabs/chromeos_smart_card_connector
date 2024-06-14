@@ -29,7 +29,6 @@ goog.require('GoogleSmartCard.Packaging');
 goog.require('GoogleSmartCard.PopupConstants');
 goog.require('GoogleSmartCard.PortMessageChannelWaiter');
 goog.require('goog.Promise');
-goog.require('goog.Thenable');
 goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.object');
@@ -155,7 +154,7 @@ GSC.PopupOpener.runModalDialog = function(url, opt_windowOptions, opt_data) {
 
   // Additionally pass the auto-generated popup ID. The popup will use it to
   // talk back to us when sending the result.
-  ++lastUsedPopupId;
+  lastUsedPopupId++;
   const modifiedData = {[GSC.PopupConstants.POPUP_ID_KEY]: lastUsedPopupId};
   if (opt_data !== undefined)
     Object.assign(modifiedData, opt_data);

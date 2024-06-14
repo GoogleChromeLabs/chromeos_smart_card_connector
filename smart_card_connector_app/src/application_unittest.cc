@@ -3328,13 +3328,20 @@ INSTANTIATE_TEST_SUITE_P(
             TestingSmartCardSimulation::ErrorMode::kClaimInterfaceError,
             TestingSmartCardSimulation::ErrorCessation::kAfterTwoErrors),
         TransientErrorTestParam(
+            TestingSmartCardSimulation::ErrorMode::kBulkTransferError,
+            TestingSmartCardSimulation::ErrorCessation::kAfterReset),
+        TransientErrorTestParam(
             TestingSmartCardSimulation::ErrorMode::
                 kBulkTransferUnrelatedReplies,
             TestingSmartCardSimulation::ErrorCessation::kAfterOneError),
         TransientErrorTestParam(
             TestingSmartCardSimulation::ErrorMode::
                 kBulkTransferUnrelatedReplies,
-            TestingSmartCardSimulation::ErrorCessation::kAfterTwoErrors)));
+            TestingSmartCardSimulation::ErrorCessation::kAfterTwoErrors),
+        TransientErrorTestParam(
+            TestingSmartCardSimulation::ErrorMode::
+                kBulkTransferUnrelatedReplies,
+            TestingSmartCardSimulation::ErrorCessation::kAfterReset)));
 
 // Reader initialization succeeds after retrying from temporary USB errors.
 TEST_P(SmartCardConnectorApplicationReaderTransientErrorTest,

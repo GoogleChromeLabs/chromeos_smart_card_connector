@@ -34,25 +34,44 @@ extern "C" {
 #include "readerfactory.h"
 }
 
-extern "C" {
-LONG RFAddReaderOriginal(const char* reader_name,
-                         int port,
-                         const char* library,
-                         const char* device);
-LONG RFRemoveReaderOriginal(const char* reader_name, int port, int flags);
-}
+#include "common/cpp/src/public/logging/logging.h"
+#include "third_party/pcsc-lite/naclport/server/src/public/pcsc_lite_server_web_port_service.h"
 
-LONG RFAddReader(const char* reader_name,
-                 int port,
-                 const char* library,
-                 const char* device) {
-  google_smart_card::PcscLiteServerWebPortService::GetInstance()
-      ->PostReaderInitAddMessage(reader_name, port, device);
+// Original PC/SC-Lite's `RFAddReader()` and `RFRemoveReader()` functions. Our
+// interceptors below eventually call into these.
+extern "C" LONG RFAddReaderOriginal(const char* reader_name,
+                                    int port,
+                                    const char* library,
+                                    const char* device);
+extern "C" LONG RFRemoveReaderOriginal(const char* reader_name,
+                                       int port,
+                                       int flags);
 
+namespace google_smart_card {
+
+// This function is the hook function for the original one. The hook works via
+// the #define trick (passed as an argument to the compiler via command line).
+extern "C" LONG RFAddReader(const char* reader_name,
+                            int port,
+                            const char* library,
+                            const char* device) {
+  // Notify UI about the reader being initialized.
+  PcscLiteServerWebPortService::GetInstance()->PostReaderInitAddMessage(
+      reader_name, port, device);
+
+  // Call back into the original PC/SC-Lite `RFAddReader()` implementation,
+  // which requests the driver to initialize the reader.
   LONG return_code = RFAddReaderOriginal(reader_name, port, library, device);
 
-  google_smart_card::PcscLiteServerWebPortService::GetInstance()
-      ->PostReaderFinishAddMessage(reader_name, port, device, return_code);
+  // Notify UI about the reader initialization result.
+  PcscLiteServerWebPortService::GetInstance()->PostReaderFinishAddMessage(
+      reader_name, port, device, return_code);
+
+  if (return_code != SCARD_S_SUCCESS) {
+    // In case the reader error is transient, attempt to mitigate it.
+    PcscLiteServerWebPortService::GetInstance()->AttemptMitigateReaderError(
+        device);
+  }
 
   return return_code;
 }
@@ -62,9 +81,13 @@ LONG RFAddReader(const char* reader_name,
 // so it actually works when the function is called from outside the file where
 // it is defined, but not from inside (readerfactory). Sometimes it may get
 // called from the inside, and that call won't be intercepted, but that is fine.
-LONG RFRemoveReader(const char* reader_name, int port, int flags) {
-  google_smart_card::PcscLiteServerWebPortService::GetInstance()
-      ->PostReaderRemoveMessage(reader_name, port);
+extern "C" LONG RFRemoveReader(const char* reader_name, int port, int flags) {
+  // Notify UI about the reader removal.
+  PcscLiteServerWebPortService::GetInstance()->PostReaderRemoveMessage(
+      reader_name, port);
 
+  // Call back into the original PC/SC-Lite `RFRemoveReader()` implementation.
   return RFRemoveReaderOriginal(reader_name, port, flags);
 }
+
+}  // namespace google_smart_card

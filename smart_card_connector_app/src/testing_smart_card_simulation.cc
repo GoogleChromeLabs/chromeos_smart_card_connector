@@ -690,6 +690,11 @@ void TestingSmartCardSimulation::HandleRequest(
         /*device_id=*/remote_call.arguments[0].GetInteger(),
         /*device_handle=*/remote_call.arguments[1].GetInteger(),
         /*interface_number=*/remote_call.arguments[2].GetInteger());
+  } else if (remote_call.function_name == "resetDevice") {
+    GOOGLE_SMART_CARD_CHECK(remote_call.arguments.size() == 2);
+    response = handler_.ResetDevice(
+        /*device_id=*/remote_call.arguments[0].GetInteger(),
+        /*device_handle=*/remote_call.arguments[1].GetInteger());
   } else if (remote_call.function_name == "controlTransfer") {
     GOOGLE_SMART_CARD_CHECK(remote_call.arguments.size() == 3);
     response = handler_.ControlTransfer(
@@ -885,6 +890,23 @@ TestingSmartCardSimulation::ThreadSafeHandler::ReleaseInterface(
   if (!device_state->claimed_interfaces.count(interface_number))
     return GenericRequestResult::CreateFailed("Interface not claimed");
   device_state->claimed_interfaces.erase(interface_number);
+  return GenericRequestResult::CreateSuccessful(Value());
+}
+
+GenericRequestResult TestingSmartCardSimulation::ThreadSafeHandler::ResetDevice(
+    int64_t device_id,
+    int64_t device_handle) {
+  std::unique_lock<std::mutex> lock(mutex_);
+
+  DeviceState* device_state =
+      FindDeviceStateByIdAndHandle(device_id, device_handle);
+  if (!device_state)
+    return GenericRequestResult::CreateFailed("Unknown device");
+
+  if (device_state->device.error_cessation == ErrorCessation::kAfterReset) {
+    device_state->device.error_mode = {};
+    device_state->device.error_cessation = {};
+  }
   return GenericRequestResult::CreateSuccessful(Value());
 }
 
@@ -1175,6 +1197,9 @@ void TestingSmartCardSimulation::ThreadSafeHandler::UpdateErrorPerCessation(
     case ErrorCessation::kAfterTwoErrors:
       // Simulate the error one more time.
       device_state.device.error_cessation = ErrorCessation::kAfterOneError;
+      break;
+    case ErrorCessation::kAfterReset:
+      // This type of cessation is handled in `resetDevice()` instead.
       break;
   }
 }

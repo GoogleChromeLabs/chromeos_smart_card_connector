@@ -62,6 +62,8 @@ class LibusbWebPortService::Impl final {
     return &libusb_js_proxy_;
   }
 
+  LibusbJsProxy* libusb_js_proxy() { return &libusb_js_proxy_; }
+
  private:
   LibusbJsProxy libusb_js_proxy_;
   std::unique_ptr<LibusbTracingWrapper> libusb_tracing_wrapper_;
@@ -82,6 +84,11 @@ LibusbWebPortService::~LibusbWebPortService() {
 
 void LibusbWebPortService::ShutDown() {
   impl_->ShutDown();
+}
+
+void LibusbWebPortService::OverrideBusNumber(int64_t device_address,
+                                             uint8_t new_bus_number) {
+  impl_->libusb_js_proxy()->OverrideBusNumber(device_address, new_bus_number);
 }
 
 }  // namespace google_smart_card
