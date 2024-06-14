@@ -45,6 +45,9 @@ enum class Algorithm {
   kRsassaPkcs1v15Sha384,
   kRsassaPkcs1v15Sha256,
   kRsassaPkcs1v15Sha512,
+  kRsassaPssSha256,
+  kRsassaPssSha384,
+  kRsassaPssSha512,
 };
 
 // Enumerate that corresponds to types of errors that the extension can report.
