@@ -15,6 +15,11 @@
 # This file contains the implementation of the ../include.mk interface that
 # builds the C++ unit test runner using the Emscripten toolchain.
 
+# Allow passing additional parameters to GTest via setting this environment
+# variable. E.g.:
+#   GTEST_ARGS="--gtest_filter=*Foo" make test
+GTEST_ARGS ?=
+
 # Documented in ../include.mk.
 #
 # Explanation:
@@ -91,4 +96,4 @@ $(GOOGLETEST_LIBS_PATTERN):
 # DISPLAY: Workaround against "Permission denied" Node.js issue.
 run_test: all
 	cd $(OUT_DIR_PATH) && DISPLAY= \
-		node $(TARGET).js
+		node $(TARGET).js $(GTEST_ARGS)
