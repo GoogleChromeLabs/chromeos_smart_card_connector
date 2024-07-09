@@ -11,6 +11,7 @@
       ]
     }
   },
+  "minimum_chrome_version": "89",
   "default_locale": "en",
   "permissions": [
     "certificateProvider",

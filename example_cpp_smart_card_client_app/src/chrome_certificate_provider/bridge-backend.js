@@ -605,15 +605,23 @@ function createClientCertificateInfo(executableModuleCertificateInfo) {
 }
 
 /**
+ * Converts the certificate information received from the C++ code into the
+ * (legacy) `CertificateInfo` object.
  * @param {!ExecutableModuleCertificateInfo} executableModuleCertificateInfo
  * @return {!chrome.certificateProvider.CertificateInfo}
  */
 function createCertificateInfo(executableModuleCertificateInfo) {
+  const supportedHashes = [];
+  for (const algorithm of
+           executableModuleCertificateInfo['supportedAlgorithms']) {
+    const hash = getHashFromAlgorithm(algorithm);
+    if (hash !== null) {
+      supportedHashes.push(hash);
+    }
+  }
   return {
     certificate: toArrayBuffer(executableModuleCertificateInfo['certificate']),
-    supportedHashes: goog.array.map(
-        executableModuleCertificateInfo['supportedAlgorithms'],
-        getHashFromAlgorithm)
+    supportedHashes: supportedHashes,
   };
 }
 
@@ -631,16 +639,17 @@ function getAlgorithmFromHash(hash) {
 }
 
 /**
+ * Converts the algorithm enum into the legacy hash enum. Returns null for
+ * algorithms that don't have a corresponding hash enum.
  * @param {!chrome.certificateProvider.Algorithm} algorithm
- * @return {!chrome.certificateProvider.Hash}
+ * @return {!chrome.certificateProvider.Hash|null}
  */
 function getHashFromAlgorithm(algorithm) {
   for (const hash of HASH_TO_ALGORITHM_MAPPING.keys()) {
     if (HASH_TO_ALGORITHM_MAPPING.get(hash) === algorithm)
       return /** @type {!chrome.certificateProvider.Hash} */ (hash);
   }
-  GSC.Logging.fail(`Unknown algorithm ${algorithm}`);
-  return chrome.certificateProvider.Hash.SHA1;
+  return null;
 }
 
 /**
