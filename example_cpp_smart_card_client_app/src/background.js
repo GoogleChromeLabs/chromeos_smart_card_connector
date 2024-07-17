@@ -125,7 +125,7 @@ goog.log.info(
     logger,
     `The extension (id "${chrome.runtime.id}", version ` +
         `${extensionManifest.version}) background script started. Browser ` +
-        `version: "${window.navigator.appVersion}". System time: ` +
+        `version: "${globalThis.navigator.appVersion}". System time: ` +
         `"${formattedStartupTime}"`);
 
 /**
@@ -207,12 +207,14 @@ const builtInPinDialogBackend = new SmartCardClientApp.BuiltInPinDialog.Backend(
 // in advance.
 executableModule.startLoading();
 
-// Open the UI window when the user launches the app.
-chrome.app.runtime.onLaunched.addListener(() => {
-  GSC.PopupOpener.createWindow(MAIN_WINDOW_URL, MAIN_WINDOW_OPTIONS, {
-    'executableModuleMessageChannel': executableModule.getMessageChannel(),
+if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
+  // Open the UI window when the user launches the app.
+  chrome.app.runtime.onLaunched.addListener(() => {
+    GSC.PopupOpener.createWindow(MAIN_WINDOW_URL, MAIN_WINDOW_OPTIONS, {
+      'executableModuleMessageChannel': executableModule.getMessageChannel(),
+    });
   });
-});
+}
 
 // Automatically load the App (in the background) with Chrome startup.
 GSC.AppUtils.enableSelfAutoLoading();
