@@ -203,9 +203,8 @@ GSC.LogBuffer = class extends goog.Disposable {
    * @param {string} loggerName
    * @param {number=} logTime
    * @param {number=} logSequenceNumber
-   * @private
    */
-  addLogRecord_(
+  addLogRecord(
       documentLocation, logLevel, logMsg, loggerName, logTime,
       logSequenceNumber) {
     if (this.isDisposed())
@@ -247,17 +246,8 @@ GSC.LogBuffer = class extends goog.Disposable {
  */
 GSC.LogBuffer.attachBufferToLogger = function(
     logBuffer, logger, documentLocation) {
-  // Note: It's crucial that we're in a static method and calling a global
-  // function (`goog.log.addHandler()`), because when `logBuffer` comes from a
-  // different page (e.g., the background page), we're dealing with two
-  // instances of Closure Library: one in our page and another in the buffer's
-  // page. We want the current page's instance to register the buffer, since
-  // it's where the `logger`s messages are handled.
-  // We also have to access the method by indexing the properties, since due to
-  // method renaming the shortened method name in our page might differ from the
-  // one in the `logBuffer`s page.
   goog.log.addHandler(logger, (logRecord) => {
-    logBuffer['addLogRecord_'](
+    logBuffer.addLogRecord(
         documentLocation, logRecord.getLevel(), logRecord.getMessage(),
         logRecord.getLoggerName(), logRecord.getMillis(),
         logRecord.getSequenceNumber());
@@ -276,8 +266,8 @@ goog.exportProperty(
 goog.exportProperty(
     GSC.LogBuffer.prototype, 'getState', GSC.LogBuffer.prototype.getState);
 goog.exportProperty(
-    GSC.LogBuffer.prototype, 'addLogRecord_',
-    GSC.LogBuffer.prototype.addLogRecord_);
+    GSC.LogBuffer.prototype, 'addLogRecord',
+    GSC.LogBuffer.prototype.addLogRecord);
 goog.exportProperty(
     GSC.LogBuffer.prototype, 'addFormattedLogRecord_',
     GSC.LogBuffer.prototype.addFormattedLogRecord_);
