@@ -54,28 +54,7 @@ class State {
     this['skippedLogCount'] = skippedLogCount;
     this['formattedLogsSuffix'] = formattedLogsSuffix;
   }
-
-  /**
-   * Returns the textual dump of the internal state.
-   *
-   * The dump contains the formatted log messages, together with the information
-   * about the dropped log messages (if there are any).
-   * @return {string}
-   */
-  getAsText() {
-    const prefix = goog.iter.join(this['formattedLogsPrefix'], '');
-    const suffix = goog.iter.join(this['formattedLogsSuffix'], '');
-
-    let result = prefix;
-    if (this['skippedLogCount'])
-      result +=
-          '\n... skipped ' + this['skippedLogCount'] + ' messages ...\n\n';
-    result += suffix;
-    return result;
-  }
 }
-
-goog.exportProperty(State.prototype, 'getAsText', State.prototype.getAsText);
 
 /**
  * This class is the log buffer that allows to keep the log messages emitted by
