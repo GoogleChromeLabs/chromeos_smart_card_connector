@@ -42,6 +42,7 @@ goog.require('goog.debug');
 goog.require('goog.debug.Console');
 goog.require('goog.log');
 goog.require('goog.log.Level');
+goog.require('goog.log.LogRecord');
 goog.require('goog.log.Logger');
 goog.require('goog.object');
 
@@ -103,12 +104,10 @@ const ROOT_LOGGER_LEVEL =
 const LOG_BUFFER_CAPACITY = goog.DEBUG ? 20 * 1000 : 2000;
 
 /**
- * This constant specifies the name of the special window attribute in which our
- * log buffer is stored. This is used so that popup windows and other pages can
- * access the background page's log buffer and therefore use a centralized place
- * for aggregating logs.
+ * Name of the port that's used for sending logs to the Service Worker or
+ * Background Page from all other pages.
  */
-const GLOBAL_LOG_BUFFER_VARIABLE_NAME = 'googleSmartCard_logBuffer';
+const LOG_MESSAGES_PORT_NAME = 'logs';
 
 /**
  * @type {!goog.log.Logger}
@@ -128,12 +127,10 @@ let wasLoggingSetUp = false;
 
 /**
  * The log buffer that aggregates all log messages, to let them be exported if
- * the user requests so. This variable is initialized to a new `LogBuffer`
- * instance, but if we're running outside the background page this variable is
- * later reassigned to the background page's log buffer.
+ * the user requests so.
  * @type {!GSC.LogBuffer}
  */
-let logBuffer = new GSC.LogBuffer(LOG_BUFFER_CAPACITY);
+const logBuffer = new GSC.LogBuffer(LOG_BUFFER_CAPACITY);
 
 /**
  * Whether we should self-reload our App/Extension when a fatal log message.
@@ -149,6 +146,22 @@ let selfReloadOnFatalError =
 goog.exportSymbol('GoogleSmartCard.disableSelfReloadOnFatalError', function() {
   selfReloadOnFatalError = false;
 });
+
+/**
+ * A message that represents a log record.
+ *
+ * These messages are sent to the Service Worker by all other pages, so that the
+ * former can collect all logs and export them accordingly.
+ * @typedef {{
+ *            document_location:string,
+ *            level:string,
+ *            message:string,
+ *            logger:string,
+ *            time:number,
+ *            sequence_number:number,
+ *          }}
+ */
+let LogMessage;
 
 /**
  * Sets up logging parameters and log buffering.
@@ -171,7 +184,17 @@ GSC.Logging.setupLogging = function() {
       'Logging was set up with level=' + ROOT_LOGGER_LEVEL.name +
           ' and enabled logging to JS console');
 
-  setupLogBuffer();
+  if (isLogCollectorPage()) {
+    // We're running in the "collector" page (the Service Worker or, in case of
+    // mv2, the Background Page). The log buffer will aggregate the current
+    // page's messages as well as receive logs from other pages.
+    GSC.LogBuffer.attachBufferToLogger(
+        logBuffer, rootLogger, getDocumentLocation());
+    setupLogReceiving();
+  } else {
+    // Forward our logs to the "collector" page.
+    setupLogSending();
+  }
 };
 
 /**
@@ -298,6 +321,22 @@ GSC.Logging.getLogBuffer = function() {
   return logBuffer;
 };
 
+/**
+ * Returns whether the current page should act as a collector of logs from all
+ * other pages of our extension.
+ */
+function isLogCollectorPage() {
+  if (typeof document === 'undefined') {
+    // We're running in the Service Worker.
+    return true;
+  }
+  if (self.location.pathname === '/_generated_background_page.html') {
+    // We're running in the Background Page (in a Manifest v2 Extension/App).
+    return true;
+  }
+  return false;
+}
+
 function scheduleSelfReloadIfAllowed() {
   if (!selfReloadOnFatalError)
     return;
@@ -370,60 +409,61 @@ function getDocumentLocation() {
   return document.location.href;
 }
 
-function setupLogBuffer() {
-  GSC.LogBuffer.attachBufferToLogger(
-      logBuffer, rootLogger, getDocumentLocation());
-
-  if (!chrome || !chrome.runtime || !chrome.runtime.getBackgroundPage) {
-    // We don't know whether we're running inside the background page and
-    // the API for talking to it is unavailable - therefore no action needed,
-    // i.e., our page will continue using our log buffer. This should only
-    // happen in tests or if this code is running outside an app/extension.
+/**
+ * Sets up sending every emitted log record as a message.
+ */
+function setupLogSending() {
+  if (!chrome || !chrome.runtime || !chrome.runtime.connect) {
+    // This should only happen in tests.
     return;
   }
-
-  // Expose our log buffer in the global window properties. Pages other than the
-  // background will use it to access the background page's log buffer - see the
-  // code directly below.
-  goog.global[GLOBAL_LOG_BUFFER_VARIABLE_NAME] = logBuffer;
-
-  chrome.runtime.getBackgroundPage(function(backgroundPage) {
-    if (!backgroundPage) {
-      // There's no background page - it's expected when we're running inside an
-      // extension without a background page. No action needed for log buffers.
-      goog.log.fine(
-          rootLogger,
-          `No background page: ${chrome.runtime.lastError?.message}`);
-      return;
-    }
-    if (backgroundPage === window) {
-      // We're running inside the background page - no action needed.
-      return;
-    }
-
-    // We've discovered we're running outside the background page - so need to
-    // switch to using the background page's log buffer in order to keep all
-    // logs aggregated and available in a single place.
-    // First, obtain a reference to the background page's log buffer.
-    const backgroundLogBuffer =
-        /** @type {GSC.LogBuffer} */ (
-            backgroundPage[GLOBAL_LOG_BUFFER_VARIABLE_NAME]);
-    GSC.Logging.check(backgroundLogBuffer);
-    goog.asserts.assert(backgroundLogBuffer);
-    // Copy the logs we've accumulated in the current page into the background
-    // page's log buffer.
-    logBuffer.copyToOtherBuffer(backgroundLogBuffer);
-    // From now, start using the background page's buffer for collecting data
-    // from our page's loggers. Dispose of our log buffer to avoid storing new
-    // logs twice.
-    GSC.LogBuffer.attachBufferToLogger(
-        backgroundLogBuffer, rootLogger, getDocumentLocation());
-    logBuffer.dispose();
-    // Switch our reference to the background page's log buffer.
-    logBuffer = backgroundLogBuffer;
-    // The global reference is not needed if we're not the background page.
-    delete goog.global[GLOBAL_LOG_BUFFER_VARIABLE_NAME];
+  const port = chrome.runtime.connect({'name': LOG_MESSAGES_PORT_NAME});
+  goog.log.addHandler(rootLogger, (logRecord) => {
+    /** @type {!LogMessage} */
+    const message = {
+      'document_location': getDocumentLocation(),
+      'level': logRecord.getLevel().name,
+      'message': logRecord.getMessage(),
+      'logger': logRecord.getLoggerName(),
+      'time': logRecord.getMillis(),
+      'sequence_number': logRecord.getSequenceNumber(),
+    };
+    port.postMessage(message);
   });
+}
+
+/**
+ * Listens for and handles incoming log messages sent from other pages.
+ */
+function setupLogReceiving() {
+  if (!chrome || !chrome.runtime || !chrome.runtime.onConnect) {
+    // This should only happen in tests.
+    return;
+  }
+  chrome.runtime.onConnect.addListener((port) => {
+    if (port.name !== LOG_MESSAGES_PORT_NAME) {
+      return;
+    }
+    port.onMessage.addListener((message) => {
+      onLogMessageReceived(
+          message['document_location'],
+          new goog.log.LogRecord(
+              goog.log.Level.getPredefinedLevel(message['level']),
+              message['message'], message['logger'], message['time'],
+              message['sequence_number']));
+    });
+  });
+}
+
+/**
+ * @param {string} documentLocation
+ * @param {!goog.log.LogRecord} logRecord
+ */
+function onLogMessageReceived(documentLocation, logRecord) {
+  logBuffer.addLogRecord(
+      documentLocation, logRecord.getLevel(), logRecord.getMessage(),
+      logRecord.getLoggerName(), logRecord.getMillis(),
+      logRecord.getSequenceNumber());
 }
 
 GSC.Logging.setupLogging();
