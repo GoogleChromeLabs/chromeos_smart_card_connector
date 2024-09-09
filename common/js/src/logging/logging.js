@@ -173,9 +173,6 @@ GSC.Logging.setupLogging = function() {
     return;
   wasLoggingSetUp = true;
 
-  if (GSC.Logging.WRITE_TO_SYSTEM_LOG) {
-    setupSystemLogLogging();
-  }
   setupConsoleLogging();
   setupRootLoggerLevel();
 
@@ -191,6 +188,7 @@ GSC.Logging.setupLogging = function() {
     GSC.LogBuffer.attachBufferToLogger(
         logBuffer, rootLogger, getDocumentLocation());
     setupLogReceiving();
+    setupSystemLogLogging();
   } else {
     // Forward our logs to the "collector" page.
     setupLogSending();
@@ -370,6 +368,17 @@ function reloadApp() {
 }
 
 function setupSystemLogLogging() {
+  const documentLocation = getDocumentLocation();
+  goog.log.addHandler(rootLogger, (logRecord) => {
+    addToSystemLog(documentLocation, logRecord);
+  });
+}
+
+/**
+ * @param {string} documentLocation
+ * @param {!goog.log.LogRecord} logRecord
+ */
+function addToSystemLog(documentLocation, logRecord) {
   // Access the Extension API via string literals, to make sure the Closure
   // Compiler won't attempt type-checking or optimizations with it.
   const systemLog = chrome['systemLog'];
@@ -378,15 +387,9 @@ function setupSystemLogLogging() {
     // permission or ChromeOS is too old) - bail out silently.
     return;
   }
-  // Cache values that are common across all invocations of the handler below.
-  const systemLogAdd = systemLog['add'];
-  const documentLocation = getDocumentLocation();
-
-  goog.log.addHandler(rootLogger, (logRecord) => {
-    const formattedLogRecord = GSC.LogFormatting.formatLogRecordForSystemLog(
-        documentLocation, logRecord);
-    systemLogAdd({'message': formattedLogRecord});
-  });
+  const formattedLogRecord = GSC.LogFormatting.formatLogRecordForSystemLog(
+      documentLocation, logRecord);
+  systemLog['add']({'message': formattedLogRecord});
 }
 
 function setupConsoleLogging() {
@@ -464,6 +467,7 @@ function onLogMessageReceived(documentLocation, logRecord) {
       documentLocation, logRecord.getLevel(), logRecord.getMessage(),
       logRecord.getLoggerName(), logRecord.getMillis(),
       logRecord.getSequenceNumber());
+  addToSystemLog(documentLocation, logRecord);
 }
 
 GSC.Logging.setupLogging();
