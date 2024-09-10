@@ -44,10 +44,18 @@ const logger = GSC.Logging.getScopedLogger('Clipboard');
  * @return {boolean}
  */
 GSC.Clipboard.copyToClipboard = function(text) {
-  const element = goog.dom.createDom('textarea', {'textContent': text});
+  // Create a DOM node with the text.
+  const element = goog.dom.createDom('textarea');
+  element.textContent = text;
   document.body.appendChild(element);
-  element['select']();
+
+  // Select and copy the text.
+  element.select();
   const success = document.execCommand('copy');
+
+  // Clean up the DOM node. Deleting the text isn't strictly necessary, but in
+  // practice helps reduce the RAM consumption quickly.
+  element.textContent = '';
   document.body.removeChild(element);
 
   if (!success) {

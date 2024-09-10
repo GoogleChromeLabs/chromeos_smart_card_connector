@@ -328,15 +328,15 @@ GSC.Logging.getLogBuffer = function() {
 
 /**
  * Returns all logs that have been accumulated from all pages so far.
- * @return {!Promise<!Array<string>>}
+ * @return {!Promise<!string>}
  */
 GSC.Logging.getLogsForExport = async function() {
   const port = chrome.runtime.connect({'name': LOGS_EXPORT_PORT_NAME});
-  const logs = [];
+  let logs = '';
   return new Promise((resolve) => {
     // Read out messages until the port is closed, which denotes the end.
     port.onMessage.addListener((message) => {
-      logs.push(message);
+      logs += message;
     });
     port.onDisconnect.addListener(() => {
       resolve(logs);

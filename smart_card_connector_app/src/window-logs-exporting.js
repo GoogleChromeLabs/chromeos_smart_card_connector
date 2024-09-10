@@ -69,13 +69,12 @@ function exportLogsClickListener(e) {
 
 async function exportLogs() {
   const logs = await GSC.Logging.getLogsForExport();
-  const dumpedLogs = logs.join('');
 
   goog.log.fine(
       logger,
       `Prepared a (possibly truncated) dump of log messages, the size is ${
-          dumpedLogs.length} characters`);
-  const copyingSuccess = GSC.Clipboard.copyToClipboard(dumpedLogs);
+          logs.length} characters`);
+  const copyingSuccess = GSC.Clipboard.copyToClipboard(logs);
 
   if (copyingSuccess) {
     exportLogsElement.textContent =
