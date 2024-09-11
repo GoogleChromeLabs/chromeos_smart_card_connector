@@ -79,5 +79,5 @@ TARGET=${1-all}
 SCRIPTPATH=$(dirname $(realpath ${0}))
 cd ${SCRIPTPATH}
 
-make_all_configs . ${TARGET} pnacl app
+make_all_configs . ${TARGET} emscripten app
 make_all_configs . ${TARGET} emscripten extension
