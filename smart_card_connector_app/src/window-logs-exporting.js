@@ -24,6 +24,7 @@ goog.provide('GoogleSmartCard.ConnectorApp.Window.LogsExporting');
 
 goog.require('GoogleSmartCard.Clipboard');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.Packaging');
 goog.require('goog.Timer');
 goog.require('goog.dom');
 goog.require('goog.events');
@@ -49,7 +50,7 @@ const logger = GSC.Logging.getScopedLogger('ConnectorApp.MainWindow');
 const exportLogsElement =
     /** @type {!Element} */ (goog.dom.getElement('export-logs'));
 
-let isExportLogsAvailable = true;
+let isInProgress = false;
 
 /**
  * @param {!goog.events.BrowserEvent} e
@@ -57,14 +58,23 @@ let isExportLogsAvailable = true;
 function exportLogsClickListener(e) {
   e.preventDefault();
 
-  if (!isExportLogsAvailable)
+  if (isInProgress) {
+    // Don't allow export run concurrently.
     return;
+  }
+  isInProgress = true;
 
-  exportLogsElement.textContent =
-      chrome.i18n.getMessage(EXPORT_LOGS_ELEMENT_EXPORTING_TEXT_ID);
-  isExportLogsAvailable = false;
-
-  goog.Timer.callOnce(exportLogs);
+  showInProgressNotification();
+  // Delay the actual collection by a fraction of a second to let the UI render
+  // the notification.
+  goog.Timer.callOnce(async () => {
+    try {
+      await exportLogs();
+    } finally {
+      isInProgress = false;
+      hideInProgressNotification();
+    }
+  });
 }
 
 async function exportLogs() {
@@ -74,18 +84,39 @@ async function exportLogs() {
       logger,
       `Prepared a (possibly truncated) dump of log messages, the size is ${
           logs.length} characters`);
-  const blobUrl =
-      URL.createObjectURL(new Blob([logs], {type: 'application/octet-binary'}));
-  await chrome.downloads.download({
-    'filename': 'smart-card-connector-log.txt',
-    'url': blobUrl,
-  });
+
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    // Download the logs as a blob file.
+    const blobUrl = URL.createObjectURL(
+        new Blob([logs], {'type': 'application/octet-binary'}));
+    await chrome.downloads.download({
+      'filename': 'smart-card-connector-log.txt',
+      'url': blobUrl,
+    });
+  } else {
+    // Copy the logs into the clipboard (the downloads-based solution is
+    // infeasible for Chrome Apps).
+    const copyingSuccess = GSC.Clipboard.copyToClipboard(logs);
+    if (!copyingSuccess) {
+      return;
+    }
+    // Display the hint to the user.
+    exportLogsElement.textContent =
+        chrome.i18n.getMessage(EXPORT_LOGS_ELEMENT_EXPORTED_TEXT_ID);
+    await new Promise((resolve, reject) => {
+      setTimeout(resolve, EXPORT_LOGS_EXPORTED_TIMEOUT_MILLISECONDS);
+    });
+  }
 }
 
-function exportLogsExportedTimeoutPassed() {
+function showInProgressNotification() {
+  exportLogsElement.textContent =
+      chrome.i18n.getMessage(EXPORT_LOGS_ELEMENT_EXPORTING_TEXT_ID);
+}
+
+function hideInProgressNotification() {
   exportLogsElement.textContent =
       chrome.i18n.getMessage(EXPORT_LOGS_ELEMENT_TEXT_ID);
-  isExportLogsAvailable = true;
 }
 
 GSC.ConnectorApp.Window.LogsExporting.initialize = function() {
