@@ -74,18 +74,12 @@ async function exportLogs() {
       logger,
       `Prepared a (possibly truncated) dump of log messages, the size is ${
           logs.length} characters`);
-  const copyingSuccess = GSC.Clipboard.copyToClipboard(logs);
-
-  if (copyingSuccess) {
-    exportLogsElement.textContent =
-        chrome.i18n.getMessage(EXPORT_LOGS_ELEMENT_EXPORTED_TEXT_ID);
-  } else {
-    exportLogsElement.textContent =
-        chrome.i18n.getMessage(EXPORT_LOGS_ELEMENT_TEXT_ID);
-  }
-  goog.Timer.callOnce(
-      exportLogsExportedTimeoutPassed,
-      EXPORT_LOGS_EXPORTED_TIMEOUT_MILLISECONDS);
+  const blobUrl =
+      URL.createObjectURL(new Blob([logs], {type: 'application/octet-binary'}));
+  await chrome.downloads.download({
+    'filename': 'smart-card-connector-log.txt',
+    'url': blobUrl,
+  });
 }
 
 function exportLogsExportedTimeoutPassed() {

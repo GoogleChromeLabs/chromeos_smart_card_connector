@@ -116,6 +116,11 @@ ${usb_devices}
     },
 ${endif}
 
+${if PACKAGING=extension}
+    # Used for the logs export functionality.
+    "downloads",
+${endif}
+
     # Needed for detecting the ChromeOS Lock Screen state (used for disabling
     # the USB communication if we run in-session and the screen is locked).
     "loginState",
