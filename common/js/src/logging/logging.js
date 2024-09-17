@@ -110,6 +110,12 @@ const LOG_BUFFER_CAPACITY = goog.DEBUG ? 20 * 1000 : 2000;
 const LOG_MESSAGES_PORT_NAME = 'logs';
 
 /**
+ * Name of the port that's used for exporting all collected logs from the
+ * Service Worker or Background Page to another page.
+ */
+const LOGS_EXPORT_PORT_NAME = 'logs_export';
+
+/**
  * @type {!goog.log.Logger}
  */
 const rootLogger =
@@ -188,6 +194,7 @@ GSC.Logging.setupLogging = function() {
     GSC.LogBuffer.attachBufferToLogger(
         logBuffer, rootLogger, getDocumentLocation());
     setupLogReceiving();
+    listenForLogExportRequests();
     setupSystemLogLogging();
   } else {
     // Forward our logs to the "collector" page.
@@ -317,6 +324,24 @@ GSC.Logging.failWithLogger = function(logger, opt_message) {
  */
 GSC.Logging.getLogBuffer = function() {
   return logBuffer;
+};
+
+/**
+ * Returns all logs that have been accumulated from all pages so far.
+ * @return {!Promise<!string>}
+ */
+GSC.Logging.getLogsForExport = async function() {
+  const port = chrome.runtime.connect({'name': LOGS_EXPORT_PORT_NAME});
+  let logs = '';
+  return new Promise((resolve) => {
+    // Read out messages until the port is closed, which denotes the end.
+    port.onMessage.addListener((message) => {
+      logs += message;
+    });
+    port.onDisconnect.addListener(() => {
+      resolve(logs);
+    });
+  });
 };
 
 /**
@@ -468,6 +493,34 @@ function onLogMessageReceived(documentLocation, logRecord) {
       logRecord.getLoggerName(), logRecord.getMillis(),
       logRecord.getSequenceNumber());
   addToSystemLog(documentLocation, logRecord);
+}
+
+/**
+ * Handles incoming port connections that request exporting logs.
+ */
+function listenForLogExportRequests() {
+  if (!chrome || !chrome.runtime || !chrome.runtime.onConnect) {
+    // This should only happen in tests.
+    return;
+  }
+  chrome.runtime.onConnect.addListener((port) => {
+    if (port.name !== LOGS_EXPORT_PORT_NAME) {
+      return;
+    }
+    const snapshot = logBuffer.getState();
+    // Send all logs as messages and close the port to signal about the end.
+    for (const log of snapshot['formattedLogsPrefix']) {
+      port.postMessage(log);
+    }
+    if (snapshot['skippedLogCount'] > 0) {
+      port.postMessage(
+          `... skipped ${snapshot['skippedLogCount']} messages ...\n`);
+    }
+    for (const log of snapshot['formattedLogsSuffix']) {
+      port.postMessage(log);
+    }
+    port.disconnect();
+  });
 }
 
 GSC.Logging.setupLogging();
