@@ -23,6 +23,7 @@ jobs:
     strategy:
       matrix:
         build-config: [Release, Debug]
+        packaging: [app, extension]
       fail-fast: false
 
     steps:
@@ -39,7 +40,7 @@ jobs:
     - name: Compile
       env:
         TOOLCHAIN: emscripten
-        PACKAGING: extension
+        PACKAGING: ${{ matrix.packaging }}
         CONFIG: ${{ matrix.build-config }}
       run: >
         source env/activate && make -j30
@@ -47,7 +48,7 @@ jobs:
     - name: Test
       env:
         TOOLCHAIN: emscripten
-        PACKAGING: extension
+        PACKAGING: ${{ matrix.packaging }}
         CONFIG: ${{ matrix.build-config }}
       timeout-minutes: 75
       run: >
@@ -70,41 +71,6 @@ jobs:
         # Suffix the file name with ".debug" for Debug builds.
         name: google-smart-card-client-library-es-module${{ matrix.build-config == 'Debug' && '.debug' || '' }}.js
         path: example_js_standalone_smart_card_client_library/out/example_js_standalone_smart_card_client_library/google-smart-card-client-library-es-module.js
-
-  # Build in Native Client mode.
-  build-nacl:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    strategy:
-      matrix:
-        build-config: [Release, Debug]
-      fail-fast: false
-
-    steps:
-    - name: Check out sources
-      uses: actions/checkout@v4
-      with:
-        show-progress: false
-
-    - name: Install build dependencies
-      uses: ./.github/actions/build-dependencies-installation
-      with:
-        toolchain: pnacl
-
-    - name: Compile
-      env:
-        TOOLCHAIN: pnacl
-        PACKAGING: app
-        CONFIG: ${{ matrix.build-config }}
-      run: >
-        source env/activate &&
-          source env/python2_venv/bin/activate &&
-          make
-
-    - name: Upload built app packages
-      uses: kittaakos/upload-artifact-as-is@v0
-      with:
-        path: built_app_packages
 
   # Run unit tests under ASan.
   test-asan:
@@ -220,7 +186,7 @@ jobs:
   summary:
     runs-on: ubuntu-latest
     # Depend on all other jobs, so that we aren't triggered if something fails.
-    needs: [build-emscripten, build-nacl, test-asan, collect-coverage, lint-js]
+    needs: [build-emscripten, test-asan, collect-coverage, lint-js]
 
     steps:
     - name: >
