@@ -65,8 +65,6 @@ struct FunctionNameAndAddress {
 // Fake export table of the driver functions (the function pointers here point
 // directly to the statically linked driver functions).
 const FunctionNameAndAddress kDriverIfdhandlerFunctions[] = {
-    {"IFDHCreateChannelByName",
-     reinterpret_cast<void*>(&IFDHCreateChannelByName)},
     {"IFDHCreateChannel", reinterpret_cast<void*>(&IFDHCreateChannel)},
     {"IFDHCloseChannel", reinterpret_cast<void*>(&IFDHCloseChannel)},
     {"IFDHGetCapabilities", reinterpret_cast<void*>(&IFDHGetCapabilities)},

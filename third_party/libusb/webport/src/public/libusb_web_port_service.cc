@@ -106,6 +106,10 @@ ssize_t LIBUSB_CALL libusb_get_device_list(libusb_context* ctx,
   return GetLibusbImpl()->LibusbGetDeviceList(ctx, list);
 }
 
+libusb_device* LIBUSB_CALL libusb_get_device(libusb_device_handle* dev_handle) {
+  return dev_handle->device();
+}
+
 void LIBUSB_CALL libusb_free_device_list(libusb_device** list,
                                          int unref_devices) {
   GetLibusbImpl()->LibusbFreeDeviceList(list, unref_devices);
@@ -145,6 +149,42 @@ uint8_t LIBUSB_CALL libusb_get_device_address(libusb_device* dev) {
 
 int LIBUSB_CALL libusb_open(libusb_device* dev, libusb_device_handle** handle) {
   return GetLibusbImpl()->LibusbOpen(dev, handle);
+}
+
+libusb_device_handle* LIBUSB_CALL
+libusb_open_device_with_vid_pid(libusb_context* ctx,
+                                uint16_t vendor_id,
+                                uint16_t product_id) {
+  struct libusb_device** devs;
+  struct libusb_device* found = NULL;
+  struct libusb_device* dev;
+  struct libusb_device_handle* dev_handle = NULL;
+  size_t i = 0;
+  int r;
+
+  if (libusb_get_device_list(ctx, &devs) < 0)
+    return NULL;
+
+  while ((dev = devs[i++]) != NULL) {
+    struct libusb_device_descriptor desc;
+    r = libusb_get_device_descriptor(dev, &desc);
+    if (r < 0)
+      goto out;
+    if (desc.idVendor == vendor_id && desc.idProduct == product_id) {
+      found = dev;
+      break;
+    }
+  }
+
+  if (found) {
+    r = libusb_open(found, &dev_handle);
+    if (r < 0)
+      dev_handle = NULL;
+  }
+
+out:
+  libusb_free_device_list(devs, 1);
+  return dev_handle;
 }
 
 void LIBUSB_CALL libusb_close(libusb_device_handle* dev_handle) {

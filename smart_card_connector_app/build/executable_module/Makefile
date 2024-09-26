@@ -35,7 +35,7 @@ LIBS := \
 	google_smart_card_pcsc_lite_server_clients_management \
 	google_smart_card_pcsc_lite_server \
 	google_smart_card_pcsc_lite_common \
-	google_smart_card_ccid \
+	google_smart_card_driver5021cl \
 	google_smart_card_libusb \
 	google_smart_card_common \
 	$(DEFAULT_NACL_LIBS) \
@@ -91,8 +91,8 @@ $(eval $(call ADD_RESOURCE_RULE, \
 	$(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src/fake_socket_file, \
 	executable-module-filesystem/pcsc/fake_socket_file))
 $(eval $(call ADD_RESOURCE_RULE, \
-	$(ROOT_PATH)/third_party/ccid/webport/build/Info.plist, \
-	executable-module-filesystem/pcsc/drivers/ifd-ccid.bundle/Contents/Info.plist))
+	$(ROOT_PATH)/third_party/driver5021cl/src/Info.plist, \
+	executable-module-filesystem/pcsc/drivers/driver-5021CL.bundle/Contents/Info.plist))
 
 # Rules for compiling source files and linking them into an executable binary.
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
