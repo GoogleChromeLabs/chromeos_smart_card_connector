@@ -67,18 +67,10 @@ ${if PACKAGING=extension}
   },
 ${endif}
 
-  # Specify the minimum ChromeOS milestone on which we're guaranteed to work.
-${if PACKAGING=app}
-  # This is the first version that understands the "chrome-untrusted://" URLs
-  # (https://crrev.com/c/1898159); attempting to load the App on earlier
-  # versions would result in "invalid manifest" errors.
-  "minimum_chrome_version": "81",
-${endif}
-${if PACKAGING=extension}
-  # The version in which Offscreen Documents were introduced. This is needed for
-  # the background multi-threaded WebAssembly modules to work.
-  "minimum_chrome_version": "109",
-${endif}
+  # Specify the minimum ChromeOS milestone on which we should work fine.
+  # Chosen conservatively as we haven't done much testing on older ChromeOS
+  # versions when we were switching to WebAssembly in production.
+  "minimum_chrome_version": "128",
 
   "default_locale": "en",
   "icons": {
