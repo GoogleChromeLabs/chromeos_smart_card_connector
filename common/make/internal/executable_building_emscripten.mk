@@ -279,10 +279,8 @@ endef
 # Documented at ../executable_building.mk.
 #
 # Implementation notes:
-# * The target consists of three resulting files: .wasm, .js, .worker.js. The
-#   first one is the actual binary, the second one is a JavaScript code that
-#   loads it, and the third one is used for the Pthreads multi-threading
-#   support.
+# * The target consists of two resulting files: .wasm, .js - the actual binary
+#   and JavaScript code that loads it.
 # * The "%" character is used as a trick to tell Make run the recipe only once
 #   in order to produce all three files (technically, "%" means it's a pattern
 #   rule, and in this case it's matching to a single dot "."). Note: in
@@ -306,17 +304,17 @@ endef
 # l: Link the specified .a library.
 define LINK_EXECUTABLE_RULE
 # Dependency on the input object files:
-$(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js: $(foreach src,$(1),$(call OBJ_FILE_NAME,$(src)))
+$(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm: $(foreach src,$(1),$(call OBJ_FILE_NAME,$(src)))
 # Dependency on the input static libraries:
-$(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js: $(foreach lib,$(2),$(LIB_DIR)/lib$(lib).a)
+$(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm: $(foreach lib,$(2),$(LIB_DIR)/lib$(lib).a)
 # Dependency on additionally specified targets:
-$(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js: $(3)
+$(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm: $(3)
 # Dependency on input resource files:
-$(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js: $(EMSCRIPTEN_RESOURCE_FILE_DEPS)
+$(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm: $(EMSCRIPTEN_RESOURCE_FILE_DEPS)
 # Order-only dependency on the destination directory stamp:
-$(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js: | $(BUILD_DIR)/dir.stamp
+$(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm: | $(BUILD_DIR)/dir.stamp
 # The recipe that performs the linking and creates the resulting files:
-$(BUILD_DIR)/$(TARGET)%js $(BUILD_DIR)/$(TARGET)%wasm $(BUILD_DIR)/$(TARGET).worker%js:
+$(BUILD_DIR)/$(TARGET)%js $(BUILD_DIR)/$(TARGET)%wasm:
 	emcc \
 		-o $(BUILD_DIR)/$(TARGET).js \
 		-L$(LIB_DIR) \
@@ -327,11 +325,10 @@ $(BUILD_DIR)/$(TARGET)%js $(BUILD_DIR)/$(TARGET)%wasm $(BUILD_DIR)/$(TARGET).wor
 		$(EMSCRIPTEN_RESOURCE_FILE_LDFLAGS) \
 		$(4)
 # Add linking into the default "all" target's prerequisite:
-all: $(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js
+all: $(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm
 # Copy the resulting files into the out directory:
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(BUILD_DIR)/$(TARGET).js))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(BUILD_DIR)/$(TARGET).wasm))
-$(eval $(call COPY_TO_OUT_DIR_RULE,$(BUILD_DIR)/$(TARGET).worker.js))
 endef
 
 # Documented at ../executable_building.mk.
