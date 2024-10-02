@@ -140,6 +140,7 @@ EMSCRIPTEN_LINKER_FLAGS := \
   -s MODULARIZE=1 \
   -s PTHREAD_POOL_SIZE_STRICT=0 \
   -s STACK_SIZE=524288 \
+  -s STRICT=1 \
   -Wno-pthreads-mem-growth \
 
 ifeq ($(CONFIG),Release)
