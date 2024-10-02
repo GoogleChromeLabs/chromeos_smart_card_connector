@@ -127,13 +127,12 @@ EMSCRIPTEN_LINKER_FLAGS := \
   -s 'EXPORT_NAME="loadEmscriptenModule_$(TARGET)"' \
   -s EXPORTED_RUNTIME_METHODS=PThread \
   -s MIN_CHROME_VERSION=96 \
-  -s MIN_EDGE_VERSION=-1 \
   -s MIN_FIREFOX_VERSION=-1 \
-  -s MIN_IE_VERSION=-1 \
   -s MIN_SAFARI_VERSION=-1 \
   -s MODULARIZE=1 \
   -s PTHREAD_POOL_SIZE_STRICT=0 \
   -s STACK_SIZE=524288 \
+  -s STRICT=1 \
   -Wno-pthreads-mem-growth \
 
 ifeq ($(CONFIG),Release)
