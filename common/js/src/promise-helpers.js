@@ -36,4 +36,15 @@ const GSC = GoogleSmartCard;
 GSC.PromiseHelpers.suppressUnhandledRejectionError = function(promise) {
   promise.thenCatch(function() {});
 };
+
+/**
+ * Await'able version of `setTimeout()`.
+ * @param {number} delayMilliseconds
+ * @return {!Promise<void>}
+ */
+GSC.PromiseHelpers.sleep = async function(delayMilliseconds) {
+  return new Promise((resolve, reject) => {
+    setTimeout(resolve, delayMilliseconds);
+  });
+};
 });  // goog.scope

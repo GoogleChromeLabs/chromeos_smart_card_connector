@@ -26,6 +26,7 @@ goog.require('GoogleSmartCard.PcscLiteClient.API');
 goog.require('GoogleSmartCard.PcscLiteCommon.Constants');
 goog.require('GoogleSmartCard.PcscLiteServer.ReaderTrackerThroughPcscServerHook');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
+goog.require('GoogleSmartCard.PromiseHelpers');
 goog.require('GoogleSmartCard.TestingConstants');
 goog.require('GoogleSmartCard.TestingLibusbSmartCardSimulationConstants');
 goog.require('goog.Thenable');
@@ -104,16 +105,6 @@ function createChromeApiProvider() {
 }
 
 /**
- * @param {number} timeoutMillis
- * @return {!Promise}
- */
-async function sleep(timeoutMillis) {
-  return new Promise(resolve => {
-    setTimeout(resolve, timeoutMillis);
-  });
-}
-
-/**
  * @param {!goog.Thenable} promise
  * @param {number} timeoutMillis
  * @return {!Promise}
@@ -129,7 +120,7 @@ async function assertRemainsPending(promise, timeoutMillis) {
         if (sleeping)
           fail(`Unexpectedly rejected within ${timeoutMillis} ms`);
       });
-  await sleep(timeoutMillis);
+  await GSC.PromiseHelpers.sleep(timeoutMillis);
   sleeping = false;
 }
 

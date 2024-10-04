@@ -32,6 +32,7 @@ goog.require('GoogleSmartCard.PcscLiteCommon.Constants');
 goog.require('GoogleSmartCard.PcscLiteServer.ReaderTrackerThroughPcscServerHook');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ClientHandler');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
+goog.require('GoogleSmartCard.PromiseHelpers');
 goog.require('GoogleSmartCard.RequesterMessage');
 goog.require('GoogleSmartCard.TestingLibusbSmartCardSimulationHook');
 goog.require('GoogleSmartCard.TestingLibusbSmartCardSimulationConstants');
@@ -179,16 +180,6 @@ function disposeFakeClient(fakeClient) {
 }
 
 /**
- * @param {number} timeoutMillis
- * @return {!Promise}
- */
-async function sleep(timeoutMillis) {
-  return new Promise(resolve => {
-    setTimeout(resolve, timeoutMillis);
-  });
-}
-
-/**
  * @param {!goog.Thenable} promise
  * @param {number} timeoutMillis
  * @return {!Promise}
@@ -204,7 +195,7 @@ async function assertRemainsPending(promise, timeoutMillis) {
         if (sleeping)
           fail(`Unexpectedly rejected within ${timeoutMillis} ms`);
       });
-  await sleep(timeoutMillis);
+  await GSC.PromiseHelpers.sleep(timeoutMillis);
   sleeping = false;
 }
 
@@ -1373,7 +1364,7 @@ goog.exportSymbol('testPcscApi', {
       'tearDown': async function() {
         // Wait for some time before exiting, to let any possible bug have a
         // chance to trigger an error.
-        await sleep(/*timeoutMillis=*/ 1000);
+        await GSC.PromiseHelpers.sleep(/*delayMilliseconds=*/ 1000);
         // Verify the C/C++ module hasn't crashed.
         assertFalse(testController.executableModule.isDisposed());
       },
