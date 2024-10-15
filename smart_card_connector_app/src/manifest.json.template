@@ -132,7 +132,10 @@ ${endif}
   "externally_connectable": {
     "ids": ["*"],
     "matches": [
-      "chrome-untrusted://terminal/*"
+      # ChromeOS Terminal System Web App
+      "chrome-untrusted://terminal/*",
+      # Xtralogic Isolated Web App
+      "isolated-app://q2oy25prsvhmxocjxs2badhyi3uw7vqhrupfn66iflserug4st6qaaic/*"
     ]
   }
 

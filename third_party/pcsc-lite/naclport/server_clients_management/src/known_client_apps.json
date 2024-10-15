@@ -108,5 +108,8 @@
   },
   "chrome-extension://llebpckeffoilhileclionlofjgnhbdp": {
     "name": "Net iD"
+  },
+  "isolated-app://q2oy25prsvhmxocjxs2badhyi3uw7vqhrupfn66iflserug4st6qaaic": {
+    "name": "Xtralogic RDP Client"
   }
 }
