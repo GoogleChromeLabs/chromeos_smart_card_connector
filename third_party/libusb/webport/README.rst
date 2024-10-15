@@ -76,7 +76,6 @@ and the original libusb library features:
     * libusb_get_config_descriptor_by_value
     * libusb_get_configuration
     * libusb_get_container_id_descriptor
-    * libusb_get_device
     * libusb_get_device_speed
     * libusb_get_max_iso_packet_size
     * libusb_get_max_packet_size
