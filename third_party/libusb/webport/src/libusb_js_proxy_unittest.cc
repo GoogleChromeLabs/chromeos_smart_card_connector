@@ -942,7 +942,6 @@ TEST_P(LibusbJsProxyWithDeviceTest, DeviceResettingFailure) {
 
 // Test `LibusbGetDevice()`.
 TEST_P(LibusbJsProxyWithDeviceTest, GetDevice) {
-  // Act.
   EXPECT_EQ(libusb()->LibusbGetDevice(device_handle_), device_);
 }
 
