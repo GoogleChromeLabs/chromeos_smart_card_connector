@@ -809,6 +809,7 @@ libusb_device* LibusbTracingWrapper::LibusbGetDevice(
 
   libusb_device* const device = wrapped_libusb_->LibusbGetDevice(dev_handle);
 
+  tracer.AddReturnValue(DebugDumpLibusbDevice(device));
   tracer.LogExit();
   return device;
 }
