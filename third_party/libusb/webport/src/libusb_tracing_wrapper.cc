@@ -791,6 +791,24 @@ int LibusbTracingWrapper::LibusbOpen(libusb_device* dev,
   return return_code;
 }
 
+libusb_device_handle* LibusbTracingWrapper::LibusbOpenDeviceWithVidPid(
+    libusb_context* ctx,
+    uint16_t vendor_id,
+    uint16_t product_id) {
+  FunctionCallTracer tracer("libusb_open_device_with_vid_pid", kLoggingPrefix);
+  tracer.AddPassedArg("ctx", DebugDumpLibusbContext(ctx));
+  tracer.AddPassedArg("vendor_id", HexDumpInteger(vendor_id));
+  tracer.AddPassedArg("product_id", HexDumpInteger(product_id));
+  tracer.LogEntrance();
+
+  libusb_device_handle* const handle =
+      wrapped_libusb_->LibusbOpenDeviceWithVidPid(ctx, vendor_id, product_id);
+
+  tracer.AddReturnValue(DebugDumpLibusbDeviceHandle(handle));
+  tracer.LogExit();
+  return handle;
+}
+
 void LibusbTracingWrapper::LibusbClose(libusb_device_handle* handle) {
   FunctionCallTracer tracer("libusb_close", kLoggingPrefix);
   tracer.AddPassedArg("handle", DebugDumpLibusbDeviceHandle(handle));
