@@ -60,7 +60,6 @@ CCID_SOURCES := \
 	$(CCID_SOURCES_PATH)/debug.c \
 	$(CCID_SOURCES_PATH)/ifdhandler.c \
 	$(CCID_SOURCES_PATH)/strlcpy.c \
-	$(CCID_SOURCES_PATH)/tokenparser.c \
 	$(CCID_SOURCES_PATH)/utils.c \
 
 # * BUNDLE constant contains the name of subdirectory under the PC/SC-Lite
@@ -100,24 +99,6 @@ CCID_OPENCT_CPPFLAGS := \
 
 $(foreach src,$(CCID_OPENCT_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CCID_OPENCT_CPPFLAGS))))
 
-CCID_SIMCLIST_SOURCES := \
-	$(CCID_SOURCES_PATH)/simclist.c \
-
-# * log_msg and log_xxd are redefined in order to not collide with the symbols
-#   from the PC/SC-Lite server-side libraries;
-# * SIMCLIST_NO_DUMPRESTORE is defined in order to disable some features of the
-#   simclist library which are not compiling under the NaCl SDK environment;
-# * The "macro-redefined" warning diagnostic is disabled because of some
-#   non-clean code;
-CCID_SIMCLIST_CPPFLAGS := \
-	$(COMMON_CPPFLAGS) \
-	-Dlog_msg=ccid_log_msg \
-	-Dlog_xxd=ccid_log_xxd \
-	-DSIMCLIST_NO_DUMPRESTORE \
-	-Wno-macro-redefined \
-
-$(foreach src,$(CCID_SIMCLIST_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CCID_SIMCLIST_CPPFLAGS))))
-
 CCID_TOWITOKO_SOURCES := \
 	$(CCID_SOURCES_PATH)/towitoko/atr.c \
 	$(CCID_SOURCES_PATH)/towitoko/pps.c \
@@ -138,7 +119,6 @@ $(foreach src,$(CCID_TOWITOKO_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CCID_
 SOURCES := \
 	$(CCID_SOURCES) \
 	$(CCID_OPENCT_SOURCES) \
-	$(CCID_SIMCLIST_SOURCES) \
 	$(CCID_TOWITOKO_SOURCES) \
 
 
