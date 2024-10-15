@@ -540,7 +540,8 @@ void LibusbJsProxy::LibusbClose(libusb_device_handle* handle) {
   delete handle;
 }
 
-libusb_device* LibusbJsProxy::LibusbGetDevice(libusb_device_handle* dev_handle) {
+libusb_device* LibusbJsProxy::LibusbGetDevice(
+    libusb_device_handle* dev_handle) {
   GOOGLE_SMART_CARD_CHECK(dev_handle);
   return dev_handle->device();
 }
