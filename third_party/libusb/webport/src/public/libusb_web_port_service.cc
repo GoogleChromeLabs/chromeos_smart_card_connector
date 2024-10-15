@@ -151,6 +151,10 @@ void LIBUSB_CALL libusb_close(libusb_device_handle* dev_handle) {
   return GetLibusbImpl()->LibusbClose(dev_handle);
 }
 
+libusb_device* LIBUSB_CALL libusb_get_device(libusb_device_handle* dev_handle) {
+  return GetLibusbImpl()->LibusbGetDevice(dev_handle);
+}
+
 int LIBUSB_CALL libusb_claim_interface(libusb_device_handle* dev,
                                        int interface_number) {
   return GetLibusbImpl()->LibusbClaimInterface(dev, interface_number);
