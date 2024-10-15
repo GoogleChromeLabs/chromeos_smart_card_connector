@@ -238,6 +238,26 @@ PCSC_LITE_SERVER_NACL_CXXFLAGS := \
 
 $(foreach src,$(PCSC_LITE_SERVER_NACL_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_NACL_CXXFLAGS))))
 
+PCSC_LITE_SERVER_SIMCLIST_SOURCES := \
+	$(PCSC_LITE_SOURCES_PATH)/simclist.c \
+
+# * SIMCLIST_NO_DUMPRESTORE is defined in order to disable some features of the
+#   simclist library which are not compiling under the webport environment;
+PCSC_LITE_SERVER_SIMCLIST_CPPFLAGS := \
+	$(COMMON_CPPFLAGS) \
+	-DSIMCLIST_NO_DUMPRESTORE \
+
+$(foreach src,$(PCSC_LITE_SERVER_SIMCLIST_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_SIMCLIST_CPPFLAGS))))
+
+PCSC_LITE_SERVER_TOKENPARSER_SOURCES := \
+	$(PCSC_LITE_SOURCES_PATH)/tokenparser.c \
+
+PCSC_LITE_SERVER_TOKENPARSER_CPPFLAGS := \
+	$(COMMON_CPPFLAGS) \
+	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/build_configuration/build \
+
+$(foreach src,$(PCSC_LITE_SERVER_TOKENPARSER_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_TOKENPARSER_CPPFLAGS))))
+
 
 # Variable containing the list of all source files whose compiled object files
 # will have to be linked together
@@ -251,6 +271,8 @@ SOURCES := \
 	$(PCSC_LITE_CLIENT_SOURCES) \
 	$(PCSC_LITE_SERVER_NACL_SOURCES) \
 	$(PCSC_LITE_SERVER_READERFACTORY_SOURCES) \
+	$(PCSC_LITE_SERVER_SIMCLIST_SOURCES) \
+	$(PCSC_LITE_SERVER_TOKENPARSER_SOURCES) \
 
 
 # Rules for linking of the compiled object files and installing the resulting
