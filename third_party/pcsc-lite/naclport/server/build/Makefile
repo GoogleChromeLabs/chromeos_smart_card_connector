@@ -254,7 +254,7 @@ PCSC_LITE_SERVER_TOKENPARSER_SOURCES := \
 
 PCSC_LITE_SERVER_TOKENPARSER_CPPFLAGS := \
 	$(COMMON_CPPFLAGS) \
-	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/build_configuration/build \
+	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src \
 
 $(foreach src,$(PCSC_LITE_SERVER_TOKENPARSER_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_TOKENPARSER_CPPFLAGS))))
 
