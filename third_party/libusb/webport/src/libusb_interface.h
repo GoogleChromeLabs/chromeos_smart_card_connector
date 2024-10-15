@@ -56,6 +56,10 @@ class LibusbInterface {
   virtual uint8_t LibusbGetDeviceAddress(libusb_device* dev) = 0;
 
   virtual int LibusbOpen(libusb_device* dev, libusb_device_handle** handle) = 0;
+  virtual libusb_device_handle* LibusbOpenDeviceWithVidPid(
+      libusb_context* ctx,
+      uint16_t vendor_id,
+      uint16_t product_id) = 0;
   virtual void LibusbClose(libusb_device_handle* handle) = 0;
 
   virtual int LibusbClaimInterface(libusb_device_handle* dev,

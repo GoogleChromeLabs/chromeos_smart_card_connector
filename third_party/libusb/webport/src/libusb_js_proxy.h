@@ -89,6 +89,10 @@ class LibusbJsProxy final : public LibusbInterface {
   uint8_t LibusbGetBusNumber(libusb_device* dev) override;
   uint8_t LibusbGetDeviceAddress(libusb_device* dev) override;
   int LibusbOpen(libusb_device* dev, libusb_device_handle** handle) override;
+  libusb_device_handle* LibusbOpenDeviceWithVidPid(
+      libusb_context* ctx,
+      uint16_t vendor_id,
+      uint16_t product_id) override;
   void LibusbClose(libusb_device_handle* handle) override;
   int LibusbClaimInterface(libusb_device_handle* dev,
                            int interface_number) override;

@@ -428,6 +428,103 @@ TEST_P(LibusbJsProxyTest, DeviceClosingFailure) {
   FreeLibusbDevices(devices);
 }
 
+// Test the `LibusbOpenDeviceWithVidPid()` successful scenario.
+TEST_P(LibusbJsProxyTest, DeviceOpeningWithVidPid) {
+  // Arrange.
+  global_context()->WillReplyToRequestWith(
+      "libusb", "listDevices",
+      /*arguments=*/Value(Value::Type::kArray),
+      /*result_to_reply_with=*/
+      ArrayValueBuilder()
+          .Add(DictValueBuilder()
+                   .Add("deviceId", 123)
+                   .Add("vendorId", 1)
+                   .Add("productId", 2)
+                   .Get())
+          .Add(DictValueBuilder()
+                   .Add("deviceId", 124)
+                   .Add("vendorId", 3)
+                   .Add("productId", 4)
+                   .Get())
+          .Get());
+  global_context()->WillReplyToRequestWith(
+      "libusb", "openDeviceHandle",
+      /*arguments=*/ArrayValueBuilder().Add(124).Get(),
+      /*result_to_reply_with=*/Value(567));
+  global_context()->WillReplyToRequestWith(
+      "libusb", "closeDeviceHandle",
+      /*arguments=*/ArrayValueBuilder().Add(124).Add(567).Get(),
+      /*result_to_reply_with=*/Value());
+
+  // Act. Connect to one of the devices.
+  libusb_device_handle* device_handle = libusb()->LibusbOpenDeviceWithVidPid(
+      /*ctx=*/nullptr, /*vendor_id=*/3, /*product_id=*/4);
+  ASSERT_TRUE(device_handle);
+  // Disconnect from the device.
+  libusb()->LibusbClose(device_handle);
+}
+
+// Test the `LibusbOpenDeviceWithVidPid()` failure scenario when the requested
+// device doesn't exist.
+TEST_P(LibusbJsProxyTest, DeviceOpeningWithVidPidFailureNonExisting) {
+  // Arrange.
+  global_context()->WillReplyToRequestWith(
+      "libusb", "listDevices",
+      /*arguments=*/Value(Value::Type::kArray),
+      /*result_to_reply_with=*/
+      ArrayValueBuilder()
+          .Add(DictValueBuilder()
+                   .Add("deviceId", 123)
+                   .Add("vendorId", 1)
+                   .Add("productId", 2)
+                   .Get())
+          .Get());
+
+  // Act. Attempt to connect.
+  libusb_device_handle* device_handle = libusb()->LibusbOpenDeviceWithVidPid(
+      /*ctx=*/nullptr, /*vendor_id=*/3, /*product_id=*/4);
+  EXPECT_FALSE(device_handle);
+}
+
+// Test the `LibusbOpenDeviceWithVidPid()` failure scenario caused by an error
+// while enumerating the devices.
+TEST_P(LibusbJsProxyTest, DeviceOpeningWithVidPidFailureToList) {
+  // Arrange.
+  global_context()->WillReplyToRequestWithError(
+      "libusb", "listDevices",
+      /*arguments=*/Value(Value::Type::kArray), "fake failure");
+
+  // Act. Attempt to connect.
+  libusb_device_handle* device_handle = libusb()->LibusbOpenDeviceWithVidPid(
+      /*ctx=*/nullptr, /*vendor_id=*/1, /*product_id=*/2);
+  EXPECT_FALSE(device_handle);
+}
+
+// Test the `LibusbOpenDeviceWithVidPid()` failure scenario caused by an error
+// while opening the device.
+TEST_P(LibusbJsProxyTest, DeviceOpeningWithVidPidFailureToOpen) {
+  // Arrange.
+  global_context()->WillReplyToRequestWith(
+      "libusb", "listDevices",
+      /*arguments=*/Value(Value::Type::kArray),
+      /*result_to_reply_with=*/
+      ArrayValueBuilder()
+          .Add(DictValueBuilder()
+                   .Add("deviceId", 123)
+                   .Add("vendorId", 1)
+                   .Add("productId", 2)
+                   .Get())
+          .Get());
+  global_context()->WillReplyToRequestWithError(
+      "libusb", "openDeviceHandle",
+      /*arguments=*/ArrayValueBuilder().Add(123).Get(), "fake failure");
+
+  // Act. Attempt to connect.
+  libusb_device_handle* device_handle = libusb()->LibusbOpenDeviceWithVidPid(
+      /*ctx=*/nullptr, /*vendor_id=*/1, /*product_id=*/2);
+  EXPECT_FALSE(device_handle);
+}
+
 // Test `LibusbRefDevice()` and `LibusbUnrefDevice()` that increment and
 // decrement the libusb_device reference counter.
 TEST_P(LibusbJsProxyTest, DeviceRefUnref) {
