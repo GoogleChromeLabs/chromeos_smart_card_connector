@@ -1037,6 +1037,11 @@ TEST_P(LibusbJsProxyWithDeviceTest, DeviceResettingFailure) {
   EXPECT_EQ(libusb()->LibusbResetDevice(device_handle_), LIBUSB_ERROR_OTHER);
 }
 
+// Test `LibusbGetDevice()`.
+TEST_P(LibusbJsProxyWithDeviceTest, GetDevice) {
+  EXPECT_EQ(libusb()->LibusbGetDevice(device_handle_), device_);
+}
+
 // Test `LibusbClaimInterface()` successful scenario.
 TEST_P(LibusbJsProxyWithDeviceTest, InterfaceClaiming) {
   constexpr int kInterfaceNumber = 12;

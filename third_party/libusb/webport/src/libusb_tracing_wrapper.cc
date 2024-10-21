@@ -819,6 +819,19 @@ void LibusbTracingWrapper::LibusbClose(libusb_device_handle* handle) {
   tracer.LogExit();
 }
 
+libusb_device* LibusbTracingWrapper::LibusbGetDevice(
+    libusb_device_handle* dev_handle) {
+  FunctionCallTracer tracer("libusb_get_device", kLoggingPrefix);
+  tracer.AddPassedArg("dev_handle", DebugDumpLibusbDeviceHandle(dev_handle));
+  tracer.LogEntrance();
+
+  libusb_device* const device = wrapped_libusb_->LibusbGetDevice(dev_handle);
+
+  tracer.AddReturnValue(DebugDumpLibusbDevice(device));
+  tracer.LogExit();
+  return device;
+}
+
 int LibusbTracingWrapper::LibusbClaimInterface(libusb_device_handle* dev,
                                                int interface_number) {
   FunctionCallTracer tracer("libusb_claim_interface", kLoggingPrefix);
