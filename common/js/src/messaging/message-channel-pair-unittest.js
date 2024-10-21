@@ -17,6 +17,7 @@
 
 goog.require('GoogleSmartCard.MessageChannelPair');
 
+goog.require('GoogleSmartCard.PromiseHelpers');
 goog.require('goog.messaging.AbstractChannel');
 
 goog.setTestOnly();
@@ -47,16 +48,6 @@ function getPromiseForReceivedMessage(messageChannel, serviceName) {
 function failWhenReceivedUnexpectedMessage(messageChannel) {
   messageChannel.registerDefaultService((payload) => {
     fail(`Unexpected message received: ${payload}`);
-  });
-}
-
-/**
- * @param {number} delayMilliseconds
- * @return {!Promise<void>}
- */
-function sleep(delayMilliseconds) {
-  return new Promise((resolve, reject) => {
-    setTimeout(resolve, delayMilliseconds);
   });
 }
 
@@ -137,6 +128,6 @@ goog.exportSymbol(
       // if it's present, manifest itself. There's no reliable way to wait for
       // this, since normally the message sent after disposal should be silently
       // discarded.
-      await sleep(/*delayMilliseconds=*/ 1000);
+      await GSC.PromiseHelpers.sleep(/*delayMilliseconds=*/ 1000);
     });
 });  // goog.scope
