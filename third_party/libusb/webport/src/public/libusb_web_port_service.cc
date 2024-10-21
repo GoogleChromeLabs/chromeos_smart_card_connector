@@ -147,6 +147,14 @@ int LIBUSB_CALL libusb_open(libusb_device* dev, libusb_device_handle** handle) {
   return GetLibusbImpl()->LibusbOpen(dev, handle);
 }
 
+libusb_device_handle* LIBUSB_CALL
+libusb_open_device_with_vid_pid(libusb_context* ctx,
+                                uint16_t vendor_id,
+                                uint16_t product_id) {
+  return GetLibusbImpl()->LibusbOpenDeviceWithVidPid(ctx, vendor_id,
+                                                     product_id);
+}
+
 void LIBUSB_CALL libusb_close(libusb_device_handle* dev_handle) {
   return GetLibusbImpl()->LibusbClose(dev_handle);
 }

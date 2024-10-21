@@ -522,6 +522,40 @@ int LibusbJsProxy::LibusbOpen(libusb_device* dev,
   return LIBUSB_SUCCESS;
 }
 
+libusb_device_handle* LibusbJsProxy::LibusbOpenDeviceWithVidPid(
+    libusb_context* ctx,
+    uint16_t vendor_id,
+    uint16_t product_id) {
+  ctx = SubstituteDefaultContextIfNull(ctx);
+
+  libusb_device** device_list = nullptr;
+  if (LibusbGetDeviceList(ctx, &device_list) < 0)
+    return nullptr;
+
+  libusb_device* found = nullptr;
+  for (libusb_device* const* device = device_list; *device; ++device) {
+    libusb_device_descriptor descriptor;
+    if (LibusbGetDeviceDescriptor(*device, &descriptor) < 0) {
+      break;
+    }
+    if (descriptor.idVendor == vendor_id &&
+        descriptor.idProduct == product_id) {
+      found = *device;
+      break;
+    }
+  }
+
+  libusb_device_handle* found_opened = nullptr;
+  if (found) {
+    if (LibusbOpen(found, &found_opened) < 0) {
+      found_opened = nullptr;
+    }
+  }
+
+  LibusbFreeDeviceList(device_list, /*unref_devices=*/1);
+  return found_opened;
+}
+
 void LibusbJsProxy::LibusbClose(libusb_device_handle* handle) {
   GOOGLE_SMART_CARD_CHECK(handle);
 

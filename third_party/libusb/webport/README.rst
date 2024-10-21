@@ -99,7 +99,6 @@ and the original libusb library features:
     * libusb_kernel_driver_active
     * libusb_lock_event_waiters
     * libusb_lock_events
-    * libusb_open_device_with_vid_pid
     * libusb_pollfds_handle_timeouts
     * libusb_set_auto_detach_kernel_driver
     * libusb_set_configuration
