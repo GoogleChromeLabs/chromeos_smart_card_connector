@@ -39,55 +39,29 @@
 #include <string>
 
 extern "C" {
-#include "config.h"
-#include "pcsclite.h"
-#include "dyn_generic.h"
-#include "ifdhandler.h"
 #include "misc.h"
+#include "pcsclite.h"
+#include "wintypes.h"
 
 // "misc.h" defines a "min" macro which is incompatible with C++.
 #undef min
 }
 
 #include "common/cpp/src/public/logging/logging.h"
+#include "third_party/pcsc-lite/naclport/driver_interface/src/pcsc_driver_adaptor.h"
+#include "third_party/pcsc-lite/naclport/server/src/public/pcsc_lite_server_web_port_service.h"
 
-namespace {
-
-// This is a fake value that we supply instead of the dynamically loaded library
-// handles which are used by pcsc-lite normally.
-constexpr char kFakeLHandle[] = "fake_pcsclite_lhandle";
-
-struct FunctionNameAndAddress {
-  const char* name;
-  void* address;
-};
-
-// Fake export table of the driver functions (the function pointers here point
-// directly to the statically linked driver functions).
-const FunctionNameAndAddress kDriverIfdhandlerFunctions[] = {
-    {"IFDHCreateChannelByName",
-     reinterpret_cast<void*>(&IFDHCreateChannelByName)},
-    {"IFDHCreateChannel", reinterpret_cast<void*>(&IFDHCreateChannel)},
-    {"IFDHCloseChannel", reinterpret_cast<void*>(&IFDHCloseChannel)},
-    {"IFDHGetCapabilities", reinterpret_cast<void*>(&IFDHGetCapabilities)},
-    {"IFDHSetCapabilities", reinterpret_cast<void*>(&IFDHSetCapabilities)},
-    {"IFDHSetProtocolParameters",
-     reinterpret_cast<void*>(&IFDHSetProtocolParameters)},
-    {"IFDHPowerICC", reinterpret_cast<void*>(&IFDHPowerICC)},
-    {"IFDHTransmitToICC", reinterpret_cast<void*>(&IFDHTransmitToICC)},
-    {"IFDHControl", reinterpret_cast<void*>(&IFDHControl)},
-    {"IFDHICCPresence", reinterpret_cast<void*>(&IFDHICCPresence)},
-};
-
-}  // namespace
+namespace google_smart_card {
 
 // Stub for the function defined in PC/SC-Lite dyn_generic.h.
 //
 // Its real implementation loads a shared library with a driver, but our
-// implementation here does nothing because in Smart Card Connector we link
-// against the driver statically.
-INTERNAL void* DYN_LoadLibrary(const char* pcLibrary) {
-  return static_cast<void*>(const_cast<char*>(kFakeLHandle));
+// implementation here simply identifies the PcscDriverAdaptor object in an
+// in-memory data structure (in Smart Card Connector we link against drivers
+// statically).
+extern "C" INTERNAL void* DYN_LoadLibrary(const char* pcLibrary) {
+  return PcscLiteServerWebPortService::GetInstance()->FindDriverByFileName(
+      pcLibrary);
 }
 
 // Stub for the function defined in PC/SC-Lite dyn_generic.h.
@@ -95,8 +69,8 @@ INTERNAL void* DYN_LoadLibrary(const char* pcLibrary) {
 // Its real implementation unloads the shared library that's loaded by
 // `DYN_LoadLibrary()`; in Smart Card Connector we don't need to do that (see
 // that function's comment above).
-INTERNAL LONG DYN_CloseLibrary(void* pvLHandle) {
-  GOOGLE_SMART_CARD_CHECK(pvLHandle == kFakeLHandle);
+extern "C" INTERNAL LONG DYN_CloseLibrary(void* pvLHandle) {
+  GOOGLE_SMART_CARD_CHECK(pvLHandle);
   return SCARD_S_SUCCESS;
 }
 
@@ -106,20 +80,22 @@ INTERNAL LONG DYN_CloseLibrary(void* pvLHandle) {
 // given shared library; as we link statically against the driver in Smart Card
 // Connector, we only need to traverse a hardcoded map from names to function
 // addresses.
-INTERNAL LONG DYN_GetAddress(void* pvLHandle,
-                             void** pvFHandle,
-                             const char* pcFunction,
-                             bool /*mayfail*/) {
-  GOOGLE_SMART_CARD_CHECK(pvLHandle == kFakeLHandle);
-
-  std::string function = pcFunction;
-  for (const FunctionNameAndAddress& driver_ifdhandler_function :
-       kDriverIfdhandlerFunctions) {
-    if (function == driver_ifdhandler_function.name) {
-      *pvFHandle = driver_ifdhandler_function.address;
+extern "C" INTERNAL LONG DYN_GetAddress(void* pvLHandle,
+                                        void** pvFHandle,
+                                        const char* pcFunction,
+                                        bool /*mayfail*/) {
+  GOOGLE_SMART_CARD_CHECK(pvLHandle);
+  const PcscDriverAdaptor* const driver_adaptor =
+      reinterpret_cast<const PcscDriverAdaptor*>(pvLHandle);
+  for (const PcscDriverAdaptor::FunctionNameAndAddress& pointer :
+       driver_adaptor->GetFunctionPointersTable()) {
+    if (pointer.name == pcFunction) {
+      *pvFHandle = pointer.address;
       return SCARD_S_SUCCESS;
     }
   }
   *pvFHandle = nullptr;
   return SCARD_F_UNKNOWN_ERROR;
 }
+
+}  // namespace google_smart_card

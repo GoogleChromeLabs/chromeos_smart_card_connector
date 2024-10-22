@@ -1,10 +1,10 @@
 {
   "appName": {
-    "message": "Smart Card Connector",
+    "message": "[BETA 5021] Smart Card Connector",
     "description": "The title of the application, displayed in the web store."
   },
   "appShortName": {
-    "message": "Smart Card Connector",
+    "message": "[BETA 5021] Smart Card Connector",
     "description": "The short version of the application title."
   },
   "appDesc": {
@@ -12,11 +12,11 @@
     "description": "The description of the application, displayed in the web store."
   },
   "mainWindowTitle": {
-    "message": "Smart Card Connector",
+    "message": "[BETA 5021] Smart Card Connector",
     "description": "The title of the main window"
   },
   "mainWindowHeader": {
-    "message": "Smart Card Connector",
+    "message": "[BETA 5021] Smart Card Connector",
     "description": "The header displayed in the main window"
   },
   "crashWarning": {
@@ -32,7 +32,7 @@
     "description": "Accessibility text for close button"
   },
   "readersListHeader": {
-    "message": "Smart Card readers",
+    "message": "[BETA 5021] Smart Card readers",
     "description": "The header displayed in front of the readers list"
   },
   "initReaderTooltip": {
@@ -108,11 +108,11 @@
     "description": "Title of the link that can be used to copy the logs into the clipboard, shortly after the copying process has finished"
   },
   "pcscClientHandlingUserPromptDialogTitle": {
-    "message": "Smart Card Connector",
+    "message": "[BETA 5021] Smart Card Connector",
     "description": "Window title of the PC/SC-Lite client handling user prompt dialog"
   },
   "pcscClientHandlingUserPromptDialogHeader": {
-    "message": "Smart Card Connector",
+    "message": "[BETA 5021] Smart Card Connector",
     "description": "Caption displayed in the PC/SC-Lite client handling user prompt dialog"
   },
   "pcscClientHandlingUserPromptDialogAllow": {
