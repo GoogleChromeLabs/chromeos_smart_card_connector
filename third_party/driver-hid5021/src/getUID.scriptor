@@ -1,0 +1,9 @@
+#!/usr/bin/env scriptor
+
+reset
+
+# get UID command
+FF CA 00 00 00
+
+# unknown command: should fail
+00 00 00 00
