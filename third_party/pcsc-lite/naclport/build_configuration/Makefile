@@ -48,7 +48,7 @@ all: build.stamp
 #   systems to control processes that have smart card access. On ChromeOS, the
 #   permission systems by the browser and by the Smart Card Connector extension
 #   are used instead.
-build.stamp: $(shell find ../../src)
+build.stamp: $(shell git ls-tree -r HEAD --name-only ../../src)
 	@rm -f build.stamp
 	@git clean -fX ../../src
 	cd ../../src && ./bootstrap && ./configure --disable-polkit
