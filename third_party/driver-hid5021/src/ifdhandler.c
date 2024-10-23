@@ -31,16 +31,13 @@
 
 #undef DEBUG_COMM
 
-libusb_context *ctx;
-libusb_device_handle *device_handle;
-int bSeq;
-int timeout = 5 * 1000;		// 5 seconds
-int bulk_in;
-int bulk_out;
-unsigned char uid[10];		// in general 4 bytes only
-int uid_len;
-bool card_present = false;
-bool card_was_present = false;
+static libusb_context *ctx;
+static libusb_device_handle *device_handle;
+static int bulk_in;
+static int bulk_out;
+static unsigned char uid[10];		// in general 4 bytes only
+static int uid_len;
+static bool card_present = false;
 
 // check value returned by escape()
 #define Escape(a, b, c, d) do { int rv2 = escape(a, b, c, d); if (rv2 != IFD_SUCCESS) return rv2; } while (0)
@@ -51,6 +48,8 @@ static int escape(unsigned char cmd[], int size, unsigned char res[], int * res_
 	char unsigned ccid_cmd[1024];
 	int rv;
 	int rec_length;
+	int timeout = 5 * 1000;		// 5 seconds
+	static int bSeq;
 
 	ccid_cmd[0] = 0x6b;		// bMessageType
 
@@ -581,6 +580,7 @@ RESPONSECODE IFDHICCPresence( DWORD Lun ) {
 
 	unsigned char res[1024] = {0};
 	int res_size = sizeof res;
+	static bool card_was_present = false;
 
 	Escape(command_00025, sizeof command_00025, res, &res_size);
 	if (res[54] != 13)
