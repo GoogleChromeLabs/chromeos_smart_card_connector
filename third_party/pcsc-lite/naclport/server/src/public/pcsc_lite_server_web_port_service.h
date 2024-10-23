@@ -26,12 +26,15 @@
 #ifndef GOOGLE_SMART_CARD_PCSC_LITE_SERVER_WEB_PORT_SERVICE_H_
 #define GOOGLE_SMART_CARD_PCSC_LITE_SERVER_WEB_PORT_SERVICE_H_
 
+#include <memory>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "common/cpp/src/public/global_context.h"
 #include "common/cpp/src/public/value.h"
 #include "third_party/libusb/webport/src/public/libusb_web_port_service.h"
+#include "third_party/pcsc-lite/naclport/driver_interface/src/pcsc_driver_adaptor.h"
 
 namespace google_smart_card {
 
@@ -46,8 +49,10 @@ namespace google_smart_card {
 //       concurrent to class construction or destruction are not thread safe.
 class PcscLiteServerWebPortService final {
  public:
-  PcscLiteServerWebPortService(GlobalContext* global_context,
-                               LibusbWebPortService* libusb_web_port_service);
+  PcscLiteServerWebPortService(
+      GlobalContext* global_context,
+      LibusbWebPortService* libusb_web_port_service,
+      std::vector<std::unique_ptr<PcscDriverAdaptor>> drivers);
   PcscLiteServerWebPortService(const PcscLiteServerWebPortService&) = delete;
   PcscLiteServerWebPortService& operator=(const PcscLiteServerWebPortService&) =
       delete;
@@ -71,6 +76,10 @@ class PcscLiteServerWebPortService final {
   //
   // Must be called after `InitializeAndRunDaemonThread()`.
   void ShutDownAndWait();
+
+  // Returns the driver with the specified .so file path, or `nullptr` if
+  // there's none found.
+  PcscDriverAdaptor* FindDriverByFilePath(const std::string& driver_file_path);
 
   void PostReaderInitAddMessage(const char* reader_name,
                                 int port,
@@ -107,6 +116,7 @@ class PcscLiteServerWebPortService final {
 
   GlobalContext* const global_context_;
   LibusbWebPortService* const libusb_web_port_service_;
+  const std::vector<std::unique_ptr<PcscDriverAdaptor>> drivers_;
   std::thread daemon_thread_;
 };
 

@@ -112,6 +112,19 @@ CCID_TOWITOKO_CPPFLAGS := \
 
 $(foreach src,$(CCID_TOWITOKO_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CCID_TOWITOKO_CPPFLAGS))))
 
+# Rules for compiling webport helper C++ sources:
+
+CCID_WEBPORT_SOURCES := \
+	$(CCID_NACL_SOURCES_PATH)/ccid_pcsc_driver_adaptor.cc \
+
+CCID_WEBPORT_CPPFLAGS := \
+	$(COMMON_CPPFLAGS) \
+	-I$(ROOT_PATH) \
+	-I$(CCID_SOURCES_PATH) \
+	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
+
+$(foreach src,$(CCID_WEBPORT_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CCID_WEBPORT_CPPFLAGS))))
+
 
 # Variable containing the list of all source files whose compiled object files
 # will have to be linked together
@@ -120,6 +133,7 @@ SOURCES := \
 	$(CCID_SOURCES) \
 	$(CCID_OPENCT_SOURCES) \
 	$(CCID_TOWITOKO_SOURCES) \
+	$(CCID_WEBPORT_SOURCES) \
 
 
 # Rules for building the driver config file and putting it into the resulting
