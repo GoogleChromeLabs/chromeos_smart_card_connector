@@ -39,6 +39,7 @@ CCID_NACL_SOURCES_PATH := ../src
 
 # Rules for invoking the source files compilation into object files
 
+# * rename all IFDH...() functions to avoid symbol clashes with other drivers;
 # * HAVE_PTHREAD definition enables the support of working with multiple readers
 #   simultaneously;
 # * log_msg and log_xxd are redefined in order to not collide with the symbols
@@ -47,6 +48,16 @@ CCID_NACL_SOURCES_PATH := ../src
 #   for all PC/SC-Lite server drivers; use a relative path, so that it works
 #   both inside the Smart Card Connector app and in unit tests;
 COMMON_CPPFLAGS := \
+	-DIFDHCloseChannel=CCID_IFDHCloseChannel \
+	-DIFDHControl=CCID_IFDHControl \
+	-DIFDHCreateChannel=CCID_IFDHCreateChannel \
+	-DIFDHCreateChannelByName=CCID_IFDHCreateChannelByName \
+	-DIFDHGetCapabilities=CCID_IFDHGetCapabilities \
+	-DIFDHICCPresence=CCID_IFDHICCPresence \
+	-DIFDHPowerICC=CCID_IFDHPowerICC \
+	-DIFDHSetCapabilities=CCID_IFDHSetCapabilities \
+	-DIFDHSetProtocolParameters=CCID_IFDHSetProtocolParameters \
+	-DIFDHTransmitToICC=CCID_IFDHTransmitToICC \
 	-DHAVE_PTHREAD=1 \
 	-Dlog_msg=ccid_log_msg \
 	-Dlog_xxd=ccid_log_xxd \
