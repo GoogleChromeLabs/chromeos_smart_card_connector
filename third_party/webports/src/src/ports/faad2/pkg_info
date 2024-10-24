@@ -1,6 +1,0 @@
-NAME=faad2
-VERSION=2.7
-URL=http://sf.net/projects/faac/files/faad2-src/faad2-2.7/faad2-2.7.tar.gz
-LICENSE=GPL
-SHA1=80eaaa5cc576c35dd28863767b795c50cbcc0511
-DISABLED_TOOLCHAIN=(emscripten)

@@ -1,7 +1,0 @@
-NAME=ncurses
-VERSION=5.9
-URL=ftp://ftp.gnu.org/gnu/ncurses/ncurses-5.9.tar.gz
-LICENSE=CUSTOM
-DEPENDS=(glibc-compat)
-SHA1=3e042e5f2c7223bffdaac9646a533b8c758b65b5
-DISABLED_TOOLCHAIN=(emscripten)

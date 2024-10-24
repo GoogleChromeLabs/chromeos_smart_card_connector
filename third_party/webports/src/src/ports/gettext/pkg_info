@@ -1,8 +1,0 @@
-NAME=gettext
-VERSION=0.19.2
-URL=http://ftp.gnu.org/pub/gnu/gettext/gettext-0.19.2.tar.xz
-LICENSE=GPL
-DEPENDS=(glibc-compat)
-DISABLED_LIBC=(bionic)
-SHA1=81b6ee521412b8042085342ab4df19f11b280e41
-DISABLED_TOOLCHAIN=(emscripten)

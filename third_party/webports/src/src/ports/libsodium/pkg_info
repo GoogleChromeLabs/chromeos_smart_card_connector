@@ -1,6 +1,0 @@
-NAME=libsodium
-VERSION=1.0.3
-URL=https://github.com/jedisct1/libsodium/releases/download/1.0.3/libsodium-1.0.3.tar.gz
-LICENSE=ISC
-SHA1=e44ed485842966d4e2d8f58e74a5fd78fbfbe4b0
-DISABLED_TOOLCHAIN=(emscripten)

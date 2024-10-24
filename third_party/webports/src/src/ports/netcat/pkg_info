@@ -1,7 +1,0 @@
-NAME=netcat
-VERSION=0.7.1
-URL=http://sf.net/projects/netcat/files/netcat/0.7.1/netcat-0.7.1.tar.bz2
-LICENSE=GPL
-DEPENDS=(glibc-compat)
-SHA1=b761d70fe9e3e8b3fe33a329b9bc31300dc04d11
-DISABLED_TOOLCHAIN=(emscripten)

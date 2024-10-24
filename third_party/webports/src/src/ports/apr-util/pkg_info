@@ -1,9 +1,0 @@
-NAME=apr-util
-VERSION=1.5.3
-URL=http://apache.mirrors.pair.com/apr/apr-util-1.5.3.tar.bz2
-LICENSE=APACHE
-DEPENDS=(apr expat)
-# Disabled for bionic due to apr.
-DISABLED_LIBC=(bionic)
-SHA1=de0184ee03dfdc6dec4d013970d1862251e86925
-DISABLED_TOOLCHAIN=(emscripten)

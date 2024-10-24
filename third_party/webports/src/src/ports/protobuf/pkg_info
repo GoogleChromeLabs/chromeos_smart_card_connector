@@ -1,8 +1,0 @@
-NAME=protobuf
-VERSION=3.0.0-alpha-2
-URL=https://github.com/google/protobuf/releases/download/v3.0.0-alpha-2/protobuf-cpp-3.0.0-alpha-2.tar.gz
-LICENSE=BSD:COPYING.txt
-SHA1=0edc0866f9abe2665fed276094aa618bfb2efb6b
-# sched_yield missing
-DISABLED_LIBC=(bionic)
-DISABLED_TOOLCHAIN=(emscripten)

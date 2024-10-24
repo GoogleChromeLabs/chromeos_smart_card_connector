@@ -1,6 +1,0 @@
-entries = {
-  'src': 'https://chromium.googlesource.com/webports.git',
-  'src/third_party/clang_tools': 'https://chromium.googlesource.com/chromium/src/tools/clang.git@7aa7166',
-  'src/third_party/libapps': 'https://chromium.googlesource.com/apps/libapps.git@6e65bd5',
-  'src/third_party/zip.js': 'https://github.com/gildas-lormeau/zip.js.git@4c93974',
-}

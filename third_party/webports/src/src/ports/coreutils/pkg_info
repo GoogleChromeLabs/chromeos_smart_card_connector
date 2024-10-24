@@ -1,8 +1,0 @@
-NAME=coreutils
-VERSION=8.24
-URL=http://ftp.gnu.org/gnu/coreutils/coreutils-8.24.tar.xz
-LICENSE=GPL
-DEPENDS=(nacl-spawn)
-DISABLED_LIBC=(bionic)
-SHA1=cf3d9983461c2b0c074a76804c18464e9a474883
-DISABLED_TOOLCHAIN=(emscripten)

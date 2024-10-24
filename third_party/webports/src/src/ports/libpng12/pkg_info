@@ -1,9 +1,0 @@
-NAME=libpng12
-VERSION=1.2.51
-ARCHIVE_ROOT=libpng-1.2.51
-URL=http://download.sf.net/libpng/libpng-1.2.51.tar.gz
-LICENSE=CUSTOM:LICENSE
-DEPENDS=(zlib)
-SHA1=5175be08c4fa767b0d3d025f636e73e78780f988
-CONFLICTS=(libpng)
-DISABLED_TOOLCHAIN=(emscripten)

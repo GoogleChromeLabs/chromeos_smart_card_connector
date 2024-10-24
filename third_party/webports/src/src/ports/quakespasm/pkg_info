@@ -1,7 +1,0 @@
-NAME=quakespasm
-VERSION=0.85.9
-DEPENDS=(sdl libvorbis mpg123)
-LICENSE=GPL
-URL=http://downloads.sf.net/project/quakespasm/Source/quakespasm-0.85.9.tgz
-SHA1=d9f6278e2badb7be11830539e4d8bb16ef90e287
-DISABLED_TOOLCHAIN=(emscripten)

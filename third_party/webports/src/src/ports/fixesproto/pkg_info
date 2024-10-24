@@ -1,6 +1,0 @@
-NAME=fixesproto
-VERSION=5.0
-URL=http://www.x.org/releases/X11R7.7/src/everything/fixesproto-5.0.tar.bz2
-LICENSE=GPL
-SHA1=ab605af5da8c98c0c2f8b2c578fed7c864ee996a
-DISABLED_TOOLCHAIN=(emscripten)

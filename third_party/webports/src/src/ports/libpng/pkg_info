@@ -1,8 +1,0 @@
-NAME=libpng
-VERSION=1.6.12
-URL=http://download.sf.net/libpng/libpng-1.6.12.tar.gz
-LICENSE=CUSTOM:LICENSE
-DEPENDS=(zlib)
-SHA1=6bcd6efa7f20ccee51e70453426d7f4aea7cf4bb
-CONFLICTS=(libpng12)
-DISABLED_TOOLCHAIN=(emscripten)

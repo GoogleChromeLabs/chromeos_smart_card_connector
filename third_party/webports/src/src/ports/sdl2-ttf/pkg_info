@@ -1,8 +1,0 @@
-NAME=sdl2-ttf
-VERSION=2.0.12
-ARCHIVE_ROOT=SDL2_ttf-2.0.12
-URL=http://www.libsdl.org/projects/SDL_ttf/release/SDL2_ttf-2.0.12.tar.gz
-DEPENDS=(sdl2 freetype)
-LICENSE=ZLIB
-SHA1=542865c604fe92d2f26000428ef733381caa0e8e
-DISABLED_TOOLCHAIN=(emscripten)

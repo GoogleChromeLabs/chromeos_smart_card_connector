@@ -1,7 +1,0 @@
-NAME=blackbox
-VERSION=0.70.1
-URL=http://download.sf.net/blackboxwm/blackboxwm/Blackbox%200.70.1/blackbox-0.70.1.tar.bz2
-LICENSE=GPL
-DEPENDS=(glibc-compat xbitmaps libx11 libxcb libxmu libxext libxau libxt libice libsm nacl-spawn libiconv)
-SHA1=66455b8400d6659b5681c290a5ced3697d199955
-DISABLED_TOOLCHAIN=(emscripten)

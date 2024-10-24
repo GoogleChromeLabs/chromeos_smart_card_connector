@@ -1,7 +1,0 @@
-NAME=markupsafe
-VERSION=0.19
-ARCHIVE_ROOT=MarkupSafe-0.19
-URL=https://pypi.python.org/packages/source/M/MarkupSafe/MarkupSafe-0.19.tar.gz
-LICENSE=BSD
-DEPENDS=(python-host setuptools)
-SHA1=5b0ef4acfa4af62277135fbafc99d42560434134

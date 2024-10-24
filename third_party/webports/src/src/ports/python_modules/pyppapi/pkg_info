@@ -1,7 +1,0 @@
-NAME=pyppapi
-VERSION=0.4
-URL=https://pypi.python.org/packages/source/p/pyppapi/pyppapi-0.4.tar.gz
-LICENSE=BSD
-DEPENDS=(python-host cython numpy)
-SHA1=203f78ad9ad4208fadc824c64915ae31633d878e
-DISABLED_TOOLCHAIN=(emscripten)

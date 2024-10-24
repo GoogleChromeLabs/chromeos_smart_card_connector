@@ -1,9 +1,0 @@
-NAME=physfs
-VERSION=2.0.3
-URL=http://icculus.org/physfs/downloads/physfs-2.0.3.tar.bz2
-LICENSE=CUSTOM:LICENSE.txt
-DEPENDS=(zlib)
-# bionic and incomplete mntent.h
-DISABLED_LIBC=(bionic)
-SHA1=327308c777009a41bbabb9159b18c4c0ac069537
-DISABLED_TOOLCHAIN=(emscripten)

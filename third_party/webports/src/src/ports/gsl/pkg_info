@@ -1,6 +1,0 @@
-NAME=gsl
-VERSION=1.16
-URL=http://ftpmirror.gnu.org/gsl/gsl-1.16.tar.gz
-LICENSE=GPL3
-SHA1=210af9366485f149140973700d90dc93a4b6213e
-DISABLED_TOOLCHAIN=(emscripten)

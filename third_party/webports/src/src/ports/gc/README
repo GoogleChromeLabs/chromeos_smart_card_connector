@@ -1,6 +1,0 @@
-NOTE: libgc for Native Client has been modified to support cooperative 
-      thread parking for multi-threaded programs.  If you plan on using
-      more than one thread with this implementation of libgc, make sure
-      to pass -finstrument-for-thread-suspension to nacl-gcc or your
-      program will probably hang on the first garbage collection.
-
