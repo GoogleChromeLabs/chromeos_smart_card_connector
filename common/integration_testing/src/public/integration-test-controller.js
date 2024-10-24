@@ -20,7 +20,6 @@ goog.provide('GoogleSmartCard.IntegrationTestController');
 goog.require('GoogleSmartCard.EmscriptenModule');
 goog.require('GoogleSmartCard.ExecutableModule');
 goog.require('GoogleSmartCard.Logging');
-goog.require('GoogleSmartCard.NaclModule');
 goog.require('GoogleSmartCard.RemoteCallMessage');
 goog.require('GoogleSmartCard.Requester');
 goog.require('goog.Thenable');
@@ -130,9 +129,6 @@ GSC.IntegrationTestController = class {
  */
 function createExecutableModule() {
   switch (GSC.ExecutableModule.TOOLCHAIN) {
-    case GSC.ExecutableModule.Toolchain.PNACL:
-      return new GSC.NaclModule(
-          'integration_tests.nmf', GSC.NaclModule.Type.PNACL);
     case GSC.ExecutableModule.Toolchain.EMSCRIPTEN:
       return new GSC.EmscriptenModule('integration_tests');
   }

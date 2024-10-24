@@ -39,7 +39,6 @@ const GSC = GoogleSmartCard;
  */
 const Toolchain = {
   EMSCRIPTEN: 'emscripten',
-  PNACL: 'pnacl',
 };
 
 /** @define {string} */

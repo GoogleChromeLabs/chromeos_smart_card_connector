@@ -24,13 +24,11 @@ goog.require('GoogleSmartCard.EmscriptenModule');
 goog.require('GoogleSmartCard.ExecutableModule');
 goog.require('GoogleSmartCard.LibusbLoginStateHook');
 goog.require('GoogleSmartCard.LibusbProxyReceiver');
-goog.require('GoogleSmartCard.LogBufferForwarder');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.MessageChannelPair');
 goog.require('GoogleSmartCard.MessageChannelPool');
 goog.require('GoogleSmartCard.MessagingCommon');
 goog.require('GoogleSmartCard.MessagingOrigin');
-goog.require('GoogleSmartCard.NaclModule');
 goog.require('GoogleSmartCard.OffscreenDocEmscriptenModule');
 goog.require('GoogleSmartCard.Packaging');
 goog.require('GoogleSmartCard.PcscLiteServer.ReaderTracker');
@@ -54,23 +52,6 @@ const JS_LOGS_HANDLER_MESSAGE_TYPE = 'js_logs_handler';
 /** @type {!goog.log.Logger} */
 const logger = GSC.Logging.getScopedLogger('ConnectorApp.BackgroundMain');
 
-/**
- * Returns a forwarder for the JS logs, or null if there's none.
- * @return {GSC.LogBufferForwarder?}
- */
-function maybeCreateLogBufferForwarder() {
-  if (GSC.ExecutableModule.TOOLCHAIN !== GSC.ExecutableModule.Toolchain.PNACL)
-    return null;
-  // Used to forward logs collected on the JS side to the NaCl module's stdout,
-  // in order to simplify accessing them in some configurations.
-  return new GSC.LogBufferForwarder(
-      GSC.Logging.getLogBuffer(), JS_LOGS_HANDLER_MESSAGE_TYPE);
-}
-
-// Note that this object needs to be created as early as possible, in order to
-// not miss any important log.
-const logBufferForwarderToNaclModule = maybeCreateLogBufferForwarder();
-
 const extensionManifest = chrome.runtime.getManifest();
 goog.log.info(
     logger,
@@ -84,9 +65,6 @@ goog.log.info(
  */
 function createExecutableModule() {
   switch (GSC.ExecutableModule.TOOLCHAIN) {
-    case GSC.ExecutableModule.Toolchain.PNACL:
-      return new GSC.NaclModule(
-          'executable_module.nmf', GSC.NaclModule.Type.PNACL);
     case GSC.ExecutableModule.Toolchain.EMSCRIPTEN:
       if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
         // Multi-threading in WebAssembly requires spawning Workers, which for
@@ -109,21 +87,6 @@ function createExecutableModule() {
  */
 const executableModule = createExecutableModule();
 executableModule.addOnDisposeCallback(executableModuleDisposedListener);
-
-if (logBufferForwarderToNaclModule) {
-  executableModule.getLoadPromise().then(() => {
-    // Skip forwarding logs that were received from the NaCl module or generated
-    // while sending messages to it, in order to avoid duplication and/or
-    // infinite recursion.
-    const naclModule = /** @type {!GSC.NaclModule} */ (executableModule);
-    logBufferForwarderToNaclModule.ignoreLogger(
-        naclModule.logMessagesReceiver.logger.getName());
-    // Start forwarding all future log messages collected on the JS side, but
-    // also immediately post the messages that have been accumulated so far.
-    logBufferForwarderToNaclModule.startForwarding(
-        naclModule.getMessageChannel());
-  }, () => {});
-}
 
 const libusbProxyReceiver =
     new GSC.LibusbProxyReceiver(executableModule.getMessageChannel());
@@ -169,8 +132,6 @@ if (GSC.ExecutableModule.TOOLCHAIN ===
   // background page always alive, and hence be responsive to incoming smart
   // card requests. The user who doesn't like extra resource usage can uninstall
   // our application if they don't actually use smart cards.
-  // This trick wasn't needed for NaCl, since Chrome was keeping the extension's
-  // page alive as long as the NaCl module is running.
   // This code doesn't work in manifest v3, hence it's disabled in the
   // `EXTENSION` packaging mode.
   GSC.BackgroundPageUnloadPreventing.enable();
