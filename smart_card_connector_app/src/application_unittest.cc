@@ -53,19 +53,6 @@
 #include "smart_card_connector_app/src/testing_smart_card_simulation.h"
 #include "third_party/libusb/webport/src/libusb_js_proxy_constants.h"
 
-#ifdef __native_client__
-#include "common/cpp/src/public/nacl_io_utils.h"
-#endif  // __native_client__
-
-#ifdef __native_client__
-// Native Client's version of Google Test uses a different name of the macro for
-// parameterized tests.
-#define INSTANTIATE_TEST_SUITE_P INSTANTIATE_TEST_CASE_P
-// Native Client's version of Google Test macro INSTANTIATE_TEST_CASE_P
-// produces this warning when being used without test generator parameters.
-#pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
-#endif  // __native_client__
-
 using testing::AnyOf;
 using testing::ElementsAre;
 using testing::IsEmpty;
@@ -239,10 +226,6 @@ void AssertDurationNotLonger(std::function<void()> f,
 class SmartCardConnectorApplicationTest : public ::testing::Test {
  protected:
   SmartCardConnectorApplicationTest() {
-#ifdef __native_client__
-    // Make resource files accessible.
-    MountNaclIoFolders();
-#endif  // __native_client__
     SetUpUsbSimulation();
     reader_notification_observer_.Init(global_context_);
   }
@@ -250,10 +233,6 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
   ~SmartCardConnectorApplicationTest() {
     AssertDurationNotLonger([this] { application_->ShutDownAndWait(); },
                             kApplicationShutdownTimeLimit);
-
-#ifdef __native_client__
-    EXPECT_TRUE(UnmountNaclIoFolders());
-#endif  // __native_client__
   }
 
   void StartApplication() {
@@ -972,15 +951,9 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
 MATCHER(IsPrintableNonEmptyString, "") {
   if (arg.empty())
     return false;
-#ifdef __native_client__
-  // Constructing a locale object causes a crash under NaCl, hence we use the C
-  // library function when on NaCl toolchain.
-  return std::all_of(arg.begin(), arg.end(), [](char c) { return isprint(c); });
-#else
   std::locale c_locale("C");
   return std::all_of(arg.begin(), arg.end(),
                      [&](char c) { return std::isprint(c, c_locale); });
-#endif
 }
 
 // `pcsc_stringify_error()` calls from JS succeed with reasonable results for

@@ -22,10 +22,6 @@
 #include "common/cpp/src/public/value_conversion.h"
 #include "common/cpp/src/public/value_debug_dumping.h"
 
-#ifdef __native_client__
-#include "third_party/googletest/webport/src/polyfill_nacl.h"
-#endif
-
 namespace google_smart_card {
 
 inline void PrintTo(const Value& value, std::ostream* os) {
