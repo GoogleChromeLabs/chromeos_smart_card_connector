@@ -49,7 +49,6 @@ goog.require('GoogleSmartCard.AppUtils');
 goog.require('GoogleSmartCard.EmscriptenModule');
 goog.require('GoogleSmartCard.ExecutableModule');
 goog.require('GoogleSmartCard.Logging');
-goog.require('GoogleSmartCard.NaclModule');
 goog.require('GoogleSmartCard.OffscreenDocEmscriptenModule');
 goog.require('GoogleSmartCard.Packaging');
 goog.require('GoogleSmartCard.PcscLiteClient.NaclClientBackend');
@@ -134,9 +133,6 @@ goog.log.info(
  */
 function createExecutableModule() {
   switch (GSC.ExecutableModule.TOOLCHAIN) {
-    case GSC.ExecutableModule.Toolchain.PNACL:
-      return new GSC.NaclModule(
-          'executable_module.nmf', GSC.NaclModule.Type.PNACL);
     case GSC.ExecutableModule.Toolchain.EMSCRIPTEN:
       if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION)
         return new GSC.OffscreenDocEmscriptenModule('executable_module');
