@@ -92,7 +92,7 @@ $(eval $(call ADD_RESOURCE_RULE, \
 	executable-module-filesystem/pcsc/fake_socket_file))
 $(eval $(call ADD_RESOURCE_RULE, \
 	$(ROOT_PATH)/third_party/ccid/webport/build/Info.plist, \
-	executable-module-filesystem/pcsc/drivers/ifd-ccid.bundle/Contents/Info.plist))
+	$(CCID_CONFIG_INSTALLATION_PATH)))
 
 # Rules for compiling source files and linking them into an executable binary.
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
