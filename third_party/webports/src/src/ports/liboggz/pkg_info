@@ -1,7 +1,0 @@
-NAME=liboggz
-VERSION=1.1.1
-URL=http://downloads.xiph.org/releases/liboggz/liboggz-1.1.1.tar.gz
-LICENSE=BSD
-DEPENDS=(libogg)
-SHA1=3540190c8c9a31d834aa7794ef991bbab699f4de
-DISABLED_TOOLCHAIN=(emscripten)

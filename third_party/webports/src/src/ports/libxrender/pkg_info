@@ -1,8 +1,0 @@
-NAME=libxrender
-ARCHIVE_ROOT=libXrender-0.9.7
-VERSION=0.9.7
-URL=http://www.x.org/releases/X11R7.7/src/everything/libXrender-0.9.7.tar.bz2
-LICENSE=GPL
-DEPENDS=(libx11 renderproto)
-SHA1=6e4d75d8316d5217324258f555eba3a5d383feb2
-DISABLED_TOOLCHAIN=(emscripten)

@@ -1,6 +1,0 @@
-NAME=xaos
-VERSION=3.5
-URL=http://downloads.sf.net/xaos/xaos-3.5.tar.gz
-LICENSE=GPL
-SHA1=6d16a58187fba7276e6bd0547cc2fd6bb073b801
-DISABLED_TOOLCHAIN=(emscripten)

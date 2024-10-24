@@ -1,8 +1,0 @@
-NAME=httplib2
-VERSION=0.9
-URL=https://pypi.python.org/packages/source/h/httplib2/httplib2-0.9.tar.gz
-LICENSE=MIT
-DEPENDS=(python-host openssl)
-DISABLED_LIBC=(bionic)
-SHA1=1b9774a81136a222f02e711d81efb775dc87b70e
-DISABLED_TOOLCHAIN=(emscripten)

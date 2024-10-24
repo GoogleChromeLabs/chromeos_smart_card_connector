@@ -1,7 +1,0 @@
-NAME=pcre
-VERSION=8.36
-URL=ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/pcre-8.36.tar.bz2
-LICENSE=BSD
-DISABLED_LIBC=(bionic)
-SHA1=9a074e9cbf3eb9f05213fd9ca5bc188644845ccc
-DISABLED_TOOLCHAIN=(emscripten)

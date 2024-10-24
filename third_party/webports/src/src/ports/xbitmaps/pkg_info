@@ -1,7 +1,0 @@
-NAME=xbitmaps
-VERSION=1.1.1
-URL=http://www.x.org/releases/X11R7.7/src/everything/xbitmaps-1.1.1.tar.bz2
-LICENSE=GPL
-DEPENDS=(glibc-compat)
-SHA1=578afff7e4912192b524c25254cf7f54c16e57d8
-DISABLED_TOOLCHAIN=(emscripten)

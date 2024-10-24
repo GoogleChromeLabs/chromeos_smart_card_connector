@@ -1,8 +1,0 @@
-NAME=metakit
-VERSION=2.4.9.7
-URL=http://equi4.com/pub/mk/metakit-2.4.9.7.tar.gz
-LICENSE=CUSTOM:README
-SHA1=1b75400038fcad941886deb0748e669c224bc995
-# metakit's configure chooses .dylib
-BUILD_OS=linux
-DISABLED_TOOLCHAIN=(emscripten)

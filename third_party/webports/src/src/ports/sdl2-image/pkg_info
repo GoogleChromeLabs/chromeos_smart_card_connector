@@ -1,9 +1,0 @@
-NAME=sdl2-image
-VERSION=2.0.0
-ARCHIVE_ROOT=SDL2_image-2.0.0
-URL=http://www.libsdl.org/projects/SDL_image/release/SDL2_image-2.0.0.tar.gz
-DEPENDS=(tiff libwebp sdl2 libpng jpeg8d)
-LICENSE=ZLIB
-DISABLED_LIBC=(bionic)
-SHA1=20b1b0db9dd540d6d5e40c7da8a39c6a81248865
-DISABLED_TOOLCHAIN=(emscripten)

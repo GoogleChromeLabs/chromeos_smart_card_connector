@@ -1,9 +1,0 @@
-[MESSAGES CONTROL]
-disable=invalid-name,no-member,missing-docstring,unused-argument,fixme,bad-continuation,global-statement,too-many-branches,too-few-public-methods,too-many-public-methods,star-args,duplicate-code,locally-disabled,cell-var-from-loop
-
-[FORMAT]
-indent-string='  '
-max-line-length=80
-
-[REPORTS]
-reports=no

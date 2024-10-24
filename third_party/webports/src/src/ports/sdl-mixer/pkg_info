@@ -1,8 +1,0 @@
-NAME=sdl-mixer
-VERSION=1.2.11
-ARCHIVE_ROOT=SDL_mixer-1.2.11
-URL=http://www.libsdl.org/projects/SDL_mixer/release/SDL_mixer-1.2.11.tar.gz
-LICENSE=LGPL
-DEPENDS=(sdl libogg libvorbis libmikmod)
-SHA1=ef5d45160babeb51eafa7e4019cec38324ee1a5d
-DISABLED_TOOLCHAIN=(emscripten)

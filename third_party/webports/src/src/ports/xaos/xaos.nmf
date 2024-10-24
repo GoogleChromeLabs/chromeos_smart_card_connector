@@ -1,8 +1,0 @@
-{
-  "program": {
-    "x86-32": {"url": "xaos_i686.nexe"},
-    "x86-64": {"url": "xaos_x86_64.nexe"},
-    "arm": {"url": "xaos_arm.nexe"}
-  }
-}
-

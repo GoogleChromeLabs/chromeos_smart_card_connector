@@ -1,8 +1,0 @@
-NAME=freealut
-VERSION=1.1.0
-URL=http://connect.creativelabs.com/openal/Downloads/ALUT/freealut-1.1.0.tar.gz
-LICENSE=LGPL2
-DEPENDS=(openal-soft)
-DISABLED_LIBC=(bionic)
-SHA1=b2c04d2b5e0896b3164c01deda39f58933c8055f
-DISABLED_TOOLCHAIN=(emscripten)

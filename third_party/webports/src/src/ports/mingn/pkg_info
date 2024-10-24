@@ -1,6 +1,0 @@
-NAME=mingn
-VERSION=0.2
-LIBC=glibc
-DEPENDS=(binutils gcc ncurses nacl-spawn zlib)
-DISABLED_TOOLCHAIN=(emscripten)
-TOOLCHAIN_INSTALL=0

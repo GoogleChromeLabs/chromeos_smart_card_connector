@@ -1,6 +1,0 @@
-NAME=sdl2
-VERSION=2.0.3
-URL=https://github.com/sbc100/SDL-mirror.git@b406d6b
-LICENSE=ZLIB
-DEPENDS=(libtar)
-DISABLED_TOOLCHAIN=(emscripten)

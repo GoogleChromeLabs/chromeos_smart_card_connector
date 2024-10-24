@@ -1,6 +1,0 @@
-NAME=faac
-VERSION=1.28
-URL=http://download.sf.net/faac/faac-src/faac-1.28/faac-1.28.tar.gz
-LICENSE=CUSTOM:README
-SHA1=d00b023a3642f81bb1fb13d962a65079121396ee
-DISABLED_TOOLCHAIN=(emscripten)

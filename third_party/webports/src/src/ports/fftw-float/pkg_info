@@ -1,8 +1,0 @@
-NAME=fftw-float
-VERSION=3.3.4
-ARCHIVE_ROOT=fftw-3.3.4
-URL=http://www.fftw.org/fftw-3.3.4.tar.gz
-CONFLICTS=(fftw)
-LICENSE=GPL
-DISABLED_TOOLCHAIN=(emscripten)
-SHA1=fd508bac8ac13b3a46152c54b7ac885b69734262

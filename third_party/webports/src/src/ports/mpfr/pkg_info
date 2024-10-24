@@ -1,8 +1,0 @@
-NAME=mpfr
-VERSION=3.1.2
-URL=http://www.mpfr.org/mpfr-current/mpfr-3.1.2.tar.bz2
-LICENSE=LGPL3
-DEPENDS=(gmp)
-DISABLED_LIBC=(bionic)
-SHA1=46d5a11a59a4e31f74f73dd70c5d57a59de2d0b4
-DISABLED_TOOLCHAIN=(emscripten)

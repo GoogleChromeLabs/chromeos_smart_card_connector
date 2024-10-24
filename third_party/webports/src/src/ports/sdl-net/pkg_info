@@ -1,8 +1,0 @@
-NAME=sdl-net
-VERSION=1.2.7
-ARCHIVE_ROOT=SDL_net-1.2.7
-URL=http://www.libsdl.org/projects/SDL_net/release/SDL_net-1.2.7.tar.gz
-LICENSE=LGPL2
-DEPENDS=(sdl)
-SHA1=b46c7e3221621cc34fec1238f1b5f0ce8972274d
-DISABLED_TOOLCHAIN=(emscripten)

@@ -1,7 +1,0 @@
-NAME=libtomcrypt
-VERSION=1.17
-URL=http://libtomcrypt.googlecode.com/files/crypt-1.17.tar.bz2
-DEPENDS=(gmp)
-LICENSE=CUSTOM:LICENSE
-SHA1=9c746822c84e4276e432b64964f94d1d5ddd13ad
-DISABLED_TOOLCHAIN=(emscripten)

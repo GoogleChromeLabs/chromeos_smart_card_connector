@@ -1,7 +1,0 @@
-NAME=gmock
-VERSION=1.5.0
-URL=http://googlemock.googlecode.com/files/gmock-1.5.0.tar.gz
-LICENSE=BSD
-SHA1=6352080213097c20e6645b8466b13dc1fb895153
-DISABLED=1
-DISABLED_TOOLCHAIN=(emscripten)

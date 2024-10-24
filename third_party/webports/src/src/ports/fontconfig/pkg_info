@@ -1,9 +1,0 @@
-NAME=fontconfig
-VERSION=2.11.1
-URL=http://www.freedesktop.org/software/fontconfig/release/fontconfig-2.11.1.tar.bz2
-LICENSE=CUSTOM:COPYING
-# expat doesn't build with bionic
-DISABLED_LIBC=(bionic)
-DEPENDS=(expat freetype libpng)
-SHA1=08565feea5a4e6375f9d8a7435dac04e52620ff2
-DISABLED_TOOLCHAIN=(emscripten)

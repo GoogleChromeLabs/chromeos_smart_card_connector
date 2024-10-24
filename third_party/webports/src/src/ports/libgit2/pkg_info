@@ -1,9 +1,0 @@
-NAME=libgit2
-VERSION=0.21.2
-URL=https://github.com/libgit2/libgit2/archive/v0.21.2/libgit2-0.21.2.tar.gz
-DEPENDS=(glibc-compat libssh2 zlib)
-# GPL2 with linking exemption.
-LICENSE=CUSTOM:COPYING
-DISABLED_LIBC=(bionic)
-SHA1=a16a59df1bfe073483be0c58a81cdbc89f7b7070
-DISABLED_TOOLCHAIN=(emscripten)

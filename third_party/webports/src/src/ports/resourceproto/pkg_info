@@ -1,6 +1,0 @@
-NAME=resourceproto
-VERSION=1.2.0
-URL=http://www.x.org/releases/X11R7.7/src/everything/resourceproto-1.2.0.tar.bz2
-LICENSE=GPL
-SHA1=9ff9bb9243b0474330959dc3853973523c9dd9ce
-DISABLED_TOOLCHAIN=(emscripten)

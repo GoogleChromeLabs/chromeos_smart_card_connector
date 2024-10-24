@@ -1,8 +1,0 @@
-NAME=ruby
-VERSION=2.0.0-p247
-URL=ftp://ftp.ruby-lang.org/pub/ruby/2.0/ruby-2.0.0-p247.tar.gz
-LICENSE=BSD
-DEPENDS=(readline zlib)
-DISABLED_LIBC=(bionic)
-SHA1=850b93afb5914ee3f38f0769e309abf0cedf084b
-DISABLED_TOOLCHAIN=(emscripten)

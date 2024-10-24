@@ -1,8 +1,0 @@
-NAME=pixman
-VERSION=0.32.4
-URL=http://cairographics.org/releases/pixman-0.32.4.tar.gz
-LICENSE=CUSTOM:COPYING
-DEPENDS=(libpng)
-DISABLED_LIBC=(bionic)
-SHA1=54be89b3453109be0930400e5b13c35c9e9d5e3a
-DISABLED_TOOLCHAIN=(emscripten)

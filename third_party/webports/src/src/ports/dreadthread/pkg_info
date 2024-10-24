@@ -1,4 +1,0 @@
-NAME=dreadthread
-VERSION=0.1
-ARCHIVE_ROOT=dreadthread
-DISABLED_TOOLCHAIN=(emscripten)

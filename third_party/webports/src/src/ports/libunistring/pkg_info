@@ -1,8 +1,0 @@
-NAME=libunistring
-VERSION=0.9.3
-URL=http://ftp.gnu.org/gnu/libunistring/libunistring-0.9.3.tar.gz
-LICENSE=GPL
-DEPENDS=(glibc-compat)
-SHA1=e1ea13c24a30bc93932d19eb5ad0704a618506dd
-DISABLED_LIBC=(bionic)
-DISABLED_TOOLCHAIN=(emscripten)

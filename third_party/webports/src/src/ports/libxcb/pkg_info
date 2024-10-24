@@ -1,7 +1,0 @@
-NAME=libxcb
-VERSION=1.8.1
-URL=http://www.x.org/releases/X11R7.7/src/everything/libxcb-1.8.1.tar.bz2
-LICENSE=GPL
-DEPENDS=(glibc-compat xcb-proto libxau)
-SHA1=98199b6054750a06cddd4e77baa4354af547ce6f
-DISABLED_TOOLCHAIN=(emscripten)

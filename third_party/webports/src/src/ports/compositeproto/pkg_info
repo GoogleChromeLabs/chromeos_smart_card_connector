@@ -1,6 +1,0 @@
-NAME=compositeproto
-VERSION=0.4.2
-URL=http://www.x.org/releases/X11R7.7/src/everything/compositeproto-0.4.2.tar.bz2
-LICENSE=GPL
-SHA1=aa7b5abcfd5bbfad7cb681ce89dc1d6e381e3044
-DISABLED_TOOLCHAIN=(emscripten)

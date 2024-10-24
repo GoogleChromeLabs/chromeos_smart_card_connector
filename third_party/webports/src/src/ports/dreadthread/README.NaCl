@@ -1,6 +1,0 @@
-Renamed from pico to dreadthread due to project name collision.
-
-pico thread library's support for non-blocking I/O via pico_select was
-removed, since NaCl does not provide a select, poll, or epoll system
-calls.  Signal blocking/unblocking code was similarly removed, since
-NaCl doesn't have signals.

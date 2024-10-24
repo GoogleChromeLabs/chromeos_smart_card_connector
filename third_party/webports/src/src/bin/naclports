@@ -1,7 +1,0 @@
-#!/bin/bash
-# Copyright (c) 2014 The Native Client Authors. All rights reserved.
-# Use of this source code is governed by a BSD-style license that can be
-# found in the LICENSE file.
-SCRIPT_DIR=$(cd $(dirname "$BASH_SOURCE") && pwd)
-
-exec ${SCRIPT_DIR}/../build_tools/python_wrapper -m naclports $*

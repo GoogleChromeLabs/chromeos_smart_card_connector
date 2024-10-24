@@ -1,6 +1,0 @@
-NAME=ipython
-VERSION=2.1.0
-URL=http://archive.ipython.org/release/2.1.0/ipython-2.1.0.tar.gz
-LICENSE=BSD
-DEPENDS=(python-host)
-SHA1=e80c30388cbe576038a78fc8ebb159cddae84fb4

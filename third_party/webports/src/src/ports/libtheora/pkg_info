@@ -1,7 +1,0 @@
-NAME=libtheora
-VERSION=1.1.1
-URL=http://downloads.xiph.org/releases/theora/libtheora-1.1.1.tar.bz2
-LICENSE=BSD:COPYING
-DEPENDS=(libogg)
-SHA1=8dcaa8e61cd86eb1244467c0b64b9ddac04ae262
-DISABLED_TOOLCHAIN=(emscripten)

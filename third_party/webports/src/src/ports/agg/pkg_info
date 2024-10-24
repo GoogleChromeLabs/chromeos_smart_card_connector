@@ -1,7 +1,0 @@
-NAME=agg
-VERSION=2.5
-URL=http://www.antigrain.com/agg-2.5.tar.gz
-LICENSE=GPL
-DEPENDS=(freetype)
-SHA1=08f23da64da40b90184a0414369f450115cdb328
-DISABLED_TOOLCHAIN=(emscripten)

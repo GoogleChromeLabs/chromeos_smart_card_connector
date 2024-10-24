@@ -1,8 +1,0 @@
-NAME=xz
-VERSION=5.2.0
-URL=http://tukaani.org/xz/xz-5.2.0.tar.xz
-LICENSE=GPL
-SHA1=586e4a49330b3a483d95965bac295120bd2e8917
-DEPENDS=(glibc-compat nacl-spawn)
-DISABLED_LIBC=(bionic)
-DISABLED_TOOLCHAIN=(emscripten)

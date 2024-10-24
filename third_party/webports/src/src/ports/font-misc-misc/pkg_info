@@ -1,9 +1,0 @@
-NAME=font-misc-misc
-VERSION=1.1.2
-URL=http://www.x.org/releases/X11R7.7/src/everything/font-misc-misc-1.1.2.tar.bz2
-LICENSE=GPL
-DEPENDS=(font-util)
-SHA1=c6d28c56880807963175cbbd682fb6f75a35f77d
-# Disabled on OSX due to lack of mkfontdir.
-BUILD_OS=linux
-DISABLED_TOOLCHAIN=(emscripten)

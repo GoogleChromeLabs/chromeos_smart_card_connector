@@ -1,8 +1,0 @@
-NAME=sdl2-gfx
-VERSION=1.0.0
-ARCHIVE_ROOT=SDL2_gfx-1.0.0
-URL=http://www.ferzkopp.net/Software/SDL2_gfx/SDL2_gfx-1.0.0.tar.gz
-DEPENDS=(sdl2)
-LICENSE=ZLIB
-SHA1=6b83f57a62a3d2a3850a56902a008d801c799ff8
-DISABLED_TOOLCHAIN=(emscripten)

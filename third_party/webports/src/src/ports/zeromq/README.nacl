@@ -1,8 +1,0 @@
-This is a preliminary port of ZeroMQ; because of port and socket permissions
-this will not be particularly useful for all use cases to which ZeroMQ would
-normally be applied, but it will compile and enable local communication
-internal to a process.
-
-Future revisions and integration with nacl_io may enable it to be used as a
-websocket provider, easing communication between C/C++/Python libraries with
-websockets to the browser.

@@ -1,9 +1,0 @@
-NAME=twm
-ARCHIVE_ROOT=twm
-VERSION=X11R6-xc-fix13
-URL=http://xwinman.org/archive/twm/twm-X11R6-xc-fix13.tar.gz
-LICENSE=GPL
-DISABLED_LIBC=(bionic)
-DEPENDS=(glibc-compat xbitmaps libx11 libxcb libxmu libxext libxau libxt libice libsm nacl-spawn)
-SHA1=c89b1c4e094826a32c9d9e4b7a7b4e9877025a1f
-DISABLED_TOOLCHAIN=(emscripten)

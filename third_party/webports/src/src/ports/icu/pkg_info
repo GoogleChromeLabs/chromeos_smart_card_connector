@@ -1,7 +1,0 @@
-NAME=icu
-VERSION=53.1
-ARCHIVE_ROOT=icu
-DISABLED_LIBC=(bionic)
-URL=http://download.icu-project.org/files/icu4c/53.1/icu4c-53_1-src.tgz
-SHA1=7eca017fdd101e676d425caaf28ef862d3655e0f
-DISABLED_TOOLCHAIN=(emscripten)

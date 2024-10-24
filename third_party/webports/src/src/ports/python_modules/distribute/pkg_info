@@ -1,6 +1,0 @@
-NAME=distribute
-VERSION=0.6.28
-URL=http://pypi.python.org/packages/source/d/distribute/distribute-0.6.28.tar.gz
-LICENSE=PSF
-DEPENDS=(python-host pyparsing setuptools)
-SHA1=709bd97d46050d69865d4b588c7707768dfe6711

@@ -1,6 +1,0 @@
-NAME=openjpeg
-VERSION=2.1.0
-URL=http://download.sf.net/openjpeg.mirror/2.1.0/openjpeg-2.1.0.tar.gz
-LICENSE=BSD
-SHA1=c2a255f6b51ca96dc85cd6e85c89d300018cb1cb
-DISABLED_TOOLCHAIN=(emscripten)
