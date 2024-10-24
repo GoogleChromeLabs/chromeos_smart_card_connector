@@ -38,7 +38,6 @@ LIBS := \
 	google_smart_card_ccid \
 	google_smart_card_libusb \
 	google_smart_card_common \
-	$(DEFAULT_NACL_LIBS) \
 
 DEPS :=
 
@@ -60,27 +59,12 @@ ifeq ($(TOOLCHAIN),emscripten)
 SOURCES += \
 	$(SOURCES_DIR)/entry_point_emscripten.cc \
 
-else ifeq ($(TOOLCHAIN),pnacl)
-
-# Native Client specific build definitions:
-
-SOURCES += \
-	$(SOURCES_DIR)/entry_point_nacl.cc \
-
-LIBS += \
-	nacl_io \
-
-DEPS += \
-	nacl_io \
-
-$(eval $(call DEPEND_RULE,nacl_io))
-
 else ifeq ($(TOOLCHAIN),coverage)
 
 # Coverage-specific build definitions:
 
 # * "empty_main": Provides an empty main() function, to avoid linking errors as
-#   NaCl/Emscripten builds don't need main().
+#   Emscripten builds don't need main().
 SOURCES += \
 	$(ROOT_PATH)/common/cpp/src/empty_main.cc \
 

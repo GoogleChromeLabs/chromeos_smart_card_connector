@@ -40,7 +40,6 @@ JS_TO_CXX_TEST_EMSCRIPTEN_LIBS := \
 	$(INTEGRATION_TESTING_LIB) \
 	google_smart_card_common \
 
-# TODO(emaxx): This is duplicated with build_nacl.mk; share it via a file.
 JS_TO_CXX_TEST_JS_COMPILER_INPUTS := \
 	$(INTEGRATION_TESTING_JS_COMPILER_INPUT_DIR_PATHS) \
 	$(JS_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \

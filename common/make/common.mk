@@ -32,8 +32,8 @@ endif
 
 # Supported values: "Release" (default), "Debug".
 CONFIG ?= Release
-# Supported values: "emscripten" (Emscripten/WebAssembly; default), "pnacl"
-# (Portable Native Client).
+# Supported values: "emscripten" (Emscripten/WebAssembly; default),
+# "asan_testing", "coverage".
 TOOLCHAIN ?= emscripten
 # Build parameter that specifies the packaging type. Supported values: "app"
 # (default), "extension".

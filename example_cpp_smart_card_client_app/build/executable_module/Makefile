@@ -41,18 +41,12 @@ ifeq ($(TOOLCHAIN),emscripten)
 SOURCES += \
 	$(SOURCES_DIR)/entry_point_emscripten.cc \
 
-else ifeq ($(TOOLCHAIN),pnacl)
-
-# Sources specific to NaCl builds:
-SOURCES += \
-	$(SOURCES_DIR)/entry_point_nacl.cc \
-
 else ifeq ($(TOOLCHAIN),coverage)
 
 # Sources specific to Coverage builds:
 #
 # * "empty_main": Provides an empty main() function, to avoid linking errors as
-#   NaCl/Emscripten builds don't need main().
+#   Emscripten builds don't need main().
 SOURCES += \
 	$(ROOT_PATH)/common/cpp/src/empty_main.cc \
 
@@ -64,7 +58,6 @@ LIBS := \
 	google_smart_card_pcsc_lite_common \
 	google_smart_card_pcsc_lite_client \
 	google_smart_card_common \
-	$(DEFAULT_NACL_LIBS) \
 
 CPPFLAGS := \
 	-I$(SOURCES_DIR) \
