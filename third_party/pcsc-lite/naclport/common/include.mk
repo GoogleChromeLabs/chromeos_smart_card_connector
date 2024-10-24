@@ -33,12 +33,21 @@
 
 PCSC_LITE_DIR_PATH := $(THIRD_PARTY_DIR_PATH)/pcsc-lite
 
-
 PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH := $(PCSC_LITE_DIR_PATH)/src/src/PCSC
-
 
 PCSC_LITE_COMMON_DIR_PATH := $(PCSC_LITE_DIR_PATH)/naclport/common
 
-
 PCSC_LITE_COMMON_JS_COMPILER_INPUT_DIR_PATHS := \
 	$(PCSC_LITE_COMMON_DIR_PATH)/src
+
+# Path under which driver files are to be put in the resulting application's
+# file system.
+#
+# It's a relative path, so that it works both inside the Smart Card Connector
+# application and in unit tests.
+PCSC_LITE_DRIVER_INSTALLATION_PATH := executable-module-filesystem/pcsc/drivers
+
+# Architecture that PC/SC-Lite is built for.
+#
+# It's currently only used to construct the driver .so file path.
+PCSC_LITE_ARCHITECTURE := Linux
