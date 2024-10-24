@@ -22,8 +22,7 @@
 # "-f" flag in order to enforce overwriting the existing state.
 #
 # Pass "-t <target>" in order to initialize only dependencies needed for
-# building with the target ("<target>" can be one of "emscripten", "pnacl"
-# or "eslint").
+# building with the target ("<target>" can be one of "emscripten", "eslint").
 
 
 set -eu
@@ -58,9 +57,6 @@ initialize_python3_venv() {
   curl https://bootstrap.pypa.io/get-pip.py | python3
   # Install Pip modules we need.
   python3 -m pip install -r ./pip3_requirements.txt
-  # Exit venv - we can't have it on by default as NaCl-related steps need
-  # Python 2.
-  deactivate
   log_message "python3_venv was created successfully."
 }
 
@@ -75,111 +71,6 @@ initialize_emscripten() {
   ./emsdk/emsdk install "${EMSCRIPTEN_VERSION}"
   ./emsdk/emsdk activate "${EMSCRIPTEN_VERSION}"
   log_message "Emscripten was installed successfully."
-}
-
-initialize_depot_tools() {
-  if [ -d ./depot_tools -a "${force_reinitialization}" -eq "0" ]; then
-    log_message "depot_tools already present, skipping."
-    return
-  fi
-  log_message "Installing depot_tools..."
-  rm -rf ./depot_tools
-  git clone "${DEPOT_TOOLS_REPOSITORY_URL}" depot_tools
-  PATH="${SCRIPTPATH}/depot_tools:${PATH}"
-  log_message "depot_tools were installed successfully."
-}
-
-# Creates a complete installation of Python 2 locally, instead of relying on
-# system-wide Python 2 installations that become increasingly cumbersome due to
-# sunset of Python 2. We need Python 2 as long as we keep using NaCl.
-initialize_python2() {
-  if [ -d ./python2_venv -a "${force_reinitialization}" -eq "0" ]; then
-    log_message "Python 2 already present, skipping."
-    return
-  fi
-  log_message "Installing Python 2..."
-  rm -rf ./python2 python2_venv
-  mkdir ./python2
-  # Download Python 2 sources.
-  wget https://www.python.org/ftp/python/2.7.18/Python-2.7.18.tgz
-  tar -zxf Python-2.7.18.tgz
-  rm -rf Python-2.7.18.tgz
-  # Build Python 2.
-  cd Python-2.7.18
-  ./configure --prefix=$(realpath ../python2/)
-  make -j30 -s
-  make install -s
-  cd ..
-  # Clean up Python 2 sources.
-  rm -rf ./Python-2.7.18
-  # Install Pip 2.
-  curl https://bootstrap.pypa.io/pip/2.7/get-pip.py | python2/bin/python
-  # Install Virtualenv.
-  python2/bin/pip install virtualenv
-  # Create virtual environment.
-  python2/bin/virtualenv -p python2/bin/python ./python2_venv
-  source ./python2_venv/bin/activate
-  # Install needed Pip packages.
-  pip2 install -r pip2_requirements.txt
-  # Exit Python 2 virtual environment: it should only be used in steps that
-  # actually need Python 2.
-  deactivate
-  log_message "Python 2 was installed successfully."
-}
-
-initialize_nacl_sdk() {
-  export NACL_SDK_ROOT="${SCRIPTPATH}/nacl_sdk/pepper_${NACL_SDK_VERSION}"
-  if [ -d ./nacl_sdk -a "${force_reinitialization}" -eq "0" ]; then
-    log_message "Native Client SDK already present, skipping."
-    return
-  fi
-  log_message "Installing Native Client SDK (version ${NACL_SDK_VERSION})..."
-  # Prepare NaCl SDK installation scripts.
-  rm -rf nacl_sdk
-  cp -r ../third_party/nacl_sdk/nacl_sdk .
-  # Enter the virtual environment - the NaCl SDK scripts still use Python 2.
-  source ./python2_venv/bin/activate
-  # Set up the complete SDK with the given version.
-  python2 nacl_sdk/sdk_tools/sdk_update_main.py install pepper_${NACL_SDK_VERSION}
-  # Exit the Python 2 virtual environment, to avoid affecting steps that don't
-  # need it.
-  deactivate
-  log_message "Native Client SDK was installed successfully."
-}
-
-initialize_webports() {
-  if [ -d ./webports -a "${force_reinitialization}" -eq "0" ]; then
-    log_message "webports already present, skipping."
-    return
-  fi
-  log_message "Installing webports (with building the following libraries: ${WEBPORTS_TARGETS})..."
-  # Prepare the webports installation scripts.
-  rm -rf webports
-  cp -r ../third_party/webports/src webports
-  # Enter the virtual environment - the webports scripts still use Python 2 (as
-  # they are based on NaCl).
-  source ./python2_venv/bin/activate
-  # Install and build the needed webports libraries.
-  cd webports
-  tar -zxf git.tar.gz
-  gclient runhooks
-  cd src
-  local failed_targets=
-  local webport_target
-  for webport_target in ${WEBPORTS_TARGETS}; do
-    if ! NACL_ARCH=pnacl TOOLCHAIN=pnacl make ${webport_target} ; then
-      local failed_targets="${failed_targets} ${webport_target}"
-    fi
-  done
-  cd ${SCRIPTPATH}
-  # Exit the Python 2 virtual environment, to avoid affecting steps that don't
-  # need it.
-  deactivate
-  if [[ ${failed_targets} ]]; then
-    log_error_message "webports were installed, but the following libraries failed to build:${failed_targets}. You have to fix them manually. Continuing the initialization script..."
-  else
-    log_message "webports were installed successfully."
-  fi
 }
 
 initialize_npm() {
@@ -241,13 +132,8 @@ initialize_chromedriver() {
 }
 
 create_activate_script() {
-  # Note we don't put python3_venv activation here, since legacy NaCl build
-  # scripts still use Python 2.
   log_message "Creating \"activate\" script..."
   echo > activate
-  if [[ "${target}" == "" || "${target}" == "pnacl" ]]; then
-    echo "export NACL_SDK_ROOT=${NACL_SDK_ROOT}" >> activate
-  fi
   if [[ "${target}" == "" || "${target}" == "emscripten" ]]; then
     echo "source ${SCRIPTPATH}/emsdk/emsdk_env.sh" >> activate
   fi
@@ -275,21 +161,12 @@ while getopts ":ft:" opt; do
   esac
 done
 
-if [[ "${target}" == "" || "${target}" == "emscripten" || "${target}" == "pnacl" ]]; then
+if [[ "${target}" == "" || "${target}" == "emscripten" ]]; then
   initialize_python3_venv
 fi
 
 if [[ "${target}" == "" || "${target}" == "emscripten" ]]; then
   initialize_emscripten
-fi
-
-if [[ "${target}" == "" || "${target}" == "pnacl" ]]; then
-  initialize_depot_tools
-  initialize_python2
-  # Depends on depot_tools and python2.
-  initialize_nacl_sdk
-  # Depends on nacl_sdk and python2.
-  initialize_webports
 fi
 
 if [[ "${target}" == "" || "${target}" == "eslint" ]]; then
@@ -298,7 +175,7 @@ if [[ "${target}" == "" || "${target}" == "eslint" ]]; then
   initialize_eslint
 fi
 
-if [[ "${target}" == "" || "${target}" == "emscripten" || "${target}" == "pnacl" ]]; then
+if [[ "${target}" == "" || "${target}" == "emscripten" ]]; then
   initialize_chromedriver
 fi
 

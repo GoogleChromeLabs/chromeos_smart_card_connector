@@ -1,7 +1,7 @@
 name: 'Install build dependencies'
 inputs:
   toolchain:
-    description: '"emscripten", "pnacl", "asan_testing", "coverage" or "eslint"'
+    description: '"emscripten", "asan_testing", "coverage" or "eslint"'
     required: true
 timeout-minutes: 10
 runs:
