@@ -50,8 +50,6 @@ include $(ROOT_PATH)/common/make/executable_building.mk
 # Load the toolchain-specific file.
 ifeq ($(TOOLCHAIN),emscripten)
 include $(ROOT_PATH)/common/cpp_unit_test_runner/src/build_emscripten.mk
-else ifeq ($(TOOLCHAIN),pnacl)
-include $(ROOT_PATH)/common/cpp_unit_test_runner/src/build_nacl.mk
 else ifeq ($(TOOLCHAIN),asan_testing)
 include $(ROOT_PATH)/common/cpp_unit_test_runner/src/build_analysis.mk
 else ifeq ($(TOOLCHAIN),coverage)

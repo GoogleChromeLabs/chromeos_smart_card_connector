@@ -27,7 +27,7 @@ set -eu
 
 BUILT_APP_PACKAGES_DIR="built_app_packages"
 CONFIGS="Release Debug"
-TOOLCHAINS="emscripten pnacl asan_testing coverage"
+TOOLCHAINS="emscripten asan_testing coverage"
 
 
 log_message() {
@@ -42,23 +42,7 @@ clean_dir_with_toolchain_and_config() {
 
 	log_message "Cleaning \"${toolchain}\" \"${config}\"..."
 
-	if [ "${toolchain}" = pnacl ]; then
-		# NaCl build scripts still use Python 2, so enter the virtual environment.
-		VENV_ACTIVATE="env/python2_venv/bin/activate"
-		if [ -f "$VENV_ACTIVATE" ]; then
-		 	source $VENV_ACTIVATE
-		else
-			log_message "Skipping \"pnacl\" \"${config}\" clean, virtual environment was not initialized."
-			return
-		fi
-	fi
-
 	TOOLCHAIN=${toolchain} CONFIG=${config} make clean -j10 || true
-
-	if [ "${toolchain}" = pnacl ]; then
-		# Exit the virtual environment to avoid using Python 2 when it's not needed.
-		deactivate
-	fi
 }
 
 clean_built_app_packages() {

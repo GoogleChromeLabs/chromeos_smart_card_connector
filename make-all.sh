@@ -47,18 +47,8 @@ make_specific_configuration() {
 
 	log_message "Building ${targets} in mode \"${toolchain} ${packaging} ${config}\"..."
 
-	if [ "${toolchain}" = pnacl ]; then
-		# NaCl build scripts still use Python 2, so enter the virtual environment.
-		source env/python2_venv/bin/activate
-	fi
-
 	TOOLCHAIN=${toolchain} CONFIG=${config} PACKAGING=${packaging} \
 		make -C ${build_dir} ${targets} -j10
-
-	if [ "${toolchain}" = pnacl ]; then
-		# Exit the virtual environment to avoid using Python 2 when it's not needed.
-		deactivate
-	fi
 
 	log_message "Successfully built ${targets} in mode \"${toolchain} ${packaging} ${config}\"."
 }

@@ -53,8 +53,6 @@ INTEGRATION_TESTING_JS_COMPILER_INPUT_DIR_PATHS := \
 # Load the toolchain-specific file.
 ifeq ($(TOOLCHAIN),emscripten)
 include $(ROOT_PATH)/common/integration_testing/src/build_emscripten.mk
-else ifeq ($(TOOLCHAIN),pnacl)
-include $(ROOT_PATH)/common/integration_testing/src/build_nacl.mk
 else
 $(error Unexpected TOOLCHAIN "$(TOOLCHAIN)".)
 endif

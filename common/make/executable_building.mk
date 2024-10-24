@@ -59,8 +59,6 @@
 # Load the toolchain-specific file.
 ifeq ($(TOOLCHAIN),emscripten)
 include $(COMMON_DIR_PATH)/make/internal/executable_building_emscripten.mk
-else ifeq ($(TOOLCHAIN),pnacl)
-include $(COMMON_DIR_PATH)/make/internal/executable_building_nacl.mk
 else ifeq ($(TOOLCHAIN),asan_testing)
 include $(COMMON_DIR_PATH)/make/internal/executable_building_analysis.mk
 else ifeq ($(TOOLCHAIN),coverage)

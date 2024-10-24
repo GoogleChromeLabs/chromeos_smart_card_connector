@@ -14,9 +14,6 @@
 
 # This Makefile builds GoogleTest and GoogleMock static libraries for usage in
 # Emscripten/"analysis" builds for creating test executables.
-#
-# Note: This Makefile isn't supported in Native Client builds, since NaCl's
-# webports project already provides a NaCl-ported version of GoogleTest.
 
 TARGET := googletest
 
