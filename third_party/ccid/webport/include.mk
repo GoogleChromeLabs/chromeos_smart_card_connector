@@ -35,10 +35,3 @@ CCID_DIR_PATH := $(THIRD_PARTY_DIR_PATH)/ccid
 
 CCID_SUPPORTED_READERS_CONFIG_PATH := \
 	$(CCID_DIR_PATH)/src/readers/supported_readers.txt
-
-
-#
-# Helper target that generates the library's out directory.
-#
-
-$(eval $(call DEFINE_OUT_GENERATION,CCID_OUT,$(CCID_DIR_PATH)/webport/build,google_smart_card_ccid))

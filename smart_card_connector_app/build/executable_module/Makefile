@@ -97,6 +97,3 @@ $(eval $(call ADD_RESOURCE_RULE, \
 # Rules for compiling source files and linking them into an executable binary.
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 $(eval $(call LINK_EXECUTABLE_RULE,$(SOURCES),$(LIBS),$(DEPS),$(LDFLAGS)))
-
-# Rules for copying PC/SC-Lite config files into the resulting out/ folder.
-$(eval $(call COLLECT_DEPENDENCY_OUT,$(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_OUT)))

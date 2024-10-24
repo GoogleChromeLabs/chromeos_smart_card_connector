@@ -252,55 +252,6 @@ CHROME_ARGS ?= \
 
 
 #
-# Macro rule that defines helper variables and rules that allow to depend on
-# building of the out directory by some other library (see also the
-# COLLECT_DEPENDENCY_OUT macro rule).
-#
-# Arguments:
-#    $1: Name of the variable that should be assigned with the path to the
-#				 desired out directory.
-#    $2: Path to the other library build directory.
-#    $3: Target name of the other library.
-#
-
-define DEFINE_OUT_GENERATION
-
-$(1) := $(2)/$(OUT_DIR_ROOT_PATH)/$(3)
-
-.PHONY: generate_out_$(2)/$(OUT_DIR_ROOT_PATH)/$(3)
-
-generate_out_$(2)/$(OUT_DIR_ROOT_PATH)/$(3):
-	+$(MAKE) -C $(2) generate_out
-
-endef
-
-
-#
-# Macro rule that adds rules for collecting some other's library out directory
-# and putting its contents into the own out directory.
-#
-# Arguments:
-#    $1: Path to the other library's out directory. It is assumed that there is
-#				 a special target generate_out_$1 defined that provides the building of
-#        this out directory (see the DEFINE_OUT_GENERATION macro rule that may
-#				 be used for providing this target).
-#
-
-define COLLECT_DEPENDENCY_OUT
-
-.PHONY: collect_dependency_out_$(1)
-
-collect_dependency_out_$(1): $(OUT_DIR_PATH) generate_out_$(1)
-	@cd $(1) && \
-		find . -type f \
-			-exec $(CURDIR)/$(call RACE_FREE_CP,{},$(CURDIR)/$(OUT_DIR_PATH)/{},true) \;
-
-generate_out: collect_dependency_out_$(1)
-
-endef
-
-
-#
 # Returns the items of the input list with duplicates being removed from it.
 #
 # Arguments:
