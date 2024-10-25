@@ -193,7 +193,7 @@ $(error Unsupported CONFIG=$(CONFIG) value.)
 endif
 
 # Documented at ../executable_building.mk.
-CXX_DIALECT := c++23
+CXX_DIALECT := c++20
 
 # The list of linker flags and dependencies for adding resource files (initially
 # empty, and added by ADD_RESOURCE_RULE).

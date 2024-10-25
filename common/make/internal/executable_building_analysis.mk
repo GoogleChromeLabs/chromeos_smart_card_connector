@@ -133,7 +133,7 @@ $(error Unsupported CONFIG=$(CONFIG) value.)
 endif
 
 # Documented at ../executable_building.mk.
-CXX_DIALECT := c++11
+CXX_DIALECT := c++20
 
 # Documented at ../executable_building.mk. The implementation is mostly similar
 # to the one at executable_building_emscripten.mk.
