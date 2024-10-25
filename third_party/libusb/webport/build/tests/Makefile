@@ -33,6 +33,7 @@ CXXFLAGS := \
 	-Wall \
 	-Werror \
 	-Wextra \
+	-Wno-deprecated-enum-enum-conversion \
 	-Wno-zero-length-array \
 	-std=$(CXX_DIALECT) \
 	$(TEST_ADDITIONAL_CXXFLAGS) \
