@@ -23,22 +23,8 @@ extern "C" {
 
 namespace google_smart_card {
 
-namespace {
-
-// Constructed as the concatenation of:
-// * path where the Info.plist config is installed at
-//   //smart_card_connector_app/build/executable_module/Makefile;
-// * the "Linux" string;
-// * the file name passed via "--target" to create_Info_plist.pl at
-//   ../build/Makefile.
-constexpr char kDriverFilePath[] =
-    "executable-module-filesystem/pcsc/drivers/ifd-ccid.bundle/Contents/Linux/"
-    "libccid.so";
-
-}  // namespace
-
 CcidPcscDriverAdaptor::CcidPcscDriverAdaptor()
-    : kFilePath_(kDriverFilePath),
+    : kFilePath_(CCID_SO_INSTALLATION_PATH),
       kFunctionPointers_({
           {"IFDHCloseChannel", reinterpret_cast<void*>(&IFDHCloseChannel)},
           {"IFDHControl", reinterpret_cast<void*>(&IFDHControl)},

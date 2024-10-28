@@ -127,8 +127,11 @@ $(foreach src,$(CCID_TOWITOKO_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CCID_
 CCID_WEBPORT_SOURCES := \
 	$(CCID_NACL_SOURCES_PATH)/ccid_pcsc_driver_adaptor.cc \
 
+# * Pass the "CCID_SO_INSTALLATION_PATH" constant to the C++ code.
+# * Specify include search paths.
 CCID_WEBPORT_CPPFLAGS := \
 	$(COMMON_CPPFLAGS) \
+	-DCCID_SO_INSTALLATION_PATH='"$(CCID_SO_INSTALLATION_PATH)"' \
 	-I$(ROOT_PATH) \
 	-I$(CCID_SOURCES_PATH) \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
