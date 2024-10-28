@@ -45,8 +45,7 @@ CCID_NACL_SOURCES_PATH := ../src
 # * log_msg and log_xxd are redefined in order to not collide with the symbols
 #   from the PC/SC-Lite server-side libraries;
 # * PCSCLITE_HP_DROPDIR constant points to the directory containing the configs
-#   for all PC/SC-Lite server drivers; use a relative path, so that it works
-#   both inside the Smart Card Connector app and in unit tests;
+#   for all PC/SC-Lite server drivers;
 COMMON_CPPFLAGS := \
 	-DIFDHCloseChannel=CCID_IFDHCloseChannel \
 	-DIFDHControl=CCID_IFDHControl \
@@ -61,7 +60,7 @@ COMMON_CPPFLAGS := \
 	-DHAVE_PTHREAD=1 \
 	-Dlog_msg=ccid_log_msg \
 	-Dlog_xxd=ccid_log_xxd \
-	-DPCSCLITE_HP_DROPDIR='"executable-module-filesystem/pcsc/drivers"' \
+	-DPCSCLITE_HP_DROPDIR='"$(PCSC_LITE_DRIVER_INSTALLATION_PATH)"' \
 	-Wall \
 
 CCID_SOURCES := \
@@ -85,7 +84,7 @@ CCID_SOURCES := \
 #   non-clean code;
 CCID_CPPFLAGS := \
 	$(COMMON_CPPFLAGS) \
-	-DBUNDLE='"ifd-ccid.bundle"' \
+	-DBUNDLE='"$(CCID_BUNDLE_NAME)"' \
 	-DUSE_SYSLOG \
 	-DVERSION='"$(CCID_VERSION)"' \
 	-D__linux \
@@ -128,8 +127,11 @@ $(foreach src,$(CCID_TOWITOKO_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CCID_
 CCID_WEBPORT_SOURCES := \
 	$(CCID_NACL_SOURCES_PATH)/ccid_pcsc_driver_adaptor.cc \
 
+# * Pass the "CCID_SO_INSTALLATION_PATH" constant to the C++ code.
+# * Specify include search paths.
 CCID_WEBPORT_CPPFLAGS := \
 	$(COMMON_CPPFLAGS) \
+	-DCCID_SO_INSTALLATION_PATH='"$(CCID_SO_INSTALLATION_PATH)"' \
 	-I$(ROOT_PATH) \
 	-I$(CCID_SOURCES_PATH) \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
@@ -155,7 +157,7 @@ Info.plist: $(CCID_SOURCES_PATH)/create_Info_plist.pl $(CCID_SUPPORTED_READERS_C
 	$(CCID_SOURCES_PATH)/create_Info_plist.pl \
 		$(CCID_SUPPORTED_READERS_CONFIG_PATH) \
 		$(CCID_SOURCES_PATH)/Info.plist.src \
-		--target=libccid.so \
+		--target=$(CCID_SO_NAME) \
 		--version=$(CCID_VERSION) > Info.plist.build
 	@mv Info.plist.build Info.plist
 

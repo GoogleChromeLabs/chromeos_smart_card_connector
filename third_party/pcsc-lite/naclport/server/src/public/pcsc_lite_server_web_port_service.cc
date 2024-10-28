@@ -86,8 +86,7 @@ PcscLiteServerWebPortService* g_pcsc_lite_server = nullptr;
 // it's only CCID driver's one).
 // The path must be relative, so that it works both inside the App/Extension as
 // well as in unit tests executed natively.
-constexpr char kDriverConfigPath[] =
-    "executable-module-filesystem/pcsc/drivers";
+constexpr char kDriverConfigPath[] = PCSC_LITE_DRIVER_INSTALLATION_PATH;
 
 constexpr char kLoggingPrefix[] = "[PC/SC-Lite NaCl port] ";
 
