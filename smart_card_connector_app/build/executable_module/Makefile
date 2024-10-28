@@ -17,11 +17,12 @@ TARGET := executable_module
 
 include ../../../common/make/common.mk
 include $(COMMON_DIR_PATH)/make/executable_building.mk
-include $(THIRD_PARTY_DIR_PATH)/ccid/webport/include.mk
 include $(THIRD_PARTY_DIR_PATH)/libusb/webport/include.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/common/include.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/server/include.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/server_clients_management/include.mk
+# Depends on pcsc-lite/naclport/common/include.mk.
+include $(THIRD_PARTY_DIR_PATH)/ccid/webport/include.mk
 
 
 # Common build definitions:
