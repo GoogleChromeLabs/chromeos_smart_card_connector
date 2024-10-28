@@ -19,6 +19,7 @@
 
 include ../../../../common/cpp_unit_test_runner/include.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/common/include.mk
+# Depends on pcsc-lite/naclport/common/include.mk.
 include $(ROOT_PATH)/third_party/ccid/webport/include.mk
 
 SOURCES := \

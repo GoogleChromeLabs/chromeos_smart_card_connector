@@ -27,6 +27,7 @@ include $(ROOT_PATH)/third_party/pcsc-lite/naclport/common/include.mk
 include $(ROOT_PATH)/third_party/pcsc-lite/naclport/js_client/include.mk
 include $(ROOT_PATH)/third_party/pcsc-lite/naclport/server/include.mk
 include $(ROOT_PATH)/third_party/pcsc-lite/naclport/server_clients_management/include.mk
+# Depends on pcsc-lite/naclport/common/include.mk.
 include $(ROOT_PATH)/third_party/ccid/webport/include.mk
 
 
