@@ -21,6 +21,8 @@ include ../../../../common/cpp_unit_test_runner/include.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/common/include.mk
 # Depends on pcsc-lite/naclport/common/include.mk.
 include $(ROOT_PATH)/third_party/ccid/webport/include.mk
+# Depends on pcsc-lite/naclport/common/include.mk.
+include $(THIRD_PARTY_DIR_PATH)/driver-hid5021/webport/include.mk
 
 SOURCES := \
 	../../../src/application_unittest.cc \
@@ -57,6 +59,9 @@ $(eval $(call ADD_RESOURCE_RULE, \
 $(eval $(call ADD_RESOURCE_RULE, \
 	$(ROOT_PATH)/third_party/ccid/webport/build/Info.plist, \
 	$(CCID_CONFIG_INSTALLATION_PATH)))
+$(eval $(call ADD_RESOURCE_RULE, \
+	$(ROOT_PATH)/third_party/driver-hid5021/src/Info.plist, \
+	$(DRIVER5021_CONFIG_INSTALLATION_PATH)))
 
 # Rules for compiling the test source files and linking them into a resulting
 # executable binary.

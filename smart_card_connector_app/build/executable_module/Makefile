@@ -23,6 +23,8 @@ include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/server/include.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/server_clients_management/include.mk
 # Depends on pcsc-lite/naclport/common/include.mk.
 include $(THIRD_PARTY_DIR_PATH)/ccid/webport/include.mk
+# Depends on pcsc-lite/naclport/common/include.mk.
+include $(THIRD_PARTY_DIR_PATH)/driver-hid5021/webport/include.mk
 
 
 # Common build definitions:
@@ -94,6 +96,9 @@ $(eval $(call ADD_RESOURCE_RULE, \
 $(eval $(call ADD_RESOURCE_RULE, \
 	$(ROOT_PATH)/third_party/ccid/webport/build/Info.plist, \
 	$(CCID_CONFIG_INSTALLATION_PATH)))
+$(eval $(call ADD_RESOURCE_RULE, \
+  $(ROOT_PATH)/third_party/driver-hid5021/src/Info.plist, \
+  $(DRIVER5021_CONFIG_INSTALLATION_PATH)))
 
 # Rules for compiling source files and linking them into an executable binary.
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))

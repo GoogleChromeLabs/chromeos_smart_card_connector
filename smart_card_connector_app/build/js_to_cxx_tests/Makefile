@@ -29,6 +29,8 @@ include $(ROOT_PATH)/third_party/pcsc-lite/naclport/server/include.mk
 include $(ROOT_PATH)/third_party/pcsc-lite/naclport/server_clients_management/include.mk
 # Depends on pcsc-lite/naclport/common/include.mk.
 include $(ROOT_PATH)/third_party/ccid/webport/include.mk
+# Depends on pcsc-lite/naclport/common/include.mk.
+include $(THIRD_PARTY_DIR_PATH)/driver-hid5021/webport/include.mk
 
 
 SOURCE_DIR := $(ROOT_PATH)/smart_card_connector_app/src/
@@ -88,11 +90,14 @@ $(foreach src,$(CXX_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 $(eval $(call ADD_RESOURCE_RULE, \
   $(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src/fake_socket_file, \
   executable-module-filesystem/pcsc/fake_socket_file))
-# * Info.plist: it's a driver config for the CCID driver; at runtime, the PC/SC
-#   daemon code reads parameters from this config to call into CCID.
+# * Info.plist: these are driver configs; at runtime, the PC/SC daemon code
+#   reads parameters from these configs to call into the drivers.
 $(eval $(call ADD_RESOURCE_RULE, \
   $(ROOT_PATH)/third_party/ccid/webport/build/Info.plist, \
   $(CCID_CONFIG_INSTALLATION_PATH)))
+$(eval $(call ADD_RESOURCE_RULE, \
+  $(ROOT_PATH)/third_party/driver-hid5021/src/Info.plist, \
+  $(DRIVER5021_CONFIG_INSTALLATION_PATH)))
 
 # Targets that build the resulting executable module and JS tests.
 $(eval $(call BUILD_JS_TO_CXX_TEST,$(CXX_SOURCES),$(LIBS),$(JS_SOURCES_PATHS)))
