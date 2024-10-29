@@ -17,11 +17,12 @@ TARGET := executable_module
 
 include ../../../common/make/common.mk
 include $(COMMON_DIR_PATH)/make/executable_building.mk
-include $(THIRD_PARTY_DIR_PATH)/ccid/webport/include.mk
 include $(THIRD_PARTY_DIR_PATH)/libusb/webport/include.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/common/include.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/server/include.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/server_clients_management/include.mk
+# Depends on pcsc-lite/naclport/common/include.mk.
+include $(THIRD_PARTY_DIR_PATH)/ccid/webport/include.mk
 
 
 # Common build definitions:
@@ -76,11 +77,8 @@ $(eval $(call ADD_RESOURCE_RULE, \
 	executable-module-filesystem/pcsc/fake_socket_file))
 $(eval $(call ADD_RESOURCE_RULE, \
 	$(ROOT_PATH)/third_party/ccid/webport/build/Info.plist, \
-	executable-module-filesystem/pcsc/drivers/ifd-ccid.bundle/Contents/Info.plist))
+	$(CCID_CONFIG_INSTALLATION_PATH)))
 
 # Rules for compiling source files and linking them into an executable binary.
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 $(eval $(call LINK_EXECUTABLE_RULE,$(SOURCES),$(LIBS),$(DEPS),$(LDFLAGS)))
-
-# Rules for copying PC/SC-Lite config files into the resulting out/ folder.
-$(eval $(call COLLECT_DEPENDENCY_OUT,$(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_OUT)))

@@ -15,8 +15,10 @@
 #include "smart_card_connector_app/src/application.h"
 
 #include <functional>
+#include <memory>
 #include <thread>
 #include <utility>
+#include <vector>
 
 #include "common/cpp/src/public/global_context.h"
 #include "common/cpp/src/public/logging/logging.h"
@@ -25,12 +27,25 @@
 #include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_conversion.h"
+#include "third_party/ccid/webport/src/ccid_pcsc_driver_adaptor.h"
 #include "third_party/libusb/webport/src/public/libusb_web_port_service.h"
+#include "third_party/pcsc-lite/naclport/driver_interface/src/pcsc_driver_adaptor.h"
 #include "third_party/pcsc-lite/naclport/server/src/public/pcsc_lite_server_web_port_service.h"
 #include "third_party/pcsc-lite/naclport/server_clients_management/src/google_smart_card_pcsc_lite_server_clients_management/backend.h"
 #include "third_party/pcsc-lite/naclport/server_clients_management/src/google_smart_card_pcsc_lite_server_clients_management/ready_message.h"
 
 namespace google_smart_card {
+
+namespace {
+
+// Creates adaptors for all enabled PC/SC-Lite drivers.
+std::vector<std::unique_ptr<PcscDriverAdaptor>> GetDriverAdaptors() {
+  std::vector<std::unique_ptr<PcscDriverAdaptor>> drivers;
+  drivers.push_back(MakeUnique<CcidPcscDriverAdaptor>());
+  return drivers;
+}
+
+}  // namespace
 
 Application::Application(
     GlobalContext* global_context,
@@ -45,7 +60,8 @@ Application::Application(
       pcsc_lite_server_web_port_service_(
           MakeUnique<PcscLiteServerWebPortService>(
               global_context_,
-              libusb_web_port_service_.get())) {
+              libusb_web_port_service_.get(),
+              GetDriverAdaptors())) {
   ScheduleServicesInitialization();
 }
 

@@ -57,6 +57,7 @@ PCSC_LITE_SOURCES_PATH := $(PCSC_LITE_DIR_PATH)/src/src
 #   inside the Smart Card Connector app and in unit tests.
 COMMON_CPPFLAGS := \
 	-DFAKE_PCSC_NACL_SOCKET_FILE_NAME='"executable-module-filesystem/pcsc/fake_socket_file"' \
+	-DPCSC_LITE_DRIVER_INSTALLATION_PATH='"$(PCSC_LITE_DRIVER_INSTALLATION_PATH)"' \
 	-I$(ROOT_PATH) \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 
@@ -66,9 +67,8 @@ COMMON_CPPFLAGS := \
 #   library (its NaCl port is located under the ../../../../libusb directory);
 # * HAVE_SYSLOG_H enables emitting log messages through syslog (which is faked
 #   to use the common logging primitives from the /common/cpp library);
-# * PCSC_ARCH constant tells to use the code corresponding to Linux platform
-#   (actually, in the current NaCl port no functionality is influenced by this
-#   constant);
+# * PCSC_ARCH constant specifies the target architecture (it's used for
+#   constructing the paths for each driver's .so file);
 # * USE_IPCDIR constant is just a stub for making the original PC/SC-Lite code
 #   compiling;
 # * USE_USB definition enables the PC/SC-Lite support of USB readers (as
@@ -78,7 +78,7 @@ PCSC_LITE_COMMON_CPPFLAGS := \
 	-DDEBUG_HOTPLUG \
 	-DHAVE_LIBUSB \
 	-DHAVE_SYSLOG_H \
-	-DPCSC_ARCH='"Linux"' \
+	-DPCSC_ARCH='"$(PCSC_LITE_ARCHITECTURE)"' \
 	-DUSE_IPCDIR='"IPCDIR_is_not_expected_to_be_used"' \
 	-DUSE_USB \
 	-I$(ROOT_PATH)/common/cpp/src/public/logging/syslog \

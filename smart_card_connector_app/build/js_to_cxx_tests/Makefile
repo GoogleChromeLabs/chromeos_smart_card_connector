@@ -22,12 +22,13 @@ include $(ROOT_PATH)/common/make/js_building_common.mk
 include $(ROOT_PATH)/common/make/executable_building.mk
 include $(ROOT_PATH)/common/js/include.mk
 include $(ROOT_PATH)/common/integration_testing/include.mk
-include $(ROOT_PATH)/third_party/ccid/webport/include.mk
 include $(ROOT_PATH)/third_party/libusb/webport/include.mk
 include $(ROOT_PATH)/third_party/pcsc-lite/naclport/common/include.mk
 include $(ROOT_PATH)/third_party/pcsc-lite/naclport/js_client/include.mk
 include $(ROOT_PATH)/third_party/pcsc-lite/naclport/server/include.mk
 include $(ROOT_PATH)/third_party/pcsc-lite/naclport/server_clients_management/include.mk
+# Depends on pcsc-lite/naclport/common/include.mk.
+include $(ROOT_PATH)/third_party/ccid/webport/include.mk
 
 
 SOURCE_DIR := $(ROOT_PATH)/smart_card_connector_app/src/
@@ -82,7 +83,7 @@ $(eval $(call ADD_RESOURCE_RULE, \
 #   daemon code reads parameters from this config to call into CCID.
 $(eval $(call ADD_RESOURCE_RULE, \
   $(ROOT_PATH)/third_party/ccid/webport/build/Info.plist, \
-  executable-module-filesystem/pcsc/drivers/ifd-ccid.bundle/Contents/Info.plist))
+  $(CCID_CONFIG_INSTALLATION_PATH)))
 
 # Targets that build the resulting executable module and JS tests.
 $(eval $(call BUILD_JS_TO_CXX_TEST,$(CXX_SOURCES),$(LIBS),$(JS_SOURCES_PATHS)))
