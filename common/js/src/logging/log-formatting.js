@@ -48,12 +48,9 @@ systemLogFormatter.showSeverityLevel = true;
 
 /**
  * @param {string} documentLocation
- * @param {boolean} isCompact
  * @return {string}
  */
-function getFormattedDocumentLocation(documentLocation, isCompact) {
-  if (!isCompact)
-    return `<${documentLocation}>`;
+function getFormattedDocumentLocation(documentLocation) {
   let uri;
   try {
     uri = goog.Uri.parse(documentLocation);
@@ -68,13 +65,12 @@ function getFormattedDocumentLocation(documentLocation, isCompact) {
 /**
  * @param {string} documentLocation
  * @param {!goog.log.LogRecord} logRecord
- * @param {boolean} isCompact
  * @return {!goog.log.LogRecord}
  */
-function prefixLogRecord(documentLocation, logRecord, isCompact) {
+function prefixLogRecord(documentLocation, logRecord) {
   const loggerNameParts = [];
   const formattedDocumentLocation =
-      getFormattedDocumentLocation(documentLocation, isCompact);
+      getFormattedDocumentLocation(documentLocation);
   if (formattedDocumentLocation)
     loggerNameParts.push(formattedDocumentLocation);
   if (logRecord.getLoggerName())
@@ -85,19 +81,6 @@ function prefixLogRecord(documentLocation, logRecord, isCompact) {
       logRecord.getLevel(), logRecord.getMessage(), prefixedLoggerName,
       logRecord.getMillis(), logRecord.getSequenceNumber());
 }
-
-/**
- * Returns a formatted representation of the log record suitable for logging
- * into NaCl stderr console.
- * @param {string} documentLocation
- * @param {!goog.log.LogRecord} logRecord
- * @return {string}
- */
-GSC.LogFormatting.formatLogRecordForNaclStderr = function(
-    documentLocation, logRecord) {
-  return defaultFormatter.formatRecord(
-      prefixLogRecord(documentLocation, logRecord, /*isCompact=*/ false));
-};
 
 /**
  * Returns a formatted representation of the log record suitable for the log
@@ -111,7 +94,7 @@ GSC.LogFormatting.formatLogRecordForNaclStderr = function(
 GSC.LogFormatting.formatLogRecordForExportUi = function(
     documentLocation, logRecord) {
   return defaultFormatter.formatRecord(
-      prefixLogRecord(documentLocation, logRecord, /*isCompact=*/ true));
+      prefixLogRecord(documentLocation, logRecord));
 };
 
 /**
@@ -126,6 +109,6 @@ GSC.LogFormatting.formatLogRecordForExportUi = function(
 GSC.LogFormatting.formatLogRecordForSystemLog = function(
     documentLocation, logRecord) {
   return systemLogFormatter.formatRecord(
-      prefixLogRecord(documentLocation, logRecord, /*isCompact=*/ true));
+      prefixLogRecord(documentLocation, logRecord));
 };
 });
