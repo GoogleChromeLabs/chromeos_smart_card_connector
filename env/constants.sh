@@ -15,11 +15,5 @@
 # limitations under the License.
 
 
-DEPOT_TOOLS_REPOSITORY_URL="https://chromium.googlesource.com/chromium/tools/depot_tools.git"
-
 EMSCRIPTEN_SDK_REPOSITORY_URL="https://github.com/emscripten-core/emsdk.git"
 EMSCRIPTEN_VERSION="3.1.70"
-
-NACL_SDK_VERSION="47"
-
-WEBPORTS_TARGETS="glibc-compat openssl"
