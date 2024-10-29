@@ -33,9 +33,11 @@
 
 #include <cstdio>
 #include <limits>
+#include <memory>
 #include <string>
 #include <thread>
 #include <utility>
+#include <vector>
 
 #include "common/cpp/src/public/ipc_emulation.h"
 #include "common/cpp/src/public/logging/logging.h"
@@ -44,6 +46,7 @@
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_conversion.h"
 #include "third_party/libusb/webport/src/public/constants.h"
+#include "third_party/pcsc-lite/naclport/driver_interface/src/pcsc_driver_adaptor.h"
 #include "third_party/pcsc-lite/naclport/server/src/server_sockets_manager.h"
 
 #ifdef __EMSCRIPTEN__
@@ -83,8 +86,7 @@ PcscLiteServerWebPortService* g_pcsc_lite_server = nullptr;
 // it's only CCID driver's one).
 // The path must be relative, so that it works both inside the App/Extension as
 // well as in unit tests executed natively.
-constexpr char kDriverConfigPath[] =
-    "executable-module-filesystem/pcsc/drivers";
+constexpr char kDriverConfigPath[] = PCSC_LITE_DRIVER_INSTALLATION_PATH;
 
 constexpr char kLoggingPrefix[] = "[PC/SC-Lite NaCl port] ";
 
@@ -270,9 +272,11 @@ StructValueDescriptor<ReaderRemoveMessageData>::GetDescription() {
 
 PcscLiteServerWebPortService::PcscLiteServerWebPortService(
     GlobalContext* global_context,
-    LibusbWebPortService* libusb_web_port_service)
+    LibusbWebPortService* libusb_web_port_service,
+    std::vector<std::unique_ptr<PcscDriverAdaptor>> drivers)
     : global_context_(global_context),
-      libusb_web_port_service_(libusb_web_port_service) {
+      libusb_web_port_service_(libusb_web_port_service),
+      drivers_(std::move(drivers)) {
   GOOGLE_SMART_CARD_CHECK(global_context_);
   GOOGLE_SMART_CARD_CHECK(libusb_web_port_service_);
   GOOGLE_SMART_CARD_CHECK(!g_pcsc_lite_server);
@@ -387,6 +391,16 @@ void PcscLiteServerWebPortService::ShutDownAndWait() {
   // Shut down the global state created in `InitializeAndRunDaemonThread()`.
   PcscLiteServerSocketsManager::DestroyGlobalInstance();
   IpcEmulation::DestroyGlobalInstance();
+}
+
+PcscDriverAdaptor* PcscLiteServerWebPortService::FindDriverByFilePath(
+    const std::string& driver_file_path) {
+  for (const auto& driver : drivers_) {
+    if (driver->GetDriverFilePath() == driver_file_path) {
+      return driver.get();
+    }
+  }
+  return nullptr;
 }
 
 void PcscLiteServerWebPortService::PostReaderInitAddMessage(

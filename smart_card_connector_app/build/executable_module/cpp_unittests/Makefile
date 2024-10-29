@@ -18,6 +18,9 @@
 # "cpp_unit_test_runner".
 
 include ../../../../common/cpp_unit_test_runner/include.mk
+include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/common/include.mk
+# Depends on pcsc-lite/naclport/common/include.mk.
+include $(ROOT_PATH)/third_party/ccid/webport/include.mk
 
 SOURCES := \
 	../../../src/application_unittest.cc \
@@ -53,7 +56,7 @@ $(eval $(call ADD_RESOURCE_RULE, \
 	executable-module-filesystem/pcsc/fake_socket_file))
 $(eval $(call ADD_RESOURCE_RULE, \
 	$(ROOT_PATH)/third_party/ccid/webport/build/Info.plist, \
-	executable-module-filesystem/pcsc/drivers/ifd-ccid.bundle/Contents/Info.plist))
+	$(CCID_CONFIG_INSTALLATION_PATH)))
 
 # Rules for compiling the test source files and linking them into a resulting
 # executable binary.
