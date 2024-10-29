@@ -43,11 +43,6 @@ ifeq ($(TOOLCHAIN),emscripten)
 SOURCES += \
 	$(SOURCES_PATH)/public/value_emscripten_val_conversion_unittest.cc \
 
-else ifeq ($(TOOLCHAIN),pnacl)
-
-SOURCES += \
-	$(SOURCES_PATH)/public/value_nacl_pp_var_conversion_unittest.cc \
-
 endif
 
 CXXFLAGS := \

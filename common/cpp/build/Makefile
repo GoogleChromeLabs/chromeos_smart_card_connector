@@ -47,18 +47,7 @@ SOURCES := \
 	$(SOURCES_PATH)/public/value_conversion.cc \
 	$(SOURCES_PATH)/public/value_debug_dumping.cc \
 
-ifeq ($(TOOLCHAIN),pnacl)
-
-SOURCES += \
-	$(SOURCES_PATH)/public/global_context_impl_nacl.cc \
-	$(SOURCES_PATH)/public/nacl_io_utils.cc \
-	$(SOURCES_PATH)/public/value_nacl_pp_var_conversion.cc \
-
-# TODO(#185): Migrate these to support the Emscripten toolchain as well.
-SOURCES += \
-	$(SOURCES_PATH)/public/external_logs_printer.cc \
-
-else ifeq ($(TOOLCHAIN),emscripten)
+ifeq ($(TOOLCHAIN),emscripten)
 
 SOURCES += \
 	$(SOURCES_PATH)/public/global_context_impl_emscripten.cc \

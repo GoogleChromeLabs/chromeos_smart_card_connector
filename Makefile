@@ -34,6 +34,7 @@ LIBRARY_TARGETS := \
 	smart_card_connector_app/build/cpp_lib \
 	third_party/ccid/webport/build \
 	third_party/driver-hid5021/webport/build \
+	third_party/googletest/webport/build \
 	third_party/libusb/webport/build \
 	third_party/pcsc-lite/naclport/build_configuration \
 	third_party/pcsc-lite/naclport/common/build \
@@ -68,15 +69,18 @@ TEST_TARGETS := \
 	third_party/libusb/webport/build/tests \
 
 common/cpp/build/tests: common/cpp/build
+common/cpp/build/tests: third_party/googletest/webport/build
 smart_card_connector_app/build/executable_module/cpp_unittests: common/cpp/build
 smart_card_connector_app/build/executable_module/cpp_unittests: smart_card_connector_app/build/cpp_lib
 smart_card_connector_app/build/executable_module/cpp_unittests: third_party/ccid/webport/build
 smart_card_connector_app/build/executable_module/cpp_unittests: third_party/driver-hid5021/webport/build
+smart_card_connector_app/build/executable_module/cpp_unittests: third_party/googletest/webport/build
 smart_card_connector_app/build/executable_module/cpp_unittests: third_party/libusb/webport/build
 smart_card_connector_app/build/executable_module/cpp_unittests: third_party/pcsc-lite/naclport/common/build
 smart_card_connector_app/build/executable_module/cpp_unittests: third_party/pcsc-lite/naclport/server/build
 smart_card_connector_app/build/executable_module/cpp_unittests: third_party/pcsc-lite/naclport/server_clients_management/build
 third_party/libusb/webport/build/tests: common/cpp/build
+third_party/libusb/webport/build/tests: third_party/googletest/webport/build
 third_party/libusb/webport/build/tests: third_party/libusb/webport/build
 
 # Toolchain related definitions #################
@@ -84,9 +88,9 @@ third_party/libusb/webport/build/tests: third_party/libusb/webport/build
 TOOLCHAIN ?= emscripten
 
 # Applications with C/C++ code are built in all non-sanitizer build modes
-# ("emscripten"/"pnacl" are production-suitable; "coverage" needs the built
-# binaries to catch parts of the code that aren't unit-tested but still linked
-# into production programs).
+# ("emscripten" is production-suitable; "coverage" needs the built binaries to
+# catch parts of the code that aren't unit-tested but still linked into
+# production programs).
 ifneq ($(TOOLCHAIN),asan_testing)
 
 APPLICATION_TARGETS += \
@@ -95,21 +99,8 @@ APPLICATION_TARGETS += \
 
 endif
 
-# Use our checkout of Googletest for tests in all toolchains except NaCl (whose
-# SDK provides its own version).
-ifneq ($(TOOLCHAIN),pnacl)
-
-LIBRARY_TARGETS += \
-	third_party/googletest/webport/build \
-
-common/cpp/build/tests: third_party/googletest/webport/build
-smart_card_connector_app/build/executable_module/cpp_unittests: third_party/googletest/webport/build
-third_party/libusb/webport/build/tests: third_party/googletest/webport/build
-
-endif
-
 # Enable JS targets in relevant configurations.
-ifneq (,$(findstring $(TOOLCHAIN),pnacl emscripten))
+ifeq ($(TOOLCHAIN),emscripten)
 
 APPLICATION_TARGETS += \
 	example_js_smart_card_client_app/build \

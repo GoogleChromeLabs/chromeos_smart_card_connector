@@ -62,8 +62,7 @@ endef
 # * "fno-omit-frame-pointer", "fno-optimize-sibling-calls": Enable better stack
 #   traces (docs explicitly recommended this with sanitizers).
 # * "g": Enable debug symbols.
-# * "m32": Build in 32-bit mode (this is also what Emscripten and NaCl
-#   toolchains use).
+# * "m32": Build in 32-bit mode (this is also what Emscripten toolchain uses).
 ANALYSIS_COMMON_FLAGS := \
 	-fno-omit-frame-pointer \
 	-fno-optimize-sibling-calls \
