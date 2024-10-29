@@ -1,6 +1,0 @@
-NAME=jsoncpp
-VERSION=1.6.1
-URL=https://github.com/open-source-parsers/jsoncpp/archive/1.6.1/jsoncpp-1.6.1.tar.gz
-LICENSE=CUSTOM:LICENSE
-SHA1=e05f87331ec7ce95cd1d2bcea7f49f1a436ae7b1
-DISABLED_TOOLCHAIN=(emscripten)

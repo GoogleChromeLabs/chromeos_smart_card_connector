@@ -1,8 +1,0 @@
-NAME=grep
-VERSION=2.21
-URL=http://ftp.gnu.org/gnu/grep/grep-2.21.tar.xz
-LICENSE=GPL
-DEPENDS=(nacl-spawn pcre)
-DISABLED_LIBC=(bionic)
-SHA1=c7e6525c5c5aaa1bc3c1774db1697f42b11c2d85
-DISABLED_TOOLCHAIN=(emscripten)

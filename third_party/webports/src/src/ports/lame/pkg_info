@@ -1,6 +1,0 @@
-NAME=lame
-VERSION=3.99.5
-URL=http://download.sf.net/lame/lame/3.99/lame-3.99.5.tar.gz
-LICENSE=LGPL
-SHA1=03a0bfa85713adcc6b3383c12e2cc68a9cfbf4c4
-DISABLED_TOOLCHAIN=(emscripten)

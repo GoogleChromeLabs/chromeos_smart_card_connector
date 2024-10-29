@@ -1,9 +1,0 @@
-NAME=flac
-VERSION=1.2.1
-URL=http://download.sf.net/flac/flac-src/flac-1.2.1-src/flac-1.2.1.tar.gz
-LICENSE=GPL,LGPL,BSD:COPYING.Xiph
-BUILD_OS=linux
-DISABLED_TOOLCHAIN=(emscripten)
-DEPENDS=(libogg glibc-compat)
-DISABLED_LIBC=(bionic)
-SHA1=bd54354900181b59db3089347cc84ad81e410b38

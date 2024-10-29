@@ -1,7 +1,0 @@
-NAME=python-dateutil
-VERSION=2.2
-URL=https://pypi.python.org/packages/source/p/python-dateutil/python-dateutil-2.2.tar.gz
-LICENSE=BSD
-DEPENDS=(python-host six setuptools)
-DISABLED_LIBC=(bionic)
-SHA1=fbafcd19ea0082b3ecb17695b4cb46070181699f

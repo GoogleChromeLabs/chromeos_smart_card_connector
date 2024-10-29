@@ -1,7 +1,0 @@
-NAME=libtool
-VERSION=2.4
-URL=http://ftp.kaist.ac.kr/gnu/gnu/libtool/libtool-2.4.tar.xz
-LICENSE=GPL
-DEPENDS=(glibc-compat)
-SHA1=a5a44aa791c8b93cbe1c2f839368cd3de5f5f3e1
-DISABLED_TOOLCHAIN=(emscripten)

@@ -1,9 +1,0 @@
-NAME=nano
-VERSION=2.2.6
-URL=http://www.nano-editor.org/dist/v2.2/nano-2.2.6.tar.gz
-LICENSE=GPL
-DEPENDS=(ncurses libtar glibc-compat nacl-spawn)
-# missing getpwent/endpwent/getpwuid/sigsetjmp/ttyname
-DISABLED_LIBC=(bionic)
-SHA1=f2a628394f8dda1b9f28c7e7b89ccb9a6dbd302a
-DISABLED_TOOLCHAIN=(emscripten)

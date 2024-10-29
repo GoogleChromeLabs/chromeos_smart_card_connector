@@ -1,8 +1,0 @@
-NAME=zeromq
-VERSION=4.0.3
-URL=http://download.zeromq.org/zeromq-4.0.3.tar.gz
-LICENSE=LGPL3
-DEPENDS=(glibc-compat)
-DISABLED_LIBC=(bionic)
-SHA1=a363ddfff75f73976f656b3ba48f32544b214075
-DISABLED_TOOLCHAIN=(emscripten)

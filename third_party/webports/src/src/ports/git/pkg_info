@@ -1,8 +1,0 @@
-NAME=git
-VERSION=2.3.0
-URL=https://github.com/git/git/archive/v2.3.0/git-2.3.0.tar.gz
-LICENSE=GPL
-DEPENDS=(zlib nacl-spawn glibc-compat openssl curl)
-DISABLED_LIBC=(bionic)
-SHA1=ae668cef3b9a4955f496ce41fefb058b5368d52f
-DISABLED_TOOLCHAIN=(emscripten)

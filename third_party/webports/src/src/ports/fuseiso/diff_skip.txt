@@ -1,5 +1,0 @@
-Makefile.in
-aclocal.m4
-config.h.in
-configure
-zAppRun/Makefile.in

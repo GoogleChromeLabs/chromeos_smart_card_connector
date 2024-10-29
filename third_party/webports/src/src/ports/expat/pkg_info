@@ -1,9 +1,0 @@
-NAME=expat
-VERSION=2.0.1
-URL=http://download.sf.net/expat/expat/2.0.1/expat-2.0.1.tar.gz
-# bionic build fails with undefined symbol:
-# https://code.google.com/p/nativeclient/issues/detail?id=3938
-DISABLED_LIBC=(bionic)
-LICENSE=CUSTOM:COPYING
-SHA1=663548c37b996082db1f2f2c32af060d7aa15c2d
-DISABLED_TOOLCHAIN=(emscripten)

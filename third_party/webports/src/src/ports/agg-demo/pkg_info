@@ -1,5 +1,0 @@
-NAME=agg-demo
-VERSION=0.1
-LICENSE=BSD
-DEPENDS=(agg)
-DISABLED_TOOLCHAIN=(emscripten)

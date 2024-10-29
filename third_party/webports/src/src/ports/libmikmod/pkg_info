@@ -1,6 +1,0 @@
-NAME=libmikmod
-VERSION=3.1.11
-URL=http://mikmod.raphnet.net/files/libmikmod-3.1.11.tar.gz
-LICENSE=LGPL
-SHA1=ca18fff19348d3bcf3550aa920b129b082c5069a
-DISABLED_TOOLCHAIN=(emscripten)

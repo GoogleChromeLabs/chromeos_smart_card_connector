@@ -1,9 +1,0 @@
-NAME=boringssl
-VERSION=git
-URL=https://boringssl.googlesource.com/boringssl.git@3b73c18
-DEPENDS=(glibc-compat)
-DISABLED_LIBC=(newlib)
-# Disabled for now as it requires a recent cmake version.
-DISABLED=1
-CONFLICTS=(openssl)
-DISABLED_TOOLCHAIN=(emscripten)

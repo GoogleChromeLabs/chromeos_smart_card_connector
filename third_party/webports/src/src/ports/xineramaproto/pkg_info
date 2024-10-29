@@ -1,6 +1,0 @@
-NAME=xineramaproto
-VERSION=1.2.1
-URL=http://www.x.org/releases/X11R7.7/src/everything/xineramaproto-1.2.1.tar.bz2
-LICENSE=GPL
-SHA1=818bffc16139d6e3de4344c83f00c495d3536753
-DISABLED_TOOLCHAIN=(emscripten)

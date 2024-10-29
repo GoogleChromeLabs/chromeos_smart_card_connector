@@ -1,8 +1,0 @@
-NAME=mp4v2
-VERSION=2.0.0
-URL=https://mp4v2.googlecode.com/files/mp4v2-2.0.0.tar.bz2
-LICENSE=MPL
-DEPENDS=(glibc-compat)
-SHA1=193260cfb7201e6ec250137bcca1468d4d20e2f0
-DISABLED_LIBC=(bionic)
-DISABLED_TOOLCHAIN=(emscripten)

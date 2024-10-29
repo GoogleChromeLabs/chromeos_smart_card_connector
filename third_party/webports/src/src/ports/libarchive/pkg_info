@@ -1,9 +1,0 @@
-NAME=libarchive
-VERSION=3.1.2
-URL=http://www.libarchive.org/downloads/libarchive-3.1.2.tar.gz
-LICENSE=BSD
-DEPENDS=(zlib libxml2)
-DISABLED_LIBC=(bionic)
-SHA1=6a991777ecb0f890be931cec4aec856d1a195489
-CONFLICTS=(libarchive-dev)
-DISABLED_TOOLCHAIN=(emscripten)

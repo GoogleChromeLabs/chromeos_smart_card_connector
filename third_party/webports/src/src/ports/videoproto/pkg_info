@@ -1,6 +1,0 @@
-NAME=videoproto
-VERSION=2.3.1
-URL=http://www.x.org/releases/X11R7.7/src/everything/videoproto-2.3.1.tar.bz2
-LICENSE=GPL
-SHA1=bb8b366687a7f345e3a8697bac516cb436cbf4b2
-DISABLED_TOOLCHAIN=(emscripten)

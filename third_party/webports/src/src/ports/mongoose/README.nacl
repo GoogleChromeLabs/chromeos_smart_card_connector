@@ -1,9 +1,0 @@
-Mongoose Webserver
-==================
-
-This example shows the mongoose webserver built for Native
-Client.  It is setup to serve the contents of /tmp where
-the HTML5 temporary filesystem is mounted.
-
-By default a single files called 'index.html' is created
-in the filesystem and the server will listen on port 8080.

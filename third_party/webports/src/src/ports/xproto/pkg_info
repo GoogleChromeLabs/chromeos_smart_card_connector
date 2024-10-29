@@ -1,6 +1,0 @@
-NAME=xproto
-VERSION=7.0.23
-URL=http://www.x.org/releases/X11R7.7/src/everything/xproto-7.0.23.tar.bz2
-LICENSE=GPL
-SHA1=5d7f00d1dbe6cf8e725841ef663f0ee2491ba5b2
-DISABLED_TOOLCHAIN=(emscripten)

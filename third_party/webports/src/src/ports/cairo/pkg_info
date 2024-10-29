@@ -1,9 +1,0 @@
-NAME=cairo
-VERSION=1.12.14
-URL=http://cairographics.org/releases/cairo-1.12.14.tar.xz
-LICENSE=GPL,MPL
-DEPENDS=(pixman fontconfig libpng libx11 libxext libxrender glib)
-# Disable for bionic due to fontconfig.
-DISABLED_LIBC=(bionic)
-SHA1=9106ab09b2e7b9f90521b18dd4a7e9577eba6c15
-DISABLED_TOOLCHAIN=(emscripten)

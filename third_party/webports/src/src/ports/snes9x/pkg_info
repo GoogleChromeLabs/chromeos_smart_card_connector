@@ -1,7 +1,0 @@
-NAME=snes9x
-VERSION=1.53
-URL=https://sites.google.com/site/bearoso/snes9x/snes9x-1.53-src.tar.bz2
-ARCHIVE_ROOT=snes9x-1.53-src
-LICENSE=CUSTOM
-SHA1=57be6480369f66b9aaaeb722789ce114f58ed1e2
-DISABLED_TOOLCHAIN=(emscripten)

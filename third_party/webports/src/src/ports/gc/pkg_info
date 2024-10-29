@@ -1,7 +1,0 @@
-NAME=gc
-VERSION=6.8
-URL=http://www.hpl.hp.com/personal/Hans_Boehm/gc/gc_source/gc6.8.tar.gz
-ARCHIVE_ROOT=gc6.8
-LICENSE=CUSTOM
-SHA1=6d5def5ba5d29292ba9c76f04df3ec06d3ab3278
-DISABLED_TOOLCHAIN=(emscripten)
