@@ -40,6 +40,8 @@ CCID_NACL_SOURCES_PATH := ../src
 # Rules for invoking the source files compilation into object files
 
 # * rename all IFDH...() functions to avoid symbol clashes with other drivers;
+#   TODO: objcopy --redefine-sym would be more elegant, but is blocked on
+#   https://github.com/llvm/llvm-project/issues/50623 .
 # * HAVE_PTHREAD definition enables the support of working with multiple readers
 #   simultaneously;
 # * log_msg and log_xxd are redefined in order to not collide with the symbols
