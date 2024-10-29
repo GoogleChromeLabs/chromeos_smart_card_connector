@@ -296,7 +296,7 @@ int IpcEmulation::GenerateNewFileDescriptor() {
 
 void IpcEmulation::AddFile(std::shared_ptr<InMemoryFile> file) {
   GOOGLE_SMART_CARD_CHECK(file);
-  GOOGLE_SMART_CARD_CHECK(file.unique());
+  GOOGLE_SMART_CARD_CHECK(file.use_count() == 1);
   const std::unique_lock<std::mutex> lock(mutex_);
   const int file_descriptor = file->file_descriptor();
   GOOGLE_SMART_CARD_CHECK(

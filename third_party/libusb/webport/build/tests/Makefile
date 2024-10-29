@@ -26,6 +26,7 @@ SOURCES_PATH := ../../src
 SOURCES := \
 	$(SOURCES_PATH)/libusb_js_proxy_unittest.cc \
 
+# TODO: Remove no-deprecated-enum-enum-conversion once the C++ code is updated.
 CXXFLAGS := \
 	-I$(ROOT_PATH) \
 	-I$(ROOT_PATH)/third_party/libusb/src/libusb \
@@ -33,6 +34,7 @@ CXXFLAGS := \
 	-Wall \
 	-Werror \
 	-Wextra \
+	-Wno-deprecated-enum-enum-conversion \
 	-Wno-zero-length-array \
 	-std=$(CXX_DIALECT) \
 	$(TEST_ADDITIONAL_CXXFLAGS) \
