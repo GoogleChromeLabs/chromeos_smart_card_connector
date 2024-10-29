@@ -47,8 +47,6 @@ goog.scope(function() {
 
 const GSC = GoogleSmartCard;
 
-const JS_LOGS_HANDLER_MESSAGE_TYPE = 'js_logs_handler';
-
 /** @type {!goog.log.Logger} */
 const logger = GSC.Logging.getScopedLogger('ConnectorApp.BackgroundMain');
 
