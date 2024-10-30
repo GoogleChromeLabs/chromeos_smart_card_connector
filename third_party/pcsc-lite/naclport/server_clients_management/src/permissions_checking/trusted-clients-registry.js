@@ -40,8 +40,7 @@ goog.require('goog.object');
 goog.scope(function() {
 
 // The actual data is loaded from this JSON config.
-const JSON_CONFIG_URL =
-    'pcsc_lite_server_clients_management/known_client_apps.json';
+const JSON_CONFIG_URL = 'trusted_clients.json';
 
 const CLIENT_NAME_FIELD = 'name';
 const AUTOAPPROVE_FIELD = 'autoapprove';
@@ -75,9 +74,7 @@ const TrustedClientInfo = GSC.PcscLiteServer.TrustedClientInfo;
 /**
  * This class provides an interface for querying the information about trusted
  * client applications (i.e., the clients that are listed in the manually
- * maintained
- * //third_party/pcsc-lite/naclport/server_clients_management/src/known_client_apps.json
- * config).
+ * maintained //smart_card_connector_app/src/trusted_clients.json config).
  * @interface
  */
 GSC.PcscLiteServer.TrustedClientsRegistry = function() {};
@@ -111,9 +108,7 @@ TrustedClientsRegistry.prototype.tryGetByOrigins = function(originList) {};
 /**
  * This class provides an interface for querying the information about trusted
  * client applications (i.e., the clients that are listed in the manually
- * maintained
- * //third_party/pcsc-lite/naclport/server_clients_management/src/known_client_apps.json
- * config).
+ * maintained //smart_card_connector_app/src/trusted_clients.json config).
  * @implements {TrustedClientsRegistry}
  * @constructor
  */

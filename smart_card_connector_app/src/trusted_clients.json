@@ -1,0 +1,115 @@
+{
+  "chrome-extension://dojmlffgommefdofbfdajjpgjgjoffjo": {
+    "name": "DriveLock Smart Card Middleware (CSSI)"
+  },
+  "chrome-extension://haeblkpifdemlfnkogkipmghfcbonief": {
+    "name": "DriveLock Smart Card Middleware (CSSI)"
+  },
+  "chrome-extension://omlchkeefdkmmdndbpbhaapnnemfkobc": {
+    "name": "DriveLock Smart Card Middleware (CSSI)"
+  },
+  "chrome-extension://haiffjcadagjlijoggckpgfnoeiflnem": {
+    "name": "Citrix Workspace"
+  },
+  "chrome-extension://pckbpdplfajmgaipljfamclkinbjdnma": {
+    "name": "VMware Horizon Client"
+  },
+  "chrome-extension://lpimdiknnpijeigckalekdccibdmeojg": {
+    "name": "CACKey"
+  },
+  "chrome-extension://lbfgjakkeeccemhonnolnmglmfmccaag": {
+    "name": "Citrix Workspace - EAR"
+  },
+  "chrome-extension://kdndmepchimlohdcdkokdddpbnniijoa": {
+    "name": "Citrix Workspace - Internal Build"
+  },
+  "chrome-extension://djkkpfimmenglkapoanbonjbpgbkckag": {
+    "name": "BAIMobile Sample Access PKCS11"
+  },
+  "chrome-extension://oamoafgijflmdhpnmhgmmappcibfinbo": {
+    "name": "BAIMobile Sample Access PKCS11"
+  },
+  "chrome-extension://cndpbhkcfblfaciifcmnknlkjobidkjo": {
+    "name": "Gemalto Smart Card Middleware"
+  },
+  "chrome-extension://odnooafmbfjkpbgdpjlkofbgnfanpicf": {
+    "name": "Gemalto SConnect"
+  },
+  "chrome-extension://bglhmjfplikpjnfoegeomebmfnkjomhe": {
+    "name": "VMware Horizon Client - Internal"
+  },
+  "chrome-extension://fdlpibjfnlhnmeckjjhfiejfdghkmkdm": {
+    "name": "Xtralogic RDP Client"
+  },
+  "chrome-extension://hlbkkfgplamgidcmijjcglabmiekfech": {
+    "name": "smart-pass"
+  },
+  "chrome-extension://pnhechapfaindjhompbnflcldabbghjo": {
+    "name": "Secure Shell App"
+  },
+  "chrome-extension://okddffdblfhhnmhodogpojmfkjmhinfp": {
+    "name": "Secure Shell App (dev)"
+  },
+  "chrome-extension://iodihamcpbpeioajjeobimgagajmlibd": {
+    "name": "Secure Shell Extension"
+  },
+  "chrome-extension://algkcnfjnajfhgimadimbjhmpaeohhln": {
+    "name": "Secure Shell Extension (dev)"
+  },
+  "chrome-extension://njjeilfpkekklihppohcbbanjlcibolf": {
+    "name": "Xtralogic RDP Client (Stable Channel)"
+  },
+  "chrome-extension://ekdokegjbgedabpeokeonakhdbagjokj": {
+    "name": "Xtralogic RDP Client (Beta Channel)"
+  },
+  "chrome-extension://ooiklbnjmhbcgemelgfhaeaocllobloj": {
+    "name": "Mosh"
+  },
+  "chrome-extension://ppkfnjlimknmjoaemnpidmdlfchhehel": {
+    "name": "VMware Horizon Client"
+  },
+  "chrome-extension://cigmkcbeahhminphhnfaokgaofanldgj": {
+    "name": "Google TDS PC/SC test",
+    "autoapprove": true
+  },
+  "chrome-extension://gbecpjnejcnafnkgfciepngjcndodann": {
+    "name": "Guest@Google Kiosk App",
+    "autoapprove": true
+  },
+  "chrome-extension://kdffphekpginklcnoefcelkjclbjnbmi": {
+    "name": "Guest@Google Kiosk App DEV",
+    "autoapprove": true
+  },
+  "chrome-extension://hhbmmipodfklmbmiaegcbmbfmmfbngnf": {
+    "name": "Guest@Google Kiosk App UAT",
+    "autoapprove": true
+  },
+  "chrome-untrusted://terminal": {
+    "name": "ChromeOS Terminal"
+  },
+  "chrome-extension://nebchommhahdcpcnbjbgmhnodjhnjnpd": {
+    "name": "DriveLock Smart Card Middleware (CSSI) Beta"
+  },
+  "chrome-extension://kghimeaijcapoakcbhbelgkcdoiigbmn": {
+    "name": "Ujambo Kiosk App",
+    "autoapprove": true
+  },
+  "chrome-extension://oialdphpkhfcnjooecmochkdfmhhnelp": {
+    "name": "Ujambo Kiosk App (acceptance)",
+    "autoapprove": true
+  },
+  "chrome-extension://gpnmjjdkmdfmccnpepmianiomfahpbcc": {
+    "name": "Ujambo Kiosk App (development)",
+    "autoapprove": true
+  },
+  "chrome-extension://naabfciimcjlmnohcligmgihhpihloah": {
+    "name": "IDmelon Accesskey",
+    "autoapprove": true
+  },
+  "chrome-extension://llebpckeffoilhileclionlofjgnhbdp": {
+    "name": "Net iD"
+  },
+  "isolated-app://q2oy25prsvhmxocjxs2badhyi3uw7vqhrupfn66iflserug4st6qaaic": {
+    "name": "Xtralogic RDP Client"
+  }
+}

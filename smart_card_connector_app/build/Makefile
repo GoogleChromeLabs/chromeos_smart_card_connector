@@ -160,6 +160,7 @@ $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/window.css))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/card-present.png))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/about-window.html))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/about-window.css))
+$(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/trusted_clients.json))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(ROOT_PATH)/common/js/src/executable-module/emscripten-offscreen-doc.html))
 
 ifeq ($(TOOLCHAIN),emscripten)

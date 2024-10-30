@@ -61,7 +61,6 @@ $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 $(eval $(call LIB_RULE,$(TARGET),$(SOURCES)))
 
 
-$(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/known_client_apps.json,pcsc_lite_server_clients_management))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/permissions_checking/user-prompt-dialog.html,pcsc_lite_server_clients_management))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/permissions_checking/user-prompt-dialog.css,pcsc_lite_server_clients_management))
 

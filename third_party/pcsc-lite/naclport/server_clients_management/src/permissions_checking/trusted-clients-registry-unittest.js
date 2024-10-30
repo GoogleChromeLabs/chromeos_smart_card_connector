@@ -48,8 +48,7 @@ let registry;
  * @return {!Promise<!Response>}
  */
 async function fakeFetch(url) {
-  assertEquals(
-      url, 'pcsc_lite_server_clients_management/known_client_apps.json');
+  assertEquals(url, 'trusted_clients.json');
   const body = JSON.stringify(FAKE_TRUSTED_CLIENTS);
   return new Response(body);
 }
