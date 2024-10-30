@@ -18,7 +18,7 @@
 #include <string>
 #include <vector>
 
-#include "third_party/pcsc-lite/naclport/driver_interface/src/pcsc_driver_adaptor.h"
+#include "third_party/pcsc-lite/webport/driver_interface/src/pcsc_driver_adaptor.h"
 
 namespace google_smart_card {
 

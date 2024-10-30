@@ -23,13 +23,13 @@ include $(ROOT_PATH)/common/make/executable_building.mk
 include $(ROOT_PATH)/common/js/include.mk
 include $(ROOT_PATH)/common/integration_testing/include.mk
 include $(ROOT_PATH)/third_party/libusb/webport/include.mk
-include $(ROOT_PATH)/third_party/pcsc-lite/naclport/common/include.mk
-include $(ROOT_PATH)/third_party/pcsc-lite/naclport/js_client/include.mk
-include $(ROOT_PATH)/third_party/pcsc-lite/naclport/server/include.mk
-include $(ROOT_PATH)/third_party/pcsc-lite/naclport/server_clients_management/include.mk
-# Depends on pcsc-lite/naclport/common/include.mk.
+include $(ROOT_PATH)/third_party/pcsc-lite/webport/common/include.mk
+include $(ROOT_PATH)/third_party/pcsc-lite/webport/js_client/include.mk
+include $(ROOT_PATH)/third_party/pcsc-lite/webport/server/include.mk
+include $(ROOT_PATH)/third_party/pcsc-lite/webport/server_clients_management/include.mk
+# Depends on pcsc-lite/webport/common/include.mk.
 include $(ROOT_PATH)/third_party/ccid/webport/include.mk
-# Depends on pcsc-lite/naclport/common/include.mk.
+# Depends on pcsc-lite/webport/common/include.mk.
 include $(THIRD_PARTY_DIR_PATH)/driver-hid5021/webport/include.mk
 
 
@@ -79,7 +79,7 @@ $(foreach src,$(CXX_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 # * fake_socket_file: it's needed to trick the PC/SC daemon code into thinking
 #   it can open a socket IPC communication.
 $(eval $(call ADD_RESOURCE_RULE, \
-  $(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src/fake_socket_file, \
+  $(ROOT_PATH)/third_party/pcsc-lite/webport/server/src/fake_socket_file, \
   executable-module-filesystem/pcsc/fake_socket_file))
 # * Info.plist: these are driver configs; at runtime, the PC/SC daemon code
 #   reads parameters from these configs to call into the drivers.

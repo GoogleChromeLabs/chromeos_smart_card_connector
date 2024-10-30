@@ -29,10 +29,10 @@
 #include "common/cpp/src/public/value_conversion.h"
 #include "third_party/ccid/webport/src/ccid_pcsc_driver_adaptor.h"
 #include "third_party/libusb/webport/src/public/libusb_web_port_service.h"
-#include "third_party/pcsc-lite/naclport/driver_interface/src/pcsc_driver_adaptor.h"
-#include "third_party/pcsc-lite/naclport/server/src/public/pcsc_lite_server_web_port_service.h"
-#include "third_party/pcsc-lite/naclport/server_clients_management/src/google_smart_card_pcsc_lite_server_clients_management/backend.h"
-#include "third_party/pcsc-lite/naclport/server_clients_management/src/google_smart_card_pcsc_lite_server_clients_management/ready_message.h"
+#include "third_party/pcsc-lite/webport/driver_interface/src/pcsc_driver_adaptor.h"
+#include "third_party/pcsc-lite/webport/server/src/public/pcsc_lite_server_web_port_service.h"
+#include "third_party/pcsc-lite/webport/server_clients_management/src/google_smart_card_pcsc_lite_server_clients_management/backend.h"
+#include "third_party/pcsc-lite/webport/server_clients_management/src/google_smart_card_pcsc_lite_server_clients_management/ready_message.h"
 
 namespace google_smart_card {
 

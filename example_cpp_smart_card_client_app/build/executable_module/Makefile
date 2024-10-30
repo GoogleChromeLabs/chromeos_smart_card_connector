@@ -20,9 +20,9 @@ TARGET := executable_module
 include ../../../common/make/common.mk
 
 include $(COMMON_DIR_PATH)/make/executable_building.mk
-include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/common/include.mk
-include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/cpp_client/include.mk
-include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/cpp_demo/include.mk
+include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/webport/common/include.mk
+include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/webport/cpp_client/include.mk
+include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/webport/cpp_demo/include.mk
 
 
 SOURCES_DIR := ../../src
@@ -63,8 +63,8 @@ CPPFLAGS := \
 	-I$(SOURCES_DIR) \
 	-I$(ROOT_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src \
-	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/cpp_client/src \
-	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/cpp_demo/src \
+	-I$(ROOT_PATH)/third_party/pcsc-lite/webport/cpp_client/src \
+	-I$(ROOT_PATH)/third_party/pcsc-lite/webport/cpp_demo/src \
 	-I$(ROOT_PATH)/third_party/pcsc-lite/src/src/PCSC \
 	-Wall \
 	-Werror \

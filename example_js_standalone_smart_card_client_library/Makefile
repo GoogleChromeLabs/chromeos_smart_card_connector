@@ -21,8 +21,8 @@ include $(COMMON_DIR_PATH)/make/js_building_common.mk
 
 include $(COMMON_DIR_PATH)/js/include.mk
 
-include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/js_client/include.mk
-include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/common/include.mk
+include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/webport/js_client/include.mk
+include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/webport/common/include.mk
 
 
 # Input sources (files and directories) for the library:

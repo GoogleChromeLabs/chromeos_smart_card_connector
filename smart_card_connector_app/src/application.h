@@ -20,10 +20,10 @@
 
 #include "common/cpp/src/public/global_context.h"
 #include "common/cpp/src/public/messaging/typed_message_router.h"
-#include "third_party/pcsc-lite/naclport/server_clients_management/src/google_smart_card_pcsc_lite_server_clients_management/backend.h"
+#include "third_party/pcsc-lite/webport/server_clients_management/src/google_smart_card_pcsc_lite_server_clients_management/backend.h"
 
 #include "third_party/libusb/webport/src/public/libusb_web_port_service.h"
-#include "third_party/pcsc-lite/naclport/server/src/public/pcsc_lite_server_web_port_service.h"
+#include "third_party/pcsc-lite/webport/server/src/public/pcsc_lite_server_web_port_service.h"
 
 namespace google_smart_card {
 

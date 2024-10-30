@@ -44,11 +44,11 @@ somewhat outdated version of the PC/SC-Lite daemon.
 
    The list of directories where this has to be done:
 
-   * `//third_party/pcsc-lite/naclport/common/build/`
-   * `//third_party/pcsc-lite/naclport/cpp_client/build/`
-   * `//third_party/pcsc-lite/naclport/cpp_demo/build/`
-   * `//third_party/pcsc-lite/naclport/server/build/`
-   * `//third_party/pcsc-lite/naclport/server_clients_management/build/`
+   * `//third_party/pcsc-lite/webport/common/build/`
+   * `//third_party/pcsc-lite/webport/cpp_client/build/`
+   * `//third_party/pcsc-lite/webport/cpp_demo/build/`
+   * `//third_party/pcsc-lite/webport/server/build/`
+   * `//third_party/pcsc-lite/webport/server_clients_management/build/`
 
 3. Delete all files of the previous version from `//third_party/pcsc-lite/src/`,
    and unpack the new files from the downloaded archive into this directory.
@@ -68,7 +68,7 @@ somewhat outdated version of the PC/SC-Lite daemon.
 
 7. In case of any errors discovered at the previous step, investigate and fix
    them. (Hint: In case a new file was created in the daemon, you have to add it
-   into `//third_party/pcsc-lite/naclport/server/build/Makefile` into one of the
+   into `//third_party/pcsc-lite/webport/server/build/Makefile` into one of the
    sections.)
 
 8. Start the just-built Smart Card Connector app (e.g., by running `make run` in
