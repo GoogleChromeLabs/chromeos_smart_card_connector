@@ -68,33 +68,27 @@ LibusbJsDevice MakeLibusbJsDevice(
       js_device.vendor_id = 0x08E6;
       js_device.product_id = 0x3437;
       js_device.version = 0x200;
-      // TODO: Remove explicit `std::string` construction after switching to
-      // feature-complete `std::optional` (after dropping NaCl support).
-      js_device.product_name = std::string("USB SmartCard Reader");
-      js_device.manufacturer_name = std::string("Gemalto");
-      js_device.serial_number = std::string("E00E0000");  // redacted
+      js_device.product_name = "USB SmartCard Reader";
+      js_device.manufacturer_name = "Gemalto";
+      js_device.serial_number = "E00E0000";  // redacted
       return js_device;
     case DeviceType::kDellSmartCardReaderKeyboard:
       // Numbers are for a real device.
       js_device.vendor_id = 0x413c;
       js_device.product_id = 0x2101;
       js_device.version = 0x201;
-      // TODO: Remove explicit `std::string` construction after switching to
-      // feature-complete `std::optional` (after dropping NaCl support).
-      js_device.product_name = std::string("Dell Smart Card Reader Keyboard");
-      js_device.manufacturer_name = std::string("Dell");
-      js_device.serial_number = std::string("");
+      js_device.product_name = "Dell Smart Card Reader Keyboard";
+      js_device.manufacturer_name = "Dell";
+      js_device.serial_number = "";
       return js_device;
     case DeviceType::kYubikey4C:
       // Numbers are for a real device.
       js_device.vendor_id = 0x1050;
       js_device.product_id = 0x0404;
       js_device.version = 0x0433;
-      // TODO: Remove explicit `std::string` construction after switching to
-      // feature-complete `std::optional` (after dropping NaCl support).
-      js_device.product_name = std::string("Yubikey 4 CCID");
-      js_device.manufacturer_name = std::string("Yubico");
-      js_device.serial_number = std::string("");
+      js_device.product_name = "Yubikey 4 CCID";
+      js_device.manufacturer_name = "Yubico";
+      js_device.serial_number = "";
       return js_device;
   }
   GOOGLE_SMART_CARD_NOTREACHED;

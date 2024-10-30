@@ -213,8 +213,7 @@ UsbTransfersParametersStorage::ExtractPreparedJsCall(
                             transfers_with_prepared_js_call_);
   RemoteCallAsyncRequest result = std::move(*item->prepared_js_call);
   item->prepared_js_call.reset();
-  // TODO: Drop `std::move()` once NaCl build support is removed.
-  return std::move(result);
+  return result;
 }
 
 void UsbTransfersParametersStorage::Remove(Item* item) {
