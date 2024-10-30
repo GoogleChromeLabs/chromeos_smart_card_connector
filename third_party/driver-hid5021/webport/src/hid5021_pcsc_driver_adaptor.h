@@ -30,12 +30,12 @@ class Hid5021PcscDriverAdaptor : public PcscDriverAdaptor {
   ~Hid5021PcscDriverAdaptor() override;
 
   const std::string& GetDriverFilePath() const override;
-  const std::vector<const FunctionNameAndAddress>& GetFunctionPointersTable()
+  const std::vector<FunctionNameAndAddress>& GetFunctionPointersTable()
       const override;
 
  private:
   const std::string kFilePath_;
-  const std::vector<const FunctionNameAndAddress> kFunctionPointers_;
+  const std::vector<FunctionNameAndAddress> kFunctionPointers_;
 };
 
 }  // namespace google_smart_card

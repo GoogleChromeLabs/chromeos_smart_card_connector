@@ -46,7 +46,7 @@ const std::string& Hid5021PcscDriverAdaptor::GetDriverFilePath() const {
   return kFilePath_;
 }
 
-const std::vector<const Hid5021PcscDriverAdaptor::FunctionNameAndAddress>&
+const std::vector<Hid5021PcscDriverAdaptor::FunctionNameAndAddress>&
 Hid5021PcscDriverAdaptor::GetFunctionPointersTable() const {
   return kFunctionPointers_;
 }
