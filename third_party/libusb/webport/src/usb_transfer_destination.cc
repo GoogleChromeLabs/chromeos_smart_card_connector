@@ -28,6 +28,8 @@
 
 #include <libusb.h>
 
+#include "common/cpp/src/public/logging/logging.h"
+
 namespace google_smart_card {
 
 UsbTransferDestination::UsbTransferDestination() = default;
@@ -89,11 +91,11 @@ bool UsbTransferDestination::operator==(
 
 UsbTransferDestination::UsbTransferDestination(
     int64_t js_device_handle,
-    optional<uint8_t> endpoint_address,
-    optional<uint8_t> control_transfer_request_type,
-    optional<uint8_t> control_transfer_request,
-    optional<uint16_t> control_transfer_value,
-    optional<uint16_t> control_transfer_index)
+    std::optional<uint8_t> endpoint_address,
+    std::optional<uint8_t> control_transfer_request_type,
+    std::optional<uint8_t> control_transfer_request,
+    std::optional<uint16_t> control_transfer_value,
+    std::optional<uint16_t> control_transfer_index)
     : js_device_handle_(js_device_handle),
       endpoint_address_(endpoint_address),
       control_transfer_request_type_(control_transfer_request_type),

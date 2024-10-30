@@ -20,10 +20,10 @@
 #include <chrono>
 #include <deque>
 #include <memory>
+#include <optional>
 #include <utility>
 
 #include "common/cpp/src/public/logging/logging.h"
-#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/requesting/async_request.h"
 #include "common/cpp/src/public/requesting/remote_call_async_request.h"
 #include "common/cpp/src/public/unique_ptr_utils.h"
@@ -197,7 +197,7 @@ UsbTransfersParametersStorage::GetWithMinTimeout() const {
   return found->info;
 }
 
-optional<RemoteCallAsyncRequest>
+std::optional<RemoteCallAsyncRequest>
 UsbTransfersParametersStorage::ExtractPreparedJsCall(
     const UsbTransferDestination& transfer_destination) {
   const std::unique_lock<std::mutex> lock(mutex_);

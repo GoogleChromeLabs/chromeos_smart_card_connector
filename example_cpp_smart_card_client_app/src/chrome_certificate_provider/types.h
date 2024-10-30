@@ -26,10 +26,9 @@
 
 #include <stdint.h>
 
+#include <optional>
 #include <string>
 #include <vector>
-
-#include "common/cpp/src/public/optional.h"
 
 namespace smart_card_client {
 
@@ -100,8 +99,8 @@ struct ClientCertificateInfo {
 // For the corresponding original JavaScript definition, refer to:
 // <https://developer.chrome.com/extensions/certificateProvider#method-setCertificates>.
 struct SetCertificatesDetails {
-  google_smart_card::optional<int> certificates_request_id;
-  google_smart_card::optional<Error> error;
+  std::optional<int> certificates_request_id;
+  std::optional<Error> error;
   std::vector<ClientCertificateInfo> client_certificates;
 };
 
@@ -129,9 +128,9 @@ struct SignatureRequest {
 // <https://developer.chrome.com/extensions/certificateProvider#method-requestPin>.
 struct RequestPinOptions {
   int sign_request_id;
-  google_smart_card::optional<PinRequestType> request_type;
-  google_smart_card::optional<PinRequestErrorType> error_type;
-  google_smart_card::optional<int> attempts_left;
+  std::optional<PinRequestType> request_type;
+  std::optional<PinRequestErrorType> error_type;
+  std::optional<int> attempts_left;
 };
 
 // Structure containing the results returned from the
@@ -140,7 +139,7 @@ struct RequestPinOptions {
 // For the corresponding original JavaScript definition, refer to:
 // <https://developer.chrome.com/extensions/certificateProvider#method-requestPin>.
 struct RequestPinResults {
-  google_smart_card::optional<std::string> user_input;
+  std::optional<std::string> user_input;
 };
 
 // Structure containing the parameters for the
@@ -150,7 +149,7 @@ struct RequestPinResults {
 // <https://developer.chrome.com/extensions/certificateProvider#method-stopPinRequest>.
 struct StopPinRequestOptions {
   int sign_request_id;
-  google_smart_card::optional<PinRequestErrorType> error_type;
+  std::optional<PinRequestErrorType> error_type;
 };
 
 }  // namespace chrome_certificate_provider

@@ -18,6 +18,7 @@
 
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -28,7 +29,6 @@
 #include "common/cpp/src/public/formatting.h"
 #include "common/cpp/src/public/logging/logging.h"
 #include "common/cpp/src/public/numeric_conversions.h"
-#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
 
@@ -42,8 +42,8 @@ constexpr char kErrorToArrayValConversion[] =
     "Cannot convert array item #%d to Emscripten val: %s";
 constexpr char kErrorWrongType[] = "Conversion error: unsupported type \"%s\"";
 
-optional<emscripten::val> CreateIntegerVal(int64_t integer,
-                                           std::string* error_message) {
+std::optional<emscripten::val> CreateIntegerVal(int64_t integer,
+                                                std::string* error_message) {
   // `emscripten::val` doesn't support direct conversion from `int64_t`, so
   // convert via `int` or `double` depending on the amount.
   if (std::numeric_limits<int>::min() <= integer &&
@@ -65,7 +65,7 @@ emscripten::val CreateArrayBufferVal(const Value::BinaryStorage& binary) {
   return uint8_array["buffer"];
 }
 
-optional<emscripten::val> CreateObjectVal(
+std::optional<emscripten::val> CreateObjectVal(
     const Value::DictionaryStorage& dictionary,
     std::string* error_message) {
   emscripten::val object = emscripten::val::object();
@@ -73,7 +73,7 @@ optional<emscripten::val> CreateObjectVal(
   for (const auto& item : dictionary) {
     const std::string& item_key = item.first;
     const std::unique_ptr<Value>& item_value = item.second;
-    optional<emscripten::val> converted_item_value =
+    std::optional<emscripten::val> converted_item_value =
         ConvertValueToEmscriptenVal(*item_value, &local_error_message);
     if (!converted_item_value) {
       FormatPrintfTemplateAndSet(error_message, kErrorToObjectValConversion,
@@ -85,13 +85,13 @@ optional<emscripten::val> CreateObjectVal(
   return object;
 }
 
-optional<emscripten::val> CreateArrayVal(const Value::ArrayStorage& array,
-                                         std::string* error_message) {
+std::optional<emscripten::val> CreateArrayVal(const Value::ArrayStorage& array,
+                                              std::string* error_message) {
   std::vector<emscripten::val> converted_items;
   std::string local_error_message;
   for (size_t i = 0; i < array.size(); ++i) {
     const Value& item = *array[i];
-    optional<emscripten::val> converted_item =
+    std::optional<emscripten::val> converted_item =
         ConvertValueToEmscriptenVal(item, &local_error_message);
     if (!converted_item) {
       FormatPrintfTemplateAndSet(error_message, kErrorToArrayValConversion,
@@ -152,14 +152,14 @@ Value CreateValueFromDataViewVal(const emscripten::val& val) {
   return CreateValueFromUint8Array(source_uint8_array);
 }
 
-optional<Value> CreateValueFromArrayLikeVal(const emscripten::val& val,
-                                            std::string* error_message) {
+std::optional<Value> CreateValueFromArrayLikeVal(const emscripten::val& val,
+                                                 std::string* error_message) {
   const size_t size = val["length"].as<size_t>();
   std::vector<Value> converted_items;
   converted_items.reserve(size);
   std::string local_error_message;
   for (size_t index = 0; index < size; ++index) {
-    optional<Value> converted_item =
+    std::optional<Value> converted_item =
         ConvertEmscriptenValToValue(val[index], &local_error_message);
     if (!converted_item) {
       FormatPrintfTemplateAndSet(
@@ -172,8 +172,8 @@ optional<Value> CreateValueFromArrayLikeVal(const emscripten::val& val,
   return Value(std::move(converted_items));
 }
 
-optional<Value> CreateValueFromObjectVal(const emscripten::val& val,
-                                         std::string* error_message) {
+std::optional<Value> CreateValueFromObjectVal(const emscripten::val& val,
+                                              std::string* error_message) {
   const emscripten::val keys =
       emscripten::val::global("Object").call<emscripten::val>("keys", val);
   const size_t keys_size = keys["length"].as<size_t>();
@@ -184,7 +184,7 @@ optional<Value> CreateValueFromObjectVal(const emscripten::val& val,
     const emscripten::val item_value = val[item_key];
     GOOGLE_SMART_CARD_CHECK(item_key.isString());
     const std::string key = item_key.as<std::string>();
-    optional<Value> converted_item_value =
+    std::optional<Value> converted_item_value =
         ConvertEmscriptenValToValue(item_value, &local_error_message);
     if (!converted_item_value) {
       FormatPrintfTemplateAndSet(error_message,
@@ -199,7 +199,7 @@ optional<Value> CreateValueFromObjectVal(const emscripten::val& val,
 
 }  // namespace
 
-optional<emscripten::val> ConvertValueToEmscriptenVal(
+std::optional<emscripten::val> ConvertValueToEmscriptenVal(
     const Value& value,
     std::string* error_message) {
   switch (value.type()) {
@@ -225,15 +225,15 @@ optional<emscripten::val> ConvertValueToEmscriptenVal(
 
 emscripten::val ConvertValueToEmscriptenValOrDie(const Value& value) {
   std::string error_message;
-  optional<emscripten::val> converted =
+  std::optional<emscripten::val> converted =
       ConvertValueToEmscriptenVal(value, &error_message);
   if (!converted)
     GOOGLE_SMART_CARD_LOG_FATAL << error_message;
   return std::move(*converted);
 }
 
-optional<Value> ConvertEmscriptenValToValue(const emscripten::val& val,
-                                            std::string* error_message) {
+std::optional<Value> ConvertEmscriptenValToValue(const emscripten::val& val,
+                                                 std::string* error_message) {
   if (val.isUndefined() || val.isNull())
     return Value();
   if (val.isTrue())
@@ -269,7 +269,7 @@ optional<Value> ConvertEmscriptenValToValue(const emscripten::val& val,
 
 Value ConvertEmscriptenValToValueOrDie(const emscripten::val& val) {
   std::string error_message;
-  optional<Value> value = ConvertEmscriptenValToValue(val, &error_message);
+  std::optional<Value> value = ConvertEmscriptenValToValue(val, &error_message);
   if (!value)
     GOOGLE_SMART_CARD_LOG_FATAL << error_message;
   return std::move(*value);

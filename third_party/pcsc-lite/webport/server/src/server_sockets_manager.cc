@@ -25,8 +25,9 @@
 
 #include "third_party/pcsc-lite/webport/server/src/server_sockets_manager.h"
 
+#include <optional>
+
 #include "common/cpp/src/public/logging/logging.h"
-#include "common/cpp/src/public/optional.h"
 
 namespace google_smart_card {
 
@@ -61,7 +62,7 @@ void PcscLiteServerSocketsManager::Push(int server_socket_file_descriptor) {
   condition_.notify_all();
 }
 
-optional<int> PcscLiteServerSocketsManager::WaitAndPop() {
+std::optional<int> PcscLiteServerSocketsManager::WaitAndPop() {
   std::unique_lock<std::mutex> lock(mutex_);
   condition_.wait(lock, [this]() {
     return shutting_down_ || !server_socket_file_descriptors_queue_.empty();

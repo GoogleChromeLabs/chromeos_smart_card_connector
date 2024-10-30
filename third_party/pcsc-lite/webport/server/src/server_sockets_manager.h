@@ -28,9 +28,8 @@
 
 #include <condition_variable>
 #include <mutex>
+#include <optional>
 #include <queue>
-
-#include "common/cpp/src/public/optional.h"
 
 namespace google_smart_card {
 
@@ -54,7 +53,7 @@ class PcscLiteServerSocketsManager final {
   // Returns the next descriptor from the wait queue. When the queue is empty,
   // waits in a blocking way until an item appears in it. If the class is shut
   // down, exits with a null optional instead.
-  optional<int> WaitAndPop();
+  std::optional<int> WaitAndPop();
 
   // Switches into the "shutting down" state. This makes all ongoing and future
   // `WaitAndPop()` calls return a null optional.

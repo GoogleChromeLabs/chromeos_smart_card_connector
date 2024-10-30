@@ -26,10 +26,10 @@
 
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <unordered_map>
 
 #include "common/cpp/src/public/cpp_attributes.h"
-#include "common/cpp/src/public/optional.h"
 
 namespace google_smart_card {
 
@@ -95,7 +95,7 @@ class IpcEmulation final {
   // the specified timeout passes, or an error occurs.
   WaitResult WaitForInMemoryFileCanBeRead(
       int file_descriptor,
-      optional<int64_t> timeout_milliseconds)
+      std::optional<int64_t> timeout_milliseconds)
       GOOGLE_SMART_CARD_WARN_UNUSED_RESULT;
 
   // Reads specified number of bytes from the specified end of the socket pair.

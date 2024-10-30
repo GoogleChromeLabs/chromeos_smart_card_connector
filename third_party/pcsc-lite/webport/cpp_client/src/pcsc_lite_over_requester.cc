@@ -448,7 +448,7 @@ LONG PcscLiteOverRequester::SCardTransmit(
 
   const std::vector<uint8_t> send_buffer_vector(
       send_buffer, send_buffer + send_buffer_length);
-  optional<SCardIoRequest> input_receive_protocol_information;
+  std::optional<SCardIoRequest> input_receive_protocol_information;
   if (receive_protocol_information) {
     input_receive_protocol_information =
         SCardIoRequest::FromSCardIoRequest(*receive_protocol_information);

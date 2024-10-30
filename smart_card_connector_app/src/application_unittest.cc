@@ -24,6 +24,7 @@
 #include <locale>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <queue>
 #include <string>
 #include <thread>
@@ -39,8 +40,6 @@
 #include "common/cpp/src/public/messaging/typed_message.h"
 #include "common/cpp/src/public/messaging/typed_message_router.h"
 #include "common/cpp/src/public/multi_string.h"
-#include "common/cpp/src/public/optional.h"
-#include "common/cpp/src/public/optional_test_utils.h"
 #include "common/cpp/src/public/requesting/remote_call_message.h"
 #include "common/cpp/src/public/requesting/requester_message.h"
 #include "common/cpp/src/public/unique_ptr_utils.h"
@@ -55,6 +54,7 @@
 
 using testing::AnyOf;
 using testing::ElementsAre;
+using testing::Eq;
 using testing::IsEmpty;
 using testing::SizeIs;
 
@@ -177,7 +177,7 @@ std::vector<std::string> DirectCallSCardListReaders(
   return ExtractMultiStringElements(readers_multistring);
 }
 
-LONG ExtractReturnCodeAndResults(optional<Value> reply) {
+LONG ExtractReturnCodeAndResults(std::optional<Value> reply) {
   GOOGLE_SMART_CARD_CHECK(reply);
   GOOGLE_SMART_CARD_CHECK(reply->is_array());
   auto& reply_array = reply->GetArray();
@@ -187,7 +187,7 @@ LONG ExtractReturnCodeAndResults(optional<Value> reply) {
 }
 
 template <typename Arg, typename... Args>
-LONG ExtractReturnCodeAndResults(optional<Value> reply,
+LONG ExtractReturnCodeAndResults(std::optional<Value> reply,
                                  Arg& out_arg,
                                  Args&... out_args) {
   GOOGLE_SMART_CARD_CHECK(reply);
@@ -316,9 +316,10 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
                           ConvertToValueOrDie(std::move(request_data)));
   }
 
-  optional<Value> SimulateSyncCallFromJsClient(int handler_id,
-                                               const std::string& function_name,
-                                               Value arguments) {
+  std::optional<Value> SimulateSyncCallFromJsClient(
+      int handler_id,
+      const std::string& function_name,
+      Value arguments) {
     const RequestId request_id = ++request_id_counter_;
     const std::string requester_name = GetJsClientRequesterName(handler_id);
     auto waiter =
@@ -356,7 +357,7 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
 
   std::string SimulateStringifyErrorCallFromJsClient(int handler_id,
                                                      LONG error) {
-    optional<Value> reply =
+    std::optional<Value> reply =
         SimulateSyncCallFromJsClient(handler_id,
                                      /*function_name=*/"pcsc_stringify_error",
                                      ArrayValueBuilder().Add(error).Get());
@@ -482,7 +483,7 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
       SCARDHANDLE scard_handle,
       DWORD send_protocol,
       const std::vector<uint8_t>& data_to_send,
-      optional<DWORD> receive_protocol,
+      std::optional<DWORD> receive_protocol,
       DWORD& out_response_protocol,
       std::vector<uint8_t>& out_response) {
     Value receive_protocol_arg;
@@ -878,7 +879,7 @@ class SmartCardConnectorApplicationSingleClientTest
 
  private:
   bool js_client_setup_ = false;
-  optional<SCARDCONTEXT> scard_context_;
+  std::optional<SCARDCONTEXT> scard_context_;
 };
 
 // `SCardEstablishContext()` and `SCardReleaseContext()` calls from JS succeed.
@@ -2424,14 +2425,14 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest, NonExistingFunctionCall) {
   SetUpJsClient();
 
   // Act:
-  optional<Value> response =
+  std::optional<Value> response =
       SimulateSyncCallFromJsClient(kFakeHandlerId,
                                    /*function_name=*/"foo",
                                    /*arguments=*/Value(Value::Type::kArray));
 
   // Assert: the response is null as it only contains an error message (we don't
   // verify the message here).
-  EXPECT_THAT(response, IsNullOptional());
+  EXPECT_THAT(response, Eq(std::nullopt));
 }
 
 // `SCardDisconnect()` and `SCardReleaseContext()` calls from JS should succeed
@@ -3098,7 +3099,7 @@ class SmartCardConnectorApplicationTwoClientsTest
 
  private:
   bool second_js_client_setup_ = false;
-  optional<SCARDCONTEXT> second_scard_context_;
+  std::optional<SCARDCONTEXT> second_scard_context_;
 };
 
 // `SCardConnect()` call from JS succeeds even when there's an active connection

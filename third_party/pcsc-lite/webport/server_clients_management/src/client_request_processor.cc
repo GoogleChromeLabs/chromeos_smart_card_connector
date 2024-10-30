@@ -33,6 +33,7 @@
 #include <cstring>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <tuple>
@@ -228,7 +229,7 @@ PcscLiteClientRequestProcessor::ScopedConcurrencyGuard::ScopedConcurrencyGuard(
     return;
   }
 
-  optional<std::string> concurrent_functions_dump;
+  std::optional<std::string> concurrent_functions_dump;
   {
     const std::unique_lock<std::mutex> lock(owner_.mutex_);
     std::multiset<std::string>& running_functions =
@@ -550,7 +551,7 @@ LONG PcscLiteClientRequestProcessor::ObtainCardHandle(
 }
 
 bool PcscLiteClientRequestProcessor::IsDisconnectFallbackPolicyEnabled() {
-  optional<AdminPolicy> admin_policy = admin_policy_getter_->WaitAndGet();
+  std::optional<AdminPolicy> admin_policy = admin_policy_getter_->WaitAndGet();
   std::vector<std::string> client_ids;
   if (admin_policy &&
       admin_policy.value().scard_disconnect_fallback_client_app_ids) {
@@ -973,7 +974,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardTransmit(
     SCARDHANDLE s_card_handle,
     const SCardIoRequest& send_protocol_information,
     const std::vector<uint8_t>& data_to_send,
-    const optional<SCardIoRequest>& response_protocol_information) {
+    const std::optional<SCardIoRequest>& response_protocol_information) {
   const SCARD_IO_REQUEST scard_send_protocol_information =
       send_protocol_information.AsSCardIoRequest();
   SCARD_IO_REQUEST scard_response_protocol_information;

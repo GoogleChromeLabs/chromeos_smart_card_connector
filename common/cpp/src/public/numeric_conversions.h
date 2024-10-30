@@ -22,12 +22,12 @@
 #include <stdint.h>
 
 #include <limits>
+#include <optional>
 #include <string>
 #include <type_traits>
 
 #include "common/cpp/src/public/formatting.h"
 #include "common/cpp/src/public/logging/logging.h"
-#include "common/cpp/src/public/optional.h"
 
 namespace google_smart_card {
 
@@ -155,7 +155,7 @@ inline void AssignWithTypeSizeCheck(FirstType* lhs, const SecondType& rhs) {
 }
 
 template <typename FirstType, typename SecondType>
-inline void AssignWithTypeSizeCheck(optional<FirstType>* lhs,
+inline void AssignWithTypeSizeCheck(std::optional<FirstType>* lhs,
                                     const SecondType& rhs) {
   GOOGLE_SMART_CARD_CHECK(lhs);
   // Assign a dummy value in order to be able to dereference the optional.

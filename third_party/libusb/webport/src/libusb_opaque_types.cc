@@ -17,13 +17,12 @@
 #include "third_party/libusb/webport/src/libusb_opaque_types.h"
 
 #include <chrono>
+#include <optional>
 #include <utility>
 
 #include "common/cpp/src/public/logging/logging.h"
-#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/requesting/remote_call_async_request.h"
 
-using google_smart_card::optional;
 using google_smart_card::RemoteCallAsyncRequest;
 
 void libusb_context::AddAsyncTransferInFlight(
@@ -40,7 +39,7 @@ void libusb_context::AddAsyncTransferInFlight(
                       std::move(prepared_js_call));
 }
 
-optional<RemoteCallAsyncRequest>
+std::optional<RemoteCallAsyncRequest>
 libusb_context::PrepareTransferJsCallForExecution(
     const UsbTransferDestination& transfer_destination) {
   const std::unique_lock<std::mutex> lock(mutex_);
@@ -54,7 +53,7 @@ libusb_context::PrepareTransferJsCallForExecution(
     // transfer after the previous one completes.
     return {};
   }
-  optional<RemoteCallAsyncRequest> prepared_js_call =
+  std::optional<RemoteCallAsyncRequest> prepared_js_call =
       transfers_in_flight_.ExtractPreparedJsCall(transfer_destination);
   if (!prepared_js_call) {
     // Nothing to execute at the moment.
@@ -379,15 +378,15 @@ const google_smart_card::LibusbJsDevice& libusb_device::js_device() const {
   return js_device_;
 }
 
-google_smart_card::optional<google_smart_card::LibusbJsConfigurationDescriptor>
+std::optional<google_smart_card::LibusbJsConfigurationDescriptor>
 libusb_device::js_config() const {
   std::unique_lock<std::mutex> lock(mutex_);
   return js_config_;
 }
 
 void libusb_device::set_js_config(
-    google_smart_card::optional<
-        google_smart_card::LibusbJsConfigurationDescriptor> new_js_config) {
+    std::optional<google_smart_card::LibusbJsConfigurationDescriptor>
+        new_js_config) {
   std::unique_lock<std::mutex> lock(mutex_);
   js_config_ = std::move(new_js_config);
 }

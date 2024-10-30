@@ -38,6 +38,7 @@
 
 #include <stdint.h>
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -45,8 +46,6 @@
 #include <reader.h>
 #include <winscard.h>
 #include <wintypes.h>
-
-#include "common/cpp/src/public/optional.h"
 
 namespace google_smart_card {
 
@@ -61,7 +60,7 @@ struct InboundSCardReaderState {
   InboundSCardReaderState() = default;
 
   InboundSCardReaderState(const std::string& reader_name,
-                          optional<uintptr_t> user_data,
+                          std::optional<uintptr_t> user_data,
                           DWORD current_state)
       : reader_name(reader_name),
         user_data(user_data),
@@ -71,7 +70,7 @@ struct InboundSCardReaderState {
       const SCARD_READERSTATE& value);
 
   std::string reader_name;
-  optional<uintptr_t> user_data;
+  std::optional<uintptr_t> user_data;
   DWORD current_state;
 };
 
@@ -87,7 +86,7 @@ struct OutboundSCardReaderState {
   OutboundSCardReaderState() = default;
 
   OutboundSCardReaderState(const std::string& reader_name,
-                           optional<uintptr_t> user_data,
+                           std::optional<uintptr_t> user_data,
                            DWORD current_state,
                            DWORD event_state,
                            const std::vector<uint8_t>& atr)
@@ -101,7 +100,7 @@ struct OutboundSCardReaderState {
       const SCARD_READERSTATE& value);
 
   std::string reader_name;
-  optional<uintptr_t> user_data;
+  std::optional<uintptr_t> user_data;
   DWORD current_state;
   DWORD event_state;
   std::vector<uint8_t> atr;

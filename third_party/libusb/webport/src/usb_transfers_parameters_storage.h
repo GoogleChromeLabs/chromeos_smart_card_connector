@@ -22,10 +22,10 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 
 #include <libusb.h>
 
-#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/requesting/async_request.h"
 #include "common/cpp/src/public/requesting/remote_call_async_request.h"
 #include "third_party/libusb/webport/src/libusb_js_proxy_data_model.h"
@@ -90,7 +90,7 @@ class UsbTransfersParametersStorage final {
 
   // Moves and returns `prepared_js_call` for an in-flight transfer with the
   // specified destination, if there's any.
-  optional<RemoteCallAsyncRequest> ExtractPreparedJsCall(
+  std::optional<RemoteCallAsyncRequest> ExtractPreparedJsCall(
       const UsbTransferDestination& transfer_destination);
 
   void RemoveByAsyncRequestState(
@@ -100,7 +100,7 @@ class UsbTransfersParametersStorage final {
   // Holds `Info` and all related non-public fields.
   struct Item {
     Info info;
-    optional<RemoteCallAsyncRequest> prepared_js_call;
+    std::optional<RemoteCallAsyncRequest> prepared_js_call;
   };
 
   template <typename Key>

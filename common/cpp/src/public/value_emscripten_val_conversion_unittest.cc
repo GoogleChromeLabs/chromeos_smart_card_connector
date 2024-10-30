@@ -45,7 +45,7 @@ int GetEmscriptenObjectValSize(const emscripten::val& val) {
 }  // namespace
 
 TEST(ValueEmscriptenValConversion, NullValue) {
-  const optional<emscripten::val> converted =
+  const std::optional<emscripten::val> converted =
       ConvertValueToEmscriptenVal(Value());
   ASSERT_TRUE(converted);
   EXPECT_TRUE(converted->isNull());
@@ -54,7 +54,7 @@ TEST(ValueEmscriptenValConversion, NullValue) {
 TEST(ValueEmscriptenValConversion, BooleanValue) {
   {
     constexpr bool kBoolean = false;
-    const optional<emscripten::val> converted =
+    const std::optional<emscripten::val> converted =
         ConvertValueToEmscriptenVal(Value(kBoolean));
     ASSERT_TRUE(converted);
     ASSERT_EQ(converted->typeOf().as<std::string>(), "boolean");
@@ -63,7 +63,7 @@ TEST(ValueEmscriptenValConversion, BooleanValue) {
 
   {
     constexpr bool kBoolean = true;
-    const optional<emscripten::val> converted =
+    const std::optional<emscripten::val> converted =
         ConvertValueToEmscriptenVal(Value(kBoolean));
     ASSERT_TRUE(converted);
     ASSERT_EQ(converted->typeOf().as<std::string>(), "boolean");
@@ -73,7 +73,7 @@ TEST(ValueEmscriptenValConversion, BooleanValue) {
 
 TEST(ValueEmscriptenValConversion, IntegerValue) {
   constexpr int kNumber = 123;
-  const optional<emscripten::val> converted =
+  const std::optional<emscripten::val> converted =
       ConvertValueToEmscriptenVal(Value(kNumber));
   ASSERT_TRUE(converted);
   ASSERT_TRUE(converted->isNumber());
@@ -82,7 +82,7 @@ TEST(ValueEmscriptenValConversion, IntegerValue) {
 
 TEST(ValueEmscriptenValConversion, IntegerNon32BitValue) {
   constexpr int64_t k40Bit = 1LL << 40;
-  const optional<emscripten::val> converted =
+  const std::optional<emscripten::val> converted =
       ConvertValueToEmscriptenVal(Value(k40Bit));
   ASSERT_TRUE(converted);
   ASSERT_TRUE(converted->isNumber());
@@ -96,7 +96,7 @@ TEST(ValueEmscriptenValConversion, IntegerNon32BitValue) {
 TEST(ValueEmscriptenValConversion, IntegerValueError) {
   {
     constexpr int64_t k64BitMax = std::numeric_limits<int64_t>::max();
-    const optional<emscripten::val> converted =
+    const std::optional<emscripten::val> converted =
         ConvertValueToEmscriptenVal(Value(k64BitMax));
     EXPECT_FALSE(converted);
   }
@@ -104,7 +104,7 @@ TEST(ValueEmscriptenValConversion, IntegerValueError) {
   {
     constexpr int64_t k64BitMin = std::numeric_limits<int64_t>::min();
     std::string error_message;
-    const optional<emscripten::val> converted =
+    const std::optional<emscripten::val> converted =
         ConvertValueToEmscriptenVal(Value(k64BitMin), &error_message);
     EXPECT_FALSE(converted);
     EXPECT_THAT(
@@ -117,7 +117,7 @@ TEST(ValueEmscriptenValConversion, IntegerValueError) {
 
 TEST(ValueEmscriptenValConversion, FloatValue) {
   constexpr double kFloat = 123.456;
-  const optional<emscripten::val> converted =
+  const std::optional<emscripten::val> converted =
       ConvertValueToEmscriptenVal(Value(kFloat));
   ASSERT_TRUE(converted);
   ASSERT_TRUE(converted->isNumber());
@@ -126,7 +126,7 @@ TEST(ValueEmscriptenValConversion, FloatValue) {
 
 TEST(ValueEmscriptenValConversion, StringValue) {
   {
-    const optional<emscripten::val> converted =
+    const std::optional<emscripten::val> converted =
         ConvertValueToEmscriptenVal(Value(Value::Type::kString));
     ASSERT_TRUE(converted);
     ASSERT_TRUE(converted->isString());
@@ -135,7 +135,7 @@ TEST(ValueEmscriptenValConversion, StringValue) {
 
   {
     const char kFoo[] = "foo";
-    const optional<emscripten::val> converted =
+    const std::optional<emscripten::val> converted =
         ConvertValueToEmscriptenVal(Value(kFoo));
     ASSERT_TRUE(converted);
     ASSERT_TRUE(converted->isString());
@@ -145,7 +145,7 @@ TEST(ValueEmscriptenValConversion, StringValue) {
 
 TEST(ValueEmscriptenValConversion, BinaryValue) {
   {
-    const optional<emscripten::val> converted =
+    const std::optional<emscripten::val> converted =
         ConvertValueToEmscriptenVal(Value(Value::Type::kBinary));
     ASSERT_TRUE(converted);
     // clang-format incorrectly adds a space after "instanceof".
@@ -157,7 +157,7 @@ TEST(ValueEmscriptenValConversion, BinaryValue) {
 
   {
     const std::vector<uint8_t> kBinary = {1, 2, 3};
-    const optional<emscripten::val> converted =
+    const std::optional<emscripten::val> converted =
         ConvertValueToEmscriptenVal(Value(kBinary));
     ASSERT_TRUE(converted);
     // clang-format incorrectly adds a space after "instanceof".
@@ -174,7 +174,7 @@ TEST(ValueEmscriptenValConversion, BinaryValue) {
 
 TEST(ValueEmscriptenValConversion, DictionaryValue) {
   {
-    const optional<emscripten::val> converted =
+    const std::optional<emscripten::val> converted =
         ConvertValueToEmscriptenVal(Value(Value::Type::kDictionary));
     ASSERT_TRUE(converted);
     ASSERT_EQ(converted->typeOf().as<std::string>(), "object");
@@ -190,7 +190,7 @@ TEST(ValueEmscriptenValConversion, DictionaryValue) {
     items["xyz"] = Value(std::move(inner_items));
     const Value value(std::move(items));
 
-    const optional<emscripten::val> converted =
+    const std::optional<emscripten::val> converted =
         ConvertValueToEmscriptenVal(value);
     ASSERT_TRUE(converted);
     ASSERT_EQ(converted->typeOf().as<std::string>(), "object");
@@ -213,7 +213,7 @@ TEST(ValueEmscriptenValConversion, DictionaryValueError) {
     items["foo"] = Value(k64BitMax);
     const Value value(std::move(items));
 
-    const optional<emscripten::val> converted =
+    const std::optional<emscripten::val> converted =
         ConvertValueToEmscriptenVal(value);
     EXPECT_FALSE(converted);
   }
@@ -226,7 +226,7 @@ TEST(ValueEmscriptenValConversion, DictionaryValueError) {
     const Value value(std::move(items));
 
     std::string error_message;
-    const optional<emscripten::val> converted =
+    const std::optional<emscripten::val> converted =
         ConvertValueToEmscriptenVal(value, &error_message);
     EXPECT_FALSE(converted);
     EXPECT_THAT(
@@ -240,7 +240,7 @@ TEST(ValueEmscriptenValConversion, DictionaryValueError) {
 
 TEST(ValueEmscriptenValConversion, ArrayValue) {
   {
-    const optional<emscripten::val> converted =
+    const std::optional<emscripten::val> converted =
         ConvertValueToEmscriptenVal(Value(Value::Type::kArray));
     ASSERT_TRUE(converted);
     ASSERT_TRUE(converted->isArray());
@@ -256,7 +256,7 @@ TEST(ValueEmscriptenValConversion, ArrayValue) {
     items.emplace_back(std::move(inner_items));
     const Value value(std::move(items));
 
-    const optional<emscripten::val> converted =
+    const std::optional<emscripten::val> converted =
         ConvertValueToEmscriptenVal(value);
     ASSERT_TRUE(converted);
     ASSERT_TRUE(converted->isArray());
@@ -279,7 +279,7 @@ TEST(ValueEmscriptenValConversion, ArrayValueError) {
     items.emplace_back(k64BitMax);
     const Value value(std::move(items));
 
-    const optional<emscripten::val> converted =
+    const std::optional<emscripten::val> converted =
         ConvertValueToEmscriptenVal(value);
     EXPECT_FALSE(converted);
   }
@@ -292,7 +292,7 @@ TEST(ValueEmscriptenValConversion, ArrayValueError) {
     const Value value(std::move(items));
 
     std::string error_message;
-    const optional<emscripten::val> converted =
+    const std::optional<emscripten::val> converted =
         ConvertValueToEmscriptenVal(value, &error_message);
     EXPECT_FALSE(converted);
     EXPECT_THAT(
@@ -306,7 +306,7 @@ TEST(ValueEmscriptenValConversion, ArrayValueError) {
 
 TEST(ValueEmscriptenValConversion, UndefinedEmscriptenVal) {
   std::string error_message;
-  const optional<Value> value =
+  const std::optional<Value> value =
       ConvertEmscriptenValToValue(emscripten::val::undefined(), &error_message);
   EXPECT_TRUE(error_message.empty());
   ASSERT_TRUE(value);
@@ -315,7 +315,7 @@ TEST(ValueEmscriptenValConversion, UndefinedEmscriptenVal) {
 
 TEST(ValueEmscriptenValConversion, NullEmscriptenVal) {
   std::string error_message;
-  const optional<Value> value =
+  const std::optional<Value> value =
       ConvertEmscriptenValToValue(emscripten::val::null(), &error_message);
   EXPECT_TRUE(error_message.empty());
   ASSERT_TRUE(value);
@@ -326,7 +326,7 @@ TEST(ValueEmscriptenValConversion, BooleanEmscriptenVal) {
   {
     constexpr bool kBoolean = false;
     std::string error_message;
-    const optional<Value> value =
+    const std::optional<Value> value =
         ConvertEmscriptenValToValue(emscripten::val(kBoolean), &error_message);
     EXPECT_TRUE(error_message.empty());
     ASSERT_TRUE(value);
@@ -337,7 +337,7 @@ TEST(ValueEmscriptenValConversion, BooleanEmscriptenVal) {
   {
     constexpr bool kBoolean = true;
     std::string error_message;
-    const optional<Value> value =
+    const std::optional<Value> value =
         ConvertEmscriptenValToValue(emscripten::val(kBoolean), &error_message);
     EXPECT_TRUE(error_message.empty());
     ASSERT_TRUE(value);
@@ -350,7 +350,7 @@ TEST(ValueEmscriptenValConversion, IntegerNumberEmscriptenVal) {
   {
     constexpr int kNumber = 123;
     std::string error_message;
-    const optional<Value> value =
+    const std::optional<Value> value =
         ConvertEmscriptenValToValue(emscripten::val(kNumber), &error_message);
     EXPECT_TRUE(error_message.empty());
     ASSERT_TRUE(value);
@@ -363,7 +363,7 @@ TEST(ValueEmscriptenValConversion, IntegerNumberEmscriptenVal) {
     // range of precisely representable JavaScript numbers.
     constexpr int kBig =
         sizeof(int) < 4 ? std::numeric_limits<int>::max() : (1 << 30);
-    const optional<Value> value =
+    const std::optional<Value> value =
         ConvertEmscriptenValToValue(emscripten::val(kBig));
     ASSERT_TRUE(value);
     ASSERT_TRUE(value->is_integer());
@@ -372,7 +372,7 @@ TEST(ValueEmscriptenValConversion, IntegerNumberEmscriptenVal) {
 
   {
     constexpr int64_t kInt64Max = std::numeric_limits<int64_t>::max();
-    const optional<Value> value = ConvertEmscriptenValToValue(
+    const std::optional<Value> value = ConvertEmscriptenValToValue(
         emscripten::val(static_cast<double>(kInt64Max)));
     ASSERT_TRUE(value);
     ASSERT_TRUE(value->is_float());
@@ -384,7 +384,7 @@ TEST(ValueEmscriptenValConversion, FloatNumberEmscriptenVal) {
   {
     constexpr double kFractional = 123.456;
     std::string error_message;
-    const optional<Value> value = ConvertEmscriptenValToValue(
+    const std::optional<Value> value = ConvertEmscriptenValToValue(
         emscripten::val(kFractional), &error_message);
     EXPECT_TRUE(error_message.empty());
     ASSERT_TRUE(value);
@@ -394,7 +394,7 @@ TEST(ValueEmscriptenValConversion, FloatNumberEmscriptenVal) {
 
   {
     constexpr double kHuge = 1E100;
-    const optional<Value> value =
+    const std::optional<Value> value =
         ConvertEmscriptenValToValue(emscripten::val(kHuge));
     ASSERT_TRUE(value);
     ASSERT_TRUE(value->is_float());
@@ -406,7 +406,7 @@ TEST(ValueEmscriptenValConversion, StringEmscriptenVal) {
   {
     constexpr char kEmpty[] = "";
     std::string error_message;
-    const optional<Value> value =
+    const std::optional<Value> value =
         ConvertEmscriptenValToValue(emscripten::val(kEmpty), &error_message);
     EXPECT_TRUE(error_message.empty());
     ASSERT_TRUE(value);
@@ -416,7 +416,7 @@ TEST(ValueEmscriptenValConversion, StringEmscriptenVal) {
 
   {
     constexpr char kFoo[] = "foo";
-    const optional<Value> value =
+    const std::optional<Value> value =
         ConvertEmscriptenValToValue(emscripten::val(kFoo));
     ASSERT_TRUE(value);
     ASSERT_TRUE(value->is_string());
@@ -427,7 +427,7 @@ TEST(ValueEmscriptenValConversion, StringEmscriptenVal) {
 TEST(ValueEmscriptenValConversion, ArrayBufferEmscriptenVal) {
   {
     std::string error_message;
-    const optional<Value> value = ConvertEmscriptenValToValue(
+    const std::optional<Value> value = ConvertEmscriptenValToValue(
         emscripten::val::global("ArrayBuffer").new_(), &error_message);
     EXPECT_TRUE(error_message.empty());
     ASSERT_TRUE(value);
@@ -442,7 +442,8 @@ TEST(ValueEmscriptenValConversion, ArrayBufferEmscriptenVal) {
             .call<emscripten::val>("from", emscripten::val::array(kBytes));
     emscripten::val array_buffer_val = uint8_array_val["buffer"];
 
-    const optional<Value> value = ConvertEmscriptenValToValue(array_buffer_val);
+    const std::optional<Value> value =
+        ConvertEmscriptenValToValue(array_buffer_val);
     ASSERT_TRUE(value);
     ASSERT_TRUE(value->is_binary());
     EXPECT_EQ(value->GetBinary(), kBytes);
@@ -466,7 +467,7 @@ TEST(ValueEmscriptenValConversion, FunctionEmscriptenVal) {
 TEST(ValueEmscriptenValConversion, ArrayEmscriptenVal) {
   {
     std::string error_message;
-    const optional<Value> value =
+    const std::optional<Value> value =
         ConvertEmscriptenValToValue(emscripten::val::array(), &error_message);
     EXPECT_TRUE(error_message.empty());
     ASSERT_TRUE(value);
@@ -479,7 +480,7 @@ TEST(ValueEmscriptenValConversion, ArrayEmscriptenVal) {
         "parse", std::string("[[null, 123]]"));
 
     std::string error_message;
-    const optional<Value> value =
+    const std::optional<Value> value =
         ConvertEmscriptenValToValue(val, &error_message);
     EXPECT_TRUE(error_message.empty());
     ASSERT_TRUE(value);
@@ -524,7 +525,7 @@ TEST(ValueEmscriptenValConversion, ArrayEmscriptenValWithBadItem) {
 TEST(ValueEmscriptenValConversion, Uint8ArrayEmscriptenVal) {
   {
     std::string error_message;
-    const optional<Value> value = ConvertEmscriptenValToValue(
+    const std::optional<Value> value = ConvertEmscriptenValToValue(
         emscripten::val::global("Uint8Array").new_(), &error_message);
     EXPECT_TRUE(error_message.empty());
     ASSERT_TRUE(value);
@@ -537,7 +538,7 @@ TEST(ValueEmscriptenValConversion, Uint8ArrayEmscriptenVal) {
     emscripten::val val = emscripten::val::global("Uint8Array")
                               .new_(emscripten::val::array(kBytes));
 
-    const optional<Value> value = ConvertEmscriptenValToValue(val);
+    const std::optional<Value> value = ConvertEmscriptenValToValue(val);
     ASSERT_TRUE(value);
     ASSERT_TRUE(value->is_array());
     ASSERT_EQ(value->GetArray().size(), kBytes.size());
@@ -557,7 +558,7 @@ TEST(ValueEmscriptenValConversion, DataViewEmscriptenVal) {
         emscripten::val::global("DataView").new_(array_buffer_val);
 
     std::string error_message;
-    const optional<Value> value =
+    const std::optional<Value> value =
         ConvertEmscriptenValToValue(data_view_val, &error_message);
     EXPECT_TRUE(error_message.empty());
     ASSERT_TRUE(value);
@@ -574,7 +575,8 @@ TEST(ValueEmscriptenValConversion, DataViewEmscriptenVal) {
     emscripten::val data_view_val =
         emscripten::val::global("DataView").new_(array_buffer_val);
 
-    const optional<Value> value = ConvertEmscriptenValToValue(data_view_val);
+    const std::optional<Value> value =
+        ConvertEmscriptenValToValue(data_view_val);
     ASSERT_TRUE(value);
     ASSERT_TRUE(value->is_binary());
     EXPECT_EQ(value->GetBinary(), kBytes);
@@ -590,7 +592,8 @@ TEST(ValueEmscriptenValConversion, DataViewEmscriptenVal) {
         emscripten::val::global("DataView")
             .new_(array_buffer_val, /*byteLength=*/1, /*byteOffset=*/1);
 
-    const optional<Value> value = ConvertEmscriptenValToValue(data_view_val);
+    const std::optional<Value> value =
+        ConvertEmscriptenValToValue(data_view_val);
     ASSERT_TRUE(value);
     ASSERT_TRUE(value->is_binary());
     EXPECT_EQ(value->GetBinary(), std::vector<uint8_t>({2}));
@@ -600,7 +603,7 @@ TEST(ValueEmscriptenValConversion, DataViewEmscriptenVal) {
 TEST(ValueEmscriptenValConversion, ObjectEmscriptenVal) {
   {
     std::string error_message;
-    const optional<Value> value =
+    const std::optional<Value> value =
         ConvertEmscriptenValToValue(emscripten::val::object(), &error_message);
     EXPECT_TRUE(error_message.empty());
     ASSERT_TRUE(value);
@@ -612,7 +615,7 @@ TEST(ValueEmscriptenValConversion, ObjectEmscriptenVal) {
     emscripten::val val = emscripten::val::global("JSON").call<emscripten::val>(
         "parse", std::string(R"({"xyz": {"foo": null, "bar": 123}})"));
 
-    const optional<Value> value = ConvertEmscriptenValToValue(val);
+    const std::optional<Value> value = ConvertEmscriptenValToValue(val);
     ASSERT_TRUE(value);
     ASSERT_TRUE(value->is_dictionary());
     EXPECT_EQ(value->GetDictionary().size(), 1U);

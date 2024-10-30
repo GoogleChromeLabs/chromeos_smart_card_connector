@@ -18,6 +18,7 @@
 
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -25,7 +26,6 @@
 #include "common/cpp/src/public/logging/hex_dumping.h"
 #include "common/cpp/src/public/logging/logging.h"
 #include "common/cpp/src/public/messaging/typed_message_router.h"
-#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/requesting/remote_call_message.h"
 #include "common/cpp/src/public/requesting/request_receiver.h"
 #include "common/cpp/src/public/requesting/request_result.h"
@@ -372,9 +372,10 @@ std::vector<uint8_t> MakeDataBlockTransferReply(
 
 // Builds a fake RDR_to_PC_DataBlock message for replying to
 // PC_to_RDR_IccPowerOn.
-std::vector<uint8_t> MakePowerOnTransferReply(uint8_t sequence_number,
-                                              CcidIccStatus icc_status,
-                                              optional<CardType> card_type) {
+std::vector<uint8_t> MakePowerOnTransferReply(
+    uint8_t sequence_number,
+    CcidIccStatus icc_status,
+    std::optional<CardType> card_type) {
   std::vector<uint8_t> response_data;
   if (card_type)
     response_data = TestingSmartCardSimulation::GetCardAtr(*card_type);
@@ -469,8 +470,8 @@ std::vector<uint8_t> HandleApdu(CardProfile card_profile,
 std::vector<uint8_t> MakeXfrBlockTransferReply(
     uint8_t sequence_number,
     CcidIccStatus icc_status,
-    optional<CardType> card_type,
-    optional<CardProfile> card_profile,
+    std::optional<CardType> card_type,
+    std::optional<CardProfile> card_profile,
     const std::vector<uint8_t>& request_data) {
   // The protocol details hardcoded in this function are based on ISO/IEC
   // 7816-3.
@@ -554,7 +555,7 @@ std::vector<uint8_t> MakeXfrBlockTransferReply(
 std::vector<uint8_t> MakeParametersTransferReply(
     uint8_t sequence_number,
     CcidIccStatus icc_status,
-    optional<CardType> card_type,
+    std::optional<CardType> card_type,
     const std::vector<uint8_t>& protocol_data_structure) {
   GOOGLE_SMART_CARD_CHECK(card_type);
   // For now we always simulate success, in which case the reply contains the
@@ -661,7 +662,7 @@ void TestingSmartCardSimulation::HandleRequest(
 
   RemoteCallRequestPayload remote_call =
       ConvertFromValueOrDie<RemoteCallRequestPayload>(std::move(payload));
-  optional<GenericRequestResult> response;
+  std::optional<GenericRequestResult> response;
   if (remote_call.function_name == "listDevices") {
     GOOGLE_SMART_CARD_CHECK(remote_call.arguments.empty());
     response = handler_.ListDevices();
@@ -965,7 +966,7 @@ TestingSmartCardSimulation::ThreadSafeHandler::BulkTransfer(
   return HandleInputBulkTransfer(*params.length_to_receive, *device_state);
 }
 
-optional<GenericRequestResult>
+std::optional<GenericRequestResult>
 TestingSmartCardSimulation::ThreadSafeHandler::InterruptTransfer(
     int64_t device_id,
     int64_t device_handle,
@@ -1138,7 +1139,7 @@ std::vector<SlotChangeNotification> TestingSmartCardSimulation::
     // Apply the new `Device` value. This also triggers state transitions (e.g.,
     // whether a card is inserted) and generates notifications (e.g., replying
     // to a pending interrupt transfer).
-    optional<SlotChangeNotification> notification =
+    std::optional<SlotChangeNotification> notification =
         UpdateDeviceState(device, state);
     if (notification) {
       notifications.push_back(*notification);
@@ -1148,7 +1149,7 @@ std::vector<SlotChangeNotification> TestingSmartCardSimulation::
   return notifications;
 }
 
-optional<SlotChangeNotification>
+std::optional<SlotChangeNotification>
 TestingSmartCardSimulation::ThreadSafeHandler::UpdateDeviceState(
     const Device& device,
     DeviceState& device_state) {

@@ -99,9 +99,9 @@ struct ResponseMessageData {
   // The response payload, represented as a generic `Value` object, or null in
   // case the request failed. Contents of the value stored here are specific to
   // a particular type of request.
-  optional<Value> payload;
+  std::optional<Value> payload;
   // The error message, in case the request failed, or null otherwise.
-  optional<std::string> error_message;
+  std::optional<std::string> error_message;
 };
 
 }  // namespace google_smart_card

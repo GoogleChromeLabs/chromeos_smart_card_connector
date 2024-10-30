@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <queue>
 #include <set>
 #include <string>
@@ -26,7 +27,6 @@
 
 #include "common/cpp/src/public/global_context.h"
 #include "common/cpp/src/public/messaging/typed_message_router.h"
-#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/requesting/js_request_receiver.h"
 #include "common/cpp/src/public/requesting/request_receiver.h"
 #include "common/cpp/src/public/requesting/request_result.h"
@@ -106,13 +106,13 @@ class TestingSmartCardSimulation final : public RequestHandler {
     int64_t id = -1;
     DeviceType type;
     // A null value denotes "no card inserted".
-    optional<CardType> card_type;
+    std::optional<CardType> card_type;
     // A null value denotes "the card is uninitialized".
-    optional<CardProfile> card_profile;
+    std::optional<CardProfile> card_profile;
     // If set, the device will simulate the error.
-    optional<ErrorMode> error_mode;
+    std::optional<ErrorMode> error_mode;
     // If set, the error disappears under the specified circumstances.
-    optional<ErrorCessation> error_cessation;
+    std::optional<ErrorCessation> error_cessation;
   };
 
   struct SlotChangeNotification {
@@ -146,7 +146,7 @@ class TestingSmartCardSimulation final : public RequestHandler {
   // The simulation state of a device.
   struct DeviceState {
     Device device;
-    optional<int64_t> opened_device_handle;
+    std::optional<int64_t> opened_device_handle;
     std::set<int64_t> claimed_interfaces;
     std::vector<uint8_t> next_bulk_transfer_reply;
     std::queue<RequestReceiver::ResultCallback> pending_interrupt_transfers;
@@ -185,7 +185,7 @@ class TestingSmartCardSimulation final : public RequestHandler {
     GenericRequestResult BulkTransfer(int64_t device_id,
                                       int64_t device_handle,
                                       LibusbJsGenericTransferParameters params);
-    optional<GenericRequestResult> InterruptTransfer(
+    std::optional<GenericRequestResult> InterruptTransfer(
         int64_t device_id,
         int64_t device_handle,
         LibusbJsGenericTransferParameters params,
@@ -197,7 +197,7 @@ class TestingSmartCardSimulation final : public RequestHandler {
                                               int64_t device_handle);
     std::vector<SlotChangeNotification> UpdateDevicesAndPrepareNotifications(
         const std::vector<Device>& devices);
-    optional<SlotChangeNotification> UpdateDeviceState(
+    std::optional<SlotChangeNotification> UpdateDeviceState(
         const Device& device,
         DeviceState& device_state);
 

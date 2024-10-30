@@ -19,9 +19,9 @@
 
 #include <stdint.h>
 
-#include <libusb.h>
+#include <optional>
 
-#include "common/cpp/src/public/optional.h"
+#include <libusb.h>
 
 namespace google_smart_card {
 
@@ -54,20 +54,20 @@ class UsbTransferDestination final {
 
  private:
   UsbTransferDestination(int64_t js_device_handle,
-                         optional<uint8_t> endpoint_address,
-                         optional<uint8_t> control_transfer_request_type,
-                         optional<uint8_t> control_transfer_request,
-                         optional<uint16_t> control_transfer_value,
-                         optional<uint16_t> control_transfer_index);
+                         std::optional<uint8_t> endpoint_address,
+                         std::optional<uint8_t> control_transfer_request_type,
+                         std::optional<uint8_t> control_transfer_request,
+                         std::optional<uint16_t> control_transfer_value,
+                         std::optional<uint16_t> control_transfer_index);
 
   int Compare(const UsbTransferDestination& other) const;
 
   int64_t js_device_handle_;
-  optional<uint8_t> endpoint_address_;
-  optional<uint8_t> control_transfer_request_type_;
-  optional<uint8_t> control_transfer_request_;
-  optional<uint16_t> control_transfer_value_;
-  optional<uint16_t> control_transfer_index_;
+  std::optional<uint8_t> endpoint_address_;
+  std::optional<uint8_t> control_transfer_request_type_;
+  std::optional<uint8_t> control_transfer_request_;
+  std::optional<uint16_t> control_transfer_value_;
+  std::optional<uint16_t> control_transfer_index_;
 };
 
 }  // namespace google_smart_card

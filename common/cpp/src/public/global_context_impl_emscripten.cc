@@ -20,6 +20,7 @@
 #include <emscripten/threading.h>
 #include <emscripten/val.h>
 
+#include "common/cpp/src/public/logging/logging.h"
 #include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_emscripten_val_conversion.h"

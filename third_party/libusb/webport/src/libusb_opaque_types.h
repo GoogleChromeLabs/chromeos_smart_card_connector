@@ -31,13 +31,13 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <queue>
 #include <set>
 #include <vector>
 
 #include <libusb.h>
 
-#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/requesting/async_request.h"
 #include "common/cpp/src/public/requesting/remote_call_async_request.h"
 #include "common/cpp/src/public/requesting/request_result.h"
@@ -68,7 +68,7 @@
 struct libusb_context final
     : public std::enable_shared_from_this<libusb_context> {
   template <typename T>
-  using optional = google_smart_card::optional<T>;
+  using optional = std::optional<T>;
   using RemoteCallAsyncRequest = google_smart_card::RemoteCallAsyncRequest;
   using TransferRequestResult = google_smart_card::RequestResult<
       google_smart_card::LibusbJsTransferResult>;
@@ -97,7 +97,7 @@ struct libusb_context final
   // Moves and returns `prepared_js_call` for an in-flight transfer with the
   // specified destination, if there's any. This method is responsible for
   // preventing running duplicate input transfer API calls concurrently.
-  optional<RemoteCallAsyncRequest> PrepareTransferJsCallForExecution(
+  std::optional<RemoteCallAsyncRequest> PrepareTransferJsCallForExecution(
       const UsbTransferDestination& transfer_destination);
 
   // Blocks until either a new asynchronous transfer result is received (in
@@ -205,12 +205,11 @@ struct libusb_device final {
   const google_smart_card::LibusbJsDevice& js_device() const;
 
   // Cached active config that was received by the most recent JS call.
-  google_smart_card::optional<
-      google_smart_card::LibusbJsConfigurationDescriptor>
-  js_config() const;
+  std::optional<google_smart_card::LibusbJsConfigurationDescriptor> js_config()
+      const;
   void set_js_config(
-      google_smart_card::optional<
-          google_smart_card::LibusbJsConfigurationDescriptor> new_js_config);
+      std::optional<google_smart_card::LibusbJsConfigurationDescriptor>
+          new_js_config);
 
   // Increments the reference counter.
   void AddReference();
@@ -224,9 +223,7 @@ struct libusb_device final {
 
   mutable std::mutex mutex_;
   int reference_count_ = 1;
-  google_smart_card::optional<
-      google_smart_card::LibusbJsConfigurationDescriptor>
-      js_config_;
+  std::optional<google_smart_card::LibusbJsConfigurationDescriptor> js_config_;
 };
 
 // Definition of the libusb_device_handle type declared in the libusb headers.

@@ -18,6 +18,7 @@
 
 #include <cstddef>
 #include <limits>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -25,7 +26,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/value.h"
 
 using testing::MatchesRegex;
@@ -39,7 +39,7 @@ enum class SomeEnum { kFirst, kSecond = 222, kSomeThird = 3, kForgotten = 456 };
 
 struct SomeStruct {
   int int_field;
-  optional<std::string> string_field;
+  std::optional<std::string> string_field;
 };
 
 struct OuterStruct {
@@ -48,7 +48,7 @@ struct OuterStruct {
 
 struct StructPermittingUnknownFields {
   int int_field;
-  optional<std::string> string_field;
+  std::optional<std::string> string_field;
 };
 
 }  // namespace

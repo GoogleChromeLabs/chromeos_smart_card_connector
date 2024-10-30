@@ -16,10 +16,10 @@
 
 #include <condition_variable>
 #include <mutex>
+#include <optional>
 #include <utility>
 
 #include "common/cpp/src/public/logging/logging.h"
-#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/value.h"
 
 namespace google_smart_card {
@@ -53,7 +53,7 @@ GenericAsyncRequest Requester::StartAsyncRequest(
 GenericRequestResult Requester::PerformSyncRequest(Value payload) {
   std::mutex mutex;
   std::condition_variable condition;
-  optional<GenericRequestResult> result;
+  std::optional<GenericRequestResult> result;
 
   StartAsyncRequest(std::move(payload), [&mutex, &condition, &result](
                                             GenericRequestResult async_result) {

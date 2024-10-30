@@ -44,6 +44,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -51,7 +52,6 @@
 
 #include "common/cpp/src/public/formatting.h"
 #include "common/cpp/src/public/logging/logging.h"
-#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_debug_dumping.h"
@@ -83,7 +83,7 @@ class EnumToValueConverter final {
 
  private:
   const int64_t enum_to_convert_;
-  optional<Value> converted_value_;
+  std::optional<Value> converted_value_;
 };
 
 // Visitor of enum type's items that converts a string `Value` into a C++ enum
@@ -103,7 +103,7 @@ class EnumFromValueConverter final {
 
  private:
   const Value value_to_convert_;
-  optional<int64_t> converted_enum_;
+  std::optional<int64_t> converted_enum_;
 };
 
 // Base class for all `StructToValueConverter`s. Contains code that doesn't
@@ -138,15 +138,15 @@ class StructToValueConverter final : public StructToValueConverterBase {
   ~StructToValueConverter() = default;
 
   template <typename FieldT>
-  void HandleField(FieldT T::*field_ptr, const char* dictionary_key_name) {
+  void HandleField(FieldT T::* field_ptr, const char* dictionary_key_name) {
     FieldT& field = object_to_convert_.*field_ptr;
     ConvertFieldToValue(std::move(field), dictionary_key_name);
   }
 
   template <typename FieldT>
-  void HandleField(optional<FieldT> T::*field_ptr,
+  void HandleField(std::optional<FieldT> T::* field_ptr,
                    const char* dictionary_key_name) {
-    optional<FieldT>& field = object_to_convert_.*field_ptr;
+    std::optional<FieldT>& field = object_to_convert_.*field_ptr;
     if (!field) {
       // The optional field is null - skip it from the conversion.
       return;
@@ -206,7 +206,7 @@ class StructFromValueConverter final : public StructFromValueConverterBase {
   ~StructFromValueConverter() = default;
 
   template <typename FieldT>
-  void HandleField(FieldT T::*field_ptr, const char* dictionary_key_name) {
+  void HandleField(FieldT T::* field_ptr, const char* dictionary_key_name) {
     Value item_value;
     if (!ExtractKey(dictionary_key_name, /*is_required=*/true, &item_value))
       return;
@@ -215,12 +215,12 @@ class StructFromValueConverter final : public StructFromValueConverterBase {
   }
 
   template <typename FieldT>
-  void HandleField(optional<FieldT> T::*field_ptr,
+  void HandleField(std::optional<FieldT> T::* field_ptr,
                    const char* dictionary_key_name) {
     Value item_value;
     if (!ExtractKey(dictionary_key_name, /*is_required=*/false, &item_value))
       return;
-    optional<FieldT>& field = converted_object_.*field_ptr;
+    std::optional<FieldT>& field = converted_object_.*field_ptr;
     field = FieldT();
     ConvertFieldFromValue(dictionary_key_name, std::move(item_value),
                           &field.value());
@@ -375,7 +375,7 @@ class StructValueDescriptor {
     // that the method calls can be easily chained and the final result can be
     // returned without an explicit std::move() boilerplate.
     template <typename FieldT>
-    Description&& WithField(FieldT T::*field_ptr,
+    Description&& WithField(FieldT T::* field_ptr,
                             const char* dictionary_key_name) && {
       if (to_value_converter_)
         to_value_converter_->HandleField(field_ptr, dictionary_key_name);
@@ -427,7 +427,7 @@ class StructValueDescriptor {
 // this, the errors will appear only at the linking stage and without mentioning
 // the place in the code that misuses this class.
 template <typename T>
-class StructValueDescriptor<optional<T>>;
+class StructValueDescriptor<std::optional<T>>;
 
 ///////////// ConvertToValue /////////////////////
 

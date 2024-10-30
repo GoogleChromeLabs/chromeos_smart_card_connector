@@ -20,13 +20,13 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 
 #include "common/cpp/src/public/global_context.h"
 #include "common/cpp/src/public/messaging/typed_message.h"
 #include "common/cpp/src/public/messaging/typed_message_router.h"
-#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/requesting/request_id.h"
 #include "common/cpp/src/public/requesting/requester_message.h"
 #include "common/cpp/src/public/value.h"
@@ -43,8 +43,8 @@ class TestingGlobalContext final : public GlobalContext {
       std::function<void(RequestId request_id, Value request_payload)>;
   using ResponseCallback =
       std::function<void(RequestId request_id,
-                         optional<Value> response_payload,
-                         optional<std::string> response_error_message)>;
+                         std::optional<Value> response_payload,
+                         std::optional<std::string> response_error_message)>;
 
   // Helper returned by `Create...Waiter()` methods. Allows to wait until the
   // specified C++-to-JS message is sent.
@@ -57,28 +57,28 @@ class TestingGlobalContext final : public GlobalContext {
     void Wait();
     void Reply(Value result_to_reply_with);
 
-    const optional<Value>& value() const;
-    optional<Value> take_value() &&;
-    optional<RequestId> request_id() const;
+    const std::optional<Value>& value() const;
+    std::optional<Value> take_value() &&;
+    std::optional<RequestId> request_id() const;
 
    private:
     friend class TestingGlobalContext;
 
     Waiter(TypedMessageRouter* typed_message_router,
-           const optional<std::string>& requester_name);
+           const std::optional<std::string>& requester_name);
 
     void ResolveWithMessageData(Value message_data);
     void ResolveWithRequestPayload(RequestId request_id, Value request_payload);
     void ResolveWithResponsePayload(RequestId request_id,
-                                    optional<Value> response_payload);
+                                    std::optional<Value> response_payload);
 
     TypedMessageRouter* const typed_message_router_;
-    const optional<std::string> requester_name_;
+    const std::optional<std::string> requester_name_;
     std::mutex mutex_;
     std::condition_variable condition_;
     bool resolved_ = false;
-    optional<Value> value_;
-    optional<RequestId> request_id_;
+    std::optional<Value> value_;
+    std::optional<RequestId> request_id_;
   };
 
   explicit TestingGlobalContext(TypedMessageRouter* typed_message_router);
@@ -155,10 +155,10 @@ class TestingGlobalContext final : public GlobalContext {
     std::string awaited_message_type;
     // * If set, the expectation only matches request/response messages with the
     //   given ID.
-    optional<RequestId> awaited_request_id;
+    std::optional<RequestId> awaited_request_id;
     // * If set, the expectation only matches request messages with the given
     //   `RequestMessageData::payload` value.
-    optional<Value> awaited_request_payload;
+    std::optional<Value> awaited_request_payload;
 
     // The callback to trigger when the expectation is met.
     CallbackStorage callback_storage;
@@ -172,18 +172,19 @@ class TestingGlobalContext final : public GlobalContext {
                                      Value arguments,
                                      RequestCallback callback_to_run);
   void AddExpectation(Expectation expectation);
-  optional<CallbackStorage> FindMatchingExpectation(
+  std::optional<CallbackStorage> FindMatchingExpectation(
       const std::string& message_type,
-      optional<RequestId> request_id,
+      std::optional<RequestId> request_id,
       const Value* request_payload);
   bool HandleMessageToJs(Value message);
   void HandleReroutedRequest(const std::string& new_requester_name,
                              RequestId request_id,
                              Value request_payload);
-  void HandleReroutedResponse(const std::string& new_requester_name,
-                              RequestId request_id,
-                              optional<Value> response_payload,
-                              optional<std::string> response_error_message);
+  void HandleReroutedResponse(
+      const std::string& new_requester_name,
+      RequestId request_id,
+      std::optional<Value> response_payload,
+      std::optional<std::string> response_error_message);
 
   TypedMessageRouter* const typed_message_router_;
   // ID of the thread on which `this` was created.
