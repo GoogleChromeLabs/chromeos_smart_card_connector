@@ -28,6 +28,7 @@
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_conversion.h"
 #include "third_party/ccid/webport/src/ccid_pcsc_driver_adaptor.h"
+#include "third_party/driver-hid5021/webport/src/hid5021_pcsc_driver_adaptor.h"
 #include "third_party/libusb/webport/src/public/libusb_web_port_service.h"
 #include "third_party/pcsc-lite/webport/driver_interface/src/pcsc_driver_adaptor.h"
 #include "third_party/pcsc-lite/webport/server/src/public/pcsc_lite_server_web_port_service.h"
@@ -42,6 +43,7 @@ namespace {
 std::vector<std::unique_ptr<PcscDriverAdaptor>> GetDriverAdaptors() {
   std::vector<std::unique_ptr<PcscDriverAdaptor>> drivers;
   drivers.push_back(MakeUnique<CcidPcscDriverAdaptor>());
+  drivers.push_back(MakeUnique<Hid5021PcscDriverAdaptor>());
   return drivers;
 }
 
