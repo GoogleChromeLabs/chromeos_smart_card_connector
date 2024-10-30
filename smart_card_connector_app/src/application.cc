@@ -41,8 +41,8 @@ namespace {
 // Creates adaptors for all enabled PC/SC-Lite drivers.
 std::vector<std::unique_ptr<PcscDriverAdaptor>> GetDriverAdaptors() {
   std::vector<std::unique_ptr<PcscDriverAdaptor>> drivers;
-  drivers.push_back(MakeUnique<CcidPcscDriverAdaptor>());
-  drivers.push_back(MakeUnique<Hid5021PcscDriverAdaptor>());
+  drivers.push_back(std::make_unique<CcidPcscDriverAdaptor>());
+  drivers.push_back(std::make_unique<Hid5021PcscDriverAdaptor>());
   return drivers;
 }
 
