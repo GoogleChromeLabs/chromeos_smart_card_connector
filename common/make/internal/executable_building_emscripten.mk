@@ -290,15 +290,17 @@ endef
 #   so that recompilation of those triggers re-linking.
 # * The target also has an order-only dependency on the dir.stamp file, in order
 #   to guarantee that the parent directory is created by the compilation time.
-# * The linking is performed via Emscripten Compiler Frontend (emcc).
+# * The linking is performed via Emscripten Compiler Frontend (em++).
 # * The targets are added as a dependency to the "all" target, so that they're
 #   built by default when no target is specified explicitly in the command line.
 # * The COPY_TO_OUT_DIR_RULE macro is used to copy the resulting files into the
 #   "out" directory where they can be loaded by the resulting Chrome
 #   App/Extension.
 #
-# Explanation of parameters to emcc:
-# o: Path to store the output .js file (other file paths are deduced by emcc
+# Use "em++" and not emcc to make sure C++-specific flags are available.
+#
+# Explanation of parameters to em++:
+# o: Path to store the output .js file (other file paths are deduced by em++
 #   from it).
 # L: Add the specified directory into the .a library search paths.
 # l: Link the specified .a library.
@@ -315,7 +317,7 @@ $(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm: $(EMSCRIPTEN_RESOURCE_FIL
 $(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm: | $(BUILD_DIR)/dir.stamp
 # The recipe that performs the linking and creates the resulting files:
 $(BUILD_DIR)/$(TARGET)%js $(BUILD_DIR)/$(TARGET)%wasm:
-	emcc \
+	em++ \
 		-o $(BUILD_DIR)/$(TARGET).js \
 		-L$(LIB_DIR) \
 		$(foreach src,$(1),$(call OBJ_FILE_NAME,$(src))) \
