@@ -36,32 +36,32 @@ LIBRARY_TARGETS := \
 	third_party/driver-hid5021/webport/build \
 	third_party/googletest/webport/build \
 	third_party/libusb/webport/build \
-	third_party/pcsc-lite/naclport/build_configuration \
-	third_party/pcsc-lite/naclport/common/build \
-	third_party/pcsc-lite/naclport/cpp_client/build \
-	third_party/pcsc-lite/naclport/cpp_demo/build \
-	third_party/pcsc-lite/naclport/server/build \
-	third_party/pcsc-lite/naclport/server_clients_management/build \
+	third_party/pcsc-lite/webport/build_configuration \
+	third_party/pcsc-lite/webport/common/build \
+	third_party/pcsc-lite/webport/cpp_client/build \
+	third_party/pcsc-lite/webport/cpp_demo/build \
+	third_party/pcsc-lite/webport/server/build \
+	third_party/pcsc-lite/webport/server_clients_management/build \
 
 example_cpp_smart_card_client_app/build: common/cpp/build
-example_cpp_smart_card_client_app/build: third_party/pcsc-lite/naclport/common/build
-example_cpp_smart_card_client_app/build: third_party/pcsc-lite/naclport/cpp_client/build
-example_cpp_smart_card_client_app/build: third_party/pcsc-lite/naclport/cpp_demo/build
+example_cpp_smart_card_client_app/build: third_party/pcsc-lite/webport/common/build
+example_cpp_smart_card_client_app/build: third_party/pcsc-lite/webport/cpp_client/build
+example_cpp_smart_card_client_app/build: third_party/pcsc-lite/webport/cpp_demo/build
 smart_card_connector_app/build: common/cpp/build
 smart_card_connector_app/build: smart_card_connector_app/build/cpp_lib
 smart_card_connector_app/build: third_party/ccid/webport/build
 smart_card_connector_app/build: third_party/driver-hid5021/webport/build
 smart_card_connector_app/build: third_party/libusb/webport/build
-smart_card_connector_app/build: third_party/pcsc-lite/naclport/common/build
-smart_card_connector_app/build: third_party/pcsc-lite/naclport/server/build
-smart_card_connector_app/build: third_party/pcsc-lite/naclport/server_clients_management/build
-third_party/ccid/webport/build: third_party/pcsc-lite/naclport/build_configuration
-third_party/driver-hid5021/webport/build: third_party/pcsc-lite/naclport/build_configuration
-third_party/pcsc-lite/naclport/common/build: third_party/pcsc-lite/naclport/build_configuration
-third_party/pcsc-lite/naclport/cpp_client/build: third_party/pcsc-lite/naclport/build_configuration
-third_party/pcsc-lite/naclport/cpp_demo/build: third_party/pcsc-lite/naclport/build_configuration
-third_party/pcsc-lite/naclport/server/build: third_party/pcsc-lite/naclport/build_configuration
-third_party/pcsc-lite/naclport/server_clients_management/build: third_party/pcsc-lite/naclport/build_configuration
+smart_card_connector_app/build: third_party/pcsc-lite/webport/common/build
+smart_card_connector_app/build: third_party/pcsc-lite/webport/server/build
+smart_card_connector_app/build: third_party/pcsc-lite/webport/server_clients_management/build
+third_party/ccid/webport/build: third_party/pcsc-lite/webport/build_configuration
+third_party/driver-hid5021/webport/build: third_party/pcsc-lite/webport/build_configuration
+third_party/pcsc-lite/webport/common/build: third_party/pcsc-lite/webport/build_configuration
+third_party/pcsc-lite/webport/cpp_client/build: third_party/pcsc-lite/webport/build_configuration
+third_party/pcsc-lite/webport/cpp_demo/build: third_party/pcsc-lite/webport/build_configuration
+third_party/pcsc-lite/webport/server/build: third_party/pcsc-lite/webport/build_configuration
+third_party/pcsc-lite/webport/server_clients_management/build: third_party/pcsc-lite/webport/build_configuration
 
 TEST_TARGETS := \
 	common/cpp/build/tests \
@@ -76,9 +76,9 @@ smart_card_connector_app/build/executable_module/cpp_unittests: third_party/ccid
 smart_card_connector_app/build/executable_module/cpp_unittests: third_party/driver-hid5021/webport/build
 smart_card_connector_app/build/executable_module/cpp_unittests: third_party/googletest/webport/build
 smart_card_connector_app/build/executable_module/cpp_unittests: third_party/libusb/webport/build
-smart_card_connector_app/build/executable_module/cpp_unittests: third_party/pcsc-lite/naclport/common/build
-smart_card_connector_app/build/executable_module/cpp_unittests: third_party/pcsc-lite/naclport/server/build
-smart_card_connector_app/build/executable_module/cpp_unittests: third_party/pcsc-lite/naclport/server_clients_management/build
+smart_card_connector_app/build/executable_module/cpp_unittests: third_party/pcsc-lite/webport/common/build
+smart_card_connector_app/build/executable_module/cpp_unittests: third_party/pcsc-lite/webport/server/build
+smart_card_connector_app/build/executable_module/cpp_unittests: third_party/pcsc-lite/webport/server_clients_management/build
 third_party/libusb/webport/build/tests: common/cpp/build
 third_party/libusb/webport/build/tests: third_party/googletest/webport/build
 third_party/libusb/webport/build/tests: third_party/libusb/webport/build
@@ -116,7 +116,7 @@ TEST_TARGETS += \
 	smart_card_connector_app/build/js_to_cxx_tests \
 	smart_card_connector_app/build/js_unittests \
 	third_party/libusb/webport/build/js_unittests \
-	third_party/pcsc-lite/naclport/server_clients_management/build/js_unittests \
+	third_party/pcsc-lite/webport/server_clients_management/build/js_unittests \
 
 common/js/build/js_to_cxx_tests: common/cpp/build
 common/js/build/js_to_cxx_tests: common/integration_testing/build
@@ -129,9 +129,9 @@ smart_card_connector_app/build/js_to_cxx_tests: smart_card_connector_app/build/c
 smart_card_connector_app/build/js_to_cxx_tests: third_party/ccid/webport/build
 smart_card_connector_app/build/js_to_cxx_tests: third_party/driver-hid5021/webport/build
 smart_card_connector_app/build/js_to_cxx_tests: third_party/libusb/webport/build
-smart_card_connector_app/build/js_to_cxx_tests: third_party/pcsc-lite/naclport/common/build
-smart_card_connector_app/build/js_to_cxx_tests: third_party/pcsc-lite/naclport/server/build
-smart_card_connector_app/build/js_to_cxx_tests: third_party/pcsc-lite/naclport/server_clients_management/build
+smart_card_connector_app/build/js_to_cxx_tests: third_party/pcsc-lite/webport/common/build
+smart_card_connector_app/build/js_to_cxx_tests: third_party/pcsc-lite/webport/server/build
+smart_card_connector_app/build/js_to_cxx_tests: third_party/pcsc-lite/webport/server_clients_management/build
 
 endif
 

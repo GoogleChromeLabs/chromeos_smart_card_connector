@@ -24,9 +24,9 @@ TARGET := js_smart_card_connector_unittests
 include ../../../common/make/common.mk
 include $(COMMON_DIR_PATH)/make/js_building_common.mk
 include $(COMMON_DIR_PATH)/js/include.mk
-include $(ROOT_PATH)/third_party/pcsc-lite/naclport/js_client/include.mk
-include $(ROOT_PATH)/third_party/pcsc-lite/naclport/common/include.mk
-include $(ROOT_PATH)/third_party/pcsc-lite/naclport/server_clients_management/include.mk
+include $(ROOT_PATH)/third_party/pcsc-lite/webport/js_client/include.mk
+include $(ROOT_PATH)/third_party/pcsc-lite/webport/common/include.mk
+include $(ROOT_PATH)/third_party/pcsc-lite/webport/server_clients_management/include.mk
 
 # The list of source paths that Closure Compiler should compile for these unit
 # tests.

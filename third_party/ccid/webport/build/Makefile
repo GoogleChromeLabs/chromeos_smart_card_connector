@@ -27,7 +27,7 @@ include $(COMMON_DIR_PATH)/make/executable_building.mk
 
 include $(THIRD_PARTY_DIR_PATH)/libusb/webport/include.mk
 
-include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/common/include.mk
+include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/webport/common/include.mk
 
 include ../include.mk
 

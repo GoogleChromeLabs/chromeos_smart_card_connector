@@ -25,9 +25,9 @@ include $(COMMON_DIR_PATH)/make/packaging_common.mk
 
 include $(COMMON_DIR_PATH)/make/executable_module_recursive_build.mk
 
-include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/common/include.mk
-include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/js_client/include.mk
-include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/cpp_client/include.mk
+include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/webport/common/include.mk
+include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/webport/js_client/include.mk
+include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/webport/cpp_client/include.mk
 
 
 SOURCES_PATH := ../src

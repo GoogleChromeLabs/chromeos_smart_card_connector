@@ -23,9 +23,9 @@ include $(COMMON_DIR_PATH)/js/include.mk
 
 include $(COMMON_DIR_PATH)/make/packaging_common.mk
 
-include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/js_client/include.mk
-include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/js_demo/include.mk
-include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/common/include.mk
+include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/webport/js_client/include.mk
+include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/webport/js_demo/include.mk
+include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/webport/common/include.mk
 
 
 SOURCES_PATH := ../src

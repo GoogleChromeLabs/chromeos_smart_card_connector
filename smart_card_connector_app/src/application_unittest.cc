@@ -150,7 +150,7 @@ class ReaderNotificationObserver final {
 
 std::string GetJsClientRequesterName(int handler_id) {
   // The template should match the one in
-  // third_party/pcsc-lite/naclport/server_clients_management/src/clients_manager.cc.
+  // third_party/pcsc-lite/webport/server_clients_management/src/clients_manager.cc.
   // We hardcode it here too, so that the test enforces the API contract between
   // C++ and JS isn't violated.
   return FormatPrintfTemplate("pcsc_lite_client_handler_%d_call_function",

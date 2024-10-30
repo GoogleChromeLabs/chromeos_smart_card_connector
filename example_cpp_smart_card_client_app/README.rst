@@ -51,7 +51,7 @@ Additionally, the example App contains the following pieces:
 *   Linking against the library that provides an **implementation** for
     the functions defined in the original **PC/SC-Lite** public header
     files (the library is located under the
-    ``/third_party/pcsc-lite/naclport/cpp_client/`` directory).
+    ``/third_party/pcsc-lite/webport/cpp_client/`` directory).
 
     The PC/SC-Lite public header files are taken without any
     modifications. The implementation provided by the library tries to

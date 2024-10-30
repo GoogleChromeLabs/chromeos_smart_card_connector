@@ -18,10 +18,10 @@
 # "cpp_unit_test_runner".
 
 include ../../../../common/cpp_unit_test_runner/include.mk
-include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/common/include.mk
-# Depends on pcsc-lite/naclport/common/include.mk.
+include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/webport/common/include.mk
+# Depends on pcsc-lite/webport/common/include.mk.
 include $(ROOT_PATH)/third_party/ccid/webport/include.mk
-# Depends on pcsc-lite/naclport/common/include.mk.
+# Depends on pcsc-lite/webport/common/include.mk.
 include $(THIRD_PARTY_DIR_PATH)/driver-hid5021/webport/include.mk
 
 SOURCES := \
@@ -54,7 +54,7 @@ LIBS := \
 
 # Package resource files that the tested code needs at runtime:
 $(eval $(call ADD_RESOURCE_RULE, \
-	$(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src/fake_socket_file, \
+	$(ROOT_PATH)/third_party/pcsc-lite/webport/server/src/fake_socket_file, \
 	executable-module-filesystem/pcsc/fake_socket_file))
 $(eval $(call ADD_RESOURCE_RULE, \
 	$(ROOT_PATH)/third_party/ccid/webport/build/Info.plist, \

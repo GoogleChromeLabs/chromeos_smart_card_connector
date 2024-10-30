@@ -19,7 +19,7 @@
 # This file contains helper definitions for using this library.
 #
 # /common/make/common.mk, /common/make/executable_building.mk and
-# /third_party/pcsc-lite/naclport/common/include.mk must be included before
+# /third_party/pcsc-lite/webport/common/include.mk must be included before
 # including this file.
 #
 
