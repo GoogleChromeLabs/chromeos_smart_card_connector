@@ -36,9 +36,10 @@ namespace {
 Value::DictionaryStorage ConvertMapToUniquePtrMap(
     std::map<std::string, Value> map) {
   Value::DictionaryStorage dictionary_storage;
-  for (auto& item : map)
+  for (auto& item : map) {
     dictionary_storage[item.first] =
         std::make_unique<Value>(std::move(item.second));
+  }
   return dictionary_storage;
 }
 

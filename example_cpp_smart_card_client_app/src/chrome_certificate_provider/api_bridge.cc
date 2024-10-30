@@ -62,7 +62,7 @@ void ProcessCertificatesRequest(
   GOOGLE_SMART_CARD_CHECK(locked_certificates_request_handler);
   if (locked_certificates_request_handler->HandleRequest(&certificates)) {
     gsc::Value response(gsc::Value::Type::kArray);
-    response.GetArray().push_back(gsc::std::make_unique<gsc::Value>(
+    response.GetArray().push_back(std::make_unique<gsc::Value>(
         gsc::ConvertToValueOrDie(std::move(certificates))));
     result_callback(
         gsc::GenericRequestResult::CreateSuccessful(std::move(response)));
@@ -88,7 +88,7 @@ void ProcessSignatureRequest(
   if (locked_signature_request_handler->HandleRequest(signature_request,
                                                       &signature)) {
     gsc::Value response(gsc::Value::Type::kArray);
-    response.GetArray().push_back(gsc::std::make_unique<gsc::Value>(
+    response.GetArray().push_back(std::make_unique<gsc::Value>(
         gsc::ConvertToValueOrDie(std::move(signature))));
     result_callback(
         gsc::GenericRequestResult::CreateSuccessful(std::move(response)));
