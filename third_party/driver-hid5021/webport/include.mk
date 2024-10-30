@@ -22,6 +22,24 @@
 # the driver uses on other platforms.
 DRIVER5021_BUNDLE_NAME := driver-5021CL.bundle
 
+# File name of the driver's .so file.
+#
+# This value must match the one specified in the "CFBundleExecutable" parameter
+# of the Info.plist config.
+#
+# Note that we don't really create this file in our webport, since all drivers
+# are linked statically, however it's still used by the code to distinguish
+# between calls made to different drivers.
+DRIVER5021_SO_NAME := libdriver-5021CL.so
+
 # Path where the driver's config file is to be installed.
 DRIVER5021_CONFIG_INSTALLATION_PATH := \
   $(PCSC_LITE_DRIVER_INSTALLATION_PATH)/$(DRIVER5021_BUNDLE_NAME)/Contents/Info.plist
+
+# Path where the driver's .so file is expected to be installed.
+#
+# Note that the .so file doesn't really exist in our webport, since all drivers
+# are linked statically, however it's still used by the code to distinguish
+# between calls made to different drivers.
+DRIVER5021_SO_INSTALLATION_PATH := \
+  $(PCSC_LITE_DRIVER_INSTALLATION_PATH)/$(DRIVER5021_BUNDLE_NAME)/Contents/$(PCSC_LITE_ARCHITECTURE)/$(DRIVER5021_SO_NAME)

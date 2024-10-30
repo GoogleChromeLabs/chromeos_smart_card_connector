@@ -48,11 +48,25 @@ DRIVER_CPPFLAGS := \
 
 $(foreach src,$(DRIVER_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(DRIVER_CPPFLAGS))))
 
-# TODO: Add an "adaptor" glue C++ code.
+# Rules for compiling the webport helper sources:
+
+WEBPORT_SOURCES := \
+	../src/hid5021_pcsc_driver_adaptor.cc \
+
+# * Pass the "DRIVER5021_SO_INSTALLATION_PATH" constant to the C++ code.
+# * Specify include search paths.
+WEBPORT_CPPFLAGS := \
+	$(COMMON_CPPFLAGS) \
+	-DDRIVER5021_SO_INSTALLATION_PATH='"$(DRIVER5021_SO_INSTALLATION_PATH)"' \
+	-I$(ROOT_PATH) \
+	-I$(ROOT_PATH)/third_party/pcsc-lite/src/src/PCSC \
+
+$(foreach src,$(WEBPORT_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(WEBPORT_CPPFLAGS))))
 
 # Rules for producing the resulting static library:
 
 SOURCES := \
 	$(DRIVER_SOURCES) \
+	$(WEBPORT_SOURCES) \
 
 $(eval $(call LIB_RULE,$(TARGET),$(SOURCES)))
