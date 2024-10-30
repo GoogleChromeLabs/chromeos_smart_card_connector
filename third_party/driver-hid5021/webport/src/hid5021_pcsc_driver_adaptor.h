@@ -22,6 +22,8 @@
 
 namespace google_smart_card {
 
+// Implementation of the adaptor to allow plugging the HID 5021 CL driver into
+// our PC/SC-Lite webport.
 class Hid5021PcscDriverAdaptor : public PcscDriverAdaptor {
  public:
   Hid5021PcscDriverAdaptor();
