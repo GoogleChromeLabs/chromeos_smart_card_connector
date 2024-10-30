@@ -58,6 +58,7 @@ LIBS := \
   google_smart_card_pcsc_lite_server \
   google_smart_card_pcsc_lite_common \
   google_smart_card_ccid \
+  google_smart_card_driver_hid5021 \
   google_smart_card_libusb \
   google_smart_card_common \
 
