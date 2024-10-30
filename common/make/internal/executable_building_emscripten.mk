@@ -101,6 +101,9 @@ EMSCRIPTEN_COMPILER_FLAGS := \
 #     all workers (this is needed primarily for integration tests that spawn a
 #     new module in every test case, as not tearing down the workers between
 #     test cases may lead to out-of-memory errors).
+# IGNORE_MISSING_MAIN: The compiled code typically doesn't have the `main()`
+#   function - instead, JS code is calling into us via Embind. The only
+#   exception is unit tests (there, Node runs tests via GTest's `main()`).
 # MIN_CHROME_VERSION: Skip generating Emscripten support code for very old
 #   Chrome versions. (The exact boundary is chosen similarly to
 #   minimum_chrome_version in
@@ -126,6 +129,7 @@ EMSCRIPTEN_LINKER_FLAGS := \
   -s ENVIRONMENT=web,worker \
   -s 'EXPORT_NAME="loadEmscriptenModule_$(TARGET)"' \
   -s EXPORTED_RUNTIME_METHODS=PThread \
+  -s IGNORE_MISSING_MAIN=1 \
   -s MIN_CHROME_VERSION=96 \
   -s MIN_EDGE_VERSION=-1 \
   -s MIN_FIREFOX_VERSION=-1 \
