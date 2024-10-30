@@ -25,7 +25,6 @@
 #include "common/cpp/src/public/logging/logging.h"
 #include "common/cpp/src/public/messaging/typed_message_router.h"
 #include "common/cpp/src/public/requesting/request_receiver.h"
-#include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_conversion.h"
 #include "common/integration_testing/src/public/integration_test_helper.h"
@@ -62,7 +61,7 @@ class SmartCardConnectorApplicationTestHelper final
 // helper the service will route requests to it.
 const auto g_smart_card_connector_application_test_helper =
     IntegrationTestService::RegisterHelper(
-        MakeUnique<SmartCardConnectorApplicationTestHelper>());
+        std::make_unique<SmartCardConnectorApplicationTestHelper>());
 
 std::string SmartCardConnectorApplicationTestHelper::GetName() const {
   return "SmartCardConnectorApplicationTestHelper";
@@ -73,10 +72,10 @@ void SmartCardConnectorApplicationTestHelper::SetUp(
     TypedMessageRouter* typed_message_router,
     Value data,
     RequestReceiver::ResultCallback result_callback) {
-  smart_card_simulation_ = MakeUnique<TestingSmartCardSimulation>(
+  smart_card_simulation_ = std::make_unique<TestingSmartCardSimulation>(
       global_context, typed_message_router);
   SetSimulatedUsbDevices(std::move(data));
-  application_ = MakeUnique<Application>(
+  application_ = std::make_unique<Application>(
       global_context, typed_message_router,
       std::bind(&SmartCardConnectorApplicationTestHelper::
                     InitializeOnBackgroundThread,

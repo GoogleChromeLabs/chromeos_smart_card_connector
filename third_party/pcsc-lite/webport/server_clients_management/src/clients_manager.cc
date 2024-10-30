@@ -27,6 +27,7 @@
 
 #include <inttypes.h>
 
+#include <memory>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -35,7 +36,6 @@
 #include "common/cpp/src/public/global_context.h"
 #include "common/cpp/src/public/logging/logging.h"
 #include "common/cpp/src/public/requesting/remote_call_message.h"
-#include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_conversion.h"
 #include "third_party/pcsc-lite/webport/server_clients_management/src/admin_policy_getter.h"

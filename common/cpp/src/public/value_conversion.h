@@ -52,7 +52,6 @@
 #include "common/cpp/src/public/formatting.h"
 #include "common/cpp/src/public/logging/logging.h"
 #include "common/cpp/src/public/optional.h"
-#include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_debug_dumping.h"
 
@@ -138,13 +137,13 @@ class StructToValueConverter final : public StructToValueConverterBase {
   ~StructToValueConverter() = default;
 
   template <typename FieldT>
-  void HandleField(FieldT T::*field_ptr, const char* dictionary_key_name) {
+  void HandleField(FieldT T::* field_ptr, const char* dictionary_key_name) {
     FieldT& field = object_to_convert_.*field_ptr;
     ConvertFieldToValue(std::move(field), dictionary_key_name);
   }
 
   template <typename FieldT>
-  void HandleField(optional<FieldT> T::*field_ptr,
+  void HandleField(optional<FieldT> T::* field_ptr,
                    const char* dictionary_key_name) {
     optional<FieldT>& field = object_to_convert_.*field_ptr;
     if (!field) {
@@ -206,7 +205,7 @@ class StructFromValueConverter final : public StructFromValueConverterBase {
   ~StructFromValueConverter() = default;
 
   template <typename FieldT>
-  void HandleField(FieldT T::*field_ptr, const char* dictionary_key_name) {
+  void HandleField(FieldT T::* field_ptr, const char* dictionary_key_name) {
     Value item_value;
     if (!ExtractKey(dictionary_key_name, /*is_required=*/true, &item_value))
       return;
@@ -215,7 +214,7 @@ class StructFromValueConverter final : public StructFromValueConverterBase {
   }
 
   template <typename FieldT>
-  void HandleField(optional<FieldT> T::*field_ptr,
+  void HandleField(optional<FieldT> T::* field_ptr,
                    const char* dictionary_key_name) {
     Value item_value;
     if (!ExtractKey(dictionary_key_name, /*is_required=*/false, &item_value))
@@ -375,7 +374,7 @@ class StructValueDescriptor {
     // that the method calls can be easily chained and the final result can be
     // returned without an explicit std::move() boilerplate.
     template <typename FieldT>
-    Description&& WithField(FieldT T::*field_ptr,
+    Description&& WithField(FieldT T::* field_ptr,
                             const char* dictionary_key_name) && {
       if (to_value_converter_)
         to_value_converter_->HandleField(field_ptr, dictionary_key_name);

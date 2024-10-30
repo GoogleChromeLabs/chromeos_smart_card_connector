@@ -14,6 +14,7 @@
 
 #include "chrome_certificate_provider/api_bridge.h"
 
+#include <memory>
 #include <thread>
 #include <utility>
 
@@ -23,7 +24,6 @@
 #include "common/cpp/src/public/requesting/remote_call_arguments_conversion.h"
 #include "common/cpp/src/public/requesting/remote_call_message.h"
 #include "common/cpp/src/public/requesting/request_result.h"
-#include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_conversion.h"
 
@@ -62,7 +62,7 @@ void ProcessCertificatesRequest(
   GOOGLE_SMART_CARD_CHECK(locked_certificates_request_handler);
   if (locked_certificates_request_handler->HandleRequest(&certificates)) {
     gsc::Value response(gsc::Value::Type::kArray);
-    response.GetArray().push_back(gsc::MakeUnique<gsc::Value>(
+    response.GetArray().push_back(gsc::std::make_unique<gsc::Value>(
         gsc::ConvertToValueOrDie(std::move(certificates))));
     result_callback(
         gsc::GenericRequestResult::CreateSuccessful(std::move(response)));
@@ -88,7 +88,7 @@ void ProcessSignatureRequest(
   if (locked_signature_request_handler->HandleRequest(signature_request,
                                                       &signature)) {
     gsc::Value response(gsc::Value::Type::kArray);
-    response.GetArray().push_back(gsc::MakeUnique<gsc::Value>(
+    response.GetArray().push_back(gsc::std::make_unique<gsc::Value>(
         gsc::ConvertToValueOrDie(std::move(signature))));
     result_callback(
         gsc::GenericRequestResult::CreateSuccessful(std::move(response)));

@@ -26,7 +26,6 @@
 #include "common/cpp/src/public/messaging/typed_message_router.h"
 #include "common/cpp/src/public/requesting/request_receiver.h"
 #include "common/cpp/src/public/requesting/request_result.h"
-#include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_conversion.h"
 #include "common/integration_testing/src/public/integration_test_helper.h"
@@ -100,7 +99,7 @@ class ApiBridgeIntegrationTestHelper final : public gsc::IntegrationTestHelper {
 
 const auto g_api_bridge_integration_test_helper =
     gsc::IntegrationTestService::RegisterHelper(
-        gsc::MakeUnique<ApiBridgeIntegrationTestHelper>());
+        gsc::std::make_unique<ApiBridgeIntegrationTestHelper>());
 
 std::string ApiBridgeIntegrationTestHelper::GetName() const {
   return "ChromeCertificateProviderApiBridge";
