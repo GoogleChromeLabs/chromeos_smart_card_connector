@@ -22,6 +22,7 @@
 #include "common/cpp/src/public/logging/logging.h"
 #include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/requesting/remote_call_async_request.h"
+#include "third_party/libusb/webport/src/libusb_js_proxy_constants.h"
 
 using google_smart_card::optional;
 using google_smart_card::RemoteCallAsyncRequest;
@@ -286,9 +287,8 @@ bool libusb_context::ExtractTimedOutTransfer(
   if (std::chrono::high_resolution_clock::now() < nearest.timeout)
     return false;
   *async_request_state = nearest.async_request_state;
-  // TODO(#47): Use a common constant here that can be checked in
-  // `LibusbJsProxy`, so that it can distinguish timeouts from other failures.
-  *result = TransferRequestResult::CreateFailed("Timed out");
+  *result = TransferRequestResult::CreateFailed(
+      google_smart_card::kLibusbJsProxyTimeoutError);
   return true;
 }
 

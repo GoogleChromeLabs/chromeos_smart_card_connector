@@ -1217,7 +1217,7 @@ TEST_P(LibusbJsProxyWithDeviceTest, InputControlTransferTimeout) {
               LIBUSB_ENDPOINT_IN,
           kControlTransferRequest, kControlTransferValue, kControlTransferIndex,
           &received_data[0], received_data.size(), /*timeout=*/1000),
-      LIBUSB_ERROR_OTHER);
+      LIBUSB_ERROR_TIMEOUT);
 }
 
 // Tests `LibusbControlTransfer()` timeout scenario for an output transfer.
@@ -1241,7 +1241,7 @@ TEST_P(LibusbJsProxyWithDeviceTest, OutputControlTransferTimeout) {
                     LIBUSB_ENDPOINT_OUT,
                 kControlTransferRequest, kControlTransferValue,
                 kControlTransferIndex, &data[0], data.size(), /*timeout=*/1000),
-            LIBUSB_ERROR_OTHER);
+            LIBUSB_ERROR_TIMEOUT);
 }
 
 // Test the correctness of work of multiple threads issuing a sequence of

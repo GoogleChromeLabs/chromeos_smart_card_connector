@@ -878,9 +878,6 @@ libusb_transfer_status FillLibusbTransferResult(
     int data_length,
     unsigned char* data_buffer,
     int* actual_length) {
-  // TODO(#47): Return `LIBUSB_TRANSFER_TIMED_OUT` instead of
-  // `LIBUSB_TRANSFER_ERROR` if the transfer timed out.
-
   int actual_length_value;
   if (js_result.received_data) {
     actual_length_value = std::min(
@@ -1052,6 +1049,8 @@ LibusbJsProxy::WrapLibusbTransferCallback(libusb_transfer* transfer) {
           data_buffer, &transfer->actual_length);
     } else if (request_result.status() == RequestResultStatus::kCanceled) {
       transfer->status = LIBUSB_TRANSFER_CANCELLED;
+    } else if (request_result.error_message() == kLibusbJsProxyTimeoutError) {
+      transfer->status = LIBUSB_TRANSFER_TIMED_OUT;
     } else {
       transfer->status = LIBUSB_TRANSFER_ERROR;
     }
