@@ -87,7 +87,7 @@ TEST(RequestingAsyncRequestTest, AsyncRequestStateMultiThreading) {
 
     std::vector<std::thread> threads;
     const auto threads_start_time =
-        std::chrono::high_resolution_clock::now() + kThreadsStartTimeout;
+        std::chrono::steady_clock::now() + kThreadsStartTimeout;
     for (int thread_index = 0; thread_index < kThreadCount; ++thread_index) {
       threads.emplace_back([&states, threads_start_time] {
         std::this_thread::sleep_until(threads_start_time);

@@ -1006,8 +1006,7 @@ int LibusbJsProxy::LibusbHandleEventsCompleted(libusb_context* ctx,
   ctx = SubstituteDefaultContextIfNull(ctx);
 
   ctx->WaitAndProcessAsyncTransferReceivedResults(
-      std::chrono::time_point<std::chrono::high_resolution_clock>::max(),
-      completed);
+      std::chrono::time_point<std::chrono::steady_clock>::max(), completed);
   return LIBUSB_SUCCESS;
 }
 
@@ -1082,8 +1081,7 @@ int LibusbJsProxy::LibusbHandleEventsWithTimeout(libusb_context* context,
   context = SubstituteDefaultContextIfNull(context);
 
   context->WaitAndProcessAsyncTransferReceivedResults(
-      std::chrono::high_resolution_clock::now() +
-          std::chrono::seconds(timeout_seconds),
+      std::chrono::steady_clock::now() + std::chrono::seconds(timeout_seconds),
       nullptr);
   return LIBUSB_SUCCESS;
 }

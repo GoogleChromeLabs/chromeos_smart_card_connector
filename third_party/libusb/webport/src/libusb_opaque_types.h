@@ -108,7 +108,7 @@ struct libusb_context final
   // particular, the role of the completed argument), refer to
   // <http://libusb.org/static/api-1.0/mtasync.html>.
   void WaitAndProcessAsyncTransferReceivedResults(
-      const std::chrono::time_point<std::chrono::high_resolution_clock>&
+      const std::chrono::time_point<std::chrono::steady_clock>&
           timeout_time_point,
       int* completed);
 
@@ -145,8 +145,8 @@ struct libusb_context final
   void RemoveTransferInFlight(
       const TransferAsyncRequestState* async_request_state);
 
-  std::chrono::time_point<std::chrono::high_resolution_clock>
-  GetMinTransferTimeout() const;
+  std::chrono::time_point<std::chrono::steady_clock> GetMinTransferTimeout()
+      const;
 
   bool ExtractAsyncTransferStateUpdate(
       TransferAsyncRequestStatePtr* async_request_state,
