@@ -18,6 +18,9 @@ TARGET := google_smart_card_driver_hid5021
 
 include ../../../../common/make/common.mk
 include $(ROOT_PATH)/common/make/executable_building.mk
+include $(ROOT_PATH)/third_party/pcsc-lite/webport/common/include.mk
+# Depends on pcsc-lite/webport/common/include.mk.
+include $(ROOT_PATH)/third_party/driver-hid5021/webport/include.mk
 
 # C/C++ compiler flags used for all source files below:
 #
