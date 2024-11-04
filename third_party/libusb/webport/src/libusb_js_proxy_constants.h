@@ -26,6 +26,9 @@ namespace google_smart_card {
 // libusb-to-js-api-adaptor.js).
 extern const char kLibusbJsProxyRequesterName[];
 
+// The error message used by libusb_js_proxy when a USB transfer times out.
+extern const char kLibusbJsProxyTimeoutError[];
+
 }  // namespace google_smart_card
 
 #endif  // GOOGLE_SMART_CARD_THIRD_PARTY_LIBUSB_LIBUSB_JS_PROXY_CONSTANTS_H_

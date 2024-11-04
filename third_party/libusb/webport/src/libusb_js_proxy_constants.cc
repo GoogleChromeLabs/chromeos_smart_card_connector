@@ -19,5 +19,6 @@
 namespace google_smart_card {
 
 const char kLibusbJsProxyRequesterName[] = "libusb";
+const char kLibusbJsProxyTimeoutError[] = "Timed out";
 
 }  // namespace google_smart_card
