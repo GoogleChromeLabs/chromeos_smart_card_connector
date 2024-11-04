@@ -92,7 +92,7 @@ InboundSCardReaderState InboundSCardReaderState::FromSCardReaderState(
   return InboundSCardReaderState(
       value.szReader,
       value.pvUserData ? reinterpret_cast<uintptr_t>(value.pvUserData)
-                       : optional<uintptr_t>(),
+                       : std::optional<uintptr_t>(),
       value.dwCurrentState);
 }
 
@@ -103,7 +103,7 @@ OutboundSCardReaderState OutboundSCardReaderState::FromSCardReaderState(
   return OutboundSCardReaderState(
       value.szReader,
       value.pvUserData ? reinterpret_cast<uintptr_t>(value.pvUserData)
-                       : optional<uintptr_t>(),
+                       : std::optional<uintptr_t>(),
       value.dwCurrentState, value.dwEventState, GetSCardReaderStateAtr(value));
 }
 

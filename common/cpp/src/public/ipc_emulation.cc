@@ -21,10 +21,10 @@
 #include <condition_variable>
 #include <deque>
 #include <limits>
+#include <optional>
 
 #include "common/cpp/src/public/cpp_attributes.h"
 #include "common/cpp/src/public/logging/logging.h"
-#include "common/cpp/src/public/optional.h"
 
 namespace google_smart_card {
 
@@ -90,7 +90,7 @@ class IpcEmulation::InMemoryFile final {
   }
 
   IpcEmulation::WaitResult WaitUntilCanBeRead(
-      optional<int64_t> timeout_milliseconds)
+      std::optional<int64_t> timeout_milliseconds)
       GOOGLE_SMART_CARD_WARN_UNUSED_RESULT {
     GOOGLE_SMART_CARD_CHECK(!timeout_milliseconds ||
                             *timeout_milliseconds >= 0);
@@ -159,7 +159,7 @@ class IpcEmulation::InMemoryFile final {
   }
 
   IpcEmulation::WaitResult WaitUntilCanBeReadLocked(
-      optional<int64_t> timeout_milliseconds,
+      std::optional<int64_t> timeout_milliseconds,
       std::unique_lock<std::mutex>& lock) GOOGLE_SMART_CARD_WARN_UNUSED_RESULT {
     auto wait_criteria = [this]() {
       return is_closed_ || !read_buffer_.empty();
@@ -254,7 +254,7 @@ bool IpcEmulation::WriteToInMemoryFile(int file_descriptor,
 
 IpcEmulation::WaitResult IpcEmulation::WaitForInMemoryFileCanBeRead(
     int file_descriptor,
-    optional<int64_t> timeout_milliseconds) {
+    std::optional<int64_t> timeout_milliseconds) {
   const std::shared_ptr<InMemoryFile> file =
       FindFileByDescriptor(file_descriptor);
   if (!file)

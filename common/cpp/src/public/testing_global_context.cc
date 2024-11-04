@@ -17,6 +17,7 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <utility>
@@ -26,7 +27,6 @@
 #include "common/cpp/src/public/logging/logging.h"
 #include "common/cpp/src/public/messaging/typed_message.h"
 #include "common/cpp/src/public/messaging/typed_message_router.h"
-#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/requesting/remote_call_message.h"
 #include "common/cpp/src/public/requesting/requester_message.h"
 #include "common/cpp/src/public/value.h"
@@ -62,9 +62,9 @@ bool LooksLikeResponseMessage(const std::string& message_type) {
 void PostFakeJsReply(TypedMessageRouter* typed_message_router,
                      const std::string& requester_name,
                      std::shared_ptr<Value> payload_to_reply_with,
-                     const optional<std::string>& error_to_reply_with,
-                     optional<Value> /*request_payload*/,
-                     optional<RequestId> request_id) {
+                     const std::optional<std::string>& error_to_reply_with,
+                     std::optional<Value> /*request_payload*/,
+                     std::optional<RequestId> request_id) {
   GOOGLE_SMART_CARD_CHECK(request_id);
 
   ResponseMessageData response_data;
@@ -111,19 +111,19 @@ void TestingGlobalContext::Waiter::Reply(Value result_to_reply_with) {
                   /*request_payload=*/{}, *request_id_);
 }
 
-const optional<Value>& TestingGlobalContext::Waiter::value() const {
+const std::optional<Value>& TestingGlobalContext::Waiter::value() const {
   // No mutex locks, as it's only allowed to call us after `Wait()` completes.
   GOOGLE_SMART_CARD_CHECK(resolved_);
   return value_;
 }
 
-optional<Value> TestingGlobalContext::Waiter::take_value() && {
+std::optional<Value> TestingGlobalContext::Waiter::take_value() && {
   // No mutex locks, as it's only allowed to call us after `Wait()` completes.
   GOOGLE_SMART_CARD_CHECK(resolved_);
   return std::move(value_);
 }
 
-optional<RequestId> TestingGlobalContext::Waiter::request_id() const {
+std::optional<RequestId> TestingGlobalContext::Waiter::request_id() const {
   // No mutex locks, as it's only allowed to call us after `Wait()` completes.
   GOOGLE_SMART_CARD_CHECK(resolved_);
   return request_id_;
@@ -131,7 +131,7 @@ optional<RequestId> TestingGlobalContext::Waiter::request_id() const {
 
 TestingGlobalContext::Waiter::Waiter(
     TypedMessageRouter* typed_message_router,
-    const optional<std::string>& requester_name)
+    const std::optional<std::string>& requester_name)
     : typed_message_router_(typed_message_router),
       requester_name_(requester_name) {}
 
@@ -158,7 +158,7 @@ void TestingGlobalContext::Waiter::ResolveWithRequestPayload(
 
 void TestingGlobalContext::Waiter::ResolveWithResponsePayload(
     RequestId request_id,
-    optional<Value> response_payload) {
+    std::optional<Value> response_payload) {
   std::unique_lock<std::mutex> lock(mutex_);
 
   GOOGLE_SMART_CARD_CHECK(!resolved_);
@@ -302,7 +302,7 @@ void TestingGlobalContext::WillReplyToRequestWith(
   auto payload_shared_ptr = std::make_shared<Value>(std::move(array));
   auto callback_to_run = std::bind(
       &PostFakeJsReply, typed_message_router_, requester_name,
-      payload_shared_ptr, /*error_to_reply_with=*/optional<std::string>(),
+      payload_shared_ptr, /*error_to_reply_with=*/std::optional<std::string>(),
       /*request_payload=*/std::placeholders::_2,
       /*request_id=*/std::placeholders::_1);
 
@@ -356,10 +356,11 @@ void TestingGlobalContext::AddExpectation(Expectation expectation) {
   expectations_.push_back(std::move(expectation));
 }
 
-optional<TestingGlobalContext::CallbackStorage>
-TestingGlobalContext::FindMatchingExpectation(const std::string& message_type,
-                                              optional<RequestId> request_id,
-                                              const Value* request_payload) {
+std::optional<TestingGlobalContext::CallbackStorage>
+TestingGlobalContext::FindMatchingExpectation(
+    const std::string& message_type,
+    std::optional<RequestId> request_id,
+    const Value* request_payload) {
   std::unique_lock<std::mutex> lock(mutex_);
 
   for (auto iter = expectations_.begin(); iter != expectations_.end(); ++iter) {
@@ -401,11 +402,11 @@ bool TestingGlobalContext::HandleMessageToJs(Value message) {
   TypedMessage typed_message =
       ConvertFromValueOrDie<TypedMessage>(std::move(message));
 
-  optional<RequestId> request_id;
+  std::optional<RequestId> request_id;
   // Only one of these variables will be filled below - depending on the message
   // type.
-  optional<Value> request_payload, response_payload, message_data;
-  optional<std::string> response_error_message;
+  std::optional<Value> request_payload, response_payload, message_data;
+  std::optional<std::string> response_error_message;
 
   if (LooksLikeRequestMessage(typed_message.type)) {
     // It's a request message; parse its ID and payload for finding the
@@ -431,7 +432,7 @@ bool TestingGlobalContext::HandleMessageToJs(Value message) {
 
   // Find the callback for the message type, request ID and, if it's a request
   // message, the request payload.
-  optional<CallbackStorage> callback_storage =
+  std::optional<CallbackStorage> callback_storage =
       FindMatchingExpectation(typed_message.type, request_id,
                               request_payload ? &*request_payload : nullptr);
   if (!callback_storage)
@@ -482,8 +483,8 @@ void TestingGlobalContext::HandleReroutedRequest(
 void TestingGlobalContext::HandleReroutedResponse(
     const std::string& new_requester_name,
     RequestId request_id,
-    optional<Value> response_payload,
-    optional<std::string> response_error_message) {
+    std::optional<Value> response_payload,
+    std::optional<std::string> response_error_message) {
   ResponseMessageData new_data;
   new_data.request_id = request_id;
   new_data.payload = std::move(response_payload);

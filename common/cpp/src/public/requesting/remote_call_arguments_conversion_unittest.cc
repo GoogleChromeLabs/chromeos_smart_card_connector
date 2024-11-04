@@ -15,13 +15,13 @@
 #include "common/cpp/src/public/requesting/remote_call_arguments_conversion.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/requesting/remote_call_message.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_conversion.h"
@@ -134,7 +134,7 @@ TEST(ToRemoteCallRequestConversion, BasicArgumentByConstReference) {
 TEST(ToRemoteCallRequestConversion, OptionalArgumentByValue) {
   {
     const RemoteCallRequestPayload payload =
-        ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc, optional<int>());
+        ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc, std::optional<int>());
     EXPECT_EQ(payload.function_name, kSomeFunc);
     EXPECT_THAT(payload.arguments,
                 ElementsAre(StrictlyEquals(Value::Type::kNull)));
@@ -143,8 +143,8 @@ TEST(ToRemoteCallRequestConversion, OptionalArgumentByValue) {
   {
     constexpr int kIntegerValue = 123;
     const RemoteCallRequestPayload payload =
-        ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc,
-                                               make_optional(kIntegerValue));
+        ConvertToRemoteCallRequestPayloadOrDie(
+            kSomeFunc, std::make_optional(kIntegerValue));
     EXPECT_EQ(payload.function_name, kSomeFunc);
     EXPECT_THAT(payload.arguments, ElementsAre(StrictlyEquals(kIntegerValue)));
   }
@@ -152,7 +152,7 @@ TEST(ToRemoteCallRequestConversion, OptionalArgumentByValue) {
 
 TEST(ToRemoteCallRequestConversion, OptionalArgumentByReference) {
   {
-    optional<bool> boolean_argument;
+    std::optional<bool> boolean_argument;
     const RemoteCallRequestPayload payload =
         ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc, boolean_argument);
     EXPECT_EQ(payload.function_name, kSomeFunc);
@@ -161,7 +161,7 @@ TEST(ToRemoteCallRequestConversion, OptionalArgumentByReference) {
   }
 
   {
-    optional<bool> boolean_argument = false;
+    std::optional<bool> boolean_argument = false;
     const RemoteCallRequestPayload payload =
         ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc, boolean_argument);
     EXPECT_EQ(payload.function_name, kSomeFunc);
@@ -173,7 +173,7 @@ TEST(ToRemoteCallRequestConversion, OptionalArgumentByReference) {
 
 TEST(ToRemoteCallRequestConversion, OptionalArgumentByConstReference) {
   {
-    const optional<bool> boolean_argument = {};
+    const std::optional<bool> boolean_argument = {};
     const RemoteCallRequestPayload payload =
         ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc, boolean_argument);
     EXPECT_EQ(payload.function_name, kSomeFunc);
@@ -182,7 +182,7 @@ TEST(ToRemoteCallRequestConversion, OptionalArgumentByConstReference) {
   }
 
   {
-    const optional<bool> boolean_argument = false;
+    const std::optional<bool> boolean_argument = false;
     const RemoteCallRequestPayload payload =
         ConvertToRemoteCallRequestPayloadOrDie(kSomeFunc, boolean_argument);
     EXPECT_EQ(payload.function_name, kSomeFunc);
@@ -482,7 +482,7 @@ TEST(RemoteCallArgumentsExtractor, OptionalArgument) {
     values.emplace_back(false);
     RemoteCallArgumentsExtractor extractor(kSomeFunc, std::move(values));
 
-    optional<bool> bool_argument;
+    std::optional<bool> bool_argument;
     extractor.Extract(&bool_argument);
     EXPECT_TRUE(extractor.Finish());
     ASSERT_TRUE(bool_argument);
@@ -494,7 +494,7 @@ TEST(RemoteCallArgumentsExtractor, OptionalArgument) {
     values.emplace_back();
     RemoteCallArgumentsExtractor extractor(kSomeFunc, std::move(values));
 
-    optional<bool> bool_argument;
+    std::optional<bool> bool_argument;
     extractor.Extract(&bool_argument);
     EXPECT_TRUE(extractor.Finish());
     EXPECT_FALSE(bool_argument);
@@ -506,7 +506,7 @@ TEST(RemoteCallArgumentsExtractor, OptionalArgument) {
     values.emplace_back(123);
     RemoteCallArgumentsExtractor extractor(kSomeFunc, std::move(values));
 
-    optional<std::string> string_argument;
+    std::optional<std::string> string_argument;
     int int_argument = 0;
     extractor.Extract(&string_argument, &int_argument);
     EXPECT_TRUE(extractor.Finish());
@@ -520,7 +520,7 @@ TEST(RemoteCallArgumentsExtractor, OptionalArgumentError) {
   std::vector<Value> values;
   values.emplace_back(false);
   RemoteCallArgumentsExtractor extractor(kSomeFunc, std::move(values));
-  optional<std::string> string_argument;
+  std::optional<std::string> string_argument;
   extractor.Extract(&string_argument);
   EXPECT_FALSE(extractor.success());
 #ifdef NDEBUG

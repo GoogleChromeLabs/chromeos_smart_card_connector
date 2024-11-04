@@ -21,6 +21,7 @@
 #endif  // __EMSCRIPTEN__
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>
 #include <utility>
@@ -29,7 +30,7 @@
 #include <emscripten/val.h>
 
 #include "common/cpp/src/public/global_context_impl_emscripten.h"
-#include "common/cpp/src/public/optional.h"
+#include "common/cpp/src/public/logging/logging.h"
 #include "common/cpp/src/public/messaging/typed_message_router.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_debug_dumping.h"
@@ -65,7 +66,7 @@ class GoogleSmartCardModule final {
 
   void OnMessageReceivedFromJs(emscripten::val message) {
     std::string error_message;
-    gsc::optional<gsc::Value> message_value =
+    std::optional<gsc::Value> message_value =
         gsc::ConvertEmscriptenValToValue(message, &error_message);
     if (!message_value) {
       GOOGLE_SMART_CARD_LOG_FATAL

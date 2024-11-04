@@ -17,11 +17,11 @@
 
 #include <stdint.h>
 
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "common/cpp/src/public/logging/logging.h"
-#include "common/cpp/src/public/optional.h"
 
 namespace google_smart_card {
 
@@ -67,7 +67,7 @@ class FunctionCallTracer final {
   const std::string logging_prefix_;
   const LogSeverity log_severity_;
   std::vector<ArgNameWithValue> passed_args_;
-  optional<std::string> dumped_return_value_;
+  std::optional<std::string> dumped_return_value_;
   std::vector<ArgNameWithValue> returned_args_;
 };
 

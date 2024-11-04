@@ -32,6 +32,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -43,7 +44,6 @@
 #include <wintypes.h>
 
 #include "common/cpp/src/public/logging/logging.h"
-#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/requesting/remote_call_message.h"
 #include "common/cpp/src/public/requesting/request_receiver.h"
 #include "common/cpp/src/public/requesting/request_result.h"
@@ -237,7 +237,7 @@ class PcscLiteClientRequestProcessor final
       SCARDHANDLE s_card_handle,
       const SCardIoRequest& send_protocol_information,
       const std::vector<uint8_t>& data_to_send,
-      const optional<SCardIoRequest>& response_protocol_information);
+      const std::optional<SCardIoRequest>& response_protocol_information);
   GenericRequestResult SCardListReaders(SCARDCONTEXT s_card_context,
                                         std::nullptr_t groups);
   GenericRequestResult SCardListReaderGroups(SCARDCONTEXT s_card_context);

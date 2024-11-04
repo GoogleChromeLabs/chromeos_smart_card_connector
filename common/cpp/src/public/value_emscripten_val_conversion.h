@@ -22,11 +22,11 @@
 #error "This file should only be used in Emscripten builds"
 #endif  // __EMSCRIPTEN__
 
+#include <optional>
 #include <string>
 
 #include <emscripten/val.h>
 
-#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/value.h"
 
 namespace google_smart_card {
@@ -36,7 +36,7 @@ namespace google_smart_card {
 // When the conversion isn't possible (e.g., when the passed value is a huge
 // integer that can't be precisely represented as a JavaScript number), returns
 // a null optional and, if provided, sets `*error_message`.
-optional<emscripten::val> ConvertValueToEmscriptenVal(
+std::optional<emscripten::val> ConvertValueToEmscriptenVal(
     const Value& value,
     std::string* error_message = nullptr);
 
@@ -48,7 +48,7 @@ emscripten::val ConvertValueToEmscriptenValOrDie(const Value& value);
 //
 // When the conversion isn't possible (e.g., when the passed variable is a
 // function), returns a null optional and, if provided, sets `*error_message`.
-optional<Value> ConvertEmscriptenValToValue(
+std::optional<Value> ConvertEmscriptenValToValue(
     const emscripten::val& val,
     std::string* error_message = nullptr);
 

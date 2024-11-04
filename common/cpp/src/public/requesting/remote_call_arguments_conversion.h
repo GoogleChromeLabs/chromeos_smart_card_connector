@@ -15,12 +15,12 @@
 #ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_REQUESTING_REMOTE_CALL_ARGUMENTS_CONVERSION_H_
 #define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_REQUESTING_REMOTE_CALL_ARGUMENTS_CONVERSION_H_
 
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "common/cpp/src/public/logging/logging.h"
-#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/requesting/remote_call_message.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_conversion.h"
@@ -57,7 +57,7 @@ void ConvertAndAppendRemoteCallArg(RemoteCallRequestPayload* payload,
 
 template <typename T>
 void ConvertAndAppendRemoteCallArg(RemoteCallRequestPayload* payload,
-                                   optional<T>& arg) {
+                                   std::optional<T>& arg) {
   if (arg)
     ConvertAndAppendRemoteCallArg(payload, arg.value());
   else
@@ -66,7 +66,7 @@ void ConvertAndAppendRemoteCallArg(RemoteCallRequestPayload* payload,
 
 template <typename T>
 void ConvertAndAppendRemoteCallArg(RemoteCallRequestPayload* payload,
-                                   optional<T>&& arg) {
+                                   std::optional<T>&& arg) {
   if (arg)
     ConvertAndAppendRemoteCallArg(payload, std::move(arg.value()));
   else
@@ -75,7 +75,7 @@ void ConvertAndAppendRemoteCallArg(RemoteCallRequestPayload* payload,
 
 template <typename T>
 void ConvertAndAppendRemoteCallArg(RemoteCallRequestPayload* payload,
-                                   const optional<T>& arg) {
+                                   const std::optional<T>& arg) {
   if (arg)
     ConvertAndAppendRemoteCallArg(payload, arg.value());
   else
@@ -166,7 +166,7 @@ class RemoteCallArgumentsExtractor final {
   // Specialized version of the overload above that supports converting a null
   // `Value` into a null `optional`.
   template <typename Arg>
-  void ExtractArgument(optional<Arg>* arg) {
+  void ExtractArgument(std::optional<Arg>* arg) {
     if (!success_)
       return;
     if (argument_values_[current_argument_index_].is_null()) {

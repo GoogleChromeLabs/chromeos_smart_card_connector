@@ -23,10 +23,9 @@
 
 #include <stdint.h>
 
+#include <optional>
 #include <string>
 #include <vector>
-
-#include "common/cpp/src/public/optional.h"
 
 namespace google_smart_card {
 
@@ -46,13 +45,13 @@ struct LibusbJsDevice {
   uint16_t product_id;
   // The version number (according to the bcdDevice field of the USB specs), or
   // an empty optional if unavailable.
-  optional<uint16_t> version;
+  std::optional<uint16_t> version;
   // The USB iProduct string, or an empty optional if unavailable.
-  optional<std::string> product_name;
+  std::optional<std::string> product_name;
   // The USB iManufacturer string, or an empty optional if unavailable.
-  optional<std::string> manufacturer_name;
+  std::optional<std::string> manufacturer_name;
   // The USB iSerialNumber string, or an empty optional if unavailable.
-  optional<std::string> serial_number;
+  std::optional<std::string> serial_number;
 };
 
 enum class LibusbJsDirection {
@@ -72,7 +71,7 @@ struct LibusbJsEndpointDescriptor {
   uint8_t endpoint_address;
   LibusbJsDirection direction;
   LibusbJsEndpointType type;
-  optional<std::vector<uint8_t>> extra_data;
+  std::optional<std::vector<uint8_t>> extra_data;
   // The USB wMaxPacketSize field.
   uint16_t max_packet_size;
 };
@@ -86,7 +85,7 @@ struct LibusbJsInterfaceDescriptor {
   uint8_t interface_subclass;
   // The USB interfaceProtocol field.
   uint8_t interface_protocol;
-  optional<std::vector<uint8_t>> extra_data;
+  std::optional<std::vector<uint8_t>> extra_data;
   std::vector<LibusbJsEndpointDescriptor> endpoints;
 };
 
@@ -95,7 +94,7 @@ struct LibusbJsConfigurationDescriptor {
   bool active;
   // The USB bConfigurationValue field.
   uint8_t configuration_value;
-  optional<std::vector<uint8_t>> extra_data;
+  std::optional<std::vector<uint8_t>> extra_data;
   std::vector<LibusbJsInterfaceDescriptor> interfaces;
 };
 
@@ -124,23 +123,23 @@ struct LibusbJsControlTransferParameters {
   // The USB wIndex field.
   uint16_t index;
   // Only set for output transfers.
-  optional<std::vector<uint8_t>> data_to_send;
+  std::optional<std::vector<uint8_t>> data_to_send;
   // Only set for input transfers.
-  optional<uint16_t> length_to_receive;
+  std::optional<uint16_t> length_to_receive;
 };
 
 struct LibusbJsGenericTransferParameters {
   // The USB bEndpointAddress field.
   uint8_t endpoint_address;
   // Only set for output transfers.
-  optional<std::vector<uint8_t>> data_to_send;
+  std::optional<std::vector<uint8_t>> data_to_send;
   // Only set for input transfers.
-  optional<int64_t> length_to_receive;
+  std::optional<int64_t> length_to_receive;
 };
 
 struct LibusbJsTransferResult {
   // This field is only populated for input transfers.
-  optional<std::vector<uint8_t>> received_data;
+  std::optional<std::vector<uint8_t>> received_data;
 };
 
 }  // namespace google_smart_card

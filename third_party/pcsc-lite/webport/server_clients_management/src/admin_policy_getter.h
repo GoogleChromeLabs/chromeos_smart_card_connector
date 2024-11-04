@@ -17,20 +17,21 @@
 
 #include <condition_variable>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "common/cpp/src/public/messaging/typed_message_listener.h"
-#include "common/cpp/src/public/optional.h"
 
 namespace google_smart_card {
 
 struct AdminPolicy {
   // Force allowed client App identifiers.
-  optional<std::vector<std::string>> force_allowed_client_app_ids;
+  std::optional<std::vector<std::string>> force_allowed_client_app_ids;
 
   // Client App identifiers using the SCardDisconnect fallback.
-  optional<std::vector<std::string>> scard_disconnect_fallback_client_app_ids;
+  std::optional<std::vector<std::string>>
+      scard_disconnect_fallback_client_app_ids;
 };
 
 // This class listens for the update admin policy messages received from the
@@ -44,7 +45,7 @@ class AdminPolicyGetter final : public TypedMessageListener {
 
   // Returns the current admin policy. If it has not been received yet, it waits
   // in a blocking way.
-  optional<AdminPolicy> WaitAndGet();
+  std::optional<AdminPolicy> WaitAndGet();
 
   // Replace the currently cached policy with |admin_policy|.
   void UpdateAdminPolicy(const AdminPolicy& admin_policy);
@@ -60,7 +61,7 @@ class AdminPolicyGetter final : public TypedMessageListener {
  private:
   std::mutex mutex_;
   std::condition_variable condition_variable_;
-  optional<AdminPolicy> admin_policy_;
+  std::optional<AdminPolicy> admin_policy_;
   bool shutting_down_ = false;
 };
 

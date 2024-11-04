@@ -23,12 +23,12 @@
 #include <cstring>
 #include <functional>
 #include <limits>
+#include <optional>
 #include <utility>
 #include <vector>
 
 #include "common/cpp/src/public/logging/logging.h"
 #include "common/cpp/src/public/numeric_conversions.h"
-#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/requesting/remote_call_async_request.h"
 #include "common/cpp/src/public/requesting/request_result.h"
 #include "third_party/libusb/webport/src/libusb_js_proxy_constants.h"
@@ -368,7 +368,8 @@ int LibusbJsProxy::LibusbGetActiveConfigDescriptor(
   GOOGLE_SMART_CARD_CHECK(config);
 
   ObtainActiveConfigDescriptor(dev);
-  const optional<LibusbJsConfigurationDescriptor> js_config = dev->js_config();
+  const std::optional<LibusbJsConfigurationDescriptor> js_config =
+      dev->js_config();
 
   if (!js_config) {
     *config = nullptr;
@@ -742,7 +743,7 @@ int RoundUpToMultiple(int value_to_round, int modulus) {
 int FixUpInboundGenericTransferLength(
     int transfer_length,
     unsigned char endpoint,
-    const optional<LibusbJsConfigurationDescriptor>& js_config) {
+    const std::optional<LibusbJsConfigurationDescriptor>& js_config) {
   if (!js_config) {
     // There was a failure when obtaining the config descriptor, hence no fixup
     // is possible and we can only return the original length.
@@ -1172,7 +1173,7 @@ void LibusbJsProxy::MaybeStartTransferJsRequest(
     const UsbTransferDestination& transfer_destination) {
   GOOGLE_SMART_CARD_CHECK(context);
 
-  optional<RemoteCallAsyncRequest> prepared_js_call =
+  std::optional<RemoteCallAsyncRequest> prepared_js_call =
       context->PrepareTransferJsCallForExecution(transfer_destination);
   if (prepared_js_call) {
     js_call_adaptor_.AsyncCall(std::move(*prepared_js_call));

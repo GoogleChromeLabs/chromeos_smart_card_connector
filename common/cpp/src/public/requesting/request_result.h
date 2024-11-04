@@ -17,11 +17,11 @@
 #ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_REQUESTING_REQUEST_RESULT_H_
 #define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_REQUESTING_REQUEST_RESULT_H_
 
+#include <optional>
 #include <string>
 #include <utility>
 
 #include "common/cpp/src/public/logging/logging.h"
-#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/value.h"
 
 namespace google_smart_card {
@@ -130,9 +130,9 @@ class RequestResult final {
     }
   }
 
-  optional<RequestResultStatus> status_;
-  optional<std::string> error_message_;
-  optional<PayloadType> payload_;
+  std::optional<RequestResultStatus> status_;
+  std::optional<std::string> error_message_;
+  std::optional<PayloadType> payload_;
 };
 
 using GenericRequestResult = RequestResult<Value>;

@@ -34,6 +34,7 @@
 #include <cstdio>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>
 #include <utility>
@@ -42,7 +43,6 @@
 #include "common/cpp/src/public/ipc_emulation.h"
 #include "common/cpp/src/public/logging/logging.h"
 #include "common/cpp/src/public/messaging/typed_message.h"
-#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_conversion.h"
 #include "third_party/libusb/webport/src/public/constants.h"
@@ -129,7 +129,7 @@ void PcscLiteServerDaemonThreadMain() {
   while (true) {
     GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "[daemon thread] "
                                 << "Waiting for the new connected clients...";
-    optional<int> server_socket_file_descriptor =
+    std::optional<int> server_socket_file_descriptor =
         PcscLiteServerSocketsManager::GetInstance()->WaitAndPop();
     if (!server_socket_file_descriptor) {
       // A shutdown signal received.

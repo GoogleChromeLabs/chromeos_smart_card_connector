@@ -15,9 +15,9 @@
 #include "third_party/pcsc-lite/webport/server_clients_management/src/admin_policy_getter.h"
 
 #include <condition_variable>
+#include <optional>
 #include <string>
 
-#include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/value_conversion.h"
 #include "common/cpp/src/public/value_debug_dumping.h"
 
@@ -52,7 +52,7 @@ AdminPolicyGetter::~AdminPolicyGetter() {
     ShutDown();
 }
 
-optional<AdminPolicy> AdminPolicyGetter::WaitAndGet() {
+std::optional<AdminPolicy> AdminPolicyGetter::WaitAndGet() {
   // Wait until the policy is received for the first time
   std::unique_lock<std::mutex> lock(mutex_);
   condition_variable_.wait(
