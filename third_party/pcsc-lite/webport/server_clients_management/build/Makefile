@@ -61,10 +61,6 @@ $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 $(eval $(call LIB_RULE,$(TARGET),$(SOURCES)))
 
 
-$(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/permissions_checking/user-prompt-dialog.html,pcsc_lite_server_clients_management))
-$(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/permissions_checking/user-prompt-dialog.css,pcsc_lite_server_clients_management))
-
-
 JS_COMPILER_INPUT_PATHS := \
 	$(JS_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
 	$(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_JS_COMPILER_INPUT_DIR_PATHS) \
