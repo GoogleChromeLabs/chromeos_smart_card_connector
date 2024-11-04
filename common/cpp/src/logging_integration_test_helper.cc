@@ -14,11 +14,11 @@
 
 #include "common/cpp/src/public/logging/logging.h"
 
+#include <memory>
 #include <string>
 
 #include "common/cpp/src/public/requesting/request_receiver.h"
 #include "common/cpp/src/public/requesting/request_result.h"
-#include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
 #include "common/integration_testing/src/public/integration_test_helper.h"
 #include "common/integration_testing/src/public/integration_test_service.h"
@@ -39,7 +39,8 @@ class LoggingTestHelper final : public IntegrationTestHelper {
 // Register the class in the service, so that when the JS side requests this
 // helper the service will route requests to it.
 const auto g_smart_card_connector_application_test_helper =
-    IntegrationTestService::RegisterHelper(MakeUnique<LoggingTestHelper>());
+    IntegrationTestService::RegisterHelper(
+        std::make_unique<LoggingTestHelper>());
 
 std::string LoggingTestHelper::GetName() const {
   return "LoggingTestHelper";

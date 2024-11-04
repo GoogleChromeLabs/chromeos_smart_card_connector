@@ -14,6 +14,7 @@
 
 #include "ui_bridge.h"
 
+#include <memory>
 #include <mutex>
 #include <thread>
 #include <utility>
@@ -22,7 +23,6 @@
 #include "common/cpp/src/public/logging/logging.h"
 #include "common/cpp/src/public/messaging/typed_message.h"
 #include "common/cpp/src/public/messaging/typed_message_router.h"
-#include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_conversion.h"
 #include "common/cpp/src/public/value_debug_dumping.h"

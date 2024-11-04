@@ -29,7 +29,6 @@
 #include "common/cpp/src/public/requesting/remote_call_arguments_conversion.h"
 #include "common/cpp/src/public/requesting/remote_call_message.h"
 #include "common/cpp/src/public/requesting/request_result.h"
-#include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_conversion.h"
 #include "common/integration_testing/src/public/integration_test_helper.h"

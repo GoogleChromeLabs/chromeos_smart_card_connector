@@ -24,7 +24,6 @@
 #include "common/cpp/src/public/logging/logging.h"
 #include "common/cpp/src/public/messaging/typed_message.h"
 #include "common/cpp/src/public/messaging/typed_message_router.h"
-#include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_conversion.h"
 #include "third_party/ccid/webport/src/ccid_pcsc_driver_adaptor.h"
@@ -42,8 +41,8 @@ namespace {
 // Creates adaptors for all enabled PC/SC-Lite drivers.
 std::vector<std::unique_ptr<PcscDriverAdaptor>> GetDriverAdaptors() {
   std::vector<std::unique_ptr<PcscDriverAdaptor>> drivers;
-  drivers.push_back(MakeUnique<CcidPcscDriverAdaptor>());
-  drivers.push_back(MakeUnique<Hid5021PcscDriverAdaptor>());
+  drivers.push_back(std::make_unique<CcidPcscDriverAdaptor>());
+  drivers.push_back(std::make_unique<Hid5021PcscDriverAdaptor>());
   return drivers;
 }
 
@@ -57,10 +56,10 @@ Application::Application(
       typed_message_router_(typed_message_router),
       background_initialization_callback_(background_initialization_callback),
       libusb_web_port_service_(
-          MakeUnique<LibusbWebPortService>(global_context_,
-                                           typed_message_router_)),
+          std::make_unique<LibusbWebPortService>(global_context_,
+                                                 typed_message_router_)),
       pcsc_lite_server_web_port_service_(
-          MakeUnique<PcscLiteServerWebPortService>(
+          std::make_unique<PcscLiteServerWebPortService>(
               global_context_,
               libusb_web_port_service_.get(),
               GetDriverAdaptors())) {
@@ -89,8 +88,8 @@ void Application::InitializeServicesOnBackgroundThread() {
   pcsc_lite_server_web_port_service_->InitializeAndRunDaemonThread();
 
   pcsc_lite_server_clients_management_backend_ =
-      MakeUnique<PcscLiteServerClientsManagementBackend>(global_context_,
-                                                         typed_message_router_);
+      std::make_unique<PcscLiteServerClientsManagementBackend>(
+          global_context_, typed_message_router_);
 
   GOOGLE_SMART_CARD_LOG_DEBUG << "All services are successfully "
                               << "initialized, posting ready message...";

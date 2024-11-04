@@ -26,7 +26,6 @@
 #include "common/cpp/src/public/optional.h"
 #include "common/cpp/src/public/requesting/async_request.h"
 #include "common/cpp/src/public/requesting/remote_call_async_request.h"
-#include "common/cpp/src/public/unique_ptr_utils.h"
 #include "third_party/libusb/webport/src/libusb_js_proxy_data_model.h"
 #include "third_party/libusb/webport/src/usb_transfer_destination.h"
 
@@ -123,7 +122,7 @@ void UsbTransfersParametersStorage::Add(
         timeout) {
   GOOGLE_SMART_CARD_CHECK(async_request_state);
   GOOGLE_SMART_CARD_CHECK(transfer);
-  auto stored_item = MakeUnique<Item>();
+  auto stored_item = std::make_unique<Item>();
   stored_item->info.async_request_state = async_request_state;
   stored_item->info.transfer_destination = transfer_destination;
   stored_item->info.transfer = transfer;
