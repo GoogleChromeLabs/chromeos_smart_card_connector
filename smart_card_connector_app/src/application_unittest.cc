@@ -42,7 +42,6 @@
 #include "common/cpp/src/public/multi_string.h"
 #include "common/cpp/src/public/requesting/remote_call_message.h"
 #include "common/cpp/src/public/requesting/requester_message.h"
-#include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_conversion.h"
 #include "common/cpp/src/public/value_test_utils.h"
@@ -244,7 +243,7 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
     EXPECT_CALL(background_initialization_callback, Call());
     // Create the application, which spawns the background initialization
     // thread.
-    application_ = MakeUnique<Application>(
+    application_ = std::make_unique<Application>(
         &global_context_, &typed_message_router_,
         background_initialization_callback.AsStdFunction());
     // Wait until the daemon's background thread completes the initialization

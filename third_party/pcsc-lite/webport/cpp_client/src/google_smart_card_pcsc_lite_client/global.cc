@@ -25,6 +25,7 @@
 
 #include "third_party/pcsc-lite/webport/cpp_client/src/google_smart_card_pcsc_lite_client/global.h"
 
+#include <memory>
 #include <string>
 #include <utility>
 
@@ -36,7 +37,6 @@
 #include "common/cpp/src/public/logging/logging.h"
 #include "common/cpp/src/public/requesting/js_requester.h"
 #include "common/cpp/src/public/requesting/requester.h"
-#include "common/cpp/src/public/unique_ptr_utils.h"
 #include "third_party/pcsc-lite/webport/common/src/public/pcsc_lite.h"
 #include "third_party/pcsc-lite/webport/common/src/public/pcsc_lite_tracing_wrapper.h"
 #include "third_party/pcsc-lite/webport/cpp_client/src/pcsc_lite_over_requester.h"
@@ -63,9 +63,9 @@ class PcscLiteOverRequesterGlobal::Impl final {
  public:
   Impl(GlobalContext* global_context, TypedMessageRouter* typed_message_router)
       : pcsc_lite_over_requester_(
-            MakeUnique<JsRequester>(kPcscLiteRequesterName,
-                                    global_context,
-                                    typed_message_router)) {
+            std::make_unique<JsRequester>(kPcscLiteRequesterName,
+                                          global_context,
+                                          typed_message_router)) {
 #ifndef NDEBUG
     pcsc_lite_tracing_wrapper_.reset(
         new PcscLiteTracingWrapper(&pcsc_lite_over_requester_, kLoggingPrefix));
@@ -92,7 +92,7 @@ class PcscLiteOverRequesterGlobal::Impl final {
 PcscLiteOverRequesterGlobal::PcscLiteOverRequesterGlobal(
     GlobalContext* global_context,
     TypedMessageRouter* typed_message_router)
-    : impl_(MakeUnique<Impl>(global_context, typed_message_router)) {
+    : impl_(std::make_unique<Impl>(global_context, typed_message_router)) {
   GOOGLE_SMART_CARD_CHECK(!g_pcsc_lite);
   g_pcsc_lite = impl_->pcsc_lite();
 }

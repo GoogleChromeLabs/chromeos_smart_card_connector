@@ -46,7 +46,6 @@
 #include "common/cpp/src/public/multi_string.h"
 #include "common/cpp/src/public/requesting/remote_call_arguments_conversion.h"
 #include "common/cpp/src/public/requesting/remote_call_message.h"
-#include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_conversion.h"
 #include "common/cpp/src/public/value_debug_dumping.h"

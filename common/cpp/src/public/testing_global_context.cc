@@ -29,7 +29,6 @@
 #include "common/cpp/src/public/messaging/typed_message_router.h"
 #include "common/cpp/src/public/requesting/remote_call_message.h"
 #include "common/cpp/src/public/requesting/requester_message.h"
-#include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_conversion.h"
 #include "common/cpp/src/public/value_debug_dumping.h"
@@ -246,7 +245,7 @@ void TestingGlobalContext::RegisterRequestRerouter(
 std::unique_ptr<TestingGlobalContext::Waiter>
 TestingGlobalContext::CreateMessageWaiter(
     const std::string& awaited_message_type) {
-  // `MakeUnique` wouldn't work due to the constructor being private.
+  // `std::make_unique` wouldn't work due to the constructor being private.
   std::unique_ptr<Waiter> waiter(
       new Waiter(typed_message_router_, /*requester_name=*/{}));
   Expectation expectation;
@@ -262,7 +261,7 @@ std::unique_ptr<TestingGlobalContext::Waiter>
 TestingGlobalContext::CreateRequestWaiter(const std::string& requester_name,
                                           const std::string& function_name,
                                           Value arguments) {
-  // `MakeUnique` wouldn't work due to the constructor being private.
+  // `std::make_unique` wouldn't work due to the constructor being private.
   std::unique_ptr<Waiter> waiter(
       new Waiter(typed_message_router_, requester_name));
   auto callback_to_run =
@@ -277,7 +276,7 @@ TestingGlobalContext::CreateRequestWaiter(const std::string& requester_name,
 std::unique_ptr<TestingGlobalContext::Waiter>
 TestingGlobalContext::CreateResponseWaiter(const std::string& requester_name,
                                            RequestId request_id) {
-  // `MakeUnique` wouldn't work due to the constructor being private.
+  // `std::make_unique` wouldn't work due to the constructor being private.
   std::unique_ptr<Waiter> waiter(
       new Waiter(typed_message_router_, requester_name));
   Expectation expectation;

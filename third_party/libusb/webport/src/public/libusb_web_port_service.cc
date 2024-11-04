@@ -16,12 +16,12 @@
 
 #include "third_party/libusb/webport/src/public/libusb_web_port_service.h"
 
+#include <memory>
 #include <utility>
 
 #include "common/cpp/src/public/logging/logging.h"
 #include "common/cpp/src/public/requesting/js_requester.h"
 #include "common/cpp/src/public/requesting/requester.h"
-#include "common/cpp/src/public/unique_ptr_utils.h"
 #include "third_party/libusb/webport/src/libusb_interface.h"
 #include "third_party/libusb/webport/src/libusb_js_proxy.h"
 #include "third_party/libusb/webport/src/libusb_tracing_wrapper.h"
@@ -72,7 +72,7 @@ class LibusbWebPortService::Impl final {
 LibusbWebPortService::LibusbWebPortService(
     GlobalContext* global_context,
     TypedMessageRouter* typed_message_router)
-    : impl_(MakeUnique<Impl>(global_context, typed_message_router)) {
+    : impl_(std::make_unique<Impl>(global_context, typed_message_router)) {
   GOOGLE_SMART_CARD_CHECK(!g_libusb);
   g_libusb = impl_->libusb();
 }

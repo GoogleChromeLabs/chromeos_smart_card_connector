@@ -21,7 +21,6 @@
 #include <emscripten/val.h>
 
 #include "common/cpp/src/public/logging/logging.h"
-#include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_emscripten_val_conversion.h"
 
@@ -62,8 +61,9 @@ void GlobalContextImplEmscripten::PostMessageToJs(Value message) {
   //    <https://github.com/emscripten-core/emscripten/issues/12749>.
   using SelfWeakPtr = std::weak_ptr<GlobalContextImplEmscripten>;
   std::unique_ptr<SelfWeakPtr> this_weak_ptr =
-      MakeUnique<SelfWeakPtr>(shared_from_this());
-  std::unique_ptr<Value> message_ptr = MakeUnique<Value>(std::move(message));
+      std::make_unique<SelfWeakPtr>(shared_from_this());
+  std::unique_ptr<Value> message_ptr =
+      std::make_unique<Value>(std::move(message));
   emscripten_async_run_in_main_runtime_thread(
       EM_FUNC_SIG_VII,
       &GlobalContextImplEmscripten::PostMessageOnMainThreadTrampoline,

@@ -95,6 +95,9 @@ ${if PACKAGING=app}
     "usb",
     {
       "usbDevices": [
+        # HID 5021-CL - we have a special driver for it.
+        {"vendorId": 1899, "productId": 21280},
+
         # Allowlist the ACS ACR122U PICC reader. It's not officially supported
         # due to various issues, hence we don't patch the CCID Free Driver's
         # config to include it, but we allow deployments that are willing to use

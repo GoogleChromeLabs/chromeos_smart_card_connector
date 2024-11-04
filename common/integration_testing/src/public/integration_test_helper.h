@@ -36,7 +36,7 @@ namespace google_smart_card {
 //    registers an instance of this helper:
 //
 //      const auto g_foo_helper = IntegrationTestService::RegisterHelper(
-//          MakeUnique<FooHelper>());
+//          std::make_unique<FooHelper>());
 //
 // Note: We're explicitly violating the Google C++ Style Guide by using global
 // objects with nontrivial constructors; we're doing it because it allows to

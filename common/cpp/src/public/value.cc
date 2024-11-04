@@ -19,7 +19,6 @@
 #include <vector>
 
 #include "common/cpp/src/public/logging/logging.h"
-#include "common/cpp/src/public/unique_ptr_utils.h"
 
 namespace google_smart_card {
 
@@ -37,8 +36,10 @@ namespace {
 Value::DictionaryStorage ConvertMapToUniquePtrMap(
     std::map<std::string, Value> map) {
   Value::DictionaryStorage dictionary_storage;
-  for (auto& item : map)
-    dictionary_storage[item.first] = MakeUnique<Value>(std::move(item.second));
+  for (auto& item : map) {
+    dictionary_storage[item.first] =
+        std::make_unique<Value>(std::move(item.second));
+  }
   return dictionary_storage;
 }
 
@@ -46,7 +47,7 @@ Value::ArrayStorage ConvertValuesToUniquePtrs(std::vector<Value> values) {
   Value::ArrayStorage array_storage;
   array_storage.reserve(values.size());
   for (auto& value : values)
-    array_storage.push_back(MakeUnique<Value>(std::move(value)));
+    array_storage.push_back(std::make_unique<Value>(std::move(value)));
   return array_storage;
 }
 
@@ -241,8 +242,8 @@ void Value::SetDictionaryItem(std::string key, Value value) {
     return;
   }
   dictionary_value_.insert(
-      iter,
-      std::make_pair(std::move(key), MakeUnique<Value>(std::move(value))));
+      iter, std::make_pair(std::move(key),
+                           std::make_unique<Value>(std::move(value))));
 }
 
 void Value::MoveConstructFrom(Value&& other) {

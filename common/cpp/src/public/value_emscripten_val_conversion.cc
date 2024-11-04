@@ -29,7 +29,6 @@
 #include "common/cpp/src/public/formatting.h"
 #include "common/cpp/src/public/logging/logging.h"
 #include "common/cpp/src/public/numeric_conversions.h"
-#include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
 
 namespace google_smart_card {

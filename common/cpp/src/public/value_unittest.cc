@@ -23,8 +23,6 @@
 
 #include <gtest/gtest.h>
 
-#include "common/cpp/src/public/unique_ptr_utils.h"
-
 namespace google_smart_card {
 
 TEST(ValueTest, DefaultConstructed) {
@@ -299,8 +297,8 @@ TEST(ValueTest, BinaryDefault) {
 
 TEST(ValueTest, Dictionary) {
   std::map<std::string, std::unique_ptr<Value>> items;
-  items["foo"] = MakeUnique<Value>();
-  items["bar"] = MakeUnique<Value>(123);
+  items["foo"] = std::make_unique<Value>();
+  items["bar"] = std::make_unique<Value>(123);
   const Value value(std::move(items));
   EXPECT_EQ(value.type(), Value::Type::kDictionary);
   EXPECT_FALSE(value.is_null());
@@ -324,12 +322,12 @@ TEST(ValueTest, Dictionary) {
 
   // Test `StrictlyEquals()` against same/different dictionary values.
   std::map<std::string, std::unique_ptr<Value>> clone;
-  clone["foo"] = MakeUnique<Value>();
-  clone["bar"] = MakeUnique<Value>(123);
+  clone["foo"] = std::make_unique<Value>();
+  clone["bar"] = std::make_unique<Value>(123);
   EXPECT_TRUE(value.StrictlyEquals(Value(std::move(clone))));
   std::map<std::string, std::unique_ptr<Value>> other;
-  other["foo"] = MakeUnique<Value>();
-  other["bar"] = MakeUnique<Value>(1234);
+  other["foo"] = std::make_unique<Value>();
+  other["bar"] = std::make_unique<Value>(1234);
   EXPECT_FALSE(value.StrictlyEquals(Value(std::move(other))));
 }
 
@@ -351,15 +349,15 @@ TEST(ValueTest, DictionaryDefault) {
   // Test `StrictlyEquals()` against same/different dictionary values.
   EXPECT_TRUE(value.StrictlyEquals(Value(Value::Type::kDictionary)));
   std::map<std::string, std::unique_ptr<Value>> other;
-  other["foo"] = MakeUnique<Value>();
-  other["bar"] = MakeUnique<Value>(1234);
+  other["foo"] = std::make_unique<Value>();
+  other["bar"] = std::make_unique<Value>(1234);
   EXPECT_FALSE(value.StrictlyEquals(Value(std::move(other))));
 }
 
 TEST(ValueTest, Array) {
   std::vector<std::unique_ptr<Value>> items;
-  items.push_back(MakeUnique<Value>());
-  items.push_back(MakeUnique<Value>(123));
+  items.push_back(std::make_unique<Value>());
+  items.push_back(std::make_unique<Value>(123));
   const Value value(std::move(items));
   EXPECT_EQ(value.type(), Value::Type::kArray);
   EXPECT_FALSE(value.is_null());
@@ -381,12 +379,12 @@ TEST(ValueTest, Array) {
 
   // Test `StrictlyEquals()` against same/different array values.
   std::vector<std::unique_ptr<Value>> clone;
-  clone.push_back(MakeUnique<Value>());
-  clone.push_back(MakeUnique<Value>(123));
+  clone.push_back(std::make_unique<Value>());
+  clone.push_back(std::make_unique<Value>(123));
   EXPECT_TRUE(value.StrictlyEquals(Value(std::move(clone))));
   std::vector<std::unique_ptr<Value>> other;
-  other.push_back(MakeUnique<Value>());
-  other.push_back(MakeUnique<Value>(1234));
+  other.push_back(std::make_unique<Value>());
+  other.push_back(std::make_unique<Value>(1234));
   EXPECT_FALSE(value.StrictlyEquals(Value(std::move(other))));
 }
 
@@ -406,8 +404,8 @@ TEST(ValueTest, ArrayDefault) {
   // Test `StrictlyEquals()` against same/different array values.
   EXPECT_TRUE(value.StrictlyEquals(Value(Value::Type::kArray)));
   std::vector<std::unique_ptr<Value>> other;
-  other.push_back(MakeUnique<Value>());
-  other.push_back(MakeUnique<Value>(123));
+  other.push_back(std::make_unique<Value>());
+  other.push_back(std::make_unique<Value>(123));
   EXPECT_FALSE(value.StrictlyEquals(Value(std::move(other))));
 }
 
@@ -510,7 +508,7 @@ TEST(ValueTest, MoveAssignment) {
 
   {
     std::vector<std::unique_ptr<Value>> items;
-    items.push_back(MakeUnique<Value>("foo"));
+    items.push_back(std::make_unique<Value>("foo"));
     Value value1(std::move(items));
     Value value2("bar");
     value2 = std::move(value1);

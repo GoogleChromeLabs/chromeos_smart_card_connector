@@ -27,7 +27,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
 
 using testing::MatchesRegex;

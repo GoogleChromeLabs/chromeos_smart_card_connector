@@ -34,7 +34,6 @@
 #include "common/cpp/src/public/global_context_impl_emscripten.h"
 #include "common/cpp/src/public/logging/logging.h"
 #include "common/cpp/src/public/messaging/typed_message_router.h"
-#include "common/cpp/src/public/unique_ptr_utils.h"
 #include "common/cpp/src/public/value.h"
 #include "common/cpp/src/public/value_emscripten_val_conversion.h"
 #include "smart_card_connector_app/src/application.h"
@@ -51,7 +50,7 @@ class GoogleSmartCardModule final {
       : global_context_(std::make_shared<GlobalContextImplEmscripten>(
             std::this_thread::get_id(),
             post_message_callback)),
-        application_(MakeUnique<Application>(
+        application_(std::make_unique<Application>(
             global_context_.get(),
             &typed_message_router_,
             /*background_initialization_callback=*/std::function<void()>())) {}
