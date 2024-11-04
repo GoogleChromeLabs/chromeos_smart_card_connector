@@ -70,7 +70,7 @@ libusb_context::PrepareTransferJsCallForExecution(
 }
 
 void libusb_context::WaitAndProcessAsyncTransferReceivedResults(
-    const std::chrono::time_point<std::chrono::high_resolution_clock>&
+    const std::chrono::time_point<std::chrono::steady_clock>&
         timeout_time_point,
     int* completed) {
   TransferAsyncRequestStatePtr async_request_state;
@@ -95,7 +95,7 @@ void libusb_context::WaitAndProcessAsyncTransferReceivedResults(
         break;
       }
 
-      const std::chrono::time_point<std::chrono::high_resolution_clock>
+      const std::chrono::time_point<std::chrono::steady_clock>
           min_transfer_timeout = GetMinTransferTimeout();
 
       // Wait until a transfer result arrives, or some transfer times out, or we
@@ -106,7 +106,7 @@ void libusb_context::WaitAndProcessAsyncTransferReceivedResults(
       condition_.wait_until(lock, wait_until_time_point);
 
       // Immediately exit if we timed out according to `timeout_time_point`.
-      if (std::chrono::high_resolution_clock::now() >= timeout_time_point)
+      if (std::chrono::steady_clock::now() >= timeout_time_point)
         return;
     }
   }
@@ -200,13 +200,12 @@ void libusb_context::AddTransferInFlight(
     RemoteCallAsyncRequest prepared_js_call) {
   GOOGLE_SMART_CARD_CHECK(async_request_state);
 
-  std::chrono::time_point<std::chrono::high_resolution_clock> timeout;
+  std::chrono::time_point<std::chrono::steady_clock> timeout;
   if (transfer->timeout == 0) {
     // A zero timeout field denotes an infinite timeout.
-    timeout =
-        std::chrono::time_point<std::chrono::high_resolution_clock>::max();
+    timeout = std::chrono::time_point<std::chrono::steady_clock>::max();
   } else {
-    timeout = std::chrono::high_resolution_clock::now() +
+    timeout = std::chrono::steady_clock::now() +
               std::chrono::milliseconds(transfer->timeout);
   }
 
@@ -240,10 +239,10 @@ void libusb_context::RemoveTransferInFlight(
   }
 }
 
-std::chrono::time_point<std::chrono::high_resolution_clock>
+std::chrono::time_point<std::chrono::steady_clock>
 libusb_context::GetMinTransferTimeout() const {
   if (transfers_in_flight_.empty())
-    return std::chrono::time_point<std::chrono::high_resolution_clock>::max();
+    return std::chrono::time_point<std::chrono::steady_clock>::max();
   return transfers_in_flight_.GetWithMinTimeout().timeout;
 }
 
@@ -284,7 +283,7 @@ bool libusb_context::ExtractTimedOutTransfer(
     return false;
   UsbTransfersParametersStorage::Info nearest =
       transfers_in_flight_.GetWithMinTimeout();
-  if (std::chrono::high_resolution_clock::now() < nearest.timeout)
+  if (std::chrono::steady_clock::now() < nearest.timeout)
     return false;
   *async_request_state = nearest.async_request_state;
   *result = TransferRequestResult::CreateFailed(

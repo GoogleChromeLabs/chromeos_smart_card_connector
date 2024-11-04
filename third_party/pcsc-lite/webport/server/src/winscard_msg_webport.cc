@@ -139,11 +139,11 @@ INTERNAL LONG MessageReceiveTimeout(uint32_t /*command*/,
                                     long timeOut) {
   GOOGLE_SMART_CARD_CHECK(buffer_void);
 
-  const auto start_time_point = std::chrono::high_resolution_clock::now();
+  const auto start_time_point = std::chrono::steady_clock::now();
   uint8_t* current_buffer_begin = static_cast<uint8_t*>(buffer_void);
   int64_t left_size = static_cast<int64_t>(buffer_size);
   while (left_size > 0) {
-    const auto current_time_point = std::chrono::high_resolution_clock::now();
+    const auto current_time_point = std::chrono::steady_clock::now();
     const int64_t milliseconds_passed =
         std::chrono::duration_cast<std::chrono::milliseconds>(
             current_time_point - start_time_point)

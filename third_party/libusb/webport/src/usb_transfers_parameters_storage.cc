@@ -118,8 +118,7 @@ void UsbTransfersParametersStorage::Add(
     const UsbTransferDestination& transfer_destination,
     libusb_transfer* transfer,
     RemoteCallAsyncRequest prepared_js_call,
-    const std::chrono::time_point<std::chrono::high_resolution_clock>&
-        timeout) {
+    const std::chrono::time_point<std::chrono::steady_clock>& timeout) {
   GOOGLE_SMART_CARD_CHECK(async_request_state);
   GOOGLE_SMART_CARD_CHECK(transfer);
   auto stored_item = std::make_unique<Item>();

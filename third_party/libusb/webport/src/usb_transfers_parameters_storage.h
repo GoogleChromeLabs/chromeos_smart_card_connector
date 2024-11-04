@@ -61,7 +61,7 @@ class UsbTransfersParametersStorage final {
     TransferAsyncRequestStatePtr async_request_state;
     UsbTransferDestination transfer_destination;
     libusb_transfer* transfer = nullptr;
-    std::chrono::time_point<std::chrono::high_resolution_clock> timeout;
+    std::chrono::time_point<std::chrono::steady_clock> timeout;
   };
 
   bool empty() const;
@@ -70,8 +70,7 @@ class UsbTransfersParametersStorage final {
            const UsbTransferDestination& transfer_destination,
            libusb_transfer* transfer,
            RemoteCallAsyncRequest prepared_js_call,
-           const std::chrono::time_point<std::chrono::high_resolution_clock>&
-               timeout);
+           const std::chrono::time_point<std::chrono::steady_clock>& timeout);
 
   bool ContainsWithAsyncRequestState(
       const TransferAsyncRequestState* async_request_state) const;
@@ -127,7 +126,7 @@ class UsbTransfersParametersStorage final {
   std::map<UsbTransferDestination, std::deque<Item*>>
       async_destination_mapping_;
   std::map<const libusb_transfer*, Item*> async_libusb_transfer_mapping_;
-  std::map<std::chrono::time_point<std::chrono::high_resolution_clock>,
+  std::map<std::chrono::time_point<std::chrono::steady_clock>,
            std::deque<Item*>>
       timeout_mapping_;
   // Contains items which still have nonempty `prepared_js_call`.
