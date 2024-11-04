@@ -40,7 +40,7 @@ static int uid_len;
 static bool card_present = false;
 
 // check value returned by escape()
-#define Escape(a, b, c, d) do { int rv2 = escape(a, b, c, d); if (rv2 != IFD_SUCCESS) return rv2; } while (0)
+#define Escape(a, b, c, d) do { if (escape(a, b, c, d) != IFD_SUCCESS) goto error; } while (0)
 
 // send a PC_to_RDR_Escape CCID command
 static int escape(unsigned char cmd[], int size, unsigned char res[], int * res_size)
@@ -84,6 +84,11 @@ static int escape(unsigned char cmd[], int size, unsigned char res[], int * res_
 	if (rv < 0)
 	{
 		Log2(PCSC_LOG_CRITICAL, "write failed: %s", libusb_error_name(rv));
+		if (LIBUSB_ERROR_TIMEOUT == rv)
+		{
+			rv = libusb_reset_device(device_handle);
+			Log2(PCSC_LOG_CRITICAL, "libusb_reset_device: %s", libusb_error_name(rv));
+		}
 		return IFD_COMMUNICATION_ERROR;
 	}
 
@@ -165,7 +170,7 @@ RESPONSECODE IFDHCreateChannel ( DWORD Lun, DWORD Channel ) {
 	if (rv)
 	{
 		Log2(PCSC_LOG_CRITICAL, "libusb_init: %s", libusb_error_name(rv));
-		return IFD_COMMUNICATION_ERROR;
+		goto error;
 	}
 
 	// open the HID 5021 CL USB device
@@ -173,7 +178,7 @@ RESPONSECODE IFDHCreateChannel ( DWORD Lun, DWORD Channel ) {
 	if (!device_handle)
 	{
 		Log1(PCSC_LOG_CRITICAL, "Device not found");
-		return IFD_COMMUNICATION_ERROR;
+		goto error;
 	}
 
 	struct libusb_device * device = libusb_get_device(device_handle);
@@ -183,7 +188,7 @@ RESPONSECODE IFDHCreateChannel ( DWORD Lun, DWORD Channel ) {
 	if (rv < 0)
 	{
 		Log2(PCSC_LOG_CRITICAL, "libusb_get_active_config_descriptor: %s", libusb_error_name(rv));
-		return IFD_COMMUNICATION_ERROR;
+		goto error;
 	}
 
 	// use first interface and first setting
@@ -207,15 +212,26 @@ RESPONSECODE IFDHCreateChannel ( DWORD Lun, DWORD Channel ) {
 	if (rv < 0)
 	{
 		Log2(PCSC_LOG_CRITICAL, "libusb_claim_interface: %s", libusb_error_name(rv));
-		return IFD_COMMUNICATION_ERROR;
+		goto error;
 	}
 
 	// sequence to initialize the reader
-	Escape(command_00001, sizeof command_00001, NULL, NULL);
+
+	// if the driver was stopped _before_ a USB read the reader will
+	// timeout on a USB write. A reset is performed in escape() and we
+	// can retry the same command
+	if (escape(command_00001, sizeof command_00001, NULL, NULL) != IFD_SUCCESS)
+		Escape(command_00001, sizeof command_00001, NULL, NULL);
+
 	Escape(command_00002, sizeof command_00002, NULL, NULL);
 	Escape(command_00003, sizeof command_00003, NULL, NULL);
 	Escape(command_00004, sizeof command_00004, NULL, NULL);
-	Escape(command_00005, sizeof command_00005, NULL, NULL);
+
+	// this command may also timeout on USB write
+	if (escape(command_00005, sizeof command_00005, NULL, NULL) != IFD_SUCCESS)
+		Escape(command_00005, sizeof command_00005, NULL, NULL);
+
+	Escape(command_00006, sizeof command_00006, NULL, NULL);
 	Escape(command_00006, sizeof command_00006, NULL, NULL);
 	Escape(command_00007, sizeof command_00007, NULL, NULL);
 	Escape(command_00008, sizeof command_00008, NULL, NULL);
@@ -261,6 +277,19 @@ RESPONSECODE IFDHCreateChannel ( DWORD Lun, DWORD Channel ) {
 	Escape(command_00094, sizeof command_00094, NULL, NULL);
 
 	return IFD_SUCCESS;
+
+error:
+	// close device
+	if (device_handle)
+		libusb_close(device_handle);
+	device_handle = NULL;
+
+	// close libusb
+	if (ctx)
+		libusb_exit(ctx);
+	ctx = NULL;
+
+	return IFD_COMMUNICATION_ERROR;
 }
 
 RESPONSECODE IFDHCloseChannel ( DWORD Lun ) {
@@ -490,7 +519,6 @@ RESPONSECODE IFDHTransmitToICC ( DWORD Lun, SCARD_IO_HEADER SendPci,
 	 your reader does not support memory cards or you don't want to then
 	 ignore this.
 
-     RxLength should be set to zero on error.
 
      returns:
 
@@ -643,5 +671,8 @@ RESPONSECODE IFDHICCPresence( DWORD Lun ) {
 	Escape(command_00030, sizeof command_00030, NULL, NULL);
 
 	return card_present ? IFD_ICC_PRESENT : IFD_ICC_NOT_PRESENT;
+
+error:
+	return IFD_COMMUNICATION_ERROR;
 }
 
