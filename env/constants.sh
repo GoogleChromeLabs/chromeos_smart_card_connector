@@ -16,4 +16,4 @@
 
 
 EMSCRIPTEN_SDK_REPOSITORY_URL="https://github.com/emscripten-core/emsdk.git"
-EMSCRIPTEN_VERSION="3.1.70"
+EMSCRIPTEN_VERSION="3.1.71"
