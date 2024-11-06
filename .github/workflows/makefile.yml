@@ -57,7 +57,7 @@ jobs:
     - name: Upload built app packages
       uses: actions/upload-artifact@v4
       with:
-        name: built_app_packages
+        name: built_app_packages.${{ matrix.build-config }}.${{ matrix.packaging }}
         path: built_app_packages/*
         if-no-files-found: error
 
