@@ -59,14 +59,18 @@ jobs:
       with:
         path: built_app_packages
 
+    # Run upload rules only for one packaging mode, to avoid uploded file name
+    # clashes (the actual library code doesn't depend on the packaging).
     - name: Upload example JS standalone smart card client library
-      uses: actions/upload-artifact@v3
+      if: ${{ matrix.packaging == 'extension' }}
+      uses: actions/upload-artifact@v4
       with:
         # Suffix the file name with ".debug" for Debug builds.
         name: google-smart-card-client-library${{ matrix.build-config == 'Debug' && '.debug' || '' }}.js
         path: example_js_standalone_smart_card_client_library/out/example_js_standalone_smart_card_client_library/google-smart-card-client-library.js
     - name: Upload example JS standalone smart card client library ES module
-      uses: actions/upload-artifact@v3
+      if: ${{ matrix.packaging == 'extension' }}
+      uses: actions/upload-artifact@v4
       with:
         # Suffix the file name with ".debug" for Debug builds.
         name: google-smart-card-client-library-es-module${{ matrix.build-config == 'Debug' && '.debug' || '' }}.js
@@ -177,7 +181,7 @@ jobs:
         )" >> $GITHUB_OUTPUT
 
     - name: Upload coverage report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: coverage-report-detailed.zip
         path: coverage-report-detailed/
