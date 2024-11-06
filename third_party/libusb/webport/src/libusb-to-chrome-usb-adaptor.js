@@ -238,21 +238,15 @@ async function promisify(apiMethod, ...apiArguments) {
  * @return {!LibusbJsDevice}
  */
 function convertChromeUsbDeviceToLibusb(chromeUsbDevice) {
-  /** @type {!LibusbJsDevice} */
-  const libusbJsDevice = {
+  return {
     'deviceId': chromeUsbDevice.device,
     'vendorId': chromeUsbDevice.vendorId,
     'productId': chromeUsbDevice.productId,
     'productName': chromeUsbDevice.productName,
     'manufacturerName': chromeUsbDevice.manufacturerName,
     'serialNumber': chromeUsbDevice.serialNumber,
+    'version': chromeUsbDevice.version,
   };
-  if (chromeUsbDevice.version !== undefined &&
-      chromeUsbDevice.version !== null) {
-    // The "version" field was only added in Chrome 51.
-    libusbJsDevice['version'] = chromeUsbDevice.version;
-  }
-  return libusbJsDevice;
 }
 
 /**
