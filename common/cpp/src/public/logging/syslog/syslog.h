@@ -29,8 +29,8 @@
  */
 
 // Replacement of the syslog library, that allows to route all messages intended
-// for syslog through the same logging infrastructure as the other NaCl code
-// (see ../logging.h).
+// for syslog through the same logging infrastructure as the other code compiled
+// for Web (see ../logging.h).
 //
 // The definitions in this header file follow the definitions in the standard
 // <syslog.h> file.

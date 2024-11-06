@@ -10,15 +10,10 @@ Library (see <https://developers.google.com/closure/library/>).
 
 The main pieces are:
 
-*   **NaCl module helper library** (see the `src/nacl-module/`
-    directory), that provides an interface for loading and controlling
-    the state of the NaCl module DOM element (for the general
-    information see
-    <https://developer.chrome.com/native-client/devguide/coding/application-structure#html-file-and-the-embed-element>),
-    exchanging messages with the NaCl module (making it compatible with
-    the Closure Library's messaging subsystem - see
-    <http://google.github.io/closure-library/api/namespace_goog_messaging.html>)
-    and also receives the log messages sent by the NaCl module.
+*   **Emscripten module helper library** (see the
+    `src/executable-module/emscripten-module.js` file), that provides an
+    interface for loading and communicating to the Emscripten/WebAssembly
+    module. It also takes care of debug logging.
 
 *   **App background page unload preventing library** (see the
     `src/background-page-unload-preventing/` directory), that prevents
