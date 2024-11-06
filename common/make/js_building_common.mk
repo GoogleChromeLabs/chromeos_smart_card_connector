@@ -96,7 +96,8 @@ endif
 #
 # Explanation:
 # browser_featureset_year: Specify the year that's appropriate for the oldest
-#   still supported Chrome release - currently "81" for pnacl-in-App builds.
+#   still supported Chrome release (this should correspond to the
+#   "minimum_chrome_version" key in the manifest.json).
 # dependency_mode=PRUNE: Skip unused JS code.
 # jscomp_error *: Enable all warning classes and treat them as errors by
 #   default. Note: To be on the safe side, we're specifying all possible warning
@@ -122,7 +123,7 @@ endif
 # use_types_for_optimization: Allow compiler to do code optimizations based on
 #   type annotations.
 JS_BUILD_COMPILATION_FLAGS += \
-	--browser_featureset_year=2020 \
+	--browser_featureset_year=2023 \
 	--define='GoogleSmartCard.ExecutableModule.TOOLCHAIN=$(TOOLCHAIN)' \
 	--define='GoogleSmartCard.Logging.USE_SCOPED_LOGGERS=false' \
 	--define='GoogleSmartCard.Packaging.MODE=$(PACKAGING)' \
