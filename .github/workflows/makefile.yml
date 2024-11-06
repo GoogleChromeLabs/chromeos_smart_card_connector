@@ -55,9 +55,11 @@ jobs:
         source env/activate && make test
 
     - name: Upload built app packages
-      uses: kittaakos/upload-artifact-as-is@v0
+      uses: actions/upload-artifact@v4
       with:
-        path: built_app_packages
+        name: built_app_packages
+        path: built_app_packages/*
+        if-no-files-found: error
 
     - name: Upload example JS standalone smart card client library
       uses: actions/upload-artifact@v3
