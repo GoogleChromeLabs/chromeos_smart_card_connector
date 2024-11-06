@@ -104,6 +104,9 @@ EMSCRIPTEN_COMPILER_FLAGS := \
 # IGNORE_MISSING_MAIN: The compiled code typically doesn't have the `main()`
 #   function - instead, JS code is calling into us via Embind. The only
 #   exception is unit tests (there, Node runs tests via GTest's `main()`).
+# INCOMING_MODULE_JS_API: The properties of the Emscripten module instances that
+#   we use. This must be in sync with the properties used in
+#   `EmscriptenModule.getEmscriptenApiModuleSettings_()`.
 # MIN_CHROME_VERSION: Skip generating Emscripten support code for very old
 #   Chrome versions. (The exact boundary is chosen similarly to
 #   minimum_chrome_version in
@@ -130,6 +133,7 @@ EMSCRIPTEN_LINKER_FLAGS := \
   -s 'EXPORT_NAME="loadEmscriptenModule_$(TARGET)"' \
   -s EXPORTED_RUNTIME_METHODS=PThread \
   -s IGNORE_MISSING_MAIN=1 \
+  -s INCOMING_MODULE_JS_API=[onAbort,print,printErr] \
   -s MIN_CHROME_VERSION=96 \
   -s MIN_FIREFOX_VERSION=-1 \
   -s MIN_SAFARI_VERSION=-1 \
