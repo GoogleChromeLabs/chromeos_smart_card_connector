@@ -218,14 +218,12 @@ $(foreach src,$(PCSC_LITE_CLIENT_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PC
 #   interface of the library
 PCSC_LITE_SERVER_NACL_SOURCES := \
 	$(SOURCES_PATH)/auth_webport.cc \
-	$(SOURCES_PATH)/cmath.cc \
 	$(SOURCES_PATH)/dyn_webport.cc \
 	$(SOURCES_PATH)/pcscdaemon_webport.cc \
 	$(SOURCES_PATH)/public/pcsc_lite_server_web_port_service.cc \
 	$(SOURCES_PATH)/readerfactory_webport.cc \
 	$(SOURCES_PATH)/server_sockets_manager.cc \
 	$(SOURCES_PATH)/sys_webport.cc \
-	$(SOURCES_PATH)/unistd_webport.cc \
 	$(SOURCES_PATH)/utils_webport.cc \
 	$(SOURCES_PATH)/winscard_msg_webport.cc \
 
