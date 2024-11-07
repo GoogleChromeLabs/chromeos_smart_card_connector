@@ -24,7 +24,7 @@
  *   created and loaded (using a method that is needed for either
  *   Emscripten/WebAssembly or Native Client, depending on the build
  *   configuration);
- * * A GoogleSmartCard.PcscLiteClient.NaclClientBackend object is created, that
+ * * A GoogleSmartCard.PcscLiteClient.WasmClientBackend object is created, that
  *   translates all PC/SC-Lite client API requests received from the executable
  *   module into the JavaScript PC/SC-Lite client API method calls (see the
  *   GoogleSmartCard.PcscLiteClient.API class).
@@ -51,7 +51,7 @@ goog.require('GoogleSmartCard.ExecutableModule');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.OffscreenDocEmscriptenModule');
 goog.require('GoogleSmartCard.Packaging');
-goog.require('GoogleSmartCard.PcscLiteClient.NaclClientBackend');
+goog.require('GoogleSmartCard.PcscLiteClient.WasmClientBackend');
 goog.require('GoogleSmartCard.PcscLiteCommon.Constants');
 goog.require('GoogleSmartCard.PopupOpener');
 goog.require('SmartCardClientApp.BuiltInPinDialog.Backend');
@@ -172,7 +172,7 @@ executableModule.addOnDisposeCallback(executableModuleDisposedListener);
  * module into the JavaScript PC/SC-Lite client API method calls (see the
  * GoogleSmartCard.PcscLiteClient.API class).
  */
-const pcscLiteNaclClientBackend = new GSC.PcscLiteClient.NaclClientBackend(
+const pcscLiteWasmClientBackend = new GSC.PcscLiteClient.WasmlientBackend(
     executableModule.getMessageChannel(), CLIENT_TITLE, SERVER_APP_ID);
 
 /**

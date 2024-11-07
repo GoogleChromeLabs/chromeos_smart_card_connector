@@ -26,13 +26,12 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-goog.provide('GoogleSmartCard.PcscLiteClient.NaclClientBackend');
+goog.provide('GoogleSmartCard.PcscLiteClient.WasmClientBackend');
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PcscLiteClient.API');
 goog.require('GoogleSmartCard.PcscLiteClient.Context');
-goog.require('GoogleSmartCard.PcscLiteClient.NaclClientBackend');
 goog.require('GoogleSmartCard.RemoteCallMessage');
 goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('goog.Promise');
@@ -55,8 +54,8 @@ const REQUESTER_NAME = 'pcsc_lite';
  * reinitialization attempts.
  *
  * The throttling is just for avoiding the system overload when connection to
- * the server App for some reason cannot be established, but the code in NaCl
- * module keeps constantly sending requests.
+ * the server App for some reason cannot be established, but the code in the
+ * WebAssembly module keeps constantly sending requests.
  */
 const REINITIALIZATION_INTERVAL_SECONDS = 10;
 
@@ -65,7 +64,7 @@ const GSC = GoogleSmartCard;
 /**
  * @type {!goog.log.Logger}
  */
-const logger = GSC.Logging.getScopedLogger('PcscLiteClient.NaclClientBackend');
+const logger = GSC.Logging.getScopedLogger('PcscLiteClient.WasmClientBackend');
 
 class BufferedRequest {
   /**
@@ -82,21 +81,20 @@ class BufferedRequest {
 
 /**
  * This class handles the PC/SC-Lite client API requests (which are normally
- * received from the NaCl module) and implements them through the instances of
- * GoogleSmartCard.PcscLiteClient.Context and GoogleSmartCard.PcscLiteClient.API
- * classes.
- * TODO(#220): Get rid of hardcoded references to NaCl.
+ * received from the WebAssembly module) and implements them through the
+ * instances of GoogleSmartCard.PcscLiteClient.Context and
+ * GoogleSmartCard.PcscLiteClient.API classes.
  */
-GSC.PcscLiteClient.NaclClientBackend = class {
+GSC.PcscLiteClient.WasmClientBackend = class {
   /**
-   * @param {!goog.messaging.AbstractChannel} naclModuleMessageChannel
+   * @param {!goog.messaging.AbstractChannel} executableModuleMessageChannel
    * @param {string} clientTitle Client title for the connection. Currently this
    * is only used for the debug logs produced by the server app.
    * @param {string=} opt_serverAppId ID of the server App. By default, the ID
    *     of
    * the official server App distributed through WebStore is used.
    */
-  constructor(naclModuleMessageChannel, clientTitle, opt_serverAppId) {
+  constructor(executableModuleMessageChannel, clientTitle, opt_serverAppId) {
     /** @private @const */
     this.clientTitle_ = clientTitle;
 
@@ -127,7 +125,7 @@ GSC.PcscLiteClient.NaclClientBackend = class {
     // Note: the request receiver instance is not stored anywhere, as it makes
     // itself being owned by the message channel.
     new GSC.RequestReceiver(
-        REQUESTER_NAME, naclModuleMessageChannel,
+        REQUESTER_NAME, executableModuleMessageChannel,
         this.handleRequest_.bind(this));
 
     goog.log.fine(logger, 'Constructed');
