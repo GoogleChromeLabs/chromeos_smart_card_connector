@@ -15,8 +15,8 @@ Reasons for pinning to a specific version of the driver:
 
 * Potentially, adjustments in our code or in the building scripts might be
   required after updating to new versions (note that we don't run the driver
-  verbatim, but instead port it under the WebAssembly and Native Client
-  technologies to run inside the JavaScript-based App);
+  verbatim, but instead port it under the WebAssembly technology to run
+  inside the JavaScript-based App);
 * We can test the driver version and assure its quality on ChromeOS.
 
 However, this approach also implies some amount of maintenance work to update

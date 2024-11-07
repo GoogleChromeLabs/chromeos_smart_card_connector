@@ -24,26 +24,26 @@ include $(COMMON_DIR_PATH)/make/executable_building.mk
 include ../include.mk
 
 
-LIBUSB_NACL_SOURCES_PATH := ../src
+LIBUSB_WEBPORT_SOURCES_PATH := ../src
 
 LIBUSB_SOURCES_PATH := ../../src
 
 
 C_SOURCES := \
 	$(LIBUSB_SOURCES_PATH)/libusb/strerror.c \
-	$(LIBUSB_NACL_SOURCES_PATH)/libusb_error_name.c \
-	$(LIBUSB_NACL_SOURCES_PATH)/libusb_get_string_descriptor_ascii.c \
+	$(LIBUSB_WEBPORT_SOURCES_PATH)/libusb_error_name.c \
+	$(LIBUSB_WEBPORT_SOURCES_PATH)/libusb_get_string_descriptor_ascii.c \
 
 CXX_SOURCES := \
-	$(LIBUSB_NACL_SOURCES_PATH)/libusb_contexts_storage.cc \
-	$(LIBUSB_NACL_SOURCES_PATH)/libusb_js_proxy.cc \
-	$(LIBUSB_NACL_SOURCES_PATH)/libusb_js_proxy_constants.cc \
-	$(LIBUSB_NACL_SOURCES_PATH)/libusb_js_proxy_data_model.cc \
-	$(LIBUSB_NACL_SOURCES_PATH)/libusb_opaque_types.cc \
-	$(LIBUSB_NACL_SOURCES_PATH)/libusb_tracing_wrapper.cc \
-	$(LIBUSB_NACL_SOURCES_PATH)/public/libusb_web_port_service.cc \
-	$(LIBUSB_NACL_SOURCES_PATH)/usb_transfer_destination.cc \
-	$(LIBUSB_NACL_SOURCES_PATH)/usb_transfers_parameters_storage.cc \
+	$(LIBUSB_WEBPORT_SOURCES_PATH)/libusb_contexts_storage.cc \
+	$(LIBUSB_WEBPORT_SOURCES_PATH)/libusb_js_proxy.cc \
+	$(LIBUSB_WEBPORT_SOURCES_PATH)/libusb_js_proxy_constants.cc \
+	$(LIBUSB_WEBPORT_SOURCES_PATH)/libusb_js_proxy_data_model.cc \
+	$(LIBUSB_WEBPORT_SOURCES_PATH)/libusb_opaque_types.cc \
+	$(LIBUSB_WEBPORT_SOURCES_PATH)/libusb_tracing_wrapper.cc \
+	$(LIBUSB_WEBPORT_SOURCES_PATH)/public/libusb_web_port_service.cc \
+	$(LIBUSB_WEBPORT_SOURCES_PATH)/usb_transfer_destination.cc \
+	$(LIBUSB_WEBPORT_SOURCES_PATH)/usb_transfers_parameters_storage.cc \
 
 SOURCES := \
 	$(C_SOURCES) \
@@ -51,7 +51,7 @@ SOURCES := \
 
 CPPFLAGS := \
 	-I$(ROOT_PATH) \
-	-I$(LIBUSB_NACL_SOURCES_PATH) \
+	-I$(LIBUSB_WEBPORT_SOURCES_PATH) \
 	-I$(LIBUSB_SOURCES_PATH)/libusb \
 	-Wall \
 	-Werror \

@@ -30,8 +30,8 @@
 // function), command line configuration parameters parsing and starting the
 // daemon main run loop.
 //
-// In this NaCl port the responsibilities are split in a different way:
-// 1. The daemon main function is not existing in this NaCl port;
+// In this web port the responsibilities are split in a different way:
+// 1. The daemon main function is not existing in this web port;
 // 2. Command-line parameters are not parsed, but the corresponding
 //    configuration variables are stubbed with reasonable default values;
 // 3. The daemon main run loop is provided by a separate function defined in

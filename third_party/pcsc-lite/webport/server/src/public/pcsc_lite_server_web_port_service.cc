@@ -88,7 +88,7 @@ PcscLiteServerWebPortService* g_pcsc_lite_server = nullptr;
 // well as in unit tests executed natively.
 constexpr char kDriverConfigPath[] = PCSC_LITE_DRIVER_INSTALLATION_PATH;
 
-constexpr char kLoggingPrefix[] = "[PC/SC-Lite NaCl port] ";
+constexpr char kLoggingPrefix[] = "[PC/SC-Lite] ";
 
 // Constants for message types that are sent to the JavaScript side. These
 // strings must match the ones in reader-tracker.js.

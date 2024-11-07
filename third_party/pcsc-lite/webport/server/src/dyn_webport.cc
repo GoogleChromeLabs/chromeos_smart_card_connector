@@ -29,7 +29,7 @@
 // The original dyn_*.c files were responsible for the dynamic loading of the
 // reader drivers.
 //
-// In this NaCl port, the only driver (CCID library, see the /third_party/ccid
+// In this web port, the only driver (CCID library, see the /third_party/ccid
 // directory) is linked statically with the PC/SC-Lite server, so this file
 // provides just a stubs that just pretend that the driver shared library is
 // loaded and return pointers to the CCID driver functions instead of searching

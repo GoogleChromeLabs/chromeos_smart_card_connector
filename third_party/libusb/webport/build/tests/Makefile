@@ -14,7 +14,7 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-# Makefile for the libusb NaCl port library tests.
+# Makefile for the libusb web port library tests.
 #
 # The makefile is based on the helper definitions provided by
 # "cpp_unit_test_runner".

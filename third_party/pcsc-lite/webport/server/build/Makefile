@@ -26,9 +26,8 @@
 # This makefile builds the port of server side of PC/SC-Lite under the Native
 # Client (for the details, see the README file).
 #
-# Upon successful build, the resulting static library is installed into the NaCl
-# SDK libraries directory, and the public headers are installed into the NaCl
-# SDK common headers directory.
+# Upon successful build, the resulting static library is installed into the
+# Emscripten's libraries subdirectory.
 
 TARGET := google_smart_card_pcsc_lite_server
 
@@ -50,13 +49,13 @@ PCSC_LITE_SOURCES_PATH := $(PCSC_LITE_DIR_PATH)/src/src
 
 # Rules for invoking the source files compilation into object files
 
-# * FAKE_PCSC_NACL_SOCKET_FILE_NAME constant points to the file containing the
+# * FAKE_PCSC_WEBPORT_SOCKET_FILE_NAME constant points to the file containing the
 #   fake socket file (it's used for tricking the original PC/SC-Lite code which
 #   calls stat() for this file - for the details see file
 #   src/winscard_msg_webport.cc). Use a relative path, so that it works both
 #   inside the Smart Card Connector app and in unit tests.
 COMMON_CPPFLAGS := \
-	-DFAKE_PCSC_NACL_SOCKET_FILE_NAME='"executable-module-filesystem/pcsc/fake_socket_file"' \
+	-DFAKE_PCSC_WEBPORT_SOCKET_FILE_NAME='"executable-module-filesystem/pcsc/fake_socket_file"' \
 	-DPCSC_LITE_DRIVER_INSTALLATION_PATH='"$(PCSC_LITE_DRIVER_INSTALLATION_PATH)"' \
 	-I$(ROOT_PATH) \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
@@ -64,7 +63,7 @@ COMMON_CPPFLAGS := \
 # * DEBUG_HOTPLUG definition enables debug logging for the reader drivers
 #   loading code in the original PC/SC-Lite code;
 # * HAVE_LIBUSB enables reader hot plug implementation based on the libusb
-#   library (its NaCl port is located under the ../../../../libusb directory);
+#   library (its web port is located under the ../../../../libusb directory);
 # * HAVE_SYSLOG_H enables emitting log messages through syslog (which is faked
 #   to use the common logging primitives from the /common/cpp library);
 # * PCSC_ARCH constant specifies the target architecture (it's used for
@@ -212,11 +211,11 @@ PCSC_LITE_SERVER_CLIENT_CPPFLAGS := \
 $(foreach src,$(PCSC_LITE_CLIENT_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_CLIENT_CPPFLAGS))))
 
 # List of additional source files to be compiled:
-# * Files named as *_nacl* provide replacement for some parts of the original
+# * Files named as *_webport* provide replacement for some parts of the original
 #   PC/SC-Lite implementation;
 # * Other files provide helper libraries and the implementation of the public
 #   interface of the library
-PCSC_LITE_SERVER_NACL_SOURCES := \
+PCSC_LITE_SERVER_WEBPORT_SOURCES := \
 	$(SOURCES_PATH)/auth_webport.cc \
 	$(SOURCES_PATH)/cmath.cc \
 	$(SOURCES_PATH)/dyn_webport.cc \
@@ -229,14 +228,14 @@ PCSC_LITE_SERVER_NACL_SOURCES := \
 	$(SOURCES_PATH)/utils_webport.cc \
 	$(SOURCES_PATH)/winscard_msg_webport.cc \
 
-PCSC_LITE_SERVER_NACL_CXXFLAGS := \
+PCSC_LITE_SERVER_WEBPORT_CXXFLAGS := \
 	$(COMMON_CPPFLAGS) \
 	-I$(PCSC_LITE_SOURCES_PATH) \
 	-I$(ROOT_PATH)/third_party/libusb/src/libusb \
 	-I$(ROOT_PATH)/third_party/libusb/webport/src \
 	-std=$(CXX_DIALECT) \
 
-$(foreach src,$(PCSC_LITE_SERVER_NACL_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_NACL_CXXFLAGS))))
+$(foreach src,$(PCSC_LITE_SERVER_WEBPORT_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_WEBPORT_CXXFLAGS))))
 
 PCSC_LITE_SERVER_SIMCLIST_SOURCES := \
 	$(PCSC_LITE_SOURCES_PATH)/simclist.c \
@@ -269,13 +268,13 @@ SOURCES := \
 	$(PCSC_LITE_SERVER_DEBUGLOG_SOURCES) \
 	$(PCSC_LITE_SERVER_HOTPLUG_LIBUSB_SOURCES) \
 	$(PCSC_LITE_CLIENT_SOURCES) \
-	$(PCSC_LITE_SERVER_NACL_SOURCES) \
+	$(PCSC_LITE_SERVER_WEBPORT_SOURCES) \
 	$(PCSC_LITE_SERVER_READERFACTORY_SOURCES) \
 	$(PCSC_LITE_SERVER_SIMCLIST_SOURCES) \
 	$(PCSC_LITE_SERVER_TOKENPARSER_SOURCES) \
 
 
 # Rules for linking of the compiled object files and installing the resulting
-# static library into the NaCl SDK libraries directory
+# static library into the Emscripten's libraries subdirectory
 
 $(eval $(call LIB_RULE,$(TARGET),$(SOURCES)))

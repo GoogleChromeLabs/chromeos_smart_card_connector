@@ -12,17 +12,15 @@ to other Apps.
 
 The library implementation actually consists of two steps:
 
-1.  Communication between Native Client module and JavaScript code.
+1.  Communication between Emscripten/WebAssembly module and JavaScript code.
 
     The reason for this is because the actual PC/SC-Lite API
     implementation (for its implementation, see the ``../server``
     directory) is written in C/C++ and therefore, in order to be
-    included into Chrome App, has to be sandboxed through Native Client
-    (see <https://developer.chrome.com/native-client>).
+    included into Chrome App, has to be sandboxed through Wasm.
 
-    Native Client module and JavaScript code communicate by exchanging
-    messages (see
-    <https://developer.chrome.com/native-client/devguide/coding/message-system>).
+    Wasm module and JavaScript code communicate by exchanging
+    messages (see ``emscripten-module.js``).
 
 2.  Communication between the server App's JavaScript code and the client
     Apps.

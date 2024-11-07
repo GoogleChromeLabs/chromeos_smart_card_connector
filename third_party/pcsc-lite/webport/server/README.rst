@@ -1,4 +1,4 @@
-PC/SC-Lite server NaCl port
+PC/SC-Lite server web port
 ===========================
 
 
@@ -8,8 +8,7 @@ Overview
 This is a port of the server side of the **PC/SC-Lite** service
 (middleware to access a smart card using SCard API, see
 <http://pcsclite.alioth.debian.org/pcsclite.html>) under the sandboxed
-environment of the **Google Chrome Native Client**
-(<https://developer.chrome.com/native-client>).
+environment of the **Emscripten** (<https://emscripten.org/>).
 
 The original original PC/SC-Lite project consists of two parts:
 
@@ -75,7 +74,7 @@ Implementation discussion
     transformed into library functions.
 
     This allows to bundle the transformed daemon as a part of a larger
-    Native Client module. The daemon functionality can be started by
+    Emscripten module. The daemon functionality can be started by
     calling a provided function from the main code of the resulting
     module.
 
@@ -86,7 +85,6 @@ Implementation discussion
     daemon talked to each other through POSIX domain sockets.
 
     Unfortunately, the POSIX domain sockets are not currently supported
-    by the Portable Native Client (see <http://crbug.com/532095>). So,
-    in order to avoid massive modification of the original source files,
-    the simplified stub implementation of the POSIX domain sockets was
-    written.
+    by Emscripten. So, in order to avoid massive modification of the
+    original source files, the simplified stub implementation of the
+    POSIX domain sockets was written.

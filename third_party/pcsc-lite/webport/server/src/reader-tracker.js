@@ -18,7 +18,7 @@
 /**
  * @fileoverview This file contains the class used to track readers and their
  * status based on messages received from the hook setup on PC/SC code inside
- * NaCl (check readerfactory_nacl.cc for more information).
+ * the Wasm module (check readerfactory_webport.cc for more information).
  */
 
 goog.provide('GoogleSmartCard.PcscLiteServer.ReaderInfo');
@@ -82,9 +82,9 @@ const ReaderInfo = GSC.PcscLiteServer.ReaderInfo;
 /**
  * This class tracks readers, provides methods to retrieve the list of readers
  * and get updates on change, and listens to messages received from the hook
- * living in the NaCl space.
+ * living in the Wasm space.
  * @param {!goog.messaging.AbstractChannel} serverMessageChannel Message channel
- * to the server (normally - to a NaCl module).
+ * to the server (normally - to a Wasm module).
  * @param {!goog.messaging.AbstractChannel} pcscContextMessageChannel Message
  * channel that can be used for issuing PC/SC requests.
  * @param {!goog.log.Logger} parentLogger
@@ -202,7 +202,7 @@ ReaderTracker.prototype.fireOnUpdateListeners_ = function() {
 
 /**
  * This class tracks the readers, basing on the information from the hook in the
- * PC/SC-Lite server (see readerfactory_nacl.cc for more information).
+ * PC/SC-Lite server (see readerfactory_webport.cc for more information).
  * @param {!goog.log.Logger} logger
  * @param {!goog.messaging.AbstractChannel} serverMessageChannel
  * @param {function()} updateListener

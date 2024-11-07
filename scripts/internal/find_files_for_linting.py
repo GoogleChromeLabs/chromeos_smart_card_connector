@@ -33,9 +33,7 @@ _BLOCKLIST = [
   'third_party/closure-library/src/',
   'third_party/googletest/src/',
   'third_party/libusb/src/',
-  'third_party/nacl_sdk/nacl_sdk/',
   'third_party/pcsc-lite/src/',
-  'third_party/webports/src/',
 ]
 
 def find_files_for_linting(patterns=(), diff_base='main'):

@@ -48,7 +48,7 @@ namespace google_smart_card {
 // requests received from them.
 //
 // This class is an important piece for providing privacy and security of the
-// PC/SC-Lite NaCl port: it keeps all clients isolated from each other. This
+// PC/SC-Lite web port: it keeps all clients isolated from each other. This
 // class is preventing one client from using, accessing or interfering with
 // handles or requests of any other client.
 //

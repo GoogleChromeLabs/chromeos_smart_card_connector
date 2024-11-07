@@ -66,8 +66,7 @@ class PcscLiteServerWebPortService final {
   // The daemon thread never finishes. Therefore, it's not allowed to call this
   // function twice in a single process.
   //
-  // Note that it is assumed that the libusb webport library and, in case of
-  // compiling under Native Client, the nacl_io library have already been
+  // Note that it is assumed that the libusb webport library has already been
   // initialized.
   void InitializeAndRunDaemonThread();
 

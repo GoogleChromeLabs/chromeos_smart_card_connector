@@ -315,7 +315,7 @@ LONG PcscLiteTracingWrapper::SCardControl(SCARDHANDLE hCard,
   if (lpBytesReturned) {
     // It's correct to read the value pointed by this argument even in case of
     // errors, as, according to PC/SC-Lite and CCID sources, this output
-    // parameter is always set (and the NaCl port of PC/SC-Lite conforms to this
+    // parameter is always set (and the web port of PC/SC-Lite conforms to this
     // too).
     tracer.AddReturnedArg("*lpBytesReturned", std::to_string(*lpBytesReturned));
   }

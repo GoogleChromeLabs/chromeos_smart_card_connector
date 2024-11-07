@@ -31,15 +31,15 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// This file contains a NaCl port replacement implementation, corresponding to
+// This file contains a web port replacement implementation, corresponding to
 // the winscard_msg.h PC/SC-Lite internal header file. This implementation
 // replaces the winscard_msg.c and winscard_msg_srv.c PC/SC-Lite internal
 // implementation files (note that the former one in the original PC/SC-Lite
 // library compiles into a client library, and the latter one - into a server
-// library; but in this NaCl port there is no such distinction between them).
+// library; but in this web port there is no such distinction between them).
 //
 // This file provides a set of functions responsible for communication between
-// PC/SC-Lite client library and the PC/SC-Lite server. As in this NaCl port the
+// PC/SC-Lite client library and the PC/SC-Lite server. As in this web port the
 // client library is linked together with the server into the same binary, the
 // communication channels (which originally were *nix domain sockets) are
 // essentially emulated here.
@@ -67,12 +67,12 @@ using google_smart_card::IpcEmulation;
 // Returns a socket name that should be used for communication between clients
 // and daemon.
 char* getSocketName() {
-  // Return a fake name, as in this PC/SC-Lite NaCl port there are no actual
+  // Return a fake name, as in this PC/SC-Lite web port there are no actual
   // sockets used. However, this function is called in the PC/SC-Lite client
   // library's SCardEstablishContext() implementation, and the socket name is
   // then passed to stat(). So, in order to make it work without patching the
   // source code, an arbitrary existing file path is returned here.
-  return const_cast<char*>(FAKE_PCSC_NACL_SOCKET_FILE_NAME);
+  return const_cast<char*>(FAKE_PCSC_WEBPORT_SOCKET_FILE_NAME);
 }
 
 // This function is called by the client library in order to establish a
