@@ -18,6 +18,7 @@
 
 # Alcor Micro
 0x058F:0x9520:Alcor Micro AU9520
+0x058F:0x9540:Alcor Micro AU95x0
 
 # Athena
 0x0DC3:0x1004:Athena ASE IIIe
@@ -1005,9 +1006,6 @@
 0x09C3:0x0008:ActivCard ActivCard USB Reader V2
 
 # Aladdin
-
-# Alcor Micro
-0x058F:0x9540:Alcor Micro AU9540
 
 # Athena
 0x0DC3:0x100F:Athena IDProtect Flash
