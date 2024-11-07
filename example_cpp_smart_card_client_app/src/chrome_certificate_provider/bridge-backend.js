@@ -58,29 +58,11 @@ const HANDLE_CERTIFICATES_REQUEST_FUNCTION_NAME = 'HandleCertificatesRequest';
 
 /**
  * Function called in the executable module when handling
- * onSignatureRequested/onSignDigestRequested events.
+ * onSignatureRequested events.
  */
 const HANDLE_SIGNATURE_REQUEST_FUNCTION_NAME = 'HandleSignatureRequest';
 
 const GSC = GoogleSmartCard;
-
-/**
- * Mapping from the |chrome.certificateProvider.Hash| enum values to the
- * |chrome.certificateProvider.Algorithm| ones.
- *
- * Note: The actual string values are hardcoded below, instead of references to
- * |chrome.certificateProvider|, since the latter will break when run with the
- * API version that doesn't have these (on ChromeOS <=85 or on some future
- * ChromeOS that has the legacy Hash enum deleted from the API).
- * @type {!Map<string,string>}
- */
-const HASH_TO_ALGORITHM_MAPPING = new Map([
-  ['MD5_SHA1', 'RSASSA_PKCS1_v1_5_MD5_SHA1'],
-  ['SHA1', 'RSASSA_PKCS1_v1_5_SHA1'],
-  ['SHA256', 'RSASSA_PKCS1_v1_5_SHA256'],
-  ['SHA384', 'RSASSA_PKCS1_v1_5_SHA384'],
-  ['SHA512', 'RSASSA_PKCS1_v1_5_SHA512'],
-]);
 
 /**
  * Certificate information returned by the executable module in response to the
@@ -93,16 +75,11 @@ const HASH_TO_ALGORITHM_MAPPING = new Map([
 let ExecutableModuleCertificateInfo;
 
 /**
- * Information about the onSignatureRequested/onSignDigestRequested event sent
- * to the C++ executable module.
- *
- * Note that only one of the fields |input| and |digest| is used; the unused
- * field is empty (note: |undefined| is not used in order to simplify the
- * handling on the executable module side).
+ * Information about the onSignatureRequested event sent to the C++ executable
+ * module.
  * @typedef {{
  *   signRequestId: number,
  *   input: !ArrayBuffer,
- *   digest: !ArrayBuffer,
  *   algorithm: !chrome.certificateProvider.Algorithm,
  *   certificate: !ArrayBuffer
  * }}
@@ -144,16 +121,6 @@ SmartCardClientApp.CertificateProviderBridge.Backend = function(
   this.certificatesUpdateRequestListener_ = null;
   /** @private {?function(!chrome.certificateProvider.SignatureRequest)} */
   this.signatureRequestListener_ = null;
-  /**
-   * @private {?function(function((!Array.<!chrome.certificateProvider.CertificateInfo>),
-   *     function(!Array.<!chrome.certificateProvider.CertificateInfo>)))}
-   */
-  this.certificatesRequestListener_ = null;
-  /**
-   * @private {?function(!chrome.certificateProvider.SignRequest,
-   *     function(!ArrayBuffer=))}
-   */
-  this.signDigestRequestListener_ = null;
 
   /** @private */
   this.requester_ = new GSC.Requester(
@@ -182,44 +149,8 @@ const Backend = SmartCardClientApp.CertificateProviderBridge.Backend;
 
 goog.inherits(Backend, goog.Disposable);
 
-if (goog.DEBUG) {
-  /**
-   * Debug-only function that allows to inject a certificates request (that is
-   * otherwise generated as a result of the chrome.certificateProvider event -
-   * see
-   * <https://developer.chrome.com/extensions/certificateProvider#event-onCertificatesRequested>).
-   * @param {function(!Array.<!chrome.certificateProvider.CertificateInfo>=)}
-   * reportCallback
-   */
-  Backend.prototype.dispatchCertificatesRequest = function(reportCallback) {
-    this.onCertificatesRequested_(reportCallback);
-  };
-
-  /**
-   * Debug-only function that allows to inject a data signing request (that is
-   * otherwise generated as a result of the chrome.certificateProvider event -
-   * see
-   * <https://developer.chrome.com/extensions/certificateProvider#event-onSignDigestRequested>).
-   * @param {!chrome.certificateProvider.SignRequest} request
-   * @param {function(!ArrayBuffer=)} reportCallback
-   */
-  Backend.prototype.dispatchSignRequest = function(request, reportCallback) {
-    this.onSignDigestRequested_(request, reportCallback);
-  };
-}
-
 /** @override */
 Backend.prototype.disposeInternal = function() {
-  if (this.signDigestRequestListener_) {
-    chrome.certificateProvider.onSignDigestRequested.removeListener(
-        this.signDigestRequestListener_);
-    this.signDigestRequestListener_ = null;
-  }
-  if (this.certificatesRequestListener_) {
-    chrome.certificateProvider.onCertificatesRequested.removeListener(
-        this.certificatesRequestListener_);
-    this.certificatesRequestListener_ = null;
-  }
   if (this.signatureRequestListener_) {
     chrome.certificateProvider.onSignatureRequested.removeListener(
         this.signatureRequestListener_);
@@ -322,33 +253,21 @@ Backend.prototype.setupApiListeners_ = function() {
     return;
   }
 
-  if (chrome.certificateProvider.onCertificatesUpdateRequested &&
-      chrome.certificateProvider.onSignatureRequested &&
-      chrome.certificateProvider.setCertificates) {
-    this.certificatesUpdateRequestListener_ =
-        this.onCertificatesUpdateRequested_.bind(this);
-    chrome.certificateProvider.onCertificatesUpdateRequested.addListener(
-        this.certificatesUpdateRequestListener_);
-    this.signatureRequestListener_ = this.onSignatureRequested_.bind(this);
-    chrome.certificateProvider.onSignatureRequested.addListener(
-        this.signatureRequestListener_);
-  } else {
-    // TODO: Remove this branch after support of ChromeOS <=85 is dropped.
-    // (There's no specific timeline - a conservative approach would be to wait
-    // until all devices released with ChromeOS <=85 reach the auto-update
-    // expiration date, which will be roughly in year 2028.)
-    goog.log.info(
-        this.logger,
-        'Proactively notifying Chrome about certificate changes will not be ' +
-            'possible: chrome.certificateProvider API version is too old.');
-    this.certificatesRequestListener_ =
-        this.onCertificatesRequested_.bind(this);
-    chrome.certificateProvider.onCertificatesRequested.addListener(
-        this.certificatesRequestListener_);
-    this.signDigestRequestListener_ = this.onSignDigestRequested_.bind(this);
-    chrome.certificateProvider.onSignDigestRequested.addListener(
-        this.signDigestRequestListener_);
+  if (!chrome.certificateProvider.onCertificatesUpdateRequested ||
+      !chrome.certificateProvider.onSignatureRequested ||
+      !chrome.certificateProvider.setCertificates) {
+    goog.log.error(
+        this.logger, 'chrome.certificateProvider API version is incompatible');
+    return;
   }
+
+  this.certificatesUpdateRequestListener_ =
+      this.onCertificatesUpdateRequested_.bind(this);
+  chrome.certificateProvider.onCertificatesUpdateRequested.addListener(
+      this.certificatesUpdateRequestListener_);
+  this.signatureRequestListener_ = this.onSignatureRequested_.bind(this);
+  chrome.certificateProvider.onSignatureRequested.addListener(
+      this.signatureRequestListener_);
 
   goog.log.fine(
       this.logger,
@@ -371,27 +290,6 @@ Backend.prototype.onCertificatesUpdateRequested_ = function(request) {
 Backend.prototype.onSignatureRequested_ = function(request) {
   this.deferredProcessor_.addJob(
       this.processSignatureRequest_.bind(this, request));
-};
-
-/**
- * @param {function((!Array.<!chrome.certificateProvider.CertificateInfo>),
- *     function(!Array.<!chrome.certificateProvider.CertificateInfo>))}
- *     reportCallback
- * @private
- */
-Backend.prototype.onCertificatesRequested_ = function(reportCallback) {
-  this.deferredProcessor_.addJob(
-      this.processCertificatesRequest_.bind(this, reportCallback));
-};
-
-/**
- * @param {!chrome.certificateProvider.SignRequest} request
- * @param {function(!ArrayBuffer=)} reportCallback
- * @private
- */
-Backend.prototype.onSignDigestRequested_ = function(request, reportCallback) {
-  this.deferredProcessor_.addJob(
-      this.processSignDigestRequest_.bind(this, request, reportCallback));
 };
 
 /**
@@ -447,7 +345,6 @@ Backend.prototype.processSignatureRequest_ = function(request) {
   const executableRequest = {
     signRequestId: request.signRequestId,
     input: request.input,
-    digest: new ArrayBuffer(/*length=*/ 0),
     algorithm: request.algorithm,
     certificate: request.certificate,
   };
@@ -480,99 +377,6 @@ Backend.prototype.processSignatureRequest_ = function(request) {
 };
 
 /**
- * @param {function((!Array.<!chrome.certificateProvider.CertificateInfo>),
- *     function(!Array.<!chrome.certificateProvider.CertificateInfo>))}
- *     reportCallback
- * @private
- */
-Backend.prototype.processCertificatesRequest_ = function(reportCallback) {
-  goog.log.info(this.logger, 'Started handling certificates request');
-  const remoteCallMessage =
-      new GSC.RemoteCallMessage(HANDLE_CERTIFICATES_REQUEST_FUNCTION_NAME, []);
-  const promise =
-      this.requester_.postRequest(remoteCallMessage.makeRequestPayload());
-  promise.then(
-      function(results) {
-        GSC.Logging.checkWithLogger(this.logger, results.length == 1);
-        const certificates = goog.array.map(results[0], createCertificateInfo);
-        goog.log.info(
-            this.logger,
-            'Responding to the certificates request with ' +
-                certificates.length + ' certificates: ' +
-                GSC.DebugDump.debugDumpSanitized(certificates));
-        reportCallback(
-            certificates, this.rejectedCertificatesCallback_.bind(this));
-      },
-      function() {
-        goog.log.info(
-            this.logger,
-            'Responding to the certificates request with an error');
-        reportCallback([], this.rejectedCertificatesCallback_.bind(this));
-      },
-      this);
-};
-
-/**
- * @param {!chrome.certificateProvider.SignRequest} request
- * @param {function(!ArrayBuffer=)} reportCallback
- * @private
- */
-Backend.prototype.processSignDigestRequest_ = function(
-    request, reportCallback) {
-  goog.log.info(
-      this.logger,
-      'Started handling digest signing request. The request contents are: ' +
-          'hash is "' + request.hash + '", digest is ' +
-          GSC.DebugDump.debugDumpSanitized(request.digest) +
-          ', certificate is ' +
-          GSC.DebugDump.debugDumpSanitized(request.certificate));
-  /** @type {!ExecutableModuleSignatureRequest} */
-  const executableRequest = {
-    signRequestId: request.signRequestId,
-    input: new ArrayBuffer(/*length=*/ 0),
-    digest: request.digest,
-    algorithm: getAlgorithmFromHash(request.hash),
-    certificate: request.certificate,
-  };
-  const remoteCallMessage = new GSC.RemoteCallMessage(
-      HANDLE_SIGNATURE_REQUEST_FUNCTION_NAME, [executableRequest]);
-  const promise =
-      this.requester_.postRequest(remoteCallMessage.makeRequestPayload());
-  promise.then(
-      function(results) {
-        GSC.Logging.checkWithLogger(this.logger, results.length == 1);
-        const signature = results[0];
-        goog.log.info(
-            this.logger,
-            'Responding to the digest sign request with the created ' +
-                'signature: ' + GSC.DebugDump.debugDumpSanitized(signature));
-        reportCallback(toArrayBuffer(signature));
-      },
-      function() {
-        goog.log.info(
-            this.logger, 'Responding to the digest sign request with an error');
-        reportCallback(undefined);
-      },
-      this);
-};
-
-/**
- * @param {!Array.<!chrome.certificateProvider.CertificateInfo>}
- * rejectedCertificates
- * @private
- */
-Backend.prototype.rejectedCertificatesCallback_ = function(
-    rejectedCertificates) {
-  if (!rejectedCertificates.length)
-    return;
-  goog.log.warning(
-      this.logger,
-      'chrome.certificateProvider API rejected ' + rejectedCertificates.length +
-          ' certificates: ' +
-          GSC.DebugDump.debugDumpSanitized(rejectedCertificates));
-};
-
-/**
  * @param {string} functionName
  * @param {!Array.<*>} functionArguments
  * @return {!Array.<*>}
@@ -602,54 +406,6 @@ function createClientCertificateInfo(executableModuleCertificateInfo) {
         [toArrayBuffer(executableModuleCertificateInfo['certificate'])],
     supportedAlgorithms: executableModuleCertificateInfo['supportedAlgorithms']
   };
-}
-
-/**
- * Converts the certificate information received from the C++ code into the
- * (legacy) `CertificateInfo` object.
- * @param {!ExecutableModuleCertificateInfo} executableModuleCertificateInfo
- * @return {!chrome.certificateProvider.CertificateInfo}
- */
-function createCertificateInfo(executableModuleCertificateInfo) {
-  const supportedHashes = [];
-  for (const algorithm of
-           executableModuleCertificateInfo['supportedAlgorithms']) {
-    const hash = getHashFromAlgorithm(algorithm);
-    if (hash !== null) {
-      supportedHashes.push(hash);
-    }
-  }
-  return {
-    certificate: toArrayBuffer(executableModuleCertificateInfo['certificate']),
-    supportedHashes: supportedHashes,
-  };
-}
-
-/**
- * @param {!chrome.certificateProvider.Hash} hash
- * @return {!chrome.certificateProvider.Algorithm}
- */
-function getAlgorithmFromHash(hash) {
-  if (HASH_TO_ALGORITHM_MAPPING.has(hash)) {
-    return /** @type {!chrome.certificateProvider.Algorithm} */ (
-        HASH_TO_ALGORITHM_MAPPING.get(hash));
-  }
-  GSC.Logging.fail(`Unknown hash ${hash}`);
-  return chrome.certificateProvider.Algorithm.RSASSA_PKCS1_v1_5_SHA1;
-}
-
-/**
- * Converts the algorithm enum into the legacy hash enum. Returns null for
- * algorithms that don't have a corresponding hash enum.
- * @param {!chrome.certificateProvider.Algorithm} algorithm
- * @return {!chrome.certificateProvider.Hash|null}
- */
-function getHashFromAlgorithm(algorithm) {
-  for (const hash of HASH_TO_ALGORITHM_MAPPING.keys()) {
-    if (HASH_TO_ALGORITHM_MAPPING.get(hash) === algorithm)
-      return /** @type {!chrome.certificateProvider.Hash} */ (hash);
-  }
-  return null;
 }
 
 /**

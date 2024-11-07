@@ -80,7 +80,7 @@ void ProcessSignatureRequest(
   if (request_handling_mutex)
     lock = std::unique_lock<std::mutex>(*request_handling_mutex);
 
-  GOOGLE_SMART_CARD_LOG_DEBUG << "Processing sign digest request...";
+  GOOGLE_SMART_CARD_LOG_DEBUG << "Processing sign request...";
   std::vector<uint8_t> signature;
   const std::shared_ptr<SignatureRequestHandler>
       locked_signature_request_handler = signature_request_handler.lock();

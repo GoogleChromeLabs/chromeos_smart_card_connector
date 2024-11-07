@@ -104,7 +104,6 @@ StructValueDescriptor<ccp::SignatureRequest>::GetDescription() {
   return Describe("chrome_certificate_provider::SignatureRequest")
       .WithField(&ccp::SignatureRequest::sign_request_id, "signRequestId")
       .WithField(&ccp::SignatureRequest::input, "input")
-      .WithField(&ccp::SignatureRequest::digest, "digest")
       .WithField(&ccp::SignatureRequest::algorithm, "algorithm")
       .WithField(&ccp::SignatureRequest::certificate, "certificate");
 }
