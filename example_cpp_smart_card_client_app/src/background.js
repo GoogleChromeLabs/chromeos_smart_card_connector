@@ -172,7 +172,7 @@ executableModule.addOnDisposeCallback(executableModuleDisposedListener);
  * module into the JavaScript PC/SC-Lite client API method calls (see the
  * GoogleSmartCard.PcscLiteClient.API class).
  */
-const pcscLiteWasmClientBackend = new GSC.PcscLiteClient.WasmlientBackend(
+const pcscLiteWasmClientBackend = new GSC.PcscLiteClient.WasmClientBackend(
     executableModule.getMessageChannel(), CLIENT_TITLE, SERVER_APP_ID);
 
 /**
