@@ -20,9 +20,7 @@
 
 #include "ccid.h"
 
-#ifdef HAVE_STRING_H
 #include <string.h>
-#endif
 
 /* I block */
 #define T1_I_SEQ_SHIFT		6
@@ -101,6 +99,7 @@ int t1_init(t1_state_t * t1, int lun)
 	t1_set_param(t1, IFD_PROTOCOL_T1_CHECKSUM_LRC, 0);
 	t1_set_param(t1, IFD_PROTOCOL_T1_STATE, SENDING);
 	t1_set_param(t1, IFD_PROTOCOL_T1_MORE, false);
+	t1_set_param(t1, IFD_PROTOCOL_T1_NAD, 0);
 
 	t1->lun = lun;
 
@@ -117,7 +116,7 @@ void t1_release(/*@unused@*/ t1_state_t * t1)
 }
 
 /*
- * Get/set parameters for T1 protocol
+ * Set parameters for T1 protocol
  */
 int t1_set_param(t1_state_t * t1, int type, long value)
 {
@@ -138,12 +137,35 @@ int t1_set_param(t1_state_t * t1, int type, long value)
 	case IFD_PROTOCOL_T1_MORE:
 		t1->more = value;
 		break;
+	case IFD_PROTOCOL_T1_NAD:
+		t1->nad = value;
+		break;
 	default:
 		DEBUG_INFO2("Unsupported parameter %d", type);
 		return -1;
 	}
 
 	return 0;
+}
+
+/*
+ * Get parameters for T1 protocol
+ */
+int t1_get_param(t1_state_t * t1, int type)
+{
+	int value = -1;
+
+	switch (type)
+	{
+		case IFD_PROTOCOL_T1_NAD:
+			value = t1->nad;
+			break;
+
+		default:
+			DEBUG_INFO2("Unsupported parameter %d", type);
+	}
+
+	return value;
 }
 
 /*

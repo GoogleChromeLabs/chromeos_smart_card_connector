@@ -21,18 +21,10 @@
 #include <config.h>
 
 #include <stdbool.h>
-#ifdef HAVE_STRING_H
 #include <string.h>
-#endif
-#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
-#endif
-#ifdef HAVE_ERRNO_H
 #include <errno.h>
-#endif
-#ifdef HAVE_UNISTD_H
 #include <unistd.h>
-#endif
 
 #include <pcsclite.h>
 #include <ifdhandler.h>
@@ -96,10 +88,11 @@ RESPONSECODE CmdPowerOn(unsigned int reader_index, unsigned int * nlength,
 	unsigned char buffer[], int voltage)
 {
 	unsigned char cmd[10];
+	unsigned char resp[10 + MAX_ATR_SIZE];
 	int bSeq;
 	status_t res;
-	int length, count = 1;
-	unsigned int atr_len;
+	int count = 1;
+	unsigned int atr_len, length;
 	int init_voltage;
 	RESPONSECODE return_value = IFD_SUCCESS;
 	_ccid_descriptor *ccid_descriptor = get_ccid_descriptor(reader_index);
@@ -184,9 +177,6 @@ RESPONSECODE CmdPowerOn(unsigned int reader_index, unsigned int * nlength,
 	}
 #endif
 
-	/* store length of buffer[] */
-	length = *nlength;
-
 	if ((ccid_descriptor->dwFeatures & CCID_CLASS_AUTO_VOLTAGE)
 		|| (ccid_descriptor->dwFeatures & CCID_CLASS_AUTO_ACTIVATION))
 		voltage = 0;	/* automatic voltage selection */
@@ -231,24 +221,22 @@ again:
 	res = WritePort(reader_index, sizeof(cmd), cmd);
 	CHECK_STATUS(res)
 
-	/* reset available buffer size */
-	/* needed if we go back after a switch to ISO mode */
-	*nlength = length;
+	length = sizeof resp;
 
-	res = ReadPort(reader_index, nlength, buffer, bSeq);
+	res = ReadPort(reader_index, &length, resp, bSeq);
 	CHECK_STATUS(res)
 
-	if (*nlength < CCID_RESPONSE_HEADER_SIZE)
+	if (length < CCID_RESPONSE_HEADER_SIZE)
 	{
-		DEBUG_CRITICAL2("Not enough data received: %d bytes", *nlength);
+		DEBUG_CRITICAL2("Not enough data received: %d bytes", length);
 		return IFD_COMMUNICATION_ERROR;
 	}
 
-	if (buffer[STATUS_OFFSET] & CCID_COMMAND_FAILED)
+	if (resp[STATUS_OFFSET] & CCID_COMMAND_FAILED)
 	{
-		ccid_error(PCSC_LOG_ERROR, buffer[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);	/* bError */
+		ccid_error(PCSC_LOG_ERROR, resp[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);	/* bError */
 
-		if (0xBB == buffer[ERROR_OFFSET] &&	/* Protocol error in EMV mode */
+		if (0xBB == resp[ERROR_OFFSET] &&	/* Protocol error in EMV mode */
 			((GEMPC433 == ccid_descriptor->readerID)
 			|| (CHERRYXX33 == ccid_descriptor->readerID)))
 		{
@@ -291,14 +279,13 @@ again:
 	}
 
 	/* extract the ATR */
-	atr_len = dw2i(buffer, 1);	/* ATR length */
-	if (atr_len > *nlength - 10)
-		atr_len = *nlength - 10;
-	else
-		*nlength = atr_len;
+	atr_len = dw2i(resp, 1);	/* ATR length */
+	if (atr_len > *nlength)
+		atr_len = *nlength;
 
-	/* the buffer length should be 10 + MAX_ATR_SIZE */
-	memmove(buffer, buffer+10, atr_len);
+	*nlength = atr_len;
+
+	memcpy(buffer, resp+10, atr_len);
 
 	return return_value;
 } /* CmdPowerOn */
@@ -563,12 +550,10 @@ RESPONSECODE SecurePINVerify(unsigned int reader_index,
 				unsigned char sblk[1]; /* we only need 1 byte of data */
 				t1_state_t *t1 = &get_ccid_slot(reader_index)->t1;
 				unsigned int slen;
-				int oldReadTimeout;
 
 				DEBUG_COMM2("CT sent S-block with wtx=%u", RxBuffer[DATA]);
 				t1->wtx = RxBuffer[DATA];
 
-				oldReadTimeout = ccid_descriptor->readTimeout;
 				if (t1->wtx > 1)
 				{
 					/* set the new temporary timeout at WTX card request */
@@ -587,16 +572,20 @@ RESPONSECODE SecurePINVerify(unsigned int reader_index,
 
 				ret = CCID_Transmit(t1 -> lun, slen, RxBuffer, 0, t1->wtx);
 				if (ret != IFD_SUCCESS)
-					return ret;
+					goto end;
 
 				/* I guess we have at least 6 bytes in RxBuffer */
 				*RxLength = 6;
 				ret = CCID_Receive(reader_index, RxLength, RxBuffer, NULL);
 				if (ret != IFD_SUCCESS)
-					return ret;
+					goto end;
+			}
 
-				/* Restore initial timeout */
-				ccid_descriptor->readTimeout = oldReadTimeout;
+			/* this should not happen. It will make coverity happy */
+			if (*RxLength < 4)
+			{
+				ret = IFD_COMMUNICATION_ERROR;
+				goto end;
 			}
 
 			/* get only the T=1 data */
@@ -606,7 +595,9 @@ RESPONSECODE SecurePINVerify(unsigned int reader_index,
 	}
 
 end:
+	/* Restore initial timeout */
 	ccid_descriptor -> readTimeout = old_read_timeout;
+
 	return ret;
 } /* SecurePINVerify */
 
@@ -1248,11 +1239,12 @@ again_status:
 		}
 		return IFD_SUCCESS;
 	}
-#endif
 
 #ifdef __APPLE__
 	if (MICROCHIP_SEC1100 == ccid_descriptor->readerID)
 		InterruptRead(reader_index, 10);
+#endif
+
 #endif
 
 	bSeq = (*ccid_descriptor->pbSeq)++;
@@ -2296,7 +2288,8 @@ static RESPONSECODE CmdXfrBlockTPDU_T1(unsigned int reader_index,
 
 	DEBUG_COMM3("T=1: %d and %d bytes", tx_length, *rx_length);
 
-	ret = t1_transceive(&((get_ccid_slot(reader_index)) -> t1), 0,
+	ret = t1_transceive(&((get_ccid_slot(reader_index)) -> t1),
+		get_ccid_slot(reader_index) -> t1.nad,
 		tx_buffer, tx_length, rx_buffer, *rx_length);
 
 	if (ret < 0)

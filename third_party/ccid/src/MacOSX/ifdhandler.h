@@ -5,7 +5,7 @@
  *  David Corcoran <corcoran@musclecard.com>
  * Copyright (C) 2003-2004
  *  Damien Sauveron <damien.sauveron@labri.fr>
- * Copyright (C) 2002-2011
+ * Copyright (C) 2002-2024
  *  Ludovic Rousseau <ludovic.rousseau@free.fr>
  *
 Redistribution and use in source and binary forms, with or without
@@ -411,7 +411,7 @@ possible to query IFDHICCPresence() for card status.
   PC/SC supports the loading of multiple readers through one instance of
   the driver in which XXXX is important. XXXX identifies the unique
   reader in which the driver communicates to. The driver should set up
-  an array of structures that asociate this XXXX with the underlying
+  an array of structures that associate this XXXX with the underlying
   details of the particular reader.
 
 @param[in] DeviceName Filename to use by the driver.\n

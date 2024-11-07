@@ -33,7 +33,10 @@ AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 AC_PROG_LN_S
 AC_PROG_LEX([noyywrap])
-AS_IF([test $LEX = ":"], [AC_MSG_ERROR([no lex or flex found])])
+AS_IF([test $LEX = ":"], [
+       AM_MISSING_PROG(MISSINGLEX, [flex])
+       LEX=$MISSINGLEX]
+)
 AM_PROG_AR
 PKG_PROG_PKG_CONFIG
 
@@ -74,7 +77,7 @@ AC_C_CONST
 AC_TYPE_SIZE_T
 
 # Checks for library functions.
-AC_CHECK_FUNCS(select strerror strncpy memcpy strlcpy strlcat)
+AC_CHECK_FUNCS(select strerror strncpy memcpy strlcpy strlcat secure_getenv pthread_condattr_setclock)
 
 # Select OS specific versions of source files.
 AC_SUBST(BUNDLE_HOST)
@@ -331,4 +334,3 @@ AC_CONFIG_FILES(Makefile
 	examples/Makefile)
 
 AC_OUTPUT
-

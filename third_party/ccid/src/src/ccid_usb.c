@@ -135,11 +135,11 @@ static struct usbDevice_MultiSlot_Extension *Multi_CreateFirstSlot(int reader_in
 static struct usbDevice_MultiSlot_Extension *Multi_CreateNextSlot(int physical_reader_index);
 static void Multi_PollingTerminate(struct usbDevice_MultiSlot_Extension *msExt);
 
-static int get_end_points(struct libusb_config_descriptor *desc,
-	_usbDevice *usbdevice, int num);
+static int get_end_points(const struct libusb_interface *usb_interface,
+	_usbDevice *usbdevice);
 bool ccid_check_firmware(struct libusb_device_descriptor *desc);
 static unsigned int *get_data_rates(unsigned int reader_index,
-	struct libusb_config_descriptor *desc, int num);
+	const unsigned char bNumDataRatesSupported);
 
 /* ne need to initialize to 0 since it is static */
 static _usbDevice usbDevice[CCID_DRIVER_MAX_READERS];
@@ -772,7 +772,7 @@ again:
 #endif
 
 				/* Get Endpoints values*/
-				(void)get_end_points(config_desc, &usbDevice[reader_index], num);
+				(void)get_end_points(usb_interface, &usbDevice[reader_index]);
 
 				/* store device information */
 				usbDevice[reader_index].dev_handle = dev_handle;
@@ -807,7 +807,7 @@ again:
 				usbDevice[reader_index].ccid.bCurrentSlotIndex = 0;
 				usbDevice[reader_index].ccid.readTimeout = DEFAULT_COM_READ_TIMEOUT;
 				if (device_descriptor[27])
-					usbDevice[reader_index].ccid.arrayOfSupportedDataRates = get_data_rates(reader_index, config_desc, num);
+					usbDevice[reader_index].ccid.arrayOfSupportedDataRates = get_data_rates(reader_index, device_descriptor[27]);
 				else
 				{
 					usbDevice[reader_index].ccid.arrayOfSupportedDataRates = NULL;
@@ -1011,7 +1011,11 @@ read_again:
 			time_t timeout_sec = usbDevice[reader_index].ccid.readTimeout  / 1000;
 			long timeout_msec = usbDevice[reader_index].ccid.readTimeout - timeout_sec * 1000;
 
+#ifdef HAVE_PTHREAD_CONDATTR_SETCLOCK
+			clock_gettime(CLOCK_MONOTONIC, &timeout);
+#else
 			clock_gettime(CLOCK_REALTIME, &timeout);
+#endif
 			timeout.tv_sec += timeout_sec;
 			timeout.tv_nsec += timeout_msec * 1000 * 1000;
 			if (timeout.tv_nsec > 1000 * 1000 * 1000)
@@ -1276,14 +1280,12 @@ const unsigned char *get_ccid_device_descriptor(const struct libusb_interface *u
  *					get_end_points
  *
  ****************************************************************************/
-static int get_end_points(struct libusb_config_descriptor *desc,
-	_usbDevice *usbdevice, int num)
+static int get_end_points(
+	const struct libusb_interface *usb_interface,
+	_usbDevice *usbdevice)
 {
 	int i;
 	int bEndpointAddress;
-	const struct libusb_interface *usb_interface;
-
-	usb_interface = get_ccid_usb_interface(desc, &num);
 
 	/*
 	 * 3 Endpoints maximum: Interrupt In, Bulk In, Bulk Out
@@ -1423,14 +1425,12 @@ bool ccid_check_firmware(struct libusb_device_descriptor *desc)
  *
  ****************************************************************************/
 static unsigned int *get_data_rates(unsigned int reader_index,
-	struct libusb_config_descriptor *desc, int num)
+	const unsigned char bNumDataRatesSupported)
 {
 	int n, i, len;
 	unsigned char buffer[256*sizeof(int)];	/* maximum is 256 records */
 	unsigned int *uint_array;
-	int bNumDataRatesSupported;
 
-	bNumDataRatesSupported = get_ccid_device_descriptor(get_ccid_usb_interface(desc, &num))[27];
 	if (0 == bNumDataRatesSupported)
 		/* read up to the buffer size */
 		len = sizeof(buffer) / sizeof(int);
@@ -1902,7 +1902,6 @@ static int Multi_InterruptRead(int reader_index, int timeout /* in ms */)
 	struct usbDevice_MultiSlot_Extension *msExt;
 	unsigned char buffer[CCID_INTERRUPT_SIZE];
 	struct timespec cond_wait_until;
-	struct timeval local_time;
 	int rv, status, interrupt_byte, interrupt_mask;
 
 	msExt = usbDevice[reader_index].multislot_extension;
@@ -1919,10 +1918,11 @@ static int Multi_InterruptRead(int reader_index, int timeout /* in ms */)
 	interrupt_mask = 0x02 << (2 * (usbDevice[reader_index].ccid.bCurrentSlotIndex % 4));
 
 	/* Wait until the condition is signaled or a timeout occurs */
-	gettimeofday(&local_time, NULL);
-	cond_wait_until.tv_sec = local_time.tv_sec;
-	cond_wait_until.tv_nsec = local_time.tv_usec * 1000;
-
+#ifdef HAVE_PTHREAD_CONDATTR_SETCLOCK
+	clock_gettime(CLOCK_MONOTONIC, &cond_wait_until);
+#else
+	clock_gettime(CLOCK_REALTIME, &cond_wait_until);
+#endif
 	cond_wait_until.tv_sec += timeout / 1000;
 	cond_wait_until.tv_nsec += 1000000 * (timeout % 1000);
 
@@ -1956,14 +1956,17 @@ again:
 	{
 		if (0 == (buffer[interrupt_byte] & interrupt_mask))
 		{
-			DEBUG_PERIODIC2("Multi_InterruptRead (%d) -- skipped", reader_index);
+			DEBUG_PERIODIC2("Multi_InterruptRead (%d) -- skipped",
+				reader_index);
 			goto again;
 		}
-		DEBUG_PERIODIC2("Multi_InterruptRead (%d), got an interrupt", reader_index);
+		DEBUG_PERIODIC2("Multi_InterruptRead (%d), got an interrupt",
+			reader_index);
 	}
 	else
 	{
-		DEBUG_PERIODIC3("Multi_InterruptRead (%d), status=%d", reader_index, status);
+		DEBUG_PERIODIC3("Multi_InterruptRead (%d), %s",
+			reader_index, libusb_error_name(status));
 	}
 
 	return status;
@@ -2038,25 +2041,16 @@ static void *Multi_ReadProc(void *p_ext)
 			if (LIBUSB_ERROR_TIMEOUT == rv)
 				continue;
 
-			if (LIBUSB_ERROR_NO_DEVICE == rv)
-			{
-				DEBUG_INFO4("read failed (%d/%d): %s",
-					usbDevice[reader_index].bus_number,
-					usbDevice[reader_index].device_address,
-					libusb_error_name(rv));
-			}
-			else
-			{
-				DEBUG_CRITICAL4("read failed (%d/%d): %s",
-					usbDevice[reader_index].bus_number,
-					usbDevice[reader_index].device_address,
-					libusb_error_name(rv));
-			}
+			DEBUG_CRITICAL4("read failed (%d/%d): %s",
+				usbDevice[reader_index].bus_number,
+				usbDevice[reader_index].device_address,
+				libusb_error_name(rv));
 
 			/* wait a bit to avoid a fast error loop */
 			(void)usleep(100*1000);
 
-			continue;
+			if (LIBUSB_ERROR_NO_DEVICE != rv)
+				continue;
 		}
 
 #define BSLOT_OFFSET 5
@@ -2108,7 +2102,16 @@ static struct usbDevice_MultiSlot_Extension *Multi_CreateFirstSlot(int reader_in
 
 	/* Create mutex and condition object for the interrupt polling */
 	pthread_mutex_init(&msExt->mutex, NULL);
+#ifdef HAVE_PTHREAD_CONDATTR_SETCLOCK
+	pthread_condattr_t condattr;
+
+	pthread_condattr_init(&condattr);
+	pthread_condattr_setclock(&condattr, CLOCK_MONOTONIC);
+	pthread_cond_init(&msExt->condition, &condattr);
+	pthread_condattr_destroy(&condattr);
+#else
 	pthread_cond_init(&msExt->condition, NULL);
+#endif
 
 	/* concurrent USB read */
 	concurrent = calloc(usbDevice[reader_index].ccid.bMaxSlotIndex +1,
@@ -2123,7 +2126,14 @@ static struct usbDevice_MultiSlot_Extension *Multi_CreateFirstSlot(int reader_in
 	{
 		/* Create mutex and condition object for the concurrent read */
 		pthread_mutex_init(&concurrent[slot].mutex, NULL);
+#ifdef HAVE_PTHREAD_CONDATTR_SETCLOCK
+		pthread_condattr_init(&condattr);
+		pthread_condattr_setclock(&condattr, CLOCK_MONOTONIC);
+		pthread_cond_init(&concurrent[slot].condition, &condattr);
+		pthread_condattr_destroy(&condattr);
+#else
 		pthread_cond_init(&concurrent[slot].condition, NULL);
+#endif
 	}
 	msExt->concurrent = concurrent;
 
