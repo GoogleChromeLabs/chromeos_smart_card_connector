@@ -131,7 +131,6 @@
 # ACS
 0x072F:0x1204:ACS ACR101 ICC Reader
 0x072F:0x221A:ACS ACR1251 Dual Reader
-0x072F:0x2224:ACS ACR1281U
 0x072F:0x223B:ACS ACR1252 Dual Reader
 0x072F:0x223E:ACS ACR1252 Reader
 0x072F:0x223F:ACS ACR1255U-J1
@@ -182,6 +181,7 @@
 0x24DC:0x0201:Aladdin R.D. JCR-770
 0x24DC:0x0401:Aladdin R.D. JC-WebPass (JC600)
 0x24DC:0x0402:Aladdin R.D. JaCarta
+0x24DC:0x0420:Aladdin R.D. JCR SecurBio
 0x24DC:0x0428:Aladdin R.D. JaCartaReader
 0x24DC:0x0501:Aladdin R.D. JaCarta U2F (JC602)
 0x24DC:0x100F:Aladdin R.D. JaCarta Flash
@@ -193,7 +193,6 @@
 
 # Alcor Micro
 0x058F:0x9522:Alcor Micro AU9522
-0x058F:0x9540:Alcor Micro AU95x0
 
 # Alpha-Project
 0x2A0C:0x0021:Alpha-Project ANGARA Token
@@ -225,6 +224,9 @@
 0x03EB:0x6011:ATMEL AT90SCR050
 0x03EB:0x6012:ATMEL VaultIC420 Smart Object
 0x03EB:0x6014:ATMEL VaultIC440
+
+# authenton
+0x3606:0x5A11:authenton #1- CTAP2.1
 
 # AvestUA
 0xC1A6:0x0131:AvestUA AvestKey
@@ -455,6 +457,7 @@
 
 # FujitsuTechnologySolutions GmbH
 0x0BF8:0x1017:FujitsuTechnologySolutions GmbH SmartCase KB SCR eSIG
+0x0BF8:0x101B:FujitsuTechnologySolutions GmbH Dual Smartcard Reader D321
 0x0BF8:0x1021:FujitsuTechnologySolutions GmbH Keyboard KB SCR2
 
 # Gemalto
@@ -671,6 +674,7 @@
 0x2C97:0x1009:Ledger Nano S
 0x2C97:0x4009:Ledger Nano X
 0x2C97:0x5009:Ledger Nano S Plus
+0x2C97:0x6009:Ledger Stax
 
 # Lenovo
 0x17EF:0x6007:Lenovo Lenovo USB Smartcard Keyboard
@@ -726,6 +730,7 @@
 0x1FC9:0x0107:NXP Pegoda 2 N
 0x1FC9:0x010B:NXP PR533
 0x1FC9:0x0117:NXP PN7462AU CCID
+0x1FC9:0x0157:NXP Pegoda 3
 
 # OBERTHUR TECHNOLOGIES
 0x1A74:0xB111:OBERTHUR TECHNOLOGIES ID-ONE TOKEN SLIM v2
@@ -994,11 +999,15 @@
 
 # ACS
 0x072F:0x2200:ACS ACR122U PICC Interface
+0x072F:0x2224:ACS ACR1281U
 
 # ActivCard
 0x09C3:0x0008:ActivCard ActivCard USB Reader V2
 
 # Aladdin
+
+# Alcor Micro
+0x058F:0x9540:Alcor Micro AU9540
 
 # Athena
 0x0DC3:0x100F:Athena IDProtect Flash

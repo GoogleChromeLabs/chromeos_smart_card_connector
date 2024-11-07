@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>MAGIC_TARGET</string>
 	<key>CFBundleIdentifier</key>
-	<string>fr.apdu.ccid.smartcardccid</string>
+	<string>fr.apdu.ccid.smartcardccidMAGIC_EXTRA_BUNDLE_ID</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	MAGIC_CLASS
@@ -51,7 +51,7 @@
 	-->
 
 	<key>ifdDriverOptions</key>
-	<string>0x0004</string>
+	<string>0x0000</string>
 
 	<!-- Possible values for ifdDriverOptions
 	0x01: DRIVER_OPTION_CCID_EXCHANGE_AUTHORIZED

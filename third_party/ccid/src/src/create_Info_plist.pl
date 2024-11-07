@@ -24,15 +24,17 @@ use warnings;
 use strict;
 use Getopt::Long;
 
-my (@manuf, @product, @name);
-my ($manuf, $product, $name);
+my (@vendor, @product, @name);
+my ($vendor, $product, $name);
 my $target = "libccid.so";
 my $version = "1.0.0";
 my $class = "<key>CFBundleName</key>
 	<string>CCIDCLASSDRIVER</string>";
 my $noclass = 0;
+my $extra_bundle_id = "";
 
 GetOptions(
+	"extra_bundle_id=s" => \$extra_bundle_id,
 	"target=s" => \$target,
 	"version=s" => \$version,
 	"no-class" => \$noclass);
@@ -40,6 +42,7 @@ GetOptions(
 if ($#ARGV < 1)
 {
 	print "usage: $0 supported_readers.txt Info.plist
+	--extra_bundle_id=$extra_bundle_id
 	--target=$target
 	--version=$version\n";
 	exit;
@@ -52,16 +55,16 @@ while (<IN>)
 	next if (m/^$/);
 
 	chomp;
-	($manuf, $product, $name) = split /:/;
-	# print "m: $manuf, p: $product, n: $name\n";
-	push @manuf, $manuf;
+	($vendor, $product, $name) = split /:/;
+	# print "m: $vendor, p: $product, n: $name\n";
+	push @vendor, $vendor;
 	push @product, $product;
 	$name =~ s/&/&amp;/g;
 	push @name, $name
 }
 close IN;
 
-map { $_ = "\t\t<string>$_</string>\n" } @manuf;
+map { $_ = "\t\t<string>$_</string>\n" } @vendor;
 map { $_ = "\t\t<string>$_</string>\n" } @product;
 map { $_ = "\t\t<string>$_</string>\n" } @name;
 
@@ -71,7 +74,7 @@ while (<IN>)
 {
 	if (m/MAGIC_VENDOR/)
 	{
-		print @manuf;
+		print @vendor;
 		next;
 	}
 	if (m/MAGIC_PRODUCT/)
@@ -104,6 +107,13 @@ while (<IN>)
 		print;
 		next;
 	}
+	if (m/MAGIC_EXTRA_BUNDLE_ID/)
+	{
+		s/MAGIC_EXTRA_BUNDLE_ID/$extra_bundle_id/;
+		print;
+		next;
+	}
+
 	print;
 }
 

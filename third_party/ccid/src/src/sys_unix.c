@@ -5,7 +5,7 @@
  *
  * Copyright (C) 1999
  *  David Corcoran <corcoran@musclecard.com>
- * Copyright (C) 2002-2022
+ * Copyright (C) 2002-2024
  *  Ludovic Rousseau <ludovic.rousseau@free.fr>
  *
 Redistribution and use in source and binary forms, with or without
@@ -116,7 +116,9 @@ INTERNAL int SYS_RandomInt(void)
 	ret = getrandom(c, sizeof c, 0);
 	if (-1 == ret)
 	{
+#ifdef PCSCD
 		Log2(PCSC_LOG_ERROR, "getrandom() failed: %s", strerror(errno));
+#endif
 		return lrand48();
 	}
 	// this loop avoids trap representations that may occur in the naive solution
@@ -127,7 +129,7 @@ INTERNAL int SYS_RandomInt(void)
 	// the casts are for the sake of clarity
 	return (int)(ui & (unsigned int)INT_MAX);
 #else
-	int r = lrand48(); // this is not thread-safe
+	int r = (int)lrand48(); // this is not thread-safe
 	return r;
 #endif /* HAVE_GETRANDOM */
 }
@@ -170,10 +172,8 @@ INTERNAL const char * SYS_GetEnv(const char *name)
 #else
 	/* Otherwise, make sure current process is not tainted by uid or gid
 	 * changes */
-#ifdef HAVE_issetugid
 	if (issetugid())
 		return NULL;
-#endif
 	return getenv(name);
 #endif
 }
