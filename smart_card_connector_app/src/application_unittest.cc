@@ -2466,8 +2466,7 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
   EXPECT_EQ(new_active_protocol, active_protocol);
 }
 
-// `SCardReconnect()` call from JS succeeds when using the same parameters as
-// the previous `SCardConnect()` call.
+// `SCardReconnect()` call from JS succeeds resetting the card.
 TEST_F(SmartCardConnectorApplicationConnectedReaderTest, SCardReconnectReset) {
   // Reconnect using the same sharing and protocol as the `SCardConnect()` call
   // in the test's setup.
@@ -2481,8 +2480,7 @@ TEST_F(SmartCardConnectorApplicationConnectedReaderTest, SCardReconnectReset) {
   EXPECT_EQ(new_active_protocol, static_cast<DWORD>(SCARD_PROTOCOL_T1));
 }
 
-// `SCardReconnect()` call from JS succeeds when using the same parameters as
-// the previous `SCardConnect()` call.
+// `SCardReconnect()` call from JS succeeds unpowering the card.
 TEST_F(SmartCardConnectorApplicationConnectedReaderTest,
        SCardReconnectUnpower) {
   // Reconnect using the same sharing and protocol as the `SCardConnect()` call
