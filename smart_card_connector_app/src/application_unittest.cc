@@ -2468,8 +2468,6 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
 
 // `SCardReconnect()` call from JS succeeds resetting the card.
 TEST_F(SmartCardConnectorApplicationConnectedReaderTest, SCardReconnectReset) {
-  // Reconnect using the same sharing and protocol as the `SCardConnect()` call
-  // in the test's setup.
   DWORD new_active_protocol = 0;
   LONG return_code = SimulateReconnectCallFromJsClient(
       kFakeHandlerId, scard_handle(), SCARD_SHARE_SHARED,
@@ -2483,8 +2481,6 @@ TEST_F(SmartCardConnectorApplicationConnectedReaderTest, SCardReconnectReset) {
 // `SCardReconnect()` call from JS succeeds unpowering the card.
 TEST_F(SmartCardConnectorApplicationConnectedReaderTest,
        SCardReconnectUnpower) {
-  // Reconnect using the same sharing and protocol as the `SCardConnect()` call
-  // in the test's setup.
   DWORD new_active_protocol = 0;
   LONG return_code = SimulateReconnectCallFromJsClient(
       kFakeHandlerId, scard_handle(), SCARD_SHARE_SHARED,
