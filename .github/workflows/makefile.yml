@@ -80,7 +80,7 @@ jobs:
 
   # Run unit tests under ASan.
   test-asan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 100
     strategy:
       matrix:
@@ -118,7 +118,7 @@ jobs:
 
   # Run ESLint for JavaScript code.
   lint-js:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:
@@ -152,7 +152,7 @@ jobs:
 
   # Collect code coverage statistics.
   collect-coverage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       LINE_COVERAGE_PERCENT: ${{ steps.build-coverage.outputs.LINE_COVERAGE_PERCENT }}
     timeout-minutes: 60
@@ -190,7 +190,7 @@ jobs:
 
   # An empty job whose steps display the short summary of the run.
   summary:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Depend on all other jobs, so that we aren't triggered if something fails.
     needs: [build-emscripten, test-asan, collect-coverage, lint-js]
 
