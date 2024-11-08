@@ -46,9 +46,15 @@ const logger = GSC.Logging.getScopedLogger('ConnectorApp.MainWindow');
 
 goog.log.info(logger, 'The main window is created');
 
-goog.events.listen(
-    goog.dom.getElement('close-window'), goog.events.EventType.CLICK,
-    closeWindowClickListener);
+const closeButton = goog.dom.getElement('close-window');
+if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
+  goog.events.listen(
+      closeButton, goog.events.EventType.CLICK, closeWindowClickListener);
+} else {
+  // It's easy to close the action popup by clicking elsewhere - there's no need
+  // for a special button.
+  closeButton.remove();
+}
 
 GSC.ConnectorApp.Window.AboutShowing.initialize();
 GSC.ConnectorApp.Window.AppsDisplaying.initialize();
