@@ -2417,6 +2417,55 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
   EXPECT_EQ(active_protocol, static_cast<DWORD>(0));
 }
 
+// `SCardReconnect()` call from JS succeeds to switch from `SCARD_SHARE_SHARED`
+// to `SCARD_SHARE_EXCLUSIVE`.
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest,
+       SCardReconnectUpgradeToExclusive) {
+  // Act:
+  DWORD new_active_protocol = 0;
+  LONG return_code = SimulateReconnectCallFromJsClient(
+      kFakeHandlerId, scard_handle(), SCARD_SHARE_EXCLUSIVE,
+      /*preferred_protocols=*/SCARD_PROTOCOL_ANY, SCARD_LEAVE_CARD,
+      new_active_protocol);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+  EXPECT_EQ(new_active_protocol, static_cast<DWORD>(SCARD_PROTOCOL_T1));
+}
+
+// `SCardReconnect()` call from JS succeeds to switch from
+// `SCARD_SHARE_EXCLUSIVE` to `SCARD_SHARE_SHARED`.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       SCardReconnectDowngradeFromExclusive) {
+  // Arrange. Have a single reader and a client exclusively connected to it.
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
+  SetUsbDevices({device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+  SCARDHANDLE scard_handle = 0;
+  DWORD active_protocol = 0;
+  EXPECT_EQ(SimulateConnectCallFromJsClient(
+                kFakeHandlerId, scard_context(), kGemaltoPcTwinReaderPcscName0,
+                SCARD_SHARE_EXCLUSIVE, SCARD_PROTOCOL_ANY, scard_handle,
+                active_protocol),
+            SCARD_S_SUCCESS);
+
+  // Act:
+  DWORD new_active_protocol = 0;
+  LONG return_code = SimulateReconnectCallFromJsClient(
+      kFakeHandlerId, scard_handle, SCARD_SHARE_SHARED,
+      /*preferred_protocols=*/SCARD_PROTOCOL_ANY, SCARD_LEAVE_CARD,
+      new_active_protocol);
+
+  // Assert:
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+  EXPECT_EQ(new_active_protocol, active_protocol);
+}
+
 // Calling a non-existing PC/SC function results in an error (but not crash).
 TEST_F(SmartCardConnectorApplicationSingleClientTest, NonExistingFunctionCall) {
   // Arrange:
