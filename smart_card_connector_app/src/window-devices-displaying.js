@@ -282,8 +282,9 @@ function onWebusbDeviceSelectionFailed(exc) {
 }
 
 GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
-  const port = new GSC.PortMessageChannel(chrome.runtime.connect(
-      {'name': GSC.ConnectorApp.Window.Constants.DEVICES_MESSAGING_PORT_NAME}));
+  const port = new GSC.PortMessageChannel(chrome.runtime.connect({
+    'name': GSC.ConnectorApp.Window.Constants.DEVICE_LIST_MESSAGING_PORT_NAME
+  }));
   port.registerService('', (data) => {
     const readers = /** @type !Array.<!GSC.PcscLiteServer.ReaderInfo> */ (data);
     onReadersChanged(readers);

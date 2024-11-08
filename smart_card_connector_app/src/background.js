@@ -244,7 +244,7 @@ function externalMessageListener(message, sender) {
  */
 function onMessagePortConnected(port) {
   if (port.name ===
-      GSC.ConnectorApp.Window.Constants.DEVICES_MESSAGING_PORT_NAME) {
+      GSC.ConnectorApp.Window.Constants.DEVICE_LIST_MESSAGING_PORT_NAME) {
     setUpSendingDeviceList(port);
   }
   // Ignore the port otherwise.
