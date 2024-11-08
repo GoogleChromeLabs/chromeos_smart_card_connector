@@ -1,4 +1,4 @@
-libusb NaCl port
+libusb web port
 ================
 
 
@@ -6,13 +6,13 @@ Overview
 --------
 
 This is a port of the **libusb** library (<http://libusb.info/>) under
-the sandboxed environment of the **Google Chrome Native Client**
-(<https://developer.chrome.com/native-client>).
+the sandboxed Emscripten/WebAssembly environment.
 
-The Native Client (or simply NaCl) environment does not allow any direct
-communication to hardware devices. Instead, the **chrome.usb** Chrome
-Apps JavaScript API (<https://developer.chrome.com/apps/usb>) can only
-be used. The presented libusb NaCl port library is essentially just a
+The Wasm environment does not allow any direct communication to hardware
+devices. Instead, JavaScript APIs should be used: the **WebUSB**
+(<https://wicg.github.io/webusb/>) or, in case of ChromeOS Apps, the
+**chrome.usb** (<https://developer.chrome.com/apps/usb>) can only be
+used. The presented libusb web port library is essentially just a
 wrapper around this JavaScript API.
 
 This library allows to simplify the transition of the existing software,
@@ -23,11 +23,11 @@ a Chrome App (<https://developer.chrome.com/apps/about_apps>).
 Known issues and incompatibilities
 ----------------------------------
 
-Currently, the libusb NaCl port contains quite a limited functionality
+Currently, the libusb web port contains quite a limited functionality
 comparing to the original libusb library - only a minimal subset
 allowing to use some basic functions is implemented.
 
-Here is the description of the **differences** between this NaCl port
+Here is the description of the **differences** between this web port
 and the original libusb library features:
 
 *   The library requires additional initialization before any of the
@@ -134,7 +134,7 @@ Additionally, the **performance** of the libusb_* functions
 implementation can be very low: each non-trivial libusb request results
 in going along the following path:
 
-    the NaCl sandbox => the library's JavaScript code in the renderer
+    the Wasm sandbox => the library's JavaScript code in the renderer
     process => the Chrome JavaScript API code in the renderer process =>
     the main browser process,
 
@@ -151,10 +151,10 @@ is a "libusb backend API" that can be implemented for any given
 platform.
 
 However, it was decided against using this framework when building this
-NaCl port. The reasons for the decision are the following:
+web port. The reasons for the decision are the following:
 
 1.  The libusb backend API is heavily based on the "pollable" file
-    descriptors concept. However, this does not work well with the NaCl
+    descriptors concept. However, this does not work well with the web
     environment: the \*nix domain socket support is fragmentary (though
     this may change in the future), and implementing the libusb backend
     API would require some not very clean tricks.
@@ -171,7 +171,7 @@ NaCl port. The reasons for the decision are the following:
     much benefit from using the libusb abstraction of the "core" and the
     "backend" parts.
 
-So the NaCl port presented here is basically a completely separate
+So the web port presented here is basically a completely separate
 implementation, sharing with the original library only the public libusb
 header files.
 
@@ -179,12 +179,12 @@ header files.
 Architecture overview
 ---------------------
 
-As it was already said, this NaCl port is essentially a bridge linking
-the **original libusb API** and the **chrome.usb JavaScript API**. Both
-of the APIs provide essentially very similar set of operations: e.g.
-listing of the devices, obtaining the device properties, claiming the
-device interface, performing control/bulk/interrupt/isochronous
-transfers, etc.
+As it was already said, this web port is essentially a bridge linking
+the **original libusb API** and the **WebUSB**/**chrome.usb** JavaScript
+APIs. Both of the APIs provide essentially very similar set of
+operations: e.g. listing of the devices, obtaining the device
+properties, claiming the device interface, performing
+control/bulk/interrupt/isochronous transfers, etc.
 
 The major difference between them is that all operations in the
 chrome.usb JavaScript API are asynchronous operations (due to the nature
@@ -192,15 +192,15 @@ of the JavaScript). This means that all blocking libusb API functions
 should be implemented so that they block until the corresponding result
 is received from the JavaScript side.
 
-The NaCl port implementation is built basing on the primitives provided
+The web port implementation is built basing on the primitives provided
 by the libraries located in the /common/ directory.
 
 Basically, each non-trivial libusb request is transformed into a message
-sent from the NaCl module to the JavaScript side (see
+sent from the Wasm module to the JavaScript side (see
 <https://developer.chrome.com/native-client/devguide/coding/message-system>);
 the JavaScript side contains a code that transforms received messages
 into chrome.usb API calls; the results of the chrome.usb API calls, once
 they return them through asynchronous callbacks, are then sent as a
-message back to the NaCl module. Each request has an associated unique
+message back to the Wasm module. Each request has an associated unique
 identifier, which allows to handle multiple libusb API calls
 simultaneously.

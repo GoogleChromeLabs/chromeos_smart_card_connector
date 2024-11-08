@@ -16,11 +16,12 @@
 //
 // This logging library is built in the spirit of the Chromium logging library,
 // but with a few simplifications and with some changes that make sense for the
-// case of execution under NaCl.
+// case of execution under web environment.
 //
 // All emitted log messages appear, basically, in two different places:
 // * in the stderr stream (which is usually tied to the browser's stderr);
-// * in the JavaScript Console of the page that the NaCl module is attached to.
+// * in the JavaScript Console of the page that the WebAssembly module is
+//   attached to.
 
 #ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_LOGGING_LOGGING_H_
 #define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_LOGGING_LOGGING_H_

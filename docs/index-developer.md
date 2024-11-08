@@ -15,8 +15,8 @@ The app is bundled with a port of the PC/SC-Lite daemon. For the background, see
 the original documentation of the PC/SC-Lite daemon on Linux:
 [http://linux.die.net/man/8/pcscd](http://linux.die.net/man/8/pcscd).
 
-The daemon is ported using the Native Client technology for running inside the
-JavaScript-based app.
+The daemon is ported using the Emscripten/WebAssembly technology for running
+inside the JavaScript-based app.
 
 Our port of the daemon exposes the PC/SC API to other ChromeOS extensions/apps:
 see [docs/connector-app-api.md](connector-app-api.md).
@@ -28,7 +28,7 @@ The app is bundled with the **CCID Free Software Driver**
 to smart card readers that are compatible with the CCID specification.
 
 Similar to the PC/SC-lite Daemon, the CCID Free Software Driver is ported using
-the Native Client technology.
+the Emscripten/WebAssembly technology.
 
 The low-level USB operations are implemented using our port of the **libusb**
 library, which is redirecting all requests to the **chrome.usb** API (see

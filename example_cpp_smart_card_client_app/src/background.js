@@ -21,9 +21,8 @@
  *
  * The main pieces performed here are the following:
  * * The executable module containing the actual client implementation is
- *   created and loaded (using a method that is needed for either
- *   Emscripten/WebAssembly or Native Client, depending on the build
- *   configuration);
+ *   created and loaded (using the method that is needed for
+ *   Emscripten/WebAssembly);
  * * A GoogleSmartCard.PcscLiteClient.WasmClientBackend object is created, that
  *   translates all PC/SC-Lite client API requests received from the executable
  *   module into the JavaScript PC/SC-Lite client API method calls (see the

@@ -8,5 +8,5 @@ Local Modifications:
 LICENSE file has been created for compliance purposes. Not included in original
 distribution.
 The server-side daemon and the client-side library were partially reimplemented
-for working in web environment (under Emscripten or Google Native Client) and
-for being based on the cross-extension communication between server and clients.
+for working in web environment (under Emscripten) and for being based on the
+cross-extension communication between server and clients.

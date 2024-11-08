@@ -177,9 +177,6 @@ CHROME_EXTERNS_COMPILER_INPUTS := \
 #    $3: Closure namespaces, from which the JavaScript code needs to be picked.
 #    $4: Optional additional compiler flags.
 #
-# TODO(emaxx): Hide the executed commands from echoing, unless the V=1 variable
-# is specified (like the NaCl SDK compilation rules do).
-#
 
 define BUILD_JS_SCRIPT
 

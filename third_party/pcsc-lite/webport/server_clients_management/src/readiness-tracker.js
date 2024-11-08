@@ -48,14 +48,14 @@ const GSC = GoogleSmartCard;
  * Tracker of the readiness state of the PC/SC-Lite server.
  *
  * Provides a promise that is fulfilled once the corresponding message is
- * received from the NaCl module with the server, and is rejected if the channel
- * to the NaCl module is disposed (e.g. in case the NaCl module crashes).
- * @param {!goog.messaging.AbstractChannel} naclModuleMessageChannel
+ * received from the Wasm module with the server, and is rejected if the channel
+ * to the Wasm module is disposed (e.g. in case the Wasm module crashes).
+ * @param {!goog.messaging.AbstractChannel} executableModuleMessageChannel
  * @constructor
  * @extends goog.Disposable
  */
 GSC.PcscLiteServerClientsManagement.ReadinessTracker = function(
-    naclModuleMessageChannel) {
+    executableModuleMessageChannel) {
   ReadinessTracker.base(this, 'constructor');
 
   /**
@@ -82,15 +82,15 @@ GSC.PcscLiteServerClientsManagement.ReadinessTracker = function(
    */
   this.isPromiseResolved_ = false;
 
-  naclModuleMessageChannel.registerService(
+  executableModuleMessageChannel.registerService(
       SERVICE_NAME, this.serviceCallback_.bind(this));
-  naclModuleMessageChannel.addOnDisposeCallback(
+  executableModuleMessageChannel.addOnDisposeCallback(
       this.messageChannelDisposedListener_.bind(this));
 
   goog.log.fine(
       this.logger_,
       'Waiting for the "' + SERVICE_NAME + '" message from the ' +
-          'NaCl module...');
+          'executable module...');
 };
 
 const ReadinessTracker = GSC.PcscLiteServerClientsManagement.ReadinessTracker;
@@ -124,7 +124,7 @@ ReadinessTracker.prototype.messageChannelDisposedListener_ = function() {
           'message channel was disposed of');
   this.isPromiseResolved_ = true;
   this.promiseResolver_.reject(
-      new Error('The NaCl module message channel was disposed'));
+      new Error('The executable module message channel was disposed'));
   this.dispose();
 };
 });  // goog.scope

@@ -27,12 +27,12 @@ expected to be located are stubbed out. The entry points are:
 
     From the implementation prospective, this request arrives in the
     form of the special
-    chrome.certificateProvider.onCertificatesRequested event (see
-    <https://developer.chrome.com/extensions/certificateProvider#event-onCertificatesRequested>)
+    chrome.certificateProvider.onCertificatesUpdateRequested event (see
+    <https://developer.chrome.com/extensions/certificateProvider#event-onCertificatesUpdateRequested>)
     which is then forwarded by the App's code to the C++ handler in the
-    NaCl module (see the file ``src/pp_module.cc``).
+    Emscripten module (see the file ``src/application.cc``).
 
-*   **Handling the sign digest request**.
+*   **Handling the sign request**.
 
     This is a request that is, conceptually, sent to the App by the
     Chrome browser's network stack, when it needs to perform the digest
@@ -40,11 +40,11 @@ expected to be located are stubbed out. The entry points are:
     provided by the App.
 
     From the implementation prospective, this request arrives in the
-    form of the special chrome.certificateProvider.onSignDigestRequested
+    form of the special chrome.certificateProvider.onSignatureRequested
     event (see
-    <https://developer.chrome.com/extensions/certificateProvider#event-onSignDigestRequested>)
+    <https://developer.chrome.com/extensions/certificateProvider#event-onSignatureRequested>)
     which is then forwarded by the App's code to the C++ handler in the
-    NaCl module (see the file ``src/pp_module.cc``).
+    Emscripten module (see the file ``src/application.cc``).
 
 Additionally, the example App contains the following pieces:
 
@@ -64,20 +64,21 @@ Additionally, the example App contains the following pieces:
         library is initialized.
 
         (The initialization is performed inside the constructor of the
-        ``PpInstance`` class in the file ``src/pp_module.cc``.)
+        ``Application`` class in the file ``src/application.cc``.)
 
     *   No PC/SC-Lite API function calls should be made on the main
         thread.
 
-        (For the justification, please refer to comments in the file
-        ``src/pp_module.cc``.)
+        (The main thread is the same as the JavaScript/page main thread,
+        and it'd deadlock if a blocking operation on it waited for a
+        response from a different extension.)
 
     Apart from the described situations, PC/SC-Lite API function calls
     may be issued at any time on any number of threads.
 
-*   Creation of a separate background thread in the NaCl module that
-    performs a sequence of commands **demonstrating the use of
-    PC/SC-Lite API** (see the file ``src/pp_module.cc``).
+*   Creation of a separate background thread in the Emscripten module
+    that performs a sequence of commands **demonstrating the use of
+    PC/SC-Lite API** (see the file ``src/application.cc``).
 
     Note that this piece is here just for the demonstration purposes, so
     it can be removed safely.
@@ -149,8 +150,6 @@ root.
         used::
 
             <path/to/chrome/binary> \
-                --enable-nacl \
-                --enable-pnacl \
                 --no-first-run \
                 --user-data-dir=user-data-dir \
 

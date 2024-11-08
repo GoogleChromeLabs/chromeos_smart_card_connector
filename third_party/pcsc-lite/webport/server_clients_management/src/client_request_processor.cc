@@ -1030,7 +1030,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardTransmit(
     // placeholder substitution internally, but only when no input parameter was
     // passed - therefore without any effect on the output arguments.)
     //
-    // But as this NaCl port always returns the value of this output argument to
+    // But as this web port always returns the value of this output argument to
     // the callers, even when the caller didn't supply the input parameter with
     // the protocol, then this SCARD_PROTOCOL_ANY placeholder value has to be
     // replaced with some actual protocol value. There is no absolutely reliable

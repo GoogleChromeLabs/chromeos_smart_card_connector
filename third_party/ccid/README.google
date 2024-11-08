@@ -8,7 +8,6 @@ A generic USB CCID (Chip/Smart Card Interface Devices) driver and ICCD
 Local Modifications:
 LICENSE file has been created for compliance purposes. Not included in original
 distribution.
-Added building scripts for building the library under Emscripten and Google
-Native Client.
+Added building scripts for building the library under Emscripten.
 The config template was modified to have the DRIVER_OPTION_USE_BOGUS_FIRMWARE
 flag enabled in the ifdDriverOptions config option.

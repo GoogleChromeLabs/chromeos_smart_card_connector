@@ -13,10 +13,10 @@
 // limitations under the License.
 
 // This file provides polyfills for POSIX inter-process communication
-// primitives. As web packaging technologies (WebAssembly, and previously NaCl)
-// don't support multiprocess execution, our polyfills are in-process simulation
-// of these primitives. The polyfills are also severely simplified, with the
-// main objective to address our use cases in this project.
+// primitives. As WebAssembly doesn't support multiprocess execution natively,
+// our polyfills are in-process simulation of these primitives. The polyfills
+// are also severely simplified, with the main objective to address our use
+// cases in this project.
 
 #ifndef GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_IPC_EMULATION_H_
 #define GOOGLE_SMART_CARD_COMMON_CPP_SRC_PUBLIC_IPC_EMULATION_H_

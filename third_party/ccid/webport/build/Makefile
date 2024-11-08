@@ -14,10 +14,10 @@
 # along with this library; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-# This makefile builds the port of CCID library under the Native Client.
+# This makefile builds the port of CCID library under the Emscripten.
 #
-# Upon successful build, the resulting static library is installed into the NaCl
-# SDK libraries directory.
+# Upon successful build, the resulting static library is installed into the
+# Emscripten's libraries subdirectory.
 
 TARGET := google_smart_card_ccid
 
@@ -34,7 +34,7 @@ include ../include.mk
 
 CCID_SOURCES_PATH := ../../src/src
 
-CCID_NACL_SOURCES_PATH := ../src
+CCID_WEBPORT_SOURCES_PATH := ../src
 
 
 # Rules for invoking the source files compilation into object files
@@ -76,12 +76,12 @@ CCID_SOURCES := \
 
 # * BUNDLE constant contains the name of subdirectory under the PC/SC-Lite
 #   server driver configs directory (see also the PCSCLITE_HP_DROPDIR constant);
-# * USE_SYSLOG enables using syslog functions for logging, which in this NaCl
+# * USE_SYSLOG enables using syslog functions for logging, which in this web
 #   port are redefined in order to log both to stderr and to JavaScript console
 #   (see the /common/cpp/ library);
 # * VERSION constant contains the CCID version;
 # * __linux definition allows to use some header files that are usually provided
-#   under Linux (but are actually provided by the NaCl SDK too);
+#   under Linux (but are actually provided by the Emscripten SDK too);
 # * The "macro-redefined" warning diagnostic is disabled because of some
 #   non-clean code;
 CCID_CPPFLAGS := \
@@ -90,7 +90,7 @@ CCID_CPPFLAGS := \
 	-DUSE_SYSLOG \
 	-DVERSION='"$(CCID_VERSION)"' \
 	-D__linux \
-	-I$(CCID_NACL_SOURCES_PATH) \
+	-I$(CCID_WEBPORT_SOURCES_PATH) \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src/public/logging/syslog \
 	-I$(ROOT_PATH)/third_party/libusb/src/libusb \
@@ -105,7 +105,7 @@ CCID_OPENCT_SOURCES := \
 
 CCID_OPENCT_CPPFLAGS := \
 	$(COMMON_CPPFLAGS) \
-	-I$(CCID_NACL_SOURCES_PATH) \
+	-I$(CCID_WEBPORT_SOURCES_PATH) \
 	-I$(CCID_SOURCES_PATH) \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 
@@ -117,7 +117,7 @@ CCID_TOWITOKO_SOURCES := \
 
 CCID_TOWITOKO_CPPFLAGS := \
 	$(COMMON_CPPFLAGS) \
-	-I$(CCID_NACL_SOURCES_PATH) \
+	-I$(CCID_WEBPORT_SOURCES_PATH) \
 	-I$(CCID_SOURCES_PATH) \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 	-I$(ROOT_PATH)/third_party/libusb/src/libusb \
@@ -127,7 +127,7 @@ $(foreach src,$(CCID_TOWITOKO_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CCID_
 # Rules for compiling webport helper C++ sources:
 
 CCID_WEBPORT_SOURCES := \
-	$(CCID_NACL_SOURCES_PATH)/ccid_pcsc_driver_adaptor.cc \
+	$(CCID_WEBPORT_SOURCES_PATH)/ccid_pcsc_driver_adaptor.cc \
 
 # * Pass the "CCID_SO_INSTALLATION_PATH" constant to the C++ code.
 # * Specify include search paths.

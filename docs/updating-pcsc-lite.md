@@ -15,7 +15,7 @@ Reasons for pinning to a specific version of the daemon:
 
 * Potentially, adjustments in our code or in the building scripts might be
   required after updating to new versions (note that we don't run the daemon
-  verbatim, but instead port it under the Native Client technology to run inside
+  verbatim, but instead port it under the Emscripten technology to run inside
   the JavaScript-based App);
 * We can test the daemon version and assure its quality on ChromeOS.
 

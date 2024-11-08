@@ -33,7 +33,7 @@
 // PC/SC-Lite's original code. This define must precede any include of a
 // standard header, which is why we have to replicate it here (the original
 // PC/SC-Lite's config.h doesn't include standard headers).
-// In some configurations (e.g., NaCl), this macro is already predefined, hence
+// In some build configurations this macro is already predefined, hence
 // wrap this code into an ifndef.
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
