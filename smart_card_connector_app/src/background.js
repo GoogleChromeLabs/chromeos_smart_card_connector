@@ -246,9 +246,14 @@ function onMessagePortConnected(port) {
   if (port.name ===
       GSC.ConnectorApp.Window.Constants.DEVICE_LIST_MESSAGING_PORT_NAME) {
     setUpSendingDeviceList(port);
-  } else if (port.name ===
+  } else if (
+      port.name ===
       GSC.ConnectorApp.Window.Constants.CLIENT_APP_LIST_MESSAGING_PORT_NAME) {
     setUpSendingAppList(port);
+  } else if (
+      port.name ===
+      GSC.ConnectorApp.Window.Constants.CRASH_EVENT_MESSAGING_PORT_NAME) {
+    setUpSendingCrashEvent(port);
   }
   // Ignore the port otherwise.
 }
@@ -286,6 +291,22 @@ function setUpSendingAppList(port) {
   messageChannelPool.addOnUpdateListener(onClientsUpdated);
   channel.addOnDisposeCallback(() => {
     readerTracker.removeOnUpdateListener(onClientsUpdated);
+  });
+}
+
+/**
+ * Start sending the crash notification over the given port (it's created by the
+ * window).
+ * @param {!Port} port
+ */
+function setUpSendingCrashEvent(port) {
+  const channel = new GSC.PortMessageChannel(port);
+
+  executableModule.addOnDisposeCallback(() => {
+    if (channel.isDisposed()) {
+      return;
+    }
+    channel.send('', {});
   });
 }
 
@@ -372,14 +393,4 @@ function createClientHandler(clientMessageChannel, clientOrigin) {
   else
     goog.log.fine(logger, logMessage);
 }
-
-/**
- * Sets global variables to be used by the main window (once it's opened).
- */
-function exposeGlobalsForMainWindow() {
-  goog.global['googleSmartCard_executableModuleDisposalSubscriber'] =
-      addOnExecutableModuleDisposedListener;
-}
-
-exposeGlobalsForMainWindow();
 });  // goog.scope
