@@ -32,4 +32,11 @@ const GSC = GoogleSmartCard;
  */
 GSC.ConnectorApp.Window.Constants.DEVICE_LIST_MESSAGING_PORT_NAME =
     'available-devices';
+
+/**
+ * We open a message port with this name to the background page, to learn about
+ * the currently connected client applications.
+ */
+GSC.ConnectorApp.Window.Constants.CLIENT_APP_LIST_MESSAGING_PORT_NAME =
+    'connected-clients';
 });  // goog.scope
