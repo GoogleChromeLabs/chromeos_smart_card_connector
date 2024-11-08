@@ -114,48 +114,14 @@ function onUpdateListener(clientOriginList) {
       });
 }
 
-/**
- * @param {!Window=} backgroundPage
- */
-function initializeWithBackgroundPage(backgroundPage) {
-  GSC.Logging.checkWithLogger(logger, backgroundPage);
-  goog.asserts.assert(backgroundPage);
-
-  goog.log.fine(logger, 'Registering listener on connected clients update');
-
-  /**
-   * Points to the "addOnUpdateListener" method of the MessageChannelPool
-   * instance that is owned by the background page.
-   */
-  const appListSubscriber =
-      /** @type {function(function(!Array.<string>))} */
-      (GSC.ObjectHelpers.extractKey(
-          backgroundPage, 'googleSmartCard_clientAppListUpdateSubscriber'));
-  // Start tracking the current list of apps.
-  appListSubscriber(onUpdateListener);
-
-  /**
-   * Points to the "removeOnUpdateListener" method of the MessageChannelPool
-   * instance that is owned by the background page.
-   */
-  const appListUnsubscriber =
-      /** @type {function(function(!Array.<string>))} */
-      (GSC.ObjectHelpers.extractKey(
-          backgroundPage, 'googleSmartCard_clientAppListUpdateUnsubscriber'));
-
-  // Stop tracking the current list of apps when our window gets closed.
-  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
-    chrome.app.window.current().onClosed.addListener(function() {
-      appListUnsubscriber(onUpdateListener);
-    });
-  } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
-    window.addEventListener('unload', function() {
-      appListUnsubscriber(onUpdateListener);
-    });
-  }
-}
-
 GSC.ConnectorApp.Window.AppsDisplaying.initialize = function() {
-  chrome.runtime.getBackgroundPage(initializeWithBackgroundPage);
+  const port = new GSC.PortMessageChannel(chrome.runtime.connect({
+    'name':
+        GSC.ConnectorApp.Window.Constants.CLIENT_APP_LIST_MESSAGING_PORT_NAME
+  }));
+  port.registerService('', (data) => {
+    const clientOriginList = /** @type !Array.<string> */ (data);
+    onUpdateListener(clientOriginList);
+  }, /*opt_objectPayload=*/ true);
 };
 });  // goog.scope

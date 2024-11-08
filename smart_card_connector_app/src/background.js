@@ -246,6 +246,9 @@ function onMessagePortConnected(port) {
   if (port.name ===
       GSC.ConnectorApp.Window.Constants.DEVICE_LIST_MESSAGING_PORT_NAME) {
     setUpSendingDeviceList(port);
+  } else if (port.name ===
+      GSC.ConnectorApp.Window.Constants.CLIENT_APP_LIST_MESSAGING_PORT_NAME) {
+    setUpSendingAppList(port);
   }
   // Ignore the port otherwise.
 }
@@ -265,6 +268,24 @@ function setUpSendingDeviceList(port) {
   readerTracker.addOnUpdateListener(onReadersUpdated);
   channel.addOnDisposeCallback(() => {
     readerTracker.removeOnUpdateListener(onReadersUpdated);
+  });
+}
+
+/**
+ * Start sending the current list of connected client apps over the given port
+ * (it's created by the window).
+ * @param {!Port} port
+ */
+function setUpSendingAppList(port) {
+  const channel = new GSC.PortMessageChannel(port);
+
+  function onClientsUpdated(clientOriginList) {
+    channel.send('', clientOriginList);
+  }
+
+  messageChannelPool.addOnUpdateListener(onClientsUpdated);
+  channel.addOnDisposeCallback(() => {
+    readerTracker.removeOnUpdateListener(onClientsUpdated);
   });
 }
 
@@ -358,10 +379,6 @@ function createClientHandler(clientMessageChannel, clientOrigin) {
 function exposeGlobalsForMainWindow() {
   goog.global['googleSmartCard_executableModuleDisposalSubscriber'] =
       addOnExecutableModuleDisposedListener;
-  goog.global['googleSmartCard_clientAppListUpdateSubscriber'] =
-      messageChannelPool.addOnUpdateListener.bind(messageChannelPool);
-  goog.global['googleSmartCard_clientAppListUpdateUnsubscriber'] =
-      messageChannelPool.removeOnUpdateListener.bind(messageChannelPool);
 }
 
 exposeGlobalsForMainWindow();
