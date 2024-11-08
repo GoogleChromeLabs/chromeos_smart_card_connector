@@ -246,8 +246,8 @@ function onMessagePortConnected(port) {
   if (port.name ===
       GSC.ConnectorApp.Window.Constants.DEVICES_MESSAGING_PORT_NAME) {
     setUpSendingDeviceList(port);
-    return;
   }
+  // Ignore the port otherwise.
 }
 
 /**
