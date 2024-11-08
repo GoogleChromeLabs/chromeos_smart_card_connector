@@ -1,7 +1,6 @@
-#!/usr/bin/env python
+# Copyright 2024 Google Inc.
+# All Rights Reserved.
 #
-# Copyright 2009, Google Inc.
-# All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -29,50 +28,42 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""upload_gtest.py v0.1.0 -- uploads a Google Test patch for review.
+# https://bazel.build/external/overview#bzlmod
 
-This simple wrapper passes all command line flags and
---cc=googletestframework@googlegroups.com to upload.py.
+module(
+    name = "googletest",
+    version = "1.15.2",
+    compatibility_level = 1,
+)
 
-USAGE: upload_gtest.py [options for upload.py]
-"""
+# Only direct dependencies need to be listed below.
+# Please keep the versions in sync with the versions in the WORKSPACE file.
 
-__author__ = 'wan@google.com (Zhanyong Wan)'
+bazel_dep(name = "abseil-cpp",
+          version = "20240116.2",
+          repo_name = "com_google_absl")
 
-import os
-import sys
+bazel_dep(name = "platforms",
+          version = "0.0.10")
 
-CC_FLAG = '--cc='
-GTEST_GROUP = 'googletestframework@googlegroups.com'
+bazel_dep(name = "re2",
+          repo_name = "com_googlesource_code_re2",
+          version = "2024-07-02")
 
+bazel_dep(name = "rules_python",
+          version = "0.34.0",
+          dev_dependency = True)
 
-def main():
-  # Finds the path to upload.py, assuming it is in the same directory
-  # as this file.
-  my_dir = os.path.dirname(os.path.abspath(__file__))
-  upload_py_path = os.path.join(my_dir, 'upload.py')
+# https://rules-python.readthedocs.io/en/stable/toolchains.html#library-modules-with-dev-only-python-usage
+python = use_extension(
+    "@rules_python//python/extensions:python.bzl",
+    "python",
+    dev_dependency = True
+)
 
-  # Adds Google Test discussion group to the cc line if it's not there
-  # already.
-  upload_py_argv = [upload_py_path]
-  found_cc_flag = False
-  for arg in sys.argv[1:]:
-    if arg.startswith(CC_FLAG):
-      found_cc_flag = True
-      cc_line = arg[len(CC_FLAG):]
-      cc_list = [addr for addr in cc_line.split(',') if addr]
-      if GTEST_GROUP not in cc_list:
-        cc_list.append(GTEST_GROUP)
-      upload_py_argv.append(CC_FLAG + ','.join(cc_list))
-    else:
-      upload_py_argv.append(arg)
+python.toolchain(python_version = "3.12",
+                 is_default = True,
+                 ignore_root_user_error = True)
 
-  if not found_cc_flag:
-    upload_py_argv.append(CC_FLAG + GTEST_GROUP)
-
-  # Invokes upload.py with the modified command line flags.
-  os.execv(upload_py_path, upload_py_argv)
-
-
-if __name__ == '__main__':
-  main()
+fake_fuchsia_sdk = use_repo_rule("//:fake_fuchsia_sdk.bzl", "fake_fuchsia_sdk")
+fake_fuchsia_sdk(name = "fuchsia_sdk")
