@@ -20,6 +20,7 @@ goog.provide('GoogleSmartCard.ConnectorApp.BackgroundMain');
 goog.require('GoogleSmartCard.BackgroundPageUnloadPreventing');
 goog.require('GoogleSmartCard.ConnectorApp.Background.MainWindowManaging');
 goog.require('GoogleSmartCard.ConnectorApp.ChromeApiProvider');
+goog.require('GoogleSmartCard.ConnectorApp.Window.Constants');
 goog.require('GoogleSmartCard.EmscriptenModule');
 goog.require('GoogleSmartCard.ExecutableModule');
 goog.require('GoogleSmartCard.LibusbLoginStateHook');
@@ -120,6 +121,7 @@ executableModule.startLoading();
 if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP)
   chrome.app.runtime.onLaunched.addListener(launchedListener);
 
+chrome.runtime.onConnect.addListener(onMessagePortConnected);
 chrome.runtime.onConnectExternal.addListener(externalConnectionListener);
 chrome.runtime.onMessageExternal.addListener(externalMessageListener);
 
@@ -236,6 +238,37 @@ function externalMessageListener(message, sender) {
 }
 
 /**
+ * Called when another page within our extension opened a port to us (the
+ * Service Worker or, if we're a Chrome App, the Background Page).
+ * @param {!Port} port
+ */
+function onMessagePortConnected(port) {
+  if (port.name ===
+      GSC.ConnectorApp.Window.Constants.DEVICE_LIST_MESSAGING_PORT_NAME) {
+    setUpSendingDeviceList(port);
+  }
+  // Ignore the port otherwise.
+}
+
+/**
+ * Start sending the current list of devices over the given port (it's created
+ * by the window).
+ * @param {!Port} port
+ */
+function setUpSendingDeviceList(port) {
+  const channel = new GSC.PortMessageChannel(port);
+
+  function onReadersUpdated(readers) {
+    channel.send('', readers);
+  }
+
+  readerTracker.addOnUpdateListener(onReadersUpdated);
+  channel.addOnDisposeCallback(() => {
+    readerTracker.removeOnUpdateListener(onReadersUpdated);
+  });
+}
+
+/**
  * Returns a single message based channel instance that talks to the specified
  * extension - either returns an existing instance if there's one, or creates a
  * new one otherwise. May return null if the channel becomes immediately
@@ -329,10 +362,6 @@ function exposeGlobalsForMainWindow() {
       messageChannelPool.addOnUpdateListener.bind(messageChannelPool);
   goog.global['googleSmartCard_clientAppListUpdateUnsubscriber'] =
       messageChannelPool.removeOnUpdateListener.bind(messageChannelPool);
-  goog.global['googleSmartCard_readerTrackerSubscriber'] =
-      readerTracker.addOnUpdateListener.bind(readerTracker);
-  goog.global['googleSmartCard_readerTrackerUnsubscriber'] =
-      readerTracker.removeOnUpdateListener.bind(readerTracker);
 }
 
 exposeGlobalsForMainWindow();

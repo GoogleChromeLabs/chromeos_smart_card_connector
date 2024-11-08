@@ -22,6 +22,7 @@
 
 goog.provide('GoogleSmartCard.ConnectorApp.Window.DevicesDisplaying');
 
+goog.require('GoogleSmartCard.ConnectorApp.Window.Constants');
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.I18n');
 goog.require('GoogleSmartCard.Logging');
@@ -280,47 +281,14 @@ function onWebusbDeviceSelectionFailed(exc) {
   goog.log.info(logger, `WebUSB selection dialog failed: ${exc}`);
 }
 
-/**
- * @param {!Window=} backgroundPage
- */
-function initializeWithBackgroundPage(backgroundPage) {
-  GSC.Logging.checkWithLogger(logger, backgroundPage);
-  goog.asserts.assert(backgroundPage);
-
-  /**
-   * Points to the "addOnUpdateListener" method of the ReaderTracker instance
-   * that is owned by the background page.
-   */
-  const readerTrackerSubscriber =
-      /** @type {function(function(!Array.<!GSC.PcscLiteServer.ReaderInfo>))} */
-      (GSC.ObjectHelpers.extractKey(
-          backgroundPage, 'googleSmartCard_readerTrackerSubscriber'));
-  // Start tracking the current list of readers.
-  readerTrackerSubscriber(onReadersChanged);
-
-  /**
-   * Points to the "removeOnUpdateListener" method of the ReaderTracker instance
-   * that is owned by the background page.
-   */
-  const readerTrackerUnsubscriber =
-      /** @type {function(function(!Array.<!GSC.PcscLiteServer.ReaderInfo>))} */
-      (GSC.ObjectHelpers.extractKey(
-          backgroundPage, 'googleSmartCard_readerTrackerUnsubscriber'));
-
-  // Stop tracking the current list of readers when our window gets closed.
-  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
-    chrome.app.window.current().onClosed.addListener(function() {
-      readerTrackerUnsubscriber(onReadersChanged);
-    });
-  } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
-    window.addEventListener('unload', function() {
-      readerTrackerUnsubscriber(onReadersChanged);
-    });
-  }
-}
-
 GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
-  chrome.runtime.getBackgroundPage(initializeWithBackgroundPage);
+  const port = new GSC.PortMessageChannel(chrome.runtime.connect({
+    'name': GSC.ConnectorApp.Window.Constants.DEVICE_LIST_MESSAGING_PORT_NAME
+  }));
+  port.registerService('', (data) => {
+    const readers = /** @type !Array.<!GSC.PcscLiteServer.ReaderInfo> */ (data);
+    onReadersChanged(readers);
+  }, /*opt_objectPayload=*/ true);
 
   goog.events.listen(
       addDeviceElement, goog.events.EventType.CLICK, addDeviceClickListener);
