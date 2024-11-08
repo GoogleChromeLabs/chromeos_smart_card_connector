@@ -31,6 +31,7 @@ _BLOCKLIST = [
   'third_party/closure-compiler-binary/src/',
   'third_party/closure-compiler/src/',
   'third_party/closure-library/src/',
+  'third_party/driver-hid5021/src/',
   'third_party/googletest/src/',
   'third_party/libusb/src/',
   'third_party/nacl_sdk/nacl_sdk/',
