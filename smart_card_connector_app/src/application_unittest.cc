@@ -2466,6 +2466,31 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
   EXPECT_EQ(new_active_protocol, active_protocol);
 }
 
+// `SCardReconnect()` call from JS succeeds resetting the card.
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest, SCardReconnectReset) {
+  DWORD new_active_protocol = 0;
+  LONG return_code = SimulateReconnectCallFromJsClient(
+      kFakeHandlerId, scard_handle(), SCARD_SHARE_SHARED,
+      /*preferred_protocols=*/SCARD_PROTOCOL_T1, SCARD_RESET_CARD,
+      new_active_protocol);
+
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+  EXPECT_EQ(new_active_protocol, static_cast<DWORD>(SCARD_PROTOCOL_T1));
+}
+
+// `SCardReconnect()` call from JS succeeds unpowering the card.
+TEST_F(SmartCardConnectorApplicationConnectedReaderTest,
+       SCardReconnectUnpower) {
+  DWORD new_active_protocol = 0;
+  LONG return_code = SimulateReconnectCallFromJsClient(
+      kFakeHandlerId, scard_handle(), SCARD_SHARE_SHARED,
+      /*preferred_protocols=*/SCARD_PROTOCOL_T1, SCARD_UNPOWER_CARD,
+      new_active_protocol);
+
+  EXPECT_EQ(return_code, SCARD_S_SUCCESS);
+  EXPECT_EQ(new_active_protocol, static_cast<DWORD>(SCARD_PROTOCOL_T1));
+}
+
 // Calling a non-existing PC/SC function results in an error (but not crash).
 TEST_F(SmartCardConnectorApplicationSingleClientTest, NonExistingFunctionCall) {
   // Arrange:
