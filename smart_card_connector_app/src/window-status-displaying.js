@@ -52,27 +52,6 @@ function displayNonChromeOsWarningIfNeeded() {
 }
 
 /**
- * @param {!Window=} backgroundPage
- */
-function initializeWithBackgroundPage(backgroundPage) {
-  GSC.Logging.checkWithLogger(logger, backgroundPage);
-  goog.asserts.assert(backgroundPage);
-
-  /**
-   * Points to the "addOnExecutableModuleDisposedListener" method from the
-   * background page.
-   */
-  const executableModuleDisposalSubscriber =
-      /** @type {function(function())} */
-      (GSC.ObjectHelpers.extractKey(
-          backgroundPage,
-          'googleSmartCard_executableModuleDisposalSubscriber'));
-  // Start tracking the disposal status. Note that the callback is called
-  // immediately if the executable module is already disposed of.
-  executableModuleDisposalSubscriber(onExecutableModuleDisposed);
-}
-
-/**
  * Called when the C/C++ executable module gets disposed of.
  */
 function onExecutableModuleDisposed() {
@@ -81,6 +60,12 @@ function onExecutableModuleDisposed() {
 
 GSC.ConnectorApp.Window.StatusDisplaying.initialize = function() {
   displayNonChromeOsWarningIfNeeded();
-  chrome.runtime.getBackgroundPage(initializeWithBackgroundPage);
+
+  const port = new GSC.PortMessageChannel(chrome.runtime.connect({
+    'name': GSC.ConnectorApp.Window.Constants.CRASH_EVENT_MESSAGING_PORT_NAME
+  }));
+  port.registerService('', () => {
+    onExecutableModuleDisposed();
+  });
 };
 });

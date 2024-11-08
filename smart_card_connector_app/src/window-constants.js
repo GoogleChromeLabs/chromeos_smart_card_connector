@@ -39,4 +39,10 @@ GSC.ConnectorApp.Window.Constants.DEVICE_LIST_MESSAGING_PORT_NAME =
  */
 GSC.ConnectorApp.Window.Constants.CLIENT_APP_LIST_MESSAGING_PORT_NAME =
     'connected-clients';
+
+/**
+ * We open a message port with this name to the background page, to learn about
+ * the crashes in the application.
+ */
+GSC.ConnectorApp.Window.Constants.CRASH_EVENT_MESSAGING_PORT_NAME = 'crashed';
 });  // goog.scope
