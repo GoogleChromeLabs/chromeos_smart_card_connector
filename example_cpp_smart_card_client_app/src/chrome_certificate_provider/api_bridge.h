@@ -57,9 +57,7 @@ class CertificatesRequestHandler {
 // Handler of the signature request.
 //
 // For the related original JavaScript definition, refer to:
-// <https://developer.chrome.com/extensions/certificateProvider#event-onSignatureRequested>
-// and
-// <https://developer.chrome.com/extensions/certificateProvider#event-onSignDigestRequested>.
+// <https://developer.chrome.com/extensions/certificateProvider#event-onSignatureRequested>.
 class SignatureRequestHandler {
  public:
   virtual ~SignatureRequestHandler() = default;

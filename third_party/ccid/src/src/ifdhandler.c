@@ -19,21 +19,11 @@
 
 #include <config.h>
 
-#ifdef HAVE_STDIO_H
 #include <stdio.h>
-#endif
-#ifdef HAVE_STRING_H
 #include <string.h>
-#endif
-#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
-#endif
-#ifdef HAVE_UNISTD_H
 #include <unistd.h>
-#endif
-#ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
-#endif
 
 #include "misc.h"
 #include <pcsclite.h>
@@ -52,17 +42,13 @@
 #include "strlcpycat.h"
 #include "sys_generic.h"
 
-#ifdef HAVE_PTHREAD
 #include <pthread.h>
-#endif
 
 /* Array of structures to hold the ATR and other state value of each slot */
 static CcidDesc CcidSlots[CCID_DRIVER_MAX_READERS];
 
 /* global mutex */
-#ifdef HAVE_PTHREAD
 static pthread_mutex_t ifdh_context_mutex = PTHREAD_MUTEX_INITIALIZER;
-#endif
 
 _Atomic int LogLevel = DEBUG_LEVEL_CRITICAL | DEBUG_LEVEL_INFO;
 int DriverOptions = 0;
@@ -80,9 +66,7 @@ static int get_IFSC(ATR_t *atr, int *i);
 
 static void FreeChannel(int reader_index)
 {
-#ifdef HAVE_PTHREAD
 	(void)pthread_mutex_lock(&ifdh_context_mutex);
-#endif
 
 	(void)ClosePort(reader_index);
 
@@ -91,9 +75,7 @@ static void FreeChannel(int reader_index)
 
 	ReleaseReaderIndex(reader_index);
 
-#ifdef HAVE_PTHREAD
 	(void)pthread_mutex_unlock(&ifdh_context_mutex);
-#endif
 }
 
 static RESPONSECODE CreateChannelByNameOrChannel(DWORD Lun,
@@ -115,15 +97,11 @@ static RESPONSECODE CreateChannelByNameOrChannel(DWORD Lun,
 		DEBUG_INFO3("Lun: " DWORD_X ", Channel: " DWORD_X, Lun, Channel);
 	}
 
-#ifdef HAVE_PTHREAD
 	(void)pthread_mutex_lock(&ifdh_context_mutex);
-#endif
 
 	reader_index = GetNewReaderIndex(Lun);
 
-#ifdef HAVE_PTHREAD
 	(void)pthread_mutex_unlock(&ifdh_context_mutex);
-#endif
 
 	if (-1 == reader_index)
 		return IFD_COMMUNICATION_ERROR;
@@ -433,7 +411,6 @@ EXTERNAL RESPONSECODE IFDHGetCapabilities(DWORD Lun, DWORD Tag,
 				*Value = 0;
 			break;
 
-#ifdef HAVE_PTHREAD
 		case TAG_IFD_SIMULTANEOUS_ACCESS:
 			if (*Length >= 1)
 			{
@@ -457,7 +434,6 @@ EXTERNAL RESPONSECODE IFDHGetCapabilities(DWORD Lun, DWORD Tag,
 			else
 				return_value = IFD_ERROR_INSUFFICIENT_BUFFER;
 			break;
-#endif
 
 		case TAG_IFD_SLOTS_NUMBER:
 			if (*Length >= 1)
@@ -1215,7 +1191,7 @@ EXTERNAL RESPONSECODE IFDHPowerICC(DWORD Lun, DWORD Action,
 
 	unsigned int nlength;
 	RESPONSECODE return_value = IFD_SUCCESS;
-	unsigned char pcbuffer[10+MAX_ATR_SIZE];
+	unsigned char pcbuffer[MAX_ATR_SIZE];
 	int reader_index;
 #ifndef NO_LOG
 	const char *actions[] = { "PowerUp", "PowerDown", "Reset" };
@@ -1909,6 +1885,72 @@ EXTERNAL RESPONSECODE IFDHControl(DWORD Lun, DWORD dwControlCode,
 			*pdwBytesReturned = iBytesReturned;
 		}
 	}
+
+#ifdef ENABLE_MULTIPLE_ENABLED_PROFILES
+	/* Multiple Enabled Profiles (MEP)
+	 * https://source.android.com/docs/core/connect/esim-mep */
+	if (SCARD_CTL_CODE(3600) == dwControlCode)
+	{
+		DEBUG_INFO1("Control command for MEP");
+
+		if (CCID_CLASS_TPDU != (ccid_descriptor->dwFeatures & CCID_CLASS_EXCHANGE_MASK))
+		{
+			DEBUG_INFO1("Reader is NOT in TPDU mode");
+			return_value = IFD_NOT_SUPPORTED;
+		}
+		else
+		{
+			/* Set T=1 NAD */
+			if (TxLength == 4
+				&& (TxBuffer[0] == 0x3E)
+				&& (TxBuffer[1] == 0x00)
+				&& (TxBuffer[2] == 0x01))
+			{
+				RxBuffer[0] = 0x3E;
+				RxBuffer[1] = 0x00;
+				RxBuffer[2] = 0x01;
+				DEBUG_INFO1("Set NAD value");
+				if (t1_set_param(&CcidSlots[reader_index].t1, IFD_PROTOCOL_T1_NAD,
+					TxBuffer[3]))
+					/* error */
+					RxBuffer[3] = 0x01;
+				else
+					RxBuffer[3] = 0x00;
+				*pdwBytesReturned = 4;
+				return_value = IFD_SUCCESS;
+			}
+
+			/* Get T=1 NAD */
+			if (TxLength == 3
+				&& (TxBuffer[0] == 0x3F)
+				&& (TxBuffer[1] == 0x00)
+				&& (TxBuffer[2] == 0x00))
+			{
+				int value = 0;
+
+				RxBuffer[0] = 0x3F;
+				RxBuffer[1] = 0x00;
+				RxBuffer[2] = 0x02;
+				DEBUG_INFO1("Get NAD value");
+				value = t1_get_param(&CcidSlots[reader_index].t1,
+					IFD_PROTOCOL_T1_NAD);
+				if (-1 == value)
+				{
+					/* error */
+					RxBuffer[3] = 0x01;
+					RxBuffer[4] = 0x00;
+				}
+				else
+				{
+					RxBuffer[3] = 0x00;
+					RxBuffer[4] = value;
+				}
+				*pdwBytesReturned = 5;
+				return_value = IFD_SUCCESS;
+			}
+		}
+	}
+#endif
 
 	if (IFD_SUCCESS != return_value)
 		*pdwBytesReturned = 0;

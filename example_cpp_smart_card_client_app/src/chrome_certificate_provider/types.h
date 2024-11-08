@@ -106,17 +106,11 @@ struct SetCertificatesDetails {
 
 // Structure containing the data of the signature request.
 //
-// Note that either |input| or |digest| will be set (but not both
-// simultaneously).
-//
 // For the corresponding original JavaScript definition, refer to:
-// <https://developer.chrome.com/extensions/certificateProvider#event-onSignatureRequested>
-// and
-// <https://developer.chrome.com/extensions/certificateProvider#event-onSignDigestRequested>.
+// <https://developer.chrome.com/extensions/certificateProvider#event-onSignatureRequested>.
 struct SignatureRequest {
   int sign_request_id;
   std::vector<uint8_t> input;
-  std::vector<uint8_t> digest;  // only used with the legacy API
   Algorithm algorithm;
   std::vector<uint8_t> certificate;
 };

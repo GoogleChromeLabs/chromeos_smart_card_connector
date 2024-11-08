@@ -70,7 +70,7 @@ ${endif}
   # Specify the minimum ChromeOS milestone on which we should work fine.
   # Chosen conservatively as we haven't done much testing on older ChromeOS
   # versions when we were switching to WebAssembly in production.
-  "minimum_chrome_version": "128",
+  "minimum_chrome_version": "126",
 
   "default_locale": "en",
   "icons": {
