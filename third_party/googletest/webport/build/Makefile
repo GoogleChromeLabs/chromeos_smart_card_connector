@@ -31,6 +31,7 @@ else
 $(error Unsupported toolchain $(TOOLCHAIN).)
 endif
 
+STAMP_FILE = build-$(TOOLCHAIN)-$(CONFIG).stamp
 ARTIFACTS_DIR := out-artifacts-$(TOOLCHAIN)-$(CONFIG)
 
 # The command to invoke CMake.
@@ -75,7 +76,7 @@ CMAKE_ARGS += \
 
 endif
 
-all: build.stamp
+all: $(STAMP_FILE)
 
 # Rule that builds GoogleTest using CMake.
 #
@@ -92,15 +93,16 @@ all: build.stamp
 # E env: Wraps the succeeding cmake call into the "env" tool that allows to
 #   specify environment variables.
 # B: Build directory.
-build.stamp: | $(ARTIFACTS_DIR)/dir.stamp $(LIB_DIR)/dir.stamp
-	rm -f build.stamp
+$(STAMP_FILE): | $(ARTIFACTS_DIR)/dir.stamp $(LIB_DIR)/dir.stamp
+	rm -f $(STAMP_FILE)
 	$(CMAKE_ENV) $(CMAKE_TOOL) \
 		../../src \
 		-B $(ARTIFACTS_DIR) \
 		$(CMAKE_ARGS)
 	+$(MAKE) -C $(ARTIFACTS_DIR)
 	cp $(ARTIFACTS_DIR)/lib/*.a $(LIB_DIR)/
-	touch build.stamp
+	touch $(STAMP_FILE)
 
-# Add the temporary build directory for deletion when running "make clean".
+# Add the temporary build files for deletion when running "make clean".
+$(eval $(call CLEAN_RULE,$(STAMP_FILE)))
 $(eval $(call CLEAN_RULE,$(ARTIFACTS_DIR)))
