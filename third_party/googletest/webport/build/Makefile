@@ -31,70 +31,8 @@ else
 $(error Unsupported toolchain $(TOOLCHAIN).)
 endif
 
-# Library files that are created by this Makefile.
-#
-# Comments for the libraries:
-# * libtest - GoogleTest's implementation.
-# * libgmock - GoogleMock's implementation.
-# * libgtest_main/libgmock_main - standard test runner (i.e., implementation of
-#   the main() function that runs all tests).
-TARGET_LIBS := \
-	$(LIB_DIR)/libgmock.a \
-	$(LIB_DIR)/libgmock_main.a \
-	$(LIB_DIR)/libgtest.a \
-	$(LIB_DIR)/libgtest_main.a \
-
-# A make pattern for TARGET_LIBS. In this pattern, "%" denotes an arbitrary
-# sequence of characters, which evaluates to ".a" in this case.
-#
-# We use this pattern below for writing a rule that builds all these files at
-# once, instead of the regular make behavior that'll call the build script 4
-# times (once for each file). Note: in Make >=4.3 there's a more intuitive
-# alternative (the "&:" rules), but at the moment Make 4.3 isn't widespread
-# enough.
-TARGET_LIBS_PATTERN := \
-	$(LIB_DIR)/libgmock% \
-	$(LIB_DIR)/libgmock_main% \
-	$(LIB_DIR)/libgtest% \
-	$(LIB_DIR)/libgtest_main% \
-
-# Make the target library files be built by default, even when no target is
-# explicitly specified when running "make".
-all: $(TARGET_LIBS)
-
+STAMP_FILE = build-$(TOOLCHAIN)-$(CONFIG).stamp
 ARTIFACTS_DIR := out-artifacts-$(TOOLCHAIN)-$(CONFIG)
-
-# Temporary library files. Note the "d" suffix in file names in Debug builds -
-# that's due to configuration inside the Googletest's CMake scripts.
-ifeq ($(CONFIG),Debug)
-
-ARTIFACTS_LIBS := \
-	$(ARTIFACTS_DIR)/lib/libgmockd.a \
-	$(ARTIFACTS_DIR)/lib/libgmock_maind.a \
-	$(ARTIFACTS_DIR)/lib/libgtestd.a \
-	$(ARTIFACTS_DIR)/lib/libgtest_maind.a \
-
-else
-
-ARTIFACTS_LIBS := \
-	$(ARTIFACTS_DIR)/lib/libgmock.a \
-	$(ARTIFACTS_DIR)/lib/libgmock_main.a \
-	$(ARTIFACTS_DIR)/lib/libgtest.a \
-	$(ARTIFACTS_DIR)/lib/libgtest_main.a \
-
-endif
-
-# A make pattern for the temporary library files. In this pattern, "%" denotes
-# an arbitrary sequence of characters, which evaluates to ".a" in Release builds
-# and "d.a" in Debug ones.
-#
-# The reason we use pattern rules is that it avoids executing a rule multiple
-# times - see the doc on TARGET_LIBS_PATTERN above.
-ARTIFACTS_LIBS_PATTERN := \
-	$(ARTIFACTS_DIR)/lib/libgmock% \
-	$(ARTIFACTS_DIR)/lib/libgmock_main% \
-	$(ARTIFACTS_DIR)/lib/libgtest% \
-	$(ARTIFACTS_DIR)/lib/libgtest_main% \
 
 # The command to invoke CMake.
 #
@@ -138,51 +76,33 @@ CMAKE_ARGS += \
 
 endif
 
-# Rule for building temporary library files, including compiling GoogleTest.
+all: $(STAMP_FILE)
+
+# Rule that builds GoogleTest using CMake.
 #
 # Notes:
-# * We use a pattern rule (note the "%" character) in order to tell Make trigger
-#   this rule only once to produce all 4 files.
 # * The build is performed in a temporary "out-artifacts" directory, separately
 #   from source files and this Makefle.
 # * After "cmake" completes, a regular "make" is used in order to actually run
 #   the compilation according to prepared scripts.
+# * The create *.a static libraries are copied into the resulting libraries dir.
+# * If all previous steps succeeded, we generate the "build.stamp" file to
+#   designate the successful completion.
 #
 # Explanation of parameters to cmake:
 # E env: Wraps the succeeding cmake call into the "env" tool that allows to
 #   specify environment variables.
 # B: Build directory.
-$(ARTIFACTS_LIBS_PATTERN): | $(ARTIFACTS_DIR)/dir.stamp
+$(STAMP_FILE): | $(ARTIFACTS_DIR)/dir.stamp $(LIB_DIR)/dir.stamp
+	rm -f $(STAMP_FILE)
 	$(CMAKE_ENV) $(CMAKE_TOOL) \
 		../../src \
 		-B $(ARTIFACTS_DIR) \
 		$(CMAKE_ARGS)
 	+$(MAKE) -C $(ARTIFACTS_DIR)
+	cp $(ARTIFACTS_DIR)/lib/*.a $(LIB_DIR)/
+	touch $(STAMP_FILE)
 
-# Rule for creating target library files, as copies of the temporary libraries.
-#
-# Notes:
-# * We use a pattern rule (note the "%" character) in order to tell Make trigger
-#   this rule only once to produce all 4 files.
-# * Debug and Release configurations are handled separately, since GoogleTest
-#   adds the "d" suffix to the temporary library file names in Debug builds.
-ifeq ($(CONFIG),Debug)
-$(TARGET_LIBS_PATTERN): $(ARTIFACTS_LIBS)
-	cp $(ARTIFACTS_DIR)/lib/libgmockd.a $(LIB_DIR)/libgmock.a
-	cp $(ARTIFACTS_DIR)/lib/libgmock_maind.a $(LIB_DIR)/libgmock_main.a
-	cp $(ARTIFACTS_DIR)/lib/libgtestd.a $(LIB_DIR)/libgtest.a
-	cp $(ARTIFACTS_DIR)/lib/libgtest_maind.a $(LIB_DIR)/libgtest_main.a
-else
-$(TARGET_LIBS_PATTERN): $(ARTIFACTS_LIBS)
-	cp $(ARTIFACTS_DIR)/lib/libgmock.a $(LIB_DIR)/libgmock.a
-	cp $(ARTIFACTS_DIR)/lib/libgmock_main.a $(LIB_DIR)/libgmock_main.a
-	cp $(ARTIFACTS_DIR)/lib/libgtest.a $(LIB_DIR)/libgtest.a
-	cp $(ARTIFACTS_DIR)/lib/libgtest_main.a $(LIB_DIR)/libgtest_main.a
-endif
-
-# Make sure LIB_DIR is created before we copy .a files into it (using an
-# order-only dependency).
-$(TARGET_LIBS): | $(LIB_DIR)/dir.stamp
-
-# Add the temporary build directory for deletion when running "make clean".
+# Add the temporary build files for deletion when running "make clean".
+$(eval $(call CLEAN_RULE,$(STAMP_FILE)))
 $(eval $(call CLEAN_RULE,$(ARTIFACTS_DIR)))
