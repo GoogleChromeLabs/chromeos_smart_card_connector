@@ -45,7 +45,8 @@ constexpr uint8_t kFakeCert1Der[] = {1, 2, 3};
 constexpr Algorithm kFakeCert1Algorithms[] = {Algorithm::kRsassaPkcs1v15Sha256};
 constexpr uint8_t kFakeCert2Der[] = {4};
 constexpr Algorithm kFakeCert2Algorithms[] = {Algorithm::kRsassaPkcs1v15Sha512,
-                                              Algorithm::kRsassaPkcs1v15Sha1};
+                                              Algorithm::kRsassaPkcs1v15Sha1,
+                                              Algorithm::kRsassaPssSha256};
 
 ClientCertificateInfo GetFakeCert1() {
   ClientCertificateInfo info;

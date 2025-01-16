@@ -213,4 +213,8 @@ if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
 
 // Automatically load the App (in the background) with Chrome startup.
 GSC.AppUtils.enableSelfAutoLoading();
+
+// Trigger the PC/SC test.
+executableModule.getMessageChannel().send(
+    'ui_backend', {'command': 'run_test'});
 });  // goog.scope
