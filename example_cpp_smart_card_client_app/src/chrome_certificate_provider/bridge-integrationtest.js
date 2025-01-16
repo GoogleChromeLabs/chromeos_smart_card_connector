@@ -36,7 +36,7 @@ const FAKE_CERT_1_DER = new Uint8Array([1, 2, 3]);
 const FAKE_CERT_1_ALGORITHMS = ['RSASSA_PKCS1_v1_5_SHA256'];
 const FAKE_CERT_2_DER = new Uint8Array([4]);
 const FAKE_CERT_2_ALGORITHMS =
-    ['RSASSA_PKCS1_v1_5_SHA512', 'RSASSA_PKCS1_v1_5_SHA1'];
+    ['RSASSA_PKCS1_v1_5_SHA512', 'RSASSA_PKCS1_v1_5_SHA1', 'RSASSA_PSS_SHA256'];
 
 /** @type {GSC.IntegrationTestController?} */
 let testController;
