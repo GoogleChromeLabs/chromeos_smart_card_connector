@@ -17,6 +17,9 @@
   "chrome-extension://lpimdiknnpijeigckalekdccibdmeojg": {
     "name": "CACKey"
   },
+  "chrome-extension://anjihnbmjbbpofafpmklejenkgnjfcdi": {
+    "name": "Citrix Back Up Build / Rollback App"
+  },
   "chrome-extension://lbfgjakkeeccemhonnolnmglmfmccaag": {
     "name": "Citrix Workspace - EAR"
   },
