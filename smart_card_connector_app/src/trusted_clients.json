@@ -26,6 +26,9 @@
   "chrome-extension://kdndmepchimlohdcdkokdddpbnniijoa": {
     "name": "Citrix Workspace - Internal Build"
   },
+  "isolated-app://ov6jyjge37xqptadeo5e2n6ayoxdjqw62pgm4afavkqbnqfpesraaaic": {
+    "name": "Citrix Workspace IWA - Internal Build"
+  },
   "chrome-extension://djkkpfimmenglkapoanbonjbpgbkckag": {
     "name": "BAIMobile Sample Access PKCS11"
   },
