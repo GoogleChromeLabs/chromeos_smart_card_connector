@@ -28,7 +28,7 @@ ${endif}
   "short_name": "__MSG_appShortName__",
   "description": "__MSG_appDesc__",
 
-  "version": "1.7.0",
+  "version": "1.8.0",
 
 ${if PACKAGING=app}
   "app": {
