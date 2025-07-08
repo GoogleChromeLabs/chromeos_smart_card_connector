@@ -41,11 +41,39 @@ const logger = GSC.Logging.getScopedLogger('ConnectorApp.ChromeApiProvider');
 const STATE_FLAGS_MASK = 0x0000FFFF;
 
 /**
- * Returns the data in form of ArrayBuffer. This is needed because
- * `chrome.usb` version uses ArrayBuffer, while WebUSB version just `Array`.
- * @param {!(ArrayBuffer|Array)} data
+ * Returns the data in form of ArrayBuffer.
+ *
+ * This is needed due to a difference in how the Emscripten module is hosted
+ * between the legacy Chrome App and the Manifest V3 extension.
+ * Reference: `createExecutableModule` function in 
+ *   `smart_card_connector_app/src/background.js`
+ *
+ * In the Manifest V3 extension, the WebAssembly module runs in an Offscreen
+ * Document. Communication between the service worker (where this code runs) and
+ * the Offscreen Document happens via message passing. During this process,
+ * `ArrayBuffer` objects are serialized into plain `Array`s of numbers.
+ *
+ * In the legacy Chrome App, the module runs in the same context as this code,
+ * so no message passing or serialization occurs, and `ArrayBuffer`s are
+ * returned directly.
+ *
+ * To be more precise:
+ * 1) `PcscLiteClientRequestProcessor::SCardTransmit` returns the data as a
+ *    `std::vector<uint8_t>`
+ * 2) which is then used to construct `google_smart_card::Value` with type
+ *    `kBinary`
+ * 3) which is then explicitly converted to `Uint8Array` in
+ *    `google_smart_card::CreateArrayBufferVal`
+ * And then, only in the extension version, the resulting value is sent
+ * (serialized to plain text) from the Offscreen Document javascript context
+ * to the service worker context and lands here. The serialization part is
+ * `GSC.ContainerHelpers.substituteArrayBufferLikeObjectsRecursively`.
+ *
+ * @param {!(ArrayBuffer|Array)} data The data, which might be an `ArrayBuffer`
+ *     (in the app context) or an `Array` (in the extension context).
  * @return {!ArrayBuffer}
- * @throws {Error} Will throw if something else than `DataView` and `Array` is passed.
+ * @throws {Error} Will throw if something else than `DataView` and `Array` is
+ *     passed.
  */
 function convertToArrayBuffer(data) {
   if (Array.isArray(data)) {
