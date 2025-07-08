@@ -41,6 +41,23 @@ const logger = GSC.Logging.getScopedLogger('ConnectorApp.ChromeApiProvider');
 const STATE_FLAGS_MASK = 0x0000FFFF;
 
 /**
+ * Returns the data in form of ArrayBuffer. This is needed because
+ * `chrome.usb` version uses ArrayBuffer, while WebUSB version just `Array`.
+ * @param {!(ArrayBuffer|Array)} data
+ * @return {!ArrayBuffer}
+ * @throws {Error} Will throw if something else than `DataView` and `Array` is passed.
+ */
+function convertToArrayBuffer(data) {
+  if (Array.isArray(data)) {
+    return new Uint8Array(data).buffer;
+  } else if (data instanceof ArrayBuffer) {
+    return data;
+  } else {
+    throw new Error(`Unknown data type received from PCSC. data type: ${typeof data}, data: ${JSON.stringify(data)}.`);
+  }
+}
+
+/**
  * Returns the result code for chrome.smartCardProviderPrivate API that
  * corresponds to the given PCSC error.
  * @param {!PcscApi.ERROR_CODE} errorCode
@@ -870,7 +887,7 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
       const result = new PcscApi.SCardTransmitResult(responseItems);
       result.get(
           (pci, data) => {
-            resultData = data;
+            resultData = convertToArrayBuffer(data);
             resultCode = chrome.smartCardProviderPrivate.ResultCode.SUCCESS;
           },
           (errorCode) => {
@@ -910,7 +927,7 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
       const result = new PcscApi.SCardControlResult(responseItems);
       result.get(
           (data) => {
-            resultData = data;
+            resultData = convertToArrayBuffer(data);
             resultCode = chrome.smartCardProviderPrivate.ResultCode.SUCCESS;
           },
           (errorCode) => {
@@ -949,7 +966,7 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
       const result = new PcscApi.SCardGetAttribResult(responseItems);
       result.get(
           (data) => {
-            resultData = data;
+            resultData = convertToArrayBuffer(data);
             resultCode = chrome.smartCardProviderPrivate.ResultCode.SUCCESS;
           },
           (errorCode) => {
