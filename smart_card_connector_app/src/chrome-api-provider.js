@@ -81,7 +81,8 @@ function convertToArrayBuffer(data) {
   } else if (data instanceof ArrayBuffer) {
     return data;
   } else {
-    throw new Error(`Unknown data type received from PCSC. data type: ${typeof data}, data: ${JSON.stringify(data)}.`);
+    throw new Error(`Unknown data type received from PCSC. " +
+      "Data type: ${typeof data}, data: ${JSON.stringify(data)}.`);
   }
 }
 
