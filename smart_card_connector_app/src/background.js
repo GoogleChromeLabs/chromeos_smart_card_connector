@@ -290,7 +290,7 @@ function setUpSendingAppList(port) {
 
   messageChannelPool.addOnUpdateListener(onClientsUpdated);
   channel.addOnDisposeCallback(() => {
-    readerTracker.removeOnUpdateListener(onClientsUpdated);
+    messageChannelPool.removeOnUpdateListener(onClientsUpdated);
   });
 }
 
