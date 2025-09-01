@@ -45,7 +45,7 @@ const STATE_FLAGS_MASK = 0x0000FFFF;
  *
  * This is needed due to a difference in how the Emscripten module is hosted
  * between the legacy Chrome App and the Manifest V3 extension.
- * Reference: `createExecutableModule` function in 
+ * Reference: `createExecutableModule` function in
  *   `smart_card_connector_app/src/background.js`
  *
  * In the Manifest V3 extension, the WebAssembly module runs in an Offscreen
@@ -242,7 +242,7 @@ function convertReaderStateOut(readerState) {
     reader: readerState['reader_name'],
     eventState: readerStateFlags,
     eventCount: eventCount,
-    atr: readerState['atr']
+    atr: convertToArrayBuffer(readerState['atr'])
   };
 }
 
@@ -447,7 +447,14 @@ function createRequestListener(callback, reportResultFunction, nameForLogs) {
         logger,
         `Reporting result for the event with id ${requestId}, ` +
             `${nameForLogs}(${argsDebug}): [${resultDebug}]`);
-    reportResultFunction(requestId, ...result);
+    try {
+      reportResultFunction(requestId, ...result);
+    } catch (error) {
+      goog.log.error(
+          logger,
+          `Failed to report result for the event with id ${requestId}, ` +
+              `${nameForLogs}(${argsDebug}). Error: ${JSON.stringify(error)}`);
+    }
   };
 }
 
@@ -1079,7 +1086,7 @@ GSC.ConnectorApp.ChromeApiProvider = class extends goog.Disposable {
             resultReaderName = readerName;
             resultState = convertConnectionStateToEnum(state);
             resultProtocol = convertProtocolToEnum(protocol);
-            resultAtr = atr;
+            resultAtr = convertToArrayBuffer(atr);
             resultCode = chrome.smartCardProviderPrivate.ResultCode.SUCCESS;
           },
           (errorCode) => {
