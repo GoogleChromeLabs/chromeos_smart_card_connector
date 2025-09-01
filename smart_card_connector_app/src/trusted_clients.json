@@ -117,5 +117,12 @@
   },
   "isolated-app://q2oy25prsvhmxocjxs2badhyi3uw7vqhrupfn66iflserug4st6qaaic": {
     "name": "Xtralogic RDP Client"
+  },
+  "chrome-extension://agicampiiinkgdgceoknnjecpoamgigi": {
+    "name": "Identity Card Connector"
+  },
+  "chrome-extension://deckiahhkidlhlnmnkpphddgmkdkmgfe": {
+    "name": "Identity Card Connector (dev)",
+    "autoapprove": true
   }
 }
