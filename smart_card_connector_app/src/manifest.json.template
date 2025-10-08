@@ -28,7 +28,7 @@ ${endif}
   "short_name": "__MSG_appShortName__",
   "description": "__MSG_appDesc__",
 
-  "version": "1.8.0",
+  "version": "4.0.1",
 
 ${if PACKAGING=app}
   "app": {
@@ -68,7 +68,7 @@ ${if PACKAGING=extension}
 ${endif}
 
   # Specify the minimum ChromeOS milestone on which we should work fine.
-  "minimum_chrome_version": "139",
+  "minimum_chrome_version": "138",
 
   "default_locale": "en",
   "icons": {
