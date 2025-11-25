@@ -124,5 +124,13 @@
   "chrome-extension://deckiahhkidlhlnmnkpphddgmkdkmgfe": {
     "name": "Identity Card Connector (dev)",
     "autoapprove": true
+  },
+  "chrome-extension://eagmgpbjpedchliifpgfgogdknnmkaej": {
+    "name": "IDmelon WebLogin",
+    "autoapprove": true
+  },
+  "chrome-extension://mnejefleopgpkjplbcbcgkdbnkdolomj": {
+    "name": "IDmelon WebLogin (Latest)",
+    "autoapprove": true
   }
 }
