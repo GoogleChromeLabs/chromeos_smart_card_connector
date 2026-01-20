@@ -179,7 +179,7 @@ RESPONSECODE CmdPowerOn(unsigned int reader_index, unsigned int * nlength,
 
 	if ((ccid_descriptor->dwFeatures & CCID_CLASS_AUTO_VOLTAGE)
 		|| (ccid_descriptor->dwFeatures & CCID_CLASS_AUTO_ACTIVATION))
-		voltage = 0;	/* automatic voltage selection */
+		voltage = VOLTAGE_AUTO;	/* automatic voltage selection */
 	else
 	{
 		int bVoltageSupport = ccid_descriptor->bVoltageSupport;
@@ -188,19 +188,19 @@ check_again:
 		if ((1 == voltage) && !(bVoltageSupport & 1))
 		{
 			DEBUG_INFO1("5V requested but not supported by reader");
-			voltage = 2;	/* 3V */
+			voltage = VOLTAGE_3V;	/* 3V */
 		}
 
 		if ((2 == voltage) && !(bVoltageSupport & 2))
 		{
 			DEBUG_INFO1("3V requested but not supported by reader");
-			voltage = 3;	/* 1.8V */
+			voltage = VOLTAGE_1_8V;	/* 1.8V */
 		}
 
 		if ((3 == voltage) && !(bVoltageSupport & 4))
 		{
 			DEBUG_INFO1("1.8V requested but not supported by reader");
-			voltage = 1;	/* 5V */
+			voltage = VOLTAGE_5V;	/* 5V */
 
 			/* do not (infinite) loop if bVoltageSupport == 0 */
 			if (bVoltageSupport)
@@ -211,7 +211,7 @@ check_again:
 
 again:
 	bSeq = (*ccid_descriptor->pbSeq)++;
-	cmd[0] = 0x62; /* IccPowerOn */
+	cmd[0] = PC_to_RDR_IccPowerOn;
 	cmd[1] = cmd[2] = cmd[3] = cmd[4] = 0;	/* dwLength */
 	cmd[5] = ccid_descriptor->bCurrentSlotIndex;	/* slot number */
 	cmd[6] = bSeq;
@@ -311,7 +311,7 @@ RESPONSECODE SecurePINVerify(unsigned int reader_index,
 	uint32_t ulDataLength;
 
 	pvs = (PIN_VERIFY_STRUCTURE *)TxBuffer;
-	cmd[0] = 0x69;	/* Secure */
+	cmd[0] = PC_to_RDR_Secure;
 	cmd[5] = ccid_descriptor->bCurrentSlotIndex;	/* slot number */
 	cmd[6] = (*ccid_descriptor->pbSeq)++;
 	cmd[7] = 0;		/* bBWI */
@@ -663,7 +663,7 @@ RESPONSECODE SecurePINModify(unsigned int reader_index,
 	uint32_t ulDataLength;
 
 	pms = (PIN_MODIFY_STRUCTURE *)TxBuffer;
-	cmd[0] = 0x69;	/* Secure */
+	cmd[0] = PC_to_RDR_Secure;
 	cmd[5] = ccid_descriptor->bCurrentSlotIndex;	/* slot number */
 	cmd[6] = (*ccid_descriptor->pbSeq)++;
 	cmd[7] = 0;		/* bBWI */
@@ -945,7 +945,7 @@ RESPONSECODE CmdEscapeCheck(unsigned int reader_index,
 	status_t res;
 	unsigned int length_in, length_out;
 	RESPONSECODE return_value = IFD_SUCCESS;
-	int old_read_timeout;
+	int old_read_timeout = -1;
 	_ccid_descriptor *ccid_descriptor = get_ccid_descriptor(reader_index);
 
 	/* a value of 0 do not change the default read timeout */
@@ -973,7 +973,7 @@ again:
 	}
 
 	bSeq = (*ccid_descriptor->pbSeq)++;
-	cmd_in[0] = 0x6B; /* PC_to_RDR_Escape */
+	cmd_in[0] = PC_to_RDR_Escape;
 	i2dw(length_in - 10, cmd_in+1);	/* dwLength */
 	cmd_in[5] = ccid_descriptor->bCurrentSlotIndex;	/* slot number */
 	cmd_in[6] = bSeq;
@@ -1122,7 +1122,7 @@ RESPONSECODE CmdPowerOff(unsigned int reader_index)
 #endif
 
 	bSeq = (*ccid_descriptor->pbSeq)++;
-	cmd[0] = 0x63; /* IccPowerOff */
+	cmd[0] = PC_to_RDR_IccPowerOff;
 	cmd[1] = cmd[2] = cmd[3] = cmd[4] = 0;	/* dwLength */
 	cmd[5] = ccid_descriptor->bCurrentSlotIndex;	/* slot number */
 	cmd[6] = bSeq;
@@ -1156,7 +1156,8 @@ RESPONSECODE CmdPowerOff(unsigned int reader_index)
  *					CmdGetSlotStatus
  *
  ****************************************************************************/
-RESPONSECODE CmdGetSlotStatus(unsigned int reader_index, unsigned char buffer[])
+RESPONSECODE CmdGetSlotStatus(unsigned int reader_index,
+	unsigned char buffer[static SIZE_GET_SLOT_STATUS])
 {
 	unsigned char cmd[10];
 	int bSeq;
@@ -1248,7 +1249,7 @@ again_status:
 #endif
 
 	bSeq = (*ccid_descriptor->pbSeq)++;
-	cmd[0] = 0x65; /* GetSlotStatus */
+	cmd[0] = PC_to_RDR_GetSlotStatus;
 	cmd[1] = cmd[2] = cmd[3] = cmd[4] = 0;	/* dwLength */
 	cmd[5] = ccid_descriptor->bCurrentSlotIndex;	/* slot number */
 	cmd[6] = bSeq;
@@ -1391,7 +1392,7 @@ RESPONSECODE CCID_Transmit(unsigned int reader_index, unsigned int tx_length,
 	}
 #endif
 
-	cmd[0] = 0x6F; /* XfrBlock */
+	cmd[0] = PC_to_RDR_XfrBlock;
 	i2dw(tx_length, cmd+1);	/* APDU length */
 	cmd[5] = ccid_descriptor->bCurrentSlotIndex;	/* slot number */
 	cmd[6] = (*ccid_descriptor->pbSeq)++;
@@ -2309,7 +2310,7 @@ static RESPONSECODE CmdXfrBlockTPDU_T1(unsigned int reader_index,
 RESPONSECODE SetParameters(unsigned int reader_index, char protocol,
 	unsigned int length, unsigned char buffer[])
 {
-	unsigned char cmd[10+length];	/* CCID + APDU buffer */
+	unsigned char cmd[10+length+2];	/* CCID + Protocol Data Structure */
 	int bSeq;
 	_ccid_descriptor *ccid_descriptor = get_ccid_descriptor(reader_index);
 	status_t res;
@@ -2317,7 +2318,7 @@ RESPONSECODE SetParameters(unsigned int reader_index, char protocol,
 	DEBUG_COMM2("length: %d bytes", length);
 
 	bSeq = (*ccid_descriptor->pbSeq)++;
-	cmd[0] = 0x61; /* SetParameters */
+	cmd[0] = PC_to_RDR_SetParameters;
 	i2dw(length, cmd+1);	/* APDU length */
 	cmd[5] = ccid_descriptor->bCurrentSlotIndex;	/* slot number */
 	cmd[6] = bSeq;

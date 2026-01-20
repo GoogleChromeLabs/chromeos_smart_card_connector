@@ -166,10 +166,10 @@ static void parse_properties(unsigned char *bRecvBuffer, int length)
 				PRINT_GREEN_DEC(" dwMaxAPDUDataSize", value);
 				break;
 			case PCSCv2_PART10_PROPERTY_wIdVendor:
-				PRINT_GREEN_HEX2(" wIdVendor", value);
+				PRINT_GREEN_HEX4(" wIdVendor", value);
 				break;
 			case PCSCv2_PART10_PROPERTY_wIdProduct:
-				PRINT_GREEN_HEX2(" wIdProduct", value);
+				PRINT_GREEN_HEX4(" wIdProduct", value);
 				break;
 			default:
 				printf(" Unknown tag: 0x%02X (length = %d)\n", tag, len);
@@ -714,12 +714,15 @@ int main(int argc, char *argv[])
 		error = true;
 
 	PCSC_ERROR_CONT(rv, "SCardControl")
-	printf(error ? RED : GREEN);
-	printf(" card response [%"LF"d bytes]:", length);
-	for (i=0; i<length; i++)
-		printf(" %02X", bRecvBuffer[i]);
-	printf(": %s", pinpad_return_codes(length, bRecvBuffer));
-	printf(NORMAL "\n");
+	if (SCARD_S_SUCCESS == rv)
+	{
+		printf(error ? RED : GREEN);
+		printf(" card response [%"LF"d bytes]:", length);
+		for (i=0; i<length; i++)
+			printf(" %02X", bRecvBuffer[i]);
+		printf(": %s", pinpad_return_codes(length, bRecvBuffer));
+		printf(NORMAL "\n");
+	}
 	if (2 == length)
 	{
 		sw1 = bRecvBuffer[0];
@@ -894,12 +897,15 @@ int main(int argc, char *argv[])
 		error = true;
 
 	PCSC_ERROR_CONT(rv, "SCardControl")
-	printf(error ? RED : GREEN);
-	printf(" card response [%"LF"d bytes]:", length);
-	for (i=0; i<length; i++)
-		printf(" %02X", bRecvBuffer[i]);
-	printf(": %s", pinpad_return_codes(length, bRecvBuffer));
-	printf(NORMAL "\n");
+	if (SCARD_S_SUCCESS == rv)
+	{
+		printf(error ? RED : GREEN);
+		printf(" card response [%"LF"d bytes]:", length);
+		for (i=0; i<length; i++)
+			printf(" %02X", bRecvBuffer[i]);
+		printf(": %s", pinpad_return_codes(length, bRecvBuffer));
+		printf(NORMAL "\n");
+	}
 	if (2 == length)
 	{
 		sw1 = bRecvBuffer[0];

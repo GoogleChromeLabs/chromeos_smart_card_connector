@@ -18,7 +18,6 @@
 
 # Alcor Micro
 0x058F:0x9520:Alcor Micro AU9520
-0x058F:0x9540:Alcor Micro AU95x0
 
 # Athena
 0x0DC3:0x1004:Athena ASE IIIe
@@ -29,6 +28,9 @@
 
 # C3PO
 0x0783:0x0006:C3PO LTC31 v2
+
+# CHERRY
+0x046A:0x0202:CHERRY Smart Terminal 1150
 
 # Cherry GmbH
 0x046A:0x0005:Cherry GmbH SmartBoard XX33
@@ -194,6 +196,7 @@
 
 # Alcor Micro
 0x058F:0x9522:Alcor Micro AU9522
+0x058F:0x9540:Alcor Micro AU95x0
 
 # Alpha-Project
 0x2A0C:0x0021:Alpha-Project ANGARA Token
@@ -205,6 +208,9 @@
 0x2406:0x5003:appidkey GmbH ID50 -USB
 0x2406:0x5004:appidkey GmbH ID100L-USB-SC-Reader
 0x2406:0x5006:appidkey GmbH ID60-USB
+
+# Arculus
+0x3752:0x0001:Arculus AuthentiKey
 
 # ArkSigner
 0x33B6:0x0001:ArkSigner Connect2Sign
@@ -501,6 +507,9 @@
 0x1059:0x000C:Giesecke & Devrient GmbH Star Sign Card Token 350 (ICCD)
 0x1059:0x000D:Giesecke & Devrient GmbH Star Sign Card Token 550 (ICCD)
 
+# GIGA-TMS
+0x1667:0x0053:GIGA-TMS NFC CCID Reader
+
 # GIS Ltd
 0x0F1A:0x0002:GIS Ltd SmartMouse USB
 
@@ -547,6 +556,9 @@
 0x04A4:0x00C7:Hitachi, Ltd. Hitachi Biometric Reader
 0x04A4:0x00D4:Hitachi, Ltd. Hitachi Portable Biometric Reader
 
+# HSIC
+0x1D99:0x0016:HSIC CCID-Reader
+
 # id3 Semiconductors
 0x0B81:0x0220:id3 Semiconductors CL1356A_HID
 
@@ -556,6 +568,7 @@
 0x04E6:0x5713:Identiv CLOUD 2980 F Smart Card Reader
 0x04E6:0x5724:Identiv Identiv uTrust 4701 F Dual Interface Reader
 0x04E6:0x5725:Identiv Identiv uTrust 4711 F CL + SAM Reader
+0x04E6:0x5727:Identiv Identiv SmartOS Reader
 0x04E6:0x5790:Identiv uTrust 3700 F CL Reader
 0x04E6:0x5791:Identiv uTrust 3701 F CL Reader
 0x04E6:0x5811:Identiv uTrust 2900 R Smart Card Reader
@@ -676,6 +689,7 @@
 0x2C97:0x4009:Ledger Nano X
 0x2C97:0x5009:Ledger Nano S Plus
 0x2C97:0x6009:Ledger Stax
+0x2C97:0x7009:Ledger Flex
 
 # Lenovo
 0x17EF:0x6007:Lenovo Lenovo USB Smartcard Keyboard
@@ -834,9 +848,6 @@
 0x356F:0x22FC:Sensyl SSC-NFC Reader
 0x356F:0x23FE:Sensyl SSC-HV Reader
 
-# SIMHUB
-0x1677:0x0341:SIMHUB pcsc reader
-
 # Sitecom
 0x0DF6:0x800A:Sitecom Sitecom USB simcard reader MD-010
 
@@ -892,6 +903,9 @@
 # Swissbit
 0x1370:0x0901:Swissbit Secure USB PU-50n SE/PE
 
+# SYC
+0x0483:0x2017:SYC USB CCID Reader
+
 # SYNNIX
 0x1206:0x2105:SYNNIX STD200
 0x1206:0x2107:SYNNIX CL-2100R
@@ -908,6 +922,7 @@
 # Thales
 0x08E6:0x34C7:Thales Shield M4 Reader
 0x17B9:0x400B:Thales RF Reader
+0x17B9:0x400F:Thales RF CR2000
 
 # THURSBY SOFTWARE
 0x1976:0x0001:THURSBY SOFTWARE TSS-PK1
@@ -922,7 +937,20 @@
 0x0B0C:0x0052:Todos CX00
 
 # TOKEN2
+0x349E:0x0013:TOKEN2 FIDO2 Security Key(0013),PIN+ Mini with OTP + PGP
+0x349E:0x0014:TOKEN2 FIDO2 Security Key(0014),PIN+ Mini with FIDO + PGP
+0x349E:0x0015:TOKEN2 FIDO2 Security Key(0015),PIN+ Mini with PGP
+0x349E:0x0016:TOKEN2 FIDO2 Security Key(0016),PIN+ Mini with OTP + PGP + FIDO
+0x349E:0x0023:TOKEN2 FIDO2 Security Key(0023),PIN+ Series with OTP + PGP
+0x349E:0x0024:TOKEN2 FIDO2 Security Key(0024),PIN+ Series with FIDO + PGP
+0x349E:0x0025:TOKEN2 FIDO2 Security Key(0025),PIN+ Series with PGP
+0x349E:0x0026:TOKEN2 FIDO2 Security Key(0026)
+0x349E:0x0203:TOKEN2 FIDO2 Security Key(0203),Bio3 Dual with OTP + PGP
+0x349E:0x0204:TOKEN2 FIDO2 Security Key(0204),Bio3 Dual with FIDO + PGP
+0x349E:0x0205:TOKEN2 FIDO2 Security Key(0205),Bio3 Dual with PGP
+0x349E:0x0206:TOKEN2 FIDO2 Security Key(0206),Bio3 Dual with OTP + PGP + FIDO
 0x349E:0x0300:TOKEN2 Molto2
+0x1EA8:0x800F:TOKEN2 Molto2
 
 # TOKEN2 MFA
 0x349E:0x0430:TOKEN2 MFA NFC Reader
@@ -958,6 +986,9 @@
 0x1A44:0x0875:VASCO DIGIPASS 875
 0x1A44:0x0920:VASCO DIGIPASS 920
 
+# VIX TECHNOLOGY
+0x2336:0x0000:VIX TECHNOLOGY SECURE READER
+
 # VMware
 0x0E0F:0x0004:VMware Virtual USB CCID
 
@@ -970,7 +1001,7 @@
 0x163C:0x0418:Watchdata USB Key
 
 # Watchdata W5181
-0x163C:0x0A03:Watchdata W5181 
+0x163C:0x0A03:Watchdata W5181
 
 # WCMi
 0x34EB:0x1506:WCMi SD5931
@@ -1013,6 +1044,9 @@
 # ATMEL
 0x03EB:0x6016:ATMEL VaultIC460
 
+# BHDC
+0x155B:0x8202:BHDC Reader-HHD02
+
 # Broadcom Corp
 0x0A5C:0x5800:Broadcom Corp 5880
 0x0A5C:0x5801:Broadcom Corp 5880
@@ -1053,6 +1087,9 @@
 # RSA
 0x15E1:0x2007:RSA RSA SecurID (R) Authenticator
 
+# SIMHUB
+0x1677:0x0341:SIMHUB pcsc reader
+
 # THRC
 0x062D:0x0001:THRC Smart Card Reader
 
@@ -1064,6 +1101,9 @@
 
 # DUALi
 #0x1DB2:0x0600:DUALi DE-ABCM6
+
+# DUALi Inc.
+#0x1DB2:0x0604:DUALi Inc. DRAGON BT
 
 # HID OMNIKEY
 #0x076B:0x5340:HID OMNIKEY 5021 CL
@@ -1190,4 +1230,3 @@
 
 #0x0F14:0x003D:Ingenico WITEO USB Smart Card Reader (Ingenico_WITEO_badge.txt)
 #0x0F14:0x003D:Ingenico WITEO USB Smart Card Reader (Ingenico_WITEO_base.txt)
-

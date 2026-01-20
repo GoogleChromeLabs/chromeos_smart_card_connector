@@ -18,8 +18,20 @@
 */
 
 #include <stdbool.h>
+#include <pthread.h>
 
-typedef struct
+// Uncomment if you want to synchronize the card movements on the 2
+// interfaces of the Microchip SEC 1210 reader
+// #define SEC1210_SYNC
+
+#ifdef SEC1210_SYNC
+struct _sec1210_cond {
+	pthread_cond_t sec1210_cond;
+	pthread_mutex_t sec1210_mutex;
+};
+#endif
+
+typedef struct _ccid_descriptor
 {
 	/*
 	 * CCID Sequence number
@@ -160,6 +172,12 @@ typedef struct
 	 */
 	bool zlp;
 #endif
+
+#ifdef SEC1210_SYNC
+	struct _sec1210_cond * sec1210_shared;
+	struct _ccid_descriptor *sec1210_other_interface;
+	int sec1210_interface;
+#endif
 } _ccid_descriptor;
 
 /* Features from dwFeatures */
@@ -194,12 +212,39 @@ typedef struct
 #define PROTOCOL_ICCD_A	1	/* ICCD Version A */
 #define PROTOCOL_ICCD_B	2	/* ICCD Version B */
 
+/* Known CCID bMessageType values. */
+/* Command Pipe, Bulk-OUT Messages */
+#define PC_to_RDR_IccPowerOn 0x62
+#define PC_to_RDR_IccPowerOff 0x63
+#define PC_to_RDR_GetSlotStatus 0x65
+#define PC_to_RDR_XfrBlock 0x6F
+#define PC_to_RDR_GetParameters 0x6C
+#define PC_to_RDR_ResetParameters 0x6D
+#define PC_to_RDR_SetParameters 0x61
+#define PC_to_RDR_Escape 0x6B
+#define PC_to_RDR_IccClock 0x6E
+#define PC_to_RDR_T0APDU 0x6A
+#define PC_to_RDR_Secure 0x69
+#define PC_to_RDR_Mechanical 0x71
+#define PC_to_RDR_Abort 0x72
+#define PC_to_RDR_SetDataRateAndClockFrequency 0x73
+/* Response Pipe, Bulk-IN Messages */
+#define RDR_to_PC_DataBlock 0x80
+#define RDR_to_PC_SlotStatus 0x81
+#define RDR_to_PC_Parameters 0x82
+#define RDR_to_PC_Escape 0x83
+#define RDR_to_PC_DataRateAndClockFrequency 0x84
+/* Interrupt-IN Messages */
+#define RDR_to_PC_NotifySlotChange 0x50
+#define RDR_to_PC_HardwareError 0x51
+
 /* Product identification for special treatments */
 #define GEMPC433	0x08E64433
 #define GEMPCKEY	0x08E63438
 #define GEMPCTWIN	0x08E63437
 #define GEMPCPINPAD 0x08E63478
 #define GEMCORESIMPRO 0x08E63480
+#define THALES_FUSION_NFC 0x08E634D2
 #define GEMCORESIMPRO2 0x08E60000 /* Does NOT match a real VID/PID as new firmware release exposes same VID/PID */
 #define GEMCOREPOSPRO 0x08E63479
 #define GEMALTOPROXDU 0x08E65503
@@ -212,6 +257,7 @@ typedef struct
 #define SCR331DINTTCOM	0x04E65120
 #define SDI010		0x04E65121
 #define SEC1210	0x04241202
+#define SEC1210URT 0x04241104
 #define CHERRYXX33	0x046A0005
 #define CHERRYST2000	0x046A003E
 #define OZ776		0x0B977762
@@ -263,6 +309,7 @@ typedef struct
 #define ACS_ACR1552				0x072F2303
 #define KAPELSE_KAPLIN2			0x29470105
 #define KAPELSE_KAPECV			0x29470112
+#define ACS_ACR122U				0x072f2200
 
 #define VENDOR_KAPELSE 0x2947
 #define VENDOR_GEMALTO 0x08E6
