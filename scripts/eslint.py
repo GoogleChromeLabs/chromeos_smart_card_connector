@@ -39,6 +39,7 @@ def get_file_paths(args):
 
 def run_linter(path, args):
   env_path = os.path.join(os.path.dirname(__file__), '../env/')
+  os.env["NODE_PATH"] = env_path
   command = ['npm', 'exec', '--prefix', env_path, 'eslint', '--', path]
   if args.fix:
     command += ['--fix']
