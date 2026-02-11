@@ -148,7 +148,7 @@ jobs:
 
     - name: Run ESLint
       run: >
-        scripts/eslint.py --base="${{ steps.lint-scope.outputs.only_diff_to_parent && 'HEAD^1' || 'none' }}"
+        scripts/run-eslint.sh "${{ steps.lint-scope.outputs.only_diff_to_parent && 'HEAD^1' || 'none' }}"
 
   # Collect code coverage statistics.
   collect-coverage:
