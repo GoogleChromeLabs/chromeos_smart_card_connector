@@ -14,6 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+log_message() {
+	local message=${1}
+
+	echo -e "\033[33;32m******* ${message} *******\033[0m"
+}
+
 # Initializes NPM (i.e., creates package.json). The "--yes" flag is used to
 # suppress interactive questions (about "package name", "version", etc.).
 npm init --yes
@@ -31,5 +37,5 @@ npm install eslint eslint-plugin-no-floating-promise
 log_message "eslint was installed successfully."
 
 
-./eslint.py $1
+scripts/eslint.py $1
 log_message "eslint ran successfully."
