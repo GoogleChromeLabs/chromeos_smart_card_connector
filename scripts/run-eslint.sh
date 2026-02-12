@@ -37,5 +37,5 @@ npm install eslint eslint-plugin-no-floating-promise
 log_message "eslint was installed successfully."
 
 
-scripts/eslint.py $1
+scripts/eslint.py --base=$1
 log_message "eslint ran successfully."
