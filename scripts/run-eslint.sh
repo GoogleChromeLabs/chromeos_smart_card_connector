@@ -33,7 +33,7 @@ if npm list eslint >/dev/null; then
   log_message "eslint already present, skipping."
   return
 fi
-npm install eslint eslint-plugin-no-floating-promise
+npm install eslint eslint-plugin-no-floating-promise globals
 log_message "eslint was installed successfully."
 
 
