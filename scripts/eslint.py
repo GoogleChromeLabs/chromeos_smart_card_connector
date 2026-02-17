@@ -39,13 +39,11 @@ def get_file_paths(args):
 
 def run_linter(path, args):
   env_path = os.path.join(os.path.dirname(__file__), '../env/')
-  command = ['npm', 'exec', '--prefix', env_path, 'eslint', '--', path,
-             '--resolve-plugins-relative-to', env_path]
+  os.environ["NODE_PATH"] = env_path
+  command = ['npm', 'exec', '--prefix', env_path, 'eslint', '--', path]
   if args.fix:
     command += ['--fix']
   env = os.environ.copy()
-  # Force the older "eslintrc" config.
-  env['ESLINT_USE_FLAT_CONFIG'] = 'false'
   return subprocess.call(command, env=env) == 0
 
 def main():
