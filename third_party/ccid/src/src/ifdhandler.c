@@ -52,7 +52,7 @@ static pthread_mutex_t ifdh_context_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 _Atomic int LogLevel = DEBUG_LEVEL_CRITICAL | DEBUG_LEVEL_INFO;
 int DriverOptions = 0;
-int PowerOnVoltage = -1;
+static int PowerOnVoltage = -1;
 static bool DebugInitialized = false;
 
 /* local functions */
@@ -299,6 +299,45 @@ static RESPONSECODE IFDHPolling(DWORD Lun, int timeout)
 	return InterruptRead(reader_index, timeout);
 }
 
+#ifdef SEC1210_SYNC
+static RESPONSECODE IFDHPollingSEC1210(DWORD Lun, int timeout)
+{
+	int reader_index;
+
+	if (-1 == (reader_index = LunToReaderIndex(Lun)))
+		return IFD_COMMUNICATION_ERROR;
+
+	/* log only if DEBUG_LEVEL_PERIODIC is set */
+	if (LogLevel & DEBUG_LEVEL_PERIODIC)
+		DEBUG_INFO4(LOG_STRING " (lun: " DWORD_X ") %d ms",
+			CcidSlots[reader_index].readerName, Lun, timeout);
+
+	_ccid_descriptor *ccid_desc = get_ccid_descriptor(reader_index);
+	pthread_cond_wait(&ccid_desc->sec1210_shared->sec1210_cond,
+		&ccid_desc->sec1210_shared->sec1210_mutex);
+
+	return IFD_SUCCESS;
+}
+
+static RESPONSECODE IFDHStopPollingSEC1210(DWORD Lun)
+{
+	int reader_index;
+
+	if (-1 == (reader_index = LunToReaderIndex(Lun)))
+		return IFD_COMMUNICATION_ERROR;
+
+	DEBUG_INFO3(LOG_STRING " (lun: " DWORD_X ")",
+		CcidSlots[reader_index].readerName, Lun);
+
+	_ccid_descriptor *ccid_desc = get_ccid_descriptor(reader_index);
+
+	/* we want to stop the second interface */
+	pthread_cond_signal(&ccid_desc->sec1210_shared->sec1210_cond);
+
+	return IFD_SUCCESS;
+}
+#endif
+
 /* on an ICCD device the card is always inserted
  * so no card movement will ever happen: just do nothing */
 static RESPONSECODE IFDHSleep(DWORD Lun, int timeout)
@@ -522,6 +561,18 @@ EXTERNAL RESPONSECODE IFDHGetCapabilities(DWORD Lun, DWORD Tag,
 						*(void **)Value = IFDHPolling;
 				}
 
+#ifdef SEC1210_SYNC
+				if ((SEC1210 == ccid_desc -> readerID)
+					/* 2nd interface */
+					&& (1 == ccid_desc -> sec1210_interface))
+				{
+					/* 2nd interface has no card presence detector */
+					*Length = sizeof(void *);
+					if (Value)
+						*(void **)Value = IFDHPollingSEC1210;
+				}
+#endif
+
 				if ((PROTOCOL_ICCD_A == ccid_desc->bInterfaceProtocol)
 					|| (PROTOCOL_ICCD_B == ccid_desc->bInterfaceProtocol))
 				{
@@ -567,6 +618,17 @@ EXTERNAL RESPONSECODE IFDHGetCapabilities(DWORD Lun, DWORD Tag,
 					if (Value)
 						*(void **)Value = IFDHStopPolling;
 				}
+
+#ifdef SEC1210_SYNC
+				if ((SEC1210 == ccid_desc -> readerID)
+					/* 2nd inerface */
+					&& (1 == ccid_desc -> sec1210_interface))
+				{
+					*Length = sizeof(void *);
+					if (Value)
+						*(void **)Value = IFDHStopPollingSEC1210;
+				}
+#endif
 			}
 			break;
 #endif
@@ -1030,6 +1092,11 @@ end:
 			(param[3] & 0xF0) >> 4 /* BWI */, param[3] & 0x0F /* CWI */,
 			ccid_desc->dwDefaultClock);
 
+		/* special case for the Thales eToken Fusion NFC */
+		if (THALES_FUSION_NFC == ccid_desc->readerID)
+			/* at least 5 minutes for On Board Key Generation (OBKG) */
+			ccid_desc->readTimeout += 5 * 60 * 1000;
+
 		ifsc = get_IFSC(&atr, &i);
 		if (ifsc > 0)
 		{
@@ -1241,7 +1308,13 @@ EXTERNAL RESPONSECODE IFDHPowerICC(DWORD Lun, DWORD Action,
 
 			/* The German eID card is bogus and need to be powered off
 			 * before a power on */
-			if (KOBIL_IDTOKEN == ccid_descriptor -> readerID)
+			if ((KOBIL_IDTOKEN == ccid_descriptor -> readerID)
+#ifdef SEC1210_SYNC
+				/* power down before power up on the Microchip SEC1210
+				 * second interface */
+				|| ((SEC1210 == ccid_descriptor -> readerID) && (1 == ccid_descriptor->sec1210_interface))
+#endif
+				)
 			{
 				/* send the command */
 				if (IFD_SUCCESS != CmdPowerOff(reader_index))
@@ -1993,6 +2066,21 @@ EXTERNAL RESPONSECODE IFDHICCPresence(DWORD Lun)
 		goto end;
 	}
 
+#ifdef SEC1210_SYNC
+	if ((SEC1210 == ccid_descriptor->readerID)
+		&& (1 == ccid_descriptor->sec1210_interface)
+	   )
+	{
+		DEBUG_INFO1("2nd interface");
+		/* copy card status from 1st interface */
+		if (ccid_descriptor->sec1210_other_interface)
+			return_value = ccid_descriptor->sec1210_other_interface->dwSlotStatus;
+		else
+			return_value = IFD_ICC_NOT_PRESENT;
+		goto end;
+	}
+#endif
+
 	/* save the current read timeout computed from card capabilities */
 	oldReadTimeout = ccid_descriptor->readTimeout;
 
@@ -2102,6 +2190,22 @@ EXTERNAL RESPONSECODE IFDHICCPresence(DWORD Lun)
 
 			return_value = IFD_ICC_NOT_PRESENT;
 		}
+	}
+#endif
+
+#ifdef SEC1210_SYNC
+	if (SEC1210 == ccid_descriptor->readerID)
+	{
+		DEBUG_INFO1("1st interface");
+		if (ccid_descriptor->dwSlotStatus != return_value)
+		{
+			DEBUG_INFO1("status changed");
+			/* the card status changed: signal 2nd interface */
+			pthread_cond_signal(&ccid_descriptor->sec1210_shared->sec1210_cond);
+		}
+
+		/* store current state */
+		ccid_descriptor->dwSlotStatus = return_value;
 	}
 #endif
 

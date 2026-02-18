@@ -7,7 +7,7 @@
 
 project('ccid', 'c',
   meson_version : '>=0.58.0',
-  version : '1.6.1')
+  version : '1.7.0')
 
 # for config.h
 conf_data = configuration_data({
@@ -17,6 +17,9 @@ conf_data = configuration_data({
   'USE_OS_LOG' : get_option('os_log'),
   'USE_COMPOSITE_AS_MULTISLOT' : get_option('composite-as-multislot'),
   })
+
+# global arguments
+add_global_arguments('-fvisibility=hidden', language : 'c')
 
 # tests for functions
 compiler = meson.get_compiler('c')
@@ -28,6 +31,9 @@ if compiler.has_function('strlcat')
 endif
 if compiler.has_function('secure_getenv')
   conf_data.set('HAVE_SECURE_GETENV', true)
+endif
+if compiler.has_function('pthread_condattr_setclock')
+  conf_data.set('HAVE_PTHREAD_CONDATTR_SETCLOCK', true)
 endif
 
 # variables
@@ -149,27 +155,29 @@ executable('parse',
   dependencies : [libusb_dep, pcsc_cflags, zlib_dep, threads_dep],
   )
 
-# scardcontrol
-scardcontrol_src = [
-  'examples/scardcontrol.c',
-  'examples/PCSCv2part10.c',
-  ]
-executable('scardcontrol',
-  scardcontrol_src,
-  dependencies : [pcsc_dep],
-  )
+if get_option('enable-extras')
+  # examples scardcontrol
+  scardcontrol_src = [
+    'examples/scardcontrol.c',
+    'examples/PCSCv2part10.c',
+    ]
+  executable('scardcontrol',
+    scardcontrol_src,
+    dependencies : [pcsc_dep],
+    )
 
-# contrib Kobil_mIDentity_switch
-executable('Kobil_mIDentity_switch',
-  'contrib/Kobil_mIDentity_switch/Kobil_mIDentity_switch.c',
-  dependencies : [libusb_dep],
-  )
+  # contrib Kobil_mIDentity_switch
+  executable('Kobil_mIDentity_switch',
+    'contrib/Kobil_mIDentity_switch/Kobil_mIDentity_switch.c',
+    dependencies : [libusb_dep],
+    )
 
-# contrib RSA_SecurID_getpasswd
-executable('RSA_SecurID_getpasswd',
-  'contrib/RSA_SecurID/RSA_SecurID_getpasswd.c',
-  dependencies : [pcsc_dep],
-  )
+  # contrib RSA_SecurID_getpasswd
+  executable('RSA_SecurID_getpasswd',
+    'contrib/RSA_SecurID/RSA_SecurID_getpasswd.c',
+    dependencies : [pcsc_dep],
+    )
+endif
 
 # Info.plist
 command = [
@@ -193,6 +201,13 @@ custom_target('Info.plist',
   command : command,
   install : true,
   install_dir : join_paths(pcsc_dep.get_variable('usbdropdir'), bundle_id, 'Contents'))
+
+# udev rules
+if get_option('udev-rules')
+  udev = dependency('udev')
+  install_data('src/92_pcscd_ccid.rules',
+    install_dir : join_paths(udev.get_variable(pkgconfig: 'udevdir'), 'rules.d'))
+endif
 
 # generate config.h
 configure_file(output : 'config.h',
