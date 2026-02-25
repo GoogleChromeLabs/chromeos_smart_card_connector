@@ -36,7 +36,7 @@ CONFIG ?= Release
 # "asan_testing", "coverage".
 TOOLCHAIN ?= emscripten
 # Build parameter that specifies the packaging type. Supported values: "app",
-# "extension (default)".
+# "extension" (default).
 PACKAGING ?= extension
 
 
