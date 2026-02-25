@@ -35,9 +35,9 @@ CONFIG ?= Release
 # Supported values: "emscripten" (Emscripten/WebAssembly; default),
 # "asan_testing", "coverage".
 TOOLCHAIN ?= emscripten
-# Build parameter that specifies the packaging type. Supported values: "app"
-# (default), "extension".
-PACKAGING ?= app
+# Build parameter that specifies the packaging type. Supported values: "app",
+# "extension (default)".
+PACKAGING ?= extension
 
 
 #
