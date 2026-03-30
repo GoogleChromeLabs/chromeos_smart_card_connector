@@ -115,6 +115,9 @@
   "chrome-extension://llebpckeffoilhileclionlofjgnhbdp": {
     "name": "Net iD"
   },
+  "chrome-extension://dgpdgmaafebdedpbhccfdegjccjggnjm": {
+    "name": "Net iD for ChromeOS"
+  },
   "isolated-app://q2oy25prsvhmxocjxs2badhyi3uw7vqhrupfn66iflserug4st6qaaic": {
     "name": "Xtralogic RDP Client"
   },
