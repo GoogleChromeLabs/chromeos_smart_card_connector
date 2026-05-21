@@ -90,6 +90,14 @@
     "name": "Guest@Google Kiosk App UAT",
     "autoapprove": true
   },
+  "chrome-extension://jnlhnplbndpohngdfjhmdinlpofclhdp": {
+    "name": "Time Data Security Kiosk Chrome App",
+    "autoapprove": true
+  },
+  "chrome-extension://jcgamccimilnfjpbkbadommjcaplmfod": {
+    "name": "Time Data Security Kiosk Chrome App Test",
+    "autoapprove": true
+  },
   "chrome-untrusted://terminal": {
     "name": "ChromeOS Terminal"
   },
