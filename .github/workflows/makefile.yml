@@ -23,7 +23,7 @@ jobs:
     strategy:
       matrix:
         build-config: [Release, Debug]
-        packaging: [app, extension]
+        packaging: [extension]
       fail-fast: false
 
     steps:
@@ -54,7 +54,7 @@ jobs:
       run: >
         source env/activate && make test
 
-    - name: Upload built app packages
+    - name: Upload built extension packages
       uses: actions/upload-artifact@v4
       with:
         name: built_app_packages.${{ matrix.build-config }}.${{ matrix.packaging }}
