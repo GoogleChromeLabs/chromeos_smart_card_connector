@@ -50,6 +50,7 @@
 #include "common/cpp/src/public/value_builder.h"
 #include "smart_card_connector_app/src/testing_smart_card_simulation.h"
 #include "third_party/libusb/webport/src/libusb_js_proxy_constants.h"
+#include "third_party/pcsc-lite/webport/server_clients_management/src/client_request_processor.h"
 
 using testing::AnyOf;
 using testing::ElementsAre;
@@ -68,6 +69,12 @@ constexpr auto kApplicationShutdownTimeLimit = std::chrono::minutes(1);
 
 // The constant from the PC/SC-Lite API docs.
 constexpr char kPnpNotification[] = R"(\\?PnP?\Notification)";
+// The PC/SC-Lite daemon's limit on the number of simultaneously established
+// contexts (`PCSC_MAX_CONTEXT_THREADS` in PC/SC-Lite's pcscd.h).
+constexpr size_t kPcscLiteDaemonMaxContexts = 200;
+// The Smart Card Connector's limit on the number of contexts per client.
+constexpr size_t kMaxContextsPerClient =
+    PcscLiteClientRequestProcessor::kMaxContextsPerClient;
 // Names of `TestingSmartCardSimulation::DeviceType` items as they appear in the
 // PC/SC-Lite API. The "0" suffix corresponds to the "00 00" part that contains
 // nonzeroes in case there are multiple devices.
@@ -210,6 +217,18 @@ void WaitUntilPredicate(std::function<bool()> predicate) {
     std::this_thread::sleep_for(kPollingInterval);
 }
 
+// Waits until PC/SC-Lite reports all the given contexts as invalid. Useful
+// after removing a client, as its contexts are released by a background thread
+// that shouldn't be still running when the test tears down.
+void WaitUntilContextsReleased(const std::vector<SCARDCONTEXT>& contexts) {
+  WaitUntilPredicate([&] {
+    return std::all_of(
+        contexts.begin(), contexts.end(), [](SCARDCONTEXT scard_context) {
+          return SCardIsValidContext(scard_context) == SCARD_E_INVALID_HANDLE;
+        });
+  });
+}
+
 template <typename Rep, typename Period>
 void AssertDurationNotLonger(std::function<void()> f,
                              std::chrono::duration<Rep, Period> max_duration) {
@@ -344,6 +363,21 @@ class SmartCardConnectorApplicationTest : public ::testing::Test {
                                          .Add(std::move(reserved2))
                                          .Get()),
         out_scard_context);
+  }
+
+  // Establishes `count` contexts one after another, expecting all calls to
+  // succeed.
+  std::vector<SCARDCONTEXT> SimulateEstablishContextsFromJsClient(
+      int handler_id,
+      size_t count) {
+    std::vector<SCARDCONTEXT> scard_contexts(count);
+    for (SCARDCONTEXT& scard_context : scard_contexts) {
+      EXPECT_EQ(SimulateEstablishContextCallFromJsClient(
+                    handler_id, SCARD_SCOPE_SYSTEM, /*reserved1=*/Value(),
+                    /*reserved2=*/Value(), scard_context),
+                SCARD_S_SUCCESS);
+    }
+    return scard_contexts;
   }
 
   LONG SimulateReleaseContextCallFromJsClient(int handler_id,
@@ -829,6 +863,196 @@ TEST_F(SmartCardConnectorApplicationTest, ShutdownWithActiveClient) {
 
   // No act/assert sections, since we just want to check the teardown doesn't
   // crash.
+}
+
+// When a client at the limit on the number of contexts establishes a new one,
+// its least recently used context gets released.
+TEST_F(SmartCardConnectorApplicationTest,
+       ContextsLimitEvictsLeastRecentlyUsed) {
+  constexpr int kHandlerId = 1234;
+
+  // Arrange: establish contexts up to the limit, then use the oldest one, so
+  // that the second oldest becomes the least recently used one.
+  StartApplication();
+  SimulateJsClientAdded(kHandlerId, /*client_name_for_log=*/"foo");
+  std::vector<SCARDCONTEXT> scard_contexts =
+      SimulateEstablishContextsFromJsClient(kHandlerId, kMaxContextsPerClient);
+  EXPECT_EQ(
+      SimulateIsValidContextCallFromJsClient(kHandlerId, scard_contexts[0]),
+      SCARD_S_SUCCESS);
+
+  // Act:
+  SCARDCONTEXT new_scard_context = 0;
+  EXPECT_EQ(SimulateEstablishContextCallFromJsClient(
+                kHandlerId, SCARD_SCOPE_SYSTEM, /*reserved1=*/Value(),
+                /*reserved2=*/Value(), new_scard_context),
+            SCARD_S_SUCCESS);
+
+  // Assert: only the second oldest context got released.
+  EXPECT_EQ(SCardIsValidContext(scard_contexts[1]), SCARD_E_INVALID_HANDLE);
+  EXPECT_EQ(
+      SimulateIsValidContextCallFromJsClient(kHandlerId, scard_contexts[1]),
+      SCARD_E_INVALID_HANDLE);
+  EXPECT_EQ(
+      SimulateIsValidContextCallFromJsClient(kHandlerId, scard_contexts[0]),
+      SCARD_S_SUCCESS);
+  EXPECT_EQ(
+      SimulateIsValidContextCallFromJsClient(kHandlerId, scard_contexts[2]),
+      SCARD_S_SUCCESS);
+  EXPECT_EQ(
+      SimulateIsValidContextCallFromJsClient(kHandlerId, new_scard_context),
+      SCARD_S_SUCCESS);
+
+  // Cleanup:
+  scard_contexts.push_back(new_scard_context);
+  SimulateJsClientRemoved(kHandlerId);
+  WaitUntilContextsReleased(scard_contexts);
+}
+
+// A context with a call in progress isn't released when the client exceeds the
+// limit on the number of contexts, even if it's the least recently used one.
+TEST_F(SmartCardConnectorApplicationTest, ContextsLimitSkipsBusyContext) {
+  constexpr int kHandlerId = 1234;
+
+  // Arrange: establish contexts up to the limit, and start a blocking
+  // `SCardGetStatusChange()` call on the oldest one. A call in progress doesn't
+  // count as a use of the context until it completes, so the context stays the
+  // least recently used one.
+  StartApplication();
+  SimulateJsClientAdded(kHandlerId, /*client_name_for_log=*/"foo");
+  std::vector<SCARDCONTEXT> scard_contexts =
+      SimulateEstablishContextsFromJsClient(kHandlerId, kMaxContextsPerClient);
+  std::future<LONG> pending_status_return_code =
+      std::async(std::launch::async, [&] {
+        std::vector<Value> reader_states;
+        return SimulateGetStatusChangeCallFromJsClient(
+            kHandlerId, scard_contexts[0],
+            /*timeout=*/INFINITE,
+            ArrayValueBuilder()
+                .Add(DictValueBuilder()
+                         .Add("reader_name", kPnpNotification)
+                         .Add("current_state", SCARD_STATE_UNAWARE)
+                         .Get())
+                .Get(),
+            reader_states);
+      });
+  // Check that the call has started and is blocked.
+  EXPECT_EQ(pending_status_return_code.wait_for(std::chrono::seconds(1)),
+            std::future_status::timeout);
+
+  // Act:
+  SCARDCONTEXT new_scard_context = 0;
+  EXPECT_EQ(SimulateEstablishContextCallFromJsClient(
+                kHandlerId, SCARD_SCOPE_SYSTEM, /*reserved1=*/Value(),
+                /*reserved2=*/Value(), new_scard_context),
+            SCARD_S_SUCCESS);
+
+  // Assert: the second oldest context got released instead of the busy one.
+  EXPECT_EQ(SCardIsValidContext(scard_contexts[1]), SCARD_E_INVALID_HANDLE);
+  EXPECT_EQ(SimulateCancelCallFromJsClient(kHandlerId, scard_contexts[0]),
+            SCARD_S_SUCCESS);
+  EXPECT_EQ(pending_status_return_code.get(), SCARD_E_CANCELLED);
+  EXPECT_EQ(
+      SimulateIsValidContextCallFromJsClient(kHandlerId, scard_contexts[0]),
+      SCARD_S_SUCCESS);
+
+  // Cleanup:
+  scard_contexts.push_back(new_scard_context);
+  SimulateJsClientRemoved(kHandlerId);
+  WaitUntilContextsReleased(scard_contexts);
+}
+
+// A client that never releases its contexts can keep establishing new ones,
+// beyond the PC/SC-Lite daemon's limit on the total number of contexts, since
+// its least recently used contexts get released automatically.
+TEST_F(SmartCardConnectorApplicationTest, ContextsLimitAllowsLeakingClient) {
+  constexpr int kHandlerId = 1234;
+
+  // Arrange:
+  StartApplication();
+  SimulateJsClientAdded(kHandlerId, /*client_name_for_log=*/"foo");
+
+  // Act:
+  const std::vector<SCARDCONTEXT> scard_contexts =
+      SimulateEstablishContextsFromJsClient(kHandlerId,
+                                            kPcscLiteDaemonMaxContexts + 1);
+
+  // Assert: only the most recently established contexts are kept.
+  const size_t first_kept_index = scard_contexts.size() - kMaxContextsPerClient;
+  EXPECT_EQ(SCardIsValidContext(scard_contexts[first_kept_index - 1]),
+            SCARD_E_INVALID_HANDLE);
+  EXPECT_EQ(SCardIsValidContext(scard_contexts[first_kept_index]),
+            SCARD_S_SUCCESS);
+
+  // Cleanup:
+  SimulateJsClientRemoved(kHandlerId);
+  WaitUntilContextsReleased(scard_contexts);
+}
+
+// When the PC/SC-Lite daemon's limit on the total number of contexts is
+// reached, establishing a new context fails with an error, but the daemon keeps
+// working.
+TEST_F(SmartCardConnectorApplicationTest, DaemonContextsLimit) {
+  constexpr int kFirstHandlerId = 1;
+  constexpr int kSecondHandlerId = 2;
+  constexpr int kThirdHandlerId = 3;
+  static_assert(3 * kMaxContextsPerClient > kPcscLiteDaemonMaxContexts);
+
+  // Arrange: two clients establish contexts up to the per-client limit.
+  StartApplication();
+  SimulateJsClientAdded(kFirstHandlerId, /*client_name_for_log=*/"foo");
+  SimulateJsClientAdded(kSecondHandlerId, /*client_name_for_log=*/"bar");
+  SimulateJsClientAdded(kThirdHandlerId, /*client_name_for_log=*/"baz");
+  std::vector<SCARDCONTEXT> scard_contexts =
+      SimulateEstablishContextsFromJsClient(kFirstHandlerId,
+                                            kMaxContextsPerClient);
+  const SCARDCONTEXT first_client_scard_context = scard_contexts[0];
+  for (SCARDCONTEXT scard_context : SimulateEstablishContextsFromJsClient(
+           kSecondHandlerId, kMaxContextsPerClient)) {
+    scard_contexts.push_back(scard_context);
+  }
+
+  // Act: the third client establishes contexts until the daemon refuses.
+  LONG return_code = SCARD_S_SUCCESS;
+  size_t third_client_context_count = 0;
+  while (third_client_context_count < kMaxContextsPerClient) {
+    SCARDCONTEXT scard_context = 0;
+    return_code = SimulateEstablishContextCallFromJsClient(
+        kThirdHandlerId, SCARD_SCOPE_SYSTEM, /*reserved1=*/Value(),
+        /*reserved2=*/Value(), scard_context);
+    if (return_code != SCARD_S_SUCCESS)
+      break;
+    scard_contexts.push_back(scard_context);
+    ++third_client_context_count;
+  }
+
+  // Assert: the failure is reported to the client, existing contexts keep
+  // working, and new ones can be established once there's room again.
+  EXPECT_EQ(return_code, SCARD_F_COMM_ERROR);
+  EXPECT_LT(third_client_context_count, kMaxContextsPerClient);
+  EXPECT_EQ(SimulateIsValidContextCallFromJsClient(kFirstHandlerId,
+                                                   first_client_scard_context),
+            SCARD_S_SUCCESS);
+  EXPECT_EQ(SimulateReleaseContextCallFromJsClient(kFirstHandlerId,
+                                                   first_client_scard_context),
+            SCARD_S_SUCCESS);
+  // The daemon frees up the slot asynchronously after the release.
+  WaitUntilPredicate([&] {
+    SCARDCONTEXT scard_context = 0;
+    if (SimulateEstablishContextCallFromJsClient(
+            kThirdHandlerId, SCARD_SCOPE_SYSTEM, /*reserved1=*/Value(),
+            /*reserved2=*/Value(), scard_context) != SCARD_S_SUCCESS) {
+      return false;
+    }
+    scard_contexts.push_back(scard_context);
+    return true;
+  });
+
+  // Cleanup:
+  SimulateJsClientRemoved(kFirstHandlerId);
+  SimulateJsClientRemoved(kSecondHandlerId);
+  SimulateJsClientRemoved(kThirdHandlerId);
+  WaitUntilContextsReleased(scard_contexts);
 }
 
 // Test fixture that simplifies simulating commands from a single client
