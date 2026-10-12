@@ -264,6 +264,12 @@ PcscLiteClientRequestProcessor::ScopedConcurrencyGuard::
   if (running_functions.empty()) {
     owner_.context_to_running_functions_.erase(iter);
   }
+  // Count the access when the call completes: while it's in progress, the
+  // context is protected from eviction by `context_to_running_functions_`.
+  auto access_iter = owner_.context_to_last_access_.find(s_card_context_);
+  if (access_iter != owner_.context_to_last_access_.end()) {
+    access_iter->second = ++owner_.context_access_counter_;
+  }
 }
 
 void PcscLiteClientRequestProcessor::BuildHandlerMap() {
@@ -341,8 +347,12 @@ PcscLiteClientRequestProcessor::WrapHandler(
 }
 
 void PcscLiteClientRequestProcessor::ScheduleHandlesCleanup() {
-  const std::vector<SCARDCONTEXT> s_card_contexts =
-      s_card_handles_registry_.PopAllContexts();
+  std::vector<SCARDCONTEXT> s_card_contexts;
+  {
+    const std::unique_lock<std::mutex> lock(mutex_);
+    s_card_contexts = s_card_handles_registry_.PopAllContexts();
+    context_to_last_access_.clear();
+  }
 
   // The actual cleanup happens in a separate background thread, as the involved
   // SCard* functions may call blocking libusb* functions - which are not
@@ -397,6 +407,75 @@ GenericRequestResult PcscLiteClientRequestProcessor::PcscStringifyError(
   return ReturnValues(result);
 }
 
+void PcscLiteClientRequestProcessor::ForgetContext(
+    SCARDCONTEXT s_card_context) {
+  const std::unique_lock<std::mutex> lock(mutex_);
+  // The registry holds the same contexts as `context_to_last_access_`, so the
+  // context is either present in both or in neither.
+  if (context_to_last_access_.erase(s_card_context))
+    s_card_handles_registry_.RemoveContext(s_card_context);
+}
+
+void PcscLiteClientRequestProcessor::EvictIdleContextsOverLimit() {
+  while (true) {
+    std::optional<SCARDCONTEXT> s_card_context;
+    bool is_first_eviction = false;
+    {
+      const std::unique_lock<std::mutex> lock(mutex_);
+      if (context_to_last_access_.size() < kMaxContextsPerClient)
+        return;
+      s_card_context = ExtractLeastRecentlyUsedIdleContextLocked();
+      if (s_card_context) {
+        is_first_eviction = !has_evicted_contexts_;
+        has_evicted_contexts_ = true;
+      }
+    }
+    if (!s_card_context) {
+      GOOGLE_SMART_CARD_LOG_WARNING
+          << logging_prefix_ << "Client holds at least "
+          << kMaxContextsPerClient
+          << " contexts, but none can be released as all are in use";
+      return;
+    }
+
+    // Warn only once: a client that leaks contexts runs into the limit every
+    // time it establishes a new one.
+    GOOGLE_SMART_CARD_LOG(is_first_eviction ? LogSeverity::kWarning
+                                            : status_log_severity_)
+        << logging_prefix_ << "Client holds at least " << kMaxContextsPerClient
+        << " contexts; releasing its least recently used idle context "
+        << DebugDumpSCardContext(*s_card_context);
+    const LONG return_code = ::SCardReleaseContext(*s_card_context);
+    if (return_code != SCARD_S_SUCCESS) {
+      GOOGLE_SMART_CARD_LOG_WARNING
+          << logging_prefix_ << "Releasing context "
+          << DebugDumpSCardContext(*s_card_context)
+          << " failed: " << ::pcsc_stringify_error(return_code);
+    }
+  }
+}
+
+std::optional<SCARDCONTEXT>
+PcscLiteClientRequestProcessor::ExtractLeastRecentlyUsedIdleContextLocked() {
+  auto lru_iter = context_to_last_access_.end();
+  for (auto iter = context_to_last_access_.begin();
+       iter != context_to_last_access_.end(); ++iter) {
+    if (context_to_running_functions_.count(iter->first))
+      continue;
+    if (lru_iter == context_to_last_access_.end() ||
+        iter->second < lru_iter->second) {
+      lru_iter = iter;
+    }
+  }
+  if (lru_iter == context_to_last_access_.end())
+    return std::nullopt;
+
+  const SCARDCONTEXT s_card_context = lru_iter->first;
+  context_to_last_access_.erase(lru_iter);
+  s_card_handles_registry_.RemoveContext(s_card_context);
+  return s_card_context;
+}
+
 GenericRequestResult PcscLiteClientRequestProcessor::SCardEstablishContext(
     DWORD scope,
     std::nullptr_t reserved_1,
@@ -407,6 +486,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardEstablishContext(
   tracer.AddPassedArg("pvReserved1", Value::kNullTypeTitle);
   tracer.AddPassedArg("pvReserved2", Value::kNullTypeTitle);
   tracer.LogEntrance();
+
+  EvictIdleContextsOverLimit();
 
   SCARDCONTEXT s_card_context;
   const LONG return_code =
@@ -419,7 +500,11 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardEstablishContext(
 
   if (return_code != SCARD_S_SUCCESS)
     return ReturnValues(return_code);
-  s_card_handles_registry_.AddContext(s_card_context);
+  {
+    const std::unique_lock<std::mutex> lock(mutex_);
+    s_card_handles_registry_.AddContext(s_card_context);
+    context_to_last_access_[s_card_context] = ++context_access_counter_;
+  }
   return ReturnValues(return_code, s_card_context);
 }
 
@@ -448,7 +533,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardReleaseContext(
   tracer.LogExit();
 
   if (return_code == SCARD_S_SUCCESS)
-    s_card_handles_registry_.RemoveContext(s_card_context);
+    ForgetContext(s_card_context);
 
   return ReturnValues(return_code);
 }
@@ -1199,7 +1284,7 @@ void PcscLiteClientRequestProcessor::OnSCardContextRevoked(
   GOOGLE_SMART_CARD_LOG_WARNING
       << "PC/SC-Lite unexpectedly revoked the context "
       << DebugDumpSCardContext(s_card_context);
-  s_card_handles_registry_.RemoveContext(s_card_context);
+  ForgetContext(s_card_context);
 }
 
 void PcscLiteClientRequestProcessor::OnSCardHandleRevoked(

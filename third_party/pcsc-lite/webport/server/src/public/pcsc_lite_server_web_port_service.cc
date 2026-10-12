@@ -146,13 +146,18 @@ void PcscLiteServerDaemonThreadMain() {
     // pointer itself anywhere - so it's safe to use a local variable here.
     uint32_t server_socket_file_descriptor_unsigned =
         static_cast<uint32_t>(server_socket_file_descriptor.value());
-    // FIXME(emaxx): Deal with cases when CreateContextThread returns errors.
-    // Looks like it may happen legitimately when the abusive client(s) request
-    // to establish too many requests. Probably, some limitation should be
-    // applied to all clients.
-    GOOGLE_SMART_CARD_CHECK(
-        ::CreateContextThread(&server_socket_file_descriptor_unsigned) ==
-        SCARD_S_SUCCESS);
+    if (::CreateContextThread(&server_socket_file_descriptor_unsigned) !=
+        SCARD_S_SUCCESS) {
+      // Not fatal: on failure (too many simultaneous contexts, or failing to
+      // start the thread), `CreateContextThread()` closes the socket and leaves
+      // no state behind, so the client's pending call fails with
+      // `SCARD_F_COMM_ERROR` and the daemon keeps serving other clients. The
+      // returned error code doesn't tell these cases apart, but PC/SC-Lite logs
+      // the reason.
+      GOOGLE_SMART_CARD_LOG_WARNING << kLoggingPrefix
+                                    << "[daemon thread] Failed to start a "
+                                       "handler thread for the new client";
+    }
   }
 
   // Clean up the structures and threads owned by the third-party PC/SC-Lite

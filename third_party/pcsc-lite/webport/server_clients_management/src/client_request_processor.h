@@ -99,6 +99,16 @@ namespace google_smart_card {
 class PcscLiteClientRequestProcessor final
     : public std::enable_shared_from_this<PcscLiteClientRequestProcessor> {
  public:
+  // The maximum number of PC/SC contexts that a single client may hold. When a
+  // client at the limit establishes a new context, its least recently used
+  // idle context gets released first. This keeps a client that leaks contexts
+  // from exhausting the PC/SC-Lite daemon's global limit
+  // (`PCSC_MAX_CONTEXT_THREADS`, which is 200).
+  //
+  // This is a soft limit: contexts with calls in progress are never released
+  // this way, and concurrent `SCardEstablishContext()` calls can overshoot it.
+  static constexpr size_t kMaxContextsPerClient = 90;
+
   // `client_handler_id` - a number that uniquely identifies a handler (note
   // that a single client application might open multiple connections to us,
   // each of which will have a separate handler).
@@ -251,6 +261,26 @@ class PcscLiteClientRequestProcessor final
   void OnSCardContextRevoked(SCARDCONTEXT s_card_context);
   void OnSCardHandleRevoked(SCARDHANDLE s_card_handle);
 
+  // Removes the context, together with its handles, from the bookkeeping.
+  // No-op if it's not there (e.g., it was already evicted).
+  void ForgetContext(SCARDCONTEXT s_card_context);
+
+  // Releases the least recently used idle contexts until the client holds
+  // fewer than `kMaxContextsPerClient` contexts or no idle context is left.
+  void EvictIdleContextsOverLimit();
+
+  // Picks the least recently used context that has no calls in progress, and
+  // removes it from the bookkeeping. Every call that refers to a context or a
+  // handle registers in `context_to_running_functions_` before validating it
+  // against `s_card_handles_registry_`, so once this returns, no call can pass
+  // the context to PC/SC-Lite anymore, and it's safe to release it. The only
+  // exception is `SCardCancel()`, which is safe to run concurrently with
+  // releasing the context.
+  //
+  // Returns `std::nullopt` if all contexts are busy. Must be called with
+  // `mutex_` held.
+  std::optional<SCARDCONTEXT> ExtractLeastRecentlyUsedIdleContextLocked();
+
   const int64_t client_handler_id_;
   const std::string client_name_for_log_;
   const LogSeverity status_log_severity_;
@@ -262,9 +292,20 @@ class PcscLiteClientRequestProcessor final
   // contexts/handles belonging to the other one.
   PcscLiteClientHandlesRegistry s_card_handles_registry_;
 
+  // Guards the fields below. Contexts are added to and removed from
+  // `s_card_handles_registry_` only while holding this mutex, so that the
+  // registry always contains the same contexts as `context_to_last_access_`.
   mutable std::mutex mutex_;
   std::unordered_map<SCARDCONTEXT, std::multiset<std::string>>
       context_to_running_functions_;
+  // Logical clock for ordering accesses to contexts.
+  uint64_t context_access_counter_ = 0;
+  // Maps every context of this client to the value of
+  // `context_access_counter_` at the time it was established or a call
+  // referring to it last completed.
+  std::unordered_map<SCARDCONTEXT, uint64_t> context_to_last_access_;
+  // Whether a context has been released for exceeding `kMaxContextsPerClient`.
+  bool has_evicted_contexts_ = false;
 };
 
 }  // namespace google_smart_card
