@@ -340,6 +340,8 @@ void FillLibusbConfigDescriptor(
         std::max(interfaces_to_create,
                  static_cast<size_t>(js_interface.interface_number) + 1);
   }
+  interfaces_to_create = std::min<size_t>(
+      interfaces_to_create, std::numeric_limits<uint8_t>::max());
   result->bNumInterfaces = interfaces_to_create;
   result->interface = new libusb_interface[interfaces_to_create];
   for (size_t index = 0; index < interfaces_to_create; ++index) {
