@@ -193,6 +193,7 @@ function externalConnectionListener(port) {
     goog.log.warning(
         logger,
         'Ignoring the external connection as there is no sender specified');
+    portMessageChannel.dispose();
     return;
   }
   // The opener will send PC/SC commands (or garbage if it's broken) - create a
