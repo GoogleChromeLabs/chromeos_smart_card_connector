@@ -300,5 +300,20 @@ goog.exportSymbol('testSingleMessageBasedChannel', {
     });
   },
 
+  // Verify that the message channel is disposed of when a malformed message is
+  // received.
+  'testMalformedMessage': function() {
+    chrome.runtime.sendMessage(
+        verifyChannelIdMatcher, goog.testing.mockmatchers.isObject);
+    mockedSendMessage.$anyTimes();
+    mockControl.$replayAll();
+
+    testChannel = new SingleMessageBasedChannel(EXTENSION_ID);
+    assertFalse(testChannel.isDisposed());
+
+    testChannel.deliverMessage(42);
+    assert(testChannel.isDisposed());
+  },
+
 });
 });  // goog.scope
