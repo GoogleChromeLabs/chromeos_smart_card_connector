@@ -282,6 +282,8 @@ again:
 	atr_len = dw2i(resp, 1);	/* ATR length */
 	if (atr_len > *nlength)
 		atr_len = *nlength;
+	if (atr_len > length - CCID_RESPONSE_HEADER_SIZE)
+		atr_len = length - CCID_RESPONSE_HEADER_SIZE;
 
 	*nlength = atr_len;
 
