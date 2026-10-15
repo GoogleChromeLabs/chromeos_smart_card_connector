@@ -813,6 +813,77 @@ TEST_P(LibusbJsProxyTest, LibusbGetActiveConfigDescriptorDellKeyboard) {
   FreeLibusbDevices(devices);
 }
 
+// Test that `LibusbGetActiveConfigDescriptor()` clamps `bNumInterfaces` to 255
+// instead of truncating to 0 when `interfaceNumber` is 255.
+TEST_P(LibusbJsProxyTest, LibusbGetActiveConfigDescriptorMaxInterfaceNumber) {
+  const std::vector<uint8_t> kInterfaceExtraData{0x01, 0x02, 0x03};
+
+  // Arrange.
+  global_context()->WillReplyToRequestWith(
+      "libusb", "listDevices",
+      /*arguments=*/Value(Value::Type::kArray),
+      /*result_to_reply_with=*/
+      ArrayValueBuilder()
+          .Add(DictValueBuilder()
+                   .Add("deviceId", 123)
+                   .Add("vendorId", 1)
+                   .Add("productId", 2)
+                   .Get())
+          .Get());
+  std::vector<libusb_device*> devices = GetLibusbDevices();
+  ASSERT_THAT(devices, SizeIs(1));
+  global_context()->WillReplyToRequestWith(
+      "libusb", "getConfigurations",
+      /*arguments=*/ArrayValueBuilder().Add(123).Get(),
+      /*result_to_reply_with=*/
+      ArrayValueBuilder()
+          .Add(DictValueBuilder()
+                   .Add("active", true)
+                   .Add("configurationValue", 1)
+                   .Add("interfaces",
+                        ArrayValueBuilder()
+                            .Add(DictValueBuilder()
+                                     .Add("interfaceNumber", 255)
+                                     .Add("interfaceClass", 11)
+                                     .Add("interfaceSubclass", 0)
+                                     .Add("interfaceProtocol", 0)
+                                     .Add("extraData", kInterfaceExtraData)
+                                     .Add("endpoints",
+                                          ArrayValueBuilder()
+                                              .Add(DictValueBuilder()
+                                                       .Add("endpointAddress",
+                                                            1)
+                                                       .Add("direction", "out")
+                                                       .Add("type", "bulk")
+                                                       .Add("maxPacketSize", 64)
+                                                       .Get())
+                                              .Get())
+                                     .Get())
+                            .Get())
+                   .Get())
+          .Get());
+
+  // Act.
+  libusb_config_descriptor* descriptor = nullptr;
+  EXPECT_EQ(libusb()->LibusbGetActiveConfigDescriptor(devices[0], &descriptor),
+            LIBUSB_SUCCESS);
+
+  // Assert.
+  ASSERT_TRUE(descriptor);
+  EXPECT_EQ(descriptor->bNumInterfaces, 255);
+  EXPECT_EQ(descriptor->interface[0].num_altsetting, 1);
+  EXPECT_EQ(descriptor->interface[0].altsetting[0].bInterfaceNumber, 255);
+  EXPECT_EQ(descriptor->interface[0].altsetting[0].bNumEndpoints, 1);
+  for (int i = 1; i < descriptor->bNumInterfaces; ++i) {
+    EXPECT_EQ(descriptor->interface[i].num_altsetting, 0);
+    EXPECT_EQ(descriptor->interface[i].altsetting, nullptr);
+  }
+
+  // Cleanup.
+  libusb()->LibusbFreeConfigDescriptor(descriptor);
+  FreeLibusbDevices(devices);
+}
+
 // Test that `LibusbGetBusNumber()` initially returns the default bus number.
 TEST_P(LibusbJsProxyTest, BusNumber) {
   // Arrange.
