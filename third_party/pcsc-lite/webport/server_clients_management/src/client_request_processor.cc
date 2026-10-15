@@ -784,8 +784,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardGetStatusChange(
     // is enclosed into this function body.
     current_item.szReader = reader_state.reader_name.c_str();
 
-    if (reader_state.user_data) {
-      GOOGLE_SMART_CARD_CHECK(*reader_state.user_data);
+    if (reader_state.user_data && *reader_state.user_data) {
       current_item.pvUserData =
           reinterpret_cast<void*>(*reader_state.user_data);
     }

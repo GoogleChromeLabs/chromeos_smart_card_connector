@@ -1686,6 +1686,51 @@ TEST_F(SmartCardConnectorApplicationSingleClientTest,
   EXPECT_THAT(reader_states, IsEmpty());
 }
 
+// `SCardGetStatusChange()` call from JS handles both zero and non-zero
+// `user_data`.
+TEST_F(SmartCardConnectorApplicationSingleClientTest,
+       SCardGetStatusChangeUserData) {
+  // Arrange:
+  TestingSmartCardSimulation::Device device;
+  device.id = 123;
+  device.type = TestingSmartCardSimulation::DeviceType::kGemaltoPcTwinReader;
+  device.card_type = TestingSmartCardSimulation::CardType::kCosmoId70;
+  SetUsbDevices({device});
+  StartApplication();
+  SetUpJsClient();
+  SetUpSCardContext();
+
+  // Act:
+  std::vector<Value> reader_states;
+  EXPECT_EQ(SimulateGetStatusChangeCallFromJsClient(
+                kFakeHandlerId, scard_context(),
+                /*timeout=*/INFINITE,
+                ArrayValueBuilder()
+                    .Add(DictValueBuilder()
+                             .Add("reader_name", kGemaltoPcTwinReaderPcscName0)
+                             .Add("current_state", SCARD_STATE_UNKNOWN)
+                             .Add("user_data", 0)
+                             .Get())
+                    .Add(DictValueBuilder()
+                             .Add("reader_name", kGemaltoPcTwinReaderPcscName0)
+                             .Add("current_state", SCARD_STATE_UNKNOWN)
+                             .Add("user_data", 123)
+                             .Get())
+                    .Get(),
+                reader_states),
+            SCARD_S_SUCCESS);
+
+  // Assert:
+  ASSERT_THAT(reader_states, SizeIs(2));
+  EXPECT_THAT(reader_states[0], DictSizeIs(4));
+  EXPECT_THAT(reader_states[0],
+              DictContains("reader_name", kGemaltoPcTwinReaderPcscName0));
+  EXPECT_THAT(reader_states[1], DictSizeIs(5));
+  EXPECT_THAT(reader_states[1],
+              DictContains("reader_name", kGemaltoPcTwinReaderPcscName0));
+  EXPECT_THAT(reader_states[1], DictContains("user_data", 123));
+}
+
 // `SCardCancel()` call from JS terminates a running `SCardGetStatusChange()`
 // call.
 TEST_F(SmartCardConnectorApplicationSingleClientTest, Cancel) {
