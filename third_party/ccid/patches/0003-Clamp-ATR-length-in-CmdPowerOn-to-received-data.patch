@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Fabian Sommer <fabiansommer@google.com>
+Date: Tue, 29 Sep 2026 12:40:00 +0000
+Subject: [PATCH] Clamp ATR length in CmdPowerOn to received data
+
+Ensure CmdPowerOn does not read past the actual number of bytes received
+from ReadPort when extracting the ATR, preventing an uninitialized stack
+read if a device reports a dwLength larger than the payload delivered.
+---
+ third_party/ccid/src/src/commands.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/third_party/ccid/src/src/commands.c b/third_party/ccid/src/src/commands.c
+index 8642aafd..5790588d 100644
+--- a/third_party/ccid/src/src/commands.c
++++ b/third_party/ccid/src/src/commands.c
+@@ -282,6 +282,8 @@ again:
+ 	atr_len = dw2i(resp, 1);	/* ATR length */
+ 	if (atr_len > *nlength)
+ 		atr_len = *nlength;
++	if (atr_len > length - CCID_RESPONSE_HEADER_SIZE)
++		atr_len = length - CCID_RESPONSE_HEADER_SIZE;
+ 
+ 	*nlength = atr_len;
+ 
+-- 
+2.46.0
