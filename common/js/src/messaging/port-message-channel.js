@@ -185,10 +185,12 @@ GSC.PortMessageChannel = class extends goog.messaging.AbstractChannel {
 
     const typedMessage = GSC.TypedMessage.parseTypedMessage(message);
     if (!typedMessage) {
-      GSC.Logging.failWithLogger(
+      goog.log.warning(
           this.logger,
           'Failed to parse the received message: ' +
               GSC.DebugDump.debugDumpSanitized(message));
+      this.dispose();
+      return;
     }
 
     this.deliver(typedMessage.type, typedMessage.data);

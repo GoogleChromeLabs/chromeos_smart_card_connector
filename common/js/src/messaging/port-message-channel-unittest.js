@@ -276,4 +276,21 @@ goog.exportSymbol('testPortMessageChannelDisconnection', function() {
 
   return testCasePromiseResolver.promise;
 });
+
+// Test that the port message channel is disposed of when a malformed message is
+// received.
+goog.exportSymbol('testPortMessageChannelMalformedMessage', function() {
+  const mockPort = new GSC.MockPort('mock port');
+  mockPort.postMessage(goog.testing.mockmatchers.isObject).$anyTimes();
+  mockPort.postMessage.$replay();
+
+  const portMessageChannel = new PortMessageChannel(mockPort.getFakePort());
+  assertFalse(portMessageChannel.isDisposed());
+
+  mockPort.fireOnMessage(42);
+  assert(portMessageChannel.isDisposed());
+
+  mockPort.postMessage.$verify();
+  mockPort.dispose();
+});
 });  // goog.scope
